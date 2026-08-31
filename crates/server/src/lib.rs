@@ -2,7 +2,7 @@
 //!
 //! The current executable surface is deliberately small: one global Account
 //! session boundary plus the deployment-gated seeded Live Demo entry. Course,
-//! catalog, and delivery routes return only after their fresh Store contracts
+//! Question Library, and delivery routes return only after their fresh Store contracts
 //! and PostgreSQL capabilities are reconstructed on this foundation.
 
 /// Authentication, sessions, and the first-party browser boundary.

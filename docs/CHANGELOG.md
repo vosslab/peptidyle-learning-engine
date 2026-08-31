@@ -4,9 +4,649 @@
 
 ### Changes
 
+- Replaced `HotspotPoint` with Student Hotspot Point across Student Response,
+  hotspot validation, presentation translation, native flat-question grading,
+  Question Response Controls, generated browser types, and tests.
+
+- Replaced `MatchPair` with Student Match across Student Response, matching
+  validation, presentation translation, native flat-question grading, Question
+  Response Controls, generated browser types, and tests.
+
+- Replaced `TextEntryAnswer` with Student Text Entry across Student Response,
+  domain validation, presentation translation, native flat-question grading,
+  generated browser types, and tests.
+
+- Replaced the overloaded `ChoiceId` with Response Item Reference across
+  Question Response Formats, Student Responses, presentation translation,
+  validation, grading, adapters, generated types, strict decoders, and WASM.
+
+- Replaced `SelectionCardinality` with the explicit Response Selection Rule
+  through Question Response Formats, adapters, validation, grading,
+  presentation construction, generated types, decoders, WASM, and tests.
+
+- Renamed the Question Response validation result and issue contracts to
+  Student Response Format Check and Student Response Format Issue across
+  domain validation, grading, WASM, strict decoding, controls, and tests.
+
+- Replaced product-owned Account and Course Instance provisioning language with
+  Account Creation and Course Instance Creation across authorization, identity,
+  enrollment, security, design, and schema documentation. Service Login Setup
+  remains the distinct disposable operational term.
+
+- Corrected the Student-facing Assignment Summary and Activity Model to state
+  the complete eight-rule Assignment Activity contract.
+
+- Made the complete eight-rule Assignment Activity contract part of the
+  immutable Assignment Revision model and generated browser contract. The
+  disposable PostgreSQL baseline now represents every rule explicitly, with
+  threshold and continuation-cap constraints that apply only to their matching
+  rule variants.
+
+- Named the Assignment Attempt time limit explicitly across the Course delivery
+  schema, Base and Effective Assignment Policy, reusable Blueprint defaults,
+  Instructor schedule input, direct Student Accommodation, strict browser
+  contracts, and Student-facing delivery copy. The Question timing cutover
+  remains a separate retained vocabulary task.
+
+- Replaced the mixed Question `TimingPolicy` with the closed Question Attempt
+  Time Limit contract. A Question now names only an Unlimited or Limited
+  Question Attempt; the whole Assignment Attempt deadline remains in the
+  explicit Assignment policy field.
+
+- Renamed the generic timer verdict, evaluation, WASM export, browser fallback,
+  strict decoder, and validation route to the exact Question Attempt Timing
+  Decision boundary.
+
+- Replaced Assignment policy labels for Late Work Rule, Student Late Work
+  Status, and Assignment Deadline Rule across schema, effective policy,
+  delivery, strict browser contracts, previews, Blueprint defaults, and
+  Instructor controls.
+
+- Replaced the generic answer-free Assignment Landing Presentation aggregate
+  with Assignment Overview in the Course model and direct Student and
+  Instructor view composition contracts.
+
+- Recorded the exact Student Response and Question Submission boundary. Active
+  source retains no Student Answer identifier or ambiguous Question response
+  aggregate; Question Response Format and Question Response Control remain
+  separate exact terms.
+
+- Replaced the generic Attempt Policy contract with Question Attempt Limit
+  across Question Model, native flat-question source JSON, generated browser
+  types, strict decoders, authoring UI, adapter contracts, fixtures, and
+  focused behavior tests.
+
+- Replaced the last active Response Definition customer-spec example with
+  Question Response Format and recorded the current response-shape and
+  browser-control contract evidence in the retained terminology checklist.
+
+- Retired the mechanically renamed `QUESTION_IDENTITY.md` after assigning its
+  useful rules to their canonical owners. `QUESTION_ID_SPEC.md` owns the
+  human-facing Question ID and exact Question Version Reference;
+  `IDENTITY_CONTRACTS.md` owns internal record and relationship scopes;
+  `ASSESSMENT_PAYLOAD_DESIGN.md` owns presentation-scoped values; and the
+  terminology contract owns publication and availability meanings.
+
+- Reconciled the active identity plan, contract register, cache design, and
+  retained vocabulary evidence with the current Question ID and Question
+  Version Number schema; retired Problem UUID identity language no longer
+  describes the PLE-owned model.
+
+- Renamed the browser Assignment Attempt decoder, completion presentation,
+  and their focused regression test from generic `run` paths to exact
+  Assignment Attempt paths, with no compatibility export.
+
+- Replaced the generic browser Pool Selection contract, wire field, visible
+  Student status, fixture, and focused decoder/client tests with the exact
+  Question Pool Selection boundary. Durable selection storage remains tracked
+  separately in the retained vocabulary checklist.
+
+- Replaced the generic domain `run` module and active contract package with
+  `assignment_activity`; continuation, completion, scoring, direct design
+  links, and the 31st-Assignment-Attempt regression test now name the exact
+  Student-work boundary.
+
+- Replaced the retired `RunScreenData` and `RunSummaryResponse` names in the
+  course-appearance contract with the current Assignment Attempt screen and
+  summary contracts.
+
+- Replaced the retired `getRunScreen` description in the assessment-payload
+  contract with the current `getAssignmentAttemptScreen` client and exact
+  Student-work hierarchy.
+
+- Replaced retired run-model and run-route wording in the failure-recovery
+  contract with Assignment Activity and Assignment Attempt terms.
+
+- Replaced the retired Student Assignment Summary aggregate in enrollment
+  documentation with the separate Assignment Grade and Assignment Progress
+  records already used by current code and the gradebook schema.
+
+- Replaced the generic `PointValue` contract with `AssignmentPointValue`
+  across assignment entries, reusable course contracts, Course Grade
+  calculation, generated TypeScript, and strict browser decoding.
+
+- Bound every Assignment Attempt to its exact Published Assignment Revision
+  across the generated contract, strict browser decoder, immutable Student-work
+  fixture, and PostgreSQL same-Assignment/published-revision guards.
+
+- Replaced opaque Assignment edit revision tokens with exact Assignment
+  Revision Reference preconditions across the Questions, Policies, and
+  fixed-question replacement contracts.
+
+- Replaced generic shared Assignment title text with the validated Assignment
+  Title contract across requests, reusable definitions, browser projections,
+  and the direct immutable Assignment Revision schema.
+
+- Replaced the separate Assignment Teaching Settings contract and opaque
+  revision delivery JSON with an Assignment Revision Definition and direct,
+  immutable Assignment Revision delivery fields.
+
+- Replaced `WeightedGradeCategory` with `GradeCategory` across the Course Grade
+  Scheme model and Domain calculation contract.
+
+- Replaced opaque Forced Question Correction remediation JSON with direct
+  immutable manifest targets for Assignments, Assignment Attempts, Issued
+  Questions, and Assignment Grades.
+
+- Recorded the exact Question Version pairs and immutable Forced Question
+  Correction Reference already enforced by the correction-manifest schema.
+
+- Recorded Question Change Proposal as the schema-backed, immutable
+  improvement path for one exact published Question Version, including its
+  foreign-keyed `base_question_id` and `base_version_number` pair.
+
+- Recorded Course Origin as the verified immutable Course Instance creation
+  record across schema, contracts, rollover receipts, and generated API.
+
+- Recorded Question provenance as separated current ownership: `QuestionSource`
+  for reproducible material and `QuestionSearchAuthorship` for reviewed public
+  attribution, with Question Attempt Source Record retained for reproduction.
+
+- Replaced generic preview projections with `EffectiveAssignmentPolicyView`
+  and `StudentFeedbackReleaseView`, including exact public contract members.
+
+- Split the preview identity boundary. Authorized Instructor roster selection
+  is `SelectedStudent`; the identity-free transport model is
+  `StudentViewScenario` with a `student_view_scenario` contract member.
+
+- Recorded the retired Assignment Materialization plan vocabulary as absent.
+  Copy Assignment from Blueprint remains the sole named Course Instance
+  operation for creating an Assignment from one Blueprint Assignment.
+
+- Removed the unused generic materialization model from Question Model. It had
+  no schema, contract, or receipt consumer and duplicated the direct Student
+  Course Membership already carried by the membership gate. Operation-specific
+  receipt records remain the required future replacement.
+
+- Recorded the policy-scope correction as complete. Effective Assignment Policy
+  resolution accepts the Base Assignment Policy and one exact direct Student
+  Accommodation, with no roster-subdivision scope collection or transport
+  field.
+
+- Corrected the Assignment Access ownership boundary. The full present-time
+  decision is now `AssignmentAccessDecision`; the former membership-only gate
+  is `ActiveStudentCourseMembershipDecision`. Browser contracts name that
+  prerequisite directly, while Assignment start and late-work results use the
+  corresponding exact closed terms.
+
+- Replaced `ResolvedField` with `EffectiveAssignmentPolicyValue`. Each
+  resolver value now names both its Effective Assignment Policy role and its
+  exact Assignment Policy Source.
+
+- Replaced the generic Policy Patch domain and browser contracts with
+  Accommodation Adjustment. Synthetic previews and direct Accommodation
+  updates now carry the closed `adjustment` member, and the strict decoder
+  rejects the retired `patch` member.
+
+- Removed the obsolete browser test for a schedule-offset request. Assignment
+  Access now tests only the current policy-adjustment contract rather than a
+  retired, unsupported request surface.
+
+- Replaced `PolicyModificationMode` with `AccommodationApplicationRule` and
+  its browser-safe view. Direct and hypothetical Student Accommodations now
+  name the closed rule that applies their adjustment to the Base Assignment
+  Policy.
+
+- Replaced the PLE-owned Entitlement decision, grant, denial, facts, preview
+  outcome, and browser field with Assignment Access terms. The explicit
+  active-membership gate remains separate from later lifecycle and effective
+  policy evaluation, and denial reasons now name missing Course Membership
+  rather than an opaque entitlement state.
+
+- Replaced the competing preview-provenance labels with `AssignmentPolicySource`
+  and `AssignmentPolicySourceKind`. Instructor previews retain their exact
+  direct Student Course Membership source when authorized; identity-free
+  previews retain only the safe source kind.
+
+- Removed `CourseInstanceApplicationBinding`. Existing-Course Instance apply
+  records now retain their `CourseInstanceSnapshot` precondition and
+  `CourseOrigin` source history as direct, independently named fields.
+
+- Replaced `AppliedAssignmentImportEvidence` with `AssignmentSourceRecord`
+  and `CreateSelectedBlueprintAssignmentReceipt` with
+  `CopyAssignmentFromBlueprintReceipt`. Immutable completion evidence now
+  separates the server-held committed Assignment source from the browser-safe
+  source projection and names the exact copied Blueprint Assignment operation.
+
+- Replaced `CourseInstanceImportWitness` with `AssignmentSourceSnapshot`.
+  Assignment import preconditions now name their exact Blueprint Assignment
+  Revision source, destination Assignment Revision, and import revision.
+
+- Replaced `CourseInstanceReceiptTarget` with
+  `CourseInstanceOperationReceipt`. Reconciliation now explicitly selects one
+  closed immutable Course Instance operation receipt rather than a generic
+  target wrapper.
+
+- Replaced `RolloverCourseInstanceManifest` with `CourseRolloverManifest`.
+  The manifest now names the closed reusable state copied into a new Course
+  Instance and its mandatory exclusion of all Student and delivery records.
+
+- Replaced `CourseInstanceBlueprintApplication` with `CourseOrigin`. The
+  immutable source relation now records the exact Blueprint Revision and, for
+  rollover, the exact source Course Instance rather than collapsing both paths
+  into a generic application label.
+
+- Replaced `BlueprintCourseCreationWitness` with `BlueprintForkReservation`.
+  The fork path now explicitly names its server-held source revision, authorizing
+  Account, request digest, Retry Token, and reserved Blueprint Course Reference.
+
+- Replaced `CourseInstanceCreationWitness` with
+  `CourseInstanceCreationReservation`. The server-held pre-creation record now
+  explicitly names its source, target Course Term, authorizing Account, request
+  digest, Retry Token, and reserved Course Instance Reference.
+
+- Replaced `CourseInstanceWitness` with `CourseInstanceSnapshot` across
+  Blueprint-operation previews, commands, records, receipts, and generated
+  contracts. The snapshot remains immutable observed state and is explicitly
+  separate from the Course Instance Creation Reservation.
+
+- Recorded the existing Course Date boundary as complete: Course Dates are
+  exact proleptic-Gregorian calendar values in Course Terms and Course Schedule
+  Revisions, never timestamps or implicit time-zone conversions.
+
+- Replaced the standalone `CourseScheduleRevision` compare-and-swap counter
+  with `CourseScheduleRevisionReference` and
+  `CourseScheduleRevisionNumber`. Every Course Instance witness now binds the
+  referenced Course Instance explicitly and rejects a revision from another
+  course before an operation can proceed.
+
+- Moved Course Term and resolved delivery-time ownership from mutable
+  Assignments into immutable Course Schedule Revisions and Assignment Revisions.
+  The clean PostgreSQL baseline now proves the same-course foreign keys,
+  immutable revision records, exact timestamp ordering, and revision-owned
+  availability index.
+
+- Replaced `ResolvedRelativeAssignmentSchedule` and
+  `ResolvedRelativeScheduleMoment` with `ResolvedAssignmentSchedule` and
+  `ResolvedAssignmentScheduleMoment` across Course Term resolution, operation
+  records, receipts, and generated contracts. Each Assignment Revision now
+  stores the resulting durable times.
+
+- Replaced `RelativeScheduleMoment` with
+  `RelativeAssignmentScheduleMoment`. Blueprint Revision Content, Course Term
+  resolution, the Blueprint Course editor, and generated contracts now name the
+  Assignment-scoped reusable schedule moment directly.
+
+- Replaced `CourseLocalDateTime` with `CourseLocalDateAndTime` across Course
+  Term, teaching scheduling, domain projection, browser decoders, and generated
+  contracts. The value remains a wall-clock input resolved only by Course Time
+  Zone, with DST gaps and ambiguities refused.
+
+- Replaced `IanaTimeZone` with `CourseTimeZone` throughout Course Term and
+  teaching contracts. The product term now identifies the course-owned zone,
+  while validation continues to require one exact case-sensitive IANA name.
+
+- Removed `CurriculumReplayStatus` and the browser-visible Applied/Replayed
+  completion field. A repeated Retry Token now resolves the same server-held
+  receipt without creating a second product state.
+
+- Replaced generic `CourseInstanceEligibility` with exact readiness types for
+  Copy Course for New Term, Shift Course Dates, Apply Blueprint Update, Copy
+  Assignment from Blueprint, and reconciliation. Each preview and apply record
+  now accepts only its operation's `Ready` or `Blocked` result.
+
+- Replaced `BlueprintAdoptionEligibility` and its refusal wrapper with
+  `BlueprintOperationReadiness` and `BlueprintOperationBlocker`. Blueprint
+  previews now state `Ready` or `Blocked` directly, and commands require that
+  exact readiness before construction.
+
+- Replaced `AssignmentDefinitionSourceView` with
+  `BlueprintAssignmentRevisionReference`. The generated browser contract and
+  every Blueprint-operation preview, command, record, and receipt now retain
+  the Blueprint Assignment lineage with its exact Blueprint Revision.
+
+- Replaced `ObservedBlueprintSource` with `BlueprintRevisionReference`. Every
+  Blueprint-operation preview, command, witness, and receipt now names the
+  exact Blueprint Course and immutable Blueprint Revision pair directly.
+
+- Replaced the residual curriculum-pin boundary with exact Question Version
+  substitutions. Blueprint-operation requests and recovery choices now carry
+  immutable Question Version References, while Blueprint Question Position
+  identifies only the corrected content location.
+
+- Replaced the generic curriculum semantic payload model with Blueprint
+  Revision Content. The exact Blueprint Course, Blueprint Assignment, module,
+  assignment-entry, and Question Pool content components now use the same
+  versioned encoding domain, digest, and terminology-contract definition.
+
+- Replaced `CurriculumSemanticComparison` with `BlueprintContentCheck`.
+  The comparison and durable assignment-import evidence now name complete
+  Blueprint Revision Content and its Blueprint Content Digest directly.
+
+- Replaced `CurriculumSemanticDigest` and `CurriculumSemanticEnvelope` with
+  `BlueprintContentDigest` and `BlueprintRevisionContentRecord`. Canonical
+  immutable Blueprint Revision content now names its value and digest directly.
+
+- Replaced `CurriculumPinReplacements` with `QuestionVersionSubstitutions`.
+  Blueprint-operation previews, commands, and receipts now name the reviewed
+  exact Question Version replacement boundary directly.
+
+- Replaced `CurriculumAdoptionIdempotencyKey` with
+  `BlueprintOperationRetryToken`. The opaque retry binding now names the exact
+  Blueprint-operation boundary across commands, server records, and receipts.
+
+- Corrected the retained Blueprint-operation inventory to match the closed
+  seven-variant contract: Adopt Blueprint Assignment and Create Selected
+  Blueprint Assignment are distinct operations with their own receipts.
+
+- Replaced the reusable curriculum root with Blueprint Course across the Rust
+  model, browser API, strict decoder, feature directory, tests, and current
+  documentation. Immutable versions now consistently read as Blueprint
+  Revisions; retained screenshot asset paths remain historical evidence.
+
+- Corrected the temporary vocabulary inventory to count complete terms. The
+  Actor inventory now reports zero because Factory is a distinct term, rather
+  than being counted as a substring match.
+
+- Completed the Factory terminology audit. Factory now appears only in its
+  narrow terminology definition, retained correction map, changelog history,
+  and audit evidence; PLE implementation uses direct constructors or names the
+  injected action.
+
+- Replaced `AttemptResult` and `GradeOutcome` with the explicit Grading Result
+  boundary. Question Submission now owns the accepted Student Response and its
+  optional Grading Result; trusted checkers return `QuestionGradingOutcome`.
+  The fresh PostgreSQL baseline binds each result to its exact submission,
+  grading operation, and immutable receipt with composite foreign keys.
+
+- Replaced the generic stored Activity Model boundary with Student Work
+  Records. `question_model::student_work` now owns the exact Student Record,
+  Assignment Attempt, Issued Question, Question Attempt, Question Submission,
+  and Assignment Grade contracts; durable documentation names the same
+  ownership structure.
+
+- Replaced the generic Local Stack injection names `lease_factory` and
+  `reset_runner_factory` with `acquire_browser_suite_lease` and
+  `create_command_runner`. The acceptance-profile, SD1 staged-database,
+  course-appearance, and developer-supervisor owners now state their injected
+  actions directly.
+
+- Replaced `SourceArtifact` with `SourceObjectReference`. The Question Attempt
+  source record now names the exact immutable Object ID and SHA-256 checksum;
+  native, WeBWorK, and iMathAS reproduction paths, generated API, strict
+  browser decoding, fixtures, and terminology contracts use that boundary.
+
+- Split the retired `QuestionEnvelope` into `QuestionVariation` and
+  `QuestionPresentation`. The variation now preserves exact version, seed,
+  generator, and declared parameters; the presentation retains answer-free
+  rendered material. Adapters, caches, generated API, strict browser decoding,
+  and issued-presentation consumers use the new boundary.
+
+- Replaced `TextMatchMode` and `NumericTolerance` with the precise public
+  `TextResponseMatchRule` and `NumericResponseTolerance` contracts. Question
+  Response Format, native flat-question JSON, grading, generated API, strict
+  decoder, and authoring now preserve the same answer-free rules while the
+  Answer Key remains server-held.
+
+- Aligned native flat-question import documentation with its existing direct
+  construction boundary: `ImportedFlatQuestion::from_imported` and
+  `ImportedFlatQuestionError` now name trusted import construction precisely.
+
+- Replaced generic recorded iMathAS Factory wrappers with direct, named
+  recorded-provider and recorded-transport construction. Feature-gated test
+  support now exposes the exact provider, transport, and paired construction
+  outcomes.
+
+- Replaced `BackendCapabilities` with `QuestionBackendCapabilities` across
+  the Question Model, Question Backend adapters, assignment policy evaluation,
+  generated API, strict browser decoder, and current contracts. The closed
+  capability declaration now names the exact Question Backend boundary.
+
+- Defined Factory as the narrow technical pattern that chooses among multiple
+  construction strategies. Added concrete correction tasks for Local Stack
+  injected actions, direct native import construction, and iMathAS recorded
+  test constructors; the vocabulary count script now tracks Factory for
+  contextual review.
+
+- Replaced `ProviderLaunchHandle` with `ExternalToolLaunchReference` in the
+  iMathAS adapter. The opaque reference now names its exact External Tool
+  Launch Session boundary.
+
+- Replaced the iMathAS `broker_provider` module with
+  `external_question_provider`. The adapter now names its External Question
+  Provider boundary while retaining exact launch, exchange, render, and grade
+  transport contracts.
+
+- Replaced Response Widget paths and exports with Question Response Controls.
+  `question_response_controls/` now owns the dispatcher and concrete controls;
+  `QuestionResponseControl` collects a Student Response compatible with the
+  declared Question Response Format.
+
+- Replaced the unqualified browser Attempt feature with Question Attempt
+  state. `src/features/question_attempt/` now exports
+  `QuestionAttemptExperienceState` and its state machine, distinct from the
+  generated server `QuestionAttemptState` contract.
+
+- Replaced the Local Stack Controller's generic Consumer component with the
+  Disposable Stack Adapter and Disposable Stack Command. Controller, E2E,
+  focused test, and operational paths now use `disposable_stack_adapter.py`
+  and `disposable_stack_command.py`.
+
+- Replaced the browser-wide `ApiRuntime` boundary with Application API. The
+  application now injects `ApplicationApi` through `ApplicationApiProvider`
+  from `src/api/application_api.tsx`, leaving runtime terminology for actual
+  execution environments and lifecycle.
+
+- Keyed Ribbon Schema terminology by Ribbon Scope and immutable Product Role,
+  classified Account and Profile as Ribbon Context Controls, and defined
+  Attempt, Back to Assignments, Assignment Attempt Progress, and No Selected
+  Ribbon Tab. The UI Design Guide now owns the per-role Slot order, Task
+  grouping, Context Row placement, relationship-dependent suffix, and
+  Assignment Attempt composition. The vocabulary checklist points each
+  correction to its proper documentation owner.
+
+- Replaced the residual `run_policy.rs` implementation path with
+  `assignment_activity_rules.rs`. The Question Model now exports the six
+  independent Assignment rules from the same canonical module named in the
+  terminology contract and replacement checklist.
+
+- Replaced `StudentDisclosurePolicy` and `StudentDisclosureTiming` with the
+  Student Feedback Release Rule and its per-field release timing. The Question
+  Model, domain release evaluator and preview projection, generated contract,
+  strict browser decoders, workspace controls, reusable curricula, Student
+  presentation, fixtures, and terminology now use
+  `studentFeedbackReleaseRule`; the domain module and wire path use
+  `student_feedback_release`.
+
+- Defined the canonical Question Format, Question Type, Question Backend,
+  Question Presentation, Question Response Control, Student Response,
+  Question Submission, Assignment Submission, Question Search, and Question
+  Picker boundaries in the terminology contract. The retained vocabulary
+  checklist and terminology boundary audit now assign the active ambiguous
+  source paths to six exact implementation owners with explicit success and
+  validation conditions.
+
+- Replaced `ContinuedPractice` with the exact Assignment Attempt Continuation
+  Rule. `assignmentAttemptContinuationRule` now carries Unlimited, Capped, or
+  Closed through the Question Model, domain eligibility evaluator, generated
+  contract, strict browser decoders, workspace controls, reusable curricula,
+  fixtures, and terminology.
+
+- Replaced `GradePolicy` with the exact Assignment Attempt Grade Rule.
+  `assignmentAttemptGradeRule` now drives First, Latest, Highest, and
+  Instructor Selected gradebook choice through the Question Model, domain
+  evaluation, generated contract, strict browser decoders, workspace controls,
+  reusable curricula, fixtures, and terminology.
+
+- Replaced `CompletionRequirement` with the exact Assignment Completion Rule.
+  `assignmentCompletionRule` now carries the closed Answer All, All Correct,
+  or Score At Least definition through the Question Model, domain evaluator,
+  generated contract, strict browser decoders, workspace controls, reusable
+  curriculum, fixtures, and terminology.
+
+- Replaced the generic `VariationPolicy` contract with the exact Question
+  Variation Rule. `questionVariationRule` now closes the three distinct
+  later-Attempt choices: retain Questions with fresh Question Seeds, use
+  Instructor-selected Question Variants, or redraw Question Pools. The private
+  Question Pool Selection Basis derives the corresponding server input without
+  becoming an Instructor-facing policy.
+
+- Combined the static Question Pool selection method and output ordering into
+  `QuestionPoolSelectionRule`. The Rust model, generated browser contract,
+  strict editor and preview decoders, reusable-curriculum semantic digest,
+  pool-preview projection, editor input, fixtures, and durable terminology now
+  share the same `selectionRule` / `selection_rule` boundary. Question
+  Variation Rule remains the separate owner of later-attempt reuse or redraw.
+
+- Replaced generic Assignment scoring mode with Assignment Entry Scoring Rule.
+  Fixed Questions and Question Pools now carry the explicit Normal, Full Credit,
+  Extra Credit, or Excluded rule through the Question Model, generated browser
+  contract, strict decoder, reusable-curriculum semantic digest, editor input,
+  fixtures, and durable terminology.
+
+- Split generic Assignment delivery state into exact ownership records.
+  Fixed Questions and Question Pools now own Assignment Entry Availability;
+  Question Pool Candidates own their distinct Question Pool Candidate
+  Availability. Rust, generated browser types, strict decoding, editor requests,
+  Student presentation, fixture behavior, terminology, and the retained
+  replacement checklist now use Available or Retired at the correct boundary.
+
+- Replaced mutable Assignment publication-readiness wording with the explicit
+  Draft Assignment Revision boundary. The Rust and generated browser contracts,
+  strict decoder, validation discriminator, workspace pages, fixtures, and
+  durable terminology/API contracts now use
+  `DraftAssignmentRevisionPublicationReadiness` /
+  `draftRevisionPublicationReadiness` for the closed blockers of one exact
+  Draft Assignment Revision.
+
+- Closed the retained Assignment Instance and mutable Assignment aggregate checklist rows with
+  current evidence. The active tree uses the separate Course Instance-owned Assignment, Student
+  Record-owned Assignment Attempt, stable `assignment`, and immutable `assignment_revision`
+  boundaries directly.
+
+- Replaced mixed `AttemptStatus` with the exact `QuestionAttemptState` record field. Its closed
+  lifecycle is Open, Submitted, or Automatically Submitted; exclusion and exemption no longer
+  appear as operational state variants. Rust, generated contracts, strict browser decoding, active
+  attempt selection, fixtures, durable activity documentation, and the active status registry now
+  use the same state boundary.
+
+- Removed the final active "run model" wording from the Question Backend contract. Native Question
+  Implementation now states its exact Question Format, Question Type, and Question Generator
+  boundary without suggesting a bundled Assignment Run Mode; the retained checklist records that
+  Assignment Activity Rules own the independent delivery policies.
+
+- Replaced the mixed `StudentSubmissionStatus` transport with a Question Submission
+  Acknowledgement that carries its accepted Receipt and current grading state separately. The
+  strict browser decoder, HTTP client, attempt state machine, pending UI, fixture tests, Rust
+  grading-state contracts, and generated types now distinguish full Question Submission Grading
+  State from its answer-free Student projection.
+
+- Replaced the generic `AssignmentRevision` counter with the exact immutable
+  `AssignmentRevisionNumber` and `AssignmentRevisionReference` pair. Course Instance witnesses,
+  reconciliation receipts, generated contracts, naming guidance, and the strict portable contract
+  now carry the stable Assignment Reference with its immutable revision number.
+
+- Replaced the residual "Student Assignment Attempt" labels with the exact Assignment Attempt
+  record across the SD1 schema commentary and browser, data, and security contracts. The direct
+  Student Record and Assignment relationships now supply the ownership context without inventing
+  a second product term.
+
+- Corrected the fixed-role browser boundary. Sysadmin sessions no longer enter Instructor, Question
+  Library, course, Gradebook, or Student-work routes by role alone. Instructor approval now has its
+  own Sysadmin platform route; course-specific help remains an explicit support-capability boundary.
+  The Account/session schema, Store, browser contract, and role documentation now describe the same
+  one-role-per-Account model.
+
+- Replaced the stale deterministic-RNG output snapshot with its actual durable contract: one valid
+  seed and stable label reproduce the same unsigned decision stream. The helper has no published
+  byte-sequence protocol, so the test now protects deterministic behavior rather than an obsolete
+  literal sequence.
+
+- Removed two obsolete Node wrappers for the retired screenshot corpus. They imported corpus and
+  capture helpers deleted with that acceptance system; the deterministic browser-contract lane now
+  runs independently, while real-browser restoration remains a separate acceptance task.
+
+- Corrected the visual-evidence documentation to match the current tree. The retained Instructor,
+  Student, and theme galleries are now labeled historical; documents no longer prescribe the
+  deleted screenshot corpus or capture command, and they retain fresh real-browser plus human
+  visual review as the required future acceptance boundary.
+
+- Corrected the active package and release records to distinguish current database/object acceptance
+  from the retired browser owner. Browser behavior and visual evidence now remain explicitly open
+  rather than being claimed through removed scripts, manifests, or historical screenshots.
+
+- Removed the retired `RunBackend` documentation seam. The Question Backend contract now names
+  the existing native, WeBWorK, iMathAS, and QTI adapters and the unmounted server delivery
+  boundary, rather than deleted server run modules.
+
+- Replaced `AttemptProvenance` with the exact `QuestionAttemptSourceRecord` across the Question
+  Model, issued native/WeBWorK/iMathAS attempts, reproduction and grading checks, generated API,
+  strict decoder, fixtures, and durable documentation. Question Attempts now expose the precise
+  `source_record`/`sourceRecord` boundary. Attempt advancement now also requires the exact Question
+  Version Reference as well as its seed; stale tests now use Assignment Attempt buffer keys and
+  current source-record wire fields.
+
+- Replaced the Course Instance inspection contract's `BlueprintAssignmentProvenance` record with
+  `AssignmentSource`. The exact bounded browser field is now `assignment_sources`, making the
+  Blueprint Assignment source and import revision explicit through Rust and regenerated types.
+
+- Replaced the stale single-installation implementation blueprint with the current terminology and
+  contract-alignment plan. It now records the fresh schema baseline, exact Account-owned
+  authorization relationships, Question Library/Search boundaries, mounted `server_core` surface,
+  retained vocabulary checklist, and proportional evidence model without carrying retired product
+  terminology as current work.
+
+- Removed obsolete roster-group wording from the direct Assignment preview and Student delivery
+  model, and removed two orphaned grouping CSS selectors. The remaining policy wording now names
+  direct Course and individual adjustments without suggesting a PLE roster-group feature.
+
+- Corrected the Server Application file-structure map to the mounted `server_core` surface:
+  authentication, composition, health, request lifecycle, and HTTP security. The map now records
+  Course, Question Library, delivery, and worker routes as downstream reconstruction work instead
+  of listing deleted server modules.
+
+- Replaced the retired Catalog helper and documentation vocabulary at the Question Search boundary.
+  Saved Question Search and Question Search facet decoders now name their exact filters, facets,
+  and Question Statistics availability; the authorization and Question Model contracts now name
+  the actual browser-safe `QuestionSummary`, `QuestionSearchResult`, `QuestionSearchPage`, and
+  `QuestionDetails` data objects and their serialized fields.
+
+- Replaced the browser Course Theme Catalog with the exact Course Theme Registry boundary. The
+  module, exported registry, route-scope consumers, focused theme checks, and design documentation
+  now distinguish the closed Course Theme definitions from the global Question Library. The stale
+  Course Instance curriculum URL was also removed from the theme-scope test and instructor
+  documentation because Blueprint Course adoption is the global `/curriculum` workflow.
+
 - Expanded the visible-endorsement reassignment row to cover its singular and plural outgoing
   labels. The Tier 1 audit counter uses the singular search form so one contextual review covers
   both forms; Question Star remains the canonical visible-endorsement relationship.
+
+- Clarified that Question Star is the visible endorsement relationship, Question Folder owns
+  private organization, and Saved Question Search owns stored search criteria. Ordinary English in
+  owner guidance and authored Question content remains contextual prose rather than a product
+  alias. Defined Stored Question Fixture Set and Pilot Question Set, then added the corresponding
+  migration row so authored examples live in explicit data files and executable source owns
+  behavior. The flat-question format document now links to its stored example instead of embedding
+  a second complete Question record.
+
+- Classified the focused Consumer, Adoption, Content Block, Fixture Corpus, Activity, Transport,
+  Broker, Chapter, Type Variant, Runtime, Curriculum, Decoder, Curation, Private Question, payload,
+  and HTTP vocabulary by its exact boundary. Added checklist rows for broad component and domain
+  labels that need exact replacements, while retaining useful terms as documented technical or
+  workflow vocabulary. Question Content Block now names the shared presentation primitive, and
+  Question Curation remains an Instructor workflow while its durable records keep exact names.
+  Recorded an open Course Assessment proposal that shares delivery machinery across Assignments,
+  Quizzes, and Exams while keeping their teaching meanings and explicit policies.
 
 ## 2026-08-30
 
@@ -348,7 +988,7 @@
 
 - Replaced active Instructor-facing `learner` copy with **Student** in the roster, Assignment workspace, policy preview, catalog statistics, authoring, course-list, cookbook, Instructor, Student, frontend, visual, and prefetch surfaces. PLE's three human roles now remain visible in the product vocabulary while wire-field migration remains separately owned.
 
-- Aligned the browser factory with its actual **Course Roster** contract and removed retired enrollment-route authority from the deferred full-route policy. Course Enrollment remains the specific act that establishes a Student Course Membership and Student Record, rather than the name for the roster browser boundary. The roster client test and TypeScript check pass.
+- Aligned the browser client with its actual **Course Roster** contract and removed retired enrollment-route authority from the deferred full-route policy. Course Enrollment remains the specific act that establishes a Student Course Membership and Student Record, rather than the name for the roster browser boundary. The roster client test and TypeScript check pass.
 
 - Corrected the private Base Course and Chapter One manifest contract to carry `studentRecordId`, matching its existing Rust `StudentRecordId` source and the Student-owned delivery model. Lifecycle validation, publication evidence, and the replica-restart oracle now reject the retired enrollment-shaped field. Focused Python lifecycle/publication tests (25) and replica tests (5) pass.
 
@@ -733,6 +1373,7 @@
 ### Fixes and Maintenance
 
 - Synchronized shared style guides, tests, and repository support files from the starter template.
+
 ## 2026-08-29
 
 ### Additions and New Features
@@ -793,7 +1434,7 @@
 - Recorded the SD1 curriculum and Account-authority repair in the planning authorities. Minimal
   Blueprint construction, immutable CourseInstance adoption evidence, execute-only adoption brokers,
   and CourseInstance forced RLS now have their assigned migration ownership; `WP-SD1-B1-P1` is the
-  required resolved-record Account-factory prerequisite for D1. This documentation-only change leaves
+  required resolved Session Record Account prerequisite for D1. This documentation-only change leaves
   implementation, PostgreSQL, runtime, browser, and human acceptance open.
 
 - Implemented preparatory `WP-SD1-C/M1` private Memory curriculum-adoption state. The
@@ -1047,7 +1688,7 @@
   `SessionRecord { account, role, session_id }` root in `learning-data-access`. The durable session-record
   ID remains separate from the hashed browser credential, while the resolved session carries no course,
   workspace, Student, or capability grant. It is presently unconstructible until
-  `SessionRecord` owns `SessionId` and exposes the resolved-record factory in `SD1-B1-F`.
+  `SessionRecord` owns `SessionId` and exposes resolved-record construction in `SD1-B1-F`.
   Focused format, crate-check, and session-contract tests pass; independent recheck accepts this
   preparatory boundary only, and `WP-SD1-B1` remains incomplete pending exact-scope consumer
   conversion and singular session-model convergence.

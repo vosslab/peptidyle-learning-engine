@@ -11,7 +11,7 @@ import local_stack_control.cleanup
 import local_stack_control.acceptance_lanes
 import local_stack_control.browser_suite_developer
 import local_stack_control.compose
-import local_stack_control.consumer
+import local_stack_control.disposable_stack_adapter
 import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.models
@@ -147,7 +147,7 @@ def remove_reset_host_paths(plan: local_stack_control.models.CleanupPlan) -> Non
 	for path in plan.host_paths_to_remove:
 		if not path.exists() and not path.is_symlink():
 			continue
-		local_stack_control.consumer.require_private_regular_file(
+		local_stack_control.disposable_stack_adapter.require_private_regular_file(
 			path,
 			"reset-owned private manifest",
 		)

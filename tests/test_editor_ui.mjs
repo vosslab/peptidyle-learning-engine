@@ -15,8 +15,8 @@ const draft = {
   questionFormat: "nativeAlgorithmic",
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
-  attemptPolicy: { maxAttempts: null },
-  timingPolicy: { kind: "untimed" },
+  questionAttemptLimit: { maxAttempts: null },
+  questionAttemptTimeLimit: { kind: "unlimited" },
   randomization: { kind: "static" },
 };
 
@@ -34,7 +34,7 @@ function wasmFacade(previewNativeDraft) {
   return {
     mode: "wasm",
     validateResponseFormat: async () => ({ violations: [] }),
-    timerVerdict: async () => "untimed",
+    questionAttemptTimingDecision: async () => "unlimited",
     validateAssignmentConfig: async () => [],
     previewNativeDraft,
   };

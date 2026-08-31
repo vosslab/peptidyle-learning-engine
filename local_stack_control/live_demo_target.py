@@ -13,7 +13,7 @@ from collections.abc import Mapping
 import yaml
 
 # local repo modules
-import local_stack_control.consumer
+import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.lifecycle
 import local_stack_control.models
@@ -333,7 +333,7 @@ def validate_production_auth_render(
 	manifest_path: pathlib.Path,
 ) -> None:
 	"""Require the exact fixed profile and a rendered topology without local auth."""
-	manifest = local_stack_control.consumer.load_manifest(repo_root, manifest_path)
+	manifest = local_stack_control.disposable_stack_adapter.load_manifest(repo_root, manifest_path)
 	if (
 		manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 		or manifest.project != local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
@@ -342,7 +342,7 @@ def validate_production_auth_render(
 		raise local_stack_control.models.ControllerError(
 			"live-demo target manifest does not select the fixed production-auth owner"
 		)
-	disposable = local_stack_control.consumer.disposable_target(runner, repo_root, manifest)
+	disposable = local_stack_control.disposable_stack_adapter.disposable_target(runner, repo_root, manifest)
 	local_stack_control.lifecycle.bootstrap_default_state(disposable)
 	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
 	if any(name in values for name in FORBIDDEN_LOCAL_AUTH_SETTINGS):

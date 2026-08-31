@@ -2,7 +2,7 @@
 
 ## Verdict
 
-**ACCEPTED.** `ResponseWidget` is now keyed by the durable server-issued
+**ACCEPTED.** `QuestionResponseControl` is now keyed by the durable server-issued
 attempt ID. A successor attempt therefore receives a fresh local response
 controller, while recovery and edits of the same attempt keep their mounted
 controller and local selection.
@@ -15,7 +15,7 @@ controller and local selection.
   the same response kind cannot inherit a prior choice.
 - Offline/network/session recovery, renderer recovery, and ordinary same-attempt
   editing preserve the context ID. They do not recreate the keyed subtree; the
-  response widget's local selection and controller therefore remain available.
+  question response control's local selection and controller therefore remain available.
   The attempt-state behavior suite independently pins the buffered-response and
   original-idempotency-key recovery contracts.
 - `currentEnvelope()` remains reactive and supplies the new attempt definition
@@ -38,7 +38,7 @@ controller and local selection.
 - PASS: focused Prettier, TypeScript lint compile, and ESLint for `RunPage` and
   the focused Playwright fixtures.
 - PASS: `node --import tsx --test tests/test_frontend_contract.mjs` (19 passed).
-- PASS: `node --import tsx --test tests/test_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (40 passed).
+- PASS: `node --import tsx --test tests/test_question_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (40 passed).
 - PASS: `npx playwright test tests/playwright/run_prefetch_route.spec.ts tests/playwright/run_completion_summary.spec.ts tests/playwright/frontend_contract.spec.ts` (24 passed).
 - PASS: `git diff --check`.
 

@@ -13,7 +13,7 @@ import type {
   CalculatedGradebookRow,
 } from "../api/decoders/calculated_gradebook";
 import type { AssignmentInspectionChoice } from "../api/decoders/gradebook_selection";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -213,7 +213,7 @@ function GradebookCoursePage(props: {
   readonly courseId: CourseId;
   readonly courseReference: CourseInstanceReference;
 }): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const location = useLocation();
   const [pageState, setPageState] = createSignal<GradebookPageState>({
     route: { kind: "valid", filter: undefined },

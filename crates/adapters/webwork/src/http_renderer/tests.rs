@@ -240,7 +240,7 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
     else {
         panic!("single-choice envelope")
     };
-    assert_eq!(*selection, SelectionCardinality::ExactlyOne);
+    assert_eq!(*selection, ResponseSelectionRule::ExactlyOne);
     assert_eq!(choices.len(), 2);
     let prompt = match &parsed.envelope.prompt[0] {
         ContentBlock::Text { markdown } => markdown,
@@ -282,7 +282,7 @@ Based on their molecular formula, which compound is most likely <span style="col
     else {
         panic!("single-choice envelope")
     };
-    assert_eq!(*selection, SelectionCardinality::ExactlyOne);
+    assert_eq!(*selection, ResponseSelectionRule::ExactlyOne);
     assert_eq!(choices.len(), 2);
     assert!(matches!(
         &choices[1].body[0],
@@ -739,7 +739,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
         .expect("100 percent answer grades");
     assert!(matches!(
         result,
-        GradeOutcome::Graded(AttemptResult {
+        QuestionGradingOutcome::Graded(GradingResult {
             correct: true,
             points_earned: 7.0,
             points_possible: 7.0,
@@ -870,7 +870,7 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
         .expect("zero percent answer grades");
     assert!(matches!(
         result,
-        GradeOutcome::Graded(AttemptResult {
+        QuestionGradingOutcome::Graded(GradingResult {
             correct: false,
             points_earned: 0.0,
             points_possible: 7.0,
@@ -919,11 +919,11 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
     };
     let response = StudentResponse::Matching {
         matches: vec![
-            question_model::response::MatchPair {
+            question_model::response::StudentMatch {
                 prompt: prompts[0].id.clone(),
                 choice: choices[1].id.clone(),
             },
-            question_model::response::MatchPair {
+            question_model::response::StudentMatch {
                 prompt: prompts[1].id.clone(),
                 choice: choices[0].id.clone(),
             },
@@ -944,7 +944,7 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
         .expect("fractional matching response grades");
     assert!(matches!(
         result,
-        GradeOutcome::Graded(AttemptResult {
+        QuestionGradingOutcome::Graded(GradingResult {
             correct: false,
             points_earned: 4.0,
             points_possible: 8.0,

@@ -56,7 +56,7 @@ description. A missing or removed banner produces no student image element.
 
 | Need                                     | Standard or method                                      | Acceptance criterion                                                                       | Evidence                                            | Status |
 | ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------ |
-| Complete the task without a pointer      | WCAG 2.2 SC 2.1.1 Keyboard                              | Theme, file, alt, save, conflict review, remove, and cancel all have keyboard paths        | `learner_delivery.spec.ts` appearance journey     | Pass   |
+| Complete the task without a pointer      | WCAG 2.2 SC 2.1.1 Keyboard                              | Theme, file, alt, save, conflict review, remove, and cancel all have keyboard paths        | `learner_delivery.spec.ts` appearance journey       | Pass   |
 | Keep focus visible and ordered           | WCAG 2.2 SC 2.4.3 and 2.4.7                             | Native document order; selected/focused targets remain visible in normal and forced colors | Browser focus assertions and screenshots            | Pass   |
 | Name controls without color dependence   | WCAG 2.2 SC 1.4.1 and 4.1.2                             | Every radio has a text name; swatches are decorative                                       | Source inspection and axe                           | Pass   |
 | Describe informative images              | WCAG 2.2 SC 1.1.1                                       | Decorative images have empty alt; informative images require 1-160 useful characters       | Model tests and entry-only browser test             | Pass   |
@@ -92,15 +92,13 @@ Scores use 0 for a critical failure and 4 for no material issue in the audited s
 node --import tsx --test \
   tests/test_course_appearance_settings.mjs \
   tests/test_course_theme_scope.mjs
-./run_playwright_tests.sh --scenario learner_delivery
-./capture_screenshots.sh
 ```
 
-The catalog has no dedicated course-appearance scenario. The `learner_delivery` production
-browser scenario owns the visible appearance save and reload behavior, including its
-`appearance_saved` screenshot state. `./capture_screenshots.sh` is the separate publication gate
-for the canonical screenshot corpus. `./all_test.sh` validates behavior and contracts without
-publishing or rewriting documentation screenshots.
+The prior production-browser scenario and screenshot-corpus publication command
+are absent from the current tree. The historical `appearance_saved` state does
+not establish current visual acceptance. A Course Appearance UI change needs a
+restored browser owner and fresh human visual review in addition to these
+durable behavior gates.
 
 The current generated review set is under `generated/ui/course_appearance/`:
 `theme_contact_sheet.png`, `settings_1280x800.png`, `settings_forced_colors.png`, and

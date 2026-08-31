@@ -7,7 +7,7 @@ import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGrad
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
 import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
 import { CourseGradeSchemeConflictError } from "../api/http_client";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -65,7 +65,7 @@ function unavailableReasonCopy(outcome: CourseGradeOutcomeView): string {
 }
 
 function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const [state, setState] = createSignal<State>("loading");
   const [draft, setDraft] = createSignal<CourseGradeSchemeUpdateView>();
   const [serverDraft, setServerDraft] = createSignal<CourseGradeSchemeUpdateView>();
@@ -75,7 +75,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
   const [hasConflict, setHasConflict] = createSignal(false);
   const [errors, setErrors] = createSignal<ReadonlyArray<string>>([]);
   const [totals, setTotals] =
-    createSignal<Awaited<ReturnType<typeof runtime.client.getCourseGradebookTotals>>>();
+    createSignal<Awaited<ReturnType<typeof applicationApi.client.getCourseGradebookTotals>>>();
   let errorSummary: HTMLDivElement | undefined;
   const busy = createMemo(() => state() === "saving");
   const weight = createMemo(
@@ -97,8 +97,8 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
     setHasConflict(false);
     try {
       const [view, projectedTotals] = await Promise.all([
-        runtime.client.getCourseGradeScheme(props.courseId),
-        runtime.client.getCourseGradebookTotals(props.courseId),
+        applicationApi.client.getCourseGradeScheme(props.courseId),
+        applicationApi.client.getCourseGradebookTotals(props.courseId),
       ]);
       const next = draftFrom(view);
       replaceDraft(next);
@@ -251,7 +251,11 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
     if (current === undefined || !checkDraft(current)) return;
     setState("saving");
     try {
-      const saved = await runtime.client.saveCourseGradeScheme(props.courseId, current, revision());
+      const saved = await applicationApi.client.saveCourseGradeScheme(
+        props.courseId,
+        current,
+        revision(),
+      );
       const next = draftFrom(saved);
       replaceDraft(next);
       setServerDraft(next);
@@ -261,7 +265,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       setHasConflict(false);
       setMessage("Grade settings saved.");
       try {
-        setTotals(await runtime.client.getCourseGradebookTotals(props.courseId));
+        setTotals(await applicationApi.client.getCourseGradebookTotals(props.courseId));
       } catch {
         setMessage(
           "Grade settings saved, but totals could not refresh. Use Reload current settings to try again.",
@@ -272,7 +276,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       if (error instanceof CourseGradeSchemeConflictError) {
         setHasConflict(true);
         try {
-          const latest = await runtime.client.getCourseGradeScheme(props.courseId);
+          const latest = await applicationApi.client.getCourseGradeScheme(props.courseId);
           setServerDraft(draftFrom(latest));
           setAssignmentTitles(
             new Map(latest.assignments.map((item) => [item.assignment, item.title])),
@@ -303,7 +307,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
   }
   async function exportCsv(): Promise<void> {
     try {
-      const file = await runtime.client.createCourseGradeExport(props.courseId);
+      const file = await applicationApi.client.createCourseGradeExport(props.courseId);
       const url = URL.createObjectURL(file.csv);
       const link = document.createElement("a");
       link.href = url;

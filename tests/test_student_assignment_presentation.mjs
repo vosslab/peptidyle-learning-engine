@@ -12,13 +12,13 @@ const instructorDelivery = {
   availableAt: null,
   dueAt: null,
   closesAt: null,
-  timeLimitSeconds: 900,
+  assignmentAttemptTimeLimitSeconds: 900,
   attemptLimit: 2,
-  lateSubmission: "accept",
-  deadlineBehavior: "autoSubmit",
+  lateWorkRule: "accept",
+  assignmentDeadlineRule: "autoSubmit",
 };
 
-test("Student detail adapts active items and pool draws without exposing source identities", () => {
+test("Student detail adapts available entries and pool draws without exposing source identities", () => {
   const presentation = toStudentAssignmentPresentationData({
     id: "assignment-1",
     reference: "AS-1",
@@ -29,17 +29,18 @@ test("Student detail adapts active items and pool draws without exposing source 
       available_at: null,
       due_at: null,
       closes_at: null,
-      time_limit_seconds: 900,
+      assignment_attempt_time_limit_seconds: 900,
       attempt_limit: 2,
-      late_submission: "accept",
-      deadline_behavior: "autoSubmit",
+      late_work_rule: "accept",
+      assignment_deadline_rule: "autoSubmit",
       late_status: "on_time",
     },
     entries: [
-      { kind: "fixedQuestion", deliveryState: "active" },
-      { kind: "fixedQuestion", deliveryState: "retired" },
-      { kind: "fixedQuestion", deliveryState: "active" },
-      { kind: "questionPool", drawCount: 3 },
+      { kind: "fixedQuestion", availability: "available" },
+      { kind: "fixedQuestion", availability: "retired" },
+      { kind: "fixedQuestion", availability: "available" },
+      { kind: "questionPool", availability: "available", drawCount: 3 },
+      { kind: "questionPool", availability: "retired", drawCount: 2 },
     ],
   });
 
@@ -48,15 +49,15 @@ test("Student detail adapts active items and pool draws without exposing source 
   assert.equal("id" in presentation, false);
 });
 
-test("Instructor Student view keeps its explicit variation and disclosure data", () => {
+test("Instructor Student view keeps its explicit Question Variation Rule and disclosure data", () => {
   const presentation = toStudentAssignmentPresentationData({
     title: "Protein structure",
     instructions: "Use your notes.",
     timeZone: "America/Chicago",
     delivery: instructorDelivery,
     questionsPerRun: 4,
-    variation: "fullRegeneration",
-    disclosurePolicy: {
+    questionVariationRule: "redrawQuestionPools",
+    studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
       feedback_text: "after_due",
@@ -66,8 +67,8 @@ test("Instructor Student view keeps its explicit variation and disclosure data",
   });
 
   assert.equal(presentation.questionsPerRun, 4);
-  assert.equal(presentation.variation, "fullRegeneration");
-  assert.equal(presentation.disclosurePolicy?.feedback_text, "after_due");
+  assert.equal(presentation.questionVariationRule, "redrawQuestionPools");
+  assert.equal(presentation.studentFeedbackReleaseRule?.feedback_text, "after_due");
   assert.equal("lateStatus" in presentation.delivery, false);
 });
 

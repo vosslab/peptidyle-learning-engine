@@ -2,12 +2,12 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import { ResponseWidget } from "../../components/response_widget";
+import { QuestionResponseControl } from "../../components/question_response_controls/question_response_control";
 import type { WasmFacade } from "../../wasm/index";
 import type { FlatQuestionPublicPreview } from "./flat_question_public_preview";
 import type {
-  FlatQuestionNumericTolerance,
-  FlatQuestionTextMatchMode,
+  FlatQuestionNumericResponseTolerance,
+  FlatQuestionTextResponseMatchRule,
 } from "./flat_question_source";
 
 export type FlatQuestionInstructorAnswerCheck =
@@ -22,7 +22,7 @@ export type FlatQuestionInstructorAnswerCheck =
   | {
       readonly kind: "fillIn";
       readonly answers: ReadonlyArray<string>;
-      readonly matchMode: FlatQuestionTextMatchMode;
+      readonly matchMode: FlatQuestionTextResponseMatchRule;
     }
   | {
       readonly kind: "multiFillIn";
@@ -34,7 +34,7 @@ export type FlatQuestionInstructorAnswerCheck =
   | {
       readonly kind: "numeric";
       readonly answer: number;
-      readonly tolerance: FlatQuestionNumericTolerance;
+      readonly tolerance: FlatQuestionNumericResponseTolerance;
       readonly unit: string | null;
     }
   | {
@@ -170,7 +170,7 @@ function PrivateAnswerList(props: {
   );
 }
 
-/** Uses the same ResponseWidget as a student while retaining answer checks in an explicit private panel. */
+/** Uses the same QuestionResponseControl as a student while retaining answer checks in an explicit private panel. */
 export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Element {
   return (
     <section
@@ -185,7 +185,7 @@ export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Elemen
       <article aria-labelledby="flat-preview-title">
         <h4 id="flat-preview-title">{props.preview.title}</h4>
         <p>{props.preview.prompt}</p>
-        <ResponseWidget
+        <QuestionResponseControl
           attemptId="flat-question-author-preview"
           definition={props.preview.response}
           validator={props.validator}

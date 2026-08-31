@@ -7,18 +7,18 @@
 use std::collections::BTreeSet;
 
 use domain::statistics::QuestionStatisticsObservation;
-use domain::validation::{ResponseFormatViolation, validate_response_format};
-use question_model::answer::{NumericTolerance, TextMatchMode};
-use question_model::response::{ChoiceId, HotspotRegion, QuestionResponseFormat, StudentResponse};
-use question_model::{AttemptResult, GradingDefinition, QuestionDefinition};
+use domain::validation::{StudentResponseFormatIssue, validate_response_format};
+use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
+use question_model::response::{ResponseItemReference, HotspotRegion, QuestionResponseFormat, StudentResponse};
+use question_model::{GradingDefinition, GradingResult, QuestionDefinition};
 
 use crate::AnswerKey;
 
 /// Outcome of applying a question's declared grading mode.
 #[derive(Debug, Clone, PartialEq)]
-pub enum GradeOutcome {
+pub enum QuestionGradingOutcome {
     /// Server-graded correctness and points safe to disclose under policy.
-    Graded(AttemptResult),
+    Graded(GradingResult),
     /// Intentionally ungraded practice with no fabricated correctness value.
     Ungraded,
 }
@@ -27,7 +27,7 @@ pub enum GradeOutcome {
 #[derive(Debug, Clone, PartialEq)]
 pub enum GradingError {
     /// Browser-safe shape validation rejected the response.
-    InvalidResponse(Vec<ResponseFormatViolation>),
+    InvalidResponse(Vec<StudentResponseFormatIssue>),
     /// A graded question had no server-only answer key.
     MissingAnswerKey,
     /// Ungraded practice incorrectly carried answer-bearing material.
@@ -75,7 +75,7 @@ impl std::error::Error for GradingError {}
 
 /// Grades one structurally valid response without exposing its answer key.
 ///
-/// Ungraded questions return [`GradeOutcome::Ungraded`] and require no key.
+/// Ungraded questions return [`QuestionGradingOutcome::Ungraded`] and require no key.
 /// All-or-nothing questions use the shared checkers below. Partial credit is
 /// refused until a capable deterministic adapter supplies the
 /// actual pedagogical rule; this module does not invent one from a boolean
@@ -92,7 +92,7 @@ pub fn grade(
     question: &QuestionDefinition,
     response: &StudentResponse,
     key: Option<&AnswerKey>,
-) -> Result<GradeOutcome, GradingError> {
+) -> Result<QuestionGradingOutcome, GradingError> {
     let report = validate_response_format(&question.response, response);
     if !report.is_valid() {
         return Err(GradingError::InvalidResponse(report.violations));
@@ -101,7 +101,7 @@ pub fn grade(
     let points = match question.grading {
         GradingDefinition::Ungraded => {
             return if key.is_none() {
-                Ok(GradeOutcome::Ungraded)
+                Ok(QuestionGradingOutcome::Ungraded)
             } else {
                 Err(GradingError::UnexpectedAnswerKey)
             };
@@ -123,7 +123,7 @@ pub fn grade(
     }
     let key = key.ok_or(GradingError::MissingAnswerKey)?;
     let correct = answer_is_correct(&question.response, response, key)?;
-    Ok(GradeOutcome::Graded(AttemptResult {
+    Ok(QuestionGradingOutcome::Graded(GradingResult {
         correct,
         points_earned: if correct { points } else { 0.0 },
         points_possible: points,
@@ -138,13 +138,13 @@ pub fn grade(
 pub fn question_statistics_observation(
     question: &QuestionDefinition,
     response: &StudentResponse,
-    outcome: &GradeOutcome,
+    outcome: &QuestionGradingOutcome,
 ) -> Result<Option<QuestionStatisticsObservation>, GradingError> {
     let report = validate_response_format(&question.response, response);
     if !report.is_valid() {
         return Err(GradingError::InvalidResponse(report.violations));
     }
-    let GradeOutcome::Graded(result) = outcome else {
+    let QuestionGradingOutcome::Graded(result) = outcome else {
         return Ok(None);
     };
     let selections = match (&question.response, response) {
@@ -244,8 +244,8 @@ fn answer_is_correct(
             StudentResponse::Ordering { order },
             AnswerKey::Ordering { correct },
         ) => {
-            let available: BTreeSet<ChoiceId> = items.iter().map(|item| item.id.clone()).collect();
-            let keyed: BTreeSet<ChoiceId> = correct.iter().cloned().collect();
+            let available: BTreeSet<ResponseItemReference> = items.iter().map(|item| item.id.clone()).collect();
+            let keyed: BTreeSet<ResponseItemReference> = correct.iter().cloned().collect();
             if keyed.len() != correct.len() || keyed != available {
                 return Err(GradingError::InvalidDefinition(
                     "ordering key must contain every available item exactly once".to_string(),
@@ -293,7 +293,7 @@ fn region_contains(region: &HotspotRegion, x: u16, y: u16) -> bool {
 fn numeric_is_correct(
     actual: f64,
     expected: f64,
-    tolerance: &NumericTolerance,
+    tolerance: &NumericResponseTolerance,
 ) -> Result<bool, GradingError> {
     if !expected.is_finite() {
         return Err(GradingError::InvalidDefinition(
@@ -301,16 +301,16 @@ fn numeric_is_correct(
         ));
     }
     match tolerance {
-        NumericTolerance::Exact => Ok(actual == expected),
-        NumericTolerance::Absolute { epsilon } => {
+        NumericResponseTolerance::Exact => Ok(actual == expected),
+        NumericResponseTolerance::Absolute { epsilon } => {
             validate_nonnegative_finite("absolute epsilon", *epsilon)?;
             Ok((actual - expected).abs() <= *epsilon)
         }
-        NumericTolerance::Relative { fraction } => {
+        NumericResponseTolerance::Relative { fraction } => {
             validate_nonnegative_finite("relative fraction", *fraction)?;
             Ok((actual - expected).abs() <= expected.abs() * *fraction)
         }
-        NumericTolerance::SignificantFigures { digits } => {
+        NumericResponseTolerance::SignificantFigures { digits } => {
             if *digits == 0 {
                 return Err(GradingError::InvalidDefinition(
                     "significant figures must be at least one".to_string(),
@@ -344,13 +344,13 @@ fn round_significant(value: f64, digits: u8) -> f64 {
     }
 }
 
-fn text_is_correct(actual: &str, accepted: &[String], mode: TextMatchMode) -> bool {
+fn text_is_correct(actual: &str, accepted: &[String], mode: TextResponseMatchRule) -> bool {
     match mode {
-        TextMatchMode::Exact => accepted.iter().any(|expected| actual == expected),
-        TextMatchMode::CaseInsensitive => accepted
+        TextResponseMatchRule::Exact => accepted.iter().any(|expected| actual == expected),
+        TextResponseMatchRule::CaseInsensitive => accepted
             .iter()
             .any(|expected| actual.to_lowercase() == expected.to_lowercase()),
-        TextMatchMode::Normalized => {
+        TextResponseMatchRule::Normalized => {
             let actual = normalized_text(actual);
             accepted
                 .iter()
@@ -370,8 +370,10 @@ fn normalized_text(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::answer::SelectionCardinality;
-    use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+    use question_model::answer::ResponseSelectionRule;
+    use question_model::assignment_activity_rules::{
+        QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    };
     use question_model::envelope::ContentBlock;
     use question_model::generation::RandomizationDefinition;
     use question_model::response::{ChoiceOption, QuestionType};
@@ -384,12 +386,15 @@ mod tests {
 
     fn choice(id: &str) -> ChoiceOption {
         ChoiceOption {
-            id: ChoiceId::new(id),
+            id: ResponseItemReference::new(id),
             body: Vec::new(),
         }
     }
 
-    fn question(response: QuestionResponseFormat, grading: GradingDefinition) -> QuestionDefinition {
+    fn question(
+        response: QuestionResponseFormat,
+        grading: GradingDefinition,
+    ) -> QuestionDefinition {
         QuestionDefinition {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
             version_number: QuestionVersionNumber::new(2).expect("positive version"),
@@ -401,8 +406,8 @@ mod tests {
             }],
             response,
             question_type: QuestionType::MultipleChoice,
-            attempt_policy: AttemptPolicy { max_attempts: None },
-            timing_policy: TimingPolicy::Untimed,
+            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             randomization: RandomizationDefinition::Static,
             grading,
             metadata: QuestionMetadata {
@@ -422,27 +427,27 @@ mod tests {
     #[test]
     fn numeric_tolerances_use_inclusive_boundaries() {
         let cases = [
-            (NumericTolerance::Exact, 10.0, 10.0, true),
+            (NumericResponseTolerance::Exact, 10.0, 10.0, true),
             (
-                NumericTolerance::Absolute { epsilon: 0.5 },
+                NumericResponseTolerance::Absolute { epsilon: 0.5 },
                 10.5,
                 10.0,
                 true,
             ),
             (
-                NumericTolerance::Relative { fraction: 0.1 },
+                NumericResponseTolerance::Relative { fraction: 0.1 },
                 -11.0,
                 -10.0,
                 true,
             ),
             (
-                NumericTolerance::SignificantFigures { digits: 3 },
+                NumericResponseTolerance::SignificantFigures { digits: 3 },
                 1_234.0,
                 1_230.0,
                 true,
             ),
             (
-                NumericTolerance::SignificantFigures { digits: 3 },
+                NumericResponseTolerance::SignificantFigures { digits: 3 },
                 1_219.0,
                 1_230.0,
                 false,
@@ -461,7 +466,7 @@ mod tests {
             .expect("numeric case should grade");
             assert_eq!(
                 result,
-                GradeOutcome::Graded(AttemptResult {
+                QuestionGradingOutcome::Graded(GradingResult {
                     correct,
                     points_earned: if correct { 2.0 } else { 0.0 },
                     points_possible: 2.0,
@@ -474,23 +479,26 @@ mod tests {
     fn choice_text_and_ordering_use_their_declared_comparisons() {
         let choice_question = all_or_nothing(QuestionResponseFormat::MultipleChoice {
             choices: vec![choice("a"), choice("b"), choice("c")],
-            selection: SelectionCardinality::Exactly { count: 2 },
+            selection: ResponseSelectionRule::Exactly { count: 2 },
         });
         assert!(matches!(
             grade(
                 &choice_question,
                 &StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new("c"), ChoiceId::new("a")],
+                    selected: vec![ResponseItemReference::new("c"), ResponseItemReference::new("a")],
                 },
                 Some(&AnswerKey::MultipleChoice {
-                    correct: BTreeSet::from([ChoiceId::new("a"), ChoiceId::new("c")]),
+                    correct: BTreeSet::from([ResponseItemReference::new("a"), ResponseItemReference::new("c")]),
                 }),
             ),
-            Ok(GradeOutcome::Graded(AttemptResult { correct: true, .. }))
+            Ok(QuestionGradingOutcome::Graded(GradingResult {
+                correct: true,
+                ..
+            }))
         ));
 
         let text_question = all_or_nothing(QuestionResponseFormat::ShortText {
-            match_mode: TextMatchMode::Normalized,
+            match_mode: TextResponseMatchRule::Normalized,
             max_length: 40,
         });
         assert!(matches!(
@@ -503,7 +511,10 @@ mod tests {
                     accepted: vec!["peptide bond".to_string()],
                 }),
             ),
-            Ok(GradeOutcome::Graded(AttemptResult { correct: true, .. }))
+            Ok(QuestionGradingOutcome::Graded(GradingResult {
+                correct: true,
+                ..
+            }))
         ));
 
         let ordering_question = all_or_nothing(QuestionResponseFormat::Ordering {
@@ -513,13 +524,16 @@ mod tests {
             grade(
                 &ordering_question,
                 &StudentResponse::Ordering {
-                    order: vec![ChoiceId::new("first"), ChoiceId::new("second")],
+                    order: vec![ResponseItemReference::new("first"), ResponseItemReference::new("second")],
                 },
                 Some(&AnswerKey::Ordering {
-                    correct: vec![ChoiceId::new("first"), ChoiceId::new("second")],
+                    correct: vec![ResponseItemReference::new("first"), ResponseItemReference::new("second")],
                 }),
             ),
-            Ok(GradeOutcome::Graded(AttemptResult { correct: true, .. }))
+            Ok(QuestionGradingOutcome::Graded(GradingResult {
+                correct: true,
+                ..
+            }))
         ));
     }
 
@@ -527,16 +541,16 @@ mod tests {
     fn accepted_multiple_choice_grade_yields_only_its_eligible_choice_counts() {
         let question = all_or_nothing(QuestionResponseFormat::MultipleChoice {
             choices: vec![choice("a"), choice("b"), choice("c")],
-            selection: SelectionCardinality::Exactly { count: 2 },
+            selection: ResponseSelectionRule::Exactly { count: 2 },
         });
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ChoiceId::new("a"), ChoiceId::new("c")],
+            selected: vec![ResponseItemReference::new("a"), ResponseItemReference::new("c")],
         };
         let outcome = grade(
             &question,
             &response,
             Some(&AnswerKey::MultipleChoice {
-                correct: BTreeSet::from([ChoiceId::new("a")]),
+                correct: BTreeSet::from([ResponseItemReference::new("a")]),
             }),
         )
         .expect("validated selection grades");
@@ -548,7 +562,7 @@ mod tests {
         assert_eq!(
             observation
                 .eligible_choice_selections()
-                .map(ChoiceId::as_str)
+                .map(ResponseItemReference::as_str)
                 .collect::<Vec<_>>(),
             vec!["a", "c"]
         );
@@ -557,7 +571,7 @@ mod tests {
     #[test]
     fn malformed_backend_inputs_fail_instead_of_guessing() {
         let numeric = all_or_nothing(QuestionResponseFormat::Numeric {
-            tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
+            tolerance: NumericResponseTolerance::Absolute { epsilon: 0.1 },
             unit: None,
         });
         assert_eq!(
@@ -569,7 +583,7 @@ mod tests {
                 Some(&AnswerKey::Numeric { expected: 10.0 }),
             ),
             Err(GradingError::InvalidResponse(vec![
-                ResponseFormatViolation::ResponseKindMismatch,
+                StudentResponseFormatIssue::ResponseKindMismatch,
             ]))
         );
         assert_eq!(
@@ -592,7 +606,7 @@ mod tests {
     fn invalid_public_grading_parameters_are_rejected() {
         let negative_points = question(
             QuestionResponseFormat::Numeric {
-                tolerance: NumericTolerance::Exact,
+                tolerance: NumericResponseTolerance::Exact,
                 unit: None,
             },
             GradingDefinition::AllOrNothing { points: -1.0 },
@@ -609,7 +623,7 @@ mod tests {
         );
 
         let invalid_tolerance = all_or_nothing(QuestionResponseFormat::Numeric {
-            tolerance: NumericTolerance::SignificantFigures { digits: 0 },
+            tolerance: NumericResponseTolerance::SignificantFigures { digits: 0 },
             unit: None,
         });
         assert_eq!(
@@ -628,7 +642,7 @@ mod tests {
     fn ungraded_partial_credit_and_file_upload_capabilities_are_explicit() {
         let ungraded = question(
             QuestionResponseFormat::ShortText {
-                match_mode: TextMatchMode::Exact,
+                match_mode: TextResponseMatchRule::Exact,
                 max_length: 10,
             },
             GradingDefinition::Ungraded,
@@ -641,7 +655,7 @@ mod tests {
                 },
                 None,
             ),
-            Ok(GradeOutcome::Ungraded)
+            Ok(QuestionGradingOutcome::Ungraded)
         );
         assert_eq!(
             grade(
@@ -658,7 +672,7 @@ mod tests {
 
         let partial = question(
             QuestionResponseFormat::Numeric {
-                tolerance: NumericTolerance::Exact,
+                tolerance: NumericResponseTolerance::Exact,
                 unit: None,
             },
             GradingDefinition::PartialCredit { points: 2.0 },

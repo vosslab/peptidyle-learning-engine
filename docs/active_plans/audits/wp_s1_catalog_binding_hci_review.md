@@ -28,7 +28,7 @@ the retained stack until both repairs pass their focused gates.
   control, reaches `Search catalog` with `tabTo`, verifies focus, and activates
   it with Enter. It scopes a row to the exact rendered title, requires that
   title-bearing row count to be one, then reaches the row's `Add published
-  version` button by Tab and activates it with Enter. Static scanner inspection
+version` button by Tab and activates it with Enter. Static scanner inspection
   found no pointer operation, direct focus/route/history, request/API,
   cookie/storage, answer, or feedback-body shortcut in the child.
 - PostgreSQL catalog search uses
@@ -74,15 +74,15 @@ It must prove no first-row fallback is introduced.
 
 ## Focused evidence
 
-| Check | Result |
-| --- | --- |
-| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 46 tests, 5 subtests |
-| `npx playwright test tests/playwright/simulator/retry_corpus.spec.ts tests/playwright/simulator/ui_walkthrough_arrange.spec.ts tests/playwright/ui_walkthrough_live_config.spec.ts` | PASS: 17 tests |
-| `npx prettier --check` on arranger/J13/config files | PASS |
-| `git diff --check` on reviewed files | PASS |
-| `npx tsc --noEmit` | FAIL: B1 |
-| `npx tsc --noEmit -p tsconfig.lint.json` | FAIL: B1 |
-| targeted ESLint | FAIL: B1 |
+| Check                                                                                                                                                                               | Result                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py`                                                                        | PASS: 46 tests, 5 subtests |
+| `npx playwright test tests/playwright/simulator/retry_corpus.spec.ts tests/playwright/simulator/ui_walkthrough_arrange.spec.ts tests/playwright/ui_walkthrough_live_config.spec.ts` | PASS: 17 tests             |
+| `npx prettier --check` on arranger/J13/config files                                                                                                                                 | PASS                       |
+| `git diff --check` on reviewed files                                                                                                                                                | PASS                       |
+| `npx tsc --noEmit`                                                                                                                                                                  | FAIL: B1                   |
+| `npx tsc --noEmit -p tsconfig.lint.json`                                                                                                                                            | FAIL: B1                   |
+| targeted ESLint                                                                                                                                                                     | FAIL: B1                   |
 
 The initial Playwright invocation named a nonexistent `chromium` project; the
 same focused tests passed when run through this repository's configured default
@@ -119,14 +119,14 @@ catalog-binding or no-shortcut boundary.
 
 ### Re-review evidence
 
-| Check | Result |
-| --- | --- |
-| `npx tsc --noEmit` | PASS |
-| `npx tsc --noEmit -p tsconfig.lint.json` | PASS |
-| targeted ESLint | PASS |
-| focused Prettier and `git diff --check` | PASS |
+| Check                                                                                                        | Result                     |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| `npx tsc --noEmit`                                                                                           | PASS                       |
+| `npx tsc --noEmit -p tsconfig.lint.json`                                                                     | PASS                       |
+| targeted ESLint                                                                                              | PASS                       |
+| focused Prettier and `git diff --check`                                                                      | PASS                       |
 | `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 46 tests, 6 subtests |
-| owner focused Playwright suite including `instructor_catalog_binding.spec.ts` | PASS: 19 tests |
+| owner focused Playwright suite including `instructor_catalog_binding.spec.ts`                                | PASS: 19 tests             |
 
 This reviewer's repeat of the 19-test command passed the 17 non-browser-body
 tests but could not launch the two new fixture bodies because this sandbox

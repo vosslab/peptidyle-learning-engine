@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
-import { prefetchMatchesIssuedSuccessor } from "../src/features/attempt/prefetch_binding.ts";
+import { prefetchMatchesIssuedSuccessor } from "../src/features/question_attempt/prefetch_binding.ts";
 import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
 import { accountRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
@@ -17,6 +17,10 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
   assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");
   assert.equal(routeContractForPathname("/curriculum/BP-7/extra"), undefined);
+  assert.equal(
+    routeContractForPathname("/sysadmin/instructor-approval")?.id,
+    "sysadminInstructorApproval",
+  );
   assert.equal(
     routeContractForPathname("/instructor/courses/C-1/assignments/A-1")?.id,
     "assignmentWorkspaceOverview",
@@ -53,6 +57,10 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   );
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "student"), false);
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "instructor"), true);
+  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
+  assert.equal(accountRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
+  assert.equal(accountRoleMayAccessRoute("sysadminInstructorApproval", "instructor"), false);
+  assert.equal(accountRoleMayAccessRoute("sysadminInstructorApproval", "sysadmin"), true);
   assert.equal(accountRoleMayAccessRoute("curriculum", "student"), false);
   assert.equal(accountRoleMayAccessRoute("curriculum", "sysadmin"), false);
   assert.equal(accountRoleMayAccessRoute("curriculum", "instructor"), true);
@@ -168,13 +176,17 @@ test("the generated browser surface excludes answer-bearing type names", () => {
 test("prefetched successors require the committed receipt binding", () => {
   const successor = {
     predecessor: "attempt-a",
-    run: "run-a",
-    assignmentPosition: 1,
-    questionVersion: "version-b",
+    issuedQuestion: { id: "issued-question-b" },
     seed: 2,
     renderedQuestionSha256: "a".repeat(64),
   };
-  const issued = { ...successor };
+  const issued = {
+    id: "attempt-b",
+    issuedQuestion: successor.issuedQuestion,
+    seed: successor.seed,
+    deadline: null,
+    renderedQuestionSha256: successor.renderedQuestionSha256,
+  };
   assert.equal(prefetchMatchesIssuedSuccessor(successor, issued, "attempt-a"), true);
   assert.equal(
     prefetchMatchesIssuedSuccessor({ ...successor, seed: 3 }, issued, "attempt-a"),

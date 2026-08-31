@@ -8,13 +8,13 @@ import type {
   AssignmentAttemptSummaryResponse,
 } from "../api/contracts";
 import { FeedbackPanel } from "../components/feedback_panel";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { assignmentAttemptRouteReference } from "../navigation/public_route";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export function AssignmentAttemptSummaryPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const navigate = useNavigate();
   const scopedRoute = useCourseThemeRouteData();
   const initialSummary =
@@ -43,7 +43,7 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const next = await runtime.client.getAssignmentAttemptSummary(
+      const next = await applicationApi.client.getAssignmentAttemptSummary(
         assignmentAttemptId,
         cursor,
         30,
@@ -77,7 +77,10 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
     const assignment = summary()?.assignmentAttempt.assignment;
     if (courseId === undefined || assignment === undefined) return;
     try {
-      const assignmentAttempt = await runtime.client.startAssignmentAttempt(courseId, assignment);
+      const assignmentAttempt = await applicationApi.client.startAssignmentAttempt(
+        courseId,
+        assignment,
+      );
       navigate(
         `/assignment-attempts/${assignmentAttemptRouteReference(assignmentAttempt.reference)}`,
       );
@@ -129,7 +132,7 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
                         }
                   }
                   assetUrl={(asset) =>
-                    new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                    new URL(applicationApi.client.assetUrl(asset.asset), window.location.origin)
                   }
                 />
               )}

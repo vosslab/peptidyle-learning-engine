@@ -77,6 +77,7 @@ the renderer identity, and the available engine without mutating the stack.
   On macOS, use the resource values in [MACOS_PODMAN.md](MACOS_PODMAN.md) if
   the machine is exhausted. These are diagnostics; do not use global Compose
   cleanup.
+
 - **`local port ... is already listening`:** identify the owning process with
   the reported port, stop only that process if you own it, then retry
   `./run_live_demo.sh`. The fixed owner chooses a free loopback gateway port
@@ -98,6 +99,7 @@ the renderer identity, and the available engine without mutating the stack.
   source source_me.sh && .venv/bin/python local_stack.py logs --project ple-live-demo-browser --tail 120 postgres
   ./run_live_demo.sh
   ```
+
 - **`the stack did not become ready`:** inspect `gateway`, `api`, and `worker`
   logs. Readiness is semantic `/health`, not merely a running container.
   Retry the same `./run_live_demo.sh` command after correcting the named
@@ -140,10 +142,10 @@ database/object acceptance lanes.
 ## Existing data and migrations
 
 - **`existing PostgreSQL data volume is not compatible with the pinned
-  PostgreSQL 17 image`:** preserve the volume and migrate it with an explicit
+PostgreSQL 17 image`:** preserve the volume and migrate it with an explicit
   PostgreSQL-major-version procedure. Do not delete it to make startup pass.
 - **`migration ... was previously applied but is missing in the resolved
-  migrations`:** preserve the retained resource and private owner receipt.
+migrations`:** preserve the retained resource and private owner receipt.
   Correct the image or migration problem, then retry the fixed wrapper; do not
   edit `_sqlx_migrations` or run global cleanup.
 - **`2026081866` refuses a nonempty receipt table:** this is the intentional

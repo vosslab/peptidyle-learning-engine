@@ -6,12 +6,13 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::curriculum_adoption::AssignmentRevisionReference;
 use crate::{
-    AssignmentDeadlineBehavior, AssignmentDeliveryState, AssignmentEntry, AssignmentLandingPresentation,
-    AssignmentLifecycle, AssignmentScoringMode, Capability,
-    IanaTimeZone, InstructorAssignmentTeachingSettingsLocal, LateSubmissionPolicy, PointValue,
-    QuestionId, AssignmentActivityRules, SelectionOrdering,
-    StudentDisclosurePolicy, VariationPolicy,
+    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntry, AssignmentEntryAvailability,
+    AssignmentEntryScoringRule, AssignmentLifecycle, AssignmentOverview, AssignmentPointValue,
+    AssignmentTitle, Capability, CourseTimeZone, InstructorAssignmentRevisionDefinitionLocal,
+    LateWorkRule, QuestionId, QuestionPoolCandidateAvailability, QuestionPoolSelectionRule,
+    QuestionVariationRule, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create a persisted, incomplete assignment draft.
@@ -19,16 +20,18 @@ use crate::{
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateAssignmentDraftRequest {
     /// Human-facing title for the new assignment.
-    pub title: String,
+    pub title: AssignmentTitle,
 }
 
 /// Browser request that replaces the Questions-owned assignment content slice.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentContentRequest {
+    /// Exact immutable draft revision the Instructor reviewed before editing.
+    pub base_revision: AssignmentRevisionReference,
     /// Human-facing title, owned by the Questions workspace.
-    pub title: String,
-    /// Ordered fixed questions and Question Pools for future runs.
+    pub title: AssignmentTitle,
+    /// Ordered fixed questions and Question Pools for future Assignment Attempts.
     pub entries: Vec<AssignmentEntryRequest>,
 }
 
@@ -38,6 +41,8 @@ pub struct ReplaceAssignmentContentRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentFixedItemRequest {
+    /// Exact immutable draft revision the Instructor reviewed before editing.
+    pub base_revision: AssignmentRevisionReference,
     /// Public Question ID resolved to an assignable immutable publication by
     /// the authenticated server.
     pub question_id: QuestionId,
@@ -47,12 +52,14 @@ pub struct ReplaceAssignmentFixedItemRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplaceAssignmentPoliciesRequest {
+    /// Exact immutable draft revision the Instructor reviewed before editing.
+    pub base_revision: AssignmentRevisionReference,
     /// Student-facing disclosure timing.
-    pub disclosure_policy: StudentDisclosurePolicy,
-    /// Completion, grade, practice, and variation policy.
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
+    /// Completion, grade, practice, and Question Variation Rule.
     pub policies: AssignmentActivityRules,
-    /// Course-local teaching settings resolved by the server before storage.
-    pub teaching_settings: InstructorAssignmentTeachingSettingsLocal,
+    /// Course-local Assignment Revision Definition resolved by the server before storage.
+    pub assignment_revision_definition: InstructorAssignmentRevisionDefinitionLocal,
 }
 
 /// Browser-safe refusal returned when the Policies workspace cannot save its
@@ -84,9 +91,9 @@ pub enum AssignmentPoliciesValidationFailureCode {
     deny_unknown_fields
 )]
 pub enum AssignmentPoliciesValidationIssue {
-    /// A course-local teaching setting needs the supplied correction.
-    TeachingSettings {
-        correction: crate::AssignmentTeachingSettingsValidationFailure,
+    /// A course-local Assignment Revision Definition needs the supplied correction.
+    AssignmentRevisionDefinition {
+        correction: crate::AssignmentRevisionDefinitionValidationFailure,
     },
     /// The combined policy configuration is not available.
     Configuration {
@@ -98,8 +105,8 @@ pub enum AssignmentPoliciesValidationIssue {
         question_id: QuestionId,
         capability: Capability,
     },
-    /// The selected lifecycle needs a publishable definition.
-    PublicationReadiness {
+    /// The exact draft assignment revision has publication blockers.
+    DraftRevisionPublicationReadiness {
         blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
     },
 }
@@ -111,20 +118,13 @@ pub enum AssignmentPolicyConfigurationReason {
     SelectedQuestionVariantsWithQuestionPools,
 }
 
-/// Closed structural-content refusal for a question definition with issued
-/// student work. Ordinary `409` responses still cover retryable aggregate
-/// conflicts; this body identifies the durable recovery path.
+/// Closed structural-content refusal that requires a successor Draft Assignment
+/// Revision. Ordinary `409` responses still cover retryable aggregate conflicts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentContentIssuedWorkConflict {
-    pub kind: AssignmentContentIssuedWorkConflictKind,
-}
-
-/// Closed semantic reason for a structural Questions save refusal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssignmentContentIssuedWorkConflictKind {
-    IssuedStudentWork,
+pub struct SuccessorAssignmentRevisionRequired {
+    /// Immutable revision whose existing Student work must remain unchanged.
+    pub base_revision: AssignmentRevisionReference,
 }
 
 /// One ordered browser content entry. The server resolves every `question_id`
@@ -140,16 +140,18 @@ pub enum AssignmentEntryRequest {
     /// One fixed question at its place in the ordered future-run definition.
     FixedQuestion {
         question_id: QuestionId,
-        points_possible: PointValue,
-        delivery_state: AssignmentDeliveryState,
-        scoring_mode: AssignmentScoringMode,
+        points_possible: AssignmentPointValue,
+        availability: AssignmentEntryAvailability,
+        scoring_rule: AssignmentEntryScoringRule,
     },
     /// A random draw from a server-resolved pool of immutable questions.
     QuestionPool {
         candidate_question_ids: Vec<QuestionId>,
+        availability: AssignmentEntryAvailability,
+        scoring_rule: AssignmentEntryScoringRule,
         draw_count: u32,
-        points_per_item: PointValue,
-        ordering: SelectionOrdering,
+        points_per_item: AssignmentPointValue,
+        selection_rule: QuestionPoolSelectionRule,
     },
 }
 
@@ -169,7 +171,7 @@ pub enum AssignmentPublicationBlockingIssue {
 /// changing the assignment aggregate.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentPublicationReadiness {
+pub struct DraftAssignmentRevisionPublicationReadiness {
     /// Closed, actionable blockers in deterministic order.
     pub blocking_issues: Vec<AssignmentPublicationBlockingIssue>,
 }
@@ -181,19 +183,19 @@ pub struct AssignmentPublicationReadiness {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorStudentView {
     /// Student-facing assignment title.
-    pub title: String,
+    pub title: AssignmentTitle,
     /// Student-facing instructions.
     pub instructions: crate::AssignmentInstructions,
     /// Course scheduling zone used to present the delivery facts.
-    pub time_zone: IanaTimeZone,
+    pub time_zone: CourseTimeZone,
     /// Server-derived base delivery facts, without student progress or actions.
     pub delivery: InstructorStudentViewDelivery,
     /// Number of questions a student receives in one run; derived by the server.
     pub questions_per_run: u32,
-    /// Student-visible variation policy.
-    pub variation: VariationPolicy,
+    /// Student-visible Question Variation Rule.
+    pub question_variation_rule: QuestionVariationRule,
     /// Student-visible disclosure schedule.
-    pub disclosure_policy: StudentDisclosurePolicy,
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
 /// Instructor-base delivery facts for stable-identity Student view. These
@@ -204,17 +206,17 @@ pub struct InstructorStudentViewDelivery {
     pub available_at: Option<crate::ActivityTimestamp>,
     pub due_at: Option<crate::ActivityTimestamp>,
     pub closes_at: Option<crate::ActivityTimestamp>,
-    pub time_limit_seconds: Option<u32>,
+    pub assignment_attempt_time_limit_seconds: Option<u32>,
     pub attempt_limit: Option<u32>,
-    pub late_submission: LateSubmissionPolicy,
-    pub deadline_behavior: AssignmentDeadlineBehavior,
+    pub late_work_rule: LateWorkRule,
+    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
 impl InstructorStudentView {
     /// Adds the Instructor Student-view delivery envelope to the shared
     /// answer-free assignment landing presentation.
     pub fn from_landing(
-        landing: AssignmentLandingPresentation,
+        landing: AssignmentOverview,
         delivery: InstructorStudentViewDelivery,
     ) -> Self {
         Self {
@@ -223,32 +225,35 @@ impl InstructorStudentView {
             time_zone: landing.time_zone,
             delivery,
             questions_per_run: landing.questions_per_run,
-            variation: landing.variation,
-            disclosure_policy: landing.disclosure_policy,
+            question_variation_rule: landing.question_variation_rule,
+            student_feedback_release_rule: landing.student_feedback_release_rule,
         }
     }
 }
 
-impl AssignmentPublicationReadiness {
+impl DraftAssignmentRevisionPublicationReadiness {
     /// Derives readiness from the current definition without mutating it.
     pub fn from_entries(entries: &[AssignmentEntry]) -> Self {
-        let has_active_fixed_question = entries.iter().any(|entry| {
+        let has_available_fixed_question = entries.iter().any(|entry| {
             matches!(entry, AssignmentEntry::FixedQuestion(question)
-                if question.delivery_state == AssignmentDeliveryState::Active)
+                if question.availability == AssignmentEntryAvailability::Available)
         });
         let has_deliverable_question_pool = entries.iter().any(|entry| match entry {
             AssignmentEntry::QuestionPool(pool) => {
-                pool.draw_count > 0
+                pool.availability == AssignmentEntryAvailability::Available
+                    && pool.draw_count > 0
                     && pool
                         .candidates
                         .iter()
-                        .filter(|candidate| candidate.delivery_state == AssignmentDeliveryState::Active)
+                        .filter(|candidate| {
+                            candidate.availability == QuestionPoolCandidateAvailability::Available
+                        })
                         .count()
                         >= usize::try_from(pool.draw_count).unwrap_or(usize::MAX)
             }
             AssignmentEntry::FixedQuestion(_) => false,
         });
-        let blocking_issues = (!has_active_fixed_question && !has_deliverable_question_pool)
+        let blocking_issues = (!has_available_fixed_question && !has_deliverable_question_pool)
             .then_some(AssignmentPublicationBlockingIssue::QuestionsRequired)
             .into_iter()
             .collect();
@@ -280,7 +285,7 @@ mod tests {
 
     #[test]
     fn empty_definition_names_the_questions_blocker() {
-        let readiness = AssignmentPublicationReadiness::from_entries(&[]);
+        let readiness = DraftAssignmentRevisionPublicationReadiness::from_entries(&[]);
 
         assert_eq!(
             readiness.blocking_issues,
@@ -307,7 +312,7 @@ mod tests {
             serde_json::from_str::<CreateAssignmentDraftRequest>(r#"{"title":"Protein folding"}"#)
                 .expect("strict draft request");
 
-        assert_eq!(request.title, "Protein folding");
+        assert_eq!(request.title.as_str(), "Protein folding");
     }
 
     #[test]
@@ -319,7 +324,7 @@ mod tests {
                     reason:
                         AssignmentPolicyConfigurationReason::SelectedQuestionVariantsWithQuestionPools,
                 },
-                AssignmentPoliciesValidationIssue::PublicationReadiness {
+                AssignmentPoliciesValidationIssue::DraftRevisionPublicationReadiness {
                     blocking_issues: vec![AssignmentPublicationBlockingIssue::QuestionsRequired],
                 },
             ],
@@ -336,7 +341,7 @@ mod tests {
                         "reason": "selectedQuestionVariantsWithQuestionPools"
                     },
                     {
-                        "kind": "publicationReadiness",
+                        "kind": "draftRevisionPublicationReadiness",
                         "blockingIssues": [{"kind": "questionsRequired"}]
                     }
                 ]
@@ -348,17 +353,21 @@ mod tests {
     }
 
     #[test]
-    fn issued_work_content_conflict_is_a_closed_browser_contract() {
-        let conflict = AssignmentContentIssuedWorkConflict {
-            kind: AssignmentContentIssuedWorkConflictKind::IssuedStudentWork,
+    fn successor_assignment_revision_requirement_is_a_closed_browser_contract() {
+        let requirement = SuccessorAssignmentRevisionRequired {
+            base_revision: serde_json::from_str(r#"{"assignment":"A-1","revision_number":"1"}"#)
+                .expect("exact Assignment Revision Reference"),
         };
 
-        let value = serde_json::to_value(conflict).expect("issued-work conflict serializes");
-        assert_eq!(value, serde_json::json!({ "kind": "issuedStudentWork" }));
-        assert!(serde_json::from_value::<AssignmentContentIssuedWorkConflict>(value).is_ok());
+        let value = serde_json::to_value(requirement).expect("successor requirement serializes");
+        assert_eq!(
+            value,
+            serde_json::json!({ "baseRevision": { "assignment": "A-1", "revision_number": "1" } })
+        );
+        assert!(serde_json::from_value::<SuccessorAssignmentRevisionRequired>(value).is_ok());
         assert!(
-            serde_json::from_value::<AssignmentContentIssuedWorkConflict>(
-                serde_json::json!({ "kind": "issuedStudentWork", "extra": true })
+            serde_json::from_value::<SuccessorAssignmentRevisionRequired>(
+                serde_json::json!({ "baseRevision": { "assignment": "A-1", "revision_number": "1" }, "extra": true })
             )
             .is_err()
         );
@@ -367,25 +376,29 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
-            r#"{"title":"Protein folding","entries":[]}"#,
+            r#"{"baseRevision":{"assignment":"A-1","revision_number":"1"},"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","drawCount":1,"pointsPerItem":"1","selectionRule":{"algorithm":"v1","ordering":"candidateOrder"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
             serde_json::from_str::<ReplaceAssignmentContentRequest>(
-                r#"{"title":"Protein folding","entries":[],"extra":true}"#,
+                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"drawCount":1,"pointsPerItem":"1","ordering":"candidateOrder"}]}"#,
             )
             .is_err()
         );
 
         let policy = ReplaceAssignmentPoliciesRequest {
-            disclosure_policy: StudentDisclosurePolicy::default(),
+            base_revision: serde_json::from_str(r#"{"assignment":"A-1","revision_number":"1"}"#)
+                .expect("exact Assignment Revision Reference"),
+            student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssignmentActivityRules {
-                completion: crate::CompletionRequirement::AnswerAll,
-                grade: crate::GradePolicy::Highest,
-                continued_practice: crate::ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
+                assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
+                assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
+                assignment_attempt_continuation_rule:
+                    crate::AssignmentAttemptContinuationRule::Unlimited,
+                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                ..AssignmentActivityRules::default()
             },
-            teaching_settings: InstructorAssignmentTeachingSettingsLocal::new(
+            assignment_revision_definition: InstructorAssignmentRevisionDefinitionLocal::new(
                 "America/Chicago".parse().expect("IANA zone"),
                 AssignmentLifecycle::Draft,
                 crate::AssignmentInstructions::default(),
@@ -394,15 +407,16 @@ mod tests {
                 None,
                 None,
                 None,
-                crate::LateSubmissionPolicy::Accept,
-                crate::AssignmentDeadlineBehavior::AutoSubmit,
+                crate::LateWorkRule::Accept,
+                crate::AssignmentDeadlineRule::AutoSubmit,
             )
             .expect("draft settings"),
         };
         let mut value = serde_json::to_value(&policy).expect("policy request serialization");
         let record = value.as_object().expect("policy request object");
-        assert!(record.contains_key("disclosurePolicy"));
-        assert!(record.contains_key("teachingSettings"));
+        assert!(record.contains_key("baseRevision"));
+        assert!(record.contains_key("studentFeedbackReleaseRule"));
+        assert!(record.contains_key("assignmentRevisionDefinition"));
         assert_eq!(
             serde_json::from_value::<ReplaceAssignmentPoliciesRequest>(value.clone())
                 .expect("policy request roundtrip"),

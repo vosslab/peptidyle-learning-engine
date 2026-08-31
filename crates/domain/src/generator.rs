@@ -54,7 +54,7 @@ pub enum GeneratedValue {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeneratedVariant {
-    /// Generator identifier and version pinned by the published problem version.
+    /// Generator identifier and version pinned by the published Question Version.
     pub generator: Option<GeneratorReference>,
     /// Generated values in stable parameter-name order.
     pub parameters: BTreeMap<String, GeneratedValue>,

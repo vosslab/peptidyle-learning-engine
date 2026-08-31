@@ -9,7 +9,7 @@ import { query, Router } from "@solidjs/router";
 
 import { createBrowserApiClient } from "./api/browser_client";
 import { browserFetch } from "./api/http_client";
-import { ApiRuntimeProvider, createApiRuntime } from "./api/runtime";
+import { ApplicationApiProvider, createApplicationApi } from "./api/application_api";
 import { App } from "./app";
 import { createBrowserSessionBoundary } from "./auth/browser_session_boundary";
 import { SessionProvider } from "./auth/session_context";
@@ -29,11 +29,11 @@ log.info("peptidyle client booting");
 
 const sessionBoundary = createBrowserSessionBoundary(browserFetch, query.clear);
 const apiClient = createBrowserApiClient({ fetch: sessionBoundary.fetch });
-const apiRuntime = createApiRuntime(apiClient);
+const applicationApi = createApplicationApi(apiClient);
 
 render(
   () => (
-    <ApiRuntimeProvider runtime={apiRuntime}>
+    <ApplicationApiProvider applicationApi={applicationApi}>
       <SessionProvider
         getSession={apiClient.getSession}
         logout={apiClient.logout}
@@ -41,13 +41,13 @@ render(
       >
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}
-          timerFallback={apiClient.timerVerdictOnServer}
+          timerFallback={apiClient.questionAttemptTimingDecisionOnServer}
           capabilityFallback={apiClient.validateAssignmentConfigOnServer}
         >
           <Router root={App}>{[...appRoutes, notFoundRoute]}</Router>
         </WasmRuntimeProvider>
       </SessionProvider>
-    </ApiRuntimeProvider>
+    </ApplicationApiProvider>
   ),
   mountPoint,
 );

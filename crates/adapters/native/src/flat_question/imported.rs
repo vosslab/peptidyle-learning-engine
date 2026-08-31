@@ -63,7 +63,7 @@ pub struct ImportedSingleChoiceInput {
 }
 
 impl ImportedSingleChoiceInput {
-    /// Creates the bounded trusted input to the native import factory.
+    /// Creates the bounded trusted input to the native flat-question import.
     pub fn new(
         title: String,
         prompt: String,
@@ -102,7 +102,7 @@ pub struct ImportedFlatQuestion {
     document: FlatQuestionDocument,
 }
 
-/// Input failure for the trusted import factory.
+/// Input failure for trusted flat-question import construction.
 ///
 /// This error deliberately records only the failure class, never a title,
 /// prompt, choice, correct answer, or other imported value.

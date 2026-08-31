@@ -1,6 +1,8 @@
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 use question_model::generation::Seed;
-use question_model::{AttemptProvenance, FeedbackContent, QuestionDefinition, StudentResponse};
+use question_model::{
+    FeedbackContent, QuestionAttemptSourceRecord, QuestionDefinition, StudentResponse,
+};
 
 use crate::reproduction::{resolve_asset_objects, verify_record};
 use crate::{AssetObjectBinding, NativeAdapter, NativeAdapterError};
@@ -15,25 +17,25 @@ impl NativeAdapter {
         question: &QuestionDefinition,
         seed: Seed,
         recorded_parameter_hash: &str,
-        recorded_provenance: &AttemptProvenance,
+        recorded_source_record: &QuestionAttemptSourceRecord,
         asset_bindings: &[AssetObjectBinding],
         response: &StudentResponse,
-    ) -> Result<GradeOutcome, NativeAdapterError> {
+    ) -> Result<QuestionGradingOutcome, NativeAdapterError> {
         let adapter_execution = self.execution_for(
             &self.adapter_implementations,
-            &recorded_provenance.adapter,
+            &recorded_source_record.adapter,
             "adapter",
         )?;
         let grading_execution = self.execution_for(
             &self.grading_implementations,
-            &recorded_provenance.grading,
+            &recorded_source_record.grading,
             "grading",
         )?;
         let prepared = self.prepare_with_execution(question, seed, adapter_execution)?;
         verify_record(
             &prepared,
             recorded_parameter_hash,
-            recorded_provenance,
+            recorded_source_record,
             &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
         )?;
         grading_execution
@@ -48,31 +50,31 @@ impl NativeAdapter {
     /// Reproduces, verifies, grades, and materializes private teaching content in one pass.
     ///
     /// Keeping this separate from [`Self::grade`] prevents feedback from being
-    /// recreated against a different instance or provenance record.
+    /// recreated against a different instance or source record.
     pub fn grade_with_feedback(
         &self,
         question: &QuestionDefinition,
         seed: Seed,
         recorded_parameter_hash: &str,
-        recorded_provenance: &AttemptProvenance,
+        recorded_source_record: &QuestionAttemptSourceRecord,
         asset_bindings: &[AssetObjectBinding],
         response: &StudentResponse,
-    ) -> Result<(GradeOutcome, FeedbackContent), NativeAdapterError> {
+    ) -> Result<(QuestionGradingOutcome, FeedbackContent), NativeAdapterError> {
         let adapter_execution = self.execution_for(
             &self.adapter_implementations,
-            &recorded_provenance.adapter,
+            &recorded_source_record.adapter,
             "adapter",
         )?;
         let grading_execution = self.execution_for(
             &self.grading_implementations,
-            &recorded_provenance.grading,
+            &recorded_source_record.grading,
             "grading",
         )?;
         let prepared = self.prepare_with_execution(question, seed, adapter_execution)?;
         verify_record(
             &prepared,
             recorded_parameter_hash,
-            recorded_provenance,
+            recorded_source_record,
             &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
         )?;
         let outcome = grading_execution
@@ -82,7 +84,7 @@ impl NativeAdapter {
                 prepared.materialized.answer_key.as_ref(),
             )
             .map_err(NativeAdapterError::Grading)?;
-        let GradeOutcome::Graded(result) = &outcome else {
+        let QuestionGradingOutcome::Graded(result) = &outcome else {
             return Ok((outcome, FeedbackContent::default()));
         };
         let implementation =

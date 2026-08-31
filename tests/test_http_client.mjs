@@ -8,8 +8,9 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
   decodeDraftQuestionDefinition,
-  decodeStudentSubmissionStatus,
-  decodeQuestionEnvelope,
+  decodeQuestionSubmissionAcknowledgement,
+  decodeQuestionPresentation,
+  decodeAssignmentAttempt,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import {
@@ -33,32 +34,49 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
 
 test("issued external-tool envelopes accept only their public marker", () => {
   const envelope = {
-    questionVersion: { questionId: "7K3-M9QP", versionNumber: 1 },
-    seed: 2,
+    variation: {
+      questionVersion: { questionId: "7K3-M9QP", versionNumber: 1 },
+      seed: 2,
+    },
     title: "External practice item",
     prompt: [],
     response: { kind: "externalTool" },
   };
-  assert.deepEqual(decodeQuestionEnvelope(envelope).response, { kind: "externalTool" });
+  assert.deepEqual(decodeQuestionPresentation(envelope).response, { kind: "externalTool" });
   assert.throws(
     () =>
-      decodeQuestionEnvelope({ ...envelope, response: { kind: "externalTool", token: "secret" } }),
+      decodeQuestionPresentation({
+        ...envelope,
+        variation: {
+          ...envelope.variation,
+          generator: { id: "secret", version: "1" },
+        },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeQuestionPresentation({
+        ...envelope,
+        response: { kind: "externalTool", token: "secret" },
+      }),
     DecodeError,
   );
 });
 
-test("Student submission status decoder accepts only closed answer-free pending alternatives", () => {
+test("Question Submission acknowledgement separates its answer-free receipt and grading state", () => {
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
   const pending = {
-    kind: "accepted_pending",
-    accepted: true,
-    attemptId: attempt.id,
-    automatedGradingStatus: "pending",
+    receipt: { accepted: true, attemptId: attempt.id },
+    gradingState: "pending",
     nextAction: "check_status",
   };
-  assert.deepEqual(decodeStudentSubmissionStatus(pending), pending);
-  assert.throws(() => decodeStudentSubmissionStatus({ ...pending, kind: "unknown" }), DecodeError);
+  assert.deepEqual(decodeQuestionSubmissionAcknowledgement(pending), pending);
+  assert.throws(
+    () => decodeQuestionSubmissionAcknowledgement({ ...pending, gradingState: "unknown" }),
+    DecodeError,
+  );
   for (const forbidden of [
     "response",
     "feedback",
@@ -68,15 +86,15 @@ test("Student submission status decoder accepts only closed answer-free pending 
     "nextPending",
   ]) {
     assert.throws(
-      () => decodeStudentSubmissionStatus({ ...pending, [forbidden]: "private" }),
+      () => decodeQuestionSubmissionAcknowledgement({ ...pending, [forbidden]: "private" }),
       DecodeError,
       forbidden,
     );
   }
   assert.throws(
-    () => decodeStudentSubmissionStatus({ ...pending, attempt: {} }),
+    () => decodeQuestionSubmissionAcknowledgement({ ...pending, attempt: {} }),
     DecodeError,
-    "completed receipt fields cannot mix with pending acknowledgement",
+    "pending acknowledgement cannot mix detailed receipt material at its outer boundary",
   );
 });
 
@@ -140,6 +158,19 @@ test("Assignment Attempt start uses the explicit nested course and assignment ro
   assert.equal(await request.text(), "");
 });
 
+test("Assignment Attempt transport preserves its exact published Assignment Revision", () => {
+  const assignmentAttempt = publishedProblemFixture.runs[0];
+  assert.ok(assignmentAttempt);
+  assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).assignmentRevision, {
+    assignment: "A-1",
+    revision_number: "1",
+  });
+  assert.throws(() => {
+    const { assignmentRevision: _revision, ...withoutRevision } = assignmentAttempt;
+    return decodeAssignmentAttempt(withoutRevision);
+  }, DecodeError);
+});
+
 test("prefetch rejects a descriptor with a mismatched issued identity", async () => {
   const course = publishedProblemFixture.course;
   const assignment = publishedProblemFixture.assignment;
@@ -166,7 +197,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
         },
         seed: envelope.seed,
         renderedQuestionSha256: "a".repeat(64),
-        poolSelection: null,
+        questionPoolSelection: null,
         envelope,
       }),
   });
@@ -176,7 +207,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
   );
 });
 
-test("prefetch preserves safe pool provenance for the cache-hit successor", async () => {
+test("prefetch preserves safe Question Pool selection for the cache-hit successor", async () => {
   const course = publishedProblemFixture.course;
   const assignment = publishedProblemFixture.assignment;
   const predecessor = publishedProblemFixture.attempts[0];
@@ -189,12 +220,12 @@ test("prefetch preserves safe pool provenance for the cache-hit successor", asyn
         issuedQuestion: publishedProblemFixture.issuedQuestions[1],
         seed: envelope.seed,
         renderedQuestionSha256: "b".repeat(64),
-        poolSelection: { itemNumber: 1, itemCount: 2 },
+        questionPoolSelection: { itemNumber: 1, itemCount: 2 },
         envelope,
       }),
   });
   const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
-  assert.deepEqual(prefetched?.poolSelection, { itemNumber: 1, itemCount: 2 });
+  assert.deepEqual(prefetched?.questionPoolSelection, { itemNumber: 1, itemCount: 2 });
 });
 
 test("external-tool launch is a strict same-origin route projection", async () => {
@@ -250,17 +281,22 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
-  const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
+  const { questionPoolSelection: _questionPoolSelection, ...receiptAttempt } = attempt;
   const response = { kind: "numeric", value: 18 };
   const receipt = {
-    kind: "completed",
-    accepted: true,
-    attempt: { ...receiptAttempt, response, result: null },
-    feedback: null,
-    scoringStatus: "current",
-    assignmentAttemptCompletion: "inProgress",
-    nextIssued: null,
-    nextPending: false,
+    receipt: {
+      accepted: true,
+      attempt: {
+        ...receiptAttempt,
+        submission: { ...receiptAttempt.submission, response, gradingResult: null },
+      },
+      feedback: null,
+      scoringStatus: "current",
+      assignmentAttemptCompletion: "inProgress",
+      nextIssued: null,
+      nextPending: false,
+    },
+    gradingState: "graded",
   };
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
   const client = createHttpApiClient({ fetch: recordingFetch });
@@ -283,10 +319,8 @@ test("submission status uses its route-bound same-origin no-store GET", async ()
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
   const pending = {
-    kind: "accepted_pending",
-    accepted: true,
-    attemptId: attempt.id,
-    automatedGradingStatus: "pending",
+    receipt: { accepted: true, attemptId: attempt.id },
+    gradingState: "pending",
     nextAction: "check_status",
   };
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(pending, 202));
@@ -310,16 +344,25 @@ test("external-tool submission sends only the marker with its caller idempotency
   const assignment = publishedProblemFixture.assignment;
   const attempt = publishedProblemFixture.attempts[0];
   assert.ok(attempt);
-  const { poolSelection: _poolSelection, ...receiptAttempt } = attempt;
+  const { questionPoolSelection: _questionPoolSelection, ...receiptAttempt } = attempt;
   const receipt = {
-    kind: "completed",
-    accepted: true,
-    attempt: { ...receiptAttempt, response: { kind: "externalTool" }, result: null },
-    feedback: null,
-    scoringStatus: "current",
-    assignmentAttemptCompletion: "inProgress",
-    nextIssued: null,
-    nextPending: false,
+    receipt: {
+      accepted: true,
+      attempt: {
+        ...receiptAttempt,
+        submission: {
+          ...receiptAttempt.submission,
+          response: { kind: "externalTool" },
+          gradingResult: null,
+        },
+      },
+      feedback: null,
+      scoringStatus: "current",
+      assignmentAttemptCompletion: "inProgress",
+      nextIssued: null,
+      nextPending: false,
+    },
+    gradingState: "graded",
   };
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
   const client = createHttpApiClient({ fetch: recordingFetch });

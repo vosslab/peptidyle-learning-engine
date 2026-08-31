@@ -4,7 +4,7 @@ import { useParams } from "@solidjs/router";
 import { createSignal, onMount, type JSX } from "solid-js";
 
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import {
   questionCurationPickerSources,
@@ -15,21 +15,19 @@ import { CurriculumDetailRoutePage } from "./curriculum_detail_route_page";
 import { CurriculumRoutePage } from "./curriculum_route_page";
 
 interface CurriculumRouteComposition {
-  readonly client: ReturnType<typeof useApiRuntime>["client"];
+  readonly client: ReturnType<typeof useApplicationApi>["client"];
   readonly pickerRepository: ReturnType<typeof createQuestionCurationRepository>["picker"];
   readonly pickerSources: () => ReturnType<typeof questionCurationPickerSources>;
 }
 
 /** Connects the live curation sources shared by curriculum definition editors. */
 function useCurriculumRouteComposition(): CurriculumRouteComposition {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const session = useSessionBootstrap();
-  const catalog = createQuestionLibraryRepository(runtime.client);
-  const curation = createQuestionCurationRepository(runtime.client, catalog);
+  const questionLibrary = createQuestionLibraryRepository(runtime.client);
+  const curation = createQuestionCurationRepository(runtime.client, questionLibrary);
   const [folders, setFolders] = createSignal<
-    ReadonlyArray<
-      import("../../generated/api/QuestionFolderSummaryView").QuestionFolderSummaryView
-    >
+    ReadonlyArray<import("../../generated/api/QuestionFolderSummaryView").QuestionFolderSummaryView>
   >([]);
 
   async function loadFolders(): Promise<void> {

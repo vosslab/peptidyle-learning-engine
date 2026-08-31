@@ -4,7 +4,7 @@
 //! retain Student identity, raw responses, answer choices, or object keys.
 
 use question_model::{
-    ActivityTimestamp, AssignmentId, AssignmentEntryId, CourseId, QuestionVersionReference,
+    ActivityTimestamp, AssignmentEntryId, AssignmentId, CourseId, QuestionVersionReference,
     ScoringGeneration,
 };
 use serde::{Deserialize, Serialize};

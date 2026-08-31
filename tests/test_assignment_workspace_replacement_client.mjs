@@ -17,8 +17,10 @@ const assignment = "0198e000-0000-7000-8000-000000000002";
 const item = "0198e000-0000-7000-8000-000000000003";
 
 function replacementEditorDetail() {
+  const { disclosurePolicy: _retiredDisclosurePolicy, ...assignmentDetail } =
+    publishedProblemFixture.assignment;
   const replacement = {
-    ...publishedProblemFixture.assignment,
+    ...assignmentDetail,
     id: assignment,
     courseId: course,
     entries: [
@@ -28,20 +30,20 @@ function replacementEditorDetail() {
         title: "Replacement peptide bond question",
       },
     ],
-    teachingSettings: {
+    assignmentRevisionDefinition: {
       timeZone: "America/Chicago",
       lifecycle: "draft",
       instructions: "Use a structural drawing.",
       availableAt: null,
       dueAt: null,
       closesAt: null,
-      timeLimitSeconds: null,
+      assignmentAttemptTimeLimitSeconds: null,
       attemptLimit: null,
-      lateSubmission: "accept",
-      deadlineBehavior: "autoSubmit",
+      lateWorkRule: "accept",
+      assignmentDeadlineRule: "autoSubmit",
     },
     currentState: { state: "draft" },
-    publicationReadiness: { blockingIssues: [] },
+    draftRevisionPublicationReadiness: { blockingIssues: [] },
   };
   return replacement;
 }
@@ -57,7 +59,7 @@ test("fixed-item replacement sends one revision-checked focused request", async 
   const client = createHttpApiClient({ fetch: recordingFetch });
 
   await assert.rejects(
-    client.replaceAssignmentFixedItem(course, assignment, item, "7K3-M9QP", '"4"'),
+    client.replaceAssignmentFixedItem(course, assignment, "A-1", item, "7K3-M9QP", '"4"'),
     AssignmentConflictError,
   );
 
@@ -71,10 +73,13 @@ test("fixed-item replacement sends one revision-checked focused request", async 
   assert.equal(request.headers.get("if-match"), '"4"');
   assert.equal(request.credentials, "same-origin");
   assert.equal(request.cache, "no-store");
-  assert.deepEqual(await request.json(), { questionId: "7K3-M9QP" });
+  assert.deepEqual(await request.json(), {
+    baseRevision: { assignment: "A-1", revision_number: "4" },
+    questionId: "7K3-M9QP",
+  });
 
   await assert.rejects(
-    client.replaceAssignmentFixedItem(course, assignment, item, "7K3-M9QP", '"4"'),
+    client.replaceAssignmentFixedItem(course, assignment, "A-1", item, "7K3-M9QP", '"4"'),
     (error) => {
       assert.ok(error instanceof AssignmentConflictError);
       assert.equal(error.status, 412);
@@ -102,6 +107,7 @@ test("fixed-item replacement decodes the revised editor detail and its new ETag"
   const replaced = await client.replaceAssignmentFixedItem(
     course,
     assignment,
+    "A-1",
     item,
     "1A2-B3CD",
     '"4"',
@@ -123,7 +129,7 @@ test("fixed-item replacement rejects a cacheable editor response", async () => {
   });
 
   await assert.rejects(
-    client.replaceAssignmentFixedItem(course, assignment, item, "1A2-B3CD", '"4"'),
+    client.replaceAssignmentFixedItem(course, assignment, "A-1", item, "1A2-B3CD", '"4"'),
     (error) => error instanceof ApiProtocolError && error.message.includes("must be no-store"),
   );
 });
@@ -136,7 +142,7 @@ test("fixed-item replacement refuses invalid browser locators before transport",
   });
 
   await assert.rejects(
-    client.replaceAssignmentFixedItem(course, assignment, "", "7K3-M9QP", '"4"'),
+    client.replaceAssignmentFixedItem(course, assignment, "A-1", "", "7K3-M9QP", '"4"'),
     ApiProtocolError,
   );
 });

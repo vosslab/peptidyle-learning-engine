@@ -72,15 +72,15 @@ test("picker enforces the shared bounded selection limit", () => {
 });
 
 test("picker session drops a stale source response before publishing it", async () => {
-  let resolveCatalog;
-  const catalog = new Promise((resolve) => {
-    resolveCatalog = resolve;
+  let resolveQuestionLibrary;
+  const questionLibrary = new Promise((resolve) => {
+    resolveQuestionLibrary = resolve;
   });
   const states = [];
   const session = new QuestionPickerSession(
     {
       search: async (request) => {
-        if (request.source.kind === "library") return await catalog;
+        if (request.source.kind === "library") return await questionLibrary;
         return { items: [row("2R5-X7YA", "Mine")], aggregates: [], nextCursor: null };
       },
     },
@@ -88,7 +88,7 @@ test("picker session drops a stale source response before publishing it", async 
   );
   const first = session.reset({ kind: "library", label: "Library" }, { ...emptyQuery() });
   const second = session.reset({ kind: "mine", label: "My questions" }, { ...emptyQuery() });
-  resolveCatalog({ items: [row("7K3-M9QP", "Stale")], aggregates: [], nextCursor: null });
+  resolveQuestionLibrary({ items: [row("7K3-M9QP", "Stale")], aggregates: [], nextCursor: null });
   await Promise.all([first, second]);
   assert.equal(states.at(-1)?.kind, "ready");
   assert.equal(states.at(-1)?.rows[0]?.title, "Mine");

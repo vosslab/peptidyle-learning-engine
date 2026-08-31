@@ -11,22 +11,26 @@ use serde::{Deserialize, Serialize};
 
 mod revision;
 mod teaching_settings_local;
-pub use revision::{AssignmentRevision, AssignmentRevisionError};
+pub use revision::{AssignmentRevisionNumber, AssignmentRevisionNumberError};
 pub use teaching_settings_local::{
-    AssignmentTeachingSettingsFailureCode, AssignmentTeachingSettingsFailureReason,
-    AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError,
-    AssignmentTeachingSettingsValidationFailure, CourseLocalDateTime, CourseLocalDateTimeError,
-    InstructorAssignmentCurrentState, InstructorAssignmentTeachingSettingsLocal,
-    derive_instructor_assignment_current_state,
+    AssignmentRevisionDefinitionFailureCode, AssignmentRevisionDefinitionFailureReason,
+    AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError,
+    AssignmentRevisionDefinitionValidationFailure, CourseLocalDateAndTime,
+    CourseLocalDateAndTimeError, InstructorAssignmentCurrentState,
+    InstructorAssignmentRevisionDefinitionLocal, derive_instructor_assignment_current_state,
 };
 
 use crate::{
-    ActivityTimestamp, AssignmentEntryId, QuestionPoolCandidateId, QuestionVersionReference,
+    ActivityTimestamp, AssignmentActivityRules, AssignmentEntryId, QuestionPoolCandidateId,
+    QuestionVersionReference,
 };
 
 const POINT_SCALE: i64 = 10_000;
 const MAX_WHOLE_POINTS: i64 = 1_000_000_000;
 const MAX_SCALED_POINTS: i64 = MAX_WHOLE_POINTS * POINT_SCALE + (POINT_SCALE - 1);
+
+/// Maximum Unicode scalar values in one human-facing Assignment Title.
+pub const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS: usize = 200;
 
 /// Largest accepted assignment-instructions length, measured in Unicode scalars.
 pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
@@ -53,6 +57,72 @@ pub enum AssignmentLifecycle {
     Closed,
     /// The assignment is permanently retired from student access.
     Archived,
+}
+
+/// Validation failure for browser-safe Assignment Titles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssignmentTitleError {
+    /// Titles must contain visible text after trimming.
+    Blank,
+    /// Titles exceed the bounded shared-contract payload.
+    TooLong,
+}
+
+impl std::fmt::Display for AssignmentTitleError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Blank => formatter.write_str("assignment title must contain non-whitespace text"),
+            Self::TooLong => formatter.write_str("assignment title exceeds the maximum length"),
+        }
+    }
+}
+
+impl std::error::Error for AssignmentTitleError {}
+
+/// A validated human-facing Assignment Title.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct AssignmentTitle(String);
+
+impl AssignmentTitle {
+    /// Validates a title while retaining its authored spacing for display.
+    pub fn try_new(value: String) -> Result<Self, AssignmentTitleError> {
+        if value.trim().is_empty() {
+            return Err(AssignmentTitleError::Blank);
+        }
+        if value.chars().count() > MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS {
+            return Err(AssignmentTitleError::TooLong);
+        }
+        Ok(Self(value))
+    }
+
+    /// Returns the exact authored title.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for AssignmentTitle {
+    type Error = AssignmentTitleError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
+}
+
+impl From<AssignmentTitle> for String {
+    fn from(value: AssignmentTitle) -> Self {
+        value.0
+    }
+}
+
+impl<'de> Deserialize<'de> for AssignmentTitle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::try_new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
 }
 
 /// Validation failure for browser-safe assignment instructions.
@@ -164,7 +234,7 @@ pub enum ScoringStatus {
 /// Whether work arriving after the ordinary due date remains acceptable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum LateSubmissionPolicy {
+pub enum LateWorkRule {
     /// Accept work after the due date until another hard boundary closes it.
     Accept,
     /// Accept it but preserve the late condition for later reporting.
@@ -180,7 +250,7 @@ pub enum LateSubmissionPolicy {
 /// deliberate extension point without accepting an unsupported boolean state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentDeadlineBehavior {
+pub enum AssignmentDeadlineRule {
     /// The server closes active work independently of browser connectivity.
     AutoSubmit,
 }
@@ -196,13 +266,13 @@ pub struct BaseAssignmentPolicy {
     /// Hard instant after which new work is closed.
     pub closes_at: Option<ActivityTimestamp>,
     /// Whole-run time limit when one applies.
-    pub time_limit_seconds: Option<NonZeroU32>,
+    pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of runs when one applies.
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
-    pub late_submission: LateSubmissionPolicy,
+    pub late_work_rule: LateWorkRule,
     /// Server behavior at an effective assignment deadline.
-    pub deadline_behavior: AssignmentDeadlineBehavior,
+    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
 impl Default for BaseAssignmentPolicy {
@@ -211,32 +281,35 @@ impl Default for BaseAssignmentPolicy {
             available_at: None,
             due_at: None,
             closes_at: None,
-            time_limit_seconds: None,
+            assignment_attempt_time_limit_seconds: None,
             attempt_limit: None,
-            late_submission: LateSubmissionPolicy::Accept,
-            deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+            late_work_rule: LateWorkRule::Accept,
+            assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
         }
     }
 }
 
-/// Shared instructor-facing assignment teaching settings.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// The lifecycle, instructions, base policy, and activity rules carried by one Assignment Revision.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentTeachingSettings {
+pub struct AssignmentRevisionDefinition {
     /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// Base policy supplied to the effective-policy resolver.
     pub base_policy: BaseAssignmentPolicy,
+    /// The complete independent activity policy for future Assignment Attempts.
+    pub activity_rules: AssignmentActivityRules,
 }
 
-impl Default for AssignmentTeachingSettings {
+impl Default for AssignmentRevisionDefinition {
     fn default() -> Self {
         Self {
             lifecycle: AssignmentLifecycle::Draft,
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy::default(),
+            activity_rules: AssignmentActivityRules::default(),
         }
     }
 }
@@ -244,22 +317,22 @@ impl Default for AssignmentTeachingSettings {
 /// Largest whole-run limit representable by the current PostgreSQL `INTEGER`
 /// columns. Keeping this public makes every browser and storage boundary share
 /// the same lossless domain without a needless `BIGINT` migration.
-pub const MAX_ASSIGNMENT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
+pub const MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
 
 /// Largest attempt limit representable by the normalized PostgreSQL `INTEGER`
 /// policy column. Keeping it separate from the time-limit name prevents a
 /// browser-only value that the PostgreSQL implementation cannot persist.
 pub const MAX_ASSIGNMENT_ATTEMPT_LIMIT: u32 = 2_147_483_647;
 
-/// Exact nonnegative point value with four decimal places of precision.
+/// Exact Assignment-owned point value with four decimal places of precision.
 ///
 /// JSON represents this as a decimal string so JavaScript cannot silently
 /// round an instructor-authored value before it reaches PostgreSQL `NUMERIC`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct PointValue(i64);
+pub struct AssignmentPointValue(i64);
 
-impl PointValue {
+impl AssignmentPointValue {
     /// Zero points, used for remediation without retiring the item.
     pub const ZERO: Self = Self(0);
 
@@ -293,7 +366,7 @@ impl PointValue {
     }
 }
 
-impl std::fmt::Display for PointValue {
+impl std::fmt::Display for AssignmentPointValue {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let whole = self.0 / POINT_SCALE;
         let fractional = self.0 % POINT_SCALE;
@@ -306,7 +379,7 @@ impl std::fmt::Display for PointValue {
     }
 }
 
-impl FromStr for PointValue {
+impl FromStr for AssignmentPointValue {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -347,7 +420,7 @@ impl FromStr for PointValue {
     }
 }
 
-impl TryFrom<String> for PointValue {
+impl TryFrom<String> for AssignmentPointValue {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -355,18 +428,28 @@ impl TryFrom<String> for PointValue {
     }
 }
 
-impl From<PointValue> for String {
-    fn from(value: PointValue) -> Self {
+impl From<AssignmentPointValue> for String {
+    fn from(value: AssignmentPointValue) -> Self {
         value.to_string()
     }
 }
 
-/// Whether an item remains deliverable in future runs.
+/// Whether a top-level Assignment Entry remains available for future Assignment Attempts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentDeliveryState {
-    /// Deliver and score this item normally according to its scoring mode.
-    Active,
+pub enum AssignmentEntryAvailability {
+    /// Make this Assignment Entry available for future Assignment Attempts.
+    Available,
+    /// Referential tombstone retained for protected existing responses.
+    Retired,
+}
+
+/// Whether a candidate remains available for selection by its owning Question Pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionPoolCandidateAvailability {
+    /// Make this Question Pool Candidate available for future Question Pool Selections.
+    Available,
     /// Referential tombstone retained for protected existing responses.
     Retired,
 }
@@ -374,7 +457,7 @@ pub enum AssignmentDeliveryState {
 /// Current scoring treatment for one stable Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentScoringMode {
+pub enum AssignmentEntryScoringRule {
     /// Multiply normalized credit by current points and include the denominator.
     Normal,
     /// Award full current points regardless of normalized credit.
@@ -391,14 +474,14 @@ pub enum AssignmentScoringMode {
 pub struct FixedQuestionAssignmentEntry {
     /// Stable identity preserved across point and order changes.
     pub id: AssignmentEntryId,
-    /// Exact immutable catalog content pinned by this item.
+    /// Exact immutable Question Library content pinned by this item.
     pub reference: QuestionVersionReference,
     /// Current assignment-authored points.
-    pub points_possible: PointValue,
-    /// Whether future runs may receive the item.
-    pub delivery_state: AssignmentDeliveryState,
+    pub points_possible: AssignmentPointValue,
+    /// Whether future Assignment Attempts may receive this Assignment Entry.
+    pub availability: AssignmentEntryAvailability,
     /// Current-only scoring treatment.
-    pub scoring_mode: AssignmentScoringMode,
+    pub scoring_rule: AssignmentEntryScoringRule,
 }
 
 /// Ordering policy for candidates selected into a run.
@@ -441,16 +524,26 @@ impl PoolDrawAlgorithm {
     }
 }
 
+/// Complete reviewed selection behavior for one Question Pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionPoolSelectionRule {
+    /// Reviewed candidate-ranking implementation.
+    pub algorithm: PoolDrawAlgorithm,
+    /// Output ordering after selection.
+    pub ordering: SelectionOrdering,
+}
+
 /// One pinned candidate eligible for its owning Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionPoolCandidate {
     /// Stable candidate identity used for retirement and audit actions.
     pub id: QuestionPoolCandidateId,
-    /// Exact immutable catalog version eligible for selection.
+    /// Exact immutable Question Library version eligible for selection.
     pub reference: QuestionVersionReference,
-    /// Whether future runs may select this candidate.
-    pub delivery_state: AssignmentDeliveryState,
+    /// Whether future Question Pool Selections may select this candidate.
+    pub availability: QuestionPoolCandidateAvailability,
 }
 
 /// A Question Pool Assignment Entry; issued Questions snapshot the selected result.
@@ -459,14 +552,16 @@ pub struct QuestionPoolCandidate {
 pub struct QuestionPoolAssignmentEntry {
     /// Stable Assignment Entry identity.
     pub id: AssignmentEntryId,
-    /// Number of active candidates selected for each future run.
+    /// Whether future Assignment Attempts may receive this Assignment Entry.
+    pub availability: AssignmentEntryAvailability,
+    /// Current-only scoring rule applied to every selected candidate.
+    pub scoring_rule: AssignmentEntryScoringRule,
+    /// Number of available candidates selected for each future Assignment Attempt.
     pub draw_count: u32,
     /// Uniform current points for each selected candidate.
-    pub points_per_item: PointValue,
-    /// Output ordering after selection.
-    pub ordering: SelectionOrdering,
-    /// Closed reviewed algorithm needed to reproduce selection.
-    pub algorithm: PoolDrawAlgorithm,
+    pub points_per_item: AssignmentPointValue,
+    /// Complete reviewed algorithm and output-ordering behavior.
+    pub selection_rule: QuestionPoolSelectionRule,
     /// Pinned candidate set; search criteria are deliberately absent.
     pub candidates: Vec<QuestionPoolCandidate>,
 }
@@ -476,7 +571,11 @@ pub struct QuestionPoolAssignmentEntry {
 /// Collection order is the authored delivery order. Fixed Questions and
 /// Question Pools deliberately share one identity and one top-level sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum AssignmentEntry {
     /// One exact published Question delivered as written.
     FixedQuestion(FixedQuestionAssignmentEntry),
@@ -487,25 +586,25 @@ pub enum AssignmentEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CourseTerm, IanaTimeZone};
+    use crate::{CourseTerm, CourseTimeZone};
     use chrono::{TimeZone, Utc};
 
     fn course_term(time_zone: &str) -> CourseTerm {
         CourseTerm::from_parts("2026-01-01", "2026-12-31", time_zone).expect("valid course term")
     }
 
-    fn local(value: &str) -> CourseLocalDateTime {
-        CourseLocalDateTime::parse(value).expect("valid local wall-clock value")
+    fn local(value: &str) -> CourseLocalDateAndTime {
+        CourseLocalDateAndTime::parse(value).expect("valid local wall-clock value")
     }
 
     fn local_settings(
         time_zone: &str,
-        available_at: Option<CourseLocalDateTime>,
-        due_at: Option<CourseLocalDateTime>,
-        closes_at: Option<CourseLocalDateTime>,
-    ) -> InstructorAssignmentTeachingSettingsLocal {
-        InstructorAssignmentTeachingSettingsLocal::new(
-            IanaTimeZone::parse(time_zone).expect("known zone"),
+        available_at: Option<CourseLocalDateAndTime>,
+        due_at: Option<CourseLocalDateAndTime>,
+        closes_at: Option<CourseLocalDateAndTime>,
+    ) -> InstructorAssignmentRevisionDefinitionLocal {
+        InstructorAssignmentRevisionDefinitionLocal::new(
+            CourseTimeZone::parse(time_zone).expect("known zone"),
             AssignmentLifecycle::Published,
             AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
@@ -514,8 +613,8 @@ mod tests {
             closes_at,
             NonZeroU32::new(900),
             NonZeroU32::new(2),
-            LateSubmissionPolicy::MarkLate,
-            AssignmentDeadlineBehavior::AutoSubmit,
+            LateWorkRule::MarkLate,
+            AssignmentDeadlineRule::AutoSubmit,
         )
         .expect("valid local settings")
     }
@@ -523,14 +622,18 @@ mod tests {
     #[test]
     fn point_values_round_trip_without_binary_floating_point() {
         for value in ["0", "1", "2.5", "100.125", "0.0001"] {
-            let points: PointValue = value.parse().expect("valid exact points");
+            let points: AssignmentPointValue = value.parse().expect("valid exact points");
             let json = serde_json::to_string(&points).expect("points serialize");
-            let decoded: PointValue = serde_json::from_str(&json).expect("points deserialize");
+            let decoded: AssignmentPointValue =
+                serde_json::from_str(&json).expect("points deserialize");
             assert_eq!(decoded, points);
             assert_eq!(decoded.to_string(), value);
         }
         for invalid in ["", "-1", "+1", "1.00001", "NaN", "1000000001"] {
-            assert!(invalid.parse::<PointValue>().is_err(), "{invalid}");
+            assert!(
+                invalid.parse::<AssignmentPointValue>().is_err(),
+                "{invalid}"
+            );
         }
     }
 
@@ -542,27 +645,31 @@ mod tests {
 
     #[test]
     fn point_values_add_and_multiply_exact_scaled_values() {
-        let one_and_a_half = PointValue::from_scaled(15_000).expect("in range");
-        let quarter = PointValue::from_scaled(2_500).expect("in range");
+        let one_and_a_half = AssignmentPointValue::from_scaled(15_000).expect("in range");
+        let quarter = AssignmentPointValue::from_scaled(2_500).expect("in range");
 
         assert_eq!(
-            one_and_a_half.checked_add(quarter).map(PointValue::scaled),
+            one_and_a_half
+                .checked_add(quarter)
+                .map(AssignmentPointValue::scaled),
             Some(17_500)
         );
         assert_eq!(
-            quarter.checked_mul_u32(6).map(PointValue::scaled),
+            quarter.checked_mul_u32(6).map(AssignmentPointValue::scaled),
             Some(15_000)
         );
     }
 
     #[test]
     fn point_values_reject_negative_and_overflowing_scaled_arithmetic() {
-        let maximum = PointValue::from_scaled(MAX_SCALED_POINTS).expect("maximum is valid");
-        let smallest = PointValue::from_scaled(1).expect("smallest is valid");
+        let maximum =
+            AssignmentPointValue::from_scaled(MAX_SCALED_POINTS).expect("maximum is valid");
+        let smallest = AssignmentPointValue::from_scaled(1).expect("smallest is valid");
 
-        assert!(PointValue::from_scaled(-1).is_none());
+        assert!(AssignmentPointValue::from_scaled(-1).is_none());
         assert!(
-            PointValue::from_scaled(MAX_SCALED_POINTS.checked_add(1).expect("i64 room")).is_none()
+            AssignmentPointValue::from_scaled(MAX_SCALED_POINTS.checked_add(1).expect("i64 room"))
+                .is_none()
         );
         assert!(maximum.checked_add(smallest).is_none());
         assert!(maximum.checked_mul_u32(2).is_none());
@@ -570,7 +677,7 @@ mod tests {
 
     #[test]
     fn assignment_time_limit_domain_matches_postgres_integer() {
-        assert_eq!(MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, 2_147_483_647);
+        assert_eq!(MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ATTEMPT_LIMIT, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ORDERED_ENTRIES, 1_024);
         assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, 1_024);
@@ -579,20 +686,23 @@ mod tests {
 
     #[test]
     fn assignment_revisions_use_canonical_postgres_bigint_strings() {
-        let revision: AssignmentRevision = "43".parse().expect("canonical revision");
+        let revision: AssignmentRevisionNumber = "43".parse().expect("canonical revision number");
         assert_eq!(serde_json::json!(revision), serde_json::json!("43"));
         assert_eq!(
             revision.checked_next().map(|value| value.to_string()),
             Some("44".into())
         );
         assert!(
-            AssignmentRevision::new(i64::MAX as u64)
+            AssignmentRevisionNumber::new(i64::MAX as u64)
                 .expect("maximum revision")
                 .checked_next()
                 .is_none()
         );
         for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
-            assert!(invalid.parse::<AssignmentRevision>().is_err(), "{invalid}");
+            assert!(
+                invalid.parse::<AssignmentRevisionNumber>().is_err(),
+                "{invalid}"
+            );
         }
     }
 
@@ -614,6 +724,24 @@ mod tests {
     }
 
     #[test]
+    fn assignment_title_is_transparent_and_validated() {
+        let title = AssignmentTitle::try_new("Protein folding".to_string()).expect("valid title");
+        assert_eq!(
+            serde_json::to_string(&title).expect("serialize"),
+            "\"Protein folding\""
+        );
+        assert!(serde_json::from_str::<AssignmentTitle>("\"   \"").is_err());
+        assert_eq!(
+            AssignmentTitle::try_new("   ".to_string()),
+            Err(AssignmentTitleError::Blank)
+        );
+        assert_eq!(
+            AssignmentTitle::try_new("a".repeat(MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS + 1)),
+            Err(AssignmentTitleError::TooLong)
+        );
+    }
+
+    #[test]
     fn assignment_instructions_reject_excessive_unicode_scalars() {
         let too_long = "a".repeat(MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS + 1);
         assert_eq!(
@@ -627,32 +755,43 @@ mod tests {
     }
 
     #[test]
-    fn teaching_settings_are_strict_and_use_direct_cutover_defaults() {
+    fn assignment_revision_definition_is_strict_and_uses_direct_cutover_defaults() {
         assert_eq!(
-            AssignmentTeachingSettings::default(),
-            AssignmentTeachingSettings {
+            AssignmentRevisionDefinition::default(),
+            AssignmentRevisionDefinition {
                 lifecycle: AssignmentLifecycle::Draft,
                 instructions: AssignmentInstructions::default(),
                 base_policy: BaseAssignmentPolicy {
-                    late_submission: LateSubmissionPolicy::Accept,
-                    deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                    late_work_rule: LateWorkRule::Accept,
+                    assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                     ..BaseAssignmentPolicy::default()
                 },
+                activity_rules: AssignmentActivityRules::default(),
             }
         );
         assert!(
-            serde_json::from_value::<AssignmentTeachingSettings>(serde_json::json!({
+            serde_json::from_value::<AssignmentRevisionDefinition>(serde_json::json!({
                 "lifecycle": "draft",
                 "instructions": "",
                 "basePolicy": {
                     "availableAt": null,
                     "dueAt": null,
                     "closesAt": null,
-                    "timeLimitSeconds": null,
+                    "assignmentAttemptTimeLimitSeconds": null,
                     "attemptLimit": null,
-                    "lateSubmission": "accept",
-                    "deadlineBehavior": "autoSubmit",
+                    "lateWorkRule": "accept",
+                    "assignmentDeadlineRule": "autoSubmit",
                     "unexpected": true
+                },
+                "activityRules": {
+                    "assignmentCompletionRule": { "kind": "answerAll" },
+                    "assignmentAttemptGradeRule": "highest",
+                    "assignmentAttemptContinuationRule": { "kind": "unlimited" },
+                    "questionVariationRule": "reuseQuestionsWithNewSeeds",
+                    "assignmentAttemptResumeRule": "resumable",
+                    "assignmentQuestionDisplayRule": "allQuestions",
+                    "assignmentNavigationRule": "freeNavigation",
+                    "assignmentQuestionOrderRule": "authoredOrder"
                 }
             }))
             .is_err()
@@ -660,7 +799,7 @@ mod tests {
     }
 
     #[test]
-    fn local_teaching_settings_round_trip_exact_milliseconds_in_utc_and_chicago() {
+    fn local_assignment_revision_definition_round_trips_exact_milliseconds() {
         let timestamp = ActivityTimestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
                 .single()
@@ -668,7 +807,7 @@ mod tests {
                 .timestamp_millis()
                 + 123,
         );
-        let settings = AssignmentTeachingSettings {
+        let settings = AssignmentRevisionDefinition {
             lifecycle: AssignmentLifecycle::Published,
             instructions: AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
@@ -676,28 +815,38 @@ mod tests {
                 available_at: Some(timestamp),
                 due_at: Some(timestamp),
                 closes_at: Some(timestamp),
-                time_limit_seconds: NonZeroU32::new(900),
+                assignment_attempt_time_limit_seconds: NonZeroU32::new(900),
                 attempt_limit: NonZeroU32::new(2),
-                late_submission: LateSubmissionPolicy::MarkLate,
-                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                late_work_rule: LateWorkRule::MarkLate,
+                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
+            },
+            activity_rules: AssignmentActivityRules {
+                assignment_attempt_resume_rule: crate::AssignmentAttemptResumeRule::SingleSession,
+                assignment_question_display_rule:
+                    crate::AssignmentQuestionDisplayRule::OneQuestionAtATime,
+                assignment_navigation_rule: crate::AssignmentNavigationRule::ForwardOnly,
+                assignment_question_order_rule: crate::AssignmentQuestionOrderRule::Shuffled,
+                ..AssignmentActivityRules::default()
             },
         };
-        let utc = InstructorAssignmentTeachingSettingsLocal::from_absolute(
+        let utc = InstructorAssignmentRevisionDefinitionLocal::from_absolute(
             &course_term("UTC"),
             &settings,
         )
         .expect("UTC projection");
         assert_eq!(
-            utc.available_at.as_ref().map(CourseLocalDateTime::as_str),
+            utc.available_at
+                .as_ref()
+                .map(CourseLocalDateAndTime::as_str),
             Some("2026-09-01T15:04:05.123")
         );
         assert_eq!(
-            utc.into_absolute(&course_term("UTC"))
+            utc.into_absolute(&course_term("UTC"), settings.activity_rules)
                 .expect("UTC resolution"),
             settings
         );
 
-        let chicago = InstructorAssignmentTeachingSettingsLocal::from_absolute(
+        let chicago = InstructorAssignmentRevisionDefinitionLocal::from_absolute(
             &course_term("America/Chicago"),
             &settings,
         )
@@ -706,19 +855,19 @@ mod tests {
             chicago
                 .available_at
                 .as_ref()
-                .map(CourseLocalDateTime::as_str),
+                .map(CourseLocalDateAndTime::as_str),
             Some("2026-09-01T10:04:05.123")
         );
         assert_eq!(
             chicago
-                .into_absolute(&course_term("America/Chicago"))
+                .into_absolute(&course_term("America/Chicago"), settings.activity_rules)
                 .expect("Chicago resolution"),
             settings
         );
     }
 
     #[test]
-    fn local_teaching_settings_refuse_dst_gap_ambiguity_and_mismatch() {
+    fn local_assignment_revision_definition_refuses_dst_gap_ambiguity_and_mismatch() {
         let term = course_term("America/Chicago");
         let gap = local_settings(
             "America/Chicago",
@@ -727,10 +876,12 @@ mod tests {
             None,
         );
         assert_eq!(
-            gap.into_absolute(&term),
-            Err(AssignmentTeachingSettingsLocalError::NonexistentLocalTime(
-                AssignmentTeachingSettingsField::AvailableAt
-            ))
+            gap.into_absolute(&term, AssignmentActivityRules::default()),
+            Err(
+                AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(
+                    AssignmentRevisionDefinitionField::AvailableAt
+                )
+            )
         );
         let ambiguity = local_settings(
             "America/Chicago",
@@ -739,25 +890,25 @@ mod tests {
             None,
         );
         assert_eq!(
-            ambiguity.into_absolute(&term),
-            Err(AssignmentTeachingSettingsLocalError::AmbiguousLocalTime(
-                AssignmentTeachingSettingsField::AvailableAt
+            ambiguity.into_absolute(&term, AssignmentActivityRules::default()),
+            Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
+                AssignmentRevisionDefinitionField::AvailableAt
             ))
         );
         let mismatch = local_settings("UTC", Some(local("2026-09-01T15:04:05.123")), None, None);
         assert_eq!(
-            mismatch.into_absolute(&term),
-            Err(AssignmentTeachingSettingsLocalError::CourseTimeZoneMismatch)
+            mismatch.into_absolute(&term, AssignmentActivityRules::default()),
+            Err(AssignmentRevisionDefinitionLocalError::CourseTimeZoneMismatch)
         );
     }
 
     #[test]
-    fn local_teaching_settings_are_strict_and_validate_schedule_and_integer_bounds() {
-        assert!(CourseLocalDateTime::parse("2026-09-01T10:04").is_err());
-        assert!(CourseLocalDateTime::parse("2026-09-01T10:04:05.12").is_err());
+    fn local_assignment_revision_definition_is_strict_and_validates_bounds() {
+        assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04").is_err());
+        assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04:05.12").is_err());
         assert_eq!(
-            InstructorAssignmentTeachingSettingsLocal::new(
-                IanaTimeZone::parse("UTC").expect("known zone"),
+            InstructorAssignmentRevisionDefinitionLocal::new(
+                CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentLifecycle::Draft,
                 AssignmentInstructions::default(),
                 Some(local("2026-09-01T10:05:00.000")),
@@ -765,14 +916,14 @@ mod tests {
                 None,
                 None,
                 None,
-                LateSubmissionPolicy::Accept,
-                AssignmentDeadlineBehavior::AutoSubmit,
+                LateWorkRule::Accept,
+                AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentTeachingSettingsLocalError::ScheduleOutOfOrder)
+            Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder)
         );
         assert_eq!(
-            InstructorAssignmentTeachingSettingsLocal::new(
-                IanaTimeZone::parse("UTC").expect("known zone"),
+            InstructorAssignmentRevisionDefinitionLocal::new(
+                CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentLifecycle::Draft,
                 AssignmentInstructions::default(),
                 None,
@@ -780,13 +931,13 @@ mod tests {
                 None,
                 None,
                 NonZeroU32::new(MAX_ASSIGNMENT_ATTEMPT_LIMIT + 1),
-                LateSubmissionPolicy::Accept,
-                AssignmentDeadlineBehavior::AutoSubmit,
+                LateWorkRule::Accept,
+                AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentTeachingSettingsLocalError::AttemptLimitOutOfRange)
+            Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange)
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentTeachingSettingsLocal>(
+            serde_json::from_value::<InstructorAssignmentRevisionDefinitionLocal>(
                 serde_json::json!({
                     "timeZone": "UTC",
                     "lifecycle": "draft",
@@ -794,16 +945,16 @@ mod tests {
                     "availableAt": null,
                     "dueAt": null,
                     "closesAt": null,
-                    "timeLimitSeconds": 0,
+                    "assignmentAttemptTimeLimitSeconds": 0,
                     "attemptLimit": null,
-                    "lateSubmission": "accept",
-                    "deadlineBehavior": "autoSubmit"
+                    "lateWorkRule": "accept",
+                    "assignmentDeadlineRule": "autoSubmit"
                 })
             )
             .is_err()
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentTeachingSettingsLocal>(
+            serde_json::from_value::<InstructorAssignmentRevisionDefinitionLocal>(
                 serde_json::json!({
                     "timeZone": "UTC",
                     "lifecycle": "draft",
@@ -811,10 +962,10 @@ mod tests {
                     "availableAt": null,
                     "dueAt": null,
                     "closesAt": null,
-                    "timeLimitSeconds": null,
+                    "assignmentAttemptTimeLimitSeconds": null,
                     "attemptLimit": null,
-                    "lateSubmission": "accept",
-                    "deadlineBehavior": "autoSubmit",
+                    "lateWorkRule": "accept",
+                    "assignmentDeadlineRule": "autoSubmit",
                     "unexpected": true
                 })
             )
@@ -837,7 +988,7 @@ mod tests {
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let settings = AssignmentTeachingSettings {
+        let settings = AssignmentRevisionDefinition {
             lifecycle: AssignmentLifecycle::Published,
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
@@ -845,6 +996,7 @@ mod tests {
                 closes_at: Some(closes),
                 ..BaseAssignmentPolicy::default()
             },
+            activity_rules: AssignmentActivityRules::default(),
         };
 
         assert_eq!(
@@ -881,14 +1033,15 @@ mod tests {
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let mut settings = AssignmentTeachingSettings {
+        let mut settings = AssignmentRevisionDefinition {
             lifecycle: AssignmentLifecycle::Published,
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
                 due_at: Some(due),
-                late_submission: LateSubmissionPolicy::Reject,
+                late_work_rule: LateWorkRule::Reject,
                 ..BaseAssignmentPolicy::default()
             },
+            activity_rules: AssignmentActivityRules::default(),
         };
         assert_eq!(
             derive_instructor_assignment_current_state(&term, &settings, due)

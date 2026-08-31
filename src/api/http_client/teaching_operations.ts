@@ -25,7 +25,7 @@ import {
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
   decodeInstructorMembershipsPage,
-  decodeAccommodationPatchUpdateRequest,
+  decodeAccommodationAdjustmentUpdateRequest,
   decodePendingCourseInvitationsPage,
   decodeRetentionActionResponse,
   decodeRetentionArchiveRequest,
@@ -267,7 +267,7 @@ export function createTeachingOperationsClient(
         fetchImplementation,
         basePath,
         `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/accommodations/${encodeURIComponent(student)}`,
-        decodeAccommodationPatchUpdateRequest(request, "request"),
+        decodeAccommodationAdjustmentUpdateRequest(request, "request"),
         revision,
       ),
     deleteAccommodation: (courseId, assignmentId, student, revision) =>

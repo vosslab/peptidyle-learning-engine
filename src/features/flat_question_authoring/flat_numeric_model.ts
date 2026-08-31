@@ -2,7 +2,7 @@
 
 import type {
   FlatQuestionNumericResponse,
-  FlatQuestionNumericTolerance,
+  FlatQuestionNumericResponseTolerance,
 } from "./flat_question_source";
 
 export type FlatNumericValidation = {
@@ -22,7 +22,7 @@ export function parseNumericLiteral(literal: string): number | null {
 }
 
 export function numericToleranceField(
-  tolerance: FlatQuestionNumericTolerance,
+  tolerance: FlatQuestionNumericResponseTolerance,
 ): "epsilon" | "fraction" | "digits" | null {
   if (tolerance.kind === "absolute") return "epsilon";
   if (tolerance.kind === "relative") return "fraction";
@@ -32,7 +32,7 @@ export function numericToleranceField(
 
 export function validateNumericResponse(
   answerLiteral: string,
-  tolerance: FlatQuestionNumericTolerance,
+  tolerance: FlatQuestionNumericResponseTolerance,
   unit: string | null,
 ): FlatNumericValidation {
   const issues: Record<string, string> = {};
@@ -61,9 +61,9 @@ export function validateNumericResponse(
   return { answer, valid: Object.keys(issues).length === 0, issues };
 }
 
-export function setNumericToleranceKind(
-  kind: FlatQuestionNumericTolerance["kind"],
-): FlatQuestionNumericTolerance {
+export function setNumericResponseToleranceKind(
+  kind: FlatQuestionNumericResponseTolerance["kind"],
+): FlatQuestionNumericResponseTolerance {
   switch (kind) {
     case "exact":
       return { kind };
@@ -76,10 +76,10 @@ export function setNumericToleranceKind(
   }
 }
 
-export function setNumericToleranceValue(
-  tolerance: FlatQuestionNumericTolerance,
+export function setNumericResponseToleranceValue(
+  tolerance: FlatQuestionNumericResponseTolerance,
   value: number,
-): FlatQuestionNumericTolerance {
+): FlatQuestionNumericResponseTolerance {
   if (tolerance.kind === "absolute") return { ...tolerance, epsilon: value };
   if (tolerance.kind === "relative") return { ...tolerance, fraction: value };
   if (tolerance.kind === "significantFigures") return { ...tolerance, digits: value };
@@ -89,7 +89,7 @@ export function setNumericToleranceValue(
 export function numericResponseFromAuthoring(
   response: FlatQuestionNumericResponse,
   answerLiteral: string,
-  tolerance: FlatQuestionNumericTolerance,
+  tolerance: FlatQuestionNumericResponseTolerance,
   unit: string | null,
 ): FlatQuestionNumericResponse | null {
   const validation = validateNumericResponse(answerLiteral, tolerance, unit);

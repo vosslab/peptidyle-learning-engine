@@ -3,18 +3,19 @@
 use std::collections::BTreeSet;
 
 use objects::{ObjectStore, ObjectStoreError, PutObject};
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::Seed;
 use question_model::{
-    ActivityTimestamp, AttemptProvenance, AttemptResult, QuestionAttemptId, QuestionDefinition,
-    QuestionEnvelope, QuestionSource, QuestionVersionReference, SourceArtifact,
+    ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptSourceRecord,
+    QuestionDefinition, QuestionPresentation, QuestionSource, QuestionVersionReference,
+    SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 
-use crate::broker_provider;
 use crate::cache::{
     CachedRender, decode_cache, implementation, parameter_hash, render_key, validate_cache,
 };
+use crate::external_question_provider;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, DraftLocator, GRADING_ID, GRADING_VERSION, GradeBinding,
     ImathasAdapterError, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
@@ -26,7 +27,7 @@ use crate::{
 #[derive(Clone)]
 pub struct ImathasSource {
     pub(crate) question_version: QuestionVersionReference,
-    pub(crate) artifact: SourceArtifact,
+    pub(crate) artifact: SourceObjectReference,
     pub(crate) provider: String,
     pub(crate) item_ref: String,
     pub(crate) profile: String,
@@ -43,7 +44,7 @@ impl std::fmt::Debug for ImathasSource {
 }
 
 impl ImathasSource {
-    pub fn artifact(&self) -> &SourceArtifact {
+    pub fn artifact(&self) -> &SourceObjectReference {
         &self.artifact
     }
 }
@@ -51,9 +52,9 @@ impl ImathasSource {
 /// Key-free issued external-tool question.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImathasIssuedAttempt {
-    pub envelope: QuestionEnvelope,
+    pub envelope: QuestionPresentation,
     pub parameter_hash: String,
-    pub provenance: AttemptProvenance,
+    pub source_record: QuestionAttemptSourceRecord,
     pub cache_hit: bool,
 }
 
@@ -62,13 +63,13 @@ pub struct ImathasIssuedAttempt {
 /// intentionally performs no process-local grade caching.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedGradeReceipt {
-    result: AttemptResult,
+    result: GradingResult,
     binding: GradeBinding,
 }
 
 impl VerifiedGradeReceipt {
     /// The result accepted from the authenticated provider verifier.
-    pub fn result(&self) -> AttemptResult {
+    pub fn result(&self) -> GradingResult {
         self.result
     }
 
@@ -124,7 +125,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         &self,
         source: &QuestionSource,
         profile: &SupportedProfile,
-    ) -> Result<BackendCapabilities, ImathasAdapterError> {
+    ) -> Result<QuestionBackendCapabilities, ImathasAdapterError> {
         let QuestionSource::Imathas {
             integration_profile,
             ..
@@ -135,7 +136,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         if integration_profile != profile.name() || !self.profiles.contains(profile.name()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let mut values = vec![Capability::PerQuestionTiming];
+        let mut values = vec![Capability::QuestionAttemptTimeLimit];
         if profile.deterministic_seeded_render {
             values.push(Capability::AlgorithmicGeneration);
         }
@@ -145,7 +146,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         if profile.partial_credit {
             values.push(Capability::PartialCredit);
         }
-        Ok(BackendCapabilities::from_iter(values))
+        Ok(QuestionBackendCapabilities::from_iter(values))
     }
 
     /// Issues an external-tool marker and safe provider prompt. Repeated exact
@@ -197,9 +198,11 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             source: source.artifact.clone(),
             provider: source.provider.clone(),
             profile: source.profile.clone(),
-            envelope: QuestionEnvelope {
-                question_version: question_version.clone(),
-                seed,
+            envelope: QuestionPresentation {
+                variation: question_model::QuestionVariation::static_variation(
+                    question_version.clone(),
+                    seed,
+                ),
                 title: safe.title,
                 prompt: safe.prompt,
                 response: question_model::QuestionResponseFormat::ExternalTool {},
@@ -245,12 +248,12 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         )
         .as_slice());
         Ok(ImathasIssuedAttempt {
-            parameter_hash: parameter_hash(cached.envelope.seed),
-            provenance: AttemptProvenance {
+            parameter_hash: parameter_hash(cached.envelope.variation.seed),
+            source_record: QuestionAttemptSourceRecord {
                 adapter: implementation(ADAPTER_ID, ADAPTER_VERSION),
                 renderer: Some(implementation("imathas-profile", &source.profile)),
                 generator: None,
-                source_artifact: Some(source.artifact.clone()),
+                source_object_reference: Some(source.artifact.clone()),
                 asset_objects: Vec::new(),
                 grading: implementation(GRADING_ID, GRADING_VERSION),
                 rendered_question_sha256: hash,
@@ -306,10 +309,10 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
 
 // The protected scored-embed path is deliberately an opt-in extension. A
 // render-only provider cannot acquire launch or result-verification ability.
-impl<S, T> ImathasAdapter<S, broker_provider::ContractedScoredEmbedProvider<T>>
+impl<S, T> ImathasAdapter<S, external_question_provider::ContractedScoredEmbedProvider<T>>
 where
     S: ObjectStore,
-    T: broker_provider::ScoredEmbedTransport,
+    T: external_question_provider::ScoredEmbedTransport,
 {
     pub fn contracted_provider_key(&self) -> &str {
         self.provider.provider_key()
@@ -328,7 +331,7 @@ where
         correlation: ServerCorrelation,
         nonce: crate::scored_embed::ScoredEmbedNonce,
         now: ActivityTimestamp,
-    ) -> Result<broker_provider::ContractedLaunchSession, ImathasAdapterError> {
+    ) -> Result<external_question_provider::ContractedLaunchSession, ImathasAdapterError> {
         self.provider
             .begin_launch(question, source, attempt, seed, correlation, nonce, now)
             .await
@@ -336,7 +339,7 @@ where
 
     pub async fn retrieve_contracted_grade(
         &self,
-        session: &mut broker_provider::ContractedLaunchSession,
+        session: &mut external_question_provider::ContractedLaunchSession,
         now: ActivityTimestamp,
     ) -> Result<VerifiedProviderGrade, ImathasAdapterError> {
         self.provider.retrieve_and_verify(session, now).await
@@ -344,11 +347,11 @@ where
 
     pub async fn proxy_contracted_activity(
         &self,
-        session: &broker_provider::ContractedLaunchSession,
-        method: broker_provider::ProxyMethod,
+        session: &external_question_provider::ContractedLaunchSession,
+        method: external_question_provider::ProxyMethod,
         body: &[u8],
         now: ActivityTimestamp,
-    ) -> Result<broker_provider::ProxyResponse, ImathasAdapterError> {
+    ) -> Result<external_question_provider::ProxyResponse, ImathasAdapterError> {
         self.provider
             .proxy_activity(session, method, body, now)
             .await

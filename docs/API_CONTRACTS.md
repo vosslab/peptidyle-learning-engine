@@ -30,16 +30,16 @@ adds connected evidence under [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 ## Common protocol rules
 
-| Concern | Durable contract |
-| --- | --- |
-| Origin | Browser API requests use a relative same-origin path, `credentials: "same-origin"`, and `cache: "no-store"`. [request.ts](../src/api/http_client/request.ts) rejects an external base path. |
-| Sessions | The server resolves a hashed opaque session cookie into one Authenticated Session for an Account and returns only `{ authenticated: true, account: { id, role } }`. `role` is the Account's one immutable Product Role; the response contains no credential, display name, membership, or role list. Request paths, query parameters, headers, and JSON select a resource for exact relationship authorization. [auth.rs](../crates/server/src/auth.rs) owns this boundary. |
-| Caching | Private JSON routes return `Cache-Control: no-store`, including errors where a route applies its response middleware. The browser verifies this for sensitive appearance traffic. Immutable public asset redirects are the explicit exception. |
-| JSON | **Current pre-WN1:** PLE JSON transport remains mixed and many routes use lower-camel fields directly. **Approved target:** PLE-owned JSON fields, TypeScript data-object properties, PLE query keys, and portable discriminants use direct `snake_case` generated from effective Serde. Feature decoders reject unknown and retired-camel PLE input and retain bounded-body, closed-union, numeric, and relationship checks. Registered external payloads retain owner spelling at their adapter boundary. |
-| Request parsing | Mutating Rust request types use closed Serde models or canonical typed-value comparison. Unknown fields, malformed IDs, and unsupported variants refuse. |
-| Pagination | Lists use opaque cursors. Clients do not use offsets and must reject a repeated cursor during traversal. |
-| Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, active public asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed delivery record, audits the decision, and returns the short-lived delivery result. |
-| Error detail | Errors describe a permitted action or unavailable service without disclosing hidden account, course, Student, draft, answer, key, renderer, or object state. |
+| Concern         | Durable contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Origin          | Browser API requests use a relative same-origin path, `credentials: "same-origin"`, and `cache: "no-store"`. [request.ts](../src/api/http_client/request.ts) rejects an external base path.                                                                                                                                                                                                                                                                                                                 |
+| Sessions        | The server resolves a hashed opaque session cookie into one Authenticated Session for an Account and returns only `{ authenticated: true, account: { id, role } }`. `role` is the Account's one immutable Product Role; the response contains no credential, display name, membership, or role list. Request paths, query parameters, headers, and JSON select a resource for exact relationship authorization. [auth.rs](../crates/server/src/auth.rs) owns this boundary.                                 |
+| Caching         | Private JSON routes return `Cache-Control: no-store`, including errors where a route applies its response middleware. The browser verifies this for sensitive appearance traffic. Immutable public asset redirects are the explicit exception.                                                                                                                                                                                                                                                              |
+| JSON            | **Current pre-WN1:** PLE JSON transport remains mixed and many routes use lower-camel fields directly. **Approved target:** PLE-owned JSON fields, TypeScript data-object properties, PLE query keys, and portable discriminants use direct `snake_case` generated from effective Serde. Feature decoders reject unknown and retired-camel PLE input and retain bounded-body, closed-union, numeric, and relationship checks. Registered external payloads retain owner spelling at their adapter boundary. |
+| Request parsing | Mutating Rust request types use closed Serde models or canonical typed-value comparison. Unknown fields, malformed IDs, and unsupported variants refuse.                                                                                                                                                                                                                                                                                                                                                    |
+| Pagination      | Lists use opaque cursors. Clients do not use offsets and must reject a repeated cursor during traversal.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, active public asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed delivery record, audits the decision, and returns the short-lived delivery result.                                                                                                                            |
+| Error detail    | Errors describe a permitted action or unavailable service without disclosing hidden account, course, Student, draft, answer, key, renderer, or object state.                                                                                                                                                                                                                                                                                                                                                |
 
 ## Identity and authorization
 
@@ -53,13 +53,13 @@ The route can use an identity in its path only after the session-derived Account
 context and exact relationship constrain the lookup. A caller never supplies
 an account, membership, or database object key as an authorization input.
 
-| Scope | Authority | Normal concealed result |
-| --- | --- | --- |
-| Question Library | Authenticated approved-Instructor access plus visible lifecycle policy | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`. |
-| Course | Persisted direct `course_member` relationship | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority. |
+| Scope               | Authority                                                                                               | Normal concealed result                                                                                                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Question Library    | Authenticated approved-Instructor access plus visible lifecycle policy                                  | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`.                                                                                                                                                        |
+| Course              | Persisted direct `course_member` relationship                                                           | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority.                                                                                                                                                                      |
 | Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role | Student-facing Store reads and mutations require one active Student assignment entitlement in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
-| Workspace | Exact workspace owner/collaborator relationship | Student, foreign, and unshared workspaces share an absent projection. |
-| Protected asset | Typed delivery record plus current persisted authorization pointer | Unknown or unauthorized delivery ID is not an object-storage lookup. |
+| Workspace           | Exact workspace owner/collaborator relationship                                                         | Student, foreign, and unshared workspaces share an absent projection.                                                                                                                                                                                                          |
+| Protected asset     | Typed delivery record plus current persisted authorization pointer                                      | Unknown or unauthorized delivery ID is not an object-storage lookup.                                                                                                                                                                                                           |
 
 The fuller authorization and forced account-and-relationship-scoped RLS evidence is in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
@@ -71,11 +71,11 @@ The current executable surface is intentionally small while SD1 reconstructs
 the Store-backed course-delivery composition. Exact methods, request parsing,
 and HTTP status behavior remain in the linked owner.
 
-| Family | Routes | Boundary | Owner |
-| --- | --- | --- | --- |
-| Health | `GET /health` | Readiness only; it is not an authenticated API session probe. | [composition.rs](../crates/server/src/composition.rs) |
-| Authenticated Session | `GET /api/auth/session`; `POST /api/auth/logout` | The server resolves or revokes one bounded Authenticated Session for one global Account. The browser receives an Account ID and immutable Product Role, never a credential or course authority. | [auth.rs](../crates/server/src/auth.rs) |
-| Seeded Live Demo | Deployment-gated `GET/POST /api/auth/live-demo/accounts` | The selector exists only with complete disposable-demo configuration and mints the ordinary Authenticated Session for a seeded Account. It is not a product authentication provider. | [auth/live_demo.rs](../crates/server/src/auth/live_demo.rs), [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) |
+| Family                | Routes                                                   | Boundary                                                                                                                                                                                        | Owner                                                                                               |
+| --------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Health                | `GET /health`                                            | Readiness only; it is not an authenticated API session probe.                                                                                                                                   | [composition.rs](../crates/server/src/composition.rs)                                               |
+| Authenticated Session | `GET /api/auth/session`; `POST /api/auth/logout`         | The server resolves or revokes one bounded Authenticated Session for one global Account. The browser receives an Account ID and immutable Product Role, never a credential or course authority. | [auth.rs](../crates/server/src/auth.rs)                                                             |
+| Seeded Live Demo      | Deployment-gated `GET/POST /api/auth/live-demo/accounts` | The selector exists only with complete disposable-demo configuration and mints the ordinary Authenticated Session for a seeded Account. It is not a product authentication provider.            | [auth/live_demo.rs](../crates/server/src/auth/live_demo.rs), [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) |
 
 ## Deferred delivery routes
 
@@ -175,13 +175,14 @@ The assignment workspace is one course-scoped resource. `GET
 direct Instructor relationship to the course and then verifies that the
 assignment belongs to that exact course. A mismatched or unavailable pair has
 the same concealed not-found result and returns no assignment facts. The
-response carries the complete revisioned editor projection: title, ordered
+response carries the complete Draft Assignment Revision editor projection: title, ordered
 fixed or pool content, Student Feedback Release Rules, Assignment activity rules, course-local teaching
-settings, server-derived current state, audience, and publication readiness.
+settings, server-derived current state, audience, and Assignment Publication
+Readiness for that exact Draft Assignment Revision.
 
 `POST /api/courses/{course}/assignments/drafts` accepts only a title and
 persists an ordinary incomplete Draft with server-owned defaults. An empty
-Draft is valid and reloadable; publication readiness, rather than draft
+Draft is valid and reloadable; Assignment Publication Readiness, rather than draft
 creation, requires an active deliverable position and valid policy state.
 
 Questions owns `PUT
@@ -328,12 +329,12 @@ system.
 The mutation rule is intentional: a route accepts only the data that the
 server cannot derive from authenticated state and the existing record.
 
-| Mechanism | Applies to | Contract |
-| --- | --- | --- |
-| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves, course appearance | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle. |
-| `Idempotency-Key` | Future Student submission | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
-| Server-generated identity | Runs, attempts, publications, export jobs, upload candidates, object deliveries | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths. |
-| Bytes-first promotion | Candidate banners, QTI/flat publication, exports | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically. |
+| Mechanism                   | Applies to                                                                                                             | Contract                                                                                                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves, course appearance | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
+| `Idempotency-Key`           | Future Student submission                                                                                              | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
+| Server-generated identity   | Runs, attempts, publications, export jobs, upload candidates, object deliveries                                        | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
+| Bytes-first promotion       | Candidate banners, QTI/flat publication, exports                                                                       | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically.                            |
 
 ETags are resource revisions, not general-purpose cache validators. An attempt
 submission uses its attempt ID and idempotency key rather than a browser-owned
@@ -341,8 +342,8 @@ question/version/seed tuple.
 
 ## Public and private payloads
 
-| Browser may receive | Browser must not receive |
-| --- | --- |
+| Browser may receive                                                                                                                                                                                | Browser must not receive                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public Question Library metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, authenticated-session context, database provenance, or raw provider results |
 
 An instructor's private author preview is a distinct, authorized exception for

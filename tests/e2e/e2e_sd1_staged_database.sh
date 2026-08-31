@@ -48,7 +48,7 @@ require_command() {
 compose() {
 	(
 		cd "$REPO_ROOT"
-		python3 -m local_stack_control._consumer_cli compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"
+		python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"
 	)
 }
 
@@ -83,7 +83,7 @@ cleanup() {
 	if [ "$compose_started" = "1" ]; then
 		(
 			cd "$REPO_ROOT"
-			python3 -m local_stack_control._consumer_cli cleanup --manifest "$RUNTIME_MANIFEST_PATH"
+			python3 -m local_stack_control.disposable_stack_command cleanup --manifest "$RUNTIME_MANIFEST_PATH"
 		) || cleanup_failed=1
 	fi
 	if [ "$cleanup_failed" = "0" ]; then
@@ -355,6 +355,10 @@ BEGIN
 		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
 		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
 	) OR NOT EXISTS (
+		SELECT 1 FROM pg_trigger
+		WHERE tgrelid = 'ple_private.assignment_attempt'::regclass
+		AND tgname = 'assignment_attempt_requires_published_revision' AND NOT tgisinternal
+	) OR NOT EXISTS (
 		SELECT 1 FROM information_schema.columns
 		WHERE table_schema = 'ple_private' AND table_name = 'issued_question'
 		AND column_name = 'statistics_eligible' AND is_nullable = 'NO'
@@ -373,6 +377,74 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'issued work does not retain its exact pin and Question Statistics Eligibility, or accepted submission evidence is not immutable';
 	END IF;
+	IF to_regclass('ple_data.course_schedule_revision') IS NULL
+		OR (SELECT count(*) FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'course_schedule_revision') <> 7
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'course_instance'
+			AND column_name = 'delivery_time_zone'
+		) OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'assignment'
+			AND column_name IN ('available_at', 'due_at', 'closes_at', 'local_override')
+		) OR NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
+			AND column_name = 'course_schedule_revision_id' AND is_nullable = 'NO'
+		) OR NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
+			AND column_name = 'assignment_lifecycle' AND is_nullable = 'NO'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.assignment_revision'::regclass
+			AND conname = 'assignment_revision_course_matches_assignment'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.assignment_revision'::regclass
+			AND conname = 'assignment_revision_schedule_matches_course'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.assignment_revision'::regclass
+			AND conname = 'assignment_revision_schedule_is_ordered'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_data.course_schedule_revision'::regclass
+			AND tgname = 'course_schedule_revision_is_immutable' AND NOT tgisinternal
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_class
+			JOIN pg_namespace ON pg_namespace.oid = pg_class.relnamespace
+			WHERE pg_namespace.nspname = 'ple_data'
+			AND pg_class.relname = 'published_assignment_revision_availability_idx'
+		) THEN
+		RAISE EXCEPTION 'Course Schedule Revision and Assignment Revision do not own the exact durable delivery schedule';
+	END IF;
+	IF EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
+		AND column_name = 'course_delivery_settings'
+	) OR NOT EXISTS (
+		SELECT 1 FROM pg_constraint
+		WHERE conrelid = 'ple_data.assignment_revision'::regclass
+		AND conname = 'assignment_revision_title_is_valid'
+	) OR (SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
+		AND column_name IN (
+			'assignment_title', 'assignment_lifecycle', 'assignment_instructions', 'late_work_rule',
+			'assignment_deadline_rule', 'assignment_completion_rule',
+			'assignment_attempt_grade_rule', 'assignment_attempt_continuation_rule',
+			'question_variation_rule', 'assignment_attempt_resume_rule',
+			'assignment_question_display_rule', 'assignment_navigation_rule',
+			'assignment_question_order_rule'
+		) AND is_nullable = 'NO') <> 13 OR (SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
+		AND column_name IN (
+			'assignment_attempt_time_limit_seconds', 'attempt_limit',
+			'assignment_completion_score_threshold', 'max_additional_assignment_attempts'
+		)) <> 4 THEN
+		RAISE EXCEPTION 'Assignment Revision Definition is not stored as explicit immutable delivery fields';
+	END IF;
 	IF NOT EXISTS (
 		SELECT 1 FROM pg_trigger
 		WHERE tgrelid = 'ple_private.assignment_grade_calculation'::regclass
@@ -383,6 +455,22 @@ BEGIN
 		AND conname = 'assignment_grade_selected_calculation_matches'
 	) THEN
 		RAISE EXCEPTION 'Gradebook does not preserve immutable calculations and an exact selected grade';
+	END IF;
+	IF to_regclass('ple_private.grading_result') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.grading_result'::regclass
+			AND conname = 'grading_result_submission_matches_attempt'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.grading_result'::regclass
+			AND conname = 'grading_result_matches_operation_submission'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_audit.automated_grading_receipt'::regclass
+			AND conname = 'automated_grading_receipt_matches_result_operation'
+		) THEN
+		RAISE EXCEPTION 'Grading Result does not bind one Question Submission, automated operation, and receipt';
 	END IF;
 	IF to_regclass('ple_data.question_publication_event') IS NULL
 		OR to_regclass('ple_data.question_version_availability_event') IS NULL
@@ -543,6 +631,37 @@ BEGIN
 			AND tgname = 'course_origin_is_immutable' AND NOT tgisinternal
 		) THEN
 		RAISE EXCEPTION 'Course Origin is not retained as immutable exact source evidence';
+	END IF;
+	IF to_regclass('ple_audit.forced_question_correction_assignment_target') IS NULL
+		OR to_regclass('ple_audit.forced_question_correction_attempt_target') IS NULL
+		OR to_regclass('ple_audit.forced_question_correction_issued_question_target') IS NULL
+		OR to_regclass('ple_audit.forced_question_correction_grade_target') IS NULL
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
+			AND column_name = 'remediation'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_audit.forced_question_correction_assignment_target'::regclass
+			AND tgname = 'forced_question_correction_assignment_target_is_immutable' AND NOT tgisinternal
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_audit.forced_question_correction_attempt_target'::regclass
+			AND tgname = 'forced_question_correction_attempt_target_is_immutable' AND NOT tgisinternal
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_audit.forced_question_correction_issued_question_target'::regclass
+			AND tgname = 'forced_question_correction_issued_question_target_is_immutable' AND NOT tgisinternal
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_trigger
+			WHERE tgrelid = 'ple_audit.forced_question_correction_grade_target'::regclass
+			AND tgname = 'forced_question_correction_grade_target_is_immutable' AND NOT tgisinternal
+		) THEN
+		RAISE EXCEPTION 'Forced Question Correction Manifest lacks immutable exact teaching targets';
 	END IF;
 	IF to_regclass('ple_audit.assignment_grade_event') IS NULL
 		OR to_regclass('ple_audit.grade_control_event') IS NOT NULL

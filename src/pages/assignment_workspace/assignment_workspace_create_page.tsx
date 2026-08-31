@@ -3,7 +3,7 @@
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { Show, createSignal, type JSX } from "solid-js";
 
-import { useApiRuntime } from "../../api/runtime";
+import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import {
   courseRouteData,
@@ -24,7 +24,7 @@ type CreateState = "ready" | "saving" | "unavailable";
 
 /** Creates one real Draft before the Instructor begins the Questions workflow. */
 export function AssignmentWorkspaceCreatePage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
   const route = useCourseThemeRouteData();
   const params = useParams();
@@ -43,8 +43,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     const reference = courseReference();
     return (
       currentSession.kind === "authenticated" &&
-      (currentSession.session.account.role === "instructor" ||
-        currentSession.session.account.role === "sysadmin") &&
+      currentSession.session.account.role === "instructor" &&
       currentCourse?.role === "instructor" &&
       reference !== null &&
       currentCourse.reference === reference
@@ -65,7 +64,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     setState("saving");
     setMessage("");
     try {
-      const created = await runtime.client.createAssignmentDraft(currentCourse.id, {
+      const created = await applicationApi.client.createAssignmentDraft(currentCourse.id, {
         title: title(),
       });
       if (created.courseId !== currentCourse.id) {

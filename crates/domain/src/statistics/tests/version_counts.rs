@@ -1,4 +1,4 @@
-use question_model::response::ChoiceId;
+use question_model::response::ResponseItemReference;
 
 use super::super::*;
 
@@ -7,13 +7,13 @@ fn accepted_grades_preserve_exact_correct_and_choice_counts() {
     let mut statistics = QuestionVersionStatistics::empty();
     statistics
         .record(
-            QuestionStatisticsObservation::new(true, [ChoiceId::new("a"), ChoiceId::new("c")])
+            QuestionStatisticsObservation::new(true, [ResponseItemReference::new("a"), ResponseItemReference::new("c")])
                 .expect("valid observation"),
         )
         .expect("first accepted grade records");
     statistics
         .record(
-            QuestionStatisticsObservation::new(false, [ChoiceId::new("c")])
+            QuestionStatisticsObservation::new(false, [ResponseItemReference::new("c")])
                 .expect("valid observation"),
         )
         .expect("second accepted grade records");
@@ -22,7 +22,7 @@ fn accepted_grades_preserve_exact_correct_and_choice_counts() {
     assert_eq!(statistics.correct_count(), 1);
     assert_eq!(
         statistics.eligible_choice_selection_counts(),
-        &[(ChoiceId::new("a"), 1), (ChoiceId::new("c"), 2)]
+        &[(ResponseItemReference::new("a"), 1), (ResponseItemReference::new("c"), 2)]
             .into_iter()
             .collect()
     );
@@ -42,7 +42,7 @@ fn snapshot_refuses_counts_that_could_not_come_from_accepted_grades() {
         QuestionVersionStatistics::restore(QuestionVersionStatisticsSnapshot {
             accepted_graded_attempt_count: 1,
             correct_count: 1,
-            eligible_choice_selection_counts: [(ChoiceId::new("a"), 2)].into_iter().collect(),
+            eligible_choice_selection_counts: [(ResponseItemReference::new("a"), 2)].into_iter().collect(),
         }),
         Err(StatisticsError::SnapshotInvariant)
     );

@@ -48,7 +48,7 @@ problem_asset
 publication
 license
 
-Large or binary source artifacts remain in S3.
+Large or binary Source Object References remain in S3.
 
 The important design constraints are:
 
@@ -56,7 +56,7 @@ The important design constraints are:
 - stable problem IDs
 - indexed ownership and publication fields
 - normalized tags and subjects
-- checksums for all source artifacts
+- checksums for all Source Object References
 - no S3 bucket listings during requests
 - no parsing ZIP or XML files during student access
 

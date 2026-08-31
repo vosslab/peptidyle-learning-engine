@@ -75,27 +75,27 @@ policy.
 
 ## Validation evidence
 
-| Command | Result |
-| --- | --- |
-| `npx tsc --noEmit` | Passed with exit 0 and no diagnostics. |
-| `npx eslint --max-warnings 0 src/pages/course_list_page.tsx src/api/contracts.ts src/api/decoders/catalog_course.ts src/api/http_client/request.ts tests/playwright/course_creation.spec.ts tests/test_http_client.mjs` | Passed with exit 0. |
-| `npx prettier --check src/pages/course_list_page.tsx src/api/contracts.ts src/api/decoders/catalog_course.ts src/api/http_client/request.ts tests/playwright/course_creation.spec.ts tests/test_http_client.mjs` | Passed: `All matched files use Prettier code style!` |
-| `node --import tsx --test tests/test_http_client.mjs` | Passed: 22 tests, 22 passed. |
-| `npx playwright test tests/playwright/course_creation.spec.ts` | Passed: 3 tests, 3 passed. |
-| `cargo test -p server_core course::tests::membership_scopes_courses_and_exact_assignment_references_survive` | Passed: 1 test passed. It establishes instructor success but not the missing student-create regression. |
-| `source source_me.sh && python3 -m pytest -q tests/test_source_file_line_limit.py` | Passed: `816 passed in 0.27s`. |
+| Command                                                                                                                                                                                                                 | Result                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                                                                                                                                                                                                      | Passed with exit 0 and no diagnostics.                                                                  |
+| `npx eslint --max-warnings 0 src/pages/course_list_page.tsx src/api/contracts.ts src/api/decoders/catalog_course.ts src/api/http_client/request.ts tests/playwright/course_creation.spec.ts tests/test_http_client.mjs` | Passed with exit 0.                                                                                     |
+| `npx prettier --check src/pages/course_list_page.tsx src/api/contracts.ts src/api/decoders/catalog_course.ts src/api/http_client/request.ts tests/playwright/course_creation.spec.ts tests/test_http_client.mjs`        | Passed: `All matched files use Prettier code style!`                                                    |
+| `node --import tsx --test tests/test_http_client.mjs`                                                                                                                                                                   | Passed: 22 tests, 22 passed.                                                                            |
+| `npx playwright test tests/playwright/course_creation.spec.ts`                                                                                                                                                          | Passed: 3 tests, 3 passed.                                                                              |
+| `cargo test -p server_core course::tests::membership_scopes_courses_and_exact_assignment_references_survive`                                                                                                            | Passed: 1 test passed. It establishes instructor success but not the missing student-create regression. |
+| `source source_me.sh && python3 -m pytest -q tests/test_source_file_line_limit.py`                                                                                                                                      | Passed: `816 passed in 0.27s`.                                                                          |
 
 ## Re-review evidence
 
 Fresh re-review of the repaired boundary passed:
 
-| Command | Result |
-| --- | --- |
-| `cargo test -p server_core course::tests::course_creation` | Passed: 1 test passed. |
+| Command                                                                                                      | Result                 |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `cargo test -p server_core course::tests::course_creation`                                                   | Passed: 1 test passed. |
 | `cargo test -p server_core course::tests::membership_scopes_courses_and_exact_assignment_references_survive` | Passed: 1 test passed. |
-| `cargo fmt --check` | Passed with exit 0. |
-| `cargo clippy -p server_core -- -D warnings` | Passed with exit 0. |
-| `git diff --check` | Passed with exit 0. |
+| `cargo fmt --check`                                                                                          | Passed with exit 0.    |
+| `cargo clippy -p server_core -- -D warnings`                                                                 | Passed with exit 0.    |
+| `git diff --check`                                                                                           | Passed with exit 0.    |
 
 The non-canonical `node --test tests/test_http_client.mjs` invocation failed
 because it does not load TypeScript source imports. The repository's prescribed

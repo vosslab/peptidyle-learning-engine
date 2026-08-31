@@ -6,7 +6,7 @@
 //!
 //! Design rule from `docs/RUST_STYLE.md` section 9: a capability is a variant
 //! of [`Capability`], and the question "does this backend support it?" has
-//! exactly one implementation, [`BackendCapabilities::supports`]. Adding a
+//! exactly one implementation, [`QuestionBackendCapabilities::supports`]. Adding a
 //! capability means adding a variant, and every exhaustive `match` over it
 //! stops compiling until it is handled, so the compiler finds the call sites
 //! that need updating.
@@ -37,7 +37,7 @@ pub enum Capability {
     /// Supplies hints during an attempt.
     Hints,
     /// Enforces a time limit on a single question.
-    PerQuestionTiming,
+    QuestionAttemptTimeLimit,
     /// Renders to a printable artifact (DOCX, PDF).
     PrintExport,
     /// Previews offline, with no backend reachable.
@@ -56,7 +56,7 @@ impl Capability {
         Capability::ServerGrading,
         Capability::PartialCredit,
         Capability::Hints,
-        Capability::PerQuestionTiming,
+        Capability::QuestionAttemptTimeLimit,
         Capability::PrintExport,
         Capability::OfflinePreview,
     ];
@@ -69,7 +69,7 @@ impl Capability {
             Capability::ServerGrading => "serverGrading",
             Capability::PartialCredit => "partialCredit",
             Capability::Hints => "hints",
-            Capability::PerQuestionTiming => "perQuestionTiming",
+            Capability::QuestionAttemptTimeLimit => "questionAttemptTimeLimit",
             Capability::PrintExport => "printExport",
             Capability::OfflinePreview => "offlinePreview",
         }
@@ -89,9 +89,9 @@ impl Capability {
 /// # Examples
 ///
 /// ```
-/// use question_model::capability::{BackendCapabilities, Capability};
+/// use question_model::capability::{QuestionBackendCapabilities, Capability};
 ///
-/// let h5p = BackendCapabilities::from_iter([Capability::ClientRendering]);
+/// let h5p = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
 /// assert!(h5p.supports(Capability::ClientRendering));
 ///
 /// // H5P evaluates in the browser, so it cannot carry a graded assignment.
@@ -102,16 +102,16 @@ impl Capability {
 /// );
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct BackendCapabilities(BTreeSet<Capability>);
+pub struct QuestionBackendCapabilities(BTreeSet<Capability>);
 
-impl BackendCapabilities {
+impl QuestionBackendCapabilities {
     /// Declares a backend that supports nothing.
     ///
     /// The empty set is the honest default: a backend advertises what it has
     /// implemented, and anything it forgets to declare is treated as absent
     /// rather than assumed present.
     pub fn none() -> Self {
-        BackendCapabilities(BTreeSet::new())
+        QuestionBackendCapabilities(BTreeSet::new())
     }
 
     /// Whether this backend supports one capability.
@@ -137,9 +137,9 @@ impl BackendCapabilities {
     }
 }
 
-impl FromIterator<Capability> for BackendCapabilities {
+impl FromIterator<Capability> for QuestionBackendCapabilities {
     fn from_iter<I: IntoIterator<Item = Capability>>(iter: I) -> Self {
-        BackendCapabilities(iter.into_iter().collect())
+        QuestionBackendCapabilities(iter.into_iter().collect())
     }
 }
 
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn a_declared_capability_is_supported() {
-        let backend = BackendCapabilities::from_iter([
+        let backend = QuestionBackendCapabilities::from_iter([
             Capability::ServerGrading,
             Capability::AlgorithmicGeneration,
         ]);
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn missing_from_reports_every_gap_not_just_the_first() {
-        let backend = BackendCapabilities::from_iter([Capability::ClientRendering]);
+        let backend = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
         let missing = backend.missing_from([
             Capability::ServerGrading,
             Capability::ClientRendering,
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn an_undeclared_backend_supports_nothing() {
-        let backend = BackendCapabilities::none();
+        let backend = QuestionBackendCapabilities::none();
         assert_eq!(backend.missing_from(Capability::ALL).len(), 8);
     }
 }

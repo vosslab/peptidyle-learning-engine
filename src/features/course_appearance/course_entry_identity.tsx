@@ -3,7 +3,7 @@
 import { Show, type JSX } from "solid-js";
 
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
-import { useApiRuntime } from "../../api/runtime";
+import { useApplicationApi } from "../../api/application_api";
 import { createCourseBannerUrl } from "./course_banner_delivery";
 import { courseRouteData, useCourseThemeRouteData } from "./course_theme_context";
 
@@ -36,7 +36,7 @@ function alternativeText(value: CourseBannerAlternativeText): string {
 
 /** Renders the authorized course projection already loaded by the route scope. */
 export function CourseEntryIdentity(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const routeData = useCourseThemeRouteData();
   const banner = routeData === undefined ? null : courseRouteData(routeData).appearance.banner;
   const deliveryUrl = createCourseBannerUrl(() => banner?.id ?? null, runtime.client);

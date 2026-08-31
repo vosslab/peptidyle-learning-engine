@@ -1,10 +1,10 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
-import type { ChoiceId } from "../../generated/api/ChoiceId";
+import type { ResponseItemReference } from "../../generated/api/ResponseItemReference";
 import type { AssetBindingV1 } from "../../generated/api/AssetBindingV1";
 import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
-import type { BackendCapabilities } from "../../generated/api/BackendCapabilities";
+import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
@@ -14,23 +14,23 @@ import type { PresentationEnvelopeV1 } from "../../generated/api/PresentationEnv
 import type { ContentBlock } from "../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
 import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
-import type { SelectionCardinality } from "../../generated/api/SelectionCardinality";
+import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { TimingPolicy } from "../../generated/api/TimingPolicy";
+import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionVersionReference } from "../../generated/api/QuestionVersionReference";
 import { decodeQuestionVersionReference } from "../api/decoders/shared";
 import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
 
-export type ResponseFormatViolation =
+export type StudentResponseFormatIssue =
   | { readonly kind: "responseKindMismatch" }
   | { readonly kind: "numericNotFinite" }
   | {
       readonly kind: "selectionCount";
-      readonly expected: SelectionCardinality;
+      readonly expected: ResponseSelectionRule;
       readonly actual: number;
     }
-  | { readonly kind: "duplicateChoice"; readonly choice: ChoiceId }
-  | { readonly kind: "unknownChoice"; readonly choice: ChoiceId }
+  | { readonly kind: "duplicateChoice"; readonly choice: ResponseItemReference }
+  | { readonly kind: "unknownChoice"; readonly choice: ResponseItemReference }
   | {
       readonly kind: "textTooLong";
       readonly maxLength: number;
@@ -38,37 +38,37 @@ export type ResponseFormatViolation =
     }
   | { readonly kind: "blankSlotsMismatch" }
   | { readonly kind: "matchingPromptsMismatch" }
-  | { readonly kind: "duplicateMatchChoice"; readonly choice: ChoiceId }
-  | { readonly kind: "unknownMatchChoice"; readonly choice: ChoiceId }
+  | { readonly kind: "duplicateMatchChoice"; readonly choice: ResponseItemReference }
+  | { readonly kind: "unknownMatchChoice"; readonly choice: ResponseItemReference }
   | { readonly kind: "orderingItemsMismatch" }
-  | { readonly kind: "hotspotPointOutOfBounds" }
-  | { readonly kind: "hotspotPointOutsideRegion" }
+  | { readonly kind: "studentHotspotPointOutOfBounds" }
+  | { readonly kind: "studentHotspotPointOutsideRegion" }
   | { readonly kind: "missingUploadReference" };
 
-export interface ResponseFormatReport {
-  readonly violations: ReadonlyArray<ResponseFormatViolation>;
+export interface StudentResponseFormatCheck {
+  readonly violations: ReadonlyArray<StudentResponseFormatIssue>;
 }
 
 export type FormatValidator = (
   definition: QuestionResponseFormat,
   response: StudentResponse,
-) => Promise<ResponseFormatReport>;
+) => Promise<StudentResponseFormatCheck>;
 
-export interface TimerEvaluation {
-  readonly policy: TimingPolicy;
+export interface QuestionAttemptTimingEvaluation {
+  readonly policy: QuestionAttemptTimeLimit;
   readonly timing: QuestionAttemptTiming;
   readonly evaluatedAt: ActivityTimestamp;
   readonly pauseExtensionMillis: number;
 }
 
-export type TimerVerdict =
+export type QuestionAttemptTimingDecision =
   "untimed" | "open" | "gracePeriod" | "submittedOnTime" | "submittedWithinGrace" | "timedOut";
 
-export type TimerEvaluator = (evaluation: TimerEvaluation) => Promise<TimerVerdict>;
+export type TimerEvaluator = (evaluation: QuestionAttemptTimingEvaluation) => Promise<QuestionAttemptTimingDecision>;
 
 export interface AssignmentQuestionConfig {
   readonly question: QuestionDefinition;
-  readonly backendCapabilities: BackendCapabilities;
+  readonly backendCapabilities: QuestionBackendCapabilities;
 }
 
 export interface AssignmentConfig {
@@ -130,7 +130,7 @@ export interface WasmFacade {
   readonly mode: "wasm" | "serverFallback";
   readonly degradedReason?: string;
   readonly validateResponseFormat: FormatValidator;
-  readonly timerVerdict: TimerEvaluator;
+  readonly questionAttemptTimingDecision: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
   readonly previewNativeDraft: NativeDraftPreviewer;
   readonly verifyPresentationDescriptor: PresentationVerifier;
@@ -138,7 +138,7 @@ export interface WasmFacade {
 
 interface WasmBindgenModule {
   readonly default: (moduleOrPath: URL) => Promise<unknown>;
-  readonly timer_verdict: (evaluationJson: string) => string;
+  readonly question_attempt_timing_decision: (evaluationJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
   readonly preview_native_draft: (draftJson: string, seedJson: string) => string;
@@ -161,7 +161,7 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
   }
   return (
     typeof value["default"] === "function" &&
-    typeof value["timer_verdict"] === "function" &&
+    typeof value["question_attempt_timing_decision"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
     typeof value["preview_native_draft"] === "function" &&
@@ -245,9 +245,9 @@ function requiredNumber(record: Record<string, unknown>, key: string): number {
   return value;
 }
 
-function parseSelectionCardinality(value: unknown): SelectionCardinality {
+function parseResponseSelectionRule(value: unknown): ResponseSelectionRule {
   if (!isRecord(value)) {
-    throw new Error("WASM selection cardinality must be an object");
+    throw new Error("WASM Response Selection Rule must be an object");
   }
   const kind = requiredString(value, "kind");
   switch (kind) {
@@ -258,11 +258,11 @@ function parseSelectionCardinality(value: unknown): SelectionCardinality {
     case "exactly":
       return { kind, count: requiredNumber(value, "count") };
     default:
-      throw new Error(`Unknown WASM selection cardinality ${kind}`);
+      throw new Error(`Unknown WASM Response Selection Rule ${kind}`);
   }
 }
 
-function parseViolation(value: unknown): ResponseFormatViolation {
+function parseStudentResponseFormatIssue(value: unknown): StudentResponseFormatIssue {
   if (!isRecord(value)) {
     throw new Error("WASM format violation must be an object");
   }
@@ -273,14 +273,14 @@ function parseViolation(value: unknown): ResponseFormatViolation {
     case "orderingItemsMismatch":
     case "blankSlotsMismatch":
     case "matchingPromptsMismatch":
-    case "hotspotPointOutOfBounds":
-    case "hotspotPointOutsideRegion":
+    case "studentHotspotPointOutOfBounds":
+    case "studentHotspotPointOutsideRegion":
     case "missingUploadReference":
       return { kind };
     case "selectionCount":
       return {
         kind,
-        expected: parseSelectionCardinality(value["expected"]),
+        expected: parseResponseSelectionRule(value["expected"]),
         actual: requiredNumber(value, "actual"),
       };
     case "duplicateChoice":
@@ -299,15 +299,15 @@ function parseViolation(value: unknown): ResponseFormatViolation {
   }
 }
 
-function parseFormatReport(json: string): ResponseFormatReport {
+function parseStudentResponseFormatCheck(json: string): StudentResponseFormatCheck {
   const value: unknown = JSON.parse(json);
   if (!isRecord(value) || !Array.isArray(value["violations"])) {
     throw new Error("WASM format report must contain a violations array");
   }
-  return { violations: value["violations"].map(parseViolation) };
+  return { violations: value["violations"].map(parseStudentResponseFormatIssue) };
 }
 
-function parseTimerVerdict(json: string): TimerVerdict {
+function parseQuestionAttemptTimingDecision(json: string): QuestionAttemptTimingDecision {
   const value: unknown = JSON.parse(json);
   switch (value) {
     case "untimed":
@@ -329,7 +329,7 @@ function parseCapability(value: unknown): Capability {
     case "serverGrading":
     case "partialCredit":
     case "hints":
-    case "perQuestionTiming":
+    case "questionAttemptTimeLimit":
     case "printExport":
     case "offlinePreview":
       return value;
@@ -384,10 +384,10 @@ async function initializeWasmFacade(
         JSON.stringify(definition),
         JSON.stringify(response),
       );
-      return Promise.resolve(parseFormatReport(json));
+      return Promise.resolve(parseStudentResponseFormatCheck(json));
     };
-    const timerVerdict: TimerEvaluator = (evaluation) =>
-      Promise.resolve(parseTimerVerdict(loaded.timer_verdict(JSON.stringify(evaluation))));
+    const questionAttemptTimingDecision: TimerEvaluator = (evaluation) =>
+      Promise.resolve(parseQuestionAttemptTimingDecision(loaded.question_attempt_timing_decision(JSON.stringify(evaluation))));
     const validateAssignmentConfig: CapabilityValidator = (config) =>
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
@@ -411,7 +411,7 @@ async function initializeWasmFacade(
     return {
       mode: "wasm",
       validateResponseFormat,
-      timerVerdict,
+      questionAttemptTimingDecision,
       validateAssignmentConfig,
       previewNativeDraft,
       verifyPresentationDescriptor,
@@ -421,7 +421,7 @@ async function initializeWasmFacade(
       mode: "serverFallback",
       degradedReason: errorMessage(error),
       validateResponseFormat: formatFallback,
-      timerVerdict: timerFallback,
+      questionAttemptTimingDecision: timerFallback,
       validateAssignmentConfig: capabilityFallback,
       previewNativeDraft: (request) =>
         Promise.resolve({

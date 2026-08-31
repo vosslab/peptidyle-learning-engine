@@ -1,8 +1,8 @@
 //! Pure WP-INST-T2 validation for Instructor Course Invitations.
 //!
-//! This module is deliberately separate from S5 entitlement. It validates
+//! This module is deliberately separate from Student Assignment Access. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants
-//! student entitlement, calculates effective policy, reads a clock, or writes
+//! Student Assignment Access, calculates effective policy, reads a clock, or writes
 //! a direct membership.
 
 use question_model::{

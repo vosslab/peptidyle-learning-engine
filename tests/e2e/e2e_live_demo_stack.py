@@ -16,7 +16,7 @@ import time
 SCRIPT_REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SCRIPT_REPOSITORY_ROOT))
 
-import local_stack_control.consumer
+import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.process
@@ -119,8 +119,8 @@ class DisposableStack:
 		private_file(self.question_secret_path, question_secret)
 		self.project, self.manifest_path = self._write_target()
 		self.runner = RecordingRunner()
-		manifest = local_stack_control.consumer.load_manifest(root, self.manifest_path)
-		self.disposable = local_stack_control.consumer.disposable_target(
+		manifest = local_stack_control.disposable_stack_adapter.load_manifest(root, self.manifest_path)
+		self.disposable = local_stack_control.disposable_stack_adapter.disposable_target(
 			self.runner, root, manifest
 		)
 		self.values = local_stack_control.env_file.env_settings(
@@ -162,7 +162,7 @@ class DisposableStack:
 	#============================================
 	def compose(self, arguments: list[str]) -> str:
 		"""Run one capability-bound Compose command."""
-		argv, environment = local_stack_control.consumer.compose_command(
+		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
 			self.disposable, arguments
 		)
 		result = self.runner.run(argv, environment, self.root)
@@ -172,7 +172,7 @@ class DisposableStack:
 	#============================================
 	def running_services(self) -> tuple[str, ...]:
 		"""Return capability-verified running services for only this project."""
-		snapshot = local_stack_control.consumer.require_current_resource_capability(
+		snapshot = local_stack_control.disposable_stack_adapter.require_current_resource_capability(
 			self.runner, self.disposable
 		)
 		services = sorted(
@@ -204,7 +204,7 @@ class DisposableStack:
 				raise local_stack_control.models.ControllerError(
 					"unsupported live-demo E2E service"
 				)
-			argv, environment = local_stack_control.consumer.compose_command(
+			argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
 				self.disposable, arguments
 			)
 			result = self.runner.run(argv, environment, self.root)
@@ -324,7 +324,7 @@ class DisposableStack:
 			return
 		completed = subprocess.run(
 			[
-				sys.executable, "-m", "local_stack_control._consumer_cli",
+				sys.executable, "-m", "local_stack_control.disposable_stack_command",
 				"cleanup", "--manifest", str(self.manifest_path),
 			],
 			check=False,

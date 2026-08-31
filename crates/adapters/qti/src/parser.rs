@@ -11,9 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use objects::Sha256Digest;
 use objects::image_validation::verify_still_image;
-use question_model::answer::SelectionCardinality;
+use question_model::answer::ResponseSelectionRule;
 use question_model::envelope::{AssetRef, ContentBlock};
-use question_model::response::{ChoiceId, ChoiceOption};
+use question_model::response::{ResponseItemReference, ChoiceOption};
 use question_model::{AssetId, QuestionResponseFormat};
 use uuid::Uuid;
 
@@ -214,7 +214,7 @@ impl QtiImporter {
 fn normalized_item_digests(
     path: &str,
     question: &ImportedQtiQuestion,
-    correct: &ChoiceId,
+    correct: &ResponseItemReference,
 ) -> Result<(Sha256Digest, Sha256Digest), QtiImportError> {
     let presentation =
         serde_json::to_vec(&(&question.prompt, &question.response)).map_err(|_| {
@@ -322,7 +322,7 @@ fn parse_single_choice_item(
     root: &XmlNode,
     entries: &BoundedArchiveEntries,
     assets: &mut BTreeMap<String, QtiAssetObject>,
-) -> Result<(ImportedQtiQuestion, ChoiceId), UnsupportedFeature> {
+) -> Result<(ImportedQtiQuestion, ResponseItemReference), UnsupportedFeature> {
     if root.name() != "assessmentItem" {
         return Err(unsupported(
             path,
@@ -414,7 +414,7 @@ fn parse_single_choice_item(
             ));
         }
         choices.push(ChoiceOption {
-            id: ChoiceId::new(id),
+            id: ResponseItemReference::new(id),
             body,
         });
     }
@@ -431,10 +431,10 @@ fn parse_single_choice_item(
             prompt,
             response: QuestionResponseFormat::MultipleChoice {
                 choices,
-                selection: SelectionCardinality::ExactlyOne,
+                selection: ResponseSelectionRule::ExactlyOne,
             },
         },
-        ChoiceId::new(correct),
+        ResponseItemReference::new(correct),
     ))
 }
 fn required_attr(node: &XmlNode, name: &str) -> Option<String> {

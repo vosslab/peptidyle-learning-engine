@@ -3,7 +3,7 @@
 //! These values are sufficient statistics only: they carry no deployment or
 //! Student identity, answer material, feedback, source reference, or raw time
 //! series. Store implementations derive one observation per exact published
-//! question version before course-owned activity records are deleted.
+//! question version before course-owned Student Work Records are deleted.
 
 use std::fmt;
 

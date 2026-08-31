@@ -11,32 +11,29 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountReference, ActivityTimestamp, AssignmentDeadlineBehavior,
-    CourseInvitationReference, CourseLocalDateTime,
-    CourseMembershipReference, IanaTimeZone, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    AccountReference, ActivityTimestamp, AssignmentDeadlineRule, CourseInvitationReference,
+    CourseLocalDateAndTime, CourseMembershipReference, CourseTimeZone, LateWorkRule,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
 
+mod assignment_policy_source;
 mod local_time;
 mod modifier_revision_response;
-mod preview_provenance;
 mod student_memberships;
 mod target_search;
 
+pub use assignment_policy_source::AssignmentPolicySource;
 pub use local_time::{project_teaching_preview_time_field, resolve_teaching_local_time};
 pub use modifier_revision_response::TeachingOperationRevisionResponse;
-pub use preview_provenance::{
-    TeachingPreviewFieldSource,
-};
 pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
     AccountApprovalView, CourseInvitationTargetSearchPage, CourseInvitationTargetSearchQuery,
     CourseInvitationTargetSearchRequest, CourseInvitationTargetView, InstructorApprovalStateView,
     MAX_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
     MIN_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
-    SysadminInstructorApprovalStateView,
-    SysadminInstructorApprovalView, SysadminInstructorCandidateSearchPage,
-    SysadminInstructorCandidateSearchRequest, SysadminInstructorCandidateView, TeachingAccountView,
+    SysadminInstructorApprovalStateView, SysadminInstructorApprovalView,
+    SysadminInstructorCandidateSearchPage, SysadminInstructorCandidateSearchRequest,
+    SysadminInstructorCandidateView, TeachingAccountView,
 };
 
 /// Maximum Unicode scalar count for an authorized account or membership label.
@@ -207,30 +204,32 @@ pub enum TeachingMembershipStatus {
 /// Closed M3/M4 modification behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum PolicyModificationModeView {
+pub enum AccommodationApplicationRuleView {
     ExtendOnly,
-    Override,
+    Replace,
 }
 
-/// Explicit patch state for a resolved time field; omitted fields never mean inherit.
+/// Explicit adjustment state for a resolved time field; omitted fields never mean inherit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum TeachingTimeFieldPatch {
     Inherit,
-    Set { value: CourseLocalDateTime },
+    Set { value: CourseLocalDateAndTime },
     Unrestricted,
 }
 
-/// Explicit patch state for a resolved positive integer field.
+/// Explicit adjustment state for a resolved positive integer field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum TeachingLimitFieldPatch {
+pub enum TeachingAssignmentAttemptTimeLimitFieldPatch {
     Inherit,
-    Set { value: TeachingTimeLimitSeconds },
+    Set {
+        value: TeachingAssignmentAttemptTimeLimitSeconds,
+    },
     Unrestricted,
 }
 
-/// Explicit patch state for an attempt limit.
+/// Explicit adjustment state for an attempt limit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum TeachingAttemptLimitFieldPatch {
@@ -242,21 +241,21 @@ pub enum TeachingAttemptLimitFieldPatch {
 /// Positive time limit that fits the PostgreSQL `INTEGER` policy column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
-pub struct TeachingTimeLimitSeconds(NonZeroU32);
+pub struct TeachingAssignmentAttemptTimeLimitSeconds(NonZeroU32);
 
-impl TryFrom<u32> for TeachingTimeLimitSeconds {
+impl TryFrom<u32> for TeachingAssignmentAttemptTimeLimitSeconds {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         NonZeroU32::new(value)
-            .filter(|limit| limit.get() <= MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+            .filter(|limit| limit.get() <= MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
             .map(Self)
             .ok_or("time limit must fit the assignment policy bounds")
     }
 }
 
-impl From<TeachingTimeLimitSeconds> for u32 {
-    fn from(value: TeachingTimeLimitSeconds) -> Self {
+impl From<TeachingAssignmentAttemptTimeLimitSeconds> for u32 {
+    fn from(value: TeachingAssignmentAttemptTimeLimitSeconds) -> Self {
         value.0.get()
     }
 }
@@ -283,39 +282,39 @@ impl From<TeachingAttemptLimit> for u32 {
     }
 }
 
-/// Complete M3/M4 patch replacement: every patch state is explicit and closed.
+/// Complete M3/M4 adjustment replacement: every adjustment state is explicit and closed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PolicyPatchView {
+pub struct AccommodationAdjustmentView {
     pub available_at: TeachingTimeFieldPatch,
     pub due_at: TeachingTimeFieldPatch,
     pub closes_at: TeachingTimeFieldPatch,
-    pub time_limit_seconds: TeachingLimitFieldPatch,
+    pub assignment_attempt_time_limit_seconds: TeachingAssignmentAttemptTimeLimitFieldPatch,
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
 }
 
-/// Complete Assignment policy patch replacement used by a synthetic preview.
+/// Complete Assignment policy adjustment replacement used by a synthetic preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentPolicyPatchUpdateRequest {
-    pub mode: PolicyModificationModeView,
-    pub patch: PolicyPatchView,
+pub struct SyntheticPreviewAccommodationAdjustmentRequest {
+    pub mode: AccommodationApplicationRuleView,
+    pub adjustment: AccommodationAdjustmentView,
 }
 
 /// Strict direct Student Accommodation update; the membership reference selects its scope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AccommodationPatchUpdateRequest {
-    pub mode: PolicyModificationModeView,
-    pub patch: PolicyPatchView,
+pub struct AccommodationAdjustmentUpdateRequest {
+    pub mode: AccommodationApplicationRuleView,
+    pub adjustment: AccommodationAdjustmentView,
 }
 
 /// Server-derived resolved time value and its safe source label.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TeachingPreviewTimeField {
-    pub value: Option<CourseLocalDateTime>,
-    pub source: TeachingPreviewFieldSource,
+    pub value: Option<CourseLocalDateAndTime>,
+    pub source: AssignmentPolicySource,
 }
 
 /// Server-derived resolved positive limit and its safe source label.
@@ -323,31 +322,31 @@ pub struct TeachingPreviewTimeField {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TeachingPreviewLimitField {
     pub value: Option<NonZeroU32>,
-    pub source: TeachingPreviewFieldSource,
+    pub source: AssignmentPolicySource,
 }
 
 /// Closed safe reason for an S5 preview denial. It never exposes S3 inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TeachingPreviewDenialReason {
-    NotEntitled,
+    ActiveStudentCourseMembershipRequired,
 }
 
 /// Closed S3 start verdict for a preview subject.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum TeachingStartVerdict {
-    MayStart { late: TeachingLateVerdict },
+pub enum TeachingAssignmentStartDecision {
+    MayStart { late: TeachingStudentLateWorkStatus },
     NotYetAvailable,
     Closed,
     AttemptLimitReached,
-    DueDateRejectsNewRun,
+    LateWorkRefused,
 }
 
 /// Closed late status supplied only inside an allowed S3 start decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum TeachingLateVerdict {
+pub enum TeachingStudentLateWorkStatus {
     OnTime,
     AcceptedLate,
     MarkedLate,
@@ -356,24 +355,24 @@ pub enum TeachingLateVerdict {
 /// Server-derived resolved late-submission behavior and its safe source.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewLateSubmissionField {
-    pub value: LateSubmissionPolicy,
-    pub source: TeachingPreviewFieldSource,
+pub struct TeachingPreviewLateWorkRuleField {
+    pub value: LateWorkRule,
+    pub source: AssignmentPolicySource,
 }
 
 /// Server-derived resolved deadline behavior and its safe source.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewDeadlineBehaviorField {
-    pub value: AssignmentDeadlineBehavior,
-    pub source: TeachingPreviewFieldSource,
+pub struct TeachingPreviewAssignmentDeadlineRuleField {
+    pub value: AssignmentDeadlineRule,
+    pub source: AssignmentPolicySource,
 }
 
-/// Server-derived S5/S3 preview. Denied views cannot carry a schedule or provenance.
+/// Server-derived S5/S3 preview. Denied views cannot carry a schedule or an Assignment Policy Source.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(
-    tag = "entitlement",
+    tag = "active_student_course_membership",
     rename_all = "camelCase",
     rename_all_fields = "camelCase",
     deny_unknown_fields
@@ -384,15 +383,15 @@ pub enum TeachingPreviewView {
     },
     Allowed {
         /// Course-owned zone that gives every resolved local time its meaning.
-        time_zone: IanaTimeZone,
-        start: TeachingStartVerdict,
+        time_zone: CourseTimeZone,
+        start: TeachingAssignmentStartDecision,
         available_at: TeachingPreviewTimeField,
         due_at: TeachingPreviewTimeField,
         closes_at: TeachingPreviewTimeField,
-        time_limit_seconds: TeachingPreviewLimitField,
+        assignment_attempt_time_limit_seconds: TeachingPreviewLimitField,
         attempt_limit: TeachingPreviewLimitField,
-        late_submission: TeachingPreviewLateSubmissionField,
-        deadline_behavior: TeachingPreviewDeadlineBehaviorField,
+        late_work_rule: TeachingPreviewLateWorkRuleField,
+        assignment_deadline_rule: TeachingPreviewAssignmentDeadlineRuleField,
     },
 }
 
@@ -657,9 +656,9 @@ mod tests {
             .is_err()
         );
         assert!(
-            serde_json::from_str::<PolicyPatchView>(concat!(
+            serde_json::from_str::<AccommodationAdjustmentView>(concat!(
                 r#"{"availableAt":{"kind":"inherit"},"dueAt":{"kind":"inherit"},"#,
-                r#""closesAt":{"kind":"inherit"},"timeLimitSeconds":{"kind":"set","#,
+                r#""closesAt":{"kind":"inherit"},"assignmentAttemptTimeLimitSeconds":{"kind":"set","#,
                 r#""value":2147483648},"attemptLimit":{"kind":"inherit"}}"#
             ))
             .is_err()
@@ -669,12 +668,12 @@ mod tests {
     #[test]
     fn denied_preview_omits_every_resolved_schedule_key() {
         let denied = serde_json::to_value(TeachingPreviewView::Denied {
-            reason: TeachingPreviewDenialReason::NotEntitled,
+            reason: TeachingPreviewDenialReason::ActiveStudentCourseMembershipRequired,
         })
         .unwrap();
         assert_eq!(
             denied,
-            serde_json::json!({"entitlement":"denied","reason":"notEntitled"})
+            serde_json::json!({"active_student_course_membership":"denied","reason":"activeStudentCourseMembershipRequired"})
         );
         for key in [
             "start",
@@ -683,7 +682,7 @@ mod tests {
             "closesAt",
             "source",
             "timeZone",
-            "lateSubmission",
+            "lateWorkRule",
         ] {
             assert!(denied.get(key).is_none());
         }

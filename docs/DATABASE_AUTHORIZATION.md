@@ -51,15 +51,15 @@ remain private until successful validated publication.
 `Sysadmin` is a platform role, not ambient FERPA authority. A Sysadmin reads or changes Student work
 only through a narrow, audited support capability or an ordinary current Instructor membership.
 
-| Durable target                          | Database authority                             | Boundary that remains private                         |
-| --------------------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
-| Account, session, passkey               | Exact global account/session                   | Credentials and authentication evidence               |
-| Published Question                     | `approved_instructor`                          | Answer keys, private grading, source, and credentials |
-| Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                    |
+| Durable target                          | Database authority                               | Boundary that remains private                            |
+| --------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Account, session, passkey               | Exact global account/session                     | Credentials and authentication evidence                  |
+| Published Question                      | `approved_instructor`                            | Answer keys, private grading, source, and credentials    |
+| Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
 | Draft Blueprint Revision contribution   | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
-| Course, roster, assignment              | `current_course_instructor`                    | Other courses and former memberships                  |
-| Run, attempt, response, grade, artifact | Student ownership or current course Instructor | Other Students, courses, and inactive records         |
-| Job, export, object, provider state     | Locked typed lease and durable target          | Caller-supplied scope and foreign targets             |
+| Course, roster, assignment              | `current_course_instructor`                      | Other courses and former memberships                     |
+| Run, attempt, response, grade, artifact | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
+| Job, export, object, provider state     | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
 
 Lifecycle does not narrow approved-Instructor discovery. The Question Library safely
 returns the lifecycle state on every published question. Assignment creation
@@ -133,15 +133,15 @@ receive the same account-and-relationship-scoped RLS, minimum-field, audit, rete
 handling. Partition children, views, staging relations, query results, exports, diagnostics, and
 restores inherit the highest label of their inputs.
 
-| Family                                | Radioactive relations                                                                                                                                                                                                                                                          |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Roster and invitation                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                               |
-| Student work and Gradebook evidence   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                     |
-| Course analysis                       | `course_assignment_analysis`, `assignment_item_analysis`, `course_analysis_evidence`                                                                                                                                                                                            |
-| Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                                                                                                       |
-| Course and attempt linkage            | `course_instance`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                              |
-| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery_record`, `object_delivery_access_event`, `worker_job`                                                                                                                                               |
-| Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                                                                                                            |
+| Family                                | Radioactive relations                                                                                                                                                                              |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roster and invitation                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                   |
+| Student work and Gradebook evidence   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`          |
+| Course analysis                       | `course_assignment_analysis`, `assignment_item_analysis`, `course_analysis_evidence`                                                                                                               |
+| Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                          |
+| Course and attempt linkage            | `course_instance`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records |
+| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery_record`, `object_delivery_access_event`, `worker_job`                                                                   |
+| Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                               |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
 Private source and answer-bearing grading material are highly restricted for assessment integrity,
@@ -162,17 +162,17 @@ SD1-C creates the single-installation schema only on freshly cleaned disposable 
 not preserve an installation-scope compatibility layer. The migration ledger allocates the exact next available
 number in these ranges:
 
-| Range                     | Capability family                                                     |
-| ------------------------- | --------------------------------------------------------------------- |
-| `2026082901`              | Principal baseline, schemas, capability roles, and default ACLs       |
-| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation |
-| `2026082907`-`2026082909` | Global immutable Question Library, publication, discovery, and stewardship     |
-| `2026082910`-`2026082912` | Private authoring, Blueprints, Question Folders, and Saved Question Searches   |
-| `2026082913`-`2026082916` | Courses, equal Teaching Team Members, Students, invitations, curricula       |
-| `2026082917`-`2026082920` | Assignment Attempts, schedules, Issued Questions, submissions, artifacts |
-| `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, improvement threads           |
-| `2026082925`-`2026082928` | Typed jobs, exports, objects, retention, external-tool state          |
-| `2026082929`-`2026082936` | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Version Statistics evidence |
+| Range                                                | Capability family                                                                                                                                       |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                         |
+| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation   |
+| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                              |
+| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                            |
+| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                  |
+| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                |
+| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                             |
+| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, external-tool state                                                                                            |
+| `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Version Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,

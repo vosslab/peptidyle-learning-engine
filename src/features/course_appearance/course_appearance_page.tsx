@@ -7,7 +7,7 @@ import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import type { CourseBannerCandidateId } from "../../../generated/api/CourseBannerCandidateId";
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
-import { useApiRuntime } from "../../api/runtime";
+import { useApplicationApi } from "../../api/application_api";
 import {
   ApiRequestError,
   CourseAppearanceConflictError,
@@ -36,7 +36,7 @@ import {
 } from "./course_appearance_model";
 import { createCourseAppearanceRepository } from "./course_appearance_repository";
 import { COURSE_APPEARANCE_STYLES } from "./course_appearance_styles";
-import { COURSE_THEME_OPTIONS, courseThemeStyle, courseThemeTokens } from "./theme_catalog";
+import { COURSE_THEME_OPTIONS, courseThemeStyle, courseThemeTokens } from "./course_theme_registry";
 import { courseRouteReference } from "../../navigation/public_route";
 
 type SavePhase = "ready" | "uploading" | "saving" | "reloading";
@@ -109,7 +109,7 @@ function safeErrorMessage(error: unknown): string {
 
 /** Working course-local settings form; no answer-bearing value or object key enters this surface. */
 export function CourseAppearancePage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const routeThemeData = useCourseThemeRouteData();
   const updateRoutePresentation = useCourseThemePresentation();
   if (routeThemeData === undefined) {

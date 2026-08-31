@@ -11,7 +11,7 @@ import type { CourseInstanceReference } from "../../../generated/api/CourseInsta
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { InspectedStudentResponseV1 } from "../../../generated/api/InspectedStudentResponseV1";
 import type { InspectedStudentScoreFeedbackV1 } from "../../../generated/api/InspectedStudentScoreFeedbackV1";
-import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
 import {
@@ -137,7 +137,7 @@ export interface CalculatedGradebookQuery {
 export type InspectedSubmissionEvidence =
   | {
       readonly kind: "issuedPresentation";
-      readonly question: QuestionEnvelope;
+      readonly question: QuestionPresentation;
       readonly assetBindings: ReadonlyArray<AssetBindingV1>;
       readonly issuedPresentationDigest: string;
     }

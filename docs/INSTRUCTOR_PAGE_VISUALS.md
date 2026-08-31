@@ -21,29 +21,29 @@ and announced page text plus browser paths for UUID exposure before it writes an
 
 ## Page map
 
-| Page                    | Example route                                                | What the view establishes                                                               |
-| ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Courses                 | `/`                                                          | Instructor home, choose or create a Blueprint, and create a Course Instance             |
-| Course Instances        | `/courses/C-1`                                               | Course Instance identity, local navigation, and assignment scanning                     |
-| Blueprint Courses       | `/curriculum`                                                | Reusable Blueprint list, publication state, and owned drafts                            |
-| Blueprint detail        | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                |
-| Assignment overview     | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                            |
-| Student assignment page | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                              |
-| New assignment          | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and Question Library entry points                      |
-| Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                   |
-| Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                 |
-| Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free Student landing with Instructor identity active            |
-| Grading operations      | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention and recovery actions                       |
-| Students                | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                   |
-| Gradebook               | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                        |
-| Grade settings          | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                  |
-| Course appearance       | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context               |
-| Question Library        | `/library`                                                   | All Questions, My Questions, My Question Drafts, Starred, Watched, Question Search, filters, Question IDs, and published results |
-| Question Details        | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt   |
-| My Question Drafts      | `/workspace`                                                 | Private Question drafts and the selected Question draft                                  |
-| My Question Draft editor | `/workspace/W-1`                                            | QTI import entry and native flat-question authoring                                     |
-| Live Demo sign-in       | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                        |
-| Curriculum adoption     | `/instructor/courses/:courseRef/curriculum`                  | Blueprint source selection, update proposal, rollover, term shift, and receipt evidence |
+| Page                     | Example route                                                | What the view establishes                                                                                                        |
+| ------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Courses                  | `/`                                                          | Instructor home, choose or create a Blueprint, and create a Course Instance                                                      |
+| Course Instances         | `/courses/C-1`                                               | Course Instance identity, local navigation, and assignment scanning                                                              |
+| Blueprint Courses        | `/curriculum`                                                | Reusable Blueprint list, publication state, and owned drafts                                                                     |
+| Blueprint detail         | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                                                         |
+| Assignment overview      | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                                                                     |
+| Student assignment page  | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                                                                       |
+| New assignment           | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and Question Library entry points                                                               |
+| Assignment Questions     | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                                                            |
+| Assignment Policies      | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                                                          |
+| Assignment Student view  | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free Student landing with Instructor identity active                                                     |
+| Grading operations       | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Assignment-local automated-grading attention and recovery actions                                                                |
+| Students                 | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                                                            |
+| Gradebook                | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                                                                 |
+| Grade settings           | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                                                           |
+| Course appearance        | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context                                                        |
+| Question Library         | `/library`                                                   | All Questions, My Questions, My Question Drafts, Starred, Watched, Question Search, filters, Question IDs, and published results |
+| Question Details         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                            |
+| My Question Drafts       | `/workspace`                                                 | Private Question drafts and the selected Question draft                                                                          |
+| My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and native flat-question authoring                                                                              |
+| Live Demo sign-in        | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                 |
+| Curriculum adoption      | `/curriculum`                                                | Blueprint Course selection, update proposal, rollover, term shift, and receipt evidence                                          |
 
 The authentication completion pages, invitation redemption, and Student run pages are outside this
 Instructor-workspace gallery. The approved end-to-end teaching loop remains in
@@ -55,12 +55,11 @@ entry creates real graded work through the visible Student path, and the Instruc
 in the Course Instance Gradebook. The Student view keeps the Instructor session and clearly points
 to ordinary Student entry for graded validation.
 
-`tests/e2e/browser_screenshot_corpus.json` owns the committed artifact corpus.
-`tests/playwright/ui_corpus_manifest.ts` and
-`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume that source.
-A screenshot is acceptance evidence only after a fresh capture and inspection; the retained gallery
-does not claim that a current implementation has passed its acceptance gate. Keep private Instructor
-evidence separate from public or Student evidence under `docs/screenshots/`.
+The former screenshot corpus and its consumers are absent from the current
+tree. The retained gallery does not claim current acceptance. Keep private
+Instructor evidence separate from public or Student evidence under
+`docs/screenshots/`; a restored browser owner must create and review fresh
+evidence before a current UI change can claim visual acceptance.
 
 ## Visual gallery
 
@@ -82,29 +81,16 @@ passkey authentication adapters.
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
 ![Instructor Question Library discovery evidence](screenshots/instructor/question_library_discovery/01_disclosed_evidence_laptop.png)
 ![Instructor question curation workspace](screenshots/instructor/question_curation/01_curation_workspace_laptop.png)
-![Instructor reusable Blueprint workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
+![Instructor Blueprint Course workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
 <!-- screenshots:end -->
 
 ## Refreshing the corpus
 
-Run the repository-owned publication gate from the repository root whenever an Instructor UI,
-corpus, or viewport change requires fresh visual evidence:
+The retired screenshot corpus and its publication command are absent from the
+current tree. This gallery is historical reference, not current acceptance.
 
-```bash
-./capture_screenshots.sh
-```
-
-The gate uses the fixed real-stack browser owner, stages the dynamic manifest-owned corpus, verifies
-origin and provenance, and atomically publishes the resulting `docs/screenshots/` artifacts.
-`./all_test.sh` exercises the same stack's behavior and contract gates without rewriting
-documentation assets.
-
-Review regenerated images together after shared layout, theme, typography, or navigation changes.
-Behavior-focused browser tests remain the authority for interaction, authorization, answer secrecy,
-and teaching semantics; these images are visual evidence for composition and current appearance.
-The accepted visual evidence covers Blueprint creator and reader distinction, explicit publication,
-fork and update-proposal review, unreleased propagated assignments, rollover, DST correction,
-keyboard focus, recovery, privacy, and contrast at the canonical 1280 by 800 Instructor profile.
-Focused assignment evidence adds Policies and answer-free Student-view surfaces. Student responsive
-profiles remain separate and are not inferred from the Instructor desktop capture.
+Any Instructor UI, viewport, typography, theme, or navigation change requires
+a restored real-browser owner and a new human visual review before it can claim
+visual acceptance. Behavior tests remain distinct evidence for interaction,
+authorization, answer secrecy, and teaching semantics.

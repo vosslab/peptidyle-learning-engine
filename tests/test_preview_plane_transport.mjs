@@ -6,7 +6,7 @@ import {
   decodeDerivedPreviewSubjectRequest,
   decodeInstructorPreviewSchedulePage,
   decodePreviewPlaneResponse,
-  decodeSyntheticPreviewSubjectRequest,
+  decodeStudentViewScenarioRequest,
 } from "../src/api/decoders.ts";
 import {
   ApiProtocolError,
@@ -18,11 +18,11 @@ const course = "C-12";
 const assignment = "A-34";
 const revision = "7";
 const selectedMoment = { value: "2026-08-25T09:00:00.000", timeZone: "America/Chicago" };
-const inheritPatch = {
+const inheritedAdjustment = {
   availableAt: { kind: "inherit" },
   dueAt: { kind: "inherit" },
   closesAt: { kind: "inherit" },
-  timeLimitSeconds: { kind: "inherit" },
+  assignmentAttemptTimeLimitSeconds: { kind: "inherit" },
   attemptLimit: { kind: "inherit" },
 };
 
@@ -33,32 +33,32 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
   });
 }
 
-function schedule(source = "base") {
+function effective_assignment_policy(source = "base") {
   return {
     availableAt: { value: "2026-08-24T09:00:00.000", source },
     dueAt: { value: "2026-08-26T09:00:00.000", source },
     closesAt: { value: "2026-08-27T09:00:00.000", source },
-    timeLimitSeconds: { value: 3600, source },
+    assignmentAttemptTimeLimitSeconds: { value: 3600, source },
     attemptLimit: { value: 2, source },
-    lateSubmission: { value: "accept", source },
-    deadlineBehavior: { value: "autoSubmit", source },
+    lateWorkRule: { value: "accept", source },
+    assignmentDeadlineRule: { value: "autoSubmit", source },
   };
 }
 
 function allowedEvaluation() {
   return {
     kind: "allowed",
-    subject: {
+    student_view_scenario: {
       kind: "derived",
       assignment,
       revision,
       selectedMoment,
-      policy: schedule("accommodation"),
+      policy: effective_assignment_policy("accommodation"),
       priorRunCount: 0,
     },
-    entitlement: "activeStudentCourseMembership",
-    schedule: schedule("accommodation"),
-    disclosure: [
+    active_student_course_membership: "activeStudentCourseMembership",
+    effective_assignment_policy: effective_assignment_policy("accommodation"),
+    student_feedback_release: [
       {
         kind: "available",
         moment: "now",
@@ -89,7 +89,7 @@ function allowedEvaluation() {
 function previewResponse() {
   return {
     evaluation: allowedEvaluation(),
-    accommodation: { before: schedule("base"), after: schedule("accommodation") },
+    accommodation: { before: effective_assignment_policy("base"), after: effective_assignment_policy("accommodation") },
   };
 }
 
@@ -105,10 +105,15 @@ test("preview decoders accept the closed server projections", () => {
         kind: "granted",
         membership: "M-9",
         display: "Mary Student",
-        entitlement: "activeStudentCourseMembership",
-        schedule: schedule(),
+        active_student_course_membership: "activeStudentCourseMembership",
+        effective_assignment_policy: effective_assignment_policy(),
       },
-      { kind: "denied", membership: "M-10", display: "Jack Student", reason: "notEntitled" },
+      {
+        kind: "denied",
+        membership: "M-10",
+        display: "Jack Student",
+        reason: "noActiveStudentCourseMembership",
+      },
     ],
     nextCursor: "next cursor",
   };
@@ -118,9 +123,9 @@ test("preview decoders accept the closed server projections", () => {
     assignment,
     revision,
     selectedMoment,
-    modifiers: { mode: "extendOnly", patch: inheritPatch },
+    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
   };
-  assert.deepEqual(decodeSyntheticPreviewSubjectRequest(syntheticRequest), syntheticRequest);
+  assert.deepEqual(decodeStudentViewScenarioRequest(syntheticRequest), syntheticRequest);
   assert.deepEqual(
     decodeDerivedPreviewSubjectRequest({ assignment, revision, selectedMoment, membership: "M-9" }),
     { assignment, revision, selectedMoment, membership: "M-9" },
@@ -128,12 +133,19 @@ test("preview decoders accept the closed server projections", () => {
 });
 
 test("preview decoders reject unknown and protected fields at closed boundaries", () => {
-  const denial = { evaluation: { kind: "denied", reason: "notEntitled" }, accommodation: null };
+  const denial = {
+    evaluation: { kind: "denied", reason: "activeStudentCourseMembershipRequired" },
+    accommodation: null,
+  };
   assert.deepEqual(decodePreviewPlaneResponse(denial), denial);
   assert.throws(
     () =>
       decodePreviewPlaneResponse({
-        evaluation: { kind: "denied", reason: "notEntitled", subject: allowedEvaluation().subject },
+        evaluation: {
+          kind: "denied",
+          reason: "activeStudentCourseMembershipRequired",
+          student_view_scenario: allowedEvaluation().student_view_scenario,
+        },
         accommodation: null,
       }),
     DecodeError,
@@ -141,8 +153,8 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
   assert.throws(
     () =>
       decodePreviewPlaneResponse({
-        evaluation: { kind: "denied", reason: "notEntitled" },
-        accommodation: { before: schedule(), after: schedule() },
+        evaluation: { kind: "denied", reason: "activeStudentCourseMembershipRequired" },
+        accommodation: { before: effective_assignment_policy(), after: effective_assignment_policy() },
       }),
     DecodeError,
   );
@@ -152,7 +164,7 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
         ...previewResponse(),
         evaluation: {
           ...allowedEvaluation(),
-          subject: { ...allowedEvaluation().subject, membership: "M-9" },
+          student_view_scenario: { ...allowedEvaluation().student_view_scenario, membership: "M-9" },
         },
       }),
     DecodeError,
@@ -166,8 +178,8 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
             kind: "denied",
             membership: "M-9",
             display: "Mary",
-            reason: "notEntitled",
-            schedule: schedule(),
+            reason: "noActiveStudentCourseMembership",
+            effective_assignment_policy: effective_assignment_policy(),
           },
         ],
         nextCursor: null,
@@ -180,12 +192,12 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
         ...previewResponse(),
         evaluation: {
           ...allowedEvaluation(),
-          disclosure: [
+          student_feedback_release: [
             {
-              ...allowedEvaluation().disclosure[0],
-              flags: { ...allowedEvaluation().disclosure[0].flags, answer: "secret" },
+              ...allowedEvaluation().student_feedback_release[0],
+              flags: { ...allowedEvaluation().student_feedback_release[0].flags, answer: "secret" },
             },
-            ...allowedEvaluation().disclosure.slice(1),
+            ...allowedEvaluation().student_feedback_release.slice(1),
           ],
         },
       }),
@@ -193,12 +205,12 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
   );
   assert.throws(
     () =>
-      decodeSyntheticPreviewSubjectRequest({
+      decodeStudentViewScenarioRequest({
         assignment,
         revision,
         selectedMoment,
         unexpectedGroups: ["G-3"],
-        modifiers: { mode: "extendOnly", patch: inheritPatch },
+        modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
       }),
     DecodeError,
   );
@@ -218,7 +230,7 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
   await client.listPreviewSchedule(course, assignment, revision, "opaque +/", 25);
   await client.constructSyntheticPreview(course, assignment, revision, {
     selectedMoment,
-    modifiers: { mode: "extendOnly", patch: inheritPatch },
+    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
   });
   await client.constructDerivedPreview(course, assignment, revision, {
     selectedMoment,
@@ -240,7 +252,7 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
   assert.equal(requests[1].init.headers["content-type"], "application/json");
   assert.deepEqual(JSON.parse(requests[1].init.body), {
     selectedMoment,
-    modifiers: { mode: "extendOnly", patch: inheritPatch },
+    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
   });
   assert.deepEqual(JSON.parse(requests[2].init.body), { selectedMoment, membership: "M-9" });
 });

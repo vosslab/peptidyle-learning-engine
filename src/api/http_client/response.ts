@@ -12,7 +12,7 @@ import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
@@ -41,7 +41,7 @@ import {
   decodeDraftQuestionDefinition,
   decodeExternalToolLaunch,
   decodeStudentQuestionAttempt,
-  decodeQuestionEnvelope,
+  decodeQuestionPresentation,
   decodeIssuedPresentationEnvelope,
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
@@ -111,10 +111,10 @@ function issuedQuestionForAttempt(
   courseId: CourseId,
   assignmentId: AssignmentId,
   attempt: StudentQuestionAttempt,
-): Promise<QuestionEnvelope> {
+): Promise<QuestionPresentation> {
   const decoder =
     attempt.issuedCapability === "notApplicable"
-      ? decodeQuestionEnvelope
+      ? decodeQuestionPresentation
       : decodeIssuedPresentationEnvelope;
   return requestJson(
     fetchImplementation,
@@ -245,7 +245,7 @@ async function activeAttempt(
   const seen = new Set<string>();
   while (true) {
     const page = await client.listQuestionAttempts(assignmentAttemptId, cursor);
-    const active = page.items.find((attempt) => attempt.status === "in_progress");
+    const active = page.items.find((attempt) => attempt.state === "open");
     if (active !== undefined) return active;
     if (page.nextCursor === null)
       throw new ApiProtocolError(
@@ -264,7 +264,7 @@ function verifyAssignmentAttemptScreen(screen: AssignmentAttemptScreenData): voi
     throw new ApiProtocolError(
       "Assignment Attempt screen assignment does not match its Assignment Attempt",
     );
-  if (screen.issuedQuestion.seed !== screen.attempt.seed)
+  if (screen.issuedQuestion.variation.seed !== screen.attempt.seed)
     throw new ApiProtocolError(
       "Assignment Attempt screen issued presentation does not match its Question Attempt",
     );
@@ -331,15 +331,19 @@ export function createResponseClient(
         decodeQuestionPage,
       ),
     searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> =>
-      requestJson(fetchImplementation, basePath, questionSearchPath(query), decodeQuestionSearchPage),
+      requestJson(
+        fetchImplementation,
+        basePath,
+        questionSearchPath(query),
+        decodeQuestionSearchPage,
+      ),
     resolveQuestion: (displayReference: string): Promise<QuestionSummary> => {
       const path = questionReferencePath(displayReference);
       return requestJson(fetchImplementation, basePath, path, (value, decoderPath) =>
         decodeQuestionSummary(value, decoderPath, true),
       );
     },
-    getQuestionDetails: (questionId) =>
-      questionDetails(fetchImplementation, basePath, questionId),
+    getQuestionDetails: (questionId) => questionDetails(fetchImplementation, basePath, questionId),
     listTaxonomy: (cursor) =>
       requestJson(
         fetchImplementation,
@@ -479,7 +483,7 @@ export function createResponseClient(
         `/api/attempts/${encodedId(attemptId)}`,
         decodeStudentQuestionAttempt,
       ),
-    getIssuedQuestion: async (courseId, assignmentId, attemptId): Promise<QuestionEnvelope> => {
+    getIssuedQuestion: async (courseId, assignmentId, attemptId): Promise<QuestionPresentation> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,

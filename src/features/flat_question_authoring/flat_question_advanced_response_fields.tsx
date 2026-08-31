@@ -50,7 +50,7 @@ import type {
 } from "./flat_question_asset_client";
 import type {
   FlatQuestionHotspotResponse,
-  FlatQuestionNumericTolerance,
+  FlatQuestionNumericResponseTolerance,
   FlatQuestionSourceV2,
 } from "./flat_question_source";
 
@@ -146,7 +146,10 @@ export function FlatQuestionAdvancedResponseFields(
     applyResult(reorderMultiFillBlanks(props.source(), ordered), props.onEdit, props.onStatus);
   }
 
-  function applyNumeric(tolerance: FlatQuestionNumericTolerance, unit: string | null): void {
+  function applyNumeric(
+    tolerance: FlatQuestionNumericResponseTolerance,
+    unit: string | null,
+  ): void {
     const response = numeric();
     if (response === null) return;
     const next = numericResponseFromAuthoring(

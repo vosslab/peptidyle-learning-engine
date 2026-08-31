@@ -40,54 +40,11 @@ future external QTI-JSONL specification. A later QTI-JSONL adapter may map an
 accepted external record into these public/private compiler outputs, but it
 must not silently reinterpret v2 source bytes.
 
-## Example
+## Stored example
 
-```json
-{
-  "format": "pleFlatQuestion",
-  "version": 2,
-  "title": "Favorite color",
-  "prompt": "What is my favorite color?",
-  "response": {
-    "kind": "singleChoice",
-    "choices": [
-      {
-        "id": "blue",
-        "text": "Blue",
-        "feedback": "Blue is a calm choice."
-      },
-      {
-        "id": "red",
-        "text": "Red",
-        "feedback": "Red is not my favorite."
-      },
-      {
-        "id": "yellow",
-        "text": "Yellow",
-        "feedback": "Yellow is bright."
-      }
-    ],
-    "correctChoice": "blue"
-  },
-  "feedback": {
-    "correct": "Exactly right.",
-    "incorrect": "Try thinking of a cool color."
-  },
-  "points": 1.0,
-  "attemptPolicy": {
-    "maxAttempts": null
-  },
-  "timingPolicy": {
-    "kind": "untimed"
-  },
-  "tags": ["example"],
-  "taxonomy": [],
-  "license": {
-    "kind": "ccBySa"
-  },
-  "language": "en-US"
-}
-```
+The complete accepted record lives in
+[flat_single_choice_v2.json](../crates/adapters/native/tests/fixtures/flat_single_choice_v2.json).
+Parser and compiler tests load that stored Question data while executable source owns behavior.
 
 Choice IDs are semantic stable identifiers, not display labels such as `A`,
 `B`, and `C`. The renderer may label or reorder choices without changing the
@@ -102,14 +59,14 @@ executable content.
 Version 2 keeps the same top-level metadata and policies but places family data
 inside one closed `response` object. The common top-level members are
 `format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
-`points`, `attemptPolicy`, `timingPolicy`, optional `tags`, optional
+`points`, `questionAttemptLimit`, `questionAttemptTimeLimit`, optional `tags`, optional
 `taxonomy`, `license`, and `language`. Unknown and duplicate members are
 refused at every level.
 
-`attemptPolicy` is closed and contains only `maxAttempts`, which controls the
+`questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
 retry bound. It does not disclose results, feedback, or answers. Student
-disclosure is assignment-owned through the independent five-field
-`StudentDisclosurePolicy`: score, per-item correctness, feedback text,
+Feedback Release is assignment-owned through the independent five-field
+`StudentFeedbackReleaseRule`: score, per-item correctness, feedback text,
 solution, and class statistics.
 
 The eight exact response shapes are:
@@ -154,10 +111,10 @@ For example, a matching question is:
     ]
   },
   "points": 2.0,
-  "attemptPolicy": {
+  "questionAttemptLimit": {
     "maxAttempts": null
   },
-  "timingPolicy": { "kind": "untimed" },
+  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["nucleic-acids"],
   "taxonomy": [],
   "license": { "kind": "ccBySa" },

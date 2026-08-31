@@ -195,15 +195,6 @@
   max-width: none;
 }
 
-.assignment-workspace-group-choices {
-  display: grid;
-  gap: 0.42rem;
-  margin: 0.2rem 0 0.4rem;
-  padding: 0.7rem;
-  border: 1px solid var(--ple-border);
-  border-radius: 0.45rem;
-}
-
 .assignment-workspace-header {
   display: grid;
   gap: 0.32rem;

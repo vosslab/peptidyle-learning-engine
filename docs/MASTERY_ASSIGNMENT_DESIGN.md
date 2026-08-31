@@ -33,23 +33,23 @@ and connect evidence rather than stop at recall of a familiar prompt.
 
 ## Current model
 
-### Durable activity records
+### Durable Student Work Records
 
-The implemented activity model has four durable records and one selected course result:
+The implemented Student Work Records model has four durable records and one selected course result:
 
-| Level              | Role                                            | Important consequence                                               |
-| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------- |
-| Student Record     | One Student's protected course record           | Separates course records from global Account identity               |
-| Assignment Attempt | One pass through an Assignment                  | Records mode, variation, server timestamps, and completion          |
-| Issued Question    | One selected Question in an Assignment Attempt  | Preserves version, order, selection evidence, and scoring treatment |
-| Question Attempt   | One server-issued try under an Issued Question  | Preserves seed, timing, response, and grading result                |
+| Level              | Role                                           | Important consequence                                               |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------------- |
+| Student Record     | One Student's protected course record          | Separates course records from global Account identity               |
+| Assignment Attempt | One pass through an Assignment                 | Records mode, variation, server timestamps, and completion          |
+| Issued Question    | One selected Question in an Assignment Attempt | Preserves version, order, selection evidence, and scoring treatment |
+| Question Attempt   | One server-issued try under an Issued Question | Preserves seed, timing, response, and grading result                |
 
 `AssignmentGrade.first_completed_at` derives whether the Student has completed
 the Assignment at least once. A new Assignment Attempt after that point is
 `Practice`; an earlier Assignment Attempt is `Assigned`. The system does not
 store a competing within-attempt `complete` flag: completion is derived from
 current required-question states, then recorded as one server transition. These are implemented in
-[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs) and
+[Question Model Student Work Records](../crates/question_model/src/lib.rs) and
 [crates/domain/src/completion.rs](../crates/domain/src/completion.rs).
 
 `AssignmentGrade` is the selected course result for one Student Record and
@@ -67,23 +67,24 @@ retry. This makes resume safe and keeps attempt sequencing understandable.
 The route begins an Assignment Attempt only after authenticating the session.
 The canonical path validates its policy, timing, sequence, and one-active-attempt
 rules before it commits activity. See
-[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs),
+[Question Model Student Work Records](../crates/question_model/src/lib.rs),
 and [crates/domain/src/effective_assignment_policy.rs](../crates/domain/src/effective_assignment_policy.rs).
 
 ### Retries preserve evidence
 
 An incorrect response enters `RetryAvailable` only when policy permits another response. Starting
 the retry issues a new `QuestionAttempt`; it never overwrites the prior response, grade, seed, or
-provenance. An unlimited question attempt policy is represented by `max_attempts: None`. This is the
+Question Attempt Source Record. An unlimited question attempt policy is represented by `max_attempts: None`. This is the
 implemented mastery retry behavior in
-[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs) and
-[crates/domain/src/run.rs](../crates/domain/src/run.rs).
+[Question Model Student Work Records](../crates/question_model/src/lib.rs) and
+[the Domain Assignment Activity module](../crates/domain/src/lib.rs).
 
 ### Completion and gradebook score differ
 
-Completion is a condition on one run. Grade selection is a separate condition across completed runs.
-For example, requiring all questions correct determines when a mastery run completes; retaining the
-highest run score determines what reaches the gradebook. Neither rule implies the other.
+Completion is a condition on one Assignment Attempt. Grade selection is a separate condition across
+completed Assignment Attempts. For example, requiring all Questions correct determines when a mastery
+Assignment Attempt completes; retaining the highest Assignment Attempt score determines what reaches the
+gradebook. Neither rule implies the other.
 
 `AllCorrect`, `AnswerAll`, and `ScoreAtLeast` are implemented completion requirements. `First`,
 `Latest`, `Highest`, and `InstructorSelected` are implemented grade policies. Highest-score ties
@@ -91,24 +92,24 @@ retain the earlier run, which keeps the selected grade pointer stable. The pure 
 [crates/domain/src/completion.rs](../crates/domain/src/completion.rs) and
 [crates/domain/src/scoring.rs](../crates/domain/src/scoring.rs).
 
-### Continued practice and variation differ
+### Continued practice and Question Variation differ
 
-Continued practice answers whether another run may begin after first completion:
+Continued practice answers whether another Assignment Attempt may begin after first completion:
 
-- `Unlimited` allows any number of additional runs.
-- `Capped` allows a stated number after the first completed run.
-- `Closed` rejects another run after completion.
+- `Unlimited` allows any number of additional Assignment Attempts.
+- `Capped` allows a stated number after the first completed Assignment Attempt.
+- `Closed` rejects another Assignment Attempt after completion.
 
-Variation answers what changes in a new run:
+Question Variation Rule answers what changes in a new Assignment Attempt:
 
-- `NewSeeds` keeps the assignment's selected questions but changes generated values.
+- `ReuseQuestionsWithNewSeeds` retains the Assignment's selected Questions and issues fresh Question Seeds.
 - `SelectedQuestionVariants` uses Instructor-selected Question Variants.
-- `FullRegeneration` redraws questions as well as reseeding.
+- `RedrawQuestionPools` redraws Question Pools and issues fresh Question Seeds.
 
-The continued-practice check does not choose a grade, and the variation policy does not permit a
-run. This separation is deliberate and implemented in
-[crates/question_model/src/run_policy.rs](../crates/question_model/src/run_policy.rs) and
-[crates/domain/src/run.rs](../crates/domain/src/run.rs). A resumed existing attempt keeps its stored
+The continued-practice rule does not choose a grade, and the Question Variation Rule does not permit an
+Assignment Attempt. This separation is deliberate and implemented in
+`crates/question_model/src/assignment_activity_rules.rs` and
+[the Domain Assignment Activity module](../crates/domain/src/lib.rs). A resumed existing attempt keeps its stored
 seed; only a newly issued instance receives a fresh one.
 
 ## Recommended mastery bundle
@@ -116,15 +117,15 @@ seed; only a newly issued instance receives a fresh one.
 PLE currently stores the independent policies below. The recommended mastery configuration is an
 explicit composition of those existing values, not a hidden special case:
 
-| Concern            | Recommended mastery value     | Student meaning                                                                                             |
-| ------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Completion         | `AllCorrect`                  | Keep working until every required question is correct                                                       |
-| Grade              | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
-| Continued practice | `Unlimited`                   | Start another run after completion whenever useful                                                          |
-| Variation          | `NewSeeds`                    | See the same concepts with fresh generated values                                                           |
-| Question attempts  | `max_attempts: None`          | Retry a question until correct                                                                              |
-| Student disclosure | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
-| Timing             | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
+| Concern                 | Recommended mastery value     | Student meaning                                                                                             |
+| ----------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Completion              | `AllCorrect`                  | Keep working until every required question is correct                                                       |
+| Grade                   | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
+| Continued practice      | `Unlimited`                   | Start another run after completion whenever useful                                                          |
+| Question Variation Rule | `ReuseQuestionsWithNewSeeds`  | Keep the selected Questions while using fresh generated values                                              |
+| Question attempts       | `max_attempts: None`          | Retry a question until correct                                                                              |
+| Student disclosure      | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
+| Timing                  | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
 
 The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the five independent
 Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
@@ -160,20 +161,20 @@ the selected question or its retry bound.
 
 Private feedback is intentionally not serializable or debug-printable. The public
 `DisclosedFeedback` DTO omits locked fields rather than sending hidden nulls. The implementation is
-in [crates/question_model/src/feedback.rs](../crates/question_model/src/feedback.rs),
-[crates/domain/src/disclosure_policy.rs](../crates/domain/src/disclosure_policy.rs); Store
+in [crates/question_model/src/feedback.rs](../crates/question_model/src/feedback.rs) and
+`crates/domain/src/student_feedback_release.rs`; Store
 integration returns with the fresh course-delivery reconstruction.
 
 ### Time is server-owned
 
-`TimingPolicy` supports untimed, per-question, and per-attempt limits with an explicit grace period.
+`QuestionAttemptTimeLimit` supports untimed, per-question, and per-attempt limits with an explicit grace period.
 The browser displays remaining time, but only server-issued timestamps and the server timing verdict
 can accept, auto-submit, or reject work. Assignment access policy separately controls visibility,
 availability, due date, closing date, late treatment, whole-run limits, and run caps. This is why a
 mastery bundle can be untimed while an institution still gives an assignment an availability window.
 
 The policy types are in
-[crates/question_model/src/run_policy.rs](../crates/question_model/src/run_policy.rs) and
+`crates/question_model/src/assignment_activity_rules.rs` and
 [crates/question_model/src/assignment.rs](../crates/question_model/src/assignment.rs). Run creation
 checks resolved assignment timing in both stores before it creates a run.
 
@@ -182,8 +183,8 @@ checks resolved assignment timing in both stores before it creates a run.
 ### Current interface
 
 The current instructor editor is an advanced policy editor. It exposes completion, grade, continued
-practice, and variation independently. The student-facing pages use mastery-oriented language such
-as "Start or resume practice", "Keep practicing with a fresh variation", and "Start fresh practice".
+practice, and Question Variation independently. The student-facing pages use mastery-oriented language such
+as "Start or resume practice", "Keep practicing with fresh Question Seeds", and "Start fresh practice".
 Those are current user-interface facts, not evidence that a formal assignment-type chooser exists.
 
 ### Planned simplification
@@ -207,7 +208,7 @@ course should use the same grading rule. An instructor-facing type can expose th
 decisions that commonly differ, such as due date, points, and an intentional advanced override.
 
 The planned Practice type needs one additional product decision before it can honestly promise "does
-not affect the gradebook": current `GradePolicy` always chooses a completed run or awaits an
+not affect the gradebook": current `AssignmentAttemptGradeRule` always chooses a completed Assignment Attempt or awaits an
 instructor choice. Until a grade visibility or weighting policy exists, the UI must not claim that
 practice is ungraded merely because it is labeled Practice.
 
@@ -248,7 +249,7 @@ and lifecycle. Each focused save uses the assignment's shared revision and retur
 authoritative projection, so a Policies save cannot silently replace Questions content.
 
 An empty persisted Draft is valid while the Instructor builds the assignment across pages. Derived
-publication readiness blocks Published until an active deliverable position and valid policy state
+Assignment Publication Readiness for the exact Draft Assignment Revision blocks Published until an active deliverable position and valid policy state
 exist. Once student work is issued, a structural Questions change can return the typed
 issued-student-work conflict; the page preserves its draft for recovery. Student view is an
 answer-free, non-mutating presentation of the current assignment and does not create a practice run.
@@ -267,7 +268,7 @@ The browser presents a learning experience; it does not administer the assignmen
 
 - derives course and student authority from the authenticated session;
 - chooses or resumes the Assignment Attempt and assigns its attempt number;
-- issues attempt identifiers, seeds, deadlines, and immutable question provenance;
+- issues attempt identifiers, seeds, deadlines, and immutable Question Attempt Source Records;
 - validates response format again before calling a trusted grading backend;
 - computes correctness, points, retry availability, completion, and grade summary;
 - commits response, feedback record, summary projection, and completion transition atomically; and
@@ -283,9 +284,9 @@ constructing a policy, timestamp, Assignment Activity configuration, or score. S
 
 When changing mastery behavior, update the appropriate contract in the same patch:
 
-- Policy vocabulary or serialization: `crates/question_model/src/run_policy.rs` and
+- Policy vocabulary or serialization: `crates/question_model/src/assignment_activity_rules.rs` and
   [QUESTION_MODEL.md](QUESTION_MODEL.md).
-- Enrollment, run, attempt, or summary behavior: `crates/question_model/src/activity.rs`,
+- Enrollment, run, attempt, or summary behavior: `crates/question_model/src/student_work.rs`,
   `crates/domain/`, and [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 - Server authority, disclosure, or student response boundary: [SECURITY_MODEL.md](SECURITY_MODEL.md)
   and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).

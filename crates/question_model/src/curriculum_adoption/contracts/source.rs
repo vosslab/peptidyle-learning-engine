@@ -1,18 +1,18 @@
-//! Revision-bound BlueprintCourse source evidence.
+//! Revision-bound Blueprint Course reference.
 
 use serde::{Deserialize, Serialize};
 
 use crate::{BlueprintCourseReference, BlueprintRevision};
 
-/// A revision-bound BlueprintCourse observed through an authorized read.
+/// One exact Blueprint Course and immutable Blueprint Revision pair.
 ///
 /// This is browser-safe locator/revision evidence only. The Store owns draft
 /// visibility, published Instructor visibility, and exact server pin resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ObservedBlueprintSource {
-    /// The sole reusable-course locator.
+pub struct BlueprintRevisionReference {
+    /// The Blueprint Course identity.
     pub reference: BlueprintCourseReference,
-    /// Complete ordered-tree revision selected for preview or apply.
+    /// The immutable Blueprint Revision selected for review or one operation.
     pub revision: BlueprintRevision,
 }

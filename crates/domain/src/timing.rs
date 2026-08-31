@@ -5,16 +5,16 @@
 //! Authorized pauses arrive as one cumulative extension reconstructed from
 //! audit events; pause authorization and persistence belong to the server.
 
-use question_model::assignment_activity_rules::TimingPolicy;
+use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::{ActivityTimestamp, QuestionAttemptTiming};
 use serde::{Deserialize, Serialize};
 
 /// Complete clock-free input to one timer evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TimerEvaluation {
+pub struct QuestionAttemptTimingEvaluation {
     /// Authored timing and grace policy for the question or run.
-    pub policy: TimingPolicy,
+    pub policy: QuestionAttemptTimeLimit,
     /// Server-recorded issue, base-deadline, and submission timestamps.
     pub timer: QuestionAttemptTiming,
     /// Server time at which an unsubmitted timer is being evaluated.
@@ -26,7 +26,7 @@ pub struct TimerEvaluation {
 /// Authoritative result of evaluating one timer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum TimerVerdict {
+pub enum QuestionAttemptTimingDecision {
     /// No deadline applies.
     Untimed,
     /// The unsubmitted timer has not reached its effective deadline.
@@ -43,7 +43,7 @@ pub enum TimerVerdict {
 
 /// Malformed or internally inconsistent timer input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TimerEvaluationError {
+pub enum QuestionAttemptTimingEvaluationError {
     /// An untimed policy carried a deadline.
     UnexpectedDeadline,
     /// A timed policy omitted its deadline.
@@ -64,7 +64,7 @@ pub enum TimerEvaluationError {
     TimestampOverflow,
 }
 
-impl std::fmt::Display for TimerEvaluationError {
+impl std::fmt::Display for QuestionAttemptTimingEvaluationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
             Self::UnexpectedDeadline => "an untimed policy cannot carry a deadline",
@@ -81,7 +81,7 @@ impl std::fmt::Display for TimerEvaluationError {
     }
 }
 
-impl std::error::Error for TimerEvaluationError {}
+impl std::error::Error for QuestionAttemptTimingEvaluationError {}
 
 /// Evaluates a timer using only server-owned input.
 ///
@@ -92,31 +92,32 @@ impl std::error::Error for TimerEvaluationError {}
 ///
 /// # Errors
 ///
-/// Returns [`TimerEvaluationError`] for inconsistent timestamps, policy and
+/// Returns [`QuestionAttemptTimingEvaluationError`] for inconsistent timestamps, policy and
 /// deadline mismatches, negative pause duration, or arithmetic overflow.
-pub fn timer_verdict(evaluation: &TimerEvaluation) -> Result<TimerVerdict, TimerEvaluationError> {
+pub fn question_attempt_timing_decision(
+    evaluation: &QuestionAttemptTimingEvaluation,
+) -> Result<QuestionAttemptTimingDecision, QuestionAttemptTimingEvaluationError> {
     validate_record_order(evaluation)?;
 
     let grace_seconds = match evaluation.policy {
-        TimingPolicy::Untimed => {
+        QuestionAttemptTimeLimit::Unlimited => {
             if evaluation.timer.deadline.is_some() {
-                return Err(TimerEvaluationError::UnexpectedDeadline);
+                return Err(QuestionAttemptTimingEvaluationError::UnexpectedDeadline);
             }
             if evaluation.pause_extension_millis != 0 {
-                return Err(TimerEvaluationError::PauseOnUntimed);
+                return Err(QuestionAttemptTimingEvaluationError::PauseOnUntimed);
             }
-            return Ok(TimerVerdict::Untimed);
+            return Ok(QuestionAttemptTimingDecision::Untimed);
         }
-        TimingPolicy::PerQuestion { grace_seconds, .. }
-        | TimingPolicy::PerAttempt { grace_seconds, .. } => grace_seconds,
+        QuestionAttemptTimeLimit::Limited { grace_seconds, .. } => grace_seconds,
     };
 
     let deadline = evaluation
         .timer
         .deadline
-        .ok_or(TimerEvaluationError::MissingDeadline)?;
+        .ok_or(QuestionAttemptTimingEvaluationError::MissingDeadline)?;
     if deadline < evaluation.timer.issued_at {
-        return Err(TimerEvaluationError::DeadlineBeforeIssue);
+        return Err(QuestionAttemptTimingEvaluationError::DeadlineBeforeIssue);
     }
 
     let effective_deadline = checked_add_millis(deadline, evaluation.pause_extension_millis)?;
@@ -129,34 +130,36 @@ pub fn timer_verdict(evaluation: &TimerEvaluation) -> Result<TimerVerdict, Timer
 
     if observed_at <= effective_deadline {
         return Ok(if evaluation.timer.submitted_at.is_some() {
-            TimerVerdict::SubmittedOnTime
+            QuestionAttemptTimingDecision::SubmittedOnTime
         } else {
-            TimerVerdict::Open
+            QuestionAttemptTimingDecision::Open
         });
     }
     if observed_at <= grace_deadline {
         return Ok(if evaluation.timer.submitted_at.is_some() {
-            TimerVerdict::SubmittedWithinGrace
+            QuestionAttemptTimingDecision::SubmittedWithinGrace
         } else {
-            TimerVerdict::GracePeriod
+            QuestionAttemptTimingDecision::GracePeriod
         });
     }
-    Ok(TimerVerdict::TimedOut)
+    Ok(QuestionAttemptTimingDecision::TimedOut)
 }
 
-fn validate_record_order(evaluation: &TimerEvaluation) -> Result<(), TimerEvaluationError> {
+fn validate_record_order(
+    evaluation: &QuestionAttemptTimingEvaluation,
+) -> Result<(), QuestionAttemptTimingEvaluationError> {
     if evaluation.pause_extension_millis < 0 {
-        return Err(TimerEvaluationError::NegativePauseExtension);
+        return Err(QuestionAttemptTimingEvaluationError::NegativePauseExtension);
     }
     if evaluation.evaluated_at < evaluation.timer.issued_at {
-        return Err(TimerEvaluationError::EvaluationBeforeIssue);
+        return Err(QuestionAttemptTimingEvaluationError::EvaluationBeforeIssue);
     }
     if let Some(submitted_at) = evaluation.timer.submitted_at {
         if submitted_at < evaluation.timer.issued_at {
-            return Err(TimerEvaluationError::SubmissionBeforeIssue);
+            return Err(QuestionAttemptTimingEvaluationError::SubmissionBeforeIssue);
         }
         if submitted_at > evaluation.evaluated_at {
-            return Err(TimerEvaluationError::SubmissionAfterEvaluation);
+            return Err(QuestionAttemptTimingEvaluationError::SubmissionAfterEvaluation);
         }
     }
     Ok(())
@@ -165,12 +168,12 @@ fn validate_record_order(evaluation: &TimerEvaluation) -> Result<(), TimerEvalua
 fn checked_add_millis(
     timestamp: ActivityTimestamp,
     milliseconds: i64,
-) -> Result<ActivityTimestamp, TimerEvaluationError> {
+) -> Result<ActivityTimestamp, QuestionAttemptTimingEvaluationError> {
     timestamp
         .as_unix_millis()
         .checked_add(milliseconds)
         .map(ActivityTimestamp::from_unix_millis)
-        .ok_or(TimerEvaluationError::TimestampOverflow)
+        .ok_or(QuestionAttemptTimingEvaluationError::TimestampOverflow)
 }
 
 #[cfg(test)]
@@ -182,13 +185,13 @@ mod tests {
     }
 
     fn evaluation(
-        policy: TimingPolicy,
+        policy: QuestionAttemptTimeLimit,
         deadline: Option<i64>,
         submitted_at: Option<i64>,
         evaluated_at: i64,
         pause_extension_millis: i64,
-    ) -> TimerEvaluation {
-        TimerEvaluation {
+    ) -> QuestionAttemptTimingEvaluation {
+        QuestionAttemptTimingEvaluation {
             policy,
             timer: QuestionAttemptTiming {
                 issued_at: timestamp(1_000),
@@ -202,65 +205,65 @@ mod tests {
 
     #[test]
     fn grace_and_pause_boundaries_are_table_driven() {
-        let timed = TimingPolicy::PerQuestion {
+        let timed = QuestionAttemptTimeLimit::Limited {
             seconds: 9,
             grace_seconds: 2,
         };
         let cases = [
             (
                 "untimed",
-                evaluation(TimingPolicy::Untimed, None, None, 50_000, 0),
-                TimerVerdict::Untimed,
+                evaluation(QuestionAttemptTimeLimit::Unlimited, None, None, 50_000, 0),
+                QuestionAttemptTimingDecision::Untimed,
             ),
             (
                 "open before deadline",
                 evaluation(timed, Some(10_000), None, 9_999, 0),
-                TimerVerdict::Open,
+                QuestionAttemptTimingDecision::Open,
             ),
             (
                 "open at inclusive deadline",
                 evaluation(timed, Some(10_000), None, 10_000, 0),
-                TimerVerdict::Open,
+                QuestionAttemptTimingDecision::Open,
             ),
             (
                 "waiting inside grace",
                 evaluation(timed, Some(10_000), None, 10_001, 0),
-                TimerVerdict::GracePeriod,
+                QuestionAttemptTimingDecision::GracePeriod,
             ),
             (
                 "on-time submission at deadline",
                 evaluation(timed, Some(10_000), Some(10_000), 10_000, 0),
-                TimerVerdict::SubmittedOnTime,
+                QuestionAttemptTimingDecision::SubmittedOnTime,
             ),
             (
                 "submission inside grace",
                 evaluation(timed, Some(10_000), Some(10_001), 10_001, 0),
-                TimerVerdict::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::SubmittedWithinGrace,
             ),
             (
                 "submission at inclusive grace boundary",
                 evaluation(timed, Some(10_000), Some(12_000), 12_000, 0),
-                TimerVerdict::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::SubmittedWithinGrace,
             ),
             (
                 "submission after grace",
                 evaluation(timed, Some(10_000), Some(12_001), 12_001, 0),
-                TimerVerdict::TimedOut,
+                QuestionAttemptTimingDecision::TimedOut,
             ),
             (
                 "authorized pause extends on-time deadline",
                 evaluation(timed, Some(10_000), Some(11_500), 11_500, 2_000),
-                TimerVerdict::SubmittedOnTime,
+                QuestionAttemptTimingDecision::SubmittedOnTime,
             ),
             (
                 "authorized pause extends grace deadline",
                 evaluation(timed, Some(10_000), Some(13_500), 13_500, 2_000),
-                TimerVerdict::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::SubmittedWithinGrace,
             ),
             (
                 "per-attempt uses the same verdict rules",
                 evaluation(
-                    TimingPolicy::PerAttempt {
+                    QuestionAttemptTimeLimit::Limited {
                         seconds: 60,
                         grace_seconds: 0,
                     },
@@ -269,18 +272,22 @@ mod tests {
                     10_001,
                     0,
                 ),
-                TimerVerdict::TimedOut,
+                QuestionAttemptTimingDecision::TimedOut,
             ),
         ];
 
         for (name, input, expected) in cases {
-            assert_eq!(timer_verdict(&input), Ok(expected), "{name}");
+            assert_eq!(
+                question_attempt_timing_decision(&input),
+                Ok(expected),
+                "{name}"
+            );
         }
     }
 
     #[test]
     fn malformed_inputs_return_specific_errors() {
-        let timed = TimingPolicy::PerQuestion {
+        let timed = QuestionAttemptTimeLimit::Limited {
             seconds: 9,
             grace_seconds: 2,
         };
@@ -288,54 +295,64 @@ mod tests {
             (
                 "timed without deadline",
                 evaluation(timed, None, None, 2_000, 0),
-                TimerEvaluationError::MissingDeadline,
+                QuestionAttemptTimingEvaluationError::MissingDeadline,
             ),
             (
                 "untimed with deadline",
-                evaluation(TimingPolicy::Untimed, Some(2_000), None, 2_000, 0),
-                TimerEvaluationError::UnexpectedDeadline,
+                evaluation(
+                    QuestionAttemptTimeLimit::Unlimited,
+                    Some(2_000),
+                    None,
+                    2_000,
+                    0,
+                ),
+                QuestionAttemptTimingEvaluationError::UnexpectedDeadline,
             ),
             (
                 "untimed with pause",
-                evaluation(TimingPolicy::Untimed, None, None, 2_000, 1),
-                TimerEvaluationError::PauseOnUntimed,
+                evaluation(QuestionAttemptTimeLimit::Unlimited, None, None, 2_000, 1),
+                QuestionAttemptTimingEvaluationError::PauseOnUntimed,
             ),
             (
                 "negative pause",
                 evaluation(timed, Some(2_000), None, 2_000, -1),
-                TimerEvaluationError::NegativePauseExtension,
+                QuestionAttemptTimingEvaluationError::NegativePauseExtension,
             ),
             (
                 "deadline before issue",
                 evaluation(timed, Some(999), None, 2_000, 0),
-                TimerEvaluationError::DeadlineBeforeIssue,
+                QuestionAttemptTimingEvaluationError::DeadlineBeforeIssue,
             ),
             (
                 "evaluation before issue",
                 evaluation(timed, Some(2_000), None, 999, 0),
-                TimerEvaluationError::EvaluationBeforeIssue,
+                QuestionAttemptTimingEvaluationError::EvaluationBeforeIssue,
             ),
             (
                 "submission before issue",
                 evaluation(timed, Some(2_000), Some(999), 2_000, 0),
-                TimerEvaluationError::SubmissionBeforeIssue,
+                QuestionAttemptTimingEvaluationError::SubmissionBeforeIssue,
             ),
             (
                 "submission after evaluation",
                 evaluation(timed, Some(2_000), Some(1_500), 1_499, 0),
-                TimerEvaluationError::SubmissionAfterEvaluation,
+                QuestionAttemptTimingEvaluationError::SubmissionAfterEvaluation,
             ),
         ];
 
         for (name, input, expected) in cases {
-            assert_eq!(timer_verdict(&input), Err(expected), "{name}");
+            assert_eq!(
+                question_attempt_timing_decision(&input),
+                Err(expected),
+                "{name}"
+            );
         }
     }
 
     #[test]
     fn timestamp_overflow_is_an_error() {
-        let input = TimerEvaluation {
-            policy: TimingPolicy::PerQuestion {
+        let input = QuestionAttemptTimingEvaluation {
+            policy: QuestionAttemptTimeLimit::Limited {
                 seconds: 1,
                 grace_seconds: 0,
             },
@@ -349,15 +366,15 @@ mod tests {
         };
 
         assert_eq!(
-            timer_verdict(&input),
-            Err(TimerEvaluationError::TimestampOverflow)
+            question_attempt_timing_decision(&input),
+            Err(QuestionAttemptTimingEvaluationError::TimestampOverflow)
         );
     }
 
     #[test]
     fn serde_uses_lower_camel_case_at_the_wire() {
         let input = evaluation(
-            TimingPolicy::PerAttempt {
+            QuestionAttemptTimeLimit::Limited {
                 seconds: 60,
                 grace_seconds: 2,
             },
@@ -371,7 +388,7 @@ mod tests {
         assert!(json.contains(r#""evaluatedAt":10001"#));
         assert!(json.contains(r#""pauseExtensionMillis":500"#));
         assert_eq!(
-            serde_json::to_string(&TimerVerdict::SubmittedWithinGrace)
+            serde_json::to_string(&QuestionAttemptTimingDecision::SubmittedWithinGrace)
                 .expect("verdict should serialize"),
             r#""submittedWithinGrace""#
         );

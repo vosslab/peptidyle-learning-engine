@@ -10,13 +10,13 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::AttemptResult;
+use question_model::GradingResult;
 use question_model::envelope::ContentBlock;
 use sha2::Sha256;
 
-use crate::broker_provider::{
+use crate::external_question_provider::{
     ContractedScoredEmbedConfig, ContractedScoredEmbedProvider, ContractedSnapshot,
-    ProtectedLaunchRequest, ProviderLaunchHandle, ProxyRequest, ProxyResponse,
+    ExternalToolLaunchReference, ProtectedLaunchRequest, ProxyRequest, ProxyResponse,
     ResultTransportRequest, ScoredEmbedTransport, ScoredEmbedTransportFailure,
     SnapshotTransportRequest,
 };
@@ -39,23 +39,11 @@ pub enum RecordedProviderMode {
     InvalidResponse,
 }
 
-/// Factory for the feature-gated provider. The factory cannot accept arbitrary
-/// answer keys, tokens, URLs, source text, or grade payloads.
-#[derive(Debug, Clone, Copy)]
-pub struct RecordedImathasProviderFactory {
-    mode: RecordedProviderMode,
-}
-
-impl RecordedImathasProviderFactory {
-    /// Selects one deterministic local test mode.
-    pub fn new(mode: RecordedProviderMode) -> Self {
-        Self { mode }
-    }
-
-    /// Builds a provider with independent deterministic call counters.
-    pub fn build(self) -> RecordedImathasProvider {
+impl RecordedImathasProvider {
+    /// Constructs one provider with independent deterministic call counters.
+    pub fn from_mode(mode: RecordedProviderMode) -> Self {
         RecordedImathasProvider {
-            mode: self.mode,
+            mode,
             snapshot_calls: Arc::new(AtomicUsize::new(0)),
             render_calls: Arc::new(AtomicUsize::new(0)),
             grade_calls: Arc::new(AtomicUsize::new(0)),
@@ -137,7 +125,7 @@ impl ImathasProvider for RecordedImathasProvider {
         self.grade_calls.fetch_add(1, Ordering::SeqCst);
         mode_result(self.mode)?;
         Ok(VerifiedProviderGrade::from_scored_embed(
-            AttemptResult {
+            GradingResult {
                 correct: true,
                 points_earned: 1.0,
                 points_possible: 1.0,
@@ -178,62 +166,54 @@ pub enum RecordedContractedTransportMode {
     Unavailable,
 }
 
-/// Default-off transport factory for server route tests. It accepts neither a
-/// URL nor credentials and exposes only the fixed immutable snapshot and
-/// activity document used by the contracted scored-embed seam.
-#[derive(Debug, Clone, Copy)]
-pub struct RecordedContractedTransportFactory {
+/// Constructs the recorded transport used by the bounded contracted-provider
+/// route tests. It accepts neither a URL nor credentials and exposes only the
+/// fixed immutable snapshot and activity document.
+pub fn recorded_contracted_transport(
     mode: RecordedContractedTransportMode,
+) -> RecordedContractedTransport {
+    RecordedContractedTransport {
+        mode,
+        proxy_calls: Arc::new(AtomicUsize::new(0)),
+        result_calls: Arc::new(AtomicUsize::new(0)),
+        launch_claims: Arc::new(Mutex::new(None)),
+    }
 }
 
-impl RecordedContractedTransportFactory {
-    pub fn new(mode: RecordedContractedTransportMode) -> Self {
-        Self { mode }
-    }
+/// Constructs only the bounded provider used by local route tests. Its signing
+/// and verification keys are fixed test constants owned by this adapter.
+pub fn recorded_contracted_provider(
+    mode: RecordedContractedTransportMode,
+) -> ContractedScoredEmbedProvider<RecordedContractedTransport> {
+    recorded_contracted_provider_with_transport(mode).0
+}
 
-    pub fn build(self) -> RecordedContractedTransport {
-        RecordedContractedTransport {
-            mode: self.mode,
-            proxy_calls: Arc::new(AtomicUsize::new(0)),
-            result_calls: Arc::new(AtomicUsize::new(0)),
-            launch_claims: Arc::new(Mutex::new(None)),
-        }
-    }
-
-    /// Builds only the bounded, explicitly contracted server provider used by
-    /// local route tests. The signing and verification keys are fixed test
-    /// constants and never leave this adapter-owned fixture.
-    pub fn contracted_provider(self) -> ContractedScoredEmbedProvider<RecordedContractedTransport> {
-        self.contracted_provider_with_transport().0
-    }
-
-    /// Builds the bounded provider together with a cloned, counter-only
-    /// transport handle for server acceptance tests. The handle exposes no
-    /// provider endpoint, launch session, signed result, or student input.
-    pub fn contracted_provider_with_transport(
-        self,
-    ) -> (
-        ContractedScoredEmbedProvider<RecordedContractedTransport>,
-        RecordedContractedTransport,
-    ) {
-        let transport = self.build();
-        let provider = ContractedScoredEmbedProvider::new(
-            ContractedScoredEmbedConfig::new(
-                ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true)
-                    .expect("recorded contracted profile"),
-                b"recorded-launch-secret",
-                b"recorded-result-secret",
-                30_000,
-            )
-            .expect("recorded contracted config"),
-            transport.clone(),
-        );
-        (provider, transport)
-    }
+/// Constructs the bounded provider with a cloned, counter-only transport
+/// handle for server acceptance tests. The handle exposes no provider endpoint,
+/// launch session, signed result, or Student input.
+pub fn recorded_contracted_provider_with_transport(
+    mode: RecordedContractedTransportMode,
+) -> (
+    ContractedScoredEmbedProvider<RecordedContractedTransport>,
+    RecordedContractedTransport,
+) {
+    let transport = recorded_contracted_transport(mode);
+    let provider = ContractedScoredEmbedProvider::new(
+        ContractedScoredEmbedConfig::new(
+            ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true)
+                .expect("recorded contracted profile"),
+            b"recorded-launch-secret",
+            b"recorded-result-secret",
+            30_000,
+        )
+        .expect("recorded contracted config"),
+        transport.clone(),
+    );
+    (provider, transport)
 }
 
 /// Recorded server-only transport. No public method accepts a score, answer,
-/// provider result token, URL, JWT, source digest, or launch handle.
+/// provider result token, URL, JWT, source digest, or external tool launch reference.
 #[derive(Clone)]
 pub struct RecordedContractedTransport {
     mode: RecordedContractedTransportMode,
@@ -280,7 +260,7 @@ impl ScoredEmbedTransport for RecordedContractedTransport {
 
     async fn render_safe(
         &self,
-        _request: crate::broker_provider::RenderTransportRequest<'_>,
+        _request: crate::external_question_provider::RenderTransportRequest<'_>,
     ) -> Result<SafeProviderRender, ScoredEmbedTransportFailure> {
         Ok(SafeProviderRender {
             title: "Recorded contracted iMathAS question".into(),
@@ -293,14 +273,14 @@ impl ScoredEmbedTransport for RecordedContractedTransport {
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ProviderLaunchHandle, ScoredEmbedTransportFailure> {
+    ) -> Result<ExternalToolLaunchReference, ScoredEmbedTransportFailure> {
         match self.mode {
             RecordedContractedTransportMode::Available
             | RecordedContractedTransportMode::Verified
             | RecordedContractedTransportMode::ResultUnavailable => {
                 let claims = recorded_launch_claims(request.signed_launch_jwt())?;
                 *self.launch_claims.lock().expect("recorded launch claims") = Some(claims);
-                ProviderLaunchHandle::from_server_handle("recorded-proxy-session")
+                ExternalToolLaunchReference::from_server_handle("recorded-proxy-session")
             }
             RecordedContractedTransportMode::Unavailable => {
                 Err(ScoredEmbedTransportFailure::Unavailable)
@@ -402,8 +382,7 @@ mod tests {
 
     #[tokio::test]
     async fn recorded_provider_is_feature_gated_and_counts_safe_calls() {
-        let provider =
-            RecordedImathasProviderFactory::new(RecordedProviderMode::Unavailable).build();
+        let provider = RecordedImathasProvider::from_mode(RecordedProviderMode::Unavailable);
         assert_eq!(provider.snapshot_calls(), 0);
         let source = question_model::DraftQuestionSource::Imathas {
             provider: "recorded-provider".into(),

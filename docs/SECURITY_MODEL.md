@@ -142,7 +142,7 @@ inside a temporary output directory.
 The reviewed application exports are currently:
 
 - `bridge_version`;
-- `timer_verdict`;
+- `question_attempt_timing_decision`;
 - `validate_assignment_config`; and
 - `validate_response_format`;
 - `preview_native_draft`; and
@@ -153,8 +153,9 @@ exports required by `wasm-bindgen`. A new Rust export fails the gate until a
 reviewer determines that it is key-free and deliberately updates the list.
 An answer-bearing export is rejected rather than added.
 
-`timer_verdict` is safe in the browser because its inputs are already disclosed
-timer policy and server timestamps, and its output cannot reveal an answer.
+`question_attempt_timing_decision` is safe in the browser because its inputs
+are an already disclosed Question Attempt Time Limit and server timestamps,
+and its output cannot reveal an answer.
 The server still supplies the authoritative evaluation timestamp and decides
 whether to accept a submission; browser time remains display-only.
 
@@ -188,7 +189,7 @@ is an explicit non-browser E2E because it builds the Rust target and runs bindge
 ## Authentication and authorization derivation
 
 The required production authentication design is PLE-owned and provider-free: a
-short-lived, single-use email ceremony restores the provisioned opaque PLE Account, and
+short-lived, single-use email ceremony restores the created opaque PLE Account, and
 WebAuthn passkeys are optional additional credentials for that same account.
 PLE stores no password verifier. Email remains the recovery authority: loss or
 revocation of a passkey returns the student to email sign-in, while a signed-in
@@ -560,7 +561,7 @@ rules, answer keys, weights, and rubrics server-only.
 Run reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
-`StudentRecordId`. This is repeated for Student Assignment Attempt, enrollment, summary, attempt,
+`StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
 prefetch, feedback-release, issuance, submission, and external-tool paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a

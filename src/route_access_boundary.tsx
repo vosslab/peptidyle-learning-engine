@@ -16,6 +16,8 @@ interface RouteAccessDeniedProps {
 }
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
+  const sysadminOnly =
+    props.route.requiredRoles.length === 1 && props.route.requiredRoles[0] === "sysadmin";
   let heading: HTMLHeadingElement | undefined;
   onMount(() => {
     queueMicrotask(() => heading?.focus());
@@ -28,16 +30,18 @@ function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
       role="alert"
       aria-atomic="true"
     >
-      <p class="eyebrow">Instructor tools</p>
+      <p class="eyebrow">{sysadminOnly ? "Sysadmin tools" : "Instructor tools"}</p>
       <h1
         tabindex="-1"
         ref={(element: HTMLHeadingElement) => {
           heading = element;
         }}
       >
-        This page is available to instructors only
+        {sysadminOnly
+          ? "This page is available to sysadmins only"
+          : "This page is available to instructors only"}
       </h1>
-      <p>Your courses and account settings remain available.</p>
+      <p>Your available account tools remain available.</p>
       <A class="primary-link" href="/">
         Return to courses
       </A>

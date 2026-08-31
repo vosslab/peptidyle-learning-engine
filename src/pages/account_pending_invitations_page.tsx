@@ -5,7 +5,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 import type { CourseInvitationTerminalAction } from "../../generated/api/CourseInvitationTerminalAction";
 import type { PendingCourseInvitationView } from "../../generated/api/PendingCourseInvitationView";
 import { ApiRequestError } from "../api/http_client/error";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import {
   appendTeachingTeamPage,
@@ -43,7 +43,7 @@ function responseCopy(action: CourseInvitationTerminalAction): string {
 }
 
 export function AccountPendingInvitationsPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const session = useSessionBootstrap();
   const [data, setData] = createSignal<PendingInvitationData | null>(null);
   const [busy, setBusy] = createSignal(false);

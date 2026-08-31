@@ -6,9 +6,9 @@
 //! answer key, or renderer credential can reach a browser or the database.
 
 use async_trait::async_trait;
-use grading::GradeOutcome;
-use question_model::response::ChoiceId;
-use question_model::{QuestionEnvelope, StudentResponse};
+use grading::QuestionGradingOutcome;
+use question_model::response::ResponseItemReference;
+use question_model::{QuestionPresentation, StudentResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -23,7 +23,7 @@ pub struct UpstreamControlV1 {
 #[derive(Clone, PartialEq, Eq)]
 pub struct UpstreamMatchPromptV1 {
     pub field: String,
-    pub choices: BTreeMap<ChoiceId, String>,
+    pub choices: BTreeMap<ResponseItemReference, String>,
 }
 
 /// Bounded answer-free replay state captured during trusted issuance.
@@ -33,10 +33,10 @@ pub struct UpstreamMatchPromptV1 {
 #[derive(Clone, PartialEq, Eq)]
 pub enum WebworkReplayMappingV1 {
     SingleChoice {
-        controls: BTreeMap<ChoiceId, UpstreamControlV1>,
+        controls: BTreeMap<ResponseItemReference, UpstreamControlV1>,
     },
     Matching {
-        prompts: BTreeMap<ChoiceId, UpstreamMatchPromptV1>,
+        prompts: BTreeMap<ResponseItemReference, UpstreamMatchPromptV1>,
     },
 }
 
@@ -49,7 +49,7 @@ pub enum WebworkReplayMappingV1 {
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
     /// Backend-neutral prompt and Question Response Format safe for a browser.
-    pub envelope: QuestionEnvelope,
+    pub envelope: QuestionPresentation,
     /// PG HTML supplied by the isolated renderer; it is still untrusted here.
     pub html: String,
     /// The implementation that actually produced this particular render.
@@ -133,7 +133,10 @@ pub trait WebworkRenderer: Send + Sync {
     ) -> Result<RenderedWebworkQuestion, RendererFailure>;
 
     /// Grades a structurally valid student response without returning a key.
-    async fn grade(&self, request: GradeRequest<'_>) -> Result<GradeOutcome, RendererFailure>;
+    async fn grade(
+        &self,
+        request: GradeRequest<'_>,
+    ) -> Result<QuestionGradingOutcome, RendererFailure>;
 }
 
 /// Trusted render request assembled only by the server adapter.

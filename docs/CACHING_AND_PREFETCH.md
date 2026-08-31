@@ -20,13 +20,13 @@ in [implementation_plan.md](active_plans/implementation_plan.md) and
 
 PLE uses distinct caches with deliberately different contents and lifetimes.
 
-| Layer | May contain | Key or binding | Never contains |
-| --- | --- | --- | --- |
-| Browser run state | Current authoritative screen and one speculative envelope | Current route and active attempt | Answers, grade keys, durable prefetch reservation |
-| Browser asset cache | Delivered image and other asset bytes | Delivery URL and content checksum | Private source or a signed protected URL retained by PLE |
-| CDN public assets | Public immutable `ProblemAsset` renditions in `PublicAssets` | Typed immutable public object key and checksum | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
-| Adapter render cache | Answer-free envelope, safe markup, source binding, renderer identity | Immutable QuestionVersionReference and seed | Answer keys, private rubrics, credentials, raw provider output |
-| Attempt and prefetch rows | Issuance provenance, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionVersionReference plus seed | A browser-writable substitute for the attempt record |
+| Layer                     | May contain                                                                    | Key or binding                                                                                                              | Never contains                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Browser run state         | Current authoritative screen and one speculative envelope                      | Current route and active attempt                                                                                            | Answers, grade keys, durable prefetch reservation                                                   |
+| Browser asset cache       | Delivered image and other asset bytes                                          | Delivery URL and content checksum                                                                                           | Private source or a signed protected URL retained by PLE                                            |
+| CDN public assets         | Public immutable `ProblemAsset` renditions in `PublicAssets`                   | Typed immutable public object key and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
+| Adapter render cache      | Answer-free envelope, safe markup, source binding, renderer identity           | Immutable QuestionVersionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw provider output                                      |
+| Attempt and prefetch rows | Question Attempt Source Record, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionVersionReference plus seed | A browser-writable substitute for the attempt record                                                |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
 This includes run screens, submissions, prefetch responses, feedback, and
@@ -51,7 +51,7 @@ image/download source, never retained as a reusable browser cache entry.
 
 An adapter render is reusable only when it is a pure, safe projection of an
 immutable published version and its stored seed. Its object key is
-`ProblemRender { problem, version, seed, object }`; it lives in
+`QuestionRender { question_version, seed, object }`; it lives in
 `PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
 The typed key therefore includes the problem even where the compact object ID
@@ -60,12 +60,12 @@ response, deadline, or browser input. The shared safe render cache is not a reco
 authorize a Student.
 
 The deterministic cache rule relies on the exact seeded-generation contract:
-the same `(version_id, seed)` must reproduce the same canonical output. A new
+the same `(question_id, version_number, seed)` must reproduce the same canonical output. A new
 generation behavior, source revision, renderer compatibility version, or
 authored edit requires a new immutable published question with a fresh Question
 ID and hidden exact evidence rather than cache deletion or overwriting an
 existing entry. A changed object is refused by its
-checksum, typed key, schema, source-artifact binding, version, seed, title,
+checksum, typed key, schema, source-source_object_reference binding, version, seed, title,
 and backend-specific validation.
 
 This gives cache invalidation a simple rule:
@@ -104,7 +104,7 @@ without an envelope remain explicitly `NotApplicable`.
 ### WeBWorK
 
 The WeBWorK adapter stores a safe cache object containing the answer-free
-envelope, sanitized HTML, published source-artifact binding, and renderer
+envelope, sanitized HTML, published source-source_object_reference binding, and renderer
 identity. It validates all of those fields before serving it and records a
 non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness for
 adapter cache work. The raw PG source, renderer password, upstream URL, hidden
@@ -136,7 +136,7 @@ mappings in the public render cache; they are server-only grading material.
 ### iMathAS
 
 The iMathAS adapter uses the same immutable `ProblemRender` shape for an
-answer-free external-tool envelope. It validates the pinned source artifact,
+answer-free external-tool envelope. It validates the pinned source source_object_reference,
 provider, integration profile, version, seed, and response shape on every
 read. A cache miss asks the configured verified provider for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable
@@ -221,17 +221,17 @@ envelope, or persist a speculative asset list.
 
 The following outcomes are intentional safety behavior:
 
-| Condition | Required behavior |
-| --- | --- |
-| Another AccountId, another course, or a foreign attempt/predecessor | Return not found or conflict; do not disclose state |
-| Missing or mismatched CourseId/StudentRecordId/Assignment Attempt/attempt/reference/seed binding | Refuse before cache, grading, or mutation |
-| Active predecessor already answered or run completed | Reject prefetch; do not start a successor |
-| Conflicting duplicate reservation | Preserve the first reservation and reject rewrite |
-| Cache schema, checksum, source, version, seed, title, or renderer mismatch | Refuse the entry; re-render only where the adapter contract permits |
-| WeBWorK replay state missing | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
-| Prefetch descriptor differs from receipt | Drop browser memory and use the ordinary run-screen route |
-| Renderer or provider outage | Do not substitute a new question or guess a grade; surface the backend-local failure |
-| Protected asset delivery | Authorize and audit every request; do not place the signed URL in a reusable cache |
+| Condition                                                                                        | Required behavior                                                                              |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Another AccountId, another course, or a foreign attempt/predecessor                              | Return not found or conflict; do not disclose state                                            |
+| Missing or mismatched CourseId/StudentRecordId/Assignment Attempt/attempt/reference/seed binding | Refuse before cache, grading, or mutation                                                      |
+| Active predecessor already answered or run completed                                             | Reject prefetch; do not start a successor                                                      |
+| Conflicting duplicate reservation                                                                | Preserve the first reservation and reject rewrite                                              |
+| Cache schema, checksum, source, version, seed, title, or renderer mismatch                       | Refuse the entry; re-render only where the adapter contract permits                            |
+| WeBWorK replay state missing                                                                     | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
+| Prefetch descriptor differs from receipt                                                         | Drop browser memory and use the ordinary run-screen route                                      |
+| Renderer or provider outage                                                                      | Do not substitute a new question or guess a grade; surface the backend-local failure           |
+| Protected asset delivery                                                                         | Authorize and audit every request; do not place the signed URL in a reusable cache             |
 
 ## Observability and future work
 

@@ -5,9 +5,9 @@
 
 #[path = "lib/adapter.rs"]
 mod adapter;
-pub mod broker_provider;
 #[path = "lib/cache.rs"]
 mod cache;
+pub mod external_question_provider;
 #[path = "lib/grade.rs"]
 mod grade;
 #[cfg(feature = "http-transport")]
@@ -18,7 +18,7 @@ pub mod scored_embed;
 #[cfg(feature = "test-support")]
 pub mod test_support;
 
-/// Stable adapter identity persisted in provenance, independent of CalVer.
+/// Stable adapter identity persisted in the Question Attempt Source Record, independent of CalVer.
 pub const ADAPTER_ID: &str = "imathas-adapter";
 /// Current compatible adapter implementation.
 pub const ADAPTER_VERSION: &str = "1";
@@ -57,8 +57,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::Seed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, AttemptResult, ObjectId, QuestionAttemptId, QuestionDefinition, QuestionId,
-    QuestionSource, QuestionVersionNumber, QuestionVersionReference, SourceArtifact,
+    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionDefinition, QuestionId,
+    QuestionSource, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
 };
 #[cfg(test)]
 use sha2::{Digest, Sha256};

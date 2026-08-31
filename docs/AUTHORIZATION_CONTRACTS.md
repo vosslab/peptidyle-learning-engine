@@ -2,11 +2,10 @@
 
 ## Binding single-installation model
 
-PLE is one installation with global accounts. The binding SD1 product contract
-requires each account and session to carry exactly one immutable Student,
-Instructor, or Sysadmin role; a person needing multiple roles uses separate
-accounts. This target remains pending implementation and acceptance; pre-SD1
-plural account/session role source is cutover input. The installation has one
+PLE is one installation with global accounts. The implemented SD1 Account and
+Authenticated Session boundary carries exactly one immutable Student, Instructor,
+or Sysadmin role; a person needing multiple roles uses separate accounts. Full
+service, database, and release acceptance remains incomplete. The installation has one
 immutable shared Question Library of published assignment questions, private Instructor
 authoring workspaces, and course-scoped Student educational records. It has no
 institution selector, publication-visibility tier, or creator-owned course
@@ -68,8 +67,8 @@ authorizes Question Library discovery, Question Folders, Stars, Watches, and Sav
 Searches, course creation, publication, reuse, and improvement. Every approved
 Instructor has the same global product capabilities.
 
-Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin provisions
-a course only for an explicitly assigned approved Instructor account; it receives no
+Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin creates a
+Course Instance only for an explicitly assigned approved Instructor account; it receives no
 course membership. A person who needs teaching authority uses an approved Instructor
 account.
 
@@ -101,11 +100,11 @@ The course creator and every accepted Teaching Team Member have equal authority.
 receive identical allow/deny results for the same current course state; audit
 entries retain the acting `AccountId` and distinguish who performed the action.
 
-| Course operation                                                | Creator                                   | Current accepted Teaching Team Member            | Student                                        | Sysadmin without membership                                 |
+| Course operation                                                | Creator                                   | Current accepted Teaching Team Member     | Student                                        | Sysadmin without membership                                 |
 | --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
 | Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student projection in own course | No general course authority                                 |
 | Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                      | No general FERPA authority                                  |
-| Invite or revoke a Teaching Team Member                                | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
+| Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
 | Create or publish a question                                    | Allow if `approved_instructor`            | Allow if `approved_instructor`            | No                                             | Platform operation only when separately authorized          |
 
 Course Invitation, acceptance, update, and revocation are atomic,
@@ -116,9 +115,9 @@ the durable membership history. A Sysadmin receives course-record access only
 through a separately defined, narrow audited support
 operation; platform status is not ambient FERPA authority.
 
-## Course-instance provisioning authority
+## Course Instance Creation authority
 
-Pending SD1 implementation defines `CourseInstanceProvisioningAuthority` as a
+Pending SD1 implementation defines `CourseInstanceCreationAuthority` as a
 closed Sysadmin platform authority that exists before a CourseInstance. Its
 command binds one exact `BlueprintCourse` source and revision, one exact
 currently approved assigned Instructor account, and one server-reserved
@@ -128,7 +127,7 @@ the authority is evaluated.
 
 One Store transaction creates the CourseInstance, its first direct Instructor
 membership for the assigned account, and an append-only
-`course_instance_provisioned` audit event. The event identifies the acting
+`course_instance_created` audit event. The event identifies the acting
 Sysadmin, exact Blueprint source and revision, assigned Instructor, reserved
 CourseInstance identity, result, and time without copying Student records.
 The new CourseInstance has no Students or delivery records at bootstrap. This
@@ -150,7 +149,7 @@ An active capability has one exact CourseId, one closed Operation Kind, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
 for support requested by that course. The platform retention scheduler is the
 registered issuer for its payload-free lifecycle operation. The capability
-registry begins after provisioning has committed an exact CourseInstance and
+registry begins after Course Instance Creation has committed an exact CourseInstance and
 its first direct Instructor membership.
 
 ### Registered operations
@@ -258,11 +257,11 @@ Library access authority.
 
 The caller projections are closed:
 
-| Caller | Question projection |
-| --- | --- |
-| Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs. |
-| Authenticated Student | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an authorized assignment entitlement. |
-| Anonymous caller | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure. |
+| Caller                                     | Question projection                                                                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs.                            |
+| Authenticated Student                      | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an authorized assignment entitlement. |
+| Anonymous caller                           | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure.                                 |
 
 Lifecycle state is visible and does not change discovery authority. Every
 published question remains discoverable to every approved Instructor while its
@@ -314,19 +313,20 @@ in-progress work is reissued or excused and completed work receives superseding
 receipts and deterministic recalculation when required. There is no per-course
 approval step.
 
-The Question Library exposes only these versioned, closed, Serde-generated
-`snake_case` DTOs; each rejects unknown fields and advances its version when
-its field set changes:
+The Question Library exposes these closed Serde-generated, browser-safe data
+objects. The current Question Search request and retained filter use
+`snake_case`; the returned Question Library data objects use their explicit
+camelCase contracts and reject unknown fields:
 
-| DTO                             | Allowed fields                                                                                                                                                                                                                             |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `InstructorCatalogQuestionV1`   | `question_id`, `title`, `backend`, `response_family`, `capabilities`, `tags`, `taxonomy`, `license`, `byline`, `lifecycle`, `published_at`                                                                                                 |
-| `InstructorCatalogEvidenceV1`   | Insufficient: `state`; available: `state`, `formula_version`, `observed_course_count`, `independent_student_observation_count`, `difficulty_index`, `attempts_mean`, `time_median_seconds_estimate`, `discrimination_index`, `evidence_at` |
-| `InstructorCatalogUsageV1`      | `global_course_count`, `global_assignment_count`, `own_course_count`, `own_assignment_count`, `own_courses`, `own_courses_truncated`                                                                                                       |
-| `InstructorCatalogLineageV1`    | `relationship`, `source_question_id`, `improvement_thread_reference`, `published_successor_question_ids`                                                                                                                                   |
-| `InstructorCatalogSearchItemV1` | `question`, `evidence`                                                                                                                                                                                                                     |
-| `InstructorCatalogSearchPageV1` | `items`, `next_cursor`, `facets`                                                                                                                                                                                                           |
-| `InstructorCatalogDetailV1`     | `question`, answer-free `prompt`, `evidence`, `usage`, `lineage`                                                                                                                                                                           |
+| Data object            | Browser fields                                                                                                                                                                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QuestionSummary`      | `questionId`, `backend`, `questionType`, `capabilities`, `metadata`, `byline`, `availability`, `publishedAt`                                                                                                                           |
+| `QuestionStatistics`   | Insufficient: `state`; available: `state`, `formulaVersion`, `observedCourseCount`, `independentLearnerObservationCount`, `difficultyIndex`, `attemptsMean`, `timeMedianSecondsEstimate`, optional `discriminationIndex`, `evidenceAt` |
+| `QuestionSearchResult` | `summary`, `evidence`                                                                                                                                                                                                                  |
+| `QuestionUseSummary`   | `globalCourseCount`, `globalAssignmentCount`, `ownCourseCount`, `ownAssignmentCount`                                                                                                                                                   |
+| `QuestionUseDetails`   | `summary`, bounded `ownCourses`, `ownCoursesTruncated`                                                                                                                                                                                 |
+| `QuestionSearchPage`   | `items`, optional `nextCursor`, `facets`                                                                                                                                                                                               |
+| `QuestionDetails`      | `summary`, answer-free `prompt`, `evidence`, `usage`                                                                                                                                                                                   |
 
 `taxonomy`, `license`, `byline`, `lifecycle`, `facets`, and prompt blocks have
 their closed shapes defined by the single-installation plan. Evidence is

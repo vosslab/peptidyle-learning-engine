@@ -1,4 +1,4 @@
--- SD1 private workspaces and drafts; private work has no shared catalog identity.
+-- SD1 private workspaces and drafts; private work has no Question Library identity.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
@@ -263,7 +263,7 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.authoring_workspace,
     ple_private.published_flat_question_grading, ple_private.published_qti_question_grading,
     ple_private.workspace_qti_import,
     ple_private.workspace_qti_import_grading FROM PUBLIC;
-COMMENT ON TABLE ple_private.authoring_workspace IS 'Private owner-scoped draft-authoring root; no shared catalog visibility.';
+COMMENT ON TABLE ple_private.authoring_workspace IS 'Private owner-scoped draft-authoring root; no Question Library visibility.';
 COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS
     'Immutable start or end evidence for one Approved Instructor Workspace Collaborator relationship.';
 COMMENT ON TABLE ple_private.draft_question IS 'Private Draft Question lineage inside one Authoring Workspace.';

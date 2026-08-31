@@ -29,14 +29,14 @@ course selected by the user from current membership rows. A route course ID,
 workspace ID, Question ID, object key, queue payload, or external-provider field
 is only a lookup/input value; it cannot establish authority.
 
-| Data | Exact owner | Local enforcement |
-| --- | --- | --- |
-| Account, session, and passkey | Global `AccountId` | Server session and PostgreSQL |
-| Published question | Global immutable `QuestionId`/`QuestionVersionNumber` | Approved-Instructor Question Library |
-| Draft or curriculum | `WorkspaceId` plus owner/collaborators | Workspace relationship |
-| Course and assignment | `CourseId` and child records | Current direct Instructor membership |
-| Student work and grades | Exact course plus Student owner | Student self or current course Instructor |
-| Jobs and objects | Typed target from the locked lease | Store/PostgreSQL capability boundary |
+| Data                          | Exact owner                                           | Local enforcement                         |
+| ----------------------------- | ----------------------------------------------------- | ----------------------------------------- |
+| Account, session, and passkey | Global `AccountId`                                    | Server session and PostgreSQL             |
+| Published question            | Global immutable `QuestionId`/`QuestionVersionNumber` | Approved-Instructor Question Library      |
+| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                | Workspace relationship                    |
+| Course and assignment         | `CourseId` and child records                          | Current direct Instructor membership      |
+| Student work and grades       | Exact course plus Student owner                       | Student self or current course Instructor |
+| Jobs and objects              | Typed target from the locked lease                    | Store/PostgreSQL capability boundary      |
 
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
@@ -53,15 +53,15 @@ always authoritative.
 
 ## Services
 
-| Service | Purpose | Local exposure |
-| --- | --- | --- |
-| `gateway` | Serves read-only `dist/` and forwards same-origin `/api` and `/health` | One loopback host port |
-| `api` | Auth, course operations, attempts, grading, and delivery | Private network; no host port |
-| `postgres` | Relational authority, queue, RLS, audit, and records | Loopback `5432` |
-| `minio` | S3-compatible object storage | Loopback `9000` and console `9001` |
-| `createbuckets` | Idempotently creates four storage buckets | One-shot, no host port |
-| `identity-secret-init` | Copies two host capabilities into an API-only volume | Networkless, one-shot |
-| `webwork-renderer` | Private stateless PG/PGML render and grade engine | No host port |
+| Service                | Purpose                                                                | Local exposure                     |
+| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------- |
+| `gateway`              | Serves read-only `dist/` and forwards same-origin `/api` and `/health` | One loopback host port             |
+| `api`                  | Auth, course operations, attempts, grading, and delivery               | Private network; no host port      |
+| `postgres`             | Relational authority, queue, RLS, audit, and records                   | Loopback `5432`                    |
+| `minio`                | S3-compatible object storage                                           | Loopback `9000` and console `9001` |
+| `createbuckets`        | Idempotently creates four storage buckets                              | One-shot, no host port             |
+| `identity-secret-init` | Copies two host capabilities into an API-only volume                   | Networkless, one-shot              |
+| `webwork-renderer`     | Private stateless PG/PGML render and grade engine                      | No host port                       |
 
 All published ports bind to `127.0.0.1`. The API is the sole PLE application
 process in the supported local topology. The renderer has no SQL database,

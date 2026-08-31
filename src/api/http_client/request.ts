@@ -1,5 +1,7 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
+import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
+import type { AssignmentRevisionReference } from "../../../generated/api/AssignmentRevisionReference";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
@@ -25,7 +27,7 @@ import type {
   PublicationRequest,
   PublicationValidationResponse,
   PrefetchedNextQuestion,
-  StudentSubmissionStatus,
+  QuestionSubmissionAcknowledgement,
   WorkspaceDraftDetail,
 } from "../contracts";
 import {
@@ -48,21 +50,22 @@ import {
   decodePublicationResult,
   decodePublicationValidationFailure,
   decodePublicationValidationReport,
-  decodeResponseFormatReport,
+  decodeStudentResponseFormatCheck,
   decodeStudentResponse,
-  decodeStudentSubmissionStatus,
-  decodeTimerVerdict,
+  decodeQuestionSubmissionAcknowledgement,
+  decodeQuestionAttemptTimingDecision,
 } from "../decoders";
 import { decodeQuestionId } from "../decoders/shared";
+import { decodeAssignmentReference } from "../decoders/question_library";
 import {
-  decodeAssignmentContentIssuedWorkConflict,
   decodeAssignmentEditorDetail,
+  decodeSuccessorAssignmentRevisionRequired,
 } from "../decoders/assignment_workspace";
 import {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentIssuedWorkError,
+  AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
   CourseAppearanceConflictError,
   CourseAppearanceFileError,
@@ -193,6 +196,19 @@ function workspacePath(workspace: WorkspaceId): string {
 function validRevision(value: string): boolean {
   return /^"[1-9][0-9]*"$/u.test(value) && BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
 }
+
+/** Converts the transport ETag into the exact immutable revision the Instructor reviewed. */
+function assignmentRevisionPrecondition(
+  assignment: AssignmentReference,
+  assignmentRevisionEtag: string,
+): AssignmentRevisionReference {
+  if (!validRevision(assignmentRevisionEtag))
+    throw new ApiProtocolError("assignment revision must be one positive strong numeric ETag");
+  return {
+    assignment: decodeAssignmentReference(assignment, "request.baseRevision.assignment"),
+    revision_number: assignmentRevisionEtag.slice(1, -1),
+  };
+}
 function workspaceRevision(response: Response, path: string): string {
   const value = response.headers.get("etag");
   if (value === null || !/^"[0-9]+"$/u.test(value))
@@ -226,17 +242,20 @@ export function studentAttemptPath(
   return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
-function verifyStudentSubmissionStatus(
-  status: StudentSubmissionStatus,
+function verifyQuestionSubmissionAcknowledgement(
+  status: QuestionSubmissionAcknowledgement,
   attemptId: QuestionAttemptId,
-): StudentSubmissionStatus {
-  const returnedAttemptId = status.kind === "completed" ? status.attempt.id : status.attemptId;
+): QuestionSubmissionAcknowledgement {
+  const returnedAttemptId = status.receipt.attemptId;
   if (returnedAttemptId !== attemptId)
     throw new ApiProtocolError("Submission status attempt does not match its request");
-  if (status.kind !== "completed") return status;
-  if (status.nextIssued !== null && status.nextIssued.id === status.attempt.id)
+  if (status.gradingState !== "graded") return status;
+  if (
+    status.receipt.nextIssued !== null &&
+    status.receipt.nextIssued.id === status.receipt.attempt.id
+  )
     throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
-  if (status.nextPending && status.nextIssued !== null)
+  if (status.receipt.nextPending && status.receipt.nextIssued !== null)
     throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
   return status;
 }
@@ -292,13 +311,13 @@ export async function requestAssignmentEditor(
   });
   requireNoStore(response, path);
   if (response.status === 409 && conflict === "contentSave") {
-    // Only the generated issued-work body gets semantic recovery; other 409s stay generic.
+    // Only the generated successor-revision body gets semantic recovery; other 409s stay generic.
     const value = await boundedResponseJson(response, path);
     try {
-      decodeAssignmentContentIssuedWorkConflict(value, "response");
-      throw new AssignmentIssuedWorkError(path);
+      const requirement = decodeSuccessorAssignmentRevisionRequired(value, "response");
+      throw new AssignmentSuccessorRevisionRequiredError(path, requirement);
     } catch (error: unknown) {
-      if (error instanceof AssignmentIssuedWorkError) throw error;
+      if (error instanceof AssignmentSuccessorRevisionRequiredError) throw error;
       throw new ApiRequestError(response.status, path);
     }
   }
@@ -331,14 +350,16 @@ async function requestAssignmentPolicies(
   basePath: string,
   courseId: CourseId,
   assignmentId: AssignmentId,
+  assignmentReference: AssignmentReference,
   input: AssignmentPoliciesInput,
-  revision: string,
+  assignmentRevisionEtag: string,
 ): Promise<AssignmentEditorDetail> {
   const path = `${assignmentPath(courseId, assignmentId)}/policies`;
+  const baseRevision = assignmentRevisionPrecondition(assignmentReference, assignmentRevisionEtag);
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: "PUT",
-    body: input,
-    headers: { "if-match": revision },
+    body: { ...input, baseRevision },
+    headers: { "if-match": assignmentRevisionEtag },
   });
   if (response.status === 409 || response.status === 412 || response.status === 428)
     throw new AssignmentConflictError(response.status, path);
@@ -398,7 +419,7 @@ export function createRequestClient(
   | "getSubmissionStatus"
   | "releaseAttemptFeedback"
   | "validateResponseFormatOnServer"
-  | "timerVerdictOnServer"
+  | "questionAttemptTimingDecisionOnServer"
   | "validateAssignmentConfigOnServer"
 > {
   return {
@@ -628,13 +649,14 @@ export function createRequestClient(
     saveAssignmentContent: (
       courseId,
       assignmentId,
+      assignmentReference,
       input: AssignmentContentInput,
-      revision,
+      assignmentRevisionEtag,
     ): ReturnType<ApiClient["saveAssignmentContent"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
+      const baseRevision = assignmentRevisionPrecondition(
+        assignmentReference,
+        assignmentRevisionEtag,
+      );
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,
@@ -642,8 +664,8 @@ export function createRequestClient(
         { courseId, assignmentId },
         {
           method: "PUT",
-          body: decodeAssignmentContentInput(input, "request"),
-          headers: { "if-match": revision },
+          body: { ...decodeAssignmentContentInput(input, "request"), baseRevision },
+          headers: { "if-match": assignmentRevisionEtag },
         },
         "contentSave",
       );
@@ -651,14 +673,15 @@ export function createRequestClient(
     replaceAssignmentFixedItem: (
       courseId,
       assignmentId,
+      assignmentReference,
       itemId: AssignmentEntryId,
       questionId: QuestionId,
-      revision,
+      assignmentRevisionEtag,
     ): ReturnType<ApiClient["replaceAssignmentFixedItem"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
+      const baseRevision = assignmentRevisionPrecondition(
+        assignmentReference,
+        assignmentRevisionEtag,
+      );
       if (itemId.length === 0)
         return Promise.reject(
           new ApiProtocolError("assignment fixed-item identity must be present"),
@@ -671,26 +694,28 @@ export function createRequestClient(
         basePath,
         `${assignmentPath(courseId, assignmentId)}/fixed-items/${encodedId(itemId)}`,
         { courseId, assignmentId },
-        { method: "PUT", body: input, headers: { "if-match": revision } },
+        {
+          method: "PUT",
+          body: { ...input, baseRevision },
+          headers: { "if-match": assignmentRevisionEtag },
+        },
       );
     },
     saveAssignmentPolicies: (
       courseId,
       assignmentId,
+      assignmentReference,
       input: AssignmentPoliciesInput,
-      revision,
+      assignmentRevisionEtag,
     ): ReturnType<ApiClient["saveAssignmentPolicies"]> => {
-      if (!validRevision(revision))
-        return Promise.reject(
-          new ApiProtocolError("assignment revision must be one positive strong numeric ETag"),
-        );
       return requestAssignmentPolicies(
         fetchImplementation,
         basePath,
         courseId,
         assignmentId,
+        assignmentReference,
         input,
-        revision,
+        assignmentRevisionEtag,
       );
     },
     getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {
@@ -755,14 +780,14 @@ export function createRequestClient(
         fetchImplementation,
         basePath,
         path,
-        decodeStudentSubmissionStatus,
+        decodeQuestionSubmissionAcknowledgement,
         {
           method: "POST",
           headers: { "idempotency-key": idempotencyKey },
           body: { response: decoded },
         },
       );
-      return verifyStudentSubmissionStatus(status, attemptId);
+      return verifyQuestionSubmissionAcknowledgement(status, attemptId);
     },
     getSubmissionStatus: async (
       courseId,
@@ -774,9 +799,9 @@ export function createRequestClient(
         fetchImplementation,
         basePath,
         path,
-        decodeStudentSubmissionStatus,
+        decodeQuestionSubmissionAcknowledgement,
       );
-      return verifyStudentSubmissionStatus(status, attemptId);
+      return verifyQuestionSubmissionAcknowledgement(status, attemptId);
     },
     releaseAttemptFeedback: (attemptId): Promise<FeedbackReleaseResponse> =>
       requestJson(
@@ -791,11 +816,11 @@ export function createRequestClient(
         fetchImplementation,
         basePath,
         "/api/validation/response-format",
-        decodeResponseFormatReport,
+        decodeStudentResponseFormatCheck,
         { method: "POST", body: { definition, response } },
       ),
-    timerVerdictOnServer: (evaluation) =>
-      requestJson(fetchImplementation, basePath, "/api/validation/timer", decodeTimerVerdict, {
+    questionAttemptTimingDecisionOnServer: (evaluation) =>
+      requestJson(fetchImplementation, basePath, "/api/validation/question-attempt-timing", decodeQuestionAttemptTimingDecision, {
         method: "POST",
         body: evaluation,
       }),

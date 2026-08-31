@@ -6,11 +6,11 @@ import {
   policyRequest,
   type ModifierMode,
   type ModifierPatchDraft,
-  type PreviewSubject,
+  type SelectedStudent,
 } from "./model";
 
 export interface ModifierDialogProps {
-  readonly subjects: ReadonlyArray<PreviewSubject>;
+  readonly subjects: ReadonlyArray<SelectedStudent>;
   readonly revision: TeachingOperationRevision;
   readonly busy: boolean;
   readonly revisionConflict?: boolean;
@@ -25,7 +25,7 @@ export interface ModifierDialogProps {
 }
 
 export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
-  const [subject, setSubject] = createSignal<PreviewSubject | undefined>(props.subjects[0]);
+  const [subject, setSubject] = createSignal<SelectedStudent | undefined>(props.subjects[0]);
   const [mode, setMode] = createSignal<ModifierMode>("extendOnly");
   const [draft] = createSignal(emptyPatchDraft());
   const [error, setError] = createSignal("");
@@ -73,8 +73,8 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
           </label>
           <fieldset class="assignment-access-mode">
             <legend>Accommodation semantics</legend>
-            <For each={["extendOnly", "override"] as const}>
-              {(choice) => <label><input type="radio" name="modifier-mode" checked={mode() === choice} onChange={() => setMode(choice)} /> {choice === "extendOnly" ? "Extend only" : "Override"}</label>}
+            <For each={["extendOnly", "replace"] as const}>
+              {(choice) => <label><input type="radio" name="modifier-mode" checked={mode() === choice} onChange={() => setMode(choice)} /> {choice === "extendOnly" ? "Extend only" : "Replace"}</label>}
             </For>
           </fieldset>
           <p class="assignment-access-help">The selected Student Membership receives this direct accommodation. Detailed field editing remains available through the Assignment policy form.</p>

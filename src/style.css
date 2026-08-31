@@ -587,7 +587,7 @@ textarea:hover {
   font-size: clamp(1.35rem, 2.2vw, 1.8rem);
 }
 
-.run-pool-provenance {
+.assignment-attempt-question-pool-selection {
   width: fit-content;
   margin: 0 0 0.65rem;
   padding: 0.35rem 0.6rem;

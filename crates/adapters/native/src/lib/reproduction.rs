@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use question_model::envelope::{ContentBlock, QuestionEnvelope};
+use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::generation::Seed;
-use question_model::{AssetId, AttemptProvenance, ObjectId, QuestionDefinition};
+use question_model::{AssetId, ObjectId, QuestionAttemptSourceRecord, QuestionDefinition};
 
 use crate::{AssetObjectBinding, NativeAdapter, NativeAdapterError, PreparedNativeQuestion};
 
@@ -16,19 +16,19 @@ impl NativeAdapter {
         question: &QuestionDefinition,
         seed: Seed,
         recorded_parameter_hash: &str,
-        recorded_provenance: &AttemptProvenance,
+        recorded_source_record: &QuestionAttemptSourceRecord,
         asset_bindings: &[AssetObjectBinding],
-    ) -> Result<QuestionEnvelope, NativeAdapterError> {
+    ) -> Result<QuestionPresentation, NativeAdapterError> {
         let execution = self.execution_for(
             &self.adapter_implementations,
-            &recorded_provenance.adapter,
+            &recorded_source_record.adapter,
             "adapter",
         )?;
         let prepared = self.prepare_with_execution(question, seed, execution)?;
         verify_record(
             &prepared,
             recorded_parameter_hash,
-            recorded_provenance,
+            recorded_source_record,
             &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
         )?;
         Ok(prepared.envelope)
@@ -38,7 +38,7 @@ impl NativeAdapter {
 pub(super) fn verify_record(
     prepared: &PreparedNativeQuestion,
     recorded_parameter_hash: &str,
-    recorded: &AttemptProvenance,
+    recorded: &QuestionAttemptSourceRecord,
     expected_asset_objects: &[ObjectId],
 ) -> Result<(), NativeAdapterError> {
     verify_equal(
@@ -50,7 +50,10 @@ pub(super) fn verify_record(
         recorded.generator == prepared.generated.generator,
         "generator",
     )?;
-    verify_equal(recorded.source_artifact.is_none(), "sourceArtifact")?;
+    verify_equal(
+        recorded.source_object_reference.is_none(),
+        "sourceObjectReference",
+    )?;
     verify_equal(
         recorded.asset_objects.as_slice() == expected_asset_objects,
         "assetObjects",
@@ -70,7 +73,7 @@ fn verify_equal(matches: bool, field: &'static str) -> Result<(), NativeAdapterE
 }
 
 pub(super) fn resolve_asset_objects(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetObjectBinding],
 ) -> Result<Vec<ObjectId>, NativeAdapterError> {
     let referenced_assets = envelope_asset_ids(envelope);
@@ -100,7 +103,7 @@ pub(super) fn resolve_asset_objects(
         .collect())
 }
 
-fn envelope_asset_ids(envelope: &QuestionEnvelope) -> BTreeSet<AssetId> {
+fn envelope_asset_ids(envelope: &QuestionPresentation) -> BTreeSet<AssetId> {
     let mut assets = BTreeSet::new();
     collect_content_assets(&envelope.prompt, &mut assets);
     match &envelope.response {

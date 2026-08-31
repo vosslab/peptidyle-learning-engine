@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-/// A generator implementation pinned by a published problem version.
+/// A generator implementation pinned by a published Question Version.
 ///
 /// Versions are additive: changing an implementation requires a new version
 /// while existing published definitions continue to resolve to the old one.

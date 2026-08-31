@@ -2,22 +2,19 @@
 
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
-import { useApiRuntime } from "../api/runtime";
-import { useSessionBootstrap } from "../auth/session_context";
+import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteData,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { RetentionPanel } from "./teaching_operations/retention_panel";
-import { SysadminInstructorApprovalPanel } from "./teaching_operations/sysadmin_instructor_approval_panel";
 import { TeachingTeamPanel } from "./teaching_team_panel";
 
 type PageState = "loading" | "ready" | "denied" | "unavailable";
 
 /** Course-local shell for Instructor teaching authority and course retention. */
 export function TeachingOperationsPage(): JSX.Element {
-  const runtime = useApiRuntime();
-  const session = useSessionBootstrap();
+  const applicationApi = useApplicationApi();
   const scopedRoute = useCourseThemeRouteData();
   const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
   const [state, setState] = createSignal<PageState>("loading");
@@ -33,11 +30,6 @@ export function TeachingOperationsPage(): JSX.Element {
     setState("loading");
     setState("ready");
   }
-
-  const mayExtendRetention = (): boolean => {
-    const current = session.state();
-    return current.kind === "authenticated" && current.session.account.role === "sysadmin";
-  };
 
   onMount(() => void load());
 
@@ -63,14 +55,11 @@ export function TeachingOperationsPage(): JSX.Element {
       <Show when={course !== undefined && state() === "ready"}>
         <div class="teaching-operations-hub">
           <TeachingTeamPanel courseId={course!.id} />
-          <Show when={mayExtendRetention()}>
-            <SysadminInstructorApprovalPanel runtime={runtime} />
-          </Show>
           <RetentionPanel
             courseId={course!.id}
             courseReference={course!.reference}
-            runtime={runtime}
-            mayExtendRetention={mayExtendRetention()}
+            applicationApi={applicationApi}
+            mayExtendRetention={false}
           />
         </div>
       </Show>

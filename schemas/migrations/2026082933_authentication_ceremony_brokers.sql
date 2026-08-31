@@ -2,7 +2,7 @@
 --
 -- These brokers establish only an existing Account's immutable role. The
 -- route subsequently creates the one Authenticated Session through its
--- separate broker; no credential ceremony provisions an Account or grants a
+-- separate broker; no credential ceremony creates an Account or grants a
 -- course relationship.
 
 DO $$
@@ -18,7 +18,7 @@ $$;
 SET LOCAL ROLE ple_private_owner;
 
 -- ASVS 3.3.1 and 3.3.3: successful lookup consumes the browser-bound email
--- proof in the same statement that returns its pre-provisioned Account.
+-- proof in the same statement that returns its already-created Account.
 CREATE FUNCTION ple_private.consume_email_authentication_challenge(
     p_challenge_id uuid,
     p_proof_hash bytea,

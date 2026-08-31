@@ -47,26 +47,6 @@
   border-bottom: 1px solid var(--ple-border);
 }
 
-.teaching-operations-group-summary {
-  display: grid;
-  grid-area: summary;
-  min-width: 0;
-  gap: 0.12rem;
-  justify-items: start;
-}
-
-.teaching-operations-group-summary button {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  text-align: start;
-}
-
-.teaching-operations-group-summary span {
-  display: block;
-  color: var(--ple-muted);
-  font-size: 0.9rem;
-  overflow-wrap: anywhere;
-}
 .sysadmin-instructor-approval {
   max-width: 52rem;
 }

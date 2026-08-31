@@ -107,11 +107,14 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
   }
   function updateOrdering(value: string): void {
     if (value !== "candidateOrder" && value !== "randomized") return;
-    update({ ordering: value });
+    update({ selectionRule: { ...props.entry.selectionRule, ordering: value } });
   }
 
   return (
-    <li class="assignment-editor-row assignment-editor-pool" aria-label={poolLabel(props.entryIndex)}>
+    <li
+      class="assignment-editor-row assignment-editor-pool"
+      aria-label={poolLabel(props.entryIndex)}
+    >
       <div>
         <h3>Question pool</h3>
         <p>
@@ -172,7 +175,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
         <label class="assignment-editor-field">
           Delivery order
           <select
-            value={props.entry.ordering}
+            value={props.entry.selectionRule.ordering}
             onChange={(event) => updateOrdering(event.currentTarget.value)}
           >
             <option value="candidateOrder">Candidate order</option>
@@ -188,7 +191,8 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           >
             <h4 id={`pool-preview-${props.entryIndex}`}>{preview().questionPoolLabel}</h4>
             <p>
-              Draw {preview().drawCount} in {preview().ordering} order with Draw algorithm v1.
+              Draw {preview().drawCount} in {preview().selectionRule.ordering} order with Draw
+              algorithm {preview().selectionRule.algorithm}.
             </p>
             <h5>Candidate questions</h5>
             <ul>

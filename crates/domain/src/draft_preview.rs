@@ -5,13 +5,13 @@
 //! instructor, but never chooses an answer or evaluates a response.
 
 use question_model::capability::Capability;
-use question_model::question_library::QuestionBackend;
 use question_model::envelope::ContentBlock;
 use question_model::generation::{RandomizationDefinition, Seed};
+use question_model::question_library::QuestionBackend;
 use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
-use crate::generator::{generate, GeneratedValue, GenerationError};
+use crate::generator::{GeneratedValue, GenerationError, generate};
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
 ///
@@ -112,7 +112,7 @@ pub fn preview_native_draft(
     request: &DraftPreviewRequest,
     seed: Seed,
 ) -> Result<DraftPreviewResult, PresentationError> {
-    if !matches!(request.source, DraftQuestionSource::Native { .. }) {
+    if !matches!(request.source, DraftQuestionSource::Native) {
         return Ok(DraftPreviewResult::Unavailable {
             backend: QuestionBackend::from(&request.source),
             capability: Capability::OfflinePreview,
@@ -234,11 +234,11 @@ fn generated_text(value: &GeneratedValue) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
-    use question_model::answer::TextMatchMode;
+    use question_model::DraftQuestionSource;
+    use question_model::answer::TextResponseMatchRule;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
     use question_model::response::QuestionResponseFormat;
-    use question_model::DraftQuestionSource;
     use uuid::Uuid;
 
     use super::*;
@@ -259,7 +259,7 @@ mod tests {
                 },
             ],
             response: QuestionResponseFormat::ShortText {
-                match_mode: TextMatchMode::Normalized,
+                match_mode: TextResponseMatchRule::Normalized,
                 max_length: 20,
             },
             randomization: RandomizationDefinition::Seeded {

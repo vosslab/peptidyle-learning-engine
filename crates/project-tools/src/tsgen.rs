@@ -162,7 +162,7 @@ fn manually_serialized_public_types(items: &[Item]) -> BTreeSet<String> {
 }
 
 #[cfg(test)]
-mod reusable_curriculum_tests;
+mod blueprint_course_tests;
 
 #[cfg(test)]
 mod tests;

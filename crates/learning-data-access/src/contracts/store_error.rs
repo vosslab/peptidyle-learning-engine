@@ -3,7 +3,7 @@ use super::*;
 /// Portable persistence failure with no SQL type in its variants.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StoreError {
-    /// Requested record is absent in the active ownership boundary or shared catalog.
+    /// Requested record is absent in the active ownership boundary or Question Library.
     NotFound,
     /// Immutable identity already exists.
     AlreadyExists,
@@ -35,7 +35,9 @@ impl std::fmt::Display for StoreError {
             Self::RetryableTransaction => write!(formatter, "transaction must be retried"),
             Self::Forbidden => write!(formatter, "operation is not authorized"),
             Self::InvalidRecord(message) => write!(formatter, "invalid record: {message}"),
-            Self::AssignmentActivity(error) => write!(formatter, "activity transition rejected: {error}"),
+            Self::AssignmentActivity(error) => {
+                write!(formatter, "activity transition rejected: {error}")
+            }
             Self::TimedOut => write!(formatter, "question attempt timed out"),
             Self::Unavailable(message) => write!(formatter, "store unavailable: {message}"),
         }

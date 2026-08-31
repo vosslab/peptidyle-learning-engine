@@ -2,16 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::ObservedBlueprintSource;
+use super::BlueprintRevisionReference;
 use crate::{BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision};
 
-/// One exact stable assignment selected from a revision-bound BlueprintCourse.
+/// One exact Blueprint Assignment selected from a Blueprint Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    rename_all = "snake_case",
-    from = "ObservedBlueprintAssignmentSourceParts"
-)]
-pub struct AssignmentDefinitionSourceView {
+#[serde(rename_all = "snake_case", from = "BlueprintAssignmentReferenceParts")]
+pub struct BlueprintAssignmentRevisionReference {
     reference: BlueprintCourseReference,
     revision: BlueprintRevision,
     assignment_id: BlueprintAssignmentId,
@@ -19,16 +16,16 @@ pub struct AssignmentDefinitionSourceView {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-struct ObservedBlueprintAssignmentSourceParts {
+struct BlueprintAssignmentReferenceParts {
     reference: BlueprintCourseReference,
     revision: BlueprintRevision,
     assignment_id: BlueprintAssignmentId,
 }
 
-impl From<ObservedBlueprintAssignmentSourceParts> for AssignmentDefinitionSourceView {
-    fn from(value: ObservedBlueprintAssignmentSourceParts) -> Self {
+impl From<BlueprintAssignmentReferenceParts> for BlueprintAssignmentRevisionReference {
+    fn from(value: BlueprintAssignmentReferenceParts) -> Self {
         Self::new(
-            ObservedBlueprintSource {
+            BlueprintRevisionReference {
                 reference: value.reference,
                 revision: value.revision,
             },
@@ -37,9 +34,9 @@ impl From<ObservedBlueprintAssignmentSourceParts> for AssignmentDefinitionSource
     }
 }
 
-impl AssignmentDefinitionSourceView {
-    /// Binds an observed BlueprintCourse revision to one stable assignment lineage.
-    pub fn new(source: ObservedBlueprintSource, assignment_id: BlueprintAssignmentId) -> Self {
+impl BlueprintAssignmentRevisionReference {
+    /// Binds a Blueprint Revision to one stable Blueprint Assignment lineage.
+    pub fn new(source: BlueprintRevisionReference, assignment_id: BlueprintAssignmentId) -> Self {
         Self {
             reference: source.reference,
             revision: source.revision,
@@ -47,9 +44,9 @@ impl AssignmentDefinitionSourceView {
         }
     }
 
-    /// Returns the revision-bound BlueprintCourse that contains this assignment.
-    pub fn source(self) -> ObservedBlueprintSource {
-        ObservedBlueprintSource {
+    /// Returns the Blueprint Revision that contains this assignment.
+    pub fn source(self) -> BlueprintRevisionReference {
+        BlueprintRevisionReference {
             reference: self.reference,
             revision: self.revision,
         }

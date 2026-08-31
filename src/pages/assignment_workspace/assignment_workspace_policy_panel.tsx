@@ -2,8 +2,8 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
-import type { StudentDisclosureTiming } from "../../../generated/api/StudentDisclosureTiming";
+import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
+import type { StudentFeedbackReleaseTiming } from "../../../generated/api/StudentFeedbackReleaseTiming";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 
 import type {
@@ -12,7 +12,9 @@ import type {
   AssignmentActivityRuleDraftField,
 } from "./assignment_workspace_policy_model";
 
-function gradePolicy(value: string): AssignmentActivityRules["grade"] {
+function assignmentAttemptGradeRule(
+  value: string,
+): AssignmentActivityRules["assignmentAttemptGradeRule"] {
   if (
     value === "first" ||
     value === "latest" ||
@@ -21,17 +23,49 @@ function gradePolicy(value: string): AssignmentActivityRules["grade"] {
   ) {
     return value;
   }
-  throw new Error("Grade policy selection is invalid");
+  throw new Error("Assignment Attempt Grade Rule selection is invalid");
 }
 
-function variationPolicy(value: string): AssignmentActivityRules["variation"] {
-  if (value === "newSeeds" || value === "selectedQuestionVariants" || value === "fullRegeneration") {
+function questionVariationRule(value: string): AssignmentActivityRules["questionVariationRule"] {
+  if (
+    value === "reuseQuestionsWithNewSeeds" ||
+    value === "selectedQuestionVariants" ||
+    value === "redrawQuestionPools"
+  ) {
     return value;
   }
-  throw new Error("Variation policy selection is invalid");
+  throw new Error("Question Variation Rule selection is invalid");
 }
 
-function disclosureTiming(value: string): StudentDisclosureTiming {
+function assignmentAttemptResumeRule(
+  value: string,
+): AssignmentActivityRules["assignmentAttemptResumeRule"] {
+  if (value === "resumable" || value === "singleSession") return value;
+  throw new Error("Assignment Attempt Resume Rule selection is invalid");
+}
+
+function assignmentQuestionDisplayRule(
+  value: string,
+): AssignmentActivityRules["assignmentQuestionDisplayRule"] {
+  if (value === "allQuestions" || value === "oneQuestionAtATime") return value;
+  throw new Error("Assignment Question Display Rule selection is invalid");
+}
+
+function assignmentNavigationRule(
+  value: string,
+): AssignmentActivityRules["assignmentNavigationRule"] {
+  if (value === "freeNavigation" || value === "forwardOnly") return value;
+  throw new Error("Assignment Navigation Rule selection is invalid");
+}
+
+function assignmentQuestionOrderRule(
+  value: string,
+): AssignmentActivityRules["assignmentQuestionOrderRule"] {
+  if (value === "authoredOrder" || value === "shuffled") return value;
+  throw new Error("Assignment Question Order Rule selection is invalid");
+}
+
+function studentFeedbackReleaseTiming(value: string): StudentFeedbackReleaseTiming {
   if (
     value === "during_attempt" ||
     value === "after_submit" ||
@@ -41,10 +75,12 @@ function disclosureTiming(value: string): StudentDisclosureTiming {
   ) {
     return value;
   }
-  throw new Error("Disclosure timing selection is invalid");
+  throw new Error("Student Feedback Release timing selection is invalid");
 }
 
-const disclosureTimingOptions: ReadonlyArray<readonly [StudentDisclosureTiming, string]> = [
+const studentFeedbackReleaseTimingOptions: ReadonlyArray<
+  readonly [StudentFeedbackReleaseTiming, string]
+> = [
   ["during_attempt", "While they work"],
   ["after_submit", "After they submit"],
   ["after_due", "After the due time"],
@@ -54,16 +90,23 @@ const disclosureTimingOptions: ReadonlyArray<readonly [StudentDisclosureTiming, 
 
 interface AssignmentWorkspacePolicyPanelProps {
   readonly policies: () => AssignmentActivityRules;
-  readonly disclosurePolicy: () => StudentDisclosurePolicy;
+  readonly studentFeedbackReleaseRule: () => StudentFeedbackReleaseRule;
   readonly activityRuleDraft: () => AssignmentActivityRuleDraft;
   readonly activityRuleFieldError: (field: AssignmentActivityRuleDraftField) => string | undefined;
-  readonly variationPolicyError: () => string | undefined;
+  readonly questionVariationRuleError: () => string | undefined;
   readonly onPoliciesChange: (policies: AssignmentActivityRules) => void;
-  readonly onVariationChange: (policies: AssignmentActivityRules) => void;
-  readonly onDisclosurePolicyChange: (policy: StudentDisclosurePolicy) => void;
-  readonly onActivityRuleDraftChange: (field: AssignmentActivityRuleDraftField, raw: string) => void;
-  readonly onCompletionKindChange: (kind: AssignmentActivityRules["completion"]["kind"]) => void;
-  readonly onContinuedPracticeKindChange: (kind: AssignmentActivityRules["continuedPractice"]["kind"]) => void;
+  readonly onQuestionVariationRuleChange: (policies: AssignmentActivityRules) => void;
+  readonly onStudentFeedbackReleaseRuleChange: (rule: StudentFeedbackReleaseRule) => void;
+  readonly onActivityRuleDraftChange: (
+    field: AssignmentActivityRuleDraftField,
+    raw: string,
+  ) => void;
+  readonly onCompletionKindChange: (
+    kind: AssignmentActivityRules["assignmentCompletionRule"]["kind"],
+  ) => void;
+  readonly onAssignmentAttemptContinuationRuleKindChange: (
+    kind: AssignmentActivityRules["assignmentAttemptContinuationRule"]["kind"],
+  ) => void;
   readonly onRegisterActivityRuleControl: (
     field: AssignmentActivityRuleDraftField,
     element: HTMLInputElement,
@@ -75,10 +118,10 @@ interface AssignmentWorkspacePolicyPanelProps {
 export function AssignmentWorkspacePolicyPanel(
   props: AssignmentWorkspacePolicyPanelProps,
 ): JSX.Element {
-  function changeDisclosure(field: keyof StudentDisclosurePolicy, value: string): void {
-    props.onDisclosurePolicyChange({
-      ...props.disclosurePolicy(),
-      [field]: disclosureTiming(value),
+  function changeDisclosure(field: keyof StudentFeedbackReleaseRule, value: string): void {
+    props.onStudentFeedbackReleaseRuleChange({
+      ...props.studentFeedbackReleaseRule(),
+      [field]: studentFeedbackReleaseTiming(value),
     });
   }
 
@@ -94,7 +137,7 @@ export function AssignmentWorkspacePolicyPanel(
           Completion
           <select
             aria-label="Completion requirement"
-            value={props.policies().completion.kind}
+            value={props.policies().assignmentCompletionRule.kind}
             onChange={(event) => {
               const kind = event.currentTarget.value;
               if (kind === "answerAll" || kind === "scoreAtLeast" || kind === "allCorrect") {
@@ -107,7 +150,7 @@ export function AssignmentWorkspacePolicyPanel(
             <option value="scoreAtLeast">Reach a score threshold</option>
           </select>
         </label>
-        <Show when={props.policies().completion.kind === "scoreAtLeast"}>
+        <Show when={props.policies().assignmentCompletionRule.kind === "scoreAtLeast"}>
           <label class="assignment-editor-field">
             Required score fraction
             <input
@@ -135,16 +178,16 @@ export function AssignmentWorkspacePolicyPanel(
         </Show>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--grade">
-        <legend>Grade policy</legend>
+        <legend>Assignment Attempt grade rule</legend>
         <label class="assignment-editor-field">
           Record
           <select
-            aria-label="Grade policy"
-            value={props.policies().grade}
+            aria-label="Assignment Attempt grade rule"
+            value={props.policies().assignmentAttemptGradeRule}
             onChange={(event) =>
               props.onPoliciesChange({
                 ...props.policies(),
-                grade: gradePolicy(event.currentTarget.value),
+                assignmentAttemptGradeRule: assignmentAttemptGradeRule(event.currentTarget.value),
               })
             }
           >
@@ -156,16 +199,16 @@ export function AssignmentWorkspacePolicyPanel(
         </label>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--practice">
-        <legend>Continued practice</legend>
+        <legend>Assignment Attempt continuation rule</legend>
         <label class="assignment-editor-field">
           After completion
           <select
-            aria-label="Continued practice"
-            value={props.policies().continuedPractice.kind}
+            aria-label="Assignment Attempt continuation rule"
+            value={props.policies().assignmentAttemptContinuationRule.kind}
             onChange={(event) => {
               const kind = event.currentTarget.value;
               if (kind === "closed" || kind === "capped" || kind === "unlimited") {
-                props.onContinuedPracticeKindChange(kind);
+                props.onAssignmentAttemptContinuationRuleKindChange(kind);
               }
             }}
           >
@@ -174,7 +217,7 @@ export function AssignmentWorkspacePolicyPanel(
             <option value="closed">Close after completion</option>
           </select>
         </label>
-        <Show when={props.policies().continuedPractice.kind === "capped"}>
+        <Show when={props.policies().assignmentAttemptContinuationRule.kind === "capped"}>
           <label class="assignment-editor-field">
             Additional Assignment Attempts
             <input
@@ -201,37 +244,106 @@ export function AssignmentWorkspacePolicyPanel(
         </Show>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--variation">
-        <legend>Variation policy</legend>
+        <legend>Question variation rule</legend>
         <label class="assignment-editor-field">
           Next practice Assignment Attempt
           <select
-            aria-label="Variation policy"
-            ref={(element) => props.onRegisterPolicyControl("variation", element)}
-            value={props.policies().variation}
-            aria-invalid={props.variationPolicyError() !== undefined}
+            aria-label="Question variation rule"
+            ref={(element) => props.onRegisterPolicyControl("questionVariationRule", element)}
+            value={props.policies().questionVariationRule}
+            aria-invalid={props.questionVariationRuleError() !== undefined}
             aria-describedby={
-              props.variationPolicyError() === undefined
+              props.questionVariationRuleError() === undefined
                 ? undefined
                 : "assignment-policies-field-error"
             }
             onChange={(event) =>
-              props.onVariationChange({
+              props.onQuestionVariationRuleChange({
                 ...props.policies(),
-                variation: variationPolicy(event.currentTarget.value),
+                questionVariationRule: questionVariationRule(event.currentTarget.value),
               })
             }
           >
-            <option value="newSeeds">Use new seeds</option>
+            <option value="reuseQuestionsWithNewSeeds">
+              Keep Questions and use fresh Question Seeds
+            </option>
             <option value="selectedQuestionVariants">Use selected Question Variants</option>
-            <option value="fullRegeneration">Fully regenerate</option>
+            <option value="redrawQuestionPools">Redraw Question Pools</option>
           </select>
-          <Show when={props.variationPolicyError()}>
+          <Show when={props.questionVariationRuleError()}>
             {(message) => (
               <p class="assignment-editor-note" role="status">
                 {message()}
               </p>
             )}
           </Show>
+        </label>
+      </fieldset>
+      <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--delivery">
+        <legend>Assignment Attempt delivery rules</legend>
+        <label class="assignment-editor-field">
+          Resume
+          <select
+            aria-label="Assignment Attempt Resume Rule"
+            value={props.policies().assignmentAttemptResumeRule}
+            onChange={(event) =>
+              props.onPoliciesChange({
+                ...props.policies(),
+                assignmentAttemptResumeRule: assignmentAttemptResumeRule(event.currentTarget.value),
+              })
+            }
+          >
+            <option value="resumable">Students may leave and resume</option>
+            <option value="singleSession">Students complete one active session</option>
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Question display
+          <select
+            aria-label="Assignment Question Display Rule"
+            value={props.policies().assignmentQuestionDisplayRule}
+            onChange={(event) =>
+              props.onPoliciesChange({
+                ...props.policies(),
+                assignmentQuestionDisplayRule: assignmentQuestionDisplayRule(event.currentTarget.value),
+              })
+            }
+          >
+            <option value="allQuestions">Show all Questions</option>
+            <option value="oneQuestionAtATime">Show one Question at a time</option>
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Navigation
+          <select
+            aria-label="Assignment Navigation Rule"
+            value={props.policies().assignmentNavigationRule}
+            onChange={(event) =>
+              props.onPoliciesChange({
+                ...props.policies(),
+                assignmentNavigationRule: assignmentNavigationRule(event.currentTarget.value),
+              })
+            }
+          >
+            <option value="freeNavigation">Students may revisit Questions</option>
+            <option value="forwardOnly">Students move forward only</option>
+          </select>
+        </label>
+        <label class="assignment-editor-field">
+          Question order
+          <select
+            aria-label="Assignment Question Order Rule"
+            value={props.policies().assignmentQuestionOrderRule}
+            onChange={(event) =>
+              props.onPoliciesChange({
+                ...props.policies(),
+                assignmentQuestionOrderRule: assignmentQuestionOrderRule(event.currentTarget.value),
+              })
+            }
+          >
+            <option value="authoredOrder">Keep authored Question order</option>
+            <option value="shuffled">Shuffle Questions for each Assignment Attempt</option>
+          </select>
         </label>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--disclosure">
@@ -242,27 +354,27 @@ export function AssignmentWorkspacePolicyPanel(
         </p>
         <DisclosureControl
           label="Score"
-          value={props.disclosurePolicy().score}
+          value={props.studentFeedbackReleaseRule().score}
           onChange={(value) => changeDisclosure("score", value)}
         />
         <DisclosureControl
           label="Per-item correctness"
-          value={props.disclosurePolicy().per_item_correctness}
+          value={props.studentFeedbackReleaseRule().per_item_correctness}
           onChange={(value) => changeDisclosure("per_item_correctness", value)}
         />
         <DisclosureControl
           label="Feedback text"
-          value={props.disclosurePolicy().feedback_text}
+          value={props.studentFeedbackReleaseRule().feedback_text}
           onChange={(value) => changeDisclosure("feedback_text", value)}
         />
         <DisclosureControl
           label="Correct answer or solution"
-          value={props.disclosurePolicy().solution}
+          value={props.studentFeedbackReleaseRule().solution}
           onChange={(value) => changeDisclosure("solution", value)}
         />
         <DisclosureControl
           label="Class statistics"
-          value={props.disclosurePolicy().class_statistics}
+          value={props.studentFeedbackReleaseRule().class_statistics}
           onChange={(value) => changeDisclosure("class_statistics", value)}
         />
       </fieldset>
@@ -287,14 +399,14 @@ function FieldError(props: {
 
 function DisclosureControl(props: {
   readonly label: string;
-  readonly value: StudentDisclosureTiming;
+  readonly value: StudentFeedbackReleaseTiming;
   readonly onChange: (value: string) => void;
 }): JSX.Element {
   return (
     <label class="assignment-editor-field">
       {props.label}
       <select value={props.value} onChange={(event) => props.onChange(event.currentTarget.value)}>
-        {disclosureTimingOptions.map(([value, label]) => (
+        {studentFeedbackReleaseTimingOptions.map(([value, label]) => (
           <option value={value}>{label}</option>
         ))}
       </select>

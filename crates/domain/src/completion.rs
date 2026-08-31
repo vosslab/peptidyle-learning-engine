@@ -4,9 +4,9 @@
 //! stored boolean. A stored flag could disagree with the attempts that
 //! produced it; deriving the value keeps those states inseparable.
 
-use question_model::{AssignmentAttemptCompletion, CompletionRequirement};
+use question_model::{AssignmentAttemptCompletion, AssignmentCompletionRule};
 
-use crate::run::{AssignmentActivityError, validate_fraction};
+use crate::assignment_activity::{AssignmentActivityError, validate_fraction};
 
 /// Current state of one required question within an Assignment Attempt.
 ///
@@ -35,19 +35,19 @@ pub struct RequiredQuestionState {
 /// represent a finite bounded score.
 pub fn derive_within_assignment_attempt_completion(
     questions: &[RequiredQuestionState],
-    requirement: CompletionRequirement,
+    rule: AssignmentCompletionRule,
 ) -> Result<AssignmentAttemptCompletion, AssignmentActivityError> {
     if questions.is_empty() {
         return Ok(AssignmentAttemptCompletion::InProgress);
     }
 
     let all_answered = questions.iter().all(|question| question.answered);
-    let complete = match requirement {
-        CompletionRequirement::AnswerAll => all_answered,
-        CompletionRequirement::AllCorrect => {
+    let complete = match rule {
+        AssignmentCompletionRule::AnswerAll => all_answered,
+        AssignmentCompletionRule::AllCorrect => {
             all_answered && questions.iter().all(|question| question.correct)
         }
-        CompletionRequirement::ScoreAtLeast { fraction } => {
+        AssignmentCompletionRule::ScoreAtLeast { fraction } => {
             validate_fraction(fraction)
                 .map_err(|_| AssignmentActivityError::InvalidCompletionThreshold { fraction })?;
             all_answered && score_fraction(questions)? >= fraction
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     fn empty_assignment_attempt_is_not_complete() {
         assert_eq!(
-            derive_within_assignment_attempt_completion(&[], CompletionRequirement::AnswerAll),
+            derive_within_assignment_attempt_completion(&[], AssignmentCompletionRule::AnswerAll),
             Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
@@ -113,7 +113,10 @@ mod tests {
     fn answer_all_requires_each_required_question() {
         let states = [question(true, false, 0.0), question(false, false, 0.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(&states, CompletionRequirement::AnswerAll),
+            derive_within_assignment_attempt_completion(
+                &states,
+                AssignmentCompletionRule::AnswerAll
+            ),
             Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
@@ -122,7 +125,10 @@ mod tests {
     fn all_correct_is_derived_from_every_required_question() {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(&states, CompletionRequirement::AllCorrect),
+            derive_within_assignment_attempt_completion(
+                &states,
+                AssignmentCompletionRule::AllCorrect
+            ),
             Ok(AssignmentAttemptCompletion::InProgress)
         );
     }
@@ -133,7 +139,7 @@ mod tests {
         assert_eq!(
             derive_within_assignment_attempt_completion(
                 &states,
-                CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
+                AssignmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
             ),
             Ok(AssignmentAttemptCompletion::InProgress)
         );
@@ -145,7 +151,7 @@ mod tests {
         assert_eq!(
             derive_within_assignment_attempt_completion(
                 &states,
-                CompletionRequirement::ScoreAtLeast { fraction: 0.5 }
+                AssignmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
             ),
             Ok(AssignmentAttemptCompletion::Completed)
         );
@@ -157,7 +163,7 @@ mod tests {
         assert_eq!(
             derive_within_assignment_attempt_completion(
                 &states,
-                CompletionRequirement::ScoreAtLeast { fraction: 1.1 }
+                AssignmentCompletionRule::ScoreAtLeast { fraction: 1.1 }
             ),
             Err(AssignmentActivityError::InvalidCompletionThreshold { fraction: 1.1 })
         );

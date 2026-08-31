@@ -30,7 +30,7 @@ import {
 } from "../../api/http_client";
 import type { PoolDrawPreview } from "../../api/contracts";
 
-import { assignmentWorkspaceCreatePath, assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 
 function previewRevision(revision: string): TeachingOperationRevision {
@@ -56,13 +56,15 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [poolPreview, setPoolPreview] = createSignal<PoolDrawPreview>();
   const [hasUnsavedContent, setHasUnsavedContent] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
-  const [issuedWorkRecovery, setIssuedWorkRecovery] = createSignal(false);
+  const [successorRevisionRequired, setSuccessorRevisionRequired] = createSignal(false);
   let questionIdInput: HTMLInputElement | undefined;
   let saveQuestionsButton: HTMLButtonElement | undefined;
   let reloadLatestButton: HTMLButtonElement | undefined;
   let replaceSelectedQuestionButton: HTMLButtonElement | undefined;
 
-  const questionLookupController = createAssignmentEditorQuestionLookupController(workspace.repository);
+  const questionLookupController = createAssignmentEditorQuestionLookupController(
+    workspace.repository,
+  );
   const reuseController = createAssignmentEditorReuseController(
     workspace.repository,
     workspace.courseId,
@@ -93,8 +95,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function removeEntry(entryIndex: number): void {
-    const entries = draft()
-      .entries.filter((_entry, index) => index !== entryIndex);
+    const entries = draft().entries.filter((_entry, index) => index !== entryIndex);
     update(
       { ...draft(), entries },
       "Question removed. Save questions and order when the definition is ready.",
@@ -115,7 +116,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function focusReplacementRecovery(): void {
-    if (needsReload() || issuedWorkRecovery()) {
+    if (needsReload() || successorRevisionRequired()) {
       queueMicrotask(() => reloadLatestButton?.focus());
       return;
     }
@@ -123,10 +124,10 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function replacementBlocked(): boolean {
-    if (!hasUnsavedContent() && !needsReload() && !issuedWorkRecovery()) return false;
-    if (issuedWorkRecovery()) {
+    if (!hasUnsavedContent() && !needsReload() && !successorRevisionRequired()) return false;
+    if (successorRevisionRequired()) {
       setMessage(
-        "Reload the latest assignment before replacing a question. The saved structural changes cannot be applied after Student work has been issued.",
+        "A successor Draft Assignment Revision is required before structural question changes can be saved.",
       );
     } else if (needsReload()) {
       setMessage(
@@ -201,6 +202,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       const saved = await workspace.client.replaceAssignmentFixedItem(
         workspace.courseId,
         workspace.assignmentId,
+        workspace.assignment().reference,
         itemId,
         row.questionId,
         workspace.assignment().revision,
@@ -210,10 +212,10 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setPoolPreview(undefined);
       setHasUnsavedContent(false);
       setNeedsReload(false);
-      setIssuedWorkRecovery(false);
+      setSuccessorRevisionRequired(false);
       setValidationMessage("");
       setTargetItemId(undefined);
-    questionLookupController.setSelected(undefined);
+      questionLookupController.setSelected(undefined);
       setDirectQuestionId("");
       setDirectMessage("");
       setMessage(
@@ -307,9 +309,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setMessage("Questions and order are already saved in the current assignment revision.");
       return true;
     }
-    if (issuedWorkRecovery()) {
+    if (successorRevisionRequired()) {
       setMessage(
-        "Create a new assignment to use these structural question changes. This assignment's issued Student work remains unchanged.",
+        "Create a successor Draft Assignment Revision to use these structural question changes. Existing Student work remains pinned to this revision.",
       );
       return false;
     }
@@ -333,6 +335,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       const saved = await workspace.client.saveAssignmentContent(
         workspace.courseId,
         workspace.assignmentId,
+        workspace.assignment().reference,
         assignmentContentInput(current),
         current.revision,
       );
@@ -349,8 +352,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       if (failure.kind === "staleRevision") {
         setNeedsReload(true);
         setMessage(failure.message);
-      } else if (failure.kind === "issuedStudentWork") {
-        setIssuedWorkRecovery(true);
+      } else if (failure.kind === "successorRevisionRequired") {
+        setSuccessorRevisionRequired(true);
         setMessage(failure.message);
       } else {
         setMessage(failure.message);
@@ -370,7 +373,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setPoolPreview(undefined);
       setHasUnsavedContent(false);
       setNeedsReload(false);
-      setIssuedWorkRecovery(false);
+      setSuccessorRevisionRequired(false);
       setValidationMessage("");
       setMessage(
         "Latest assignment loaded; your local title and question changes were replaced. Review the current questions and order before saving.",
@@ -405,7 +408,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       queueMicrotask(() => saveQuestionsButton?.focus());
       return;
     }
-    setMessage("Generating a server sample from the saved questions.");
+    setMessage("Generating a server sample from the saved Assignment Questions.");
     const saved = workspace.assignment();
     setBusy(true);
     try {
@@ -416,9 +419,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         assignmentEntryId,
       );
       setPoolPreview(preview);
-      setMessage(`${preview.questionPoolLabel} server sample is ready. It does not create Student work.`);
+      setMessage(
+        `${preview.questionPoolLabel} server sample is ready. It does not create Student work.`,
+      );
     } catch (_error: unknown) {
-      setMessage("The pool sample could not be generated. The saved questions remain available.");
+      setMessage(
+        "The pool sample could not be generated. The saved Assignment Questions remain available.",
+      );
     } finally {
       setBusy(false);
     }
@@ -485,16 +492,11 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           </button>
         </section>
       </Show>
-      <Show when={issuedWorkRecovery()}>
+      <Show when={successorRevisionRequired()}>
         <section class="inline-error" role="alert">
           <p>
-            Student work has already been issued for this assignment. Your local question changes
-            remain here, and the issued Student work remains unchanged.
-          </p>
-          <p>
-            <A class="primary-link" href={assignmentWorkspaceCreatePath(workspace.courseReference)}>
-              Create a new assignment
-            </A>
+            Student work already pins this Assignment Revision. Your local question changes remain
+            here, and a successor Draft Assignment Revision is required for structural changes.
           </p>
           <button
             class="quiet-action"
@@ -524,7 +526,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             ref={(element) => {
               saveQuestionsButton = element;
             }}
-            disabled={busy() || needsReload() || issuedWorkRecovery()}
+            disabled={busy() || needsReload() || successorRevisionRequired()}
             onClick={() => void saveQuestions()}
           >
             Save questions and order
@@ -628,7 +630,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 placeholder="7K3-M9QP"
                 aria-describedby="assignment-question-id-help"
                 aria-invalid={directMessage() !== ""}
-                disabled={targetItemId() !== undefined && (needsReload() || issuedWorkRecovery())}
+                disabled={
+                  targetItemId() !== undefined && (needsReload() || successorRevisionRequired())
+                }
                 onInput={(event) => {
                   setDirectQuestionId(event.currentTarget.value);
                   setDirectMessage("");
@@ -644,7 +648,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               <button
                 class="quiet-action"
                 type="button"
-                disabled={targetItemId() !== undefined && (needsReload() || issuedWorkRecovery())}
+                disabled={
+                  targetItemId() !== undefined && (needsReload() || successorRevisionRequired())
+                }
                 onClick={() => void chooseQuestionId()}
               >
                 Check Question ID
@@ -656,9 +662,10 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                   replaceSelectedQuestionButton = element;
                 }}
                 disabled={
-                  (targetItemId() !== undefined && questionLookupController.selected() === undefined) ||
+                  (targetItemId() !== undefined &&
+                    questionLookupController.selected() === undefined) ||
                   needsReload() ||
-                  issuedWorkRecovery()
+                  successorRevisionRequired()
                 }
                 aria-label={targetItemId() === undefined ? undefined : replacementActionLabel()}
                 onClick={() => {
@@ -675,7 +682,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 class="quiet-action"
                 type="button"
                 disabled={
-                  pickerController.sources().length === 0 || needsReload() || issuedWorkRecovery()
+                  pickerController.sources().length === 0 ||
+                  needsReload() ||
+                  successorRevisionRequired()
                 }
                 onClick={(event) =>
                   pickerController.open(
@@ -772,7 +781,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                         (reuseController.selectedSource()?.questions ?? []).filter(
                           (_question, index) => reuseController.questionIndexes().has(index),
                         ),
-                        "Selected saved questions added. Save questions and order when ready.",
+                        "Selected saved Assignment Questions added. Save Questions and order when ready.",
                       )
                     }
                   >

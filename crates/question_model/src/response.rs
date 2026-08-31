@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::answer::{NumericTolerance, SelectionCardinality, TextMatchMode};
+use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
 use crate::envelope::{AssetRef, ContentBlock};
 
 /// The educational interaction a Question assesses.
@@ -65,18 +65,18 @@ pub enum QuestionResponseControl {
     ExternalTool,
 }
 
-/// Identifies one selectable choice within a question.
+/// Identifies one response item within a Question Response Format.
 ///
-/// Choice identifiers are opaque strings assigned by the authoring backend.
-/// Grading compares identifiers rather than displayed labels, so shuffling the
-/// presentation order leaves a submitted response meaningful.
+/// Response Item References are opaque strings assigned by the authoring
+/// backend. Grading compares the exact reference rather than displayed labels,
+/// so presentation ordering leaves a submitted response meaningful.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct ChoiceId(String);
+pub struct ResponseItemReference(String);
 
-impl ChoiceId {
+impl ResponseItemReference {
     /// Wraps a backend-assigned identifier.
     pub fn new(value: impl Into<String>) -> Self {
-        ChoiceId(value.into())
+        ResponseItemReference(value.into())
     }
 
     /// The identifier text.
@@ -90,7 +90,7 @@ impl ChoiceId {
 #[serde(rename_all = "camelCase")]
 pub struct ChoiceOption {
     /// Stable identifier, used by grading.
-    pub id: ChoiceId,
+    pub id: ResponseItemReference,
     /// What the student sees, in render order.
     pub body: Vec<ContentBlock>,
 }
@@ -100,11 +100,11 @@ pub struct ChoiceOption {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TextEntrySlot {
     /// Stable semantic slot identifier.
-    pub id: ChoiceId,
+    pub id: ResponseItemReference,
     /// Student-visible label or surrounding prompt fragment.
     pub label: Vec<ContentBlock>,
     /// How the server compares this slot's text.
-    pub match_mode: TextMatchMode,
+    pub match_mode: TextResponseMatchRule,
     /// Longest accepted response, in characters.
     pub max_length: u32,
 }
@@ -112,9 +112,9 @@ pub struct TextEntrySlot {
 /// One student-supplied value for a named text-entry slot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TextEntryAnswer {
+pub struct StudentTextEntry {
     /// Slot being answered.
-    pub slot: ChoiceId,
+    pub slot: ResponseItemReference,
     /// Student text before server-owned normalization.
     pub text: String,
 }
@@ -122,11 +122,11 @@ pub struct TextEntryAnswer {
 /// One prompt-to-choice association in a matching response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MatchPair {
+pub struct StudentMatch {
     /// Prompt being matched.
-    pub prompt: ChoiceId,
+    pub prompt: ResponseItemReference,
     /// Choice assigned to that prompt.
-    pub choice: ChoiceId,
+    pub choice: ResponseItemReference,
 }
 
 /// A scale-independent point on a hotspot surface.
@@ -136,7 +136,7 @@ pub struct MatchPair {
 /// layout, and image density.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct HotspotPoint {
+pub struct StudentHotspotPoint {
     /// Horizontal normalized coordinate.
     pub x: u16,
     /// Vertical normalized coordinate.
@@ -148,7 +148,7 @@ pub struct HotspotPoint {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HotspotRegion {
     /// Stable semantic region identifier. Correctness remains server-only.
-    pub id: ChoiceId,
+    pub id: ResponseItemReference,
     /// Nonvisual alternative used by the keyboard-first response control.
     pub label: Vec<ContentBlock>,
     /// Left edge in normalized coordinates.
@@ -176,7 +176,7 @@ pub enum QuestionResponseFormat {
     /// A number, compared within a tolerance.
     Numeric {
         /// How close the response must be.
-        tolerance: NumericTolerance,
+        tolerance: NumericResponseTolerance,
         /// Expected unit, shown to the student, for example `mL`.
         unit: Option<String>,
     },
@@ -185,12 +185,12 @@ pub enum QuestionResponseFormat {
         /// The choices, in authoring order.
         choices: Vec<ChoiceOption>,
         /// How many may be selected.
-        selection: SelectionCardinality,
+        selection: ResponseSelectionRule,
     },
     /// A short free-text answer.
     ShortText {
         /// How the text is compared.
-        match_mode: TextMatchMode,
+        match_mode: TextResponseMatchRule,
         /// Longest accepted response, in characters.
         max_length: u32,
     },
@@ -220,7 +220,7 @@ pub enum QuestionResponseFormat {
         /// Public candidate regions; the correct region set remains private.
         regions: Vec<HotspotRegion>,
         /// Number of points the student must select.
-        selection: SelectionCardinality,
+        selection: ResponseSelectionRule,
     },
     /// An uploaded file, for work done outside the browser.
     FileUpload {
@@ -260,7 +260,7 @@ impl QuestionResponseFormat {
         match self {
             Self::Numeric { .. } => matches!(question_type, QuestionType::Numeric),
             Self::MultipleChoice { selection, .. } => match selection {
-                SelectionCardinality::ExactlyOne => {
+                ResponseSelectionRule::ExactlyOne => {
                     matches!(question_type, QuestionType::MultipleChoice)
                 }
                 _ => matches!(question_type, QuestionType::MultipleAnswer),
@@ -295,7 +295,7 @@ pub enum StudentResponse {
     /// Selected choices, identified rather than positional.
     MultipleChoice {
         /// Identifiers of the selected choices.
-        selected: Vec<ChoiceId>,
+        selected: Vec<ResponseItemReference>,
     },
     /// Free text, as typed, before normalization.
     ShortText {
@@ -305,22 +305,22 @@ pub enum StudentResponse {
     /// Values supplied for named blanks.
     MultiBlank {
         /// Answers in issued slot order.
-        answers: Vec<TextEntryAnswer>,
+        answers: Vec<StudentTextEntry>,
     },
     /// Prompt-to-choice associations.
     Matching {
         /// Matches in issued prompt order.
-        matches: Vec<MatchPair>,
+        matches: Vec<StudentMatch>,
     },
     /// Items in the order the student arranged them.
     Ordering {
-        /// Choice identifiers, first to last.
-        order: Vec<ChoiceId>,
+        /// Response Item References, first to last.
+        order: Vec<ResponseItemReference>,
     },
     /// Normalized points selected on a hotspot surface.
     Hotspot {
         /// Points in student selection order.
-        points: Vec<HotspotPoint>,
+        points: Vec<StudentHotspotPoint>,
     },
     /// A reference to an uploaded object in the `student-records` bucket.
     FileUpload {
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn choice_identifiers_survive_a_round_trip() {
         let response = StudentResponse::MultipleChoice {
-            selected: vec![ChoiceId::new("b"), ChoiceId::new("d")],
+            selected: vec![ResponseItemReference::new("b"), ResponseItemReference::new("d")],
         };
         let json = serde_json::to_string(&response).expect("serialization should succeed");
         let restored: StudentResponse =

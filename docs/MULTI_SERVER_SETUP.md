@@ -17,16 +17,16 @@ Course selection is the set of exact current memberships returned for that
 session. Selecting a course supplies a route reference for the server to check,
 not a new authorization claim.
 
-| Record or capability | Exact owner or scope | Authorization |
-| --- | --- | --- |
-| Account, email, passkey, session | Global `AccountId` and Authenticated Session | Account/session contract |
-| Published question and presentation asset | Global immutable `QuestionId` and `QuestionVersionNumber` | Every approved Instructor |
-| Draft Question or private curriculum workspace | `WorkspaceId` and Authoring Workspace relationship | Authoring Workspace Owner or Workspace Collaborator |
-| Draft Blueprint Revision | Exact Blueprint Course and revision | Blueprint Course Owner or Blueprint Collaborator |
-| Course, roster, assignment, schedule | Exact `CourseId` and child identity | Current direct Instructor membership |
-| Student run, attempt, response, grade, artifact | Exact `CourseId` plus Student owner | Student self or current course Instructor |
-| Question Folder, Star, Watch, or Saved Question Search | Account-owned reference to a Published Question | Exact Account relationship; Question Folder Shares are explicit |
-| Job, export, object, or provider state | Typed course, workspace, Question Library, or system target | Locked lease and durable target |
+| Record or capability                                   | Exact owner or scope                                        | Authorization                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Account, email, passkey, session                       | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
+| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionVersionNumber`   | Every approved Instructor                                       |
+| Draft Question or private curriculum workspace         | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
+| Draft Blueprint Revision                               | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
+| Course, roster, assignment, schedule                   | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
+| Student run, attempt, response, grade, artifact        | Exact `CourseId` plus Student owner                         | Student self or current course Instructor                       |
+| Question Folder, Star, Watch, or Saved Question Search | Account-owned reference to a Published Question             | Exact Account relationship; Question Folder Shares are explicit |
+| Job, export, object, or provider state                 | Typed course, workspace, Question Library, or system target | Locked lease and durable target                                 |
 
 Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
@@ -93,15 +93,15 @@ only from the API and worker private network as configured by Compose.
 
 ## Service matrix
 
-| Component | State and role | Exposure | Scale rule |
-| --- | --- | --- | --- |
-| `gateway` | Read-only `dist/`; same-origin API and health proxy | One loopback host port | One gateway |
-| `api` | Axum routes, sessions, authorization, attempts, assets | Private `gateway_api`; no host port | One normally; two only in `replica_restart` |
-| `worker` | PostgreSQL queue claim, prepare, and commit | Default data network; no port | Add workers for concurrency |
-| `postgres` | Accounts, courses, Student records, jobs, audit, RLS | Loopback `5432` by default | One local instance |
-| `minio` | Four policy-separated S3-compatible buckets | Loopback `9000` and `9001` | One local instance |
-| `createbuckets` | Idempotent bucket bootstrap | No host port | One-shot |
-| `webwork-renderer` | Bounded PG/PGML render and grade engine | `renderer_private`; no host port | One local stateless service |
+| Component          | State and role                                         | Exposure                            | Scale rule                                  |
+| ------------------ | ------------------------------------------------------ | ----------------------------------- | ------------------------------------------- |
+| `gateway`          | Read-only `dist/`; same-origin API and health proxy    | One loopback host port              | One gateway                                 |
+| `api`              | Axum routes, sessions, authorization, attempts, assets | Private `gateway_api`; no host port | One normally; two only in `replica_restart` |
+| `worker`           | PostgreSQL queue claim, prepare, and commit            | Default data network; no port       | Add workers for concurrency                 |
+| `postgres`         | Accounts, courses, Student records, jobs, audit, RLS   | Loopback `5432` by default          | One local instance                          |
+| `minio`            | Four policy-separated S3-compatible buckets            | Loopback `9000` and `9001`          | One local instance                          |
+| `createbuckets`    | Idempotent bucket bootstrap                            | No host port                        | One-shot                                    |
+| `webwork-renderer` | Bounded PG/PGML render and grade engine                | `renderer_private`; no host port    | One local stateless service                 |
 
 Named volumes `ple_pgdata` and `ple_miniodata` hold local state across a normal
 container stop. The PostgreSQL-major guard accepts an empty volume or a
@@ -260,15 +260,15 @@ deployment evidence. This document does not claim those runs occurred.
 
 ## Failure behavior
 
-| Failure | Closed response | Recovery |
-| --- | --- | --- |
-| API replica stops | Gateway retries a healthy peer; shared records preserve state | Replace the replica and run the replica oracle |
-| API readiness is `503` | Gateway removes that replica from rotation | Repair database, object store, or schema compatibility |
-| PostgreSQL is unavailable | API is not ready; workers do not drain | Restore the database and verify migrations |
-| Object store is unavailable | Object delivery fails closed; relational records remain | Restore endpoint, bucket, credentials, or network |
-| Worker crashes after claim | Lease expires; bounded reclaim is possible | Inspect redacted worker evidence and queue depth |
-| Renderer fails | PG-backed work fails closed; PLE records remain | Recreate and re-attest the renderer |
-| Gateway fails | Browser origin is unavailable; API records are unchanged | Repair or recreate the gateway |
+| Failure                     | Closed response                                               | Recovery                                               |
+| --------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
+| API replica stops           | Gateway retries a healthy peer; shared records preserve state | Replace the replica and run the replica oracle         |
+| API readiness is `503`      | Gateway removes that replica from rotation                    | Repair database, object store, or schema compatibility |
+| PostgreSQL is unavailable   | API is not ready; workers do not drain                        | Restore the database and verify migrations             |
+| Object store is unavailable | Object delivery fails closed; relational records remain       | Restore endpoint, bucket, credentials, or network      |
+| Worker crashes after claim  | Lease expires; bounded reclaim is possible                    | Inspect redacted worker evidence and queue depth       |
+| Renderer fails              | PG-backed work fails closed; PLE records remain               | Recreate and re-attest the renderer                    |
+| Gateway fails               | Browser origin is unavailable; API records are unchanged      | Repair or recreate the gateway                         |
 
 ## Evidence boundary
 

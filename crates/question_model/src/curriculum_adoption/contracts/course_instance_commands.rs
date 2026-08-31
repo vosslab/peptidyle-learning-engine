@@ -1,22 +1,21 @@
 //! Non-Serde CourseInstance apply commands built only from server-held records.
 
-use crate::{AccountId, CourseTerm, ResolvedRelativeAssignmentSchedule};
+use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
 use super::{
-    AssignmentDefinitionSourceView, BoundedResolvedScheduleSet, CourseInstanceBlueprintApplication,
-    CourseInstanceCreationWitness, CourseInstanceImportWitness, CourseInstanceReceiptTarget,
-    CourseInstanceWitness, CurriculumAdoptionIdempotencyKey, CurriculumPinReplacements,
-    RolloverCourseInstanceManifest,
+    AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken,
+    BoundedResolvedScheduleSet, CourseInstanceCreationReservation, CourseInstanceOperationReceipt,
+    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, QuestionVersionSubstitutions,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RolloverCourseInstanceCommand {
-    source_course_instance: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
+    source_course_instance: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
     target_term: CourseTerm,
-    manifest: RolloverCourseInstanceManifest,
-    creation: CourseInstanceCreationWitness,
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    manifest: CourseRolloverManifest,
+    creation: CourseInstanceCreationReservation,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl RolloverCourseInstanceCommand {
@@ -24,7 +23,7 @@ impl RolloverCourseInstanceCommand {
         let idempotency_key = record.creation().idempotency_key().clone();
         Self {
             source_course_instance: record.source_course_instance().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             target_term: record.target_term().clone(),
             manifest: record.manifest().clone(),
             creation: record.creation().clone(),
@@ -32,42 +31,42 @@ impl RolloverCourseInstanceCommand {
         }
     }
 
-    pub fn source_course_instance(&self) -> &CourseInstanceWitness {
+    pub fn source_course_instance(&self) -> &CourseInstanceSnapshot {
         &self.source_course_instance
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn manifest(&self) -> &RolloverCourseInstanceManifest {
+    pub fn manifest(&self) -> &CourseRolloverManifest {
         &self.manifest
     }
-    pub fn creation(&self) -> &CourseInstanceCreationWitness {
+    pub fn creation(&self) -> &CourseInstanceCreationReservation {
         &self.creation
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShiftCourseInstanceTermCommand {
-    destination: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
+    destination: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
     target_term: CourseTerm,
     schedules: BoundedResolvedScheduleSet,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl ShiftCourseInstanceTermCommand {
     pub fn from_server_record(record: super::ShiftCourseInstanceTermApplyRecord) -> Self {
         Self {
             destination: record.destination().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             target_term: record.target_term().clone(),
             schedules: record.schedules().clone(),
             authorized_account: record.authorized_account(),
@@ -76,16 +75,16 @@ impl ShiftCourseInstanceTermCommand {
         }
     }
 
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.destination
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn schedules(&self) -> &[ResolvedRelativeAssignmentSchedule] {
+    pub fn schedules(&self) -> &[ResolvedAssignmentSchedule] {
         self.schedules.as_slice()
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -94,20 +93,20 @@ impl ShiftCourseInstanceTermCommand {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ControlledUpdateBlueprintAssignmentCommand {
-    source: AssignmentDefinitionSourceView,
-    import: CourseInstanceImportWitness,
-    destination: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
+    source: BlueprintAssignmentRevisionReference,
+    import: AssignmentSourceSnapshot,
+    destination: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl ControlledUpdateBlueprintAssignmentCommand {
@@ -118,24 +117,24 @@ impl ControlledUpdateBlueprintAssignmentCommand {
             source: record.source(),
             import: record.import().clone(),
             destination: record.destination().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
     }
 
-    pub fn source(&self) -> AssignmentDefinitionSourceView {
+    pub fn source(&self) -> BlueprintAssignmentRevisionReference {
         self.source
     }
-    pub fn import(&self) -> &CourseInstanceImportWitness {
+    pub fn import(&self) -> &AssignmentSourceSnapshot {
         &self.import
     }
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.destination
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
@@ -143,29 +142,29 @@ impl ControlledUpdateBlueprintAssignmentCommand {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateSelectedBlueprintAssignmentCommand {
-    source: AssignmentDefinitionSourceView,
-    destination: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
-    schedule: ResolvedRelativeAssignmentSchedule,
-    replacements: CurriculumPinReplacements,
+    source: BlueprintAssignmentRevisionReference,
+    destination: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
+    schedule: ResolvedAssignmentSchedule,
+    replacements: QuestionVersionSubstitutions,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl CreateSelectedBlueprintAssignmentCommand {
-    pub fn from_server_record(record: super::CreateSelectedBlueprintAssignmentApplyRecord) -> Self {
+    pub fn from_server_record(record: super::CopyAssignmentFromBlueprintApplyRecord) -> Self {
         Self {
             source: record.source(),
             destination: record.destination().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             schedule: record.schedule().clone(),
             replacements: record.replacements().clone(),
             authorized_account: record.authorized_account(),
@@ -174,19 +173,19 @@ impl CreateSelectedBlueprintAssignmentCommand {
         }
     }
 
-    pub fn source(&self) -> AssignmentDefinitionSourceView {
+    pub fn source(&self) -> BlueprintAssignmentRevisionReference {
         self.source
     }
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.destination
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
-    pub fn schedule(&self) -> &ResolvedRelativeAssignmentSchedule {
+    pub fn schedule(&self) -> &ResolvedAssignmentSchedule {
         &self.schedule
     }
-    pub fn replacements(&self) -> &CurriculumPinReplacements {
+    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -195,36 +194,36 @@ impl CreateSelectedBlueprintAssignmentCommand {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconcileCourseInstanceAdoptionCommand {
-    receipt: CourseInstanceReceiptTarget,
-    blueprint_application: CourseInstanceBlueprintApplication,
+    receipt: CourseInstanceOperationReceipt,
+    course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl ReconcileCourseInstanceAdoptionCommand {
     pub fn from_server_record(record: super::ReconcileCourseInstanceAdoptionApplyRecord) -> Self {
         Self {
             receipt: record.receipt().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
             idempotency_key: record.idempotency_key().clone(),
         }
     }
 
-    pub fn receipt(&self) -> &CourseInstanceReceiptTarget {
+    pub fn receipt(&self) -> &CourseInstanceOperationReceipt {
         &self.receipt
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
@@ -232,7 +231,7 @@ impl ReconcileCourseInstanceAdoptionCommand {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }

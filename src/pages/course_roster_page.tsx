@@ -13,7 +13,7 @@ import type {
   RosterImportPreview,
 } from "../api/enrollment";
 import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { rosterImportTemplateCsv } from "./roster_import_template";
 import {
   bulkDeliveryAnnouncement,
@@ -82,7 +82,7 @@ function policyLines(rules: ReadonlyArray<CourseInvitationEmailDomain>): string 
 }
 
 function parsePolicyLines(value: string): ReadonlyArray<CourseInvitationEmailDomain> {
-	const rules: Array<CourseInvitationEmailDomain> = [];
+  const rules: Array<CourseInvitationEmailDomain> = [];
   for (const line of value.split(/\r?\n/u)) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
@@ -112,7 +112,7 @@ function downloadRosterImportTemplate(): void {
 }
 
 export function CourseRosterPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const scopedRoute = useCourseThemeRouteData();
   const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
   const courseId = course?.id;
@@ -152,7 +152,7 @@ export function CourseRosterPage(): JSX.Element {
     setState({ kind: "loading" });
     setError(null);
     try {
-      const roster = await runtime.client.listCourseRoster(courseId);
+      const roster = await applicationApi.client.listCourseRoster(courseId);
       setState({ kind: "ready", roster });
       setPolicyDomains(policyLines(roster.allowedEmailDomains));
       setAnnouncement(
@@ -171,7 +171,7 @@ export function CourseRosterPage(): JSX.Element {
     setError(null);
     try {
       const invitedEmail = email();
-      const accepted = await runtime.client.inviteCourseMember(
+      const accepted = await applicationApi.client.inviteCourseMember(
         courseId,
         invitedEmail,
         rosterId(),
@@ -217,7 +217,7 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const next = await runtime.client.listCourseRoster(courseId, cursor);
+      const next = await applicationApi.client.listCourseRoster(courseId, cursor);
       if (next.rosterRevision !== current.roster.rosterRevision) {
         setAnnouncement("The roster changed while loading. The current roster was refreshed.");
         await load();
@@ -245,7 +245,7 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await runtime.client.revokeCourseInvitation(
+      await applicationApi.client.revokeCourseInvitation(
         courseId,
         invitationId,
         current.roster.rosterRevision,
@@ -268,7 +268,11 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await runtime.client.revokeCourseMember(courseId, memberId, current.roster.rosterRevision);
+      await applicationApi.client.revokeCourseMember(
+        courseId,
+        memberId,
+        current.roster.rosterRevision,
+      );
       setAnnouncement("Course access revoked. Existing education records remain under retention.");
       await load();
       queueMicrotask(() => rosterHeading?.focus());
@@ -286,7 +290,7 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const policy = await runtime.client.replaceCourseInvitationEmailRule(
+      const policy = await applicationApi.client.replaceCourseInvitationEmailRule(
         courseId,
         {
           allowedEmailDomains: parsePolicyLines(policyDomains()),
@@ -313,7 +317,7 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const report = await runtime.client.previewRosterImport(
+      const report = await applicationApi.client.previewRosterImport(
         courseId,
         file,
         current.roster.rosterRevision,
@@ -368,7 +372,7 @@ export function CourseRosterPage(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      const committed = await runtime.client.commitRosterImport(
+      const committed = await applicationApi.client.commitRosterImport(
         courseId,
         report,
         [...selectedRows()].sort((left, right) => left - right),

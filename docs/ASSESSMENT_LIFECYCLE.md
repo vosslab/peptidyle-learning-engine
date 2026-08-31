@@ -43,12 +43,12 @@ scope. The server derives those facts from authenticated course-owned records.
 
 PLE keeps four related but different things separate:
 
-| Thing | Owner and lifetime | Important identity |
-| --- | --- | --- |
-| Draft | Instructor workspace; private and mutable | `WorkspaceId` |
-| Published question | Shared immutable Question Library content | `QuestionId` and `QuestionVersionNumber` |
-| Assignment activity | One course's teaching configuration | Course and assignment IDs |
-| Student activity | Course-owned educational record | Enrollment, Assignment Attempt, and Question Attempt IDs |
+| Thing               | Owner and lifetime                        | Important identity                                       |
+| ------------------- | ----------------------------------------- | -------------------------------------------------------- |
+| Draft               | Instructor workspace; private and mutable | `WorkspaceId`                                            |
+| Published question  | Shared immutable Question Library content | `QuestionId` and `QuestionVersionNumber`                 |
+| Assignment activity | One course's teaching configuration       | Course and assignment IDs                                |
+| Student activity    | Course-owned educational record           | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
@@ -109,7 +109,7 @@ checksum. The publication authorization and object rules are in
 ### 4. Build an assignment from versions
 
 An assignment stores ordered references to published versions, alongside its
-completion, grade, continued-practice, variation, disclosure, and one
+completion, grade, continued-practice, Question Variation Rule, disclosure, and one
 revisioned teaching-settings aggregate. New assignments are Draft. The
 instructor explicitly publishes the aggregate after setting instructions,
 availability/due/close, whole-run and attempt limits, late behavior, and
@@ -131,15 +131,16 @@ The server starts the initial run or resumes the one active run that belongs to
 the enrollment only after current S5 entitlement and S3 resolution. Stored
 Published lifecycle is the sole open G1 state; Draft, Closed, and Archived do
 not start student work. It assigns server timestamps, one-based run number, and
-the variation policy actually used. Completion is derived from attempt states;
+the Question Variation Rule actually used. Completion is derived from attempt states;
 it is not a mutable Boolean that can disagree with the attempt history. Attempt
 limits count completed runs, so the final allowed active run remains resumable
 instead of denying itself.
 
 Completion is a milestone, not a lockout. When the policy permits continued
-practice, the student can start another run with fresh variation. For a typical
-mastery assignment this means all-correct completion, highest-score selection,
-unlimited later runs, new seeds, and five assignment disclosure fields set to
+practice, the student can start another Assignment Attempt while retaining its
+Questions with fresh Question Seeds. For a typical mastery assignment this means
+all-correct completion, highest-score selection, unlimited later Assignment Attempts,
+the retain-Questions-with-fresh-Seeds rule, and five Assignment disclosure fields set to
 `AfterSubmit`. The exact composition remains an assignment decision, described in
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 
@@ -150,7 +151,7 @@ unlimited later runs, new seeds, and five assignment disclosure fields set to
 The run service issues at most one unresolved attempt at a time. The attempt
 binds the authenticated student and course through its enrollment and run, the
 assignment position, immutable version, seed, policy, timing state, grader
-backend, and provenance. Resume returns the stored attempt and stored seed; it
+backend, and Question Attempt Source Record. Resume returns the stored attempt and stored seed; it
 does not generate a different problem mid-attempt.
 
 Attempt issuance is a transactional storage operation. PostgreSQL locks the run
@@ -247,7 +248,7 @@ feedback remains withheld even though the result is persisted. An instructor or
 gradebook view reads the summary projection and lazily paged history rather
 than recomputing a grade by scanning all attempts. A separate scoring freshness
 state can mark the maintained summary Recalculating or Failed; student routes
-then omit aggregate and run scores, attempt results, and disclosed point values
+then omit aggregate and Assignment Attempt scores, Grading Results, and disclosed point values
 until it is Current, without changing the student's semantic
 activity/disclosure state.
 
@@ -262,12 +263,12 @@ The common lifecycle deliberately ends at a backend boundary. Adapters can
 share public attempt behavior without sharing private grading data or assuming
 the same source format.
 
-| Family | Publication authority | Render authority | Grade authority | Important recovery rule |
-| --- | --- | --- | --- | --- |
-| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
-| QTI | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled | Reparse the checksum-pinned archive; refuse unsupported profile features |
-| WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender |
-| External tool | PLE publishes an answer-free marker plus trusted broker configuration | Provider launch/session is server-mediated | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score |
+| Family        | Publication authority                                                     | Render authority                                                | Grade authority                                      | Important recovery rule                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native flat   | PLE compiles author source into public definition and server-only key     | PLE public renderer                                             | PLE native grader                                    | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
+| QTI           | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled       | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                 |
+| WeBWorK       | PLE copies licensed PG/PGML source and provenance into immutable storage  | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender            |
+| External tool | PLE publishes an answer-free marker plus trusted broker configuration     | Provider launch/session is server-mediated                      | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score                                                                           |
 
 Native flat questions use PLE's public `QuestionDefinition` plus separate
 grader-only material. The exact flat authoring format is
@@ -293,18 +294,18 @@ with their own authorization and retention handling.
 
 ## Failure and recovery semantics
 
-| Boundary | Safe outcome |
-| --- | --- |
-| Draft validation or publication fails | Keep the private draft; do not mint public identity or create a partial immutable version. |
-| Capability check fails | Return the complete missing-capability report before publication or assignment persistence. |
-| Concurrent issue/resume | Lock and return the sole unresolved attempt. |
-| Public render or asset fails | Keep the run resumable; offer retry without changing seed or attempt. |
-| Presentation mismatch | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state. |
-| Network loss after submit | Retry with the same idempotency key and response to receive the committed receipt. |
-| Changed submission replay | Conflict before grading or state mutation. |
-| Renderer/backend outage | Preserve the active attempt; expose a bounded degraded state only for the affected question. |
+| Boundary                                     | Safe outcome                                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Draft validation or publication fails        | Keep the private draft; do not mint public identity or create a partial immutable version.                           |
+| Capability check fails                       | Return the complete missing-capability report before publication or assignment persistence.                          |
+| Concurrent issue/resume                      | Lock and return the sole unresolved attempt.                                                                         |
+| Public render or asset fails                 | Keep the run resumable; offer retry without changing seed or attempt.                                                |
+| Presentation mismatch                        | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state.   |
+| Network loss after submit                    | Retry with the same idempotency key and response to receive the committed receipt.                                   |
+| Changed submission replay                    | Conflict before grading or state mutation.                                                                           |
+| Renderer/backend outage                      | Preserve the active attempt; expose a bounded degraded state only for the affected question.                         |
 | Commit interruption after prefetch promotion | Heal only the sole owned, committed-but-unlinked successor; never derive a different successor from later run state. |
-| Retention object failure | Keep the course archived and retry the frozen typed-object manifest; never report deletion early. |
+| Retention object failure                     | Keep the course archived and retry the frozen typed-object manifest; never report deletion early.                    |
 
 These rules make failures visible and recoverable without turning a browser
 cache, a renderer response, or a retry into new authority. The more detailed

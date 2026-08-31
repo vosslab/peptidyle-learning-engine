@@ -43,13 +43,13 @@ function sourceFolder(
  */
 export function createQuestionCurationRepository(
   client: ApiClient,
-  catalog: QuestionLibraryRepository,
+  questionLibrary: QuestionLibraryRepository,
 ): {
   readonly curation: QuestionCurationRepository;
   readonly picker: QuestionPickerSourceRepository;
 } {
-  const authoredCatalog = createQuestionLibraryRepository(client, "authoredByCurrentAccount");
-  const sharedCatalog = createQuestionLibraryRepository(client, "any");
+  const authoredQuestionLibrary = createQuestionLibraryRepository(client, "authoredByCurrentAccount");
+  const sharedQuestionLibrary = createQuestionLibraryRepository(client, "any");
   const curation: QuestionCurationRepository = {
     async getFolder(reference) {
       const result = await client.getQuestionFolder(reference);
@@ -117,13 +117,13 @@ export function createQuestionCurationRepository(
   const picker: QuestionPickerSourceRepository = {
     async search(request) {
       if (request.source.kind === "library") {
-        return await catalog.search(request.query, request.cursor);
+        return await questionLibrary.search(request.query, request.cursor);
       }
       if (request.source.kind === "sharedLibrary") {
-        return await sharedCatalog.search(request.query, request.cursor);
+        return await sharedQuestionLibrary.search(request.query, request.cursor);
       }
       if (request.source.kind === "mine") {
-        return await authoredCatalog.search(request.query, request.cursor);
+        return await authoredQuestionLibrary.search(request.query, request.cursor);
       }
       const reference = sourceFolder(request.source);
       if (reference !== null) {

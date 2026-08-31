@@ -41,14 +41,14 @@ show the recoverable next-question action.
   its checked response intact.
 - The production component fixture covers `same`, wrong ID, run, position,
   version, seed, deadline, and hash. Every case visibly exposes `Retry next
-  question`, retains Position 1, and retains the selected radio. This closes
+question`, retains Position 1, and retains the selected radio. This closes
   both prior behavioral-test findings without inspecting answers or private
   state.
 
 ## Validation
 
 - PASS: focused Prettier, TypeScript lint compile, ESLint, and `git diff --check`.
-- PASS: `node --import tsx --test tests/test_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (41 passed).
+- PASS: `node --import tsx --test tests/test_question_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (41 passed).
 - PASS: `npx playwright test tests/playwright/run_prefetch_route.spec.ts tests/playwright/run_completion_summary.spec.ts tests/playwright/frontend_contract.spec.ts` (32 passed).
 
 The exact-successor and same-attempt recovery cases are now covered by the

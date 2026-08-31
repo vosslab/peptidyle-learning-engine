@@ -6,7 +6,9 @@ CREATE TABLE ple_private.question_submission (
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt (question_attempt_id),
     submitted_at timestamp with time zone NOT NULL,
     student_response jsonb NOT NULL,
-    CONSTRAINT question_submission_student_response_is_object CHECK (jsonb_typeof(student_response) = 'object')
+    CONSTRAINT question_submission_student_response_is_object CHECK (jsonb_typeof(student_response) = 'object'),
+    CONSTRAINT question_submission_id_and_attempt_are_unique
+        UNIQUE (submission_id, question_attempt_id)
 );
 CREATE TABLE ple_private.assignment_submission (
     assignment_submission_id uuid PRIMARY KEY,

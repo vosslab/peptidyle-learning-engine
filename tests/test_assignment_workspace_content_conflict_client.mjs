@@ -4,14 +4,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeAssignmentContentIssuedWorkConflict } from "../src/api/decoders.ts";
+import { decodeSuccessorAssignmentRevisionRequired } from "../src/api/decoders.ts";
 import {
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentIssuedWorkError,
+  AssignmentSuccessorRevisionRequiredError,
   createHttpApiClient,
   resolveAssignmentContentSaveFailure,
 } from "../src/api/http_client.ts";
+import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 const course = "0198e000-0000-7000-8000-000000000001";
 const assignment = "0198e000-0000-7000-8000-000000000002";
@@ -22,8 +23,8 @@ const input = {
       kind: "fixedQuestion",
       questionId: "7K3-M9QP",
       pointsPossible: "1",
-      deliveryState: "active",
-      scoringMode: "normal",
+      availability: "available",
+      scoringRule: "normal",
     },
   ],
 };
@@ -32,6 +33,7 @@ function contentSave(response) {
   return createHttpApiClient({ fetch: async () => response }).saveAssignmentContent(
     course,
     assignment,
+    "A-1",
     input,
     '"1"',
   );
@@ -44,38 +46,72 @@ function editorJsonResponse(value, status) {
   });
 }
 
-test("Questions content save gives issued Student work its own typed recovery", async () => {
-  assert.deepEqual(decodeAssignmentContentIssuedWorkConflict({ kind: "issuedStudentWork" }), {
-    kind: "issuedStudentWork",
+test("Questions content save binds the reviewed Assignment Revision", async () => {
+  const { recordingFetch, requests } = createRecordingFetch(async () =>
+    editorJsonResponse({ error: "assignment changed" }, 412),
+  );
+
+  await assert.rejects(
+    createHttpApiClient({ fetch: recordingFetch }).saveAssignmentContent(
+      course,
+      assignment,
+      "A-1",
+      input,
+      '"1"',
+    ),
+    AssignmentConflictError,
+  );
+
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.equal(request.headers.get("if-match"), '"1"');
+  assert.deepEqual(await request.json(), {
+    ...input,
+    baseRevision: { assignment: "A-1", revision_number: "1" },
+  });
+});
+
+const successorRevisionRequirement = {
+  baseRevision: { assignment: "A-1", revision_number: "1" },
+};
+
+test("Questions content save gives issued Student work a successor-revision recovery", async () => {
+  assert.deepEqual(decodeSuccessorAssignmentRevisionRequired(successorRevisionRequirement), {
+    baseRevision: { assignment: "A-1", revision_number: "1" },
   });
   await assert.rejects(
-    contentSave(editorJsonResponse({ kind: "issuedStudentWork" }, 409)),
+    contentSave(editorJsonResponse(successorRevisionRequirement, 409)),
     (error) => {
-      assert.ok(error instanceof AssignmentIssuedWorkError);
+      assert.ok(error instanceof AssignmentSuccessorRevisionRequiredError);
       assert.equal(error.status, 409);
+      assert.deepEqual(error.requirement, successorRevisionRequirement);
       assert.deepEqual(resolveAssignmentContentSaveFailure(error), {
-        kind: "issuedStudentWork",
+        kind: "successorRevisionRequired",
         message:
-          "Student work has already been issued, so this assignment's question structure remains unchanged.",
+          "Student work already pins this Assignment Revision. Create a successor Draft Assignment Revision for structural question changes.",
       });
       return true;
     },
   );
 });
 
-test("Questions content conflict decoder rejects malformed and extra fields", () => {
-  assert.throws(() => decodeAssignmentContentIssuedWorkConflict({ kind: "other" }), DecodeError);
+test("Successor-revision decoder rejects malformed and extra fields", () => {
+  assert.throws(() => decodeSuccessorAssignmentRevisionRequired({}), DecodeError);
   assert.throws(
-    () => decodeAssignmentContentIssuedWorkConflict({ kind: "issuedStudentWork", extra: true }),
+    () =>
+      decodeSuccessorAssignmentRevisionRequired({
+        ...successorRevisionRequirement,
+        extra: true,
+      }),
     DecodeError,
   );
 });
 
-test("Questions content save treats malformed issued-work bodies as ordinary 409 errors", async () => {
-  for (const body of [{ kind: "other" }, { kind: "issuedStudentWork", extra: true }]) {
+test("Questions content save treats malformed successor-revision bodies as ordinary 409 errors", async () => {
+  for (const body of [{}, { ...successorRevisionRequirement, extra: true }]) {
     await assert.rejects(contentSave(editorJsonResponse(body, 409)), (error) => {
       assert.ok(error instanceof ApiRequestError);
-      assert.ok(!(error instanceof AssignmentIssuedWorkError));
+      assert.ok(!(error instanceof AssignmentSuccessorRevisionRequiredError));
       assert.equal(error.status, 409);
       return true;
     });
@@ -87,7 +123,7 @@ test("Questions content save keeps stale revisions and ordinary conflicts distin
     contentSave(editorJsonResponse({ error: "record changed" }, 409)),
     (error) => {
       assert.ok(error instanceof ApiRequestError);
-      assert.ok(!(error instanceof AssignmentIssuedWorkError));
+      assert.ok(!(error instanceof AssignmentSuccessorRevisionRequiredError));
       assert.equal(resolveAssignmentContentSaveFailure(error).kind, "retryable");
       return true;
     },

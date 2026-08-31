@@ -3,7 +3,7 @@ import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
 import type { AccountApprovalView } from "../../../generated/api/AccountApprovalView";
 import type { SysadminInstructorCandidateView } from "../../../generated/api/SysadminInstructorCandidateView";
 import type { OrdinaryBrowserApiClient } from "../../api/client";
-import type { ApiRuntime } from "../../api/runtime";
+import type { ApplicationApi } from "../../api/application_api";
 import { ApiRequestError } from "../../api/http_client/error";
 import {
   appendInstructorCandidatePage,
@@ -20,7 +20,7 @@ import {
 import "./teaching_operations_panels.css";
 
 interface SysadminInstructorApprovalPanelProps {
-  readonly runtime: Pick<ApiRuntime<OrdinaryBrowserApiClient>, "client">;
+  readonly applicationApi: Pick<ApplicationApi<OrdinaryBrowserApiClient>, "client">;
 }
 
 interface PendingApprovalAction {
@@ -66,7 +66,7 @@ export function SysadminInstructorApprovalPanel(
 
   async function searchPage(after: string | null, append: boolean): Promise<boolean> {
     if (!queryEligible()) return false;
-    const client = props.runtime.client;
+    const client = props.applicationApi.client;
     setSearching(true);
     setError(undefined);
     try {
@@ -158,7 +158,7 @@ export function SysadminInstructorApprovalPanel(
     try {
       let approval: AccountApprovalView;
       if (pending.action === "approve") {
-        approval = await props.runtime.client.approveInstructorAccount(
+        approval = await props.applicationApi.client.approveInstructorAccount(
           pending.candidate.account.reference,
           revision,
         );
@@ -170,7 +170,7 @@ export function SysadminInstructorApprovalPanel(
           await refreshAfterConflict();
           return;
         }
-        approval = await props.runtime.client.revokeInstructorApproval(
+        approval = await props.applicationApi.client.revokeInstructorApproval(
           pending.candidate.account.reference,
           revokeRevision,
         );

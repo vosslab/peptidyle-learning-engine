@@ -1,13 +1,13 @@
-import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
-import type { StudentDisclosureTiming } from "../../../generated/api/StudentDisclosureTiming";
+import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
+import type { StudentFeedbackReleaseTiming } from "../../../generated/api/StudentFeedbackReleaseTiming";
 import { decodeRecord, decodeStringEnum } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
 /** Decode the exact assignment-owned Student disclosure matrix. */
-export function decodeStudentDisclosurePolicy(
+export function decodeStudentFeedbackReleaseRule(
   value: unknown,
   path: string,
-): StudentDisclosurePolicy {
+): StudentFeedbackReleaseRule {
   const record = decodeRecord(value, path);
   const fields = [
     "score",
@@ -17,7 +17,7 @@ export function decodeStudentDisclosurePolicy(
     "class_statistics",
   ] as const;
   requireOnlyFields(record, path, fields);
-  const decodeTiming = (fieldName: (typeof fields)[number]): StudentDisclosureTiming =>
+  const decodeTiming = (fieldName: (typeof fields)[number]): StudentFeedbackReleaseTiming =>
     decodeStringEnum(field(record, fieldName, path), `${path}.${fieldName}`, [
       "during_attempt",
       "after_submit",

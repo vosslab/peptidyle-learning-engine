@@ -1,4 +1,4 @@
--- SD1 private Instructor Question Folders and saved catalog-search roots.
+-- SD1 private Instructor Question Folders and saved Question Search roots.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;

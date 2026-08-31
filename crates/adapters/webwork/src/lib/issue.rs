@@ -7,21 +7,21 @@
 //! public results or the browser cache.
 
 use objects::{ObjectStore, ObjectStoreError, PutObject};
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::Seed;
 use question_model::{
-    ActivityTimestamp, AttemptProvenance, ImplementationVersion, QuestionDefinition,
-    QuestionEnvelope, QuestionSource, QuestionTitleError, StudentResponse,
+    ActivityTimestamp, ImplementationVersion, QuestionAttemptSourceRecord, QuestionDefinition,
+    QuestionPresentation, QuestionSource, QuestionTitleError, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 #[cfg(test)]
 use std::cell::RefCell;
 
-use crate::artifact::WebworkSource;
 use crate::renderer_contract::{
     RenderRequest, RendererFailure, WebworkRenderer, WebworkReplayMappingV1,
 };
 use crate::sanitizer::sanitize_webwork_html;
+use crate::source_object_reference::WebworkSource;
 
 /// Stable adapter identifier recorded for WeBWorK attempts.
 pub const ADAPTER_ID: &str = "webwork-adapter";
@@ -55,13 +55,13 @@ fn take_test_cache_events() -> Vec<&'static str> {
 #[derive(Clone, PartialEq)]
 pub struct WebworkIssuedAttempt {
     /// Reusable browser-safe response contract and prompt blocks.
-    pub envelope: QuestionEnvelope,
+    pub envelope: QuestionPresentation,
     /// Sanitized supplied markup for the dedicated renderer component.
     pub sanitized_html: String,
     /// Deterministic parameter record for the version/seed pair.
     pub parameter_hash: String,
     /// Immutable source, implementation, and rendered-output evidence.
-    pub provenance: AttemptProvenance,
+    pub source_record: QuestionAttemptSourceRecord,
     /// Private field/value mapping captured from the exact trusted render.
     /// It is persisted under the attempt's course boundary and is never part
     /// of the browser envelope or safe render cache.
@@ -77,7 +77,7 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
             .field("envelope", &self.envelope)
             .field("sanitized_html", &self.sanitized_html)
             .field("parameter_hash", &self.parameter_hash)
-            .field("provenance", &self.provenance)
+            .field("source_record", &self.source_record)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
             .field("cache_hit", &self.cache_hit)
             .finish()
@@ -140,21 +140,21 @@ impl std::error::Error for WebworkAdapterError {}
 /// Returns the conservative capabilities common to arbitrary PG sources.
 pub fn webwork_source_capabilities(
     source: &QuestionSource,
-) -> Result<BackendCapabilities, WebworkAdapterError> {
+) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
     let QuestionSource::Webwork { .. } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
-    Ok(BackendCapabilities::from_iter([
+    Ok(QuestionBackendCapabilities::from_iter([
         Capability::AlgorithmicGeneration,
         Capability::ServerGrading,
     ]))
 }
 
-/// Returns capabilities proven for an exact immutable PG source artifact.
+/// Returns capabilities proven for an exact immutable PG Source Object Reference.
 pub fn reviewed_webwork_source_capabilities(
     source: &QuestionSource,
     source_sha256: &str,
-) -> Result<BackendCapabilities, WebworkAdapterError> {
+) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
     let QuestionSource::Webwork { pg_path } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
@@ -162,7 +162,7 @@ pub fn reviewed_webwork_source_capabilities(
     if crate::source_profile::supports_partial_credit(pg_path, source_sha256) {
         capabilities.push(Capability::PartialCredit);
     }
-    Ok(BackendCapabilities::from_iter(capabilities))
+    Ok(QuestionBackendCapabilities::from_iter(capabilities))
 }
 
 /// Returns reviewed capabilities for an exact immutable source profile.
@@ -172,14 +172,15 @@ pub fn reviewed_webwork_source_capabilities(
 pub fn reviewed_webwork_source_profile_capabilities(
     source: &QuestionSource,
     source_sha256: &str,
-) -> Result<BackendCapabilities, WebworkAdapterError> {
+) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
     let QuestionSource::Webwork { pg_path } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
     let mut capabilities = reviewed_webwork_source_capabilities(source, source_sha256)?;
     if crate::source_profile::supports_immediate_correctness(pg_path, source_sha256) {
-        capabilities =
-            BackendCapabilities::from_iter(capabilities.declared().chain([Capability::Hints]));
+        capabilities = QuestionBackendCapabilities::from_iter(
+            capabilities.declared().chain([Capability::Hints]),
+        );
     }
     Ok(capabilities)
 }
@@ -210,7 +211,7 @@ where
     pub fn capabilities(
         &self,
         source: &QuestionSource,
-    ) -> Result<BackendCapabilities, WebworkAdapterError> {
+    ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
         webwork_source_capabilities(source)
     }
 
@@ -232,9 +233,10 @@ where
             .metadata
             .validate_title()
             .map_err(WebworkAdapterError::InvalidTitle)?;
-        let (question_version, pg_path) = crate::artifact::webwork_identity(question)?;
-        crate::artifact::verify_source(source)?;
-        crate::artifact::verify_source_binding(source, &question_version)?;
+        let (question_version, pg_path) =
+            crate::source_object_reference::webwork_identity(question)?;
+        crate::source_object_reference::verify_source(source)?;
+        crate::source_object_reference::verify_source_binding(source, &question_version)?;
         let cache_key = crate::cache::render_key(&question_version, seed);
         match self.store.get(&cache_key).await {
             Ok(stored) => {
@@ -276,7 +278,7 @@ where
                 })?;
                 let rendered = crate::cache::CachedWebworkRender {
                     schema_version: crate::cache::CACHE_SCHEMA_VERSION,
-                    source_artifact: source.artifact.clone(),
+                    source_object_reference: source.source_object_reference.clone(),
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
                         envelope: untrusted.envelope,
                         sanitized_html: sanitize_webwork_html(&untrusted.html),
@@ -344,7 +346,7 @@ where
         source: &WebworkSource,
         response: &StudentResponse,
         replay: &WebworkReplayMappingV1,
-    ) -> Result<grading::GradeOutcome, WebworkAdapterError> {
+    ) -> Result<grading::QuestionGradingOutcome, WebworkAdapterError> {
         crate::grade::grade(&self.renderer, question, seed, source, response, replay).await
     }
 
@@ -360,9 +362,9 @@ where
             .metadata
             .validate_title()
             .map_err(WebworkAdapterError::InvalidTitle)?;
-        let (question_version, _) = crate::artifact::webwork_identity(question)?;
-        crate::artifact::verify_source(source)?;
-        crate::artifact::verify_source_binding(source, &question_version)?;
+        let (question_version, _) = crate::source_object_reference::webwork_identity(question)?;
+        crate::source_object_reference::verify_source(source)?;
+        crate::source_object_reference::verify_source_binding(source, &question_version)?;
         let stored = self
             .store
             .get(&crate::cache::render_key(&question_version, seed))
@@ -389,7 +391,7 @@ where
         pg_path: &str,
         cached: &crate::cache::CachedWebworkRender,
     ) -> Result<WebworkReplayMappingV1, WebworkAdapterError> {
-        let (question_version, _) = crate::artifact::webwork_identity(question)?;
+        let (question_version, _) = crate::source_object_reference::webwork_identity(question)?;
         cache_witness("renderer_call");
         let mut rendered = self
             .renderer
@@ -410,7 +412,7 @@ where
         })?;
         let reproduced = crate::cache::CachedWebworkRender {
             schema_version: crate::cache::CACHE_SCHEMA_VERSION,
-            source_artifact: source.artifact.clone(),
+            source_object_reference: source.source_object_reference.clone(),
             rendered: crate::cache::SafeRenderedWebworkQuestion {
                 envelope: rendered.envelope,
                 sanitized_html: sanitize_webwork_html(&rendered.html),
@@ -439,11 +441,11 @@ where
             envelope: rendered.rendered.envelope,
             sanitized_html: rendered.rendered.sanitized_html,
             parameter_hash: parameter_hash(seed),
-            provenance: AttemptProvenance {
+            source_record: QuestionAttemptSourceRecord {
                 adapter: implementation(ADAPTER_ID, ADAPTER_VERSION),
                 renderer: Some(implementation(&renderer.id, &renderer.version)),
                 generator: None,
-                source_artifact: Some(source.artifact.clone()),
+                source_object_reference: Some(source.source_object_reference.clone()),
                 asset_objects: Vec::new(),
                 grading: implementation(GRADING_ID, &renderer.version),
                 rendered_question_sha256,

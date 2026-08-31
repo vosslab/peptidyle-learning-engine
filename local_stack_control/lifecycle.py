@@ -6,7 +6,7 @@ import os
 import collections.abc
 
 import local_stack_control.compose
-import local_stack_control.consumer
+import local_stack_control.disposable_stack_adapter
 import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.image_cleanup
@@ -549,7 +549,7 @@ def synchronize_database(
 	environment["PGPASSWORD"] = password
 	argv = local_stack_control.compose.compose_argv(selected, ["exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]])
 	sql = postgres_role_sql(values["POSTGRES_USER"], password)
-	private_values = local_stack_control.consumer.private_environment_values(
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
 		selected.env_file
 	)
 	def read_report() -> local_stack_control.models.StatusReport:

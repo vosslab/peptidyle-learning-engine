@@ -8,7 +8,7 @@ spelling.
 
 ## Top-level layout
 
-~~~text
+```text
 .
 +- crates/                 Rust product crates and repository tools
 +- src/                    SolidJS browser application
@@ -29,26 +29,26 @@ spelling.
 +- check_codebase.sh       TypeScript and browser gate
 +- run_live_demo.sh        Live-demo lifecycle front door
 - run_playwright_tests.sh  Production-browser entry point
-~~~
+```
 
 OTHER_REPOS/ contains reference snapshots only. It is not a runtime,
 container, or source-import path.
 
 ## Rust workspace
 
-| Path | Owns |
-| --- | --- |
-| [crates/question_model/](../crates/question_model/) | Question, identity, assignment, course-term, BlueprintCourse, adoption, and browser-safe contract types. |
-| [crates/domain/](../crates/domain/) | Pure timing, policy, disclosure, run, scoring, generation, and validation. |
-| [crates/grading/](../crates/grading/) | Answer-bearing checkers and correctness decisions; server-only. |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles. |
-| [crates/server/](../crates/server/) | Axum routes, authentication, authorization, worker composition, and API assembly. |
-| [crates/objects/](../crates/objects/) | Typed object keys, checksums, image validation, and object-store backends. |
-| [crates/adapters/](../crates/adapters/) | Native, QTI, H5P, iMathAS, and WeBWorK adapters. |
-| [crates/wasm/](../crates/wasm/) | The answer-free Rust-to-browser WebAssembly facade. |
-| [crates/export/](../crates/export/) | PDF/DOCX export models and writers. |
-| [crates/project-tools/](../crates/project-tools/) | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling. |
-| crates/acceptance-runtime/ | Disposable acceptance manifests and capability-specific database URL handoff. |
+| Path                                                            | Owns                                                                                                     |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, adoption, and browser-safe contract types. |
+| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, run, scoring, generation, and validation.                               |
+| [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                          |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles.   |
+| [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                        |
+| [crates/objects/](../crates/objects/)                           | Typed object keys, checksums, image validation, and object-store backends.                               |
+| [crates/adapters/](../crates/adapters/)                         | Native, QTI, H5P, iMathAS, and WeBWorK adapters.                                                         |
+| [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                      |
+| [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                      |
+| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                        |
+| crates/acceptance-runtime/                                      | Disposable acceptance manifests and capability-specific database URL handoff.                            |
 
 Package directories use hyphens; Rust module imports use underscores.
 
@@ -56,20 +56,20 @@ Package directories use hyphens; Rust module imports use underscores.
 
 The reusable and delivery aggregates have separate paths:
 
-~~~text
+```text
 crates/question_model/src/
-+- reusable_curriculum.rs       BlueprintCourse tree and projections
++- blueprint_course.rs       BlueprintCourse tree and projections
 +- curriculum_adoption.rs       Source, target, preview, apply, and receipt contracts
 `- curriculum_adoption/          Focused adoption contract modules
 
 crates/learning-data-access/src/
-+- contracts/reusable_curriculum.rs       ReusableCurriculumStore
++- contracts/blueprint_course.rs       BlueprintCourseStore
 +- contracts/curriculum_adoption.rs       CurriculumAdoptionStore
-+- in_memory/reusable_curriculum.rs       Deterministic BlueprintCourse adapter
++- in_memory/blueprint_course.rs       Deterministic BlueprintCourse adapter
 +- in_memory/curriculum_adoption/         Adoption conformance adapter
-+- postgres/reusable_curriculum.rs        PostgreSQL BlueprintCourse adapter
++- postgres/blueprint_course.rs        PostgreSQL BlueprintCourse adapter
 `- postgres/curriculum_adoption/         PostgreSQL adoption and bridge modules
-~~~
+```
 
 BlueprintCourse is one ordered module/assignment tree with one aggregate
 revision. Its exact public question members resolve to immutable
@@ -89,24 +89,24 @@ broker/RLS/grant helpers at 2026082929-2026082932.
 
 ## Learning data access
 
-~~~text
+```text
 crates/learning-data-access/
 +- src/
 |  +- contracts/       Store and capability contracts
-|  |  +- reusable_curriculum.rs  One BlueprintCourse Store contract
+|  |  +- blueprint_course.rs  One BlueprintCourse Store contract
 |  |  `- curriculum_adoption.rs  Separate source-to-instance operations
 |  +- in_memory/       Test-support-gated deterministic adapters
-|  |  +- reusable_curriculum.rs
+|  |  +- blueprint_course.rs
 |  |  `- curriculum_adoption/
 |  |     +- state.rs, course_structure.rs, destination.rs
 |  |     `- receipt_evidence.rs
 |  +- postgres/        Production PostgreSQL adapters
-|  |  +- reusable_curriculum.rs
+|  |  +- blueprint_course.rs
 |  |  `- curriculum_adoption/
 |  |     `- bridge/
 |  - lib.rs, in_memory.rs, postgres.rs
 - tests/              Conformance and disposable PostgreSQL suites
-~~~
+```
 
 The reusable Store owns BlueprintCourse list, get, replacement, publication
 projection, and permitted deletion. The adoption Store owns fork, assignment
@@ -116,39 +116,38 @@ Blueprint reader access to a private CourseInstance.
 
 ## Server application
 
-~~~text
+```text
 crates/server/src/
-+- auth/                     Account, session, passkey, and preflight behavior
-+- course/                   Course, membership, Student, assignment, and Gradebook routes
-+- catalog/                  Question Library discovery and publication
-+- reusable_curriculum.rs    BlueprintCourse HTTP route family
-`- curriculum_adoption/     CourseInstance adoption, rollover, and update routes
-+- route_policy.rs           Method and route security policy
-+- composition/              Concrete Store, database, worker, object, and adapter assembly
-+- run/                      Attempt, submission, disclosure, and external-tool routes
-+- worker/                   Generic durable-job runtime
-+- accepted_submission_worker.rs  Sealed private grading execution
-+- public_asset_publication_worker/  Dedicated public-asset publisher
-`- main.rs                   API, worker, or publisher process entry point
-~~~
++- auth/                     Account session and seeded Live Demo browser boundary
++- composition.rs            Production database and session composition
++- health.rs                 Readiness probe support
++- http_security.rs          Uniform dynamic-response security headers
++- request_lifecycle.rs      Process-wide safe request lifecycle handling
++- application.rs            Executable application assembly
++- lib.rs                    Current server-core module boundary
+`- main.rs                   Production binary entry point
+```
 
-Authentication and approved-Instructor or course-membership preflight precede
+The current executable surface intentionally stops at global Account sessions and
+the deployment-gated seeded Live Demo entry. Course, Question Library, delivery,
+and worker routes remain downstream reconstruction work and are not represented
+as mounted server modules.
 reference, revision, query, and body decoding. CourseInstance routes require
 the exact destination course and current equal Teaching Team Member authority.
 
 ## Browser application
 
-~~~text
+```text
 src/
 +- api/
-|  +- reusable_curriculum.ts                 BlueprintCourse client contract
+|  +- blueprint_course.ts                 BlueprintCourse client contract
 |  +- curriculum_adoption.ts                 Adoption client contract
-|  +- http_client/reusable_curriculum.ts     Same-origin BlueprintCourse requests
+|  +- http_client/blueprint_course.ts     Same-origin BlueprintCourse requests
 |  +- http_client/curriculum_adoption.ts     Preview/apply/receipt requests
-|  +- decoders/reusable_curriculum.ts        Strict BlueprintCourse DTO decoder
+|  +- decoders/blueprint_course.ts        Strict BlueprintCourse DTO decoder
 |  `- decoders/curriculum_adoption/         Strict adoption DTO decoders
 +- features/
-|  +- reusable_curriculum/                    One BlueprintCourse workspace/editor
+|  +- blueprint_course/                    One BlueprintCourse workspace/editor
 |  `- curriculum_adoption/                  Destination-specific staged workflow
 +- pages/
 |  +- curriculum_route_page.tsx               Workspace route composition
@@ -156,7 +155,7 @@ src/
 |  `- curriculum_adoption_live_page.tsx     CourseInstance adoption route
 +- components/                                Shared answer-free and accessibility UI
 +`- routes.ts                                Executable route map
-~~~
+```
 
 The intended browser workspace has one BlueprintCourse list, detail, editor,
 and nested module/assignment picker. It presents draft owner/collaborator
@@ -184,12 +183,12 @@ validates it and crates/project-tools/src/e2e_seed/ publishes bounded fixtures
 through production contracts. Adapters under crates/adapters/ keep source
 format and provider behavior behind typed capabilities.
 
-~~~text
+```text
 schemas/migrations/          Ordered forward SQL; accepted files are immutable
 containers/                  Compose, API/gateway images, private renderer
 deploy/opentofu/             AWS network, compute, database, storage, IAM, and policy
 crates/objects/              Typed public-assets/private-content/student-records/temp-processing
-~~~
+```
 
 PostgreSQL stores policy-bearing relationships, BlueprintCourse and
 CourseInstance records, attempts, submissions, summaries, jobs, and audit
@@ -198,7 +197,7 @@ API, workers, and publisher use separate capability profiles.
 
 ## Tests and generated output
 
-~~~text
+```text
 tests/
 +- test_*.py                  Fast deterministic repository-policy checks
 +- test_*.mjs                 Browser-contract and model checks without a browser
@@ -209,7 +208,7 @@ tests/
 generated/
 +- api/                       Ignored Rust-derived TypeScript
 `- fixtures/                 Ignored generated fixture projections
-~~~
+```
 
 Permanent tests protect behavior that can regress: tree ordering, exact pins,
 authorization, strict decoding, adoption exclusions, unreleased propagation,
@@ -219,8 +218,9 @@ checks stay in their named E2E or human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
-ignored state. Committed screenshots under docs/screenshots/ are published
-evidence, not source contracts; their manifest is tests/e2e/browser_screenshot_corpus.json.
+ignored state. Committed screenshots under docs/screenshots/ are historical
+visual reference, not source contracts. The former screenshot manifest and
+publisher are absent; a restored browser owner will own fresh visual evidence.
 
 ## Documentation map
 
@@ -237,7 +237,7 @@ evidence, not source contracts; their manifest is tests/e2e/browser_screenshot_c
 
 ## Where to add work
 
-- Add a reusable content rule to crates/question_model/src/reusable_curriculum.rs;
+- Add a reusable content rule to crates/question_model/src/blueprint_course.rs;
   update both reusable Store implementations and conformance cases.
 - Add source-to-instance behavior to curriculum_adoption with a typed preview,
   command, authorization, and immutable receipt.

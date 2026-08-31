@@ -15,7 +15,7 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { ApiClient } from "../../api/client";
 import type { AssignmentEditorDetail, CourseSummary } from "../../api/contracts";
-import { useApiRuntime } from "../../api/runtime";
+import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import {
   courseRouteData,
@@ -160,7 +160,7 @@ export interface AssignmentWorkspaceLivePageProps {
 
 /** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
 export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePageProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const params = useParams();
   const scopedRoute = useCourseThemeRouteData();
   const session = useSessionBootstrap();
@@ -185,8 +185,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
     const currentSession = session.state();
     if (
       currentSession.kind !== "authenticated" ||
-      (currentSession.session.account.role !== "instructor" &&
-        currentSession.session.account.role !== "sysadmin")
+      currentSession.session.account.role !== "instructor"
     ) {
       setState("denied");
       return;
@@ -199,12 +198,12 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
       return;
     }
     try {
-      const identity = await resolveAssignmentRoute(runtime.client, assignmentReference);
+      const identity = await resolveAssignmentRoute(applicationApi.client, assignmentReference);
       if (identity.courseId !== course.id) {
         setState("unavailable");
         return;
       }
-      const assignment = await runtime.client.getAssignmentWorkspace(
+      const assignment = await applicationApi.client.getAssignmentWorkspace(
         course.id,
         identity.assignmentId,
       );
@@ -220,7 +219,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
         setCurrentAssignment(next);
       };
       const reloadAssignment = async (): Promise<AssignmentEditorDetail> => {
-        const latest = await runtime.client.getAssignmentWorkspace(
+        const latest = await applicationApi.client.getAssignmentWorkspace(
           course.id,
           identity.assignmentId,
         );
@@ -234,8 +233,8 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
         assignment: currentAssignment,
         assignmentId: identity.assignmentId,
         assignmentReference,
-        client: runtime.client,
-        repository: createAssignmentEditorRepository(runtime.client),
+        client: applicationApi.client,
+        repository: createAssignmentEditorRepository(applicationApi.client),
         replaceAssignment,
         reloadAssignment,
       });

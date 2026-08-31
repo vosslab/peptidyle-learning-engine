@@ -47,7 +47,7 @@ No P0--P3 issue remains in the current S3 closeout authority record.
 - Authority and migration inventory scans: PASS.
 - `rg --files schemas/migrations | wc -l`: 40.
 - `source source_me.sh && python3 -m pytest tests/test_markdown_links.py
-  tests/test_ascii_compliance.py`: PASS, 1,466 tests.
+tests/test_ascii_compliance.py`: PASS, 1,466 tests.
 - `git diff --check`: PASS.
 - `git diff --cached --check`: PASS.
 

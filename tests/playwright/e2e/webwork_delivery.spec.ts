@@ -7,7 +7,7 @@
 // - src/pages/course_roster_page.tsx:423 owns student invitation fields and the invitation link.
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   student claiming and practice entry.
-// - src/pages/assignment_attempt_page.tsx and src/components/responses/common.tsx own Assignment Attempt visibility,
+// - src/pages/assignment_attempt_page.tsx and src/components/question_response_controls/common.tsx own Assignment Attempt visibility,
 //   answer controls, feedback, and completion navigation.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 

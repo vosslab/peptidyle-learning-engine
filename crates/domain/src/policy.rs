@@ -7,10 +7,10 @@
 
 use std::collections::BTreeSet;
 
-use question_model::assignment_activity_rules::TimingPolicy;
+use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::generation::RandomizationDefinition;
 use question_model::{
-    BackendCapabilities, Capability, DraftQuestionDefinition, GradingDefinition,
+    Capability, DraftQuestionDefinition, GradingDefinition, QuestionBackendCapabilities,
     QuestionDefinition, QuestionVersionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -22,7 +22,7 @@ pub struct AssignmentQuestionConfig {
     /// Browser-safe immutable question definition selected by the assignment.
     pub question: QuestionDefinition,
     /// Capabilities declared by the adapter that owns this question.
-    pub backend_capabilities: BackendCapabilities,
+    pub question_backend_capabilities: QuestionBackendCapabilities,
 }
 
 /// Complete input to assignment capability validation.
@@ -77,7 +77,8 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
         required.extend(assignment_requirements.iter().copied());
 
         for capability in Capability::ALL {
-            if required.contains(&capability) && !selected.backend_capabilities.supports(capability)
+            if required.contains(&capability)
+                && !selected.question_backend_capabilities.supports(capability)
             {
                 violations.push(Violation {
                     question: QuestionVersionReference {
@@ -96,11 +97,11 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
 /// Validates a draft at the publication boundary without inventing a version ID.
 pub fn validate_draft_for_publication(
     question: &DraftQuestionDefinition,
-    backend_capabilities: &BackendCapabilities,
+    question_backend_capabilities: &QuestionBackendCapabilities,
 ) -> Vec<PublicationViolation> {
     required_by_content(question)
         .into_iter()
-        .filter(|capability| !backend_capabilities.supports(*capability))
+        .filter(|capability| !question_backend_capabilities.supports(*capability))
         .map(|capability| PublicationViolation {
             workspace: question.workspace,
             title: question.metadata.title.clone(),
@@ -116,7 +117,7 @@ fn required_by_question(question: &QuestionDefinition) -> BTreeSet<Capability> {
 trait QuestionContentView {
     fn randomization(&self) -> &question_model::generation::RandomizationDefinition;
     fn grading(&self) -> &GradingDefinition;
-    fn timing_policy(&self) -> &TimingPolicy;
+    fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
 impl QuestionContentView for QuestionDefinition {
@@ -126,8 +127,8 @@ impl QuestionContentView for QuestionDefinition {
     fn grading(&self) -> &GradingDefinition {
         &self.grading
     }
-    fn timing_policy(&self) -> &TimingPolicy {
-        &self.timing_policy
+    fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit {
+        &self.question_attempt_time_limit
     }
 }
 
@@ -138,8 +139,8 @@ impl QuestionContentView for DraftQuestionDefinition {
     fn grading(&self) -> &GradingDefinition {
         &self.grading
     }
-    fn timing_policy(&self) -> &TimingPolicy {
-        &self.timing_policy
+    fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit {
+        &self.question_attempt_time_limit
     }
 }
 
@@ -162,8 +163,11 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
         }
         GradingDefinition::Ungraded => {}
     }
-    if matches!(question.timing_policy(), TimingPolicy::PerQuestion { .. }) {
-        required.insert(Capability::PerQuestionTiming);
+    if matches!(
+        question.question_attempt_time_limit(),
+        QuestionAttemptTimeLimit::Limited { .. }
+    ) {
+        required.insert(Capability::QuestionAttemptTimeLimit);
     }
 
     required
@@ -174,8 +178,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use question_model::answer::{NumericTolerance, TextMatchMode};
-    use question_model::assignment_activity_rules::AttemptPolicy;
+    use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
+    use question_model::assignment_activity_rules::QuestionAttemptLimit;
     use question_model::envelope::ContentBlock;
     use question_model::generation::{GeneratorReference, ParameterSpec};
     use question_model::response::QuestionResponseFormat;
@@ -202,7 +206,7 @@ mod tests {
         Seeded,
         AllOrNothing,
         PartialCredit,
-        PerQuestionTiming,
+        QuestionAttemptTimeLimit,
     }
 
     fn question_version(version_number: u32) -> QuestionVersionReference {
@@ -224,14 +228,14 @@ mod tests {
                 markdown: "Capability fixture".to_string(),
             }],
             response: QuestionResponseFormat::ShortText {
-                match_mode: TextMatchMode::Normalized,
+                match_mode: TextResponseMatchRule::Normalized,
                 max_length: 20,
             },
             question_type: QuestionType::FillInBlank,
-            attempt_policy: AttemptPolicy {
+            question_attempt_limit: QuestionAttemptLimit {
                 max_attempts: Some(1),
             },
-            timing_policy: TimingPolicy::Untimed,
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::Ungraded,
             metadata: QuestionMetadata {
@@ -264,12 +268,12 @@ mod tests {
             CaseFeature::PartialCredit => {
                 question.grading = GradingDefinition::PartialCredit { points: 1.0 };
                 question.response = QuestionResponseFormat::Numeric {
-                    tolerance: NumericTolerance::Absolute { epsilon: 0.1 },
+                    tolerance: NumericResponseTolerance::Absolute { epsilon: 0.1 },
                     unit: None,
                 };
             }
-            CaseFeature::PerQuestionTiming => {
-                question.timing_policy = TimingPolicy::PerQuestion {
+            CaseFeature::QuestionAttemptTimeLimit => {
+                question.question_attempt_time_limit = QuestionAttemptTimeLimit::Limited {
                     seconds: 30,
                     grace_seconds: 2,
                 };
@@ -294,7 +298,10 @@ mod tests {
             let config = AssignmentConfig {
                 questions: vec![AssignmentQuestionConfig {
                     question,
-                    backend_capabilities: case.supported_capabilities.into_iter().collect(),
+                    question_backend_capabilities: case
+                        .supported_capabilities
+                        .into_iter()
+                        .collect(),
                 }],
                 required_capabilities: case.required_capabilities,
             };
@@ -324,7 +331,7 @@ mod tests {
             .cloned()
             .map(|question_version| AssignmentQuestionConfig {
                 question: base_question(question_version),
-                backend_capabilities: BackendCapabilities::none(),
+                question_backend_capabilities: QuestionBackendCapabilities::none(),
             })
             .collect();
         let config = AssignmentConfig {
@@ -351,14 +358,14 @@ mod tests {
     fn violation_json_uses_the_lower_camel_wire_contract() {
         let violation = Violation {
             question: question_version(1),
-            capability: Capability::PerQuestionTiming,
+            capability: Capability::QuestionAttemptTimeLimit,
         };
         let json = serde_json::to_string(&violation).expect("violation should serialize");
 
         assert_eq!(
             json,
-            r#"{"question":{"questionId":"ABC-DEFG","versionNumber":1},"capability":"perQuestionTiming"}"#
+            r#"{"question":{"questionId":"ABC-DEFG","versionNumber":1},"capability":"questionAttemptTimeLimit"}"#
         );
-        assert!(json.contains(r#""capability":"perQuestionTiming""#));
+        assert!(json.contains(r#""capability":"questionAttemptTimeLimit""#));
     }
 }

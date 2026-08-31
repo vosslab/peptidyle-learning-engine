@@ -60,12 +60,12 @@ rendered form boundary, which the contract intentionally allows.
 
 ## Focused validation
 
-| Check | Result |
-| --- | --- |
-| `python -m pytest tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 44 tests. This includes the permanent forbidden-shortcut scanner and runner ordering/failure-stage checks. |
-| `npx tsc --noEmit` | PASS. |
-| `python3 -m py_compile tests/e2e/e2e_ui_walkthrough.py tests/test_ui_walkthrough_runner.py` | PASS. |
-| Focused Playwright `student_repeat_state` and keyboard-helper fixtures | State fixture PASS (3 tests); four browser-body fixture tests could not launch because this sandbox denies Chromium's macOS Mach-port registration. This is an environment limitation, not a test assertion failure; no Podman stack was started. |
+| Check                                                                                                    | Result                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `python -m pytest tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 44 tests. This includes the permanent forbidden-shortcut scanner and runner ordering/failure-stage checks.                                                                                                                                  |
+| `npx tsc --noEmit`                                                                                       | PASS.                                                                                                                                                                                                                                             |
+| `python3 -m py_compile tests/e2e/e2e_ui_walkthrough.py tests/test_ui_walkthrough_runner.py`              | PASS.                                                                                                                                                                                                                                             |
+| Focused Playwright `student_repeat_state` and keyboard-helper fixtures                                   | State fixture PASS (3 tests); four browser-body fixture tests could not launch because this sandbox denies Chromium's macOS Mach-port registration. This is an environment limitation, not a test assertion failure; no Podman stack was started. |
 
 ## Historical next evidence
 

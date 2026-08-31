@@ -132,24 +132,15 @@ claim.
 
 ## Visual evidence
 
-`./capture_screenshots.sh` invokes the same suite owner with `--screenshots`.
-Screenshots therefore use the same disposable HTTPS origin, production `dist/`
-bundle, scenario contract, real UI-created state, and privacy boundary as
-browser acceptance.
+The retired screenshot corpus, capture command, manifest, and private publisher
+are absent from the current tree. Retained images under `docs/screenshots/` are
+historical visual reference only; they establish no current browser acceptance.
 
-`tests/e2e/browser_screenshot_corpus.json` is the canonical nested artifact
-corpus. The TypeScript `tests/playwright/ui_corpus_manifest.ts` and Python
-`tests/e2e/e2e_browser_screenshot_contract.py` are strict consumers of that
-source; neither defines a competing artifact list. Capture stages artifacts,
-then the publisher atomically publishes them after verifying origin, bundle
-provenance, scenario metadata, paths, coverage, and privacy requirements.
-Screenshots are scenario evidence for the production browser path, not a
-separate application or visual test lane.
-
-`./capture_screenshots.sh` is the separate explicit publication gate whenever
-the UI, corpus, or viewport contract changes. `./all_test.sh` validates
-behavior and contracts without rewriting checked-in documentation artifacts.
-Both commands use the same fixed `ple-live-demo-browser` stack and suite owner.
+Visual changes require a restored single browser owner that serves the current
+production bundle through the local stack, captures real UI-created state, and
+records privacy and human visual-review evidence. Until that owner exists, the
+affected visual acceptance gate remains unrun rather than substituted with a
+Node test or a historical image gallery.
 
 ## Service-only acceptance
 

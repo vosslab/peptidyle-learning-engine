@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentEntryId, AssignmentReference, PoolDrawAlgorithm, QuestionId, SelectionOrdering,
+    AssignmentEntryId, AssignmentReference, QuestionId, QuestionPoolSelectionRule,
     TeachingOperationRevision,
 };
 
@@ -21,7 +21,7 @@ pub struct PoolDrawPreviewRequest {
     pub assignment_entry_id: AssignmentEntryId,
 }
 
-/// The public catalog identity and title that are safe in an Instructor
+/// The public Question Library identity and title that are safe in an Instructor
 /// preview.  A Question ID remains the sole human-facing question identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -41,8 +41,7 @@ pub struct PoolDrawPreview {
     /// definitions have no user-authored label in v1.
     pub question_pool_label: String,
     pub draw_count: u32,
-    pub ordering: SelectionOrdering,
-    pub algorithm: PoolDrawAlgorithm,
+    pub selection_rule: QuestionPoolSelectionRule,
     pub candidates: Vec<PoolDrawPreviewQuestion>,
     pub sampled: Vec<PoolDrawPreviewQuestion>,
 }
@@ -69,8 +68,10 @@ mod tests {
             .expect("entry ID"),
             question_pool_label: "Pool 3".to_string(),
             draw_count: 1,
-            ordering: SelectionOrdering::Randomized,
-            algorithm: PoolDrawAlgorithm::V1,
+            selection_rule: QuestionPoolSelectionRule {
+                ordering: crate::SelectionOrdering::Randomized,
+                algorithm: crate::PoolDrawAlgorithm::V1,
+            },
             candidates: vec![PoolDrawPreviewQuestion {
                 question_id: question_id.clone(),
                 title: "Pool candidate".to_string(),
@@ -84,7 +85,7 @@ mod tests {
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
                 "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
-                "drawCount":1, "ordering":"randomized", "algorithm":"v1",
+                "drawCount":1, "selectionRule":{"ordering":"randomized", "algorithm":"v1"},
                 "candidates":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}],
                 "sampled":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}]
             })

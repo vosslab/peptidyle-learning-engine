@@ -10,15 +10,18 @@ import {
   setFillInMaxLength,
   validateFillInResponse,
 } from "./flat_fill_in_model";
-import type { FlatQuestionFillInResponse, FlatQuestionTextMatchMode } from "./flat_question_source";
+import type {
+  FlatQuestionFillInResponse,
+  FlatQuestionTextResponseMatchRule,
+} from "./flat_question_source";
 
-const MATCH_MODE_HELP: Readonly<Record<FlatQuestionTextMatchMode, string>> = {
+const MATCH_MODE_HELP: Readonly<Record<FlatQuestionTextResponseMatchRule, string>> = {
   exact: "Students must use the same capitalization and spacing.",
   caseInsensitive: "Students may vary capitalization; spelling and spacing still need to match.",
   normalized: "Students may vary capitalization and ordinary spacing.",
 };
 
-function isTextMatchMode(value: string): value is FlatQuestionTextMatchMode {
+function isTextResponseMatchRule(value: string): value is FlatQuestionTextResponseMatchRule {
   return value === "exact" || value === "caseInsensitive" || value === "normalized";
 }
 
@@ -98,7 +101,7 @@ export function FlatFillInEditor(props: FlatFillInEditorProps): JSX.Element {
           disabled={props.disabled}
           onChange={(event) => {
             const matchMode = event.currentTarget.value;
-            if (isTextMatchMode(matchMode)) {
+            if (isTextResponseMatchRule(matchMode)) {
               props.onResponseChange(setFillInMatchMode(props.response(), matchMode));
             }
           }}

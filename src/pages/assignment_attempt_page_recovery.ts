@@ -1,6 +1,6 @@
 // assignment_attempt_page_recovery.ts - page-local session restoration delivery helper.
 
-import type { SubmissionOutcome } from "../features/attempt/attempt_state";
+import type { SubmissionOutcome } from "../features/question_attempt/question_attempt_state";
 
 export interface ReauthenticationAttemptMachine {
   readonly resumeAfterReauthentication: () => void;

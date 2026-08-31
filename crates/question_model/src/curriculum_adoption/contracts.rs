@@ -17,7 +17,7 @@ mod server_records;
 mod source;
 
 pub use adoption::*;
-pub use assignment_source::AssignmentDefinitionSourceView;
+pub use assignment_source::BlueprintAssignmentRevisionReference;
 pub use course_instance::*;
 pub use course_instance_commands::*;
 pub use course_instance_receipts::*;
@@ -26,19 +26,19 @@ pub use envelope::{
     CurriculumAdoptionPreviewRequest,
 };
 pub use pins::{
-    CurriculumPinPosition, CurriculumPinPositionError, CurriculumPinReplacement,
-    CurriculumPinReplacements, CurriculumPinReplacementsError, ReplacementQuestionChoices,
-    ReplacementQuestionChoicesError,
+    BlueprintQuestionPosition, BlueprintQuestionPositionError, QuestionVersionSubstitution,
+    QuestionVersionSubstitutions, QuestionVersionSubstitutionsError,
+    ReplacementQuestionVersionChoices, ReplacementQuestionVersionChoicesError,
 };
 pub use scalars::{
-    CurriculumAdoptionIdempotencyKey, CurriculumAdoptionIdempotencyKeyError,
-    CurriculumImportRevision, CurriculumImportRevisionError,
+    BlueprintOperationRetryToken, BlueprintOperationRetryTokenError, CurriculumImportRevision,
+    CurriculumImportRevisionError,
 };
 pub use server_records::{
     AdoptBlueprintAssignmentApplyRecord, ControlledUpdateBlueprintAssignmentApplyRecord,
-    CourseInstanceApplicationBinding, CreateSelectedBlueprintAssignmentApplyRecord,
-    CurriculumAdoptionRequestBinding, ForkBlueprintCourseApplyRecord,
-    InstantiateBlueprintCourseApplyRecord, ReconcileCourseInstanceAdoptionApplyRecord,
-    RolloverCourseInstanceApplyRecord, ShiftCourseInstanceTermApplyRecord,
+    CopyAssignmentFromBlueprintApplyRecord, CurriculumAdoptionRequestBinding,
+    ForkBlueprintCourseApplyRecord, InstantiateBlueprintCourseApplyRecord,
+    ReconcileCourseInstanceAdoptionApplyRecord, RolloverCourseInstanceApplyRecord,
+    ShiftCourseInstanceTermApplyRecord,
 };
-pub use source::ObservedBlueprintSource;
+pub use source::BlueprintRevisionReference;

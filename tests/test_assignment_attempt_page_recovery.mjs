@@ -5,10 +5,10 @@ import test from "node:test";
 
 import { createRoot } from "solid-js";
 
-import { createSubmissionController } from "../src/components/response_widget.tsx";
+import { createSubmissionController } from "../src/components/question_response_controls/question_response_control.tsx";
 import { ApiProtocolError, ApiRequestError } from "../src/api/http_client/error.ts";
 import { resumeSessionAndRetry } from "../src/pages/assignment_attempt_page_recovery.ts";
-import { createAttemptStateMachine } from "../src/features/attempt/attempt_state.ts";
+import { createQuestionAttemptStateMachine } from "../src/features/question_attempt/question_attempt_state.ts";
 
 function createStorage() {
   const values = new Map();
@@ -19,14 +19,41 @@ function createStorage() {
   };
 }
 
+function gradedAcknowledgement(response, attemptId) {
+  return {
+    gradingState: "graded",
+    receipt: {
+      accepted: true,
+      attempt: {
+        id: attemptId,
+        run: "run-a",
+        problem: "problem-a",
+        questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
+        assignmentPosition: 0,
+        seed: 2,
+        parameterHash: "hash",
+        response,
+        result: null,
+        timer: { issuedAt: 0, deadline: null, submittedAt: 1 },
+        sourceRecord: { backend: "native", implementationVersion: "1", sourceChecksum: null },
+      },
+      feedback: null,
+      scoringStatus: "current",
+      assignmentAttemptCompletion: "inProgress",
+      nextIssued: null,
+      nextPending: false,
+    },
+  };
+}
+
 test("session expiry, reauthentication, and page retry submit one saved response with its original key", async () => {
   const submissions = [];
   let callCount = 0;
-  const machine = createAttemptStateMachine({
+  const machine = createQuestionAttemptStateMachine({
     context: {
-      runId: "run-a",
+      assignmentAttemptId: "assignment-attempt-a",
       attemptId: "attempt-a",
-      questionVersion: "version-a",
+      questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
       seed: 2,
       deadline: null,
     },
@@ -38,28 +65,7 @@ test("session expiry, reauthentication, and page retry submit one saved response
       submissions.push({ attemptId, response, idempotencyKey });
       callCount += 1;
       if (callCount === 1) throw new Error("session expired");
-      return {
-        kind: "completed",
-        accepted: true,
-        attempt: {
-          id: "attempt-a",
-          run: "run-a",
-          problem: "problem-a",
-          questionVersion: "version-a",
-          assignmentPosition: 0,
-          seed: 2,
-          parameterHash: "hash",
-          response,
-          result: null,
-          timer: { issuedAt: 0, deadline: null, submittedAt: 1 },
-          provenance: { backend: "native", implementationVersion: "1", sourceChecksum: null },
-        },
-        feedback: null,
-        scoringStatus: "current",
-        assignmentAttemptCompletion: "inProgress",
-        nextIssued: null,
-        nextPending: false,
-      };
+      return gradedAcknowledgement(response, "attempt-a");
     },
     isSessionExpired: (error) => error instanceof Error && error.message === "session expired",
     isTransientTransportFailure: (error) => error instanceof TypeError,
@@ -107,11 +113,11 @@ test("the response controller exposes 422 and receipt failures for correction be
   ]) {
     const submissionKeys = [];
     let submissions = 0;
-    const machine = createAttemptStateMachine({
+    const machine = createQuestionAttemptStateMachine({
       context: {
-        runId: "run-a",
+        assignmentAttemptId: "assignment-attempt-a",
         attemptId: "attempt-a",
-        questionVersion: "version-a",
+        questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
         seed: 2,
         deadline: null,
       },
@@ -126,28 +132,7 @@ test("the response controller exposes 422 and receipt failures for correction be
       submitResponse: async (attemptId, response, _idempotencyKey) => {
         submissions += 1;
         if (submissions === 1) throw failure;
-        return {
-          kind: "completed",
-          accepted: true,
-          attempt: {
-            id: attemptId,
-            run: "run-a",
-            problem: "problem-a",
-            questionVersion: "version-a",
-            assignmentPosition: 0,
-            seed: 2,
-            parameterHash: "hash",
-            response,
-            result: null,
-            timer: { issuedAt: 0, deadline: null, submittedAt: 1 },
-            provenance: { backend: "native", implementationVersion: "1", sourceChecksum: null },
-          },
-          feedback: null,
-          scoringStatus: "current",
-          assignmentAttemptCompletion: "inProgress",
-          nextIssued: null,
-          nextPending: false,
-        };
+        return gradedAcknowledgement(response, attemptId);
       },
       isSessionExpired: () => false,
       isTransientTransportFailure: (error) => error instanceof TypeError,

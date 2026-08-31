@@ -9,14 +9,14 @@ use std::collections::BTreeSet;
 
 use domain::generator::{GeneratedValue, GeneratedVariant};
 use grading::AnswerKey;
-use question_model::answer::SelectionCardinality;
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::answer::ResponseSelectionRule;
+use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::definition::GradingDefinition;
-use question_model::envelope::{ContentBlock, QuestionEnvelope};
+use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::generation::GeneratorReference;
-use question_model::response::{ChoiceId, QuestionResponseFormat};
+use question_model::response::{ResponseItemReference, QuestionResponseFormat};
 use question_model::{
-    AttemptResult, DraftQuestionDefinition, FeedbackContent, ImplementationVersion,
+    DraftQuestionDefinition, FeedbackContent, GradingResult, ImplementationVersion,
     QuestionDefinition, QuestionFormat, QuestionType, StudentResponse,
 };
 
@@ -64,13 +64,13 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         })
     }
 
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::from_iter([
+    fn capabilities(&self) -> QuestionBackendCapabilities {
+        QuestionBackendCapabilities::from_iter([
             Capability::AlgorithmicGeneration,
             Capability::ClientRendering,
             Capability::ServerGrading,
             Capability::Hints,
-            Capability::PerQuestionTiming,
+            Capability::QuestionAttemptTimeLimit,
         ])
     }
 
@@ -89,7 +89,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         }
         let _ = generated_residue(generated)?;
         let answer_key = AnswerKey::MultipleChoice {
-            correct: BTreeSet::from([ChoiceId::new(CORRECT_CHOICE_ID)]),
+            correct: BTreeSet::from([ResponseItemReference::new(CORRECT_CHOICE_ID)]),
         };
         Ok(Some(answer_key))
     }
@@ -98,9 +98,9 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         &self,
         question: &QuestionDefinition,
         generated: &GeneratedVariant,
-        envelope: &QuestionEnvelope,
+        envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
-        result: &AttemptResult,
+        result: &GradingResult,
         response: &StudentResponse,
     ) -> Result<FeedbackContent, NativeAdapterError> {
         validate_question_shape(question)?;
@@ -112,7 +112,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
                 "peptide-bond feedback requires its multiple-choice key",
             ));
         };
-        if !correct.contains(&ChoiceId::new(CORRECT_CHOICE_ID)) {
+        if !correct.contains(&ResponseItemReference::new(CORRECT_CHOICE_ID)) {
             return Err(invalid_definition(
                 "peptide-bond feedback key is inconsistent",
             ));
@@ -208,7 +208,7 @@ fn validate_response_and_grading(
             "response must be a multiple-choice definition",
         ));
     };
-    if *selection != SelectionCardinality::ExactlyOne {
+    if *selection != ResponseSelectionRule::ExactlyOne {
         return Err(invalid_definition(
             "response must select exactly one peptide-bond choice",
         ));

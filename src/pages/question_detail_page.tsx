@@ -3,7 +3,7 @@
 import { A, createAsync, useParams } from "@solidjs/router";
 import { Show, Suspense, type JSX } from "solid-js";
 
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { parseQuestionRouteReference } from "../navigation/public_route";
@@ -11,16 +11,19 @@ import { QuestionStatisticsPanel, QuestionUsePanel } from "./question_statistics
 import "./question_detail_page.css";
 
 export function QuestionDetailPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const params = useParams();
   const detail = createAsync(() => {
     const questionReference = params["questionRef"];
-    if (questionReference === undefined || parseQuestionRouteReference(questionReference) === null) {
+    if (
+      questionReference === undefined ||
+      parseQuestionRouteReference(questionReference) === null
+    ) {
       throw new Error("The Question ID address is incomplete.");
     }
-    return runtime.client
+    return applicationApi.client
       .resolveQuestion(questionReference)
-      .then((summary) => runtime.queries.questionDetails(summary.questionId));
+      .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
   });
   return (
     <section class="page" data-route-surface="questionDetail">
@@ -54,8 +57,8 @@ export function QuestionDetailPage(): JSX.Element {
                 <aside class="question-library-generated-example" aria-label="Generated example">
                   <strong>Generated example</strong>
                   <p>
-                    This example uses resolved values for Question Library viewing. Assigned versions may use
-                    different values.
+                    This example uses resolved values for Question Library viewing. Assigned
+                    versions may use different values.
                   </p>
                 </aside>
               </Show>
@@ -63,7 +66,7 @@ export function QuestionDetailPage(): JSX.Element {
                 <QuestionPromptRenderer
                   blocks={record().prompt.blocks}
                   assetUrl={(asset) =>
-                    new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                    new URL(applicationApi.client.assetUrl(asset.asset), window.location.origin)
                   }
                 />
               </section>

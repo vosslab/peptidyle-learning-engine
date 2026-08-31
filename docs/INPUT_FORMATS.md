@@ -30,12 +30,12 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 
 ## Implemented authoring and import
 
-| Format | Surface and media type | Implemented boundary | Owner |
-| --- | --- | --- | --- |
-| PLE flat-question JSON v2 | Private flat-question source route; `application/vnd.peptidyle.flat-question+json` | One answer-bearing document with the closed eight Question Formats: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB | [crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
-| Canvas QTI 1.2 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and provenance stay private | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs) |
-| Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs) |
-| H5P `.h5p` package | Trusted private adapter/object-store boundary, not a browser upload route | `H5P.MultiChoice` converts to an unpublished, key-free practice question with `clientRendering` only. It cannot be used as a server-graded assignment | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md) |
+| Format                    | Surface and media type                                                             | Implemented boundary                                                                                                                                        | Owner                                                                                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE flat-question JSON v2 | Private flat-question source route; `application/vnd.peptidyle.flat-question+json` | One answer-bearing document with the closed eight Question Formats: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                 | [crates/adapters/native/src/flat_question.rs](../crates/adapters/native/src/flat_question.rs), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
+| Canvas QTI 1.2 ZIP        | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB        | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and provenance stay private | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs)                                                           |
+| Blackboard QTI 2.1 ZIP    | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB        | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free                | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs)                                                   |
+| H5P `.h5p` package        | Trusted private adapter/object-store boundary, not a browser upload route          | `H5P.MultiChoice` converts to an unpublished, key-free practice question with `clientRendering` only. It cannot be used as a server-graded assignment       | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md)                                               |
 
 QTI conversion produces an answer-free draft handoff for the authoring UI. The worker separately
 retains the original archive, private answer bindings, choice maps, digests, and source provenance.
@@ -45,7 +45,7 @@ The public runtime receives only the native question projection. See
 
 ## Private server source
 
-PLE can publish a private immutable PG or PGML source artifact to the configured external
+PLE can publish a private immutable PG or PGML source source_object_reference to the configured external
 `webwork-pg-renderer`. This is not a Student upload, browser renderer file, WebWork2 import, or
 general Open Problem Library route. The server sends source, path, seed, display policy, and
 resolved answer to `/render-api`; the browser receives only the typed PLE presentation envelope

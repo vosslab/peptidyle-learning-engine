@@ -1,11 +1,11 @@
 //! Course-local conversion for teaching-operation modifier transport.
 
 use crate::{
-    ActivityTimestamp, AssignmentTeachingSettingsField, AssignmentTeachingSettingsLocalError,
-    CourseLocalDateTime, CourseTerm,
+    ActivityTimestamp, AssignmentRevisionDefinitionField, AssignmentRevisionDefinitionLocalError,
+    CourseLocalDateAndTime, CourseTerm,
 };
 
-use super::{TeachingPreviewFieldSource, TeachingPreviewTimeField};
+use super::{AssignmentPolicySource, TeachingPreviewTimeField};
 
 /// Projects a resolved server timestamp for an allowed teaching preview.
 ///
@@ -14,13 +14,13 @@ use super::{TeachingPreviewFieldSource, TeachingPreviewTimeField};
 /// attaching the course's authoritative IANA zone to the allowed preview.
 pub fn project_teaching_preview_time_field(
     value: Option<ActivityTimestamp>,
-    source: TeachingPreviewFieldSource,
+    source: AssignmentPolicySource,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<TeachingPreviewTimeField, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<TeachingPreviewTimeField, AssignmentRevisionDefinitionLocalError> {
     Ok(TeachingPreviewTimeField {
         value: value
-            .map(|value| CourseLocalDateTime::from_activity_timestamp(value, course_term, field))
+            .map(|value| CourseLocalDateAndTime::from_activity_timestamp(value, course_term, field))
             .transpose()?,
         source,
     })
@@ -30,13 +30,13 @@ pub fn project_teaching_preview_time_field(
 ///
 /// Kept as a small convenience at the teaching-operations boundary so callers
 /// cannot accidentally use a browser or machine-local time zone. Inherit and
-/// unrestricted patch states intentionally remain the server's ordinary
+/// unrestricted adjustment states intentionally remain the server's ordinary
 /// policy mapping responsibility.
 pub fn resolve_teaching_local_time(
-    value: &CourseLocalDateTime,
+    value: &CourseLocalDateAndTime,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<ActivityTimestamp, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
     value.resolve_for_course(course_term, field)
 }
 
@@ -44,16 +44,17 @@ pub fn resolve_teaching_local_time(
 mod tests {
     use super::*;
     use crate::{
-        AssignmentDeadlineBehavior, LateSubmissionPolicy, PolicyPatchView,
-        TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingLateVerdict,
-        TeachingLimitFieldPatch, TeachingPreviewDeadlineBehaviorField,
-        TeachingPreviewLateSubmissionField, TeachingPreviewLimitField, TeachingPreviewView,
-        TeachingStartVerdict, TeachingTimeFieldPatch,
+        AccommodationAdjustmentView, AssignmentDeadlineRule, LateWorkRule,
+        TeachingAssignmentAttemptTimeLimitFieldPatch, TeachingAssignmentStartDecision,
+        TeachingAttemptLimitFieldPatch, TeachingDisplayLabel,
+        TeachingPreviewAssignmentDeadlineRuleField, TeachingPreviewLateWorkRuleField,
+        TeachingPreviewLimitField, TeachingPreviewView, TeachingStudentLateWorkStatus,
+        TeachingTimeFieldPatch,
     };
     use chrono::{TimeZone, Utc};
 
-    fn local(value: &str) -> CourseLocalDateTime {
-        CourseLocalDateTime::parse(value).expect("valid exact local time")
+    fn local(value: &str) -> CourseLocalDateAndTime {
+        CourseLocalDateAndTime::parse(value).expect("valid exact local time")
     }
 
     fn chicago_term() -> CourseTerm {
@@ -61,8 +62,8 @@ mod tests {
             .expect("valid course term")
     }
 
-    fn base_source() -> TeachingPreviewFieldSource {
-        TeachingPreviewFieldSource::Base {
+    fn base_source() -> AssignmentPolicySource {
+        AssignmentPolicySource::Base {
             label: TeachingDisplayLabel::try_from("Assignment policy".to_owned())
                 .expect("valid display label"),
         }
@@ -70,26 +71,27 @@ mod tests {
 
     #[test]
     fn teaching_time_patch_uses_exact_local_wire_values_not_epochs() {
-        let patch = PolicyPatchView {
+        let adjustment = AccommodationAdjustmentView {
             available_at: TeachingTimeFieldPatch::Set {
                 value: local("2026-09-01T10:04:05.123"),
             },
             due_at: TeachingTimeFieldPatch::Inherit,
             closes_at: TeachingTimeFieldPatch::Unrestricted,
-            time_limit_seconds: TeachingLimitFieldPatch::Inherit,
+            assignment_attempt_time_limit_seconds:
+                TeachingAssignmentAttemptTimeLimitFieldPatch::Inherit,
             attempt_limit: TeachingAttemptLimitFieldPatch::Inherit,
         };
-        let value = serde_json::to_value(&patch).expect("time patch serializes");
+        let value = serde_json::to_value(&adjustment).expect("time adjustment serializes");
         assert_eq!(
             value["availableAt"],
             serde_json::json!({"kind":"set","value":"2026-09-01T10:04:05.123"})
         );
-        assert!(serde_json::from_value::<PolicyPatchView>(value).is_ok());
+        assert!(serde_json::from_value::<AccommodationAdjustmentView>(value).is_ok());
         for invalid in [
-            r#"{"availableAt":{"kind":"set","value":1788275045123},"dueAt":{"kind":"inherit"},"closesAt":{"kind":"inherit"},"timeLimitSeconds":{"kind":"inherit"},"attemptLimit":{"kind":"inherit"}}"#,
-            r#"{"availableAt":{"kind":"set","value":"2026-09-01T10:04"},"dueAt":{"kind":"inherit"},"closesAt":{"kind":"inherit"},"timeLimitSeconds":{"kind":"inherit"},"attemptLimit":{"kind":"inherit"}}"#,
+            r#"{"availableAt":{"kind":"set","value":1788275045123},"dueAt":{"kind":"inherit"},"closesAt":{"kind":"inherit"},"assignmentAttemptTimeLimitSeconds":{"kind":"inherit"},"attemptLimit":{"kind":"inherit"}}"#,
+            r#"{"availableAt":{"kind":"set","value":"2026-09-01T10:04"},"dueAt":{"kind":"inherit"},"closesAt":{"kind":"inherit"},"assignmentAttemptTimeLimitSeconds":{"kind":"inherit"},"attemptLimit":{"kind":"inherit"}}"#,
         ] {
-            assert!(serde_json::from_str::<PolicyPatchView>(invalid).is_err());
+            assert!(serde_json::from_str::<AccommodationAdjustmentView>(invalid).is_err());
         }
     }
 
@@ -100,30 +102,32 @@ mod tests {
             resolve_teaching_local_time(
                 &local("2026-03-08T02:30:00.000"),
                 &term,
-                AssignmentTeachingSettingsField::AvailableAt,
+                AssignmentRevisionDefinitionField::AvailableAt,
             ),
-            Err(AssignmentTeachingSettingsLocalError::NonexistentLocalTime(
-                AssignmentTeachingSettingsField::AvailableAt
-            ))
+            Err(
+                AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(
+                    AssignmentRevisionDefinitionField::AvailableAt
+                )
+            )
         );
         assert_eq!(
             resolve_teaching_local_time(
                 &local("2026-11-01T01:30:00.000"),
                 &term,
-                AssignmentTeachingSettingsField::DueAt,
+                AssignmentRevisionDefinitionField::DueAt,
             ),
-            Err(AssignmentTeachingSettingsLocalError::AmbiguousLocalTime(
-                AssignmentTeachingSettingsField::DueAt
+            Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
+                AssignmentRevisionDefinitionField::DueAt
             ))
         );
         assert_eq!(
             resolve_teaching_local_time(
                 &local("2027-01-01T10:00:00.000"),
                 &term,
-                AssignmentTeachingSettingsField::ClosesAt,
+                AssignmentRevisionDefinitionField::ClosesAt,
             ),
-            Err(AssignmentTeachingSettingsLocalError::OutsideCourseTerm(
-                AssignmentTeachingSettingsField::ClosesAt
+            Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
+                AssignmentRevisionDefinitionField::ClosesAt
             ))
         );
     }
@@ -142,34 +146,37 @@ mod tests {
             Some(timestamp),
             base_source(),
             &term,
-            AssignmentTeachingSettingsField::AvailableAt,
+            AssignmentRevisionDefinitionField::AvailableAt,
         )
         .expect("exact course-local projection");
         assert_eq!(
-            available_at.value.as_ref().map(CourseLocalDateTime::as_str),
+            available_at
+                .value
+                .as_ref()
+                .map(CourseLocalDateAndTime::as_str),
             Some("2026-09-01T10:04:05.123")
         );
         let preview = TeachingPreviewView::Allowed {
             time_zone: term.time_zone().clone(),
-            start: TeachingStartVerdict::MayStart {
-                late: TeachingLateVerdict::OnTime,
+            start: TeachingAssignmentStartDecision::MayStart {
+                late: TeachingStudentLateWorkStatus::OnTime,
             },
             available_at,
             due_at: project_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
-                AssignmentTeachingSettingsField::DueAt,
+                AssignmentRevisionDefinitionField::DueAt,
             )
             .expect("empty projection"),
             closes_at: project_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
-                AssignmentTeachingSettingsField::ClosesAt,
+                AssignmentRevisionDefinitionField::ClosesAt,
             )
             .expect("empty projection"),
-            time_limit_seconds: TeachingPreviewLimitField {
+            assignment_attempt_time_limit_seconds: TeachingPreviewLimitField {
                 value: None,
                 source: base_source(),
             },
@@ -177,12 +184,12 @@ mod tests {
                 value: None,
                 source: base_source(),
             },
-            late_submission: TeachingPreviewLateSubmissionField {
-                value: LateSubmissionPolicy::Accept,
+            late_work_rule: TeachingPreviewLateWorkRuleField {
+                value: LateWorkRule::Accept,
                 source: base_source(),
             },
-            deadline_behavior: TeachingPreviewDeadlineBehaviorField {
-                value: AssignmentDeadlineBehavior::AutoSubmit,
+            assignment_deadline_rule: TeachingPreviewAssignmentDeadlineRuleField {
+                value: AssignmentDeadlineRule::AutoSubmit,
                 source: base_source(),
             },
         };

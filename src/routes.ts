@@ -27,6 +27,7 @@ import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
 import { CurriculumDetailLivePage, CurriculumLivePage } from "./pages/curriculum_live_pages";
 import { AssignmentWorkspaceLivePage } from "./pages/assignment_workspace/assignment_workspace_live_page";
 import { AssignmentWorkspaceCreatePage } from "./pages/assignment_workspace/assignment_workspace_create_page";
+import { SysadminInstructorApprovalPage } from "./pages/sysadmin_instructor_approval_page";
 
 export { ROUTE_CONTRACT } from "./route_contract";
 
@@ -35,6 +36,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
   courseAssignments: CourseAssignmentsPage,
+  sysadminInstructorApproval: SysadminInstructorApprovalPage,
   assignmentOverview: AssignmentOverviewPage,
   assignmentAttempt: AssignmentAttemptPage,
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,

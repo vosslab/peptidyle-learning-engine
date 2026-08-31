@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_native_draft};
 use domain::generator::GeneratedVariant;
 use grading::{AnswerKey, GradingError};
-use question_model::answer::{NumericTolerance, SelectionCardinality};
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::answer::{NumericResponseTolerance, ResponseSelectionRule};
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition};
-use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
+use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
 use question_model::taxonomy::License;
 use question_model::{
     AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
@@ -48,7 +48,7 @@ fn flat_question() -> QuestionDefinition {
 
 fn choice(id: &str, label: &str) -> ChoiceOption {
     ChoiceOption {
-        id: ChoiceId::new(id),
+        id: ResponseItemReference::new(id),
         body: vec![ContentBlock::Text {
             markdown: label.to_string(),
         }],
@@ -92,11 +92,11 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionD
                 choice("amide", "amide"),
                 choice("ether", "ether"),
             ],
-            selection: SelectionCardinality::ExactlyOne,
+            selection: ResponseSelectionRule::ExactlyOne,
         },
         question_type: QuestionType::MultipleChoice,
-        attempt_policy: AttemptPolicy { max_attempts: None },
-        timing_policy: TimingPolicy::PerQuestion {
+        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Limited {
             seconds: 90,
             grace_seconds: 5,
         },
@@ -121,8 +121,8 @@ fn peptide_draft() -> DraftQuestionDefinition {
         prompt: question.prompt,
         response: question.response,
         question_type: question.question_type,
-        attempt_policy: question.attempt_policy,
-        timing_policy: question.timing_policy,
+        question_attempt_limit: question.question_attempt_limit,
+        question_attempt_time_limit: question.question_attempt_time_limit,
         randomization: question.randomization,
         grading: question.grading,
         metadata: question.metadata,
@@ -215,10 +215,10 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
         .expect("issued envelope should serialize for the browser");
     assert!(!delivered.contains("correct"));
     assert!(!delivered.contains("expected"));
-    assert_eq!(first.provenance.adapter.version, ADAPTER_VERSION);
-    assert_eq!(first.provenance.grading.version, GRADING_VERSION);
+    assert_eq!(first.source_record.adapter.version, ADAPTER_VERSION);
+    assert_eq!(first.source_record.grading.version, GRADING_VERSION);
     assert_eq!(
-        first.provenance.generator,
+        first.source_record.generator,
         Some(GeneratorReference {
             id: peptide_bond_geometry::GENERATOR_ID.to_string(),
             version: peptide_bond_geometry::GENERATOR_VERSION.to_string(),
@@ -230,11 +230,11 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
 fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys() {
     let adapter = NativeAdapter::new();
     let question = flat_question();
-    let expected = BackendCapabilities::from_iter([
+    let expected = QuestionBackendCapabilities::from_iter([
         Capability::ClientRendering,
         Capability::ServerGrading,
         Capability::Hints,
-        Capability::PerQuestionTiming,
+        Capability::QuestionAttemptTimeLimit,
     ]);
 
     assert_eq!(
@@ -251,7 +251,7 @@ fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys
             &question,
             Seed::new(10),
             &issue.parameter_hash,
-            &issue.provenance,
+            &issue.source_record,
             &[],
         )
         .expect("flat issue should reproduce exactly");
@@ -276,10 +276,10 @@ fn flat_question_grade_refuses_without_server_persisted_material() {
             &question,
             Seed::new(11),
             &issue.parameter_hash,
-            &issue.provenance,
+            &issue.source_record,
             &[],
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("blue")],
+                selected: vec![ResponseItemReference::new("blue")],
             },
         ),
         Err(NativeAdapterError::Grading(GradingError::MissingAnswerKey))
@@ -325,10 +325,10 @@ fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
             &question,
             Seed::new(99),
             &issued.parameter_hash,
-            &issued.provenance,
+            &issued.source_record,
             &[],
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("amide")],
+                selected: vec![ResponseItemReference::new("amide")],
             },
         )
         .expect("matching attempt should grade");
@@ -337,21 +337,21 @@ fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
             &question,
             Seed::new(99),
             &issued.parameter_hash,
-            &issued.provenance,
+            &issued.source_record,
             &[],
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("ester")],
+                selected: vec![ResponseItemReference::new("ester")],
             },
         )
         .expect("matching attempt should grade");
 
     assert!(matches!(
         correct,
-        GradeOutcome::Graded(result) if result.correct && result.points_earned == 2.0
+        QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 2.0
     ));
     assert!(matches!(
         wrong,
-        GradeOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
+        QuestionGradingOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
     ));
 }
 
@@ -367,14 +367,14 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
             &question,
             Seed::new(99),
             &issued.parameter_hash,
-            &issued.provenance,
+            &issued.source_record,
             &[],
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("ester")],
+                selected: vec![ResponseItemReference::new("ester")],
             },
         )
         .expect("verified wrong response receives teaching feedback");
-    assert!(matches!(outcome, GradeOutcome::Graded(result) if !result.correct));
+    assert!(matches!(outcome, QuestionGradingOutcome::Graded(result) if !result.correct));
     assert_eq!(
         feedback.correct_response,
         Some(vec![ContentBlock::Text {
@@ -400,13 +400,13 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
 }
 
 #[test]
-fn altered_attempt_provenance_is_refused_before_grading() {
+fn altered_question_attempt_source_record_is_refused_before_grading() {
     let adapter = NativeAdapter::new();
     let question = peptide_question();
     let issued = adapter
         .issue(&question, Seed::new(5), &[])
         .expect("valid peptide question should issue");
-    let mut altered = issued.provenance;
+    let mut altered = issued.source_record;
     altered.grading.version = "different".to_string();
 
     assert!(matches!(
@@ -417,7 +417,7 @@ fn altered_attempt_provenance_is_refused_before_grading() {
             &altered,
             &[],
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("amide")],
+                selected: vec![ResponseItemReference::new("amide")],
             },
         ),
         Err(NativeAdapterError::UnknownImplementation {
@@ -485,7 +485,7 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
     let issued = adapter
         .issue(&question, Seed::new(82), &bindings)
         .expect("trusted assets should be recorded at issue time");
-    assert_eq!(issued.provenance.asset_objects, vec![bindings[0].object]);
+    assert_eq!(issued.source_record.asset_objects, vec![bindings[0].object]);
 
     assert!(matches!(
         adapter.issue(&question, Seed::new(82), &[]),
@@ -514,15 +514,15 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
         Err(NativeAdapterError::ConflictingAssetBinding(found)) if found == rendered_asset
     ));
 
-    let mut altered_provenance = issued.provenance.clone();
-    altered_provenance.asset_objects = vec![ObjectId::from_uuid(Uuid::from_u128(84))];
+    let mut altered_source_record = issued.source_record.clone();
+    altered_source_record.asset_objects = vec![ObjectId::from_uuid(Uuid::from_u128(84))];
 
     assert!(matches!(
         adapter.reproduce(
             &question,
             Seed::new(82),
             &issued.parameter_hash,
-            &altered_provenance,
+            &altered_source_record,
             &bindings,
         ),
         Err(NativeAdapterError::ReproductionMismatch {
@@ -558,7 +558,7 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
         .expect("prompt and nested response assets should resolve");
 
     assert_eq!(
-        issued.provenance.asset_objects,
+        issued.source_record.asset_objects,
         vec![bindings[1].object, bindings[0].object],
         "asset IDs, not caller order, canonically order persisted objects"
     );
@@ -571,8 +571,8 @@ fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
         .issue(&peptide_question(), Seed::new(37), &[])
         .expect("fixed vector should issue");
     assert_eq!(
-        issued.provenance.rendered_question_sha256,
-        "8bf39c4707f5465422abd3f8256f1a95692d91492616cdb545b9034f9cd033dd"
+        issued.source_record.rendered_question_sha256,
+        "d1174a00295e0bf9ab85f935ef6eadab8548dce254a315281f4a704f20afac22"
     );
 }
 
@@ -626,8 +626,11 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
         None
     }
 
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::from_iter([Capability::ClientRendering, Capability::ServerGrading])
+    fn capabilities(&self) -> QuestionBackendCapabilities {
+        QuestionBackendCapabilities::from_iter([
+            Capability::ClientRendering,
+            Capability::ServerGrading,
+        ])
     }
 
     fn derive_answer_key(
@@ -660,14 +663,14 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
             markdown: "Enter the reference value.".to_string(),
         }],
         response: QuestionResponseFormat::Numeric {
-            tolerance: NumericTolerance::Exact,
+            tolerance: NumericResponseTolerance::Exact,
             unit: None,
         },
         question_type: QuestionType::Numeric,
-        attempt_policy: AttemptPolicy {
+        question_attempt_limit: QuestionAttemptLimit {
             max_attempts: Some(1),
         },
-        timing_policy: TimingPolicy::Untimed,
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: metadata("Numeric registry extension"),
@@ -687,11 +690,11 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
             &question,
             Seed::new(123),
             &issued.parameter_hash,
-            &issued.provenance,
+            &issued.source_record,
             &[],
             &StudentResponse::Numeric { value: 7.0 },
         ),
-        Ok(GradeOutcome::Graded(result)) if result.correct
+        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
     ));
 }
 
@@ -725,12 +728,12 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
         })
     }
 
-    fn capabilities(&self) -> BackendCapabilities {
+    fn capabilities(&self) -> QuestionBackendCapabilities {
         let mut capabilities = vec![Capability::ServerGrading];
         if self.supports_client_rendering {
             capabilities.push(Capability::ClientRendering);
         }
-        BackendCapabilities::from_iter(capabilities)
+        QuestionBackendCapabilities::from_iter(capabilities)
     }
 
     fn derive_answer_key(
@@ -756,14 +759,14 @@ fn versioned_numeric_question(version: &str) -> QuestionDefinition {
             markdown: "Enter the generated reference value.".to_string(),
         }],
         response: QuestionResponseFormat::Numeric {
-            tolerance: NumericTolerance::Exact,
+            tolerance: NumericResponseTolerance::Exact,
             unit: None,
         },
         question_type: QuestionType::Numeric,
-        attempt_policy: AttemptPolicy {
+        question_attempt_limit: QuestionAttemptLimit {
             max_attempts: Some(1),
         },
-        timing_policy: TimingPolicy::Untimed,
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         randomization: RandomizationDefinition::Seeded {
             generator: GeneratorReference {
                 id: "versioned-numeric-generator".to_string(),
@@ -813,21 +816,21 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
             &version_one,
             Seed::new(41),
             &first_issue.parameter_hash,
-            &first_issue.provenance,
+            &first_issue.source_record,
             &[],
             &StudentResponse::Numeric { value: 1.0 },
         ),
-        Ok(GradeOutcome::Graded(result)) if result.correct
+        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
     ));
     assert!(matches!(
         adapter.grade(
             &version_two,
             Seed::new(41),
             &second_issue.parameter_hash,
-            &second_issue.provenance,
+            &second_issue.source_record,
             &[],
             &StudentResponse::Numeric { value: 2.0 },
         ),
-        Ok(GradeOutcome::Graded(result)) if result.correct
+        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
     ));
 }

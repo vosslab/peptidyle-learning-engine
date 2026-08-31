@@ -8,7 +8,7 @@ import type { Seed } from "../../generated/api/Seed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import { QuestionRenderer } from "../components/question_renderer";
-import { ResponseWidget } from "../components/response_widget";
+import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
 import { ContentBlockList } from "../components/feedback_panel";
 import { WorkspaceConflictError } from "../api/http_client";
 import { parseReviewedPublicByline } from "../api/public_byline";
@@ -67,7 +67,7 @@ type PublishState =
 const EDITOR_CAPABILITIES: ReadonlyArray<Capability> = [
   "algorithmicGeneration",
   "hints",
-  "perQuestionTiming",
+  "questionAttemptTimeLimit",
   "offlinePreview",
 ];
 
@@ -77,13 +77,13 @@ function initialSeed(): Seed {
 
 function policySummary(draft: EditorDraft): string {
   const attempts =
-    draft.attemptPolicy.maxAttempts === null
+    draft.questionAttemptLimit.maxAttempts === null
       ? "Unlimited response attempts"
-      : `${draft.attemptPolicy.maxAttempts} response attempt(s)`;
+      : `${draft.questionAttemptLimit.maxAttempts} response attempt(s)`;
   const timing =
-    draft.timingPolicy.kind === "untimed"
-      ? "untimed"
-      : `${draft.timingPolicy.seconds} seconds with ${draft.timingPolicy.graceSeconds} seconds grace`;
+    draft.questionAttemptTimeLimit.kind === "unlimited"
+      ? "unlimited"
+      : `${draft.questionAttemptTimeLimit.seconds} seconds with ${draft.questionAttemptTimeLimit.graceSeconds} seconds grace`;
   return `${attempts}; ${timing}.`;
 }
 
@@ -746,7 +746,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                 </label>
                 <div class="editor-actions">
                   <button class="primary-action" type="button" onClick={() => void renderPreview()}>
-                    Preview this variation
+                    Preview this Question Variant
                   </button>
                 </div>
                 <Show when={props.repository.capabilities?.instructorPreview === false}>
@@ -778,7 +778,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                           onRetry={() => void renderPreview()}
                         />
                       </ErrorBoundary>
-                      <ResponseWidget
+                      <QuestionResponseControl
                         attemptId={`preview:${state().preview.workspace}:${state().preview.seed}`}
                         definition={state().preview.response}
                         validator={props.responseValidator}

@@ -70,19 +70,20 @@ a stronger reason.
 
 Name every identifying value for its exact boundary, representation, and role:
 
-| Role | Canonical form | Example |
-| --- | --- | --- |
-| Complete domain aggregate or record | The domain noun | `Account`, `CourseInstance`, `Assignment` |
-| Typed internal UUID value | Complete subject plus `Uuid` | `StudentRecordUuid`, `AssignmentAttemptUuid` |
-| Human-usable locator | Its reviewed product name | `CourseInstanceReference`, `BlueprintCourseReference` |
-| Reviewed public identifier whose product name includes ID | `Id` | `QuestionId` |
-| Physical UUID column | Complete subject plus `_uuid` | `assignment_attempt_uuid` |
-| Optimistic concurrency value | Complete subject plus `Revision` | `AssignmentRevision` |
-| Recalculation or worker fence | Complete subject plus `Generation` | `ScoringGeneration` |
-| Integrity value | Complete subject plus `Digest` | `RequestDigest` |
-| Secret or bearer value | Complete subject plus `Token` | `WorkerLeaseToken` |
-| One-time challenge value | Complete subject plus `Nonce` | `PresentationNonce` |
-| Closed human-entered value | Complete subject plus `Code` | `EmailAuthenticationCode` |
+| Role                                                      | Canonical form                            | Example                                               |
+| --------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------- |
+| Complete domain aggregate or record                       | The domain noun                           | `Account`, `CourseInstance`, `Assignment`             |
+| Typed internal UUID value                                 | Complete subject plus `Uuid`              | `StudentRecordUuid`, `AssignmentAttemptUuid`          |
+| Human-usable locator                                      | Its reviewed product name                 | `CourseInstanceReference`, `BlueprintCourseReference` |
+| Reviewed public identifier whose product name includes ID | `Id`                                      | `QuestionId`                                          |
+| Physical UUID column                                      | Complete subject plus `_uuid`             | `assignment_attempt_uuid`                             |
+| Immutable revision number                                 | Complete subject plus `RevisionNumber`    | `AssignmentRevisionNumber`                            |
+| Immutable revision reference                              | Complete subject plus `RevisionReference` | `AssignmentRevisionReference`                         |
+| Recalculation or worker fence                             | Complete subject plus `Generation`        | `ScoringGeneration`                                   |
+| Integrity value                                           | Complete subject plus `Digest`            | `RequestDigest`                                       |
+| Secret or bearer value                                    | Complete subject plus `Token`             | `WorkerLeaseToken`                                    |
+| One-time challenge value                                  | Complete subject plus `Nonce`             | `PresentationNonce`                                   |
+| Closed human-entered value                                | Complete subject plus `Code`              | `EmailAuthenticationCode`                             |
 
 Use `Uuid` and `_uuid` only when the represented value is specifically a UUID.
 Use `Reference` when **Reference** is itself the reviewed domain or product
@@ -100,17 +101,17 @@ grants authority.
 PLE uses one installation-wide domain. Name each PLE-owned record and UUID for
 the domain relationship that authorizes it:
 
-| Domain | Names and scope |
-| --- | --- |
-| Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session. |
-| Private authoring | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it. |
-| Question Library | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference. |
-| Teaching course | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
-| Student records | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`. |
-| Assignment | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent. |
-| Activity | `assignment_attempt_uuid`, `issued_question_uuid`, and `question_attempt_uuid` name the exact activity spine. |
-| Worker operations | `worker_job_uuid`, its lease, and a typed target scope name one bounded work unit; the stored scope bounds every worker action. |
-| Objects | `object_record_uuid` and a typed storage reference name stored bytes under Question Library, Question authoring workspace, or Course Instance record scope. |
+| Domain              | Names and scope                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session.                                                                              |
+| Private authoring   | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it.                                                      |
+| Question Library    | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference.                                                            |
+| Teaching course     | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
+| Student records     | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`.                                                                                             |
+| Assignment          | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent.                                                               |
+| Activity            | `assignment_attempt_uuid`, `issued_question_uuid`, and `question_attempt_uuid` name the exact activity spine.                                                                       |
+| Worker operations   | `worker_job_uuid`, its lease, and a typed target scope name one bounded work unit; the stored scope bounds every worker action.                                                     |
+| Objects             | `object_record_uuid` and a typed storage reference name stored bytes under Question Library, Question authoring workspace, or Course Instance record scope.                         |
 
 Every assignment question resolves to an already published question in the one
 approved-Instructor Question Library. Published means shared within that vetted
@@ -145,7 +146,8 @@ Use dependency order to move existing PLE-owned role names to the canonical voca
 
 1. New contracts use `Student`, `Instructor`, and `Sysadmin` immediately.
 2. Question-model and browser assignment types converge on `StudentAssignment*` together.
-3. Disclosure contracts converge on `StudentDisclosure*` as one model-to-client change.
+3. Student Feedback Release contracts converge on `StudentFeedbackRelease*` as one
+   model-to-client change.
 4. Work-routing and submission-status Stores converge on `StudentWork*` together with their server
    consumers.
 5. PostgreSQL role-bearing names converge through forward migrations before the first schema

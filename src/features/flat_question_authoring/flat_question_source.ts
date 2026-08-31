@@ -18,14 +18,14 @@ export const FLAT_QUESTION_HOTSPOT_RESPONSE_KIND = "hotspot" as const;
 /** Compatibility name for the initial single-choice default only. */
 export const FLAT_QUESTION_MEDIA_TYPE = "application/vnd.peptidyle.flat-question+json";
 
-export type FlatQuestionAttemptPolicy = {
+export type FlatQuestionAttemptLimit = {
   readonly maxAttempts: number | null;
 };
 
-export type FlatQuestionTimingPolicy =
-  | { readonly kind: "untimed" }
-  | { readonly kind: "perQuestion"; readonly seconds: number; readonly graceSeconds: number }
-  | { readonly kind: "perAttempt"; readonly seconds: number; readonly graceSeconds: number };
+export type FlatQuestionAttemptTimeLimit =
+  | { readonly kind: "unlimited" }
+  | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number }
+  | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number };
 
 export type FlatQuestionTaxonomyTerm = {
   readonly scheme: string;
@@ -66,17 +66,17 @@ export type FlatQuestionMatch = {
   readonly choice: string;
 };
 
-export type FlatQuestionTextMatchMode = "exact" | "caseInsensitive" | "normalized";
+export type FlatQuestionTextResponseMatchRule = "exact" | "caseInsensitive" | "normalized";
 
 export type FlatQuestionBlank = {
   readonly id: string;
   readonly label: string;
   readonly answers: ReadonlyArray<string>;
-  readonly matchMode: FlatQuestionTextMatchMode;
+  readonly matchMode: FlatQuestionTextResponseMatchRule;
   readonly maxLength: number;
 };
 
-export type FlatQuestionNumericTolerance =
+export type FlatQuestionNumericResponseTolerance =
   | { readonly kind: "exact" }
   | { readonly kind: "absolute"; readonly epsilon: number }
   | { readonly kind: "relative"; readonly fraction: number }
@@ -122,7 +122,7 @@ export type FlatQuestionMultipleAnswerResponse = {
 export type FlatQuestionFillInResponse = {
   readonly kind: typeof FLAT_QUESTION_FILL_IN_RESPONSE_KIND;
   readonly answers: ReadonlyArray<string>;
-  readonly matchMode: FlatQuestionTextMatchMode;
+  readonly matchMode: FlatQuestionTextResponseMatchRule;
   readonly maxLength: number;
 };
 
@@ -134,7 +134,7 @@ export type FlatQuestionMultiFillInResponse = {
 export type FlatQuestionNumericResponse = {
   readonly kind: typeof FLAT_QUESTION_NUMERIC_RESPONSE_KIND;
   readonly answer: number;
-  readonly tolerance: FlatQuestionNumericTolerance;
+  readonly tolerance: FlatQuestionNumericResponseTolerance;
   readonly unit: string | null;
 };
 
@@ -169,8 +169,8 @@ export type FlatQuestionSourceV2 = {
   readonly response: FlatQuestionResponse;
   readonly feedback: FlatQuestionOutcomeFeedback;
   readonly points: number;
-  readonly attemptPolicy: FlatQuestionAttemptPolicy;
-  readonly timingPolicy: FlatQuestionTimingPolicy;
+  readonly questionAttemptLimit: FlatQuestionAttemptLimit;
+  readonly questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
   readonly taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>;
   readonly license: FlatQuestionLicense;

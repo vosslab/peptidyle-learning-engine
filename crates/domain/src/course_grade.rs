@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use question_model::{
-    AssignmentId, CourseGradeMode, CourseGradeRoundingRule, CourseGradeScheme,
-    CourseGradeSchemeError, GradeCategoryId, PointValue, ScoringStatus, WeightedGradeCategory,
+    AssignmentId, AssignmentPointValue, CourseGradeMode, CourseGradeRoundingRule,
+    CourseGradeScheme, CourseGradeSchemeError, GradeCategory, GradeCategoryId, ScoringStatus,
 };
 
 /// One assignment's already-selected current score and grading configuration.
@@ -15,7 +15,7 @@ pub struct CourseGradeAssignment {
     pub included: bool,
     pub category: Option<GradeCategoryId>,
     pub selected_current_score: Option<f64>,
-    pub points_possible: PointValue,
+    pub points_possible: AssignmentPointValue,
     pub scoring_status: ScoringStatus,
 }
 
@@ -135,7 +135,7 @@ fn total_points(
         .fold((0.0, 0_i64), |(earned, possible), assignment| {
             let points = assignment.points_possible.scaled() as f64 / 10_000.0;
             let score = assignment.selected_current_score.unwrap_or(0.0);
-            if assignment.points_possible == PointValue::ZERO {
+            if assignment.points_possible == AssignmentPointValue::ZERO {
                 (earned + score, possible)
             } else {
                 (
@@ -203,7 +203,7 @@ fn weighted_categories(
                 .fold((0.0, 0.0), |(earned, possible), assignment| {
                     let point_value = assignment.points_possible.scaled() as f64 / 10_000.0;
                     let selected = assignment.selected_current_score.unwrap_or(0.0);
-                    if assignment.points_possible == PointValue::ZERO {
+                    if assignment.points_possible == AssignmentPointValue::ZERO {
                         (earned + selected, possible)
                     } else {
                         (earned + selected * point_value, possible + point_value)
@@ -222,7 +222,7 @@ fn weighted_categories(
 
 fn validate_weighted_assignments(
     assignments: &[CourseGradeAssignment],
-    categories: &[WeightedGradeCategory],
+    categories: &[GradeCategory],
 ) -> Result<(), CourseGradeError> {
     let known: HashSet<_> = categories.iter().map(|category| category.id).collect();
     for assignment in assignments.iter().filter(|assignment| assignment.included) {
@@ -315,12 +315,12 @@ mod tests {
             included: true,
             category: None,
             selected_current_score: score,
-            points_possible: PointValue::from_whole(points),
+            points_possible: AssignmentPointValue::from_whole(points),
             scoring_status: ScoringStatus::Current,
         }
     }
-    fn category(id: u128, position: u32, drop_lowest: u32) -> WeightedGradeCategory {
-        WeightedGradeCategory {
+    fn category(id: u128, position: u32, drop_lowest: u32) -> GradeCategory {
+        GradeCategory {
             id: GradeCategoryId::from_uuid(Uuid::from_u128(id)),
             title: GradeCategoryTitle::new("Lab").expect("title"),
             position,
@@ -485,7 +485,7 @@ mod tests {
     fn empty_category_with_drop_rule_is_unavailable_without_panicking() {
         let mut scheme = weighted(1);
         scheme.categories[0].weight_basis_points = 5_000;
-        scheme.categories.push(WeightedGradeCategory {
+        scheme.categories.push(GradeCategory {
             id: GradeCategoryId::from_uuid(Uuid::from_u128(12)),
             title: GradeCategoryTitle::new("Exam").expect("title"),
             position: 1,

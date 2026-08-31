@@ -6,8 +6,8 @@ use crate::envelope::{AssetRef, ContentBlock};
 
 use super::builder::{ItemBasisV1, PresentationBuildError, PresentationV1, RenderedItemRoleV1};
 use super::model::{
-    AssetBindingV1, PresentationDigestTokenV1, PresentedChoiceV1, RenderedItemIdV1,
-    IssuedQuestionResponseFormatV1,
+    AssetBindingV1, IssuedQuestionResponseFormatV1, PresentationDigestTokenV1, PresentedChoiceV1,
+    RenderedItemIdV1,
 };
 
 /// Closed descriptor version stored with every v1 attempt.

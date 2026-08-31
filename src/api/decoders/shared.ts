@@ -1,7 +1,7 @@
 // Shared strict primitives for browser-visible API DTOs.
 
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
-import type { BackendCapabilities } from "../../../generated/api/BackendCapabilities";
+import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionVersionAvailability } from "../../../generated/api/QuestionVersionAvailability";
 import type { License } from "../../../generated/api/License";
@@ -31,7 +31,7 @@ const CAPABILITIES = [
   "serverGrading",
   "partialCredit",
   "hints",
-  "perQuestionTiming",
+  "questionAttemptTimeLimit",
   "printExport",
   "offlinePreview",
 ] as const satisfies ReadonlyArray<Capability>;
@@ -208,7 +208,7 @@ export function decodeCapability(value: unknown, path: string): Capability {
   return decodeStringEnum(value, path, CAPABILITIES);
 }
 
-export function decodeBackendCapabilities(value: unknown, path: string): BackendCapabilities {
+export function decodeQuestionBackendCapabilities(value: unknown, path: string): QuestionBackendCapabilities {
   return decodeArray(value, path, decodeCapability);
 }
 

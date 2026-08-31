@@ -6,10 +6,10 @@ import test from "node:test";
 import { decodeCourseAppearance } from "../src/api/decoders.ts";
 import { courseThemeRouteRequest } from "../src/features/course_appearance/course_theme_route.ts";
 import {
-  COURSE_THEME_CATALOG,
+  COURSE_THEME_REGISTRY,
   courseThemeStyle,
   courseThemeTokens,
-} from "../src/features/course_appearance/theme_catalog.ts";
+} from "../src/features/course_appearance/course_theme_registry.ts";
 
 const THEME_IDS = [
   "tundra",
@@ -72,7 +72,7 @@ function contrast(first, second) {
 }
 
 test("every reviewed theme resolves to complete, contrast-safe course tokens", () => {
-  assert.deepEqual(Object.keys(COURSE_THEME_CATALOG), THEME_IDS);
+  assert.deepEqual(Object.keys(COURSE_THEME_REGISTRY), THEME_IDS);
   for (const id of THEME_IDS) {
     const tokens = courseThemeTokens(id);
     const textPairs = [
@@ -171,10 +171,6 @@ test("only course-owned executable routes request a theme scope", () => {
     kind: "course",
     courseReference: course,
   });
-  assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/curriculum`), {
-    kind: "course",
-    courseReference: course,
-  });
   assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/gradebook`), {
     kind: "course",
     courseReference: course,
@@ -191,7 +187,14 @@ test("only course-owned executable routes request a theme scope", () => {
     kind: "assignmentAttemptSummary",
     assignmentAttemptReference: run,
   });
-  for (const path of ["/", "/library", "/workspace", `/library/${course}/versions/${assignment}`]) {
+  for (const path of [
+    "/",
+    "/library",
+    "/workspace",
+    "/curriculum",
+    `/library/${course}/versions/${assignment}`,
+    `/instructor/courses/${course}/curriculum`,
+  ]) {
     assert.deepEqual(courseThemeRouteRequest(path), { kind: "global" });
   }
 });

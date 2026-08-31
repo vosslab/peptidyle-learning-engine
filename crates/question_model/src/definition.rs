@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use crate::envelope::ContentBlock;
 use crate::generation::RandomizationDefinition;
 use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
@@ -31,7 +31,7 @@ pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
 ///
 /// Question Format describes source representation and interchange. It is
 /// independent of the educational Question Type, the server-side Question
-/// Backend, and any Question Generator used to make a variation.
+/// Backend, and any Question Generator used to make a Question Variation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionFormat {
@@ -272,7 +272,7 @@ pub enum GradingDefinition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionMetadata {
-    /// Title shown in the catalog and in printed exams.
+    /// Title shown in the Question Library and in printed exams.
     pub title: String,
     /// Free-form labels for search.
     pub tags: Vec<Tag>,
@@ -310,10 +310,10 @@ pub struct DraftQuestionDefinition {
     pub response: QuestionResponseFormat,
     /// The educational interaction this Question assesses.
     pub question_type: QuestionType,
-    /// How many attempts, and when feedback appears.
-    pub attempt_policy: AttemptPolicy,
+    /// How many Question Attempts a Student may make for one Issued Question.
+    pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
-    pub timing_policy: TimingPolicy,
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// How content varies between students and runs.
     pub randomization: RandomizationDefinition,
     /// How a response is judged.
@@ -342,7 +342,10 @@ pub struct WorkspaceDraftSummary {
 
 impl DraftQuestionDefinition {
     /// Builds the intentionally compact list projection for this draft.
-    pub fn workspace_summary(&self, reference: crate::AuthoringWorkspaceReference) -> WorkspaceDraftSummary {
+    pub fn workspace_summary(
+        &self,
+        reference: crate::AuthoringWorkspaceReference,
+    ) -> WorkspaceDraftSummary {
         WorkspaceDraftSummary {
             workspace: self.workspace,
             reference,
@@ -375,10 +378,10 @@ pub struct QuestionDefinition {
     pub response: QuestionResponseFormat,
     /// The educational interaction this Question assesses.
     pub question_type: QuestionType,
-    /// How many attempts, and when feedback appears.
-    pub attempt_policy: AttemptPolicy,
+    /// How many Question Attempts a Student may make for one Issued Question.
+    pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
-    pub timing_policy: TimingPolicy,
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// How content varies between students and runs.
     pub randomization: RandomizationDefinition,
     /// How a response is judged.
@@ -404,8 +407,8 @@ impl QuestionDefinition {
             prompt: draft.prompt,
             response: draft.response,
             question_type: draft.question_type,
-            attempt_policy: draft.attempt_policy,
-            timing_policy: draft.timing_policy,
+            question_attempt_limit: draft.question_attempt_limit,
+            question_attempt_time_limit: draft.question_attempt_time_limit,
             randomization: draft.randomization,
             grading: draft.grading,
             metadata: draft.metadata,
@@ -416,7 +419,7 @@ impl QuestionDefinition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::answer::NumericTolerance;
+    use crate::answer::NumericResponseTolerance;
     use crate::generation::RandomizationDefinition;
     use uuid::Uuid;
 
@@ -429,12 +432,12 @@ mod tests {
                 markdown: "What is the molar mass?".to_string(),
             }],
             response: QuestionResponseFormat::Numeric {
-                tolerance: NumericTolerance::Relative { fraction: 0.01 },
+                tolerance: NumericResponseTolerance::Relative { fraction: 0.01 },
                 unit: Some("g/mol".to_string()),
             },
             question_type: QuestionType::Numeric,
-            attempt_policy: AttemptPolicy { max_attempts: None },
-            timing_policy: TimingPolicy::Untimed,
+            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {

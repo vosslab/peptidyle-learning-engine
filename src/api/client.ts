@@ -19,7 +19,7 @@ import type { CourseBannerId } from "../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
-import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -38,7 +38,7 @@ import type { CourseInvitationTargetSearchQuery } from "../../generated/api/Cour
 import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { CourseStudentMembershipsPage } from "../../generated/api/CourseStudentMembershipsPage";
-import type { AccommodationPatchUpdateRequest } from "../../generated/api/AccommodationPatchUpdateRequest";
+import type { AccommodationAdjustmentUpdateRequest } from "../../generated/api/AccommodationAdjustmentUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
@@ -54,7 +54,7 @@ import type { AssignmentReference } from "../../generated/api/AssignmentReferenc
 import type { DerivedPreviewSubjectRequest } from "../../generated/api/DerivedPreviewSubjectRequest";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
-import type { SyntheticPreviewSubjectRequest } from "../../generated/api/SyntheticPreviewSubjectRequest";
+import type { StudentViewScenarioRequest } from "../../generated/api/StudentViewScenarioRequest";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type { CourseRosterClient } from "./enrollment";
 import type {
@@ -66,7 +66,7 @@ import type {
   StudentAssignmentLandingSummary,
   StudentAssignmentDetail,
   StudentQuestionAttempt,
-  StudentSubmissionStatus,
+  QuestionSubmissionAcknowledgement,
   AuthenticatedSession,
   CourseCreateInput,
   CourseSummary,
@@ -88,7 +88,7 @@ import type { NavigationResolution } from "../../generated/api/NavigationResolut
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
 import type { QuestionCurationClient } from "./question_curation";
-import type { ReusableCurriculumClient } from "./reusable_curriculum";
+import type { BlueprintCourseClient } from "./blueprint_course";
 import type { CurriculumAdoptionClient } from "./curriculum_adoption";
 import type {
   GradingOperationActionId,
@@ -172,7 +172,7 @@ export interface ApiClient
   extends
     CourseRosterClient,
     QuestionCurationClient,
-    ReusableCurriculumClient,
+    BlueprintCourseClient,
     CurriculumAdoptionClient,
     GradingOperationsClient,
     CalculatedGradebookClient {
@@ -185,7 +185,7 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
     student: CourseMembershipReference,
-    request: AccommodationPatchUpdateRequest,
+    request: AccommodationAdjustmentUpdateRequest,
     revision: TeachingOperationRevision,
   ) => Promise<TeachingOperationRevisionResponse>;
   readonly deleteAccommodation: (
@@ -212,7 +212,7 @@ export interface ApiClient
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
-    request: Omit<SyntheticPreviewSubjectRequest, "assignment" | "revision">,
+    request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
   /** Resolves one authorized M- request locator into an identity-free derived projection. */
   readonly constructDerivedPreview: (
@@ -373,23 +373,26 @@ export interface ApiClient
   readonly saveAssignmentContent: (
     courseId: CourseId,
     assignmentId: AssignmentId,
+    assignmentReference: AssignmentReference,
     input: AssignmentContentInput,
-    revision: string,
+    assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces one existing fixed slot for future runs without changing issued student work. */
   readonly replaceAssignmentFixedItem: (
     courseId: CourseId,
     assignmentId: AssignmentId,
+    assignmentReference: AssignmentReference,
     itemId: AssignmentEntryId,
     questionId: QuestionId,
-    revision: string,
+    assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces only Policies-owned audience, disclosure, run, and teaching settings. */
   readonly saveAssignmentPolicies: (
     courseId: CourseId,
     assignmentId: AssignmentId,
+    assignmentReference: AssignmentReference,
     input: AssignmentPoliciesInput,
-    revision: string,
+    assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Reads the non-mutating, answer-free Instructor Student view. */
   readonly getInstructorStudentView: (
@@ -426,7 +429,7 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<QuestionEnvelope>;
+  ) => Promise<QuestionPresentation>;
   /** Best-effort key-free preparation; null means no deterministic successor. */
   readonly prefetchNextQuestion: (
     courseId: CourseId,
@@ -446,13 +449,13 @@ export interface ApiClient
     attemptId: QuestionAttemptId,
     response: StudentResponse,
     idempotencyKey: string,
-  ) => Promise<StudentSubmissionStatus>;
+  ) => Promise<QuestionSubmissionAcknowledgement>;
   /** Reads a previously acknowledged student submission without resending answer material. */
   readonly getSubmissionStatus: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<StudentSubmissionStatus>;
+  ) => Promise<QuestionSubmissionAcknowledgement>;
   /** Instructor command only; current feedback is read through a later summary GET. */
   readonly releaseAttemptFeedback: (
     attemptId: QuestionAttemptId,
@@ -468,7 +471,7 @@ export interface ApiClient
   /** Public immutable Question Library asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: AssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
-  readonly timerVerdictOnServer: TimerEvaluator;
+  readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssignmentConfigOnServer: CapabilityValidator;
 }
 

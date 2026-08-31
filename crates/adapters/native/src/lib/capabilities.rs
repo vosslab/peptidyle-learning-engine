@@ -1,5 +1,5 @@
 use question_model::QuestionDefinition;
-use question_model::capability::BackendCapabilities;
+use question_model::capability::QuestionBackendCapabilities;
 
 use crate::{NativeAdapter, NativeAdapterError};
 
@@ -8,14 +8,14 @@ impl NativeAdapter {
     pub fn capabilities(
         &self,
         question: &QuestionDefinition,
-    ) -> Result<BackendCapabilities, NativeAdapterError> {
+    ) -> Result<QuestionBackendCapabilities, NativeAdapterError> {
         let implementations = self.implementations_for_question(question)?;
         let mut capabilities = implementations
             .first()
             .expect("a nonempty registry selection has a first implementation")
             .capabilities();
         for implementation in &implementations[1..] {
-            capabilities = BackendCapabilities::from_iter(
+            capabilities = QuestionBackendCapabilities::from_iter(
                 capabilities
                     .declared()
                     .filter(|capability| implementation.capabilities().supports(*capability)),

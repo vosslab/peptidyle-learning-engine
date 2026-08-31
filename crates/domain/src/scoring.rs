@@ -9,10 +9,10 @@
 use std::collections::HashSet;
 
 use question_model::{
-    ActivityTimestamp, AssignmentAttemptId, AssignmentProgressRecord, GradePolicy,
+    ActivityTimestamp, AssignmentAttemptGradeRule, AssignmentAttemptId, AssignmentProgressRecord,
 };
 
-use crate::run::AssignmentActivityError;
+use crate::assignment_activity::AssignmentActivityError;
 
 const MAX_ABSOLUTE_CURRENT_SCORE: f64 = 1_000.0;
 
@@ -37,7 +37,7 @@ pub struct CompletedAssignmentAttemptScore {
     pub score: f64,
 }
 
-/// Assignment Attempt and score selected by a grade policy.
+/// Assignment Attempt and score selected by an Assignment Attempt Grade Rule.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AssignmentAttemptGradeSelection {
     /// Selected completed Assignment Attempt.
@@ -135,24 +135,26 @@ impl std::error::Error for ScoreModelError {}
 /// or an instructor selects an Assignment Attempt outside the completed set.
 pub fn select_assignment_attempt_grade(
     completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
-    policy: GradePolicy,
+    rule: AssignmentAttemptGradeRule,
     instructor_selected: Option<AssignmentAttemptId>,
 ) -> Result<Option<AssignmentAttemptGradeSelection>, ScoreModelError> {
     validate_completed_assignment_attempts(completed_assignment_attempts)?;
 
-    if policy != GradePolicy::InstructorSelected && instructor_selected.is_some() {
+    if rule != AssignmentAttemptGradeRule::InstructorSelected && instructor_selected.is_some() {
         return Err(ScoreModelError::UnexpectedInstructorSelection);
     }
 
-    let selected = match policy {
-        GradePolicy::First => completed_assignment_attempts
+    let selected = match rule {
+        AssignmentAttemptGradeRule::First => completed_assignment_attempts
             .iter()
             .min_by_key(|assignment_attempt| assignment_attempt.attempt_number),
-        GradePolicy::Latest => completed_assignment_attempts
+        AssignmentAttemptGradeRule::Latest => completed_assignment_attempts
             .iter()
             .max_by_key(|assignment_attempt| assignment_attempt.attempt_number),
-        GradePolicy::Highest => highest_assignment_attempt(completed_assignment_attempts),
-        GradePolicy::InstructorSelected => match instructor_selected {
+        AssignmentAttemptGradeRule::Highest => {
+            highest_assignment_attempt(completed_assignment_attempts)
+        }
+        AssignmentAttemptGradeRule::InstructorSelected => match instructor_selected {
             Some(selected_assignment_attempt) => Some(
                 completed_assignment_attempts
                     .iter()
@@ -232,7 +234,7 @@ pub enum AssignmentActivityTransition {
         /// Authoritative server time for the transition.
         at: ActivityTimestamp,
     },
-    /// One question response was recorded.
+    /// One Student Response was recorded through its Question Submission.
     QuestionAttemptRecorded {
         /// Authoritative server time for the transition.
         at: ActivityTimestamp,
@@ -261,7 +263,7 @@ pub enum AssignmentActivityTransition {
 pub fn project_summary(
     previous: &AssignmentProgressRecord,
     transition: AssignmentActivityTransition,
-    grade_policy: GradePolicy,
+    assignment_attempt_grade_rule: AssignmentAttemptGradeRule,
 ) -> Result<AssignmentProgressRecord, AssignmentActivityError> {
     let mut next = previous.clone();
 
@@ -283,11 +285,11 @@ pub fn project_summary(
                 .ok_or(AssignmentActivityError::SummaryCounterOverflow)?;
             next.latest_score = Some(score);
             next.best_score = Some(next.best_score.map_or(score, |best| best.max(score)));
-            next.current_score = match grade_policy {
-                GradePolicy::First => next.current_score.or(Some(score)),
-                GradePolicy::Latest => Some(score),
-                GradePolicy::Highest => next.best_score,
-                GradePolicy::InstructorSelected => next.current_score,
+            next.current_score = match assignment_attempt_grade_rule {
+                AssignmentAttemptGradeRule::First => next.current_score.or(Some(score)),
+                AssignmentAttemptGradeRule::Latest => Some(score),
+                AssignmentAttemptGradeRule::Highest => next.best_score,
+                AssignmentAttemptGradeRule::InstructorSelected => next.current_score,
             };
             touch(&mut next, at);
         }
@@ -332,7 +334,7 @@ mod tests {
 
     fn projected_score(
         completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
-        policy: GradePolicy,
+        rule: AssignmentAttemptGradeRule,
     ) -> Option<f64> {
         let mut summary = empty_summary();
         for completed in completed_assignment_attempts {
@@ -342,7 +344,7 @@ mod tests {
                     score: completed.score,
                     at: ActivityTimestamp::from_unix_millis(i64::from(completed.attempt_number)),
                 },
-                policy,
+                rule,
             )
             .expect("fixture scores should project");
         }
@@ -357,9 +359,18 @@ mod tests {
             assignment_attempt(3, 3, 0.7),
         ];
         let cases = [
-            (GradePolicy::First, completed_assignment_attempts[0]),
-            (GradePolicy::Latest, completed_assignment_attempts[2]),
-            (GradePolicy::Highest, completed_assignment_attempts[1]),
+            (
+                AssignmentAttemptGradeRule::First,
+                completed_assignment_attempts[0],
+            ),
+            (
+                AssignmentAttemptGradeRule::Latest,
+                completed_assignment_attempts[2],
+            ),
+            (
+                AssignmentAttemptGradeRule::Highest,
+                completed_assignment_attempts[1],
+            ),
         ];
 
         for (policy, expected) in cases {
@@ -387,7 +398,7 @@ mod tests {
         assert_eq!(
             select_assignment_attempt_grade(
                 &completed_assignment_attempts,
-                GradePolicy::Highest,
+                AssignmentAttemptGradeRule::Highest,
                 None
             ),
             Ok(Some(AssignmentAttemptGradeSelection {
@@ -405,7 +416,7 @@ mod tests {
         assert_eq!(
             select_assignment_attempt_grade(
                 &completed_assignment_attempts,
-                GradePolicy::InstructorSelected,
+                AssignmentAttemptGradeRule::InstructorSelected,
                 None
             ),
             Ok(None)
@@ -413,7 +424,7 @@ mod tests {
         assert_eq!(
             select_assignment_attempt_grade(
                 &completed_assignment_attempts,
-                GradePolicy::InstructorSelected,
+                AssignmentAttemptGradeRule::InstructorSelected,
                 Some(completed_assignment_attempts[0].assignment_attempt),
             ),
             Ok(Some(AssignmentAttemptGradeSelection {
@@ -425,7 +436,7 @@ mod tests {
         assert_eq!(
             select_assignment_attempt_grade(
                 &completed_assignment_attempts,
-                GradePolicy::InstructorSelected,
+                AssignmentAttemptGradeRule::InstructorSelected,
                 Some(unknown),
             ),
             Err(ScoreModelError::UnknownInstructorSelection {
@@ -441,17 +452,21 @@ mod tests {
         let invalid_score = [assignment_attempt(1, 1, f64::NAN)];
 
         assert_eq!(
-            select_assignment_attempt_grade(&duplicate_id, GradePolicy::First, None),
+            select_assignment_attempt_grade(&duplicate_id, AssignmentAttemptGradeRule::First, None),
             Err(ScoreModelError::DuplicateAssignmentAttempt {
                 assignment_attempt: duplicate_id[0].assignment_attempt,
             })
         );
         assert_eq!(
-            select_assignment_attempt_grade(&duplicate_number, GradePolicy::First, None),
+            select_assignment_attempt_grade(
+                &duplicate_number,
+                AssignmentAttemptGradeRule::First,
+                None,
+            ),
             Err(ScoreModelError::DuplicateAssignmentAttemptNumber { attempt_number: 1 })
         );
         assert!(matches!(
-            select_assignment_attempt_grade(&invalid_score, GradePolicy::First, None),
+            select_assignment_attempt_grade(&invalid_score, AssignmentAttemptGradeRule::First, None),
             Err(ScoreModelError::InvalidScore { score, .. }) if score.is_nan()
         ));
     }
@@ -468,7 +483,7 @@ mod tests {
                 score: 0.9,
                 at: ActivityTimestamp::from_unix_millis(9),
             },
-            GradePolicy::InstructorSelected,
+            AssignmentAttemptGradeRule::InstructorSelected,
         )
         .expect("valid completion should project");
 

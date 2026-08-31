@@ -82,7 +82,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
 ### P1 - State is appended before all visible assertions pass
 
 - **Location:** `tests/playwright/ui_walkthrough_instructor_setup.spec.ts:80,
-  100,139` and plan acceptance criterion 4.
+100,139` and plan acceptance criterion 4.
 - **Evidence:** J11 is appended immediately after course creation/opening and
   J12 immediately after roster activation. J13 catalog, policy, and real-link
   assertions can still fail after those writes. The plan requires the spec to
@@ -112,7 +112,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
 ### P2 - J12/J13 targets are ambiguous and lack recovery evidence
 
 - **Location:** `tests/playwright/ui_walkthrough_instructor_setup.spec.ts:66,
-  89,110-123`.
+89,110-123`.
 - **Evidence:** The course link and catalog row use `.first()`. The roster
   assertion identifies a generic visible `Local pilot` cell rather than the
   alias entered in the labelled J12 form. The child asserts normal success only;
@@ -152,13 +152,13 @@ focused target; a visible completion or recovery state; and a bounded timeout.
 
 ## Validation
 
-| Check | Result |
-| --- | --- |
-| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 36 tests plus 3 subtests. The pass exposes the scanner-coverage gap; it does not validate this omitted child. |
-| Targeted ESLint | PASS with no diagnostics. |
-| Targeted Prettier | PASS: all matched files use Prettier code style. |
-| `npx tsc --noEmit -p tsconfig.lint.json` | FAIL: TS2322 at instructor setup line 40. |
-| Focused offline Playwright course/editor/config/state/instructor setup selection | INCONCLUSIVE for browser bodies: Chromium failed before test bodies with macOS Mach-port permission denied. Eight config/state tests passed and the instructor live-only test skipped as designed; ten component browser tests could not launch. No Podman or live stack was started. |
+| Check                                                                                                        | Result                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 36 tests plus 3 subtests. The pass exposes the scanner-coverage gap; it does not validate this omitted child.                                                                                                                                                                   |
+| Targeted ESLint                                                                                              | PASS with no diagnostics.                                                                                                                                                                                                                                                             |
+| Targeted Prettier                                                                                            | PASS: all matched files use Prettier code style.                                                                                                                                                                                                                                      |
+| `npx tsc --noEmit -p tsconfig.lint.json`                                                                     | FAIL: TS2322 at instructor setup line 40.                                                                                                                                                                                                                                             |
+| Focused offline Playwright course/editor/config/state/instructor setup selection                             | INCONCLUSIVE for browser bodies: Chromium failed before test bodies with macOS Mach-port permission denied. Eight config/state tests passed and the instructor live-only test skipped as designed; ten component browser tests could not launch. No Podman or live stack was started. |
 
 ## Exact live checklist
 
@@ -236,11 +236,11 @@ does not accept a retained-stack run, M10, or the end-to-end teaching loop.
 
 ### Re-review validation
 
-| Check | Result |
-| --- | --- |
-| `npx tsc --noEmit -p tsconfig.json` and `npx tsc --noEmit -p tsconfig.lint.json` | PASS |
-| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py` | PASS: 38 tests plus 3 subtests |
-| Focused ESLint, Prettier, and `git diff --check` | PASS |
+| Check                                                                                                                                                                                                                     | Result                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `npx tsc --noEmit -p tsconfig.json` and `npx tsc --noEmit -p tsconfig.lint.json`                                                                                                                                          | PASS                                       |
+| `python3 -m pytest -q tests/test_ui_walkthrough_harness_independence.py tests/test_ui_walkthrough_runner.py`                                                                                                              | PASS: 38 tests plus 3 subtests             |
+| Focused ESLint, Prettier, and `git diff --check`                                                                                                                                                                          | PASS                                       |
 | `PW_PORT=4341 npx playwright test tests/playwright/ui_walkthrough_live_config.spec.ts tests/playwright/simulator/instructor_setup_state.spec.ts tests/playwright/ui_walkthrough_instructor_setup.spec.ts --reporter=line` | PASS: 10 passed, 1 intended live-only skip |
 
 ### Updated live checklist
@@ -313,12 +313,12 @@ The present early return prevents that contract from being exercised at all.
 
 ### Independent live evidence
 
-| Check | Result |
-| --- | --- |
-| Exact elevated seed-42 command | PASS |
-| Public report | PASS; one public corpus arrangement; no J11/J12/J13 rows |
-| Report modes | PASS: directory 0700, report 0600 |
-| Post-run Podman state | PASS: `podman ps --all` empty |
+| Check                            | Result                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| Exact elevated seed-42 command   | PASS                                                                             |
+| Public report                    | PASS; one public corpus arrangement; no J11/J12/J13 rows                         |
+| Report modes                     | PASS: directory 0700, report 0600                                                |
+| Post-run Podman state            | PASS: `podman ps --all` empty                                                    |
 | Post-run private state/artifacts | PASS: no `ple-ui-walkthrough-*` directory or journey-artifacts directory remains |
 
 No manual cleanup, volume reset, implementation change, or staging action was

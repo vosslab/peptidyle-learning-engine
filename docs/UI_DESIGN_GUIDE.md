@@ -43,17 +43,17 @@ visible content already proves the state.
 Treat density as a design-system setting, not a collection of page-specific numbers. Shared CSS
 custom properties in `src/style.css` own the geometry most likely to change after observation:
 
-| Token family                                                  | Controls                                                                      |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `--ple-shell-*`                                               | Maximum application width, viewport gutters, header height, and shell padding |
-| `--ple-layout-gap`, `--ple-section-gap`, `--ple-compact-gap`  | Page columns, group rhythm, and dense local rhythm                            |
-| `--ple-panel-padding`, `--ple-row-padding-*`                  | Work surfaces, catalog rows, tables, and editor rows                          |
-| `--ple-control-min-height`, `--ple-dense-row-min-height`      | Shared controls and compact instructor records                                |
-| `--ple-reading-max-inline`, `--ple-catalog-window-block-size` | Reading measure and catalog working height                                    |
-| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline`  | Assignment columns and catalog-filter allocation                              |
-| `--ple-*-table-min-inline`, `--ple-*-block-size`              | Deliberate overflow thresholds for dense data and bounded lists               |
-| `--ple-course-scope-*`, `--ple-course-theme-*`                | Course canvas extent, inset, color washes, identity rail, and surface fade    |
-| `--ple-mobile-nav-*`                                          | Compact single-row phone navigation without changing its semantics            |
+| Token family                                                 | Controls                                                                      |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `--ple-shell-*`                                              | Maximum application width, viewport gutters, header height, and shell padding |
+| `--ple-layout-gap`, `--ple-section-gap`, `--ple-compact-gap` | Page columns, group rhythm, and dense local rhythm                            |
+| `--ple-panel-padding`, `--ple-row-padding-*`                 | Work surfaces, Question Search rows, tables, and editor rows                  |
+| `--ple-control-min-height`, `--ple-dense-row-min-height`     | Shared controls and compact instructor records                                |
+| `--ple-reading-max-inline`, bounded-list geometry            | Reading measure and Question Library working height                           |
+| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assignment columns and Question Search filter allocation                      |
+| `--ple-*-table-min-inline`, `--ple-*-block-size`             | Deliberate overflow thresholds for dense data and bounded lists               |
+| `--ple-course-scope-*`, `--ple-course-theme-*`               | Course canvas extent, inset, color washes, identity rail, and surface fade    |
+| `--ple-mobile-nav-*`                                         | Compact single-row phone navigation without changing its semantics            |
 
 Adjust these tokens first when evidence supports a density change. Page styles may derive small
 differences with `calc()`, but should not duplicate the governing measurement. Breakpoints are
@@ -67,29 +67,52 @@ must look different. Global navigation is quiet and persistent. Course navigatio
 course identity surface and clearly marks the active section. Assignment progress communicates
 sequence and state. Page actions live with the content they affect.
 
-For an instructor, **Courses is the home workspace**: it lists recognizable courses and starts a new
-one. The Product Ribbon has four ordered slots: **Courses**, **Question Library**, **Blueprint
-Courses**, and **Account**. Question Library owns published-Question discovery and My Question
-Drafts; Account owns personal settings. Keep those destinations directly visible in the Product
-Ribbon.
+The [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns Ribbon vocabulary and canonical visible
+names. This guide owns which Slots and Tasks exist, their order, their placement, and their
+presentation behavior. `src/ribbon/ribbon_contract.ts` is the planned executable owner of the same
+schemas.
 
-Question Library has five Ribbon Tasks in two areas: **All Questions**, **My Questions**, and **My
-Question Drafts** are Library views; **Starred** and **Watched** are Question relationships. Library
-means discoverable, My means ownership, Draft means publication state, Starred means endorsement,
-and Watched means a private subscription. Question Folders, tags, classifications, Saved Question
-Searches, and search facets organize or find Questions inside these views.
+Use one ordered Ribbon Schema for each Ribbon Scope and immutable Product Role pair. Every role uses
+the same Application Shell and Ribbon architecture with a completely distinct menu:
 
-Once an instructor opens a course, its Course Instance Ribbon has six ordered slots:
-**Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint Updates**, and
-**Course Setup**. Course Setup has the Ribbon Tasks **Grade Settings** and **Appearance**. Create
-Assignment is a Page Action on Assignments, rather than a Ribbon Slot. Add a future dashboard only
-when it answers a distinct cross-course monitoring task that these object-centered surfaces cannot
-answer directly.
+| Ribbon Scope       | Instructor                                                                             | Student     | Sysadmin                      |
+| ------------------ | -------------------------------------------------------------------------------------- | ----------- | ----------------------------- |
+| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses, Instructor Approvals |
+| Course Instance    | Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, Course Setup | Assignments | Teaching Operations           |
+| Assignment Attempt | None                                                                                   | Attempt     | None                          |
 
-Within each Ribbon Scope, slots available to every applicable Course Membership Role come first and
-role-narrowed slots form the remaining suffix. Resolve that suffix before displaying it, omit
-unavailable slots, and preserve the relative order of visible controls. A later availability result
-can therefore append controls without moving a visible control.
+Product Role is available with the Authenticated Session, so one Account uses one stable schema for
+each scope throughout its session. Exact server and Store checks continue to authorize every
+destination and operation.
+
+Place Account and Profile controls in the upper corner of the Ribbon Context Row. Account Security,
+Instructor Course Invitations, and Sign In use those Context Controls. Their routes retain the
+current Ribbon Schema and render with No Selected Ribbon Tab.
+
+Question Library has five ordered Ribbon Tasks in two Ribbon Task Areas:
+
+- **Library Views**: **All Questions**, **My Questions**, **My Question Drafts**.
+- **Question Relationships**: **Starred**, **Watched**.
+
+Library means discoverable, My means ownership, Draft means publication state, Starred means
+endorsement, and Watched means a private subscription. Question Folders, tags, classifications,
+Saved Question Searches, and search facets organize or find Questions inside these views.
+
+Course Setup has the ordered Ribbon Tasks **Grade Settings** and **Appearance**. Create Assignment is
+a Page Action on Assignments. Add a future dashboard when it answers a distinct cross-course
+monitoring task that these object-centered surfaces cannot answer directly.
+
+Assignment Attempt uses one Student Ribbon Slot, **Attempt**, and one Ribbon Task, **Back to
+Assignments**. Reserve a fixed-width, tabular-numeral position in the Ribbon Context Row for
+**Assignment Attempt Progress**, such as `Question 3 of 7`. Keep Question navigation and timing in
+the Attempt content so Assignment length never changes Ribbon topology. The Instructor and Sysadmin
+Assignment Attempt schemas contain no Slots.
+
+Within each Ribbon Schema, Slots available to every applicable Course Membership Role come first and
+relationship-narrowed Slots form the remaining suffix. Resolve that suffix before displaying it,
+omit Unavailable Slots, and preserve the relative order of visible controls. A later availability
+result can therefore append controls without moving a visible control. This rule supports future
+Course Observer, Student Observer, and Grader relationships that are independent of Product Role.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.
@@ -127,7 +150,7 @@ raw secondary anchor identifies the active course-navigation section with a meas
 label, while the accent anchor remains visible in the course rail and local composition. Links,
 actions, text, focus, and quiet boundaries stay related to those same three anchors.
 
-The shared `THEME_MIX` recipe in `theme_catalog.ts` owns the projection percentages. Change that
+The shared `THEME_MIX` recipe in `course_theme_registry.ts` owns the projection percentages. Change that
 recipe and the shared `--ple-course-theme-*` CSS controls before adding a theme-specific override;
 reserve explicit overrides for a measured exception such as the Grass palette. The stored anchors do
 not need to change merely because the presentation should become stronger or quieter.

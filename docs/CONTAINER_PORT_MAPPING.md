@@ -9,14 +9,14 @@ points, not services exposed to the LAN.
 
 ## Default mappings
 
-| Service | Container port or role | Default loopback mapping | Notes |
-| --- | --- | --- | --- |
-| `postgres` | PostgreSQL `5432` | `127.0.0.1:5432 -> 5432` | Local database access. |
-| `minio` API | MinIO `9000` | `127.0.0.1:9000 -> 9000` | S3-compatible object API. |
-| `minio` console | MinIO `9001` | `127.0.0.1:9001 -> 9001` | Local administration console. |
-| `gateway` | Caddy `8080` | `127.0.0.1:8080 -> 8080` | The one browser and API origin. |
-| `api` | Axum `3000` | none | Gateway accesses it on private `gateway_api`. |
-| `webwork-renderer` | PG renderer `3000` | none | API-only private renderer endpoint. |
+| Service            | Container port or role | Default loopback mapping | Notes                                         |
+| ------------------ | ---------------------- | ------------------------ | --------------------------------------------- |
+| `postgres`         | PostgreSQL `5432`      | `127.0.0.1:5432 -> 5432` | Local database access.                        |
+| `minio` API        | MinIO `9000`           | `127.0.0.1:9000 -> 9000` | S3-compatible object API.                     |
+| `minio` console    | MinIO `9001`           | `127.0.0.1:9001 -> 9001` | Local administration console.                 |
+| `gateway`          | Caddy `8080`           | `127.0.0.1:8080 -> 8080` | The one browser and API origin.               |
+| `api`              | Axum `3000`            | none                     | Gateway accesses it on private `gateway_api`. |
+| `webwork-renderer` | PG renderer `3000`     | none                     | API-only private renderer endpoint.           |
 
 The base topology uses `PLE_GATEWAY_HOST_PORT` and defaults to `8080`. The
 fixed `ple-live-demo-browser` lifecycle instead selects private loopback ports
@@ -45,12 +45,12 @@ short-lived, operator-approved diagnostic ever requires host access, reserve
 
 ## Reserved ranges
 
-| Host range | Purpose | Current use |
-| --- | --- | --- |
-| `5000-5999` | Databases and supporting infrastructure | PostgreSQL uses `5432`. |
-| `8000-8099` | Public and API gateway | Gateway defaults to `8080`. |
-| `8100-8199` | Rendering diagnostics | `8100` is reserved; renderer remains private. |
-| `9000-9099` | Object storage and administration | MinIO API uses `9000`; console uses `9001`. |
+| Host range  | Purpose                                 | Current use                                   |
+| ----------- | --------------------------------------- | --------------------------------------------- |
+| `5000-5999` | Databases and supporting infrastructure | PostgreSQL uses `5432`.                       |
+| `8000-8099` | Public and API gateway                  | Gateway defaults to `8080`.                   |
+| `8100-8199` | Rendering diagnostics                   | `8100` is reserved; renderer remains private. |
+| `9000-9099` | Object storage and administration       | MinIO API uses `9000`; console uses `9001`.   |
 
 Avoid publishing a service merely to make container-to-container communication
 work. Compose service names and their private networks already provide that
@@ -80,31 +80,31 @@ not use this raw Compose inspection path.
 acceptance evidence. The topology is described in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md#production-baseline-in-opentofu).
 
-| Boundary | Planned port | Exposure | Purpose |
-| --- | --- | --- | --- |
-| Internet to CloudFront/WAF | `443` | Public | HTTPS application entry point. |
-| Internet to CloudFront/WAF | `80` | Optional edge redirect | HTTPS redirect only, if configured. |
-| CloudFront/WAF to ALB TLS origin | `443` | Origin-facing CIDR plus secret header | Controlled TLS alias; ALB default rule denies absent/mismatched header. |
-| Private ALB to Fargate API | `3000` | Private target boundary | Browser/API origin; no local gateway task. |
-| API to renderer | `443` | Optional private integration | Disabled unless its separately attested external renderer feature is enabled. |
-| API, worker, or publisher to RDS | `5432` | Private security groups | TLS PostgreSQL; RDS is never public. |
-| API/worker/publisher to S3 | HTTPS `443` | S3 VPC endpoint | No NAT route or object-storage console. |
-| Worker Fargate task | none | Private | No listener or target group. |
+| Boundary                         | Planned port | Exposure                              | Purpose                                                                       |
+| -------------------------------- | ------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
+| Internet to CloudFront/WAF       | `443`        | Public                                | HTTPS application entry point.                                                |
+| Internet to CloudFront/WAF       | `80`         | Optional edge redirect                | HTTPS redirect only, if configured.                                           |
+| CloudFront/WAF to ALB TLS origin | `443`        | Origin-facing CIDR plus secret header | Controlled TLS alias; ALB default rule denies absent/mismatched header.       |
+| Private ALB to Fargate API       | `3000`       | Private target boundary               | Browser/API origin; no local gateway task.                                    |
+| API to renderer                  | `443`        | Optional private integration          | Disabled unless its separately attested external renderer feature is enabled. |
+| API, worker, or publisher to RDS | `5432`       | Private security groups               | TLS PostgreSQL; RDS is never public.                                          |
+| API/worker/publisher to S3       | HTTPS `443`  | S3 VPC endpoint                       | No NAT route or object-storage console.                                       |
+| Worker Fargate task              | none         | Private                               | No listener or target group.                                                  |
 
 The public edge is CloudFront and WAF; the ALB, API, worker, publisher, RDS,
 and S3 access remain private. The local Caddy gateway is not carried into this
 topology. Private subnets have no NAT route; disabled integrations receive no
 API security-group egress rule.
 
-| Security-group owner | Inbound rule |
-| --- | --- |
-| Private ALB | CloudFront origin-facing managed prefix list on `443`; listener additionally requires the secret origin header. |
-| API | `3000` from the ALB security group only. |
-| External renderer | Not managed by this baseline; its feature remains disabled pending independent ingress, TLS, image, and authority attestation. |
-| RDS | `5432` from API, worker, and publisher security groups only. |
-| Worker | No inbound rule. |
-| Publisher | No inbound rule. |
-| S3 | IAM and bucket policy with an S3 VPC endpoint; no application listener. |
+| Security-group owner | Inbound rule                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Private ALB          | CloudFront origin-facing managed prefix list on `443`; listener additionally requires the secret origin header.                |
+| API                  | `3000` from the ALB security group only.                                                                                       |
+| External renderer    | Not managed by this baseline; its feature remains disabled pending independent ingress, TLS, image, and authority attestation. |
+| RDS                  | `5432` from API, worker, and publisher security groups only.                                                                   |
+| Worker               | No inbound rule.                                                                                                               |
+| Publisher            | No inbound rule.                                                                                                               |
+| S3                   | IAM and bucket policy with an S3 VPC endpoint; no application listener.                                                        |
 
 Repeated task-local `3000` listeners remain valid in AWS for the same reason
 they do in Podman: each task has its own network namespace. Private subnets,

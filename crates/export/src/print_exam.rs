@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use objects::Sha256Digest;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::{
-    AssetId, BackendCapabilities, Capability, QuestionDefinition, QuestionResponseFormat,
+    AssetId, Capability, QuestionBackendCapabilities, QuestionDefinition, QuestionResponseFormat,
 };
 
 /// The rendition selected by an instructor or accessibility workflow.
@@ -53,7 +53,7 @@ pub struct ExportBundle {
 #[derive(Debug, Clone)]
 pub struct ExportCandidate<'a> {
     pub question: &'a QuestionDefinition,
-    pub capabilities: &'a BackendCapabilities,
+    pub capabilities: &'a QuestionBackendCapabilities,
 }
 
 /// Verified bytes for one immutable published asset.  Image support is
@@ -489,8 +489,8 @@ mod tests {
         .expect("fixture")
         .published_problem
     }
-    fn printable_capabilities() -> BackendCapabilities {
-        BackendCapabilities::from_iter([Capability::PrintExport])
+    fn printable_capabilities() -> QuestionBackendCapabilities {
+        QuestionBackendCapabilities::from_iter([Capability::PrintExport])
     }
     fn png() -> Vec<u8> {
         vec![
@@ -680,10 +680,10 @@ mod tests {
         };
         question.response = QuestionResponseFormat::MultipleChoice {
             choices: vec![question_model::response::ChoiceOption {
-                id: question_model::response::ChoiceId::new("figure"),
+                id: question_model::response::ResponseItemReference::new("figure"),
                 body: vec![figure("choice figure")],
             }],
-            selection: question_model::answer::SelectionCardinality::ExactlyOne,
+            selection: question_model::answer::ResponseSelectionRule::ExactlyOne,
         };
         let exam = PrintExam::build_with_assets(
             "Exam",
@@ -705,7 +705,7 @@ mod tests {
 
         question.response = QuestionResponseFormat::Ordering {
             items: vec![question_model::response::ChoiceOption {
-                id: question_model::response::ChoiceId::new("ordering-figure"),
+                id: question_model::response::ResponseItemReference::new("ordering-figure"),
                 body: vec![figure("ordering figure")],
             }],
         };
@@ -742,15 +742,17 @@ mod tests {
         }
         let candidates = [
             QuestionResponseFormat::Numeric {
-                tolerance: question_model::answer::NumericTolerance::Absolute { epsilon: 0.1 },
+                tolerance: question_model::answer::NumericResponseTolerance::Absolute {
+                    epsilon: 0.1,
+                },
                 unit: Some("mM".to_string()),
             },
             QuestionResponseFormat::MultipleChoice {
                 choices: vec![],
-                selection: question_model::answer::SelectionCardinality::ExactlyOne,
+                selection: question_model::answer::ResponseSelectionRule::ExactlyOne,
             },
             QuestionResponseFormat::ShortText {
-                match_mode: question_model::answer::TextMatchMode::CaseInsensitive,
+                match_mode: question_model::answer::TextResponseMatchRule::CaseInsensitive,
                 max_length: 100,
             },
             QuestionResponseFormat::Ordering { items: vec![] },

@@ -1,14 +1,14 @@
 import { DecodeError } from "../../api/decoder";
 import { serializeFlatQuestionSource } from "./flat_question_codec";
 import type {
-  FlatQuestionAttemptPolicy,
+  FlatQuestionAttemptLimit,
   FlatQuestionChoice,
   FlatQuestionItem,
   FlatQuestionLicense,
   FlatQuestionOutcomeFeedback,
   FlatQuestionSourceV2,
   FlatQuestionTaxonomyTerm,
-  FlatQuestionTimingPolicy,
+  FlatQuestionAttemptTimeLimit,
 } from "./flat_question_source";
 
 const DEFAULT_CHOICES: ReadonlyArray<FlatQuestionChoice> = [
@@ -523,18 +523,18 @@ export function setOutcomeFeedback(
   return { ...source, feedback };
 }
 
-export function setAttemptPolicy(
+export function setQuestionAttemptLimit(
   source: FlatQuestionSourceV2,
-  attemptPolicy: FlatQuestionAttemptPolicy,
+  questionAttemptLimit: FlatQuestionAttemptLimit,
 ): FlatQuestionSourceV2 {
-  return { ...source, attemptPolicy };
+  return { ...source, questionAttemptLimit };
 }
 
-export function setTimingPolicy(
+export function setQuestionAttemptTimeLimit(
   source: FlatQuestionSourceV2,
-  timingPolicy: FlatQuestionTimingPolicy,
+  questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit,
 ): FlatQuestionSourceV2 {
-  return { ...source, timingPolicy };
+  return { ...source, questionAttemptTimeLimit };
 }
 
 export function setTags(
@@ -601,6 +601,6 @@ function validationMessage(field: string): string {
   if (field.startsWith("title")) return "Add a short question title.";
   if (field.startsWith("prompt")) return "Add the Student-facing question prompt.";
   if (field.startsWith("points")) return "Points must be a nonnegative number.";
-  if (field.startsWith("timingPolicy")) return "Check the timing policy values.";
+  if (field.startsWith("questionAttemptTimeLimit")) return "Check the timing policy values.";
   return "Check the question details before saving.";
 }

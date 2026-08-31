@@ -13,18 +13,18 @@ import {
 } from "solid-js";
 
 import type { QuestionAttempt } from "../../generated/api/QuestionAttempt";
-import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
-  PoolSelection,
+  QuestionPoolSelection,
   NextIssuedAttempt,
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryOutcome,
   AssignmentAttemptSummaryResponse,
 } from "../api/contracts";
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import {
   assignmentRouteReference,
@@ -33,31 +33,36 @@ import {
 } from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
 import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback_panel";
-import { ResponseWidget } from "../components/response_widget";
+import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
 import { resumeSessionAndRetry } from "./assignment_attempt_page_recovery";
 import {
   assignmentAttemptCompletionPresentation,
   submissionAdvanceLabel,
   type AssignmentAttemptCompletionPresentation,
-} from "./run_completion_presentation";
+} from "./assignment_attempt_completion_presentation";
 import {
-  createAttemptStateMachine,
+  createQuestionAttemptStateMachine,
   type AttemptContext,
-  type AttemptState,
+  type QuestionAttemptExperienceState,
   type AttemptStorage,
   type SubmissionOutcome,
-} from "../features/attempt/attempt_state";
-import { prefetchMatchesIssuedSuccessor } from "../features/attempt/prefetch_binding";
-import { projectStudentResponse } from "../features/attempt/student_response";
-import type { ResponseFormatReport } from "../wasm/index";
+} from "../features/question_attempt/question_attempt_state";
+import { prefetchMatchesIssuedSuccessor } from "../features/question_attempt/prefetch_binding";
+import { projectStudentResponse } from "../features/question_attempt/student_response";
+import type { StudentResponseFormatCheck } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
-function attemptContext(assignmentAttemptId: string, attempt: QuestionAttempt): AttemptContext {
+function attemptContext(
+  assignmentAttemptId: string,
+  attempt: QuestionAttempt,
+  envelope: QuestionPresentation,
+): AttemptContext {
   return {
     assignmentAttemptId,
     attemptId: attempt.id,
     issuedQuestionId: attempt.issuedQuestion,
+    questionVersion: envelope.variation.questionVersion,
     seed: attempt.seed,
     deadline: attempt.timing.deadline,
   };
@@ -107,14 +112,14 @@ function matchesIssuedSuccessor(attempt: QuestionAttempt, receipt: NextIssuedAtt
     attempt.issuedQuestion === receipt.issuedQuestion.id &&
     attempt.seed === receipt.seed &&
     attempt.timing.deadline === receipt.deadline &&
-    attempt.provenance.renderedQuestionSha256 === receipt.renderedQuestionSha256
+    attempt.sourceRecord.renderedQuestionSha256 === receipt.renderedQuestionSha256
   );
 }
 
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
 const MAX_PREFETCH_ASSETS = 12;
 
-function assetIdsForEnvelope(envelope: QuestionEnvelope): ReadonlyArray<string> {
+function assetIdsForEnvelope(envelope: QuestionPresentation): ReadonlyArray<string> {
   const blocks = [...envelope.prompt];
   if (envelope.response.kind === "multipleChoice") {
     blocks.push(...envelope.response.choices.flatMap((choice) => choice.body));
@@ -129,11 +134,11 @@ function assetIdsForEnvelope(envelope: QuestionEnvelope): ReadonlyArray<string> 
 function AttemptExperience(props: {
   readonly initialScreen: AssignmentAttemptScreenData;
 }): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const validator = useWasmFacade();
   const navigate = useNavigate();
   const [screen, setScreen] = createSignal(props.initialScreen);
-  const [state, setState] = createSignal<AttemptState>();
+  const [state, setState] = createSignal<QuestionAttemptExperienceState>();
   const [sessionRecovery, setSessionRecovery] = createSignal(false);
   const [summaryVisible, setSummaryVisible] = createSignal(false);
   const [assignmentAttemptSummary, setAssignmentAttemptSummary] =
@@ -146,15 +151,18 @@ function AttemptExperience(props: {
   const seenSummaryCursors = new Set<string>();
   const [practiceError, setPracticeError] = createSignal<string | null>(null);
   const [prefetched, setPrefetched] = createSignal<PrefetchedNextQuestion | null>(null);
-  const [poolSelection, setPoolSelection] = createSignal<PoolSelection | null>(
-    props.initialScreen.attempt.poolSelection,
-  );
+  const [questionPoolSelection, setQuestionPoolSelection] =
+    createSignal<QuestionPoolSelection | null>(props.initialScreen.attempt.questionPoolSelection);
   let requestedPrefetchFor: string | null = null;
   let prefetchController: AbortController | null = null;
   let recoveredSuccessorScreen: AssignmentAttemptScreenData | null = null;
 
-  const machine = createAttemptStateMachine({
-    context: attemptContext(props.initialScreen.assignmentAttempt.id, props.initialScreen.attempt),
+  const machine = createQuestionAttemptStateMachine({
+    context: attemptContext(
+      props.initialScreen.assignmentAttempt.id,
+      props.initialScreen.attempt,
+      props.initialScreen.issuedQuestion,
+    ),
     storage: attemptStorage(),
     clock: { now: () => Date.now() },
     network: { isOnline: () => navigator.onLine },
@@ -188,7 +196,7 @@ function AttemptExperience(props: {
     );
   }
 
-  function responseChanged(response: StudentResponse, validation: ResponseFormatReport): void {
+  function responseChanged(response: StudentResponse, validation: StudentResponseFormatCheck): void {
     machine.setResponse(response, {
       valid: validation.violations.length === 0,
       message: validation.violations.length === 0 ? null : "Response format needs attention.",
@@ -196,7 +204,7 @@ function AttemptExperience(props: {
   }
 
   async function submit(response: StudentResponse): Promise<SubmissionOutcome> {
-    // ResponseWidget reaches this callback only after its browser-local format validation.
+    // QuestionResponseControl reaches this callback only after its browser-local format validation.
     // This enables delivery, never local correctness or scoring.
     machine.setResponse(response, { valid: true, message: null });
     return machine.submit();
@@ -224,13 +232,14 @@ function AttemptExperience(props: {
             attemptId: receiptNext.id,
             assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
             issuedQuestionId: receiptNext.issuedQuestion.id,
+            questionVersion: cached.envelope.variation.questionVersion,
             seed: receiptNext.seed,
             deadline: receiptNext.deadline,
           },
           envelope: cached.envelope,
         }),
       );
-      setPoolSelection(cached.poolSelection);
+      setQuestionPoolSelection(cached.questionPoolSelection);
       setPrefetched(null);
       requestPrefetch(receiptNext.id);
       return;
@@ -262,7 +271,7 @@ function AttemptExperience(props: {
     }
     recoveredSuccessorScreen = null;
     setScreen(recovered);
-    setPoolSelection(recovered.attempt.poolSelection);
+    setQuestionPoolSelection(recovered.attempt.questionPoolSelection);
     setPrefetched(null);
     requestPrefetch(recovered.attempt.id);
   }
@@ -287,7 +296,7 @@ function AttemptExperience(props: {
       }
       recoveredSuccessorScreen = next;
       return {
-        context: attemptContext(next.assignmentAttempt.id, next.attempt),
+        context: attemptContext(next.assignmentAttempt.id, next.attempt, next.issuedQuestion),
         envelope: next.issuedQuestion,
       };
     });
@@ -423,21 +432,22 @@ function AttemptExperience(props: {
   });
 
   const recoveringState = ():
-    Extract<AttemptState, { readonly phase: "recovering" }> | undefined => {
+    Extract<QuestionAttemptExperienceState, { readonly phase: "recovering" }> | undefined => {
     const candidate = state();
     return candidate?.phase === "recovering" ? candidate : undefined;
   };
-  const feedbackState = (): Extract<AttemptState, { readonly phase: "feedback" }> | undefined => {
+  const feedbackState = ():
+    Extract<QuestionAttemptExperienceState, { readonly phase: "feedback" }> | undefined => {
     const candidate = state();
     return candidate?.phase === "feedback" ? candidate : undefined;
   };
   const acceptedPendingState = ():
-    Extract<AttemptState, { readonly phase: "acceptedPending" }> | undefined => {
+    Extract<QuestionAttemptExperienceState, { readonly phase: "acceptedPending" }> | undefined => {
     const candidate = state();
     return candidate?.phase === "acceptedPending" ? candidate : undefined;
   };
   const feedbackPanelState = (
-    feedback: Extract<AttemptState, { readonly phase: "feedback" }>,
+    feedback: Extract<QuestionAttemptExperienceState, { readonly phase: "feedback" }>,
   ): FeedbackPresentation =>
     feedback.feedback.kind === "released"
       ? {
@@ -457,8 +467,9 @@ function AttemptExperience(props: {
     }
   });
 
-  const currentState = (): AttemptState | undefined => state();
-  const terminalState = (): Extract<AttemptState, { readonly phase: "terminal" }> | undefined => {
+  const currentState = (): QuestionAttemptExperienceState | undefined => state();
+  const terminalState = ():
+    Extract<QuestionAttemptExperienceState, { readonly phase: "terminal" }> | undefined => {
     const candidate = state();
     return candidate?.phase === "terminal" ? candidate : undefined;
   };
@@ -467,7 +478,7 @@ function AttemptExperience(props: {
       terminalState()?.assignmentAttemptCompletion ?? "inProgress",
       true,
     );
-  const currentEnvelope = (): QuestionEnvelope =>
+  const currentEnvelope = (): QuestionPresentation =>
     currentState()?.envelope ?? screen().issuedQuestion;
   // A cache-hit advance has a server-issued descriptor and envelope but not a
   // complete AssignmentAttemptScreenData record. Keep student-response projection bound to
@@ -492,11 +503,11 @@ function AttemptExperience(props: {
           )}
         </span>
       </header>
-      <Show when={poolSelection()}>
+      <Show when={questionPoolSelection()}>
         {(selection) => (
-          <p class="run-pool-provenance" role="status">
-            Server-selected pool item {selection().itemNumber} of {selection().itemCount} for this
-            Assignment Attempt.
+          <p class="assignment-attempt-question-pool-selection" role="status">
+            Server-selected Question Pool item {selection().itemNumber} of {selection().itemCount}{" "}
+            for this Assignment Attempt.
           </p>
         )}
       </Show>
@@ -669,7 +680,7 @@ function AttemptExperience(props: {
                           fallback={<p class="loading-state">Restoring your saved response...</p>}
                         >
                           {(attemptId) => (
-                            <ResponseWidget
+                            <QuestionResponseControl
                               attemptId={attemptId}
                               definition={currentEnvelope().response}
                               initialResponse={currentState()?.response ?? undefined}
@@ -697,7 +708,7 @@ function AttemptExperience(props: {
                         <section class="attempt-pending" aria-labelledby="grading-status-heading">
                           <h2 id="grading-status-heading">Response received</h2>
                           <p>
-                            {pending().acknowledgement.automatedGradingStatus === "pending"
+                            {pending().acknowledgement.gradingState === "pending"
                               ? "Grading is underway. You do not need to submit your response again."
                               : "Your response needs instructor attention. You do not need to submit it again."}
                           </p>

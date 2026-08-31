@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     AdoptBlueprintAssignmentCompleted, AdoptBlueprintAssignmentPreviewRequest,
-    AdoptBlueprintAssignmentPreviewView, ControlledUpdateBlueprintAssignmentCompleted,
-    ControlledUpdateBlueprintAssignmentPreview, ControlledUpdateBlueprintAssignmentPreviewRequest,
-    CreateSelectedBlueprintAssignmentCompleted, CreateSelectedBlueprintAssignmentPreview,
-    CreateSelectedBlueprintAssignmentPreviewRequest, CurriculumAdoptionIdempotencyKey,
+    AdoptBlueprintAssignmentPreviewView, BlueprintOperationRetryToken,
+    ControlledUpdateBlueprintAssignmentCompleted, ControlledUpdateBlueprintAssignmentPreview,
+    ControlledUpdateBlueprintAssignmentPreviewRequest, CreateSelectedBlueprintAssignmentCompleted,
+    CreateSelectedBlueprintAssignmentPreview, CreateSelectedBlueprintAssignmentPreviewRequest,
     ForkBlueprintCourseCompleted, ForkBlueprintCoursePreviewRequest,
     ForkBlueprintCoursePreviewView, InstantiateBlueprintCourseCompleted,
     InstantiateBlueprintCoursePreviewRequest, InstantiateBlueprintCoursePreviewView,
@@ -115,7 +115,7 @@ pub enum CurriculumAdoptionCompleted {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CurriculumAdoptionApplyIntent {
     pub request: CurriculumAdoptionPreviewRequest,
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
+    pub idempotency_key: BlueprintOperationRetryToken,
 }
 
 #[cfg(test)]
@@ -126,11 +126,11 @@ mod tests {
     fn fork_request() -> CurriculumAdoptionPreviewRequest {
         CurriculumAdoptionPreviewRequest::ForkBlueprintCourse {
             request: ForkBlueprintCoursePreviewRequest {
-                source: super::super::ObservedBlueprintSource {
+                source: super::super::BlueprintRevisionReference {
                     reference: BlueprintCourseReference::new(7).expect("blueprint"),
                     revision: BlueprintRevision::new(2).expect("revision"),
                 },
-                replacements: super::super::CurriculumPinReplacements::default(),
+                replacements: super::super::QuestionVersionSubstitutions::default(),
             },
         }
     }
@@ -139,7 +139,7 @@ mod tests {
     fn apply_intent_is_strict_snake_case_and_carries_only_a_request() {
         let intent = CurriculumAdoptionApplyIntent {
             request: fork_request(),
-            idempotency_key: CurriculumAdoptionIdempotencyKey::parse("fork-apply")
+            idempotency_key: BlueprintOperationRetryToken::parse("fork-apply")
                 .expect("idempotency key"),
         };
         let wire = serde_json::to_value(&intent).expect("intent serializes");

@@ -165,14 +165,14 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
   together. Each migrated PLE boundary accepts snake and rejects retired camel/unknown input.
 - Fixed package scope:
 
-| Package | Atomic child families                                                                                                                                             |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1      | Calculated Gradebook, Student/operation selection, submitted-run chooser, audited detail, roster, roster import, roster score CSV export                          |
-| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                     |
-| C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                        |
+| Package | Atomic child families                                                                                                                                                                                       |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1      | Calculated Gradebook, Student/operation selection, submitted-run chooser, audited detail, roster, roster import, roster score CSV export                                                                    |
+| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                               |
+| C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                                                                  |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; flat assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
-| C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                             |
-| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                  |
+| C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                       |
+| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                            |
 
 The [implementation status registry](../implementation_status.md) is the current route-by-route
 authority. No C7 is created.

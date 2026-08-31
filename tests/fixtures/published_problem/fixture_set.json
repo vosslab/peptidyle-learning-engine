@@ -10,14 +10,11 @@
       "clientRendering",
       "serverGrading",
       "hints",
-      "perQuestionTiming"
+      "questionAttemptTimeLimit"
     ],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -31,9 +28,7 @@
       "language": "en-US"
     },
     "byline": {
-      "names": [
-        "Fixture Instructor"
-      ]
+      "names": ["Fixture Instructor"]
     },
     "availability": {
       "availability": "available"
@@ -106,11 +101,11 @@
         "kind": "exactlyOne"
       }
     },
-    "attemptPolicy": {
+    "questionAttemptLimit": {
       "maxAttempts": null
     },
-    "timingPolicy": {
-      "kind": "untimed"
+    "questionAttemptTimeLimit": {
+      "kind": "unlimited"
     },
     "randomization": {
       "kind": "seeded",
@@ -121,24 +116,17 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": [
-            "glycine",
-            "alanine",
-            "proline"
-          ]
+          "options": ["glycine", "alanine", "proline"]
         }
       }
     },
     "grading": {
       "mode": "allOrNothing",
-      "points": 1.0
+      "points": 1
     },
     "metadata": {
       "title": "Peptide bond resonance and planarity",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -216,11 +204,11 @@
         "kind": "exactlyOne"
       }
     },
-    "attemptPolicy": {
+    "questionAttemptLimit": {
       "maxAttempts": null
     },
-    "timingPolicy": {
-      "kind": "untimed"
+    "questionAttemptTimeLimit": {
+      "kind": "unlimited"
     },
     "randomization": {
       "kind": "seeded",
@@ -231,24 +219,17 @@
       "parameters": {
         "residue": {
           "kind": "choice",
-          "options": [
-            "glycine",
-            "alanine",
-            "proline"
-          ]
+          "options": ["glycine", "alanine", "proline"]
         }
       }
     },
     "grading": {
       "mode": "allOrNothing",
-      "points": 1.0
+      "points": 1
     },
     "metadata": {
       "title": "Draft: peptide resonance wording revision",
-      "tags": [
-        "biochemistry",
-        "protein-structure"
-      ],
+      "tags": ["biochemistry", "protein-structure"],
       "taxonomy": [
         {
           "scheme": "Peptidyle",
@@ -306,11 +287,11 @@
           "clientRendering",
           "serverGrading",
           "hints",
-          "perQuestionTiming"
+          "questionAttemptTimeLimit"
         ],
         "pointsPossible": "1",
-        "deliveryState": "active",
-        "scoringMode": "normal"
+        "availability": "available",
+        "scoringRule": "normal"
       }
     ],
     "disclosurePolicy": {
@@ -320,15 +301,26 @@
       "solution": "after_submit",
       "class_statistics": "never"
     },
+    "studentFeedbackReleaseRule": {
+      "score": "after_submit",
+      "per_item_correctness": "after_submit",
+      "feedback_text": "after_submit",
+      "solution": "after_submit",
+      "class_statistics": "never"
+    },
     "policies": {
-      "completion": {
+      "assignmentCompletionRule": {
         "kind": "allCorrect"
       },
-      "grade": "highest",
-      "continuedPractice": {
+      "assignmentAttemptGradeRule": "highest",
+      "assignmentAttemptContinuationRule": {
         "kind": "unlimited"
       },
-      "variation": "newSeeds"
+      "questionVariationRule": "reuseQuestionsWithNewSeeds",
+      "assignmentAttemptResumeRule": "resumable",
+      "assignmentQuestionDisplayRule": "allQuestions",
+      "assignmentNavigationRule": "freeNavigation",
+      "assignmentQuestionOrderRule": "authoredOrder"
     }
   },
   "studentRecord": "0198e000-0000-7000-8000-000000000007",
@@ -341,8 +333,8 @@
       "attemptNumber": 1,
       "startedAt": 1786000001000,
       "completedAt": 1786000001300,
-      "score": 0.0,
-      "variation": "newSeeds"
+      "score": 0,
+      "questionVariationRule": "reuseQuestionsWithNewSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
@@ -352,8 +344,8 @@
       "attemptNumber": 2,
       "startedAt": 1786000002000,
       "completedAt": 1786000002300,
-      "score": 1.0,
-      "variation": "newSeeds"
+      "score": 1,
+      "questionVariationRule": "reuseQuestionsWithNewSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
@@ -363,8 +355,8 @@
       "attemptNumber": 3,
       "startedAt": 1786000003000,
       "completedAt": 1786000003300,
-      "score": 0.0,
-      "variation": "newSeeds"
+      "score": 0,
+      "questionVariationRule": "reuseQuestionsWithNewSeeds"
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
@@ -375,7 +367,7 @@
       "startedAt": 1786000004000,
       "completedAt": null,
       "score": null,
-      "variation": "newSeeds"
+      "questionVariationRule": "reuseQuestionsWithNewSeeds"
     }
   ],
   "issuedQuestions": [
@@ -442,24 +434,13 @@
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
       "seed": 1001,
       "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
-      "response": {
-        "kind": "multipleChoice",
-        "selected": [
-          "carbonyl"
-        ]
-      },
-      "status": "submitted",
-      "result": {
-        "correct": false,
-        "pointsEarned": 0.0,
-        "pointsPossible": 1.0
-      },
+      "state": "submitted",
       "timing": {
         "issuedAt": 1786000001100,
         "deadline": null,
         "submittedAt": 1786000001200
       },
-      "provenance": {
+      "sourceRecord": {
         "adapter": {
           "id": "native-adapter",
           "version": "1"
@@ -469,7 +450,7 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": null,
+        "sourceObjectReference": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -478,33 +459,36 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "45fe08b539e1dd11a279de65d9b38c66cbb5dba94fe84201f20c9251563dde3a"
+        "renderedQuestionSha256": "7aaba0ea8b4270177ac57c865851adcb1993e0571402d39acb70c4f2a73895dc"
       },
-      "issuedCapability": "flatPresentation"
+      "issuedCapability": "flatPresentation",
+      "submission": {
+        "id": "0198e000-0000-7000-8000-000000000130",
+        "questionAttempt": "0198e000-0000-7000-8000-000000000030",
+        "response": {
+          "kind": "multipleChoice",
+          "selected": ["carbonyl"]
+        },
+        "submittedAt": 1786000001200,
+        "gradingResult": {
+          "correct": false,
+          "pointsEarned": 0,
+          "pointsPossible": 1
+        }
+      }
     },
     {
       "id": "0198e000-0000-7000-8000-000000000031",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
       "seed": 1002,
       "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
-      "response": {
-        "kind": "multipleChoice",
-        "selected": [
-          "amide"
-        ]
-      },
-      "status": "submitted",
-      "result": {
-        "correct": true,
-        "pointsEarned": 1.0,
-        "pointsPossible": 1.0
-      },
+      "state": "submitted",
       "timing": {
         "issuedAt": 1786000002100,
         "deadline": null,
         "submittedAt": 1786000002200
       },
-      "provenance": {
+      "sourceRecord": {
         "adapter": {
           "id": "native-adapter",
           "version": "1"
@@ -514,7 +498,7 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": null,
+        "sourceObjectReference": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -523,33 +507,36 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "3270f67ca0cdc26dd83cce69a5ee0cc676c92d3d7ff544b0b2683d3ccc633520"
+        "renderedQuestionSha256": "8f8d4a36b25098c7378f18638fc542f390012f94272d486ebe1b9b876bdcef39"
       },
-      "issuedCapability": "flatPresentation"
+      "issuedCapability": "flatPresentation",
+      "submission": {
+        "id": "0198e000-0000-7000-8000-000000000131",
+        "questionAttempt": "0198e000-0000-7000-8000-000000000031",
+        "response": {
+          "kind": "multipleChoice",
+          "selected": ["amide"]
+        },
+        "submittedAt": 1786000002200,
+        "gradingResult": {
+          "correct": true,
+          "pointsEarned": 1,
+          "pointsPossible": 1
+        }
+      }
     },
     {
       "id": "0198e000-0000-7000-8000-000000000032",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
       "seed": 1003,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
-      "response": {
-        "kind": "multipleChoice",
-        "selected": [
-          "carbonyl"
-        ]
-      },
-      "status": "submitted",
-      "result": {
-        "correct": false,
-        "pointsEarned": 0.0,
-        "pointsPossible": 1.0
-      },
+      "state": "submitted",
       "timing": {
         "issuedAt": 1786000003100,
         "deadline": null,
         "submittedAt": 1786000003200
       },
-      "provenance": {
+      "sourceRecord": {
         "adapter": {
           "id": "native-adapter",
           "version": "1"
@@ -559,7 +546,7 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": null,
+        "sourceObjectReference": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -568,24 +555,36 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "075fc0c4eecfba695b7ff627868a2beff07e5171937436ca8b26fd12726afe84"
+        "renderedQuestionSha256": "a4ac454999e8c60ae901804d6c137a6538df041a8eb5105825af9effa92b0b9c"
       },
-      "issuedCapability": "flatPresentation"
+      "issuedCapability": "flatPresentation",
+      "submission": {
+        "id": "0198e000-0000-7000-8000-000000000132",
+        "questionAttempt": "0198e000-0000-7000-8000-000000000032",
+        "response": {
+          "kind": "multipleChoice",
+          "selected": ["carbonyl"]
+        },
+        "submittedAt": 1786000003200,
+        "gradingResult": {
+          "correct": false,
+          "pointsEarned": 0,
+          "pointsPossible": 1
+        }
+      }
     },
     {
       "id": "0198e000-0000-7000-8000-000000000033",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000043",
       "seed": 1004,
       "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
-      "response": null,
-      "status": "in_progress",
-      "result": null,
+      "state": "open",
       "timing": {
         "issuedAt": 1786000004100,
         "deadline": null,
         "submittedAt": null
       },
-      "provenance": {
+      "sourceRecord": {
         "adapter": {
           "id": "native-adapter",
           "version": "1"
@@ -595,7 +594,7 @@
           "id": "peptide-bond-choice",
           "version": "1"
         },
-        "sourceArtifact": null,
+        "sourceObjectReference": null,
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -604,17 +603,18 @@
           "id": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "4182fda72bfa6bfc9b8b6789ee17811607b3d2ce9063f89b101208f70bb8c9bf"
+        "renderedQuestionSha256": "85bd4379baeba8cc65deb814c89635155db80786715f3f65fd1cdc33f3dc729d"
       },
-      "issuedCapability": "flatPresentation"
+      "issuedCapability": "flatPresentation",
+      "submission": null
     }
   ],
   "summary": {
     "studentRecord": "0198e000-0000-7000-8000-000000000007",
     "assignment": "0198e000-0000-7000-8000-000000000006",
-    "currentScore": 1.0,
-    "bestScore": 1.0,
-    "latestScore": 0.0,
+    "currentScore": 1,
+    "bestScore": 1,
+    "latestScore": 0,
     "completedAssignmentAttemptCount": 3,
     "totalQuestionAttempts": 4,
     "lastActivityAt": 1786000004100
@@ -629,9 +629,9 @@
       "summary": {
         "studentRecord": "0198e000-0000-7000-8000-000000000007",
         "assignment": "0198e000-0000-7000-8000-000000000006",
-        "currentScore": 1.0,
-        "bestScore": 1.0,
-        "latestScore": 0.0,
+        "currentScore": 1,
+        "bestScore": 1,
+        "latestScore": 0,
         "completedAssignmentAttemptCount": 3,
         "totalQuestionAttempts": 4,
         "lastActivityAt": 1786000004100

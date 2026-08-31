@@ -8,8 +8,8 @@ import pytest
 
 import local_stack_control.cleanup
 import local_stack_control.compose
-import local_stack_control.consumer
-import local_stack_control._consumer_cli
+import local_stack_control.disposable_stack_adapter
+import local_stack_control.disposable_stack_command
 import local_stack_control.live_demo_gateway
 import local_stack_control.lifecycle
 import local_stack_control.models
@@ -220,20 +220,20 @@ def test_live_demo_browser_owns_only_typed_tls_launch_and_evidence_receipts(
 ) -> None:
 	"""TLS behavior and bounded renderer evidence follow the closed owner identity."""
 	selected = disposable(tmp_path)
-	options = local_stack_control.consumer.lifecycle_options(selected, 240)
+	options = local_stack_control.disposable_stack_adapter.lifecycle_options(selected, 240)
 	assert options.build and not options.open_browser
-	assert local_stack_control.consumer.owned_project_images(selected) == (
+	assert local_stack_control.disposable_stack_adapter.owned_project_images(selected) == (
 		"localhost/ple-live-demo-browser_gateway:latest",
 	)
-	profile = local_stack_control.consumer.live_demo_profile_policy(selected)
+	profile = local_stack_control.disposable_stack_adapter.live_demo_profile_policy(selected)
 	assert profile.evidence_log_services == (("renderer_delivery", "api"),)
-	argv, environment = local_stack_control.consumer.evidence_log_command(
+	argv, environment = local_stack_control.disposable_stack_adapter.evidence_log_command(
 		selected, "renderer_delivery", evidence_snapshot(selected, "api")
 	)
 	assert argv[-1] == "a" * 64
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 	with pytest.raises(local_stack_control.models.ControllerError, match="generic Compose"):
-		local_stack_control.consumer.compose_command(selected, ["exec", "api", "env"])
+		local_stack_control.disposable_stack_adapter.compose_command(selected, ["exec", "api", "env"])
 
 
 #============================================
@@ -242,12 +242,12 @@ def test_database_baseline_profile_allows_only_its_postgres_oracle_commands(
 ) -> None:
 	"""The PostgreSQL-only profile cannot become an arbitrary fixed-stack shell."""
 	selected = database_baseline_disposable(tmp_path)
-	argv, environment = local_stack_control.consumer.compose_command(
+	argv, environment = local_stack_control.disposable_stack_adapter.compose_command(
 		selected, ["up", "-d", "postgres"]
 	)
 	assert argv[-3:] == ["up", "-d", "postgres"]
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
-	argv, _ = local_stack_control.consumer.compose_command(
+	argv, _ = local_stack_control.disposable_stack_adapter.compose_command(
 		selected, ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
 	)
 	assert argv[-8:] == ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
@@ -258,7 +258,7 @@ def test_database_baseline_profile_allows_only_its_postgres_oracle_commands(
 		["exec", "-T", "postgres", "sh"],
 	):
 		with pytest.raises(local_stack_control.models.ControllerError, match="database baseline Compose"):
-			local_stack_control.consumer.compose_command(selected, arguments)
+			local_stack_control.disposable_stack_adapter.compose_command(selected, arguments)
 
 
 #============================================
@@ -274,7 +274,7 @@ def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
 		["run", "--rm", "createbuckets"],
 		["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"],
 	):
-		argv, environment = local_stack_control.consumer.compose_command(selected, list(arguments))
+		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))
 		assert argv[-len(arguments):] == list(arguments)
 		assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 	for arguments in (
@@ -284,7 +284,7 @@ def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
 		["exec", "-T", "api", "env"],
 	):
 		with pytest.raises(local_stack_control.models.ControllerError, match="cross-store Compose"):
-			local_stack_control.consumer.compose_command(selected, list(arguments))
+			local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))
 
 
 #============================================
@@ -383,16 +383,16 @@ def test_live_demo_renderer_claim_resolves_api_and_rejects_a_worker_snapshot(
 ) -> None:
 	"""A renderer receipt cannot silently read the worker's unrelated evidence stream."""
 	selected = disposable(tmp_path)
-	argv, _environment = local_stack_control.consumer.evidence_log_command(
+	argv, _environment = local_stack_control.disposable_stack_adapter.evidence_log_command(
 		selected, "renderer_delivery", evidence_snapshot(selected, "api")
 	)
 	assert argv[:4] == ["podman", "logs", "--tail", "5000"]
 	with pytest.raises(local_stack_control.models.ControllerError, match="exactly one"):
-		local_stack_control.consumer.evidence_log_command(
+		local_stack_control.disposable_stack_adapter.evidence_log_command(
 			selected, "renderer_delivery", evidence_snapshot(selected, "worker")
 		)
 	with pytest.raises(local_stack_control.models.ControllerError, match="requested evidence"):
-		local_stack_control.consumer.evidence_log_command(
+		local_stack_control.disposable_stack_adapter.evidence_log_command(
 			selected, "provider_source", evidence_snapshot(selected, "worker")
 		)
 
@@ -401,12 +401,12 @@ def test_live_demo_renderer_claim_resolves_api_and_rejects_a_worker_snapshot(
 def test_evidence_log_cli_accepts_only_closed_receipt_claims(tmp_path: pathlib.Path) -> None:
 	"""The adapter exposes typed claims rather than a generic service selector."""
 	manifest = tmp_path / "disposable.manifest"
-	args = local_stack_control._consumer_cli.parse_args([
+	args = local_stack_control.disposable_stack_command.parse_args([
 		"read-evidence-logs", "--manifest", str(manifest), "--claim", "renderer_delivery",
 	])
 	assert args.claim == "renderer_delivery"
 	with pytest.raises(SystemExit):
-		local_stack_control._consumer_cli.parse_args([
+		local_stack_control.disposable_stack_command.parse_args([
 			"read-evidence-logs", "--manifest", str(manifest), "--claim", "api",
 		])
 

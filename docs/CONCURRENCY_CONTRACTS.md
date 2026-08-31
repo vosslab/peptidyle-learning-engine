@@ -46,15 +46,15 @@ PostgreSQL metadata to bytes. The browser can retry an authenticated request, wh
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
-| State or decision                      | Authoritative owner                                         | Status          | Main implementation owner                                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Account identity and row access       | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state | Revisioned PostgreSQL rows                                  | Deferred SD1-C/D | Store-backed authoring and course composition |
-| Student submission outcome             | Attempt-scoped idempotency and append-only evidence         | Deferred SD1-C/D | Store-backed Student delivery composition |
-| Background work ownership              | PostgreSQL job row plus opaque lease token                  | Deferred SD1-C/D | Store-backed job composition |
-| Current analytic projection            | Assignment/timing generation plus an active lease           | Deferred SD1-C/D | Store-backed scoring and analysis composition |
-| Published Question Version             | Immutable version rows created from an exact draft revision | Deferred SD1-C/D | Store-backed published-Question composition |
-| Cross-system object inventory repair   | Database/object-store reconciliation job                    | Planned, WP-RC7 | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                           |
+| State or decision                      | Authoritative owner                                             | Status           | Main implementation owner                                                                                                                             |
+| -------------------------------------- | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity and row access        | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented      | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Mutable authoring and assignment state | Revisioned PostgreSQL rows                                      | Deferred SD1-C/D | Store-backed authoring and course composition                                                                                                         |
+| Student submission outcome             | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
+| Background work ownership              | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
+| Current analytic projection            | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
+| Published Question Version             | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
+| Cross-system object inventory repair   | Database/object-store reconciliation job                        | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
 
 ## Account-scoped transactions and retries
 
@@ -157,9 +157,9 @@ submission or grading attempt.
 
 | Situation                                                  | Required result                                                                                   | Implemented owner                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Client times out after submission reaches PLE              | Retry with the same key; return the stored receipt/outcome                                        | Deferred Student delivery Store |
-| Two replicas receive the same submission                   | One durable receipt wins; the other converges on the same receipt or conflicts on differing input | Deferred Student delivery Store |
-| Same attempt, different request/key/fingerprint            | Conflict; never overwrite response evidence                                                       | Deferred Student delivery Store |
+| Client times out after submission reaches PLE              | Retry with the same key; return the stored receipt/outcome                                        | Deferred Student delivery Store                                            |
+| Two replicas receive the same submission                   | One durable receipt wins; the other converges on the same receipt or conflicts on differing input | Deferred Student delivery Store                                            |
+| Same attempt, different request/key/fingerprint            | Conflict; never overwrite response evidence                                                       | Deferred Student delivery Store                                            |
 | Retry after a server-side failure before a receipt commits | No final submission exists; ordinary retry rules apply                                            | [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
 
 ### Predecessor and successor receipt

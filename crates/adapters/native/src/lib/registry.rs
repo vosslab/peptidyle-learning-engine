@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use domain::generator::GeneratedVariant;
-use grading::{GradeOutcome, GradingError, grade};
+use grading::{GradingError, QuestionGradingOutcome, grade};
 use question_model::generation::GeneratorReference;
 use question_model::{
     ImplementationVersion, QuestionDefinition, QuestionFormat, QuestionType, StudentResponse,
@@ -35,7 +35,7 @@ impl NativeExecution {
         question: &QuestionDefinition,
         response: &StudentResponse,
         answer_key: Option<&grading::AnswerKey>,
-    ) -> Result<GradeOutcome, GradingError> {
+    ) -> Result<QuestionGradingOutcome, GradingError> {
         match self {
             Self::V1 => grade(question, response, answer_key),
         }

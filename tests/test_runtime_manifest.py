@@ -8,7 +8,7 @@ import stat
 
 import pytest
 
-import local_stack_control.consumer
+import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.models
 import local_stack_control.runtime_manifest
@@ -225,7 +225,7 @@ def test_compose_command_revalidates_its_admin_password_source(tmp_path: pathlib
 	runtime.admin_password_path.write_text("y" * 32 + "\n", encoding="ascii")
 	runtime.admin_password_path.chmod(0o600)
 	with pytest.raises(local_stack_control.models.ControllerError, match="postgres admin password"):
-		local_stack_control.consumer.compose_command(disposable, ["up", "-d", "postgres"])
+		local_stack_control.disposable_stack_adapter.compose_command(disposable, ["up", "-d", "postgres"])
 
 
 #============================================
@@ -264,7 +264,7 @@ def test_opened_secrets_directory_cannot_be_redirected_by_a_pathname_swap(
 def test_consumer_forms_database_target_from_the_runtime_manifest(tmp_path: pathlib.Path) -> None:
 	"""The Compose adapter derives target authority from closed runtime YAML only."""
 	runtime = generated_runtime(tmp_path)
-	manifest = local_stack_control.consumer.load_manifest(tmp_path, runtime.manifest_path)
+	manifest = local_stack_control.disposable_stack_adapter.load_manifest(tmp_path, runtime.manifest_path)
 	assert manifest.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 	assert manifest.project == local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	assert manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE
@@ -276,7 +276,7 @@ def test_consumer_forms_database_target_from_the_runtime_manifest(tmp_path: path
 def test_consumer_forms_cross_store_target_from_the_runtime_manifest(tmp_path: pathlib.Path) -> None:
 	"""The child receives a closed fixed-owner profile, never a caller-selected target."""
 	runtime = generated_cross_store_runtime(tmp_path)
-	manifest = local_stack_control.consumer.load_manifest(tmp_path, runtime.manifest_path)
+	manifest = local_stack_control.disposable_stack_adapter.load_manifest(tmp_path, runtime.manifest_path)
 	assert manifest.owner == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
 	assert manifest.project == local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
 	assert (

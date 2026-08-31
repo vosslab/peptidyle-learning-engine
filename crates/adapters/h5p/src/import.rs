@@ -13,13 +13,13 @@ use std::fmt;
 
 use async_trait::async_trait;
 use question_model::ObjectId;
-use question_model::answer::SelectionCardinality;
-use question_model::capability::{BackendCapabilities, Capability};
+use question_model::answer::ResponseSelectionRule;
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::definition::{GradingDefinition, QuestionMetadata, QuestionSource};
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
 use sha2::{Digest, Sha256};
 
 /// Version of the persisted H5P import record schema.
@@ -166,7 +166,7 @@ pub struct H5pUnsupportedFeature {
 pub struct H5pImportRequest {
     /// Remote source retained for deterministic re-import.
     pub source: H5pSourceReference,
-    /// Browser-safe catalog metadata.
+    /// Browser-safe Question Library metadata.
     pub metadata: QuestionMetadata,
     /// Prompt in restricted Markdown.
     pub prompt_markdown: String,
@@ -177,18 +177,18 @@ pub struct H5pImportRequest {
     /// refusal rather than being silently discarded.
     pub unsupported_features: Vec<H5pUnsupportedFeature>,
     /// Practice retry policy.
-    pub attempt_policy: AttemptPolicy,
+    pub question_attempt_limit: QuestionAttemptLimit,
     /// Timing policy requested by the source.
     ///
     /// Native H5P timing is not claimed by this adapter, so any timed request
     /// is rejected explicitly rather than silently downgraded.
-    pub timing_policy: TimingPolicy,
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// A converted, unpublished H5P sandbox draft.
 ///
 /// This intentionally is not [`QuestionDefinition`]: an H5P import has no
-/// published problem or version identity.  The catalog's publish transition
+/// published problem or version identity.  The Question Library's publication transition
 /// owns that identity assignment, preserving the invariant that sandbox
 /// imports cannot masquerade as immutable published content.
 #[derive(Debug, Clone, PartialEq)]
@@ -204,9 +204,9 @@ pub struct ImportedH5pQuestion {
     /// Response shape, without a correct answer.
     pub response: QuestionResponseFormat,
     /// Practice retry behavior.
-    pub attempt_policy: AttemptPolicy,
+    pub question_attempt_limit: QuestionAttemptLimit,
     /// The only timing policy currently supported by the adapter.
-    pub timing_policy: TimingPolicy,
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// H5P imports are static until a server-owned generator is selected.
     pub randomization: RandomizationDefinition,
     /// Always `Ungraded` for native H5P practice.
@@ -225,11 +225,11 @@ pub struct H5pImporter;
 impl H5pImporter {
     /// Native H5P capabilities.
     ///
-    /// `serverGrading` is absent by design.  `perQuestionTiming`, export,
+    /// `serverGrading` is absent by design.  `questionAttemptTimeLimit`, export,
     /// offline operation, hints, partial credit, and parameter generation are
     /// likewise not promised by this initial supported conversion.
-    pub fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::from_iter([Capability::ClientRendering])
+    pub fn capabilities(&self) -> QuestionBackendCapabilities {
+        QuestionBackendCapabilities::from_iter([Capability::ClientRendering])
     }
 
     /// Converts one supported H5P activity into a key-free internal question.
@@ -248,7 +248,10 @@ impl H5pImporter {
                 request.unsupported_features,
             ));
         }
-        if !matches!(request.timing_policy, TimingPolicy::Untimed) {
+        if !matches!(
+            request.question_attempt_time_limit,
+            QuestionAttemptTimeLimit::Unlimited
+        ) {
             return Err(H5pImportError::UnsupportedTiming);
         }
         if request.prompt_markdown.trim().is_empty() {
@@ -268,10 +271,10 @@ impl H5pImporter {
             }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices,
-                selection: SelectionCardinality::ExactlyOne,
+                selection: ResponseSelectionRule::ExactlyOne,
             },
-            attempt_policy: request.attempt_policy,
-            timing_policy: TimingPolicy::Untimed,
+            question_attempt_limit: request.question_attempt_limit,
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::Ungraded,
             metadata: request.metadata,
@@ -511,7 +514,7 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<ChoiceOption>, H5pIm
                 return Err(H5pImportError::EmptyChoiceBody(choice.id));
             }
             Ok(ChoiceOption {
-                id: ChoiceId::new(choice.id),
+                id: ResponseItemReference::new(choice.id),
                 body: vec![ContentBlock::Text {
                     markdown: choice.markdown,
                 }],
@@ -523,10 +526,10 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<ChoiceOption>, H5pIm
 #[cfg(test)]
 mod tests {
     use super::*;
+    use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::capability::Capability;
     use question_model::definition::{GradingDefinition, QuestionSource};
     use question_model::envelope::ContentBlock;
-    use question_model::assignment_activity_rules::TimingPolicy;
     use question_model::taxonomy::License;
     use uuid::Uuid;
 
@@ -575,8 +578,8 @@ mod tests {
                 },
             ],
             unsupported_features: Vec::new(),
-            attempt_policy: AttemptPolicy { max_attempts: None },
-            timing_policy: TimingPolicy::Untimed,
+            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         }
     }
 
@@ -592,7 +595,7 @@ mod tests {
                 Capability::ServerGrading,
                 Capability::PartialCredit,
                 Capability::Hints,
-                Capability::PerQuestionTiming,
+                Capability::QuestionAttemptTimeLimit,
                 Capability::PrintExport,
                 Capability::OfflinePreview,
             ]
@@ -613,7 +616,10 @@ mod tests {
         assert_eq!(imported.grading, GradingDefinition::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
         assert_eq!(imported.source_reference, request().source);
-        assert_eq!(imported.timing_policy, TimingPolicy::Untimed);
+        assert_eq!(
+            imported.question_attempt_time_limit,
+            QuestionAttemptTimeLimit::Unlimited
+        );
         assert!(matches!(
             imported.prompt.as_slice(),
             [ContentBlock::Text { markdown }] if markdown == "Which linkage joins amino acids?"
@@ -621,7 +627,7 @@ mod tests {
         assert!(matches!(
             imported.response,
             QuestionResponseFormat::MultipleChoice {
-                selection: SelectionCardinality::ExactlyOne,
+                selection: ResponseSelectionRule::ExactlyOne,
                 ..
             }
         ));
@@ -726,7 +732,7 @@ mod tests {
         );
 
         let mut timed = request();
-        timed.timing_policy = TimingPolicy::PerQuestion {
+        timed.question_attempt_time_limit = QuestionAttemptTimeLimit::Limited {
             seconds: 30,
             grace_seconds: 2,
         };

@@ -1,6 +1,6 @@
 //! Server-only WeBWorK grading composition.
 
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 use question_model::generation::Seed;
 use question_model::{Capability, QuestionDefinition, StudentResponse};
 
@@ -15,10 +15,10 @@ pub(super) async fn grade<R: WebworkRenderer>(
     source: &WebworkSource,
     response: &StudentResponse,
     replay: &WebworkReplayMappingV1,
-) -> Result<GradeOutcome, WebworkAdapterError> {
-    let (question_version, pg_path) = crate::artifact::webwork_identity(question)?;
-    crate::artifact::verify_source(source)?;
-    crate::artifact::verify_source_binding(source, &question_version)?;
+) -> Result<QuestionGradingOutcome, WebworkAdapterError> {
+    let (question_version, pg_path) = crate::source_object_reference::webwork_identity(question)?;
+    crate::source_object_reference::verify_source(source)?;
+    crate::source_object_reference::verify_source_binding(source, &question_version)?;
     let (points_possible, partial_credit) = match question.grading {
         question_model::GradingDefinition::AllOrNothing { points }
             if points.is_finite() && points >= 0.0 =>
@@ -30,7 +30,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
                 && points >= 0.0
                 && crate::reviewed_webwork_source_capabilities(
                     &question.source,
-                    &source.artifact.sha256,
+                    &source.source_object_reference.sha256,
                 )?
                 .supports(Capability::PartialCredit) =>
         {
@@ -41,7 +41,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
                 "WeBWorK partial credit requires an accepted source profile".to_string(),
             ));
         }
-        question_model::GradingDefinition::Ungraded => return Ok(GradeOutcome::Ungraded),
+        question_model::GradingDefinition::Ungraded => return Ok(QuestionGradingOutcome::Ungraded),
         _ => {
             return Err(WebworkAdapterError::InvalidRendererEnvelope(
                 "WeBWorK grading requires finite nonnegative points".to_string(),

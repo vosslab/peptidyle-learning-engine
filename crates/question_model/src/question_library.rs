@@ -1,31 +1,31 @@
-//! Browser-safe shared-catalog metadata (MOD-API-CAT).
+//! Browser-safe shared Question Library metadata (MOD-API-CAT).
 
 use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::{License, Tag, TaxonomyTerm};
 use crate::{
-    ActivityTimestamp, BackendCapabilities, CourseInstanceReference, DraftQuestionSource, QuestionMetadata,
-    QuestionSource, QuestionVersionNumber,
+    ActivityTimestamp, CourseInstanceReference, DraftQuestionSource, QuestionBackendCapabilities,
+    QuestionMetadata, QuestionSource, QuestionVersionNumber,
 };
 
 pub use crate::question_search::{
-    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBylineFacet,
-    QuestionSearchCapabilityFacet, QuestionStatisticsAvailability,
-    QuestionStatisticsAvailabilityFacet, QuestionSearchLicenseFacet, QuestionSearchLicense,
-    QuestionTypeFacet, QuestionSearchFacets, QuestionSearchFilter,
-    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
-    QuestionSearchTaxonomyFacet, QuestionSearchTaxonomyFilter, QuestionSearchCourseUse,
-    QuestionSearchCourseUseFacet,
-    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_BYLINE_FACETS, MAX_QUESTION_SEARCH_BYLINE_FILTERS,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
-    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_BYLINE_FACETS,
+    MAX_QUESTION_SEARCH_BYLINE_FILTERS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorship, QuestionSearchBackendFacet,
+    QuestionSearchBylineFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
+    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter,
+    QuestionSearchLicense, QuestionSearchLicenseFacet, QuestionSearchRequest,
+    QuestionSearchRequestError, QuestionSearchTagFacet, QuestionSearchTaxonomyFacet,
+    QuestionSearchTaxonomyFilter, QuestionStatisticsAvailability,
+    QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
 };
 pub use crate::response::QuestionType;
 
-/// Maximum taxonomy facet values returned with one bounded catalog page.
+/// Maximum taxonomy facet values returned with one bounded Question Search page.
 pub const MAX_QUESTION_SEARCH_TAXONOMY_FACETS: usize = 64;
 
-/// Maximum own-course rows included with one exact catalog usage detail.
+/// Maximum own-course rows included with one exact Question Library usage detail.
 ///
 /// The aggregate summary remains complete while the named course list stays a
 /// compact, visible decision aid rather than an unbounded course inventory.
@@ -179,12 +179,9 @@ pub enum QuestionVersionAvailability {
 }
 
 impl QuestionVersionAvailability {
-    /// Whether catalog browsing should include the immutable publication.
+    /// Whether Question Library browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
-        matches!(
-            self,
-            Self::Available | Self::Archived { .. }
-        )
+        matches!(self, Self::Available | Self::Archived { .. })
     }
 
     /// Whether this publication can create a new reference through ordinary selection.
@@ -246,7 +243,7 @@ impl QuestionBackend {
 impl From<&QuestionSource> for QuestionBackend {
     fn from(source: &QuestionSource) -> Self {
         match source {
-            QuestionSource::Native { .. } => Self::Native,
+            QuestionSource::Native => Self::Native,
             QuestionSource::Webwork { .. } => Self::Webwork,
             QuestionSource::Qti { .. } => Self::Qti,
             QuestionSource::H5p { .. } => Self::H5p,
@@ -258,7 +255,7 @@ impl From<&QuestionSource> for QuestionBackend {
 impl From<&DraftQuestionSource> for QuestionBackend {
     fn from(source: &DraftQuestionSource) -> Self {
         match source {
-            DraftQuestionSource::Native { .. } => Self::Native,
+            DraftQuestionSource::Native => Self::Native,
             DraftQuestionSource::Webwork { .. } => Self::Webwork,
             DraftQuestionSource::Qti { .. } => Self::Qti,
             DraftQuestionSource::H5p { .. } => Self::H5p,
@@ -267,7 +264,7 @@ impl From<&DraftQuestionSource> for QuestionBackend {
     }
 }
 
-/// Hot catalog metadata returned by browse endpoints without loading payloads.
+/// Question Library summary metadata returned by browse endpoints without loading payloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSummary {
@@ -278,7 +275,7 @@ pub struct QuestionSummary {
     /// Immutable browser-safe Question Type derived at publication time.
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
-    pub capabilities: BackendCapabilities,
+    pub capabilities: QuestionBackendCapabilities,
     /// Shared metadata used for title, taxonomy, license, and language facets.
     pub metadata: QuestionMetadata,
     /// Immutable reviewed publication attribution; never account authority.
@@ -344,12 +341,12 @@ pub enum QuestionStatistics {
     },
 }
 
-/// One context-free search item. Search results contain immutable catalog
+/// One context-free search item. Search results contain immutable Question Library
 /// metadata and anonymous discovery evidence only.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchResult {
-    /// Exact immutable hot catalog metadata.
+    /// Exact immutable Question Library summary metadata.
     pub summary: QuestionSummary,
     /// Decomposed anonymous evidence suitable for search discovery.
     pub evidence: QuestionStatistics,
@@ -397,7 +394,7 @@ pub struct QuestionUseDetails {
     pub own_courses_truncated: bool,
 }
 
-/// Bounded search page with aggregates from the same catalog snapshot.
+/// Bounded search page with aggregates from the same Question Search snapshot.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchPage {
@@ -409,7 +406,7 @@ pub struct QuestionSearchPage {
     pub facets: QuestionSearchFacets,
 }
 
-/// Safe immutable content projection for catalog detail.
+/// Safe immutable content projection for Question Library detail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -430,7 +427,7 @@ pub enum QuestionPromptProjection {
     },
 }
 
-/// Safe immutable content projection for catalog detail.
+/// Safe immutable content projection for Question Library detail.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionDetails {
@@ -550,7 +547,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_search_normalizes_equivalent_filters_and_bounds_hostile_input() {
+    fn question_search_normalizes_equivalent_filters_and_bounds_hostile_input() {
         let query = QuestionSearchRequest {
             text: Some("  Peptide\tBond  ".to_string()),
             bylines: vec![
@@ -583,10 +580,7 @@ mod tests {
         assert_eq!(query.bylines, vec!["dr. ada lovelace"]);
         assert_eq!(query.backends, vec![QuestionBackend::Native]);
         assert_eq!(query.tags, vec!["protein structure"]);
-        assert_eq!(
-            query.question_types,
-            vec![QuestionType::MultipleChoice]
-        );
+        assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.taxonomy.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.licenses, vec![QuestionSearchLicense::CcBy]);
@@ -601,13 +595,13 @@ mod tests {
     }
 
     #[test]
-    fn catalog_detail_wire_shape_has_no_source_or_grading_fields() {
+    fn question_library_detail_wire_shape_has_no_source_or_grading_fields() {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                 backend: QuestionBackend::Native,
                 question_type: QuestionType::MultipleChoice,
-                capabilities: BackendCapabilities::none(),
+                capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
                     title: "Safe detail".to_string(),
                     tags: Vec::new(),

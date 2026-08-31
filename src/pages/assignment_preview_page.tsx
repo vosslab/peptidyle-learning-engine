@@ -6,11 +6,11 @@ import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
-import type { PreviewScheduleProjection } from "../../generated/api/PreviewScheduleProjection";
+import type { EffectiveAssignmentPolicyView } from "../../generated/api/EffectiveAssignmentPolicyView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { CourseRouteData } from "../api/contracts";
 import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -48,13 +48,13 @@ function canonicalMoment(value: string): string {
 function safeModifierError(error: unknown): string {
   if (
     error instanceof Error &&
-    /^(Whole-run seconds|Attempt limit) (must be a positive whole number|is too large)\.$/u.test(
+    /^(Whole Assignment Attempt seconds|Attempt limit) (must be a positive whole number|is too large)\.$/u.test(
       error.message,
     )
   ) {
     return error.message;
   }
-  return "Enter valid whole-run seconds and attempt-limit values, or leave them blank.";
+  return "Enter valid whole Assignment Attempt seconds and attempt-limit values, or leave them blank.";
 }
 
 /** Assignment-editor ETags retain HTTP quotes; preview requests use the generated decimal revision. */
@@ -77,45 +77,45 @@ function timeValue(value: string | null): string {
 }
 
 function scheduleRows(
-  schedule: PreviewScheduleProjection,
+  effective_assignment_policy: EffectiveAssignmentPolicyView,
 ): ReadonlyArray<readonly [string, string, string]> {
   return [
-    ["Opens", timeValue(schedule.availableAt.value), titleCase(schedule.availableAt.source)],
-    ["Due", timeValue(schedule.dueAt.value), titleCase(schedule.dueAt.source)],
-    ["Closes", timeValue(schedule.closesAt.value), titleCase(schedule.closesAt.source)],
+    ["Opens", timeValue(effective_assignment_policy.availableAt.value), titleCase(effective_assignment_policy.availableAt.source)],
+    ["Due", timeValue(effective_assignment_policy.dueAt.value), titleCase(effective_assignment_policy.dueAt.source)],
+    ["Closes", timeValue(effective_assignment_policy.closesAt.value), titleCase(effective_assignment_policy.closesAt.source)],
     [
       "Time limit",
-      schedule.timeLimitSeconds.value === null
+      effective_assignment_policy.assignmentAttemptTimeLimitSeconds.value === null
         ? "No limit"
-        : `${schedule.timeLimitSeconds.value} seconds`,
-      titleCase(schedule.timeLimitSeconds.source),
+        : `${effective_assignment_policy.assignmentAttemptTimeLimitSeconds.value} seconds`,
+      titleCase(effective_assignment_policy.assignmentAttemptTimeLimitSeconds.source),
     ],
     [
       "Attempt limit",
-      schedule.attemptLimit.value === null ? "No limit" : String(schedule.attemptLimit.value),
-      titleCase(schedule.attemptLimit.source),
+      effective_assignment_policy.attemptLimit.value === null ? "No limit" : String(effective_assignment_policy.attemptLimit.value),
+      titleCase(effective_assignment_policy.attemptLimit.source),
     ],
     [
       "Late work",
-      titleCase(schedule.lateSubmission.value),
-      titleCase(schedule.lateSubmission.source),
+      titleCase(effective_assignment_policy.lateWorkRule.value),
+      titleCase(effective_assignment_policy.lateWorkRule.source),
     ],
     [
       "Deadline",
-      titleCase(schedule.deadlineBehavior.value),
-      titleCase(schedule.deadlineBehavior.source),
+      titleCase(effective_assignment_policy.assignmentDeadlineRule.value),
+      titleCase(effective_assignment_policy.assignmentDeadlineRule.source),
     ],
   ];
 }
 
 function ScheduleTable(props: {
-  readonly schedule: PreviewScheduleProjection;
+  readonly effective_assignment_policy: EffectiveAssignmentPolicyView;
   readonly label: string;
 }): JSX.Element {
   return (
-    <table class="preview-schedule-table" aria-label={props.label}>
+    <table class="preview-effective_assignment_policy-table" aria-label={props.label}>
       <tbody>
-        <For each={scheduleRows(props.schedule)}>
+        <For each={scheduleRows(props.effective_assignment_policy)}>
           {(row) => (
             <tr>
               <th scope="row">{row[0]}</th>
@@ -141,7 +141,7 @@ function PreviewResult(props: {
         <h2 id="preview-result-heading" ref={props.headingRef} tabIndex={-1}>
           Delivery check
         </h2>
-        <p role="alert">This hypothetical subject is not entitled to this assignment.</p>
+        <p role="alert">This hypothetical subject does not currently have access to this assignment.</p>
       </section>
     );
   }
@@ -154,19 +154,19 @@ function PreviewResult(props: {
         <section>
           <h3>Subject</h3>
           <p>
-            {titleCase(evaluation.subject.kind)} subject; entitlement:{" "}
-            {titleCase(evaluation.entitlement)}.
+            {titleCase(evaluation.student_view_scenario.kind)} subject; active_student_course_membership:{" "}
+            {titleCase(evaluation.active_student_course_membership)}.
           </p>
-          <p>This preview resolves the direct assignment policy without a group selector.</p>
+          <p>This preview resolves the direct Assignment policy without a roster partition.</p>
           <ScheduleTable
-            label="Resolved delivery schedule and source layers"
-            schedule={evaluation.schedule}
+            label="Resolved delivery effective_assignment_policy and source layers"
+            effective_assignment_policy={evaluation.effective_assignment_policy}
           />
         </section>
         <section>
           <h3>Disclosure</h3>
-          <ul class="preview-disclosure-list">
-            <For each={evaluation.disclosure}>
+          <ul class="preview-student_feedback_release-list">
+            <For each={evaluation.student_feedback_release}>
               {(projection) => (
                 <li>
                   <strong>{titleCase(projection.moment)}</strong>
@@ -193,11 +193,11 @@ function PreviewResult(props: {
             <div class="preview-before-after">
               <section>
                 <h4>Before</h4>
-                <ScheduleTable label="Delivery before accommodation" schedule={comparison.before} />
+                <ScheduleTable label="Delivery before accommodation" effective_assignment_policy={comparison.before} />
               </section>
               <section>
                 <h4>After</h4>
-                <ScheduleTable label="Delivery after accommodation" schedule={comparison.after} />
+                <ScheduleTable label="Delivery after accommodation" effective_assignment_policy={comparison.after} />
               </section>
             </div>
           </section>
@@ -209,7 +209,7 @@ function PreviewResult(props: {
 
 /** The page sends only public C-/A-/M- locators; all delivery facts come back from the server. */
 export function AssignmentPreviewPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const params = useParams();
   const routeData = useCourseThemeRouteData();
   const course = (): CourseRouteData["summary"] | undefined =>
@@ -220,7 +220,7 @@ export function AssignmentPreviewPage(): JSX.Element {
   };
   const [state, setState] = createSignal<PageState>("loading");
   const [revision, setRevision] = createSignal<TeachingOperationRevision>();
-  const [schedule, setSchedule] = createSignal<InstructorPreviewSchedulePage>();
+  const [effective_assignment_policy, setSchedule] = createSignal<InstructorPreviewSchedulePage>();
   const [cursor, setCursor] = createSignal<string>();
   const [builder, setBuilder] = createSignal<BuilderKind>("derived");
   const [membership, setMembership] = createSignal("");
@@ -293,11 +293,11 @@ export function AssignmentPreviewPage(): JSX.Element {
     }
   }
 
-  function updateModifierLimit(field: "timeLimitSeconds" | "attemptLimit", value: string): void {
-    if (field === "timeLimitSeconds") {
+  function updateModifierLimit(field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit", value: string): void {
+    if (field === "assignmentAttemptTimeLimitSeconds") {
       setModifierDraft((current) => ({
         ...current,
-        timeLimitSeconds: value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
+        assignmentAttemptTimeLimitSeconds: value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
       }));
       return;
     }
@@ -367,7 +367,7 @@ export function AssignmentPreviewPage(): JSX.Element {
         setResult(undefined);
         setNeedsReload(true);
         setMessage(
-          "This assignment changed elsewhere. Your hypothetical draft is preserved; reload the schedule, then retry.",
+          "This assignment changed elsewhere. Your hypothetical draft is preserved; reload the effective_assignment_policy, then retry.",
         );
       } else if (error instanceof TypeError || !navigator.onLine) {
         setMessage("Preview is unavailable while offline. Your hypothetical draft is preserved.");
@@ -407,7 +407,7 @@ export function AssignmentPreviewPage(): JSX.Element {
       </Show>
       <Switch>
         <Match when={state() === "loading"}>
-          <p role="status">Loading schedule inspection...</p>
+          <p role="status">Loading effective_assignment_policy inspection...</p>
         </Match>
         <Match when={state() === "offline"}>
           <button type="button" onClick={() => void load()}>
@@ -425,32 +425,34 @@ export function AssignmentPreviewPage(): JSX.Element {
         </Match>
         <Match when={state() === "ready"}>
           <div class="preview-workspace">
-            <section class="preview-panel" aria-labelledby="preview-schedule-heading">
-              <h2 id="preview-schedule-heading">Schedule and entitlement</h2>
+            <section class="preview-panel" aria-labelledby="preview-effective_assignment_policy-heading">
+              <h2 id="preview-effective_assignment_policy-heading">Schedule and active_student_course_membership</h2>
               <table class="preview-roster-table">
                 <thead>
                   <tr>
                     <th>Student</th>
-                    <th>Entitlement</th>
+                    <th>Assignment Access</th>
                     <th>Due</th>
                     <th>Source</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <For each={schedule()?.rows ?? []}>
+                  <For each={effective_assignment_policy()?.rows ?? []}>
                     {(row) => (
                       <tr>
                         <td>{row.display}</td>
                         <td>
-                          {row.kind === "granted" ? titleCase(row.entitlement) : "Not entitled"}
+                          {row.kind === "granted"
+                            ? titleCase(row.active_student_course_membership)
+                            : "No Assignment Access"}
                         </td>
                         <td>
                           {row.kind === "granted"
-                            ? timeValue(row.schedule.dueAt.value)
+                            ? timeValue(row.effective_assignment_policy.dueAt.value)
                             : "Withheld"}
                         </td>
                         <td>
-                          {row.kind === "granted" ? titleCase(row.schedule.dueAt.source) : "-"}
+                          {row.kind === "granted" ? titleCase(row.effective_assignment_policy.dueAt.source) : "-"}
                         </td>
                       </tr>
                     )}
@@ -459,7 +461,7 @@ export function AssignmentPreviewPage(): JSX.Element {
               </table>
               <Show when={cursor()}>
                 <button type="button" onClick={() => void load(cursor())}>
-                  Load next schedule page
+                  Load next effective_assignment_policy page
                 </button>
               </Show>
             </section>
@@ -507,8 +509,8 @@ export function AssignmentPreviewPage(): JSX.Element {
                         onInput={(event) => setMembership(event.currentTarget.value)}
                         required
                       >
-                        <option value="">Select a schedule row</option>
-                        <For each={schedule()?.rows ?? []}>
+                        <option value="">Select a effective_assignment_policy row</option>
+                        <For each={effective_assignment_policy()?.rows ?? []}>
                           {(row) => <option value={row.membership}>{row.display}</option>}
                         </For>
                       </select>
@@ -542,25 +544,25 @@ export function AssignmentPreviewPage(): JSX.Element {
                         <input
                           type="radio"
                           name="preview-modifier-mode"
-                          value="override"
-                          checked={modifierMode() === "override"}
-                          onInput={() => setModifierMode("override")}
+                          value="replace"
+                          checked={modifierMode() === "replace"}
+                          onInput={() => setModifierMode("replace")}
                         />{" "}
-                        Override
+                        Replace
                       </label>
                     </fieldset>
                     <label class="preview-field">
-                      Whole-run seconds
+                      Whole Assignment Attempt seconds
                       <input
                         type="number"
                         min="1"
                         step="1"
                         inputmode="numeric"
-                        value={modifierDraft().timeLimitSeconds.value}
+                        value={modifierDraft().assignmentAttemptTimeLimitSeconds.value}
                         aria-describedby="preview-modifier-help preview-modifier-error"
                         aria-invalid={modifierError().length > 0}
                         onInput={(event) =>
-                          updateModifierLimit("timeLimitSeconds", event.currentTarget.value)
+                          updateModifierLimit("assignmentAttemptTimeLimitSeconds", event.currentTarget.value)
                         }
                       />
                     </label>

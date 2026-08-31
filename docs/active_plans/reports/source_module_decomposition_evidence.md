@@ -44,9 +44,9 @@ document structure, or changelog rotation instead of capability-module limits.
 
 ### WP-SIZE4: browser
 
-- `src/components/responses/` now owns the multiple-choice, numeric, ordering, short-text,
-  file-upload, and shared response-family controllers; `response_widget/` owns only keyboard and
-  external-tool extensions behind the existing component export.
+- `src/components/question_response_controls/` owns the Question Response Control dispatcher, keyboard,
+  external-tool extension, and multiple-choice, numeric, ordering, short-text, file-upload, and shared
+  response-control implementations.
 - HTTP transport, errors, authentication, and bounded JSON handling moved behind `http_client.ts`.
 - Mock handler families now own shared, authentication, catalog, courses, runs, authoring, and asset
   behavior separately.

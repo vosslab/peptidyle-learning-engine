@@ -29,10 +29,10 @@
   },
   {
     "name": "question timer needs per-question timing",
-    "features": ["perQuestionTiming"],
+    "features": ["questionAttemptTimeLimit"],
     "requiredCapabilities": [],
     "supportedCapabilities": [],
-    "expectedViolations": ["perQuestionTiming"]
+    "expectedViolations": ["questionAttemptTimeLimit"]
   },
   {
     "name": "assignment delivery requirements apply to every question",
@@ -43,7 +43,7 @@
   },
   {
     "name": "validator returns every missing capability in declaration order",
-    "features": ["seeded", "partialCredit", "perQuestionTiming"],
+    "features": ["seeded", "partialCredit", "questionAttemptTimeLimit"],
     "requiredCapabilities": ["clientRendering", "hints", "printExport", "offlinePreview"],
     "supportedCapabilities": [],
     "expectedViolations": [
@@ -52,7 +52,7 @@
       "serverGrading",
       "partialCredit",
       "hints",
-      "perQuestionTiming",
+      "questionAttemptTimeLimit",
       "printExport",
       "offlinePreview"
     ]

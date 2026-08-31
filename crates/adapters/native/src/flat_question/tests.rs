@@ -1,7 +1,7 @@
 use super::*;
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 use question_model::response::{
-    ChoiceId, HotspotPoint, MatchPair, StudentResponse, TextEntryAnswer,
+    ResponseItemReference, StudentHotspotPoint, StudentMatch, StudentResponse, StudentTextEntry,
 };
 use question_model::{DraftQuestionSource, QuestionId, QuestionSource, QuestionVersionNumber};
 use serde_json::Value;
@@ -44,10 +44,10 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
                 "correctChoice": "b"
             }),
             StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("b")],
+                selected: vec![ResponseItemReference::new("b")],
             },
             StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("a")],
+                selected: vec![ResponseItemReference::new("a")],
             },
         ),
         (
@@ -62,10 +62,10 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
                 "correctChoices": ["a", "c"]
             }),
             StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("c"), ChoiceId::new("a")],
+                selected: vec![ResponseItemReference::new("c"), ResponseItemReference::new("a")],
             },
             StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("a")],
+                selected: vec![ResponseItemReference::new("a")],
             },
         ),
         (
@@ -94,24 +94,24 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
             }),
             StudentResponse::MultiBlank {
                 answers: vec![
-                    TextEntryAnswer {
-                        slot: ChoiceId::new("purine"),
+                    StudentTextEntry {
+                        slot: ResponseItemReference::new("purine"),
                         text: "adenine".to_string(),
                     },
-                    TextEntryAnswer {
-                        slot: ChoiceId::new("pyrimidine"),
+                    StudentTextEntry {
+                        slot: ResponseItemReference::new("pyrimidine"),
                         text: "cytosine".to_string(),
                     },
                 ],
             },
             StudentResponse::MultiBlank {
                 answers: vec![
-                    TextEntryAnswer {
-                        slot: ChoiceId::new("purine"),
+                    StudentTextEntry {
+                        slot: ResponseItemReference::new("purine"),
                         text: "guanine".to_string(),
                     },
-                    TextEntryAnswer {
-                        slot: ChoiceId::new("pyrimidine"),
+                    StudentTextEntry {
+                        slot: ResponseItemReference::new("pyrimidine"),
                         text: "cytosine".to_string(),
                     },
                 ],
@@ -138,25 +138,25 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
             }),
             StudentResponse::Matching {
                 matches: vec![
-                    MatchPair {
-                        prompt: ChoiceId::new("dna"),
-                        choice: ChoiceId::new("deoxy"),
+                    StudentMatch {
+                        prompt: ResponseItemReference::new("dna"),
+                        choice: ResponseItemReference::new("deoxy"),
                     },
-                    MatchPair {
-                        prompt: ChoiceId::new("rna"),
-                        choice: ChoiceId::new("ribose"),
+                    StudentMatch {
+                        prompt: ResponseItemReference::new("rna"),
+                        choice: ResponseItemReference::new("ribose"),
                     },
                 ],
             },
             StudentResponse::Matching {
                 matches: vec![
-                    MatchPair {
-                        prompt: ChoiceId::new("dna"),
-                        choice: ChoiceId::new("ribose"),
+                    StudentMatch {
+                        prompt: ResponseItemReference::new("dna"),
+                        choice: ResponseItemReference::new("ribose"),
                     },
-                    MatchPair {
-                        prompt: ChoiceId::new("rna"),
-                        choice: ChoiceId::new("deoxy"),
+                    StudentMatch {
+                        prompt: ResponseItemReference::new("rna"),
+                        choice: ResponseItemReference::new("deoxy"),
                     },
                 ],
             },
@@ -171,13 +171,13 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
             StudentResponse::Ordering {
                 order: ["one", "two", "three"]
                     .into_iter()
-                    .map(ChoiceId::new)
+                    .map(ResponseItemReference::new)
                     .collect(),
             },
             StudentResponse::Ordering {
                 order: ["two", "one", "three"]
                     .into_iter()
-                    .map(ChoiceId::new)
+                    .map(ResponseItemReference::new)
                     .collect(),
             },
         ),
@@ -197,10 +197,10 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
                 "correctRegions": ["nucleus"]
             }),
             StudentResponse::Hotspot {
-                points: vec![HotspotPoint { x: 2000, y: 2000 }],
+                points: vec![StudentHotspotPoint { x: 2000, y: 2000 }],
             },
             StudentResponse::Hotspot {
-                points: vec![HotspotPoint { x: 7000, y: 7000 }],
+                points: vec![StudentHotspotPoint { x: 7000, y: 7000 }],
             },
         ),
     ];
@@ -223,14 +223,14 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
             .evaluate(&question, &correct_response)
             .unwrap_or_else(|error| panic!("{name} correct response should grade: {error}"));
         assert!(
-            matches!(correct.outcome, GradeOutcome::Graded(result) if result.correct && result.points_earned == expected_points),
+            matches!(correct.outcome, QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == expected_points),
             "{name}"
         );
         let wrong = private
             .evaluate(&question, &wrong_response)
             .unwrap_or_else(|error| panic!("{name} wrong response should grade: {error}"));
         assert!(
-            matches!(wrong.outcome, GradeOutcome::Graded(result) if !result.correct && result.points_earned == 0.0),
+            matches!(wrong.outcome, QuestionGradingOutcome::Graded(result) if !result.correct && result.points_earned == 0.0),
             "{name}"
         );
     }
@@ -270,7 +270,7 @@ fn hotspot_public_definition_does_not_reveal_correct_region_cardinality() {
     assert!(matches!(
         one_draft.response,
         question_model::response::QuestionResponseFormat::Hotspot {
-            selection: question_model::answer::SelectionCardinality::AtLeastOne,
+            selection: question_model::answer::ResponseSelectionRule::AtLeastOne,
             ..
         }
     ));
@@ -278,7 +278,7 @@ fn hotspot_public_definition_does_not_reveal_correct_region_cardinality() {
         domain::validation::validate_response_format(
             &one_draft.response,
             &StudentResponse::Hotspot {
-                points: vec![HotspotPoint { x: 2000, y: 2000 }],
+                points: vec![StudentHotspotPoint { x: 2000, y: 2000 }],
             },
         )
         .is_valid()
@@ -385,13 +385,13 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         .evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new(&wrong_choice.id)],
+                selected: vec![ResponseItemReference::new(&wrong_choice.id)],
             },
         )
         .expect("valid wrong choice should grade");
     assert!(matches!(
         wrong.outcome,
-        GradeOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
+        QuestionGradingOutcome::Graded(result) if !result.correct && result.points_earned == 0.0
     ));
     assert_eq!(
         text(wrong.feedback.hint.as_ref()),
@@ -408,13 +408,13 @@ fn stored_flat_question_splits_public_content_and_private_grading() {
         .evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new(&stored.response.correct_choice)],
+                selected: vec![ResponseItemReference::new(&stored.response.correct_choice)],
             },
         )
         .expect("valid correct choice should grade");
     assert!(matches!(
         correct.outcome,
-        GradeOutcome::Graded(result) if result.correct && result.points_earned == 1.0
+        QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 1.0
     ));
     assert_eq!(
         text(correct.feedback.hint.as_ref()),
@@ -480,7 +480,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
     ));
 
     let mut nested_unknown: Value = flat_single_choice_value();
-    nested_unknown["attemptPolicy"]["qtiExtension"] = Value::Bool(true);
+    nested_unknown["questionAttemptLimit"]["qtiExtension"] = Value::Bool(true);
     assert!(matches!(
         FlatQuestionDocument::parse(
             &serde_json::to_vec(&nested_unknown).expect("modified fixture encodes")
@@ -489,7 +489,8 @@ fn malformed_or_ambiguous_sources_are_refused() {
     ));
 
     let mut legacy_feedback: Value = flat_single_choice_value();
-    legacy_feedback["attemptPolicy"]["feedback"] = Value::String("immediateFull".to_string());
+    legacy_feedback["questionAttemptLimit"]["feedback"] =
+        Value::String("immediateFull".to_string());
     assert!(matches!(
         FlatQuestionDocument::parse(
             &serde_json::to_vec(&legacy_feedback).expect("modified fixture encodes")
@@ -523,7 +524,7 @@ fn private_material_refuses_a_different_public_definition() {
         private.evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("blue")],
+                selected: vec![ResponseItemReference::new("blue")],
             }
         ),
         Err(FlatQuestionError::PublicBindingMismatch)
@@ -569,13 +570,13 @@ fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only()
         .evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("blue")],
+                selected: vec![ResponseItemReference::new("blue")],
             },
         )
         .expect("roundtripped private material should evaluate like original");
     assert!(matches!(
         correct.outcome,
-        GradeOutcome::Graded(result) if result.correct && result.points_earned == 1.0
+        QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 1.0
     ));
 }
 

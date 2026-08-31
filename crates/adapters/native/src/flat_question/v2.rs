@@ -3,11 +3,13 @@
 use std::collections::HashSet;
 
 use grading::AnswerKey;
-use question_model::answer::{NumericTolerance, SelectionCardinality, TextMatchMode};
+use question_model::answer::{
+    NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
+};
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::generation::RandomizationDefinition;
 use question_model::response::{
-    ChoiceId, ChoiceOption, HotspotRegion, QuestionResponseFormat, QuestionType, TextEntrySlot,
+    ResponseItemReference, ChoiceOption, HotspotRegion, QuestionResponseFormat, QuestionType, TextEntrySlot,
 };
 use question_model::taxonomy::{License, Tag, TaxonomyTerm};
 use question_model::{
@@ -18,9 +20,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    CompiledFlatQuestion, FORMAT_NAME, FlatAttemptPolicy, FlatChoice, FlatLicense,
-    FlatOutcomeFeedback, FlatQuestionError, FlatQuestionPrivate, FlatTaxonomyTerm,
-    FlatTimingPolicy, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
+    CompiledFlatQuestion, FORMAT_NAME, FlatChoice, FlatLicense, FlatOutcomeFeedback,
+    FlatQuestionAttemptLimit, FlatQuestionAttemptTimeLimit, FlatQuestionError, FlatQuestionPrivate,
+    FlatTaxonomyTerm, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
     MAX_METADATA_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_TAG_CHARS, invalid, markdown_blocks,
     validate_bounded_text, validate_choice_id, validate_markdown, validate_metadata_text,
     validate_optional_feedback,
@@ -42,8 +44,8 @@ pub(super) struct FlatQuestionV2 {
     #[serde(default)]
     feedback: FlatOutcomeFeedback,
     points: f64,
-    attempt_policy: FlatAttemptPolicy,
-    timing_policy: FlatTimingPolicy,
+    question_attempt_limit: FlatQuestionAttemptLimit,
+    question_attempt_time_limit: FlatQuestionAttemptTimeLimit,
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default)]
@@ -70,7 +72,7 @@ enum FlatResponseV2 {
     },
     FillIn {
         answers: Vec<String>,
-        match_mode: FlatTextMatchMode,
+        match_mode: FlatTextResponseMatchRule,
         max_length: u32,
     },
     MultiFillIn {
@@ -78,7 +80,7 @@ enum FlatResponseV2 {
     },
     Numeric {
         answer: f64,
-        tolerance: FlatNumericTolerance,
+        tolerance: FlatNumericResponseTolerance,
         #[serde(default)]
         unit: Option<String>,
     },
@@ -100,18 +102,18 @@ enum FlatResponseV2 {
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum FlatTextMatchMode {
+enum FlatTextResponseMatchRule {
     Exact,
     CaseInsensitive,
     Normalized,
 }
 
-impl From<FlatTextMatchMode> for TextMatchMode {
-    fn from(value: FlatTextMatchMode) -> Self {
+impl From<FlatTextResponseMatchRule> for TextResponseMatchRule {
+    fn from(value: FlatTextResponseMatchRule) -> Self {
         match value {
-            FlatTextMatchMode::Exact => Self::Exact,
-            FlatTextMatchMode::CaseInsensitive => Self::CaseInsensitive,
-            FlatTextMatchMode::Normalized => Self::Normalized,
+            FlatTextResponseMatchRule::Exact => Self::Exact,
+            FlatTextResponseMatchRule::CaseInsensitive => Self::CaseInsensitive,
+            FlatTextResponseMatchRule::Normalized => Self::Normalized,
         }
     }
 }
@@ -123,22 +125,24 @@ impl From<FlatTextMatchMode> for TextMatchMode {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-enum FlatNumericTolerance {
+enum FlatNumericResponseTolerance {
     Exact,
     Absolute { epsilon: f64 },
     Relative { fraction: f64 },
     SignificantFigures { digits: u8 },
 }
 
-impl From<&FlatNumericTolerance> for NumericTolerance {
-    fn from(value: &FlatNumericTolerance) -> Self {
+impl From<&FlatNumericResponseTolerance> for NumericResponseTolerance {
+    fn from(value: &FlatNumericResponseTolerance) -> Self {
         match value {
-            FlatNumericTolerance::Exact => Self::Exact,
-            FlatNumericTolerance::Absolute { epsilon } => Self::Absolute { epsilon: *epsilon },
-            FlatNumericTolerance::Relative { fraction } => Self::Relative {
+            FlatNumericResponseTolerance::Exact => Self::Exact,
+            FlatNumericResponseTolerance::Absolute { epsilon } => {
+                Self::Absolute { epsilon: *epsilon }
+            }
+            FlatNumericResponseTolerance::Relative { fraction } => Self::Relative {
                 fraction: *fraction,
             },
-            FlatNumericTolerance::SignificantFigures { digits } => {
+            FlatNumericResponseTolerance::SignificantFigures { digits } => {
                 Self::SignificantFigures { digits: *digits }
             }
         }
@@ -158,7 +162,7 @@ struct FlatBlank {
     id: String,
     label: String,
     answers: Vec<String>,
-    match_mode: FlatTextMatchMode,
+    match_mode: FlatTextResponseMatchRule,
     max_length: u32,
 }
 
@@ -220,8 +224,8 @@ impl FlatQuestionV2 {
             },
             feedback: FlatOutcomeFeedback::default(),
             points,
-            attempt_policy: FlatAttemptPolicy { max_attempts: None },
-            timing_policy: FlatTimingPolicy::Untimed,
+            question_attempt_limit: FlatQuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: FlatQuestionAttemptTimeLimit::Unlimited,
             tags: Vec::new(),
             taxonomy: Vec::new(),
             license: FlatLicense::AllRightsReserved,
@@ -244,7 +248,7 @@ impl FlatQuestionV2 {
         if !self.points.is_finite() || self.points < 0.0 {
             return invalid("points must be finite and nonnegative");
         }
-        if self.attempt_policy.max_attempts == Some(0) {
+        if self.question_attempt_limit.max_attempts == Some(0) {
             return invalid("maxAttempts must be positive or null");
         }
         validate_metadata_text("language", &self.language)?;
@@ -317,8 +321,8 @@ impl FlatQuestionV2 {
             prompt,
             response,
             question_type,
-            attempt_policy: self.attempt_policy.into(),
-            timing_policy: self.timing_policy.into(),
+            question_attempt_limit: self.question_attempt_limit.into(),
+            question_attempt_time_limit: self.question_attempt_time_limit.into(),
             randomization: RandomizationDefinition::Static,
             grading: GradingDefinition::AllOrNothing {
                 points: self.points,
@@ -358,7 +362,7 @@ fn question_type_for(response: &FlatResponseV2) -> QuestionType {
 type CompiledResponse = (
     QuestionResponseFormat,
     AnswerKey,
-    Vec<(ChoiceId, String)>,
+    Vec<(ResponseItemReference, String)>,
     Vec<ContentBlock>,
 );
 
@@ -369,13 +373,13 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             correct_choice,
         } => compile_choices(
             choices,
-            SelectionCardinality::ExactlyOne,
+            ResponseSelectionRule::ExactlyOne,
             std::slice::from_ref(correct_choice),
         ),
         FlatResponseV2::MultipleAnswer {
             choices,
             correct_choices,
-        } => compile_choices(choices, SelectionCardinality::AtLeastOne, correct_choices),
+        } => compile_choices(choices, ResponseSelectionRule::AtLeastOne, correct_choices),
         FlatResponseV2::FillIn {
             answers,
             match_mode,
@@ -396,7 +400,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                 blanks: blanks
                     .iter()
                     .map(|blank| TextEntrySlot {
-                        id: ChoiceId::new(&blank.id),
+                        id: ResponseItemReference::new(&blank.id),
                         label: markdown_blocks(&blank.label),
                         match_mode: blank.match_mode.into(),
                         max_length: blank.max_length,
@@ -406,7 +410,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             AnswerKey::MultiBlank {
                 accepted: blanks
                     .iter()
-                    .map(|blank| (ChoiceId::new(&blank.id), blank.answers.clone()))
+                    .map(|blank| (ResponseItemReference::new(&blank.id), blank.answers.clone()))
                     .collect(),
             },
             Vec::new(),
@@ -437,7 +441,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             AnswerKey::Matching {
                 correct: matches
                     .iter()
-                    .map(|pair| (ChoiceId::new(&pair.prompt), ChoiceId::new(&pair.choice)))
+                    .map(|pair| (ResponseItemReference::new(&pair.prompt), ResponseItemReference::new(&pair.choice)))
                     .collect(),
             },
             Vec::new(),
@@ -451,7 +455,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                 items: compile_items(items),
             },
             AnswerKey::Ordering {
-                correct: correct_order.iter().map(ChoiceId::new).collect(),
+                correct: correct_order.iter().map(ResponseItemReference::new).collect(),
             },
             Vec::new(),
             Vec::new(),
@@ -475,10 +479,10 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                     // Correct-region cardinality is private grading material.
                     // The public format requires a nonempty selection without
                     // disclosing how many regions the answer key contains.
-                    selection: SelectionCardinality::AtLeastOne,
+                    selection: ResponseSelectionRule::AtLeastOne,
                 },
                 AnswerKey::Hotspot {
-                    correct: correct_regions.iter().map(ChoiceId::new).collect(),
+                    correct: correct_regions.iter().map(ResponseItemReference::new).collect(),
                 },
                 Vec::new(),
                 vec![ContentBlock::Image {
@@ -493,7 +497,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
 
 fn compile_choices(
     choices: &[FlatChoice],
-    selection: SelectionCardinality,
+    selection: ResponseSelectionRule,
     correct: &[String],
 ) -> CompiledResponse {
     (
@@ -501,14 +505,14 @@ fn compile_choices(
             choices: choices
                 .iter()
                 .map(|choice| ChoiceOption {
-                    id: ChoiceId::new(&choice.id),
+                    id: ResponseItemReference::new(&choice.id),
                     body: markdown_blocks(&choice.text),
                 })
                 .collect(),
             selection,
         },
         AnswerKey::MultipleChoice {
-            correct: correct.iter().map(ChoiceId::new).collect(),
+            correct: correct.iter().map(ResponseItemReference::new).collect(),
         },
         choices
             .iter()
@@ -516,7 +520,7 @@ fn compile_choices(
                 choice
                     .feedback
                     .as_ref()
-                    .map(|feedback| (ChoiceId::new(&choice.id), feedback.clone()))
+                    .map(|feedback| (ResponseItemReference::new(&choice.id), feedback.clone()))
             })
             .collect(),
         Vec::new(),
@@ -527,7 +531,7 @@ fn compile_items(items: &[FlatItem]) -> Vec<ChoiceOption> {
     items
         .iter()
         .map(|item| ChoiceOption {
-            id: ChoiceId::new(&item.id),
+            id: ResponseItemReference::new(&item.id),
             body: markdown_blocks(&item.text),
         })
         .collect()
@@ -535,7 +539,7 @@ fn compile_items(items: &[FlatItem]) -> Vec<ChoiceOption> {
 
 fn compile_region(region: &FlatHotspotRegion) -> HotspotRegion {
     HotspotRegion {
-        id: ChoiceId::new(&region.id),
+        id: ResponseItemReference::new(&region.id),
         label: markdown_blocks(&region.label),
         x: region.x,
         y: region.y,
@@ -603,24 +607,24 @@ fn validate_blanks(blanks: &[FlatBlank]) -> Result<(), FlatQuestionError> {
 
 fn validate_numeric(
     answer: f64,
-    tolerance: &FlatNumericTolerance,
+    tolerance: &FlatNumericResponseTolerance,
     unit: Option<&str>,
 ) -> Result<(), FlatQuestionError> {
     if !answer.is_finite() {
         return invalid("numeric answer must be finite");
     }
     match tolerance {
-        FlatNumericTolerance::Exact => {}
-        FlatNumericTolerance::Absolute { epsilon } => {
+        FlatNumericResponseTolerance::Exact => {}
+        FlatNumericResponseTolerance::Absolute { epsilon } => {
             validate_nonnegative_finite("absolute epsilon", *epsilon)?;
         }
-        FlatNumericTolerance::Relative { fraction } => {
+        FlatNumericResponseTolerance::Relative { fraction } => {
             validate_nonnegative_finite("relative fraction", *fraction)?;
         }
-        FlatNumericTolerance::SignificantFigures { digits } if *digits == 0 => {
+        FlatNumericResponseTolerance::SignificantFigures { digits } if *digits == 0 => {
             return invalid("significant figures must be at least one");
         }
-        FlatNumericTolerance::SignificantFigures { .. } => {}
+        FlatNumericResponseTolerance::SignificantFigures { .. } => {}
     }
     if let Some(unit) = unit {
         validate_bounded_text("numeric unit", unit, MAX_METADATA_TEXT_CHARS)?;

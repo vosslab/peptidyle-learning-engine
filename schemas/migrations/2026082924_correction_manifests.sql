@@ -17,7 +17,6 @@ CREATE TABLE ple_data.forced_question_correction (
     approved_at timestamp with time zone NOT NULL,
     generation integer NOT NULL CHECK (generation > 0),
     reason text NOT NULL CHECK (reason IN ('security_flaw', 'critical_correctness_flaw')),
-    remediation jsonb NOT NULL CHECK (jsonb_typeof(remediation) = 'object'),
     CONSTRAINT forced_question_correction_versions_differ CHECK (
         (flawed_question_id, flawed_version_number) <> (replacement_question_id, replacement_version_number)
     ),
@@ -131,10 +130,48 @@ ALTER TABLE ple_data.question_change_event FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_data.forced_question_correction, ple_data.question_change_event FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_forced_question_correction_change(), ple_data.validate_question_change_event(), ple_data.reject_question_change_event_change() FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_data TO ple_audit_owner;
-GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.forced_question_correction TO ple_audit_owner;
+GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.assignment, ple_data.forced_question_correction TO ple_audit_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;
+CREATE TABLE ple_audit.forced_question_correction_assignment_target (
+    correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
+    assignment_id uuid NOT NULL REFERENCES ple_data.assignment (assignment_id),
+    PRIMARY KEY (correction_id, assignment_id)
+);
+CREATE TABLE ple_audit.forced_question_correction_attempt_target (
+    correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
+    assignment_attempt_id uuid NOT NULL REFERENCES ple_private.assignment_attempt (assignment_attempt_id),
+    PRIMARY KEY (correction_id, assignment_attempt_id)
+);
+CREATE TABLE ple_audit.forced_question_correction_issued_question_target (
+    correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
+    issued_question_id text NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
+    PRIMARY KEY (correction_id, issued_question_id)
+);
+CREATE TABLE ple_audit.forced_question_correction_grade_target (
+    correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
+    assignment_grade_id uuid NOT NULL REFERENCES ple_private.assignment_grade (assignment_grade_id),
+    PRIMARY KEY (correction_id, assignment_grade_id)
+);
+CREATE FUNCTION ple_audit.reject_forced_question_correction_target_change()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_audit AS $$
+BEGIN
+    RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Forced Question Correction Manifest targets are immutable';
+END
+$$;
+CREATE TRIGGER forced_question_correction_assignment_target_is_immutable
+BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_assignment_target
+FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
+CREATE TRIGGER forced_question_correction_attempt_target_is_immutable
+BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_attempt_target
+FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
+CREATE TRIGGER forced_question_correction_issued_question_target_is_immutable
+BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_issued_question_target
+FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
+CREATE TRIGGER forced_question_correction_grade_target_is_immutable
+BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_grade_target
+FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
 CREATE TABLE ple_audit.correction_recalculation_evidence (
     evidence_id uuid PRIMARY KEY,
     correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
@@ -145,7 +182,20 @@ CREATE TABLE ple_audit.correction_recalculation_evidence (
     digest bytea NOT NULL CHECK (pg_catalog.octet_length(digest) = 32),
     CONSTRAINT correction_recalculation_evidence_is_unique UNIQUE (correction_id, course_id, generation)
 );
+ALTER TABLE ple_audit.forced_question_correction_assignment_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_assignment_target FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_attempt_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_attempt_target FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_issued_question_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_issued_question_target FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_grade_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_grade_target FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.correction_recalculation_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.correction_recalculation_evidence FORCE ROW LEVEL SECURITY;
-REVOKE ALL PRIVILEGES ON TABLE ple_audit.correction_recalculation_evidence FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON TABLE ple_audit.forced_question_correction_assignment_target,
+    ple_audit.forced_question_correction_attempt_target,
+    ple_audit.forced_question_correction_issued_question_target,
+    ple_audit.forced_question_correction_grade_target,
+    ple_audit.correction_recalculation_evidence FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_audit.reject_forced_question_correction_target_change() FROM PUBLIC;
 RESET ROLE;

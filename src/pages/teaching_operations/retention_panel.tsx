@@ -4,7 +4,7 @@ import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { RetentionDispositionView } from "../../../generated/api/RetentionDispositionView";
 import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
-import type { ApiRuntime } from "../../api/runtime";
+import type { ApplicationApi } from "../../api/application_api";
 import { ApiRequestError } from "../../api/http_client";
 import { retentionStateCopy } from "./retention_state_copy";
 import {
@@ -21,7 +21,7 @@ type RetentionAction = "archive" | "delete";
 export interface RetentionPanelProps {
   readonly courseId: CourseId;
   readonly courseReference: CourseInstanceReference;
-  readonly runtime: Pick<ApiRuntime, "client">;
+  readonly applicationApi: Pick<ApplicationApi, "client">;
   readonly mayExtendRetention: boolean;
 }
 
@@ -97,7 +97,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
   async function load(): Promise<void> {
     setState("loading");
     try {
-      const current = await props.runtime.client.getCourseRetention(props.courseId);
+      const current = await props.applicationApi.client.getCourseRetention(props.courseId);
       setRetention(current);
       setMessage("Retention state loaded.");
       setState("ready");
@@ -138,7 +138,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
   async function endRetention(): Promise<void> {
     setBusy(true);
     try {
-      const current = await props.runtime.client.endCourseRetention(props.courseId);
+      const current = await props.applicationApi.client.endCourseRetention(props.courseId);
       setRetention(current);
       setMessage("The course retention period has ended.");
       setState("ready");
@@ -156,12 +156,15 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
     try {
       const response =
         action === "archive"
-          ? await props.runtime.client.archiveCourseRetention(
+          ? await props.applicationApi.client.archiveCourseRetention(
               props.courseId,
               { assignmentDefinitions: definitionDisposition() },
               current.revision,
             )
-          : await props.runtime.client.deleteCourseRetention(props.courseId, current.revision);
+          : await props.applicationApi.client.deleteCourseRetention(
+              props.courseId,
+              current.revision,
+            );
       setRetention({
         state: response.state,
         assignmentDefinitions: response.assignmentDefinitions,
@@ -186,7 +189,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
     }
     setBusy(true);
     try {
-      const updated = await props.runtime.client.extendCourseRetention(
+      const updated = await props.applicationApi.client.extendCourseRetention(
         props.courseId,
         { additionalDays: days },
         current.revision,

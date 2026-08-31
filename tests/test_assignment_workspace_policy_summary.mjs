@@ -7,32 +7,36 @@ const baseInput = {
   savedLifecycle: "published",
   savedCurrentState: { state: "open" },
   policies: {
-    completion: { kind: "scoreAtLeast", fraction: 0.8 },
-    grade: "instructorSelected",
-    continuedPractice: { kind: "capped", maxAdditionalRuns: 3 },
-    variation: "selectedQuestionVariants",
+    assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
+    assignmentAttemptGradeRule: "instructorSelected",
+    assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalRuns: 3 },
+    questionVariationRule: "selectedQuestionVariants",
+    assignmentAttemptResumeRule: "resumable",
+    assignmentQuestionDisplayRule: "allQuestions",
+    assignmentNavigationRule: "freeNavigation",
+    assignmentQuestionOrderRule: "authoredOrder",
   },
   activityRuleDraft: { completionFraction: "0.75", additionalRuns: "2" },
-  disclosurePolicy: {
+  studentFeedbackReleaseRule: {
     score: "after_submit",
     per_item_correctness: "after_submit",
     feedback_text: "after_due",
     solution: "after_close",
     class_statistics: "never",
   },
-  teachingSettings: {
+  assignmentRevisionDefinition: {
     timeZone: "America/Chicago",
     lifecycle: "published",
     instructions: "Use a clear structural drawing.",
     availableAt: "2026-09-01T09:00:00.000",
     dueAt: "2026-09-08T17:00:00.000",
     closesAt: null,
-    timeLimitSeconds: 900,
+    assignmentAttemptTimeLimitSeconds: 900,
     attemptLimit: 2,
-    lateSubmission: "markLate",
-    deadlineBehavior: "autoSubmit",
+    lateWorkRule: "markLate",
+    assignmentDeadlineRule: "autoSubmit",
   },
-  timeLimitSecondsDraft: "900",
+  assignmentAttemptTimeLimitSecondsDraft: "900",
   attemptLimitDraft: "2",
 };
 
@@ -40,10 +44,10 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   const summary = assignmentPolicyDraftSummary(baseInput);
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
-  assert.match(valueFor("completion"), /75%/);
-  assert.match(valueFor("grade"), /Instructor-selected/);
-  assert.match(valueFor("continuedPractice"), /2 additional Assignment Attempts/);
-  assert.match(valueFor("variation"), /selected Question Variants/);
+  assert.match(valueFor("assignmentCompletionRule"), /75%/);
+  assert.match(valueFor("assignmentAttemptGradeRule"), /Instructor-selected/);
+  assert.match(valueFor("assignmentAttemptContinuationRule"), /2 additional Assignment Attempts/);
+  assert.match(valueFor("questionVariationRule"), /selected Question Variants/);
   assert.match(valueFor("savedDelivery"), /open now/);
   assert.match(valueFor("lifecycle"), /Published/);
   assert.match(valueFor("lifecycle"), /Student instructions included/);
@@ -63,12 +67,13 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
     activityRuleDraft: { completionFraction: "1.2", additionalRuns: "-1" },
-    timeLimitSecondsDraft: "0",
+    assignmentAttemptTimeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
   });
 
-  const completion = summary.find((item) => item.key === "completion")?.value ?? "";
-  const practice = summary.find((item) => item.key === "continuedPractice")?.value ?? "";
+  const completion = summary.find((item) => item.key === "assignmentCompletionRule")?.value ?? "";
+  const practice =
+    summary.find((item) => item.key === "assignmentAttemptContinuationRule")?.value ?? "";
   const schedule = summary.find((item) => item.key === "scheduleLimits")?.value ?? "";
   assert.match(completion, /needs correction/);
   assert.doesNotMatch(completion, /75%/);
@@ -86,8 +91,8 @@ test("summary keeps saved effective state distinct from unsaved lifecycle decisi
       state: "scheduled",
       availableAt: "2026-09-01T09:00:00.000",
     },
-    teachingSettings: {
-      ...baseInput.teachingSettings,
+    assignmentRevisionDefinition: {
+      ...baseInput.assignmentRevisionDefinition,
       lifecycle: "archived",
     },
   });

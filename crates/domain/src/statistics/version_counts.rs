@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use question_model::response::ChoiceId;
+use question_model::response::ResponseItemReference;
 
 use super::StatisticsError;
 
@@ -15,7 +15,7 @@ use super::StatisticsError;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionStatisticsObservation {
     correct: bool,
-    eligible_choice_selections: BTreeSet<ChoiceId>,
+    eligible_choice_selections: BTreeSet<ResponseItemReference>,
 }
 
 impl QuestionStatisticsObservation {
@@ -26,7 +26,7 @@ impl QuestionStatisticsObservation {
     /// against a malformed repeated selection at a storage boundary.
     pub fn new(
         correct: bool,
-        eligible_choice_selections: impl IntoIterator<Item = ChoiceId>,
+        eligible_choice_selections: impl IntoIterator<Item = ResponseItemReference>,
     ) -> Result<Self, StatisticsError> {
         let selections = eligible_choice_selections
             .into_iter()
@@ -46,7 +46,7 @@ impl QuestionStatisticsObservation {
     }
 
     /// Returns the selected eligible choices, sorted by their opaque ID.
-    pub fn eligible_choice_selections(&self) -> impl Iterator<Item = &ChoiceId> {
+    pub fn eligible_choice_selections(&self) -> impl Iterator<Item = &ResponseItemReference> {
         self.eligible_choice_selections.iter()
     }
 }
@@ -59,7 +59,7 @@ pub struct QuestionVersionStatisticsSnapshot {
     /// Number of those accepted grades whose result was correct.
     pub correct_count: u64,
     /// Selection count by opaque eligible choice ID for supported choice formats.
-    pub eligible_choice_selection_counts: BTreeMap<ChoiceId, u64>,
+    pub eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
 }
 
 /// Exact global counts for one immutable Question Version.
@@ -67,7 +67,7 @@ pub struct QuestionVersionStatisticsSnapshot {
 pub struct QuestionVersionStatistics {
     accepted_graded_attempt_count: u64,
     correct_count: u64,
-    eligible_choice_selection_counts: BTreeMap<ChoiceId, u64>,
+    eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
 }
 
 impl QuestionVersionStatistics {
@@ -149,7 +149,7 @@ impl QuestionVersionStatistics {
     }
 
     /// Returns choice-selection counts by opaque eligible choice ID.
-    pub fn eligible_choice_selection_counts(&self) -> &BTreeMap<ChoiceId, u64> {
+    pub fn eligible_choice_selection_counts(&self) -> &BTreeMap<ResponseItemReference, u64> {
         &self.eligible_choice_selection_counts
     }
 }

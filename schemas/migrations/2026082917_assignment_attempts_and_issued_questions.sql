@@ -1,4 +1,4 @@
--- SD1 Student Assignment Attempts, Issued Questions, and Question Attempts.
+-- SD1 Assignment Attempts, Issued Questions, and Question Attempts.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
@@ -32,11 +32,15 @@ CREATE TABLE ple_private.issued_question (
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT issued_question_delivery_order_is_unique UNIQUE (assignment_attempt_id, issued_position)
 );
+CREATE TRIGGER assignment_attempt_requires_published_revision
+BEFORE INSERT OR UPDATE OF assignment_id, assignment_revision_id ON ple_private.assignment_attempt
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_published_assignment_revision();
 CREATE TABLE ple_private.question_attempt (
     question_attempt_id uuid PRIMARY KEY,
     issued_question_id text NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
     issued_at timestamp with time zone NOT NULL,
     deadline_at timestamp with time zone,
+    source_record jsonb NOT NULL CHECK (jsonb_typeof(source_record) = 'object'),
     CONSTRAINT question_attempt_deadline_is_ordered CHECK (deadline_at IS NULL OR deadline_at >= issued_at)
 );
 ALTER TABLE ple_private.assignment_attempt ENABLE ROW LEVEL SECURITY;
@@ -46,5 +50,8 @@ ALTER TABLE ple_private.issued_question FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.assignment_attempt, ple_private.issued_question, ple_private.question_attempt FROM PUBLIC;
-COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Version and Assignment Entry evidence for one Student Assignment Attempt, including its issue-time Question Statistics Eligibility.';
+GRANT REFERENCES ON TABLE ple_private.assignment_attempt, ple_private.issued_question TO ple_audit_owner;
+COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Version and Assignment Entry evidence for one Assignment Attempt, including its issue-time Question Statistics Eligibility.';
+COMMENT ON COLUMN ple_private.question_attempt.source_record IS
+    'Exact private Question Attempt Source Record used for reproduction and grading.';
 RESET ROLE;

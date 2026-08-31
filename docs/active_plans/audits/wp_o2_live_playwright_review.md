@@ -47,7 +47,7 @@ No browser context opened, so there was no `/health` response, exact JSON body,
 or final-origin observation. The runner correctly recorded:
 
 ```json
-{"status":"FAIL","masterSeed":42,"stage":"playwright_smoke"}
+{ "status": "FAIL", "masterSeed": 42, "stage": "playwright_smoke" }
 ```
 
 This is an execution-sandbox permission boundary, not an application finding.
@@ -61,7 +61,7 @@ mock preview server. Playwright recorded a passed `.last-run.json` with no
 failed tests, and the runner wrote exactly:
 
 ```json
-{"status":"PASS","masterSeed":42,"stage":"complete"}
+{ "status": "PASS", "masterSeed": 42, "stage": "complete" }
 ```
 
 The report directory was mode 0700, its report file was a regular mode-0600

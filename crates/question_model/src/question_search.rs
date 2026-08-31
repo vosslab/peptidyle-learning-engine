@@ -7,28 +7,28 @@ use crate::question_library::{MAX_QUESTION_SEARCH_TAXONOMY_FACETS, QuestionBacke
 use crate::response::QuestionType;
 use crate::taxonomy::{License, TaxonomyTerm};
 
-/// Maximum public byline selections accepted in one catalog query.
+/// Maximum public byline selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_BYLINE_FILTERS: usize = 16;
 
-/// Maximum free-form tag selections accepted in one catalog query.
+/// Maximum free-form tag selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
-/// Maximum reviewed public bylines returned in one catalog facet snapshot.
+/// Maximum reviewed public bylines returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_BYLINE_FACETS: usize = 64;
 
-/// Maximum backend values returned in one catalog facet snapshot.
+/// Maximum backend values returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_BACKEND_FACETS: usize = QuestionBackend::ALL.len();
 
-/// Maximum free-form tags returned in one catalog facet snapshot.
+/// Maximum free-form tags returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_TAG_FACETS: usize = 64;
 
-/// Maximum Question Type values accepted in one catalog query.
+/// Maximum Question Type values accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS: usize = QuestionType::ALL.len();
 
-/// Maximum Question Type values returned in one catalog facet snapshot.
+/// Maximum Question Type values returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.len();
 
-/// Account-bound course-use filter for catalog discovery.
+/// Account-bound course-use filter for Question Library discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionSearchCourseUse {
@@ -39,7 +39,7 @@ pub enum QuestionSearchCourseUse {
     Used,
 }
 
-/// Account-bound authorship scope for catalog discovery.
+/// Account-bound authorship scope for Question Library discovery.
 ///
 /// The browser selects only this closed meaning. The active authenticated
 /// session supplies the actual account identity at the trusted store boundary.
@@ -93,7 +93,7 @@ pub struct QuestionTypeFacet {
     pub count: u64,
 }
 
-/// Account-specific reverse-index count from the same catalog query snapshot.
+/// Account-specific reverse-index count from the same Question Search query snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchCourseUseFacet {
@@ -101,7 +101,7 @@ pub struct QuestionSearchCourseUseFacet {
     pub used: u64,
 }
 
-/// One exact controlled-vocabulary term selected in catalog search.
+/// One exact controlled-vocabulary term selected in Question Search.
 ///
 /// The label is intentionally absent. It is presentation metadata, while a
 /// `(scheme, code)` pair is the durable term identity.
@@ -114,7 +114,7 @@ pub struct QuestionSearchTaxonomyFilter {
     pub code: String,
 }
 
-/// Reuse-license values accepted by catalog search.
+/// Reuse-license values accepted by Question Search.
 ///
 /// `Other` means the supported other-SPDX class, rather than accepting an
 /// arbitrary browser-provided SPDX string as a query primitive.
@@ -175,7 +175,7 @@ pub enum QuestionStatisticsAvailability {
     Unavailable,
 }
 
-/// Strict, bounded catalog-search request carried across the browser boundary.
+/// Strict, bounded Question Search request carried across the browser boundary.
 ///
 /// The server normalizes this value before paging and aggregation. The cursor
 /// is opaque and tied to that normalized query; positional paging is not
@@ -183,7 +183,7 @@ pub enum QuestionStatisticsAvailability {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct QuestionSearchRequest {
-    /// Optional full-text-like text query over hot catalog metadata.
+    /// Optional full-text-like text query over Question Library summary metadata.
     pub text: Option<String>,
     /// Reviewed public author names; any normalized name may match.
     pub bylines: Vec<String>,
@@ -218,7 +218,7 @@ pub struct QuestionSearchRequest {
 /// Canonical D1 filter meaning retained by a personal saved search.
 ///
 /// Pagination is intentionally absent: running a saved search always starts a
-/// fresh current-catalog search with a server-selected page size.
+/// fresh current-Question Search with a server-selected page size.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct QuestionSearchFilter {
@@ -305,7 +305,7 @@ impl Default for QuestionSearchRequest {
     }
 }
 
-/// Rejection reason for a catalog search request.
+/// Rejection reason for a Question Search request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionSearchRequestError {
     /// Text or a controlled-term component was blank after normalization.
@@ -320,7 +320,9 @@ impl std::fmt::Display for QuestionSearchRequestError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BlankFilter => formatter.write_str("Question Search filter must not be blank"),
-            Self::TooLarge => formatter.write_str("Question Search filter exceeds its bounded limit"),
+            Self::TooLarge => {
+                formatter.write_str("Question Search filter exceeds its bounded limit")
+            }
             Self::EmptyCursor => formatter.write_str("Question Search cursor must not be empty"),
         }
     }
@@ -536,7 +538,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
+    fn question_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
         let query = QuestionSearchRequest {
             question_types: vec![QuestionType::FillInBlank],
             used_in_my_courses: QuestionSearchCourseUse::Used,

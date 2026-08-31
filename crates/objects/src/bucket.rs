@@ -52,7 +52,7 @@ pub enum ObjectKey {
     /// Original bytes for a private workspace import.
     ///
     /// This intentionally uses the private-content bucket for immutable
-    /// durable bytes and must never be exposed through CDN or catalog asset
+    /// durable bytes and must never be exposed through CDN or Question Library asset
     /// delivery.
     WorkspaceSource {
         /// Private authoring workspace.
@@ -75,7 +75,7 @@ pub enum ObjectKey {
     /// A verified logical asset extracted from a private workspace import.
     ///
     /// Like [`Self::WorkspaceSource`], this is durable private-content storage
-    /// but not a CDN or catalog-delivery candidate.
+    /// but not a CDN or Question Library delivery candidate.
     WorkspaceAsset {
         /// Private authoring workspace.
         workspace: WorkspaceId,
@@ -90,7 +90,7 @@ pub enum ObjectKey {
     ///
     /// This private-content object is intentionally distinct from
     /// [`Self::WorkspaceAsset`]: it has no import provenance and is never a
-    /// catalog asset or direct-delivery candidate.
+    /// Question Library asset or direct-delivery candidate.
     WorkspaceQuestionAsset {
         /// Private authoring workspace.
         workspace: WorkspaceId,
@@ -131,7 +131,7 @@ pub enum ObjectKey {
     /// A student-facing asset belonging to a Published Question version.
     ///
     /// Its identity is as immutable as [`Self::QuestionAsset`], but its bytes
-    /// live in private-content and are delivered only after catalog
+    /// live in private-content and are delivered only after Question Library
     /// authorization.  A CDN-readable key must never represent restricted
     /// published content.
     RestrictedQuestionAsset {
@@ -171,14 +171,14 @@ pub enum ObjectKey {
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerId,
     },
-    /// A course-owned student-record artifact.
+    /// A course-owned student-record source_object_reference.
     StudentRecord {
         /// Exact course whose protected record owns this object.
         course: CourseId,
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// A short-lived processing artifact that is never served.
+    /// A short-lived processing source_object_reference that is never served.
     Temporary {
         /// Physical object-record identity.
         object: ObjectId,
@@ -359,10 +359,10 @@ impl ObjectKey {
 
     /// Whether this semantic object may receive a direct delivery URL.
     ///
-    /// Workspace imports and published source artifacts remain private in the
+    /// Workspace imports and published Source Object References remain private in the
     /// private-content bucket. Source may
     /// contain answer keys or executable grading logic, so only trusted
-    /// server-side adapters may read it. Generic catalog or CDN URL issuance
+    /// server-side adapters may read it. Generic Question Library or CDN URL issuance
     /// must reject every source key.
     pub fn may_issue_signed_url(&self) -> bool {
         matches!(

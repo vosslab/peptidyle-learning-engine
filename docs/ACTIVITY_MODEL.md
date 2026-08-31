@@ -1,6 +1,6 @@
-# Activity model
+# Student Work Records
 
-Peptidyle treats completion as a milestone, not the end of activity. A student
+Peptidyle treats completion as a milestone, not the end of Student work. A student
 may complete an assignment and keep starting new Assignment Attempts to learn
 from algorithmic variation. The model therefore separates the Student Record,
 Assignment Attempt, Issued Question, and Question Attempt. The terminology and hierarchy are
@@ -17,13 +17,13 @@ evidence.
 
 ## Assignment hierarchy
 
-| Record                 | Meaning                                        | Cardinality                    |
-| ---------------------- | ---------------------------------------------- | ------------------------------ |
-| Student Record | One Student Account's durable educational record in one Course Instance | One retained record per Student Account and Course Instance |
-| Assignment Attempt | One pass through one Assignment | Many per Student Record and Assignment |
-| Issued Question | One selected Question Version delivered in one Assignment Attempt | Ordered within one Assignment Attempt |
-| Question Attempt | One server-issued try for one Issued Question | Many when retry policy permits |
-| Question Submission | One accepted Student Response for one Question Attempt | One immutable accepted event per Question Attempt |
+| Record              | Meaning                                                                 | Cardinality                                                 |
+| ------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Student Record      | One Student Account's durable educational record in one Course Instance | One retained record per Student Account and Course Instance |
+| Assignment Attempt  | One pass through one Assignment                                         | Many per Student Record and Assignment                      |
+| Issued Question     | One selected Question Version delivered in one Assignment Attempt       | Ordered within one Assignment Attempt                       |
+| Question Attempt    | One server-issued try for one Issued Question                           | Many when retry policy permits                              |
+| Question Submission | One accepted Student Response for one Question Attempt                  | One immutable accepted event per Question Attempt           |
 
 The owner has observed Students voluntarily complete a finished assignment 30 or
 more times. The dedicated WP-C3 acceptance test therefore completes 31 Assignment Attempts and
@@ -34,14 +34,14 @@ checks the compact summary rather than treating the first completion as terminal
 PLE is one installation with global accounts. It has no institution selector,
 an installation-wide account selector, leading scope key, or client-selected database context. Institution
 policy configuration is deployment metadata; it is not an account boundary,
-authorization partition, or activity-record owner. Historical pre-SD1 source
+authorization partition, or Student Work Record owner. Historical pre-SD1 source
 still contains legacy installation-scope fields; that source is migration
-input, not the target activity contract.
+input, not the target Student Work Records contract.
 
 `CourseId` is the exact educational-record boundary. An assignment belongs to
 one course and stores ordered `(QuestionId, QuestionVersionNumber)` references to shared
 immutable published content; it never owns or copies the question payload. Each
-activity record is resolved to one exact course, and student-owned records also
+Student Work Record is resolved to one exact course, and student-owned records also
 name their exact `StudentRecordId` owner. Child identities must agree with the
 Student Record, Assignment, and Course chain; a direct child identifier never widens
 that scope.
@@ -53,13 +53,13 @@ establish Account authority or select a course. The Store and PostgreSQL boundar
 re-evaluate the exact relationship in the same transaction as each protected
 operation.
 
-| Activity record | Durable ownership scope | Allowed human authority |
-| --- | --- | --- |
-| Student Record | Exact `CourseId` and Student Account | That Student with a current Student Course Membership, or a current course Instructor |
-| Assignment Attempt | Student Record and Assignment | That Student, or a current course Instructor |
-| Issued Question | Assignment Attempt and exact Question Version | That Student, or a current course Instructor |
-| Question Attempt | Issued Question and its Student owner | That Student, or a current course Instructor |
-| Assignment Grade | Student Record and Assignment | That Student projection, or a current course Instructor |
+| Student Work Record | Durable ownership scope                       | Allowed human authority                                                               |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Student Record      | Exact `CourseId` and Student Account          | That Student with a current Student Course Membership, or a current course Instructor |
+| Assignment Attempt  | Student Record and Assignment                 | That Student, or a current course Instructor                                          |
+| Issued Question     | Assignment Attempt and exact Question Version | That Student, or a current course Instructor                                          |
+| Question Attempt    | Issued Question and its Student owner         | That Student, or a current course Instructor                                          |
+| Assignment Grade    | Student Record and Assignment                 | That Student projection, or a current course Instructor                               |
 
 Student access requires current active Student membership for the exact course
 and ownership of the exact `StudentRecordId`; another Student, another course, a
@@ -71,9 +71,9 @@ not FERPA authority; support and coarse retention lifecycle operations are
 narrow, audited exceptions defined by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 
 Membership revocation, approval withdrawal, and retention fencing serialize with
-activity reads and writes. A stale browser identifier therefore cannot read,
+Student Work Record reads and writes. A stale browser identifier therefore cannot read,
 mutate, disclose, or delete a record after its relationship has ended. These
-authorization checks do not rewrite historical activity evidence.
+authorization checks do not rewrite historical Student Work evidence.
 
 ## Student Record and Assignment Grade
 
@@ -83,17 +83,17 @@ server-derived; a browser request cannot select a different Student Record.
 
 `AssignmentGrade` is the selected course-record result for one exact Student
 Record and Assignment. It records the policy-selected result without becoming
-the owner of activity. Activity summaries are derived views: they report recent
+the owner of Student work. Assignment Progress views are derived views: they report recent
 work and counts but never replace the Assignment Attempt and Issued Question
 evidence that establishes them.
 
 ## Assignment Attempt
 
 An Assignment Attempt records its one-based attempt number, server timestamps,
-score, mode, and the variation policy that was actually applied. It distinguishes
+score, mode, and the Question Variation Rule that was actually applied. It distinguishes
 initial assigned work from post-completion practice.
 
-There is no stored within-Assignment-Attempt `complete` boolean. The assignment-activity model derives completion
+There is no stored within-Assignment-Attempt `complete` boolean. The Assignment Attempt model derives completion
 from the current state of every required question. Once the policy is satisfied,
 the server records the completion timestamp and score as a transition.
 
@@ -110,33 +110,37 @@ Assignment definition and a Student's individual tries.
   immutable Question Version scope;
 - one server-owned try sequence within that Issued Question;
 - the generation seed and parameter hash;
-- the accepted Student Response and server-side Grading Result when available;
 - server-issued timing data;
 - the adapter and grading implementation versions;
 - the typed generator ID and version, plus the renderer version, when they apply;
-- the source object ID and checksum when one exists;
+- the exact Source Object Reference when one exists;
 - referenced asset object IDs; and
-- the rendered-question checksum.
+- the rendered-question checksum; and
+- its optional Question Submission.
 
-An attempt result contains correctness and points, not an answer key. Correct
-answers and grading implementations remain in `crates/grading`, outside the
-WebAssembly dependency closure. Feedback disclosure controls whether and when a
-result reaches a student response.
+A Question Submission owns the accepted Student Response and, after grading,
+its optional Grading Result. A Grading Result contains correctness and points,
+not an answer key. Correct answers and grading implementations remain in
+`crates/grading`, outside the WebAssembly dependency closure. Feedback
+disclosure controls whether and when a result reaches a student response.
 
-`AttemptProvenance` groups the implementation and object details without
-duplicating the seed, parameter hash, problem ID, or version ID carried by the
+`QuestionAttemptSourceRecord` groups the implementation and exact Source Object
+Reference without duplicating the seed, parameter hash, problem ID, or version ID carried by the
 owning Issued Question. Parameters themselves are regenerated from seed and
 generator version; the hash detects a mismatch without storing the same data
 on hundreds of millions of rows.
 
 Issued Question Progress and Question Attempt state remain separate. The
 server derives Issued Question Progress from its retained Question Attempts,
-Question Submissions, and Grading Results. `QuestionAttempt.status` records the
-operational state of one issued evidence record, including server-owned
-`AutoSubmitted`, `Cleared`, and `Exempt` transitions. The separate
-`SubmissionEvaluationStatus` records `automated_pending`, `automated_exception`,
-`graded`, or `exempt`. Neither representation gives the browser authority to
-change a score, bypass a timer, or erase earlier evidence.
+Question Submissions, and Grading Results. `QuestionAttempt.state` records the
+operational state of one issued evidence record: `Open`, `Submitted`, or
+server-owned `AutomaticallySubmitted`. Question Attempt Exclusion and Issued
+Question Exemption remain separate records. The separate
+`QuestionSubmissionGradingState` records `pending`, `instructor_attention`,
+`graded`, or `exempt`; `StudentQuestionSubmissionGradingState` projects only
+the answer-free Pending, Instructor Attention, or Graded state. Neither
+representation gives the browser authority to change a score, bypass a timer,
+or erase earlier evidence.
 
 Seed replay is secondary to fresh practice. The server gives every newly issued
 parameterized Generated Question a fresh seed. Resuming or re-rendering that
@@ -153,9 +157,9 @@ every position has a response may it issue an allowed retry. The store locks
 the Assignment Attempt and enforces the same invariant so concurrent requests cannot start two
 question timers.
 
-## Assignment activity persistence
+## Assignment Attempt persistence
 
-The activity API starts or resumes the Student Record owner's active Assignment
+The Assignment Attempt API starts or resumes the Student Record owner's active Assignment
 Attempt, lists attempt history with bounded cursors, records submissions, and reads the
 transactionally maintained summary. PostgreSQL supplies Assignment Attempt numbers, issue and
 submission timestamps, deadlines, and completion timestamps. The browser does
@@ -173,21 +177,22 @@ grade event, Question Attempt and Assignment Attempt transitions, Assignment Gra
 selection pointers, summary
 projection, and completed receipt.
 
-An acknowledged student response is recoverable without another answer POST.
-The submission route returns `accepted_pending` when the exact synchronous
-claim does not complete, clears the browser response buffer, and exposes
-**Check grading status**. The route-bound status GET returns the same
-answer-free union. A deterministic execution failure projects
-`instructor_attention`; an Instructor retry creates a new execution generation
-for the same immutable submission. The ordinary worker then uses the shared
-handler, and the assignment scoring path publishes the current Gradebook total.
+An acknowledged Student Response is recoverable without another answer POST.
+The submission route returns one Question Submission Acknowledgement: its
+accepted Receipt, `pending` Question Submission Grading State, and **Check
+grading status** action when the exact synchronous claim has not completed.
+The route-bound status GET returns the same answer-free boundary. A deterministic
+execution failure projects `instructor_attention`; an Instructor retry creates
+a new execution generation for the same immutable submission. The ordinary
+worker then uses the shared handler, and the assignment scoring path publishes
+the current Gradebook total.
 
 The server repeats key-free response-format validation before invoking a
 trusted grading backend. Storage independently rejects malformed point values.
 Student routes return the response and only policy-permitted correctness and
-points; answer keys and checker state never enter the activity model.
+points; answer keys and checker state never enter the Student Work Records model.
 
-## Question activity records
+## Question Attempt and Question Submission records
 
 The server records each fact at its owning level: an Issued Question owns the
 selected content, each Question Attempt owns one server-issued try and its
@@ -200,13 +205,14 @@ auditable instead of compressing them into one mutable lifecycle state.
 The server supplies every event. Grading cannot skip `Submitted`, policy must
 turn `Incorrect` into either `RetryAvailable` or `Exhausted`, and terminal
 states accept no later event. Starting a retry means issuing a new
-`QuestionAttempt` with a fresh server-owned seed. It never clears the response,
-result, seed, or provenance of the earlier attempt.
+`QuestionAttempt` with a fresh server-owned seed. It never changes the
+Question Submission, Grading Result, seed, or source record of the earlier
+Question Attempt.
 
 ## Timer verdicts
 
-`domain::timing::timer_verdict` is the one authoritative timer evaluation. It
-receives a `TimerEvaluation` containing `TimingPolicy`, `QuestionAttemptTiming`, a
+`domain::timing::question_attempt_timing_decision` is the one authoritative timer evaluation. It
+receives a `QuestionAttemptTimingEvaluation` containing `QuestionAttemptTimeLimit`, `QuestionAttemptTiming`, a
 server evaluation timestamp, and the cumulative authorized pause extension.
 It never reads a clock.
 
@@ -232,15 +238,15 @@ contract, including `pauseExtensionMillis` and `submittedWithinGrace`. The matri
 
 ## Independent policies
 
-The four Assignment Activity policy dimensions compose freely rather than
+The eight Assignment Activity policy dimensions compose freely rather than
 forming a fixed menu of assignment modes.
 
-| Policy                 | Options                                                    |
-| ---------------------- | ---------------------------------------------------------- |
-| Completion requirement | Answer all, all correct, or score threshold                |
-| Grade policy           | First, latest, highest, or instructor-selected Assignment Attempt |
-| Continued practice     | Unlimited, capped, or closed after completion              |
-| Variation policy       | New seeds, selected Question Variants, or full regeneration |
+| Policy                  | Options                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| Completion requirement  | Answer all, all correct, or score threshold                                                          |
+| Grade policy            | First, latest, highest, or instructor-selected Assignment Attempt                                    |
+| Continued practice      | Unlimited, capped, or closed after completion                                                        |
+| Question Variation Rule | Retain Questions with fresh Question Seeds, use selected Question Variants, or redraw Question Pools |
 
 For example, an instructor can require mastery, keep the highest score, allow
 unlimited practice, and issue new seeds on every Assignment Attempt. Continued practice does
@@ -248,14 +254,14 @@ not decide which score counts; grade policy remains independent.
 
 Question-level policies remain separate from Assignment Activity policy. Every immutable
 published question version owns an `AttemptPolicy` retry bound and a
-`TimingPolicy`; an assignment cannot silently rewrite either one. Attempt
+`QuestionAttemptTimeLimit`; an assignment cannot silently rewrite either one. Attempt
 policy does not disclose results, feedback, or answers. That lets the same Assignment Attempt
 model work for native, QTI, WeBWorK, and future Question Backends while keeping
 response and grading authority server-side.
 
-### Student disclosure
+### Student Feedback Release
 
-Each Assignment owns one `StudentDisclosurePolicy`. Its five independent
+Each Assignment owns one Student Feedback Release Rule. Its five independent
 fields are `score`, `per_item_correctness`, `feedback_text`, `solution`, and
 `class_statistics`. Each field uses one timing: `DuringAttempt`, `AfterSubmit`,
 `AfterDue`, `AfterClose`, or `Never`.
@@ -290,15 +296,15 @@ aggregate evidence.
 
 The assignment workspace is the local navigation owner. It loads one exact
 course/assignment aggregate and connects Overview, Questions, Policies, and
-Student view; it does not introduce another activity record or a second policy
-vocabulary. The assignment revision is shared across the focused writes so
+Student view; it does not introduce another Student Work Record or a second policy
+vocabulary. The Assignment Revision is shared across the focused writes so
 each page can update its own slice without replacing a sibling page's changes.
 
 - Questions edits assignment content: title, ordered fixed questions, pools,
   reuse, and selection order. Its content save changes no delivery or
   lifecycle policy.
 - Policies edits delivery and lifecycle policy: audience, disclosure, Assignment Activity
-  policies, student instructions, schedule, limits, late behavior, and
+  policies, student instructions, schedule, limits, Late Work Rule, and
   lifecycle. Its policy save changes no question content.
 - Teaching operations owns live operational actions around the assignment,
   including group and access operations, policy previews, delivery checks,
@@ -320,11 +326,11 @@ each page can update its own slice without replacing a sibling page's changes.
 These are presentation and command ownership boundaries over the same
 assignment aggregate. They do not alter the historical activity invariants:
 completion remains a milestone, post-completion Assignment Attempts remain possible when
-policy allows, and only server-owned Student delivery creates student activity.
+policy allows, and only server-owned Student delivery creates Student work.
 
 The fifth workspace page is **Grading operations**. It completes the visible
 recovery path from Student status to Instructor action while preserving the
-same assignment revision and server-owned activity records.
+same Assignment Revision and server-owned Student Work Records.
 
 ## Instructor activity types
 
@@ -342,7 +348,7 @@ values. It is not evidence that the four labels below are current API values:
 The Policies surface saves one revisioned assignment teaching-settings
 aggregate: Draft/Published/Closed/Archived lifecycle, plain-text student
 instructions, availability/due/close schedule, whole-Assignment-Attempt and Question Attempt limits,
-late behavior, and deadline behavior. Only Published opens lifecycle gate G1.
+Late Work Rule, and Assignment Deadline Rule. Only Published opens lifecycle gate G1.
 Course-local wall-clock input is converted by the server through the course
 IANA zone; the browser never derives an authoritative instant. An active Assignment Attempt
 does not consume its own attempt-limit slot: completed Assignment Attempts determine whether
@@ -351,7 +357,7 @@ another Assignment Attempt may start, while the current active Assignment Attemp
 The separate Teaching operations surface performs live operational work such
 as access-modifier changes, group management, effective-policy previews, and
 teaching-authority actions. It is not a replacement for the Policies editor
-and does not change the ownership of the durable activity records below.
+and does not change the ownership of the durable Student Work Records below.
 
 | Teaching activity          | Current durable representation                                                                                    | Instructor experience status                                                                                          |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -371,8 +377,8 @@ bundle, student wording, and planned UI simplification.
 ## Completion derivation
 
 `domain::completion::derive_within_assignment_attempt_completion` accepts current
-required-question states and a `CompletionRequirement`. It returns `InProgress`
-or `Complete` without reading storage or a clock.
+required-question states and a Completion Requirement. It returns the derived
+Assignment Attempt Completion state without reading storage or a clock.
 
 The derivation follows these rules:
 
@@ -390,7 +396,7 @@ Invalid score fractions and point values are explicit errors.
 Record and Assignment. The server's `AssignmentProgressRecord` carries the
 internal ownership references; `AssignmentGrade` separately owns the selected
 course-record result. Assignment Progress holds current, best, and latest
-scores, completed-attempt count, total Question Attempts, and last activity time.
+scores, completed-attempt count, total Question Attempts, and last Student Work time.
 Historical Assignment Attempts remain separate for analysis. The Store updates
 the view only for the same exact Student Record and Assignment represented by
 the transition.
@@ -402,20 +408,20 @@ disclosure. Starting an Assignment Attempt may set `last_activity_at` without ch
 The student projection omits internal course, Student Record, and Assignment
 identifiers.
 Its independent `scoring_status` is `Current`, `Recalculating`, or `Failed`.
-Recalculating and Failed omit aggregate scores, Assignment Attempt scores, Question Attempt results,
+Recalculating and Failed omit aggregate scores, Assignment Attempt scores, Grading Results,
 and disclosed point values even when disclosure would otherwise permit them,
-while keeping the underlying activity/disclosure state so a maintenance
+while keeping the underlying Student Work/disclosure state so a maintenance
 condition is never mistaken for a zero or a new attempt.
 
 `domain::scoring::project_summary` is a pure function:
 
 ```rust
-project_summary(previous, transition, grade_policy) -> Result<next, error>
+project_summary(previous, transition, assignment_attempt_grade_rule) -> Result<next, error>
 ```
 
 The function reads no database and no clock. A store can write the Assignment
-Attempt transition and returned activity view in one transaction, so a page
-never computes a grade by scanning activity history. Activity time never moves
+Attempt transition and returned Student Work Records view in one transaction, so a page
+never computes a grade by scanning Student Work Records history. Activity time never moves
 backward when an older event is replayed.
 
 `domain::scoring::select_assignment_attempt_grade` is the batch Recalculation contract over completed

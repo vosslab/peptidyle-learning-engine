@@ -6,6 +6,7 @@ export interface RouteContract {
   readonly id:
     | "courses"
     | "courseAssignments"
+    | "sysadminInstructorApproval"
     | "assignmentOverview"
     | "assignmentAttempt"
     | "assignmentAttemptSummary"
@@ -64,6 +65,12 @@ export const ROUTE_CONTRACT = [
     requiredRoles: [],
   },
   {
+    id: "sysadminInstructorApproval",
+    path: "/sysadmin/instructor-approval",
+    surface: "Sysadmin Instructor approval workspace",
+    requiredRoles: ["sysadmin"],
+  },
+  {
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
     surface: "Assignment overview, Assignment Attempt history, and practice entry",
@@ -84,14 +91,14 @@ export const ROUTE_CONTRACT = [
   {
     id: "library",
     path: "/library",
-    surface: "Shared problem browser",
-    requiredRoles: ["instructor", "sysadmin"],
+    surface: "Question Library",
+    requiredRoles: ["instructor"],
   },
   {
     id: "questionDetail",
     path: "/library/:questionRef",
     surface: "Published question detail",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "curriculum",
@@ -102,50 +109,50 @@ export const ROUTE_CONTRACT = [
   {
     id: "curriculumDetail",
     path: "/curriculum/:curriculumRef",
-    surface: "Reusable curriculum inspection and editor",
+    surface: "Blueprint Course inspection and editor",
     requiredRoles: ["instructor"],
   },
   {
     id: "workspaceList",
     path: "/workspace",
     surface: "Instructor drafts",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "workspaceEditor",
     path: "/workspace/:workspaceRef",
     surface: "Draft editor, validation, and preview",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentCreate",
     path: "/instructor/courses/:courseRef/assignments/new",
     surface: "Create persisted assignment draft and enter Questions",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceOverview",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef",
     surface: "Instructor assignment workspace overview",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceQuestions",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/questions",
     surface: "Instructor assignment questions workspace",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspacePolicies",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/policies",
     surface: "Instructor assignment policies workspace",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceStudentView",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/student-view",
     surface: "Instructor assignment Student view",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceGradingOperations",
@@ -158,19 +165,19 @@ export const ROUTE_CONTRACT = [
     id: "assignmentAccess",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
     surface: "Assignment access modifiers and server preview",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "assignmentPreview",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
     surface: "Instructor-only assignment delivery check",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "gradebook",
     path: "/instructor/courses/:courseRef/gradebook",
     surface: "Calculated Gradebook",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "studentWorkInspection",
@@ -182,25 +189,25 @@ export const ROUTE_CONTRACT = [
     id: "courseGradeSettings",
     path: "/instructor/courses/:courseRef/grade-settings",
     surface: "Course grade settings and projected totals",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "courseAppearance",
     path: "/instructor/courses/:courseRef/appearance",
     surface: "Course theme and entry-banner settings",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "courseRoster",
     path: "/instructor/courses/:courseRef/students",
     surface: "Course roster, invitations, and import",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
   {
     id: "teachingOperations",
     path: "/instructor/courses/:courseRef/teaching-operations",
     surface: "Course teaching operations hub",
-    requiredRoles: ["instructor", "sysadmin"],
+    requiredRoles: ["instructor"],
   },
 ] as const satisfies ReadonlyArray<RouteContract>;
 

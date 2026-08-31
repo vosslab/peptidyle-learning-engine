@@ -1,11 +1,10 @@
 # User roles
 
-PLE's current pre-SD1 product has three human personas: **Student**, **Instructor**, and
-**Sysadmin**. Its plural account-role source remains cutover input. The binding SD1 product
-contract requires each account and session to carry one immutable Student, Instructor, or Sysadmin
-role; a person who needs more than one role uses separate accounts. That target remains pending
-implementation and acceptance. Course authorization remains separate so future bounded Grader,
-Course Observer, or Student Observer relationships can be added without weakening the personas.
+PLE has three human personas: **Student**, **Instructor**, and **Sysadmin**. The implemented SD1
+Account and Authenticated Session boundary carries one immutable Student, Instructor, or Sysadmin
+role; a person who needs more than one role uses separate accounts. Course authorization remains
+separate so future bounded Grader, Course Observer, or Student Observer relationships can be added
+without weakening the personas. Full service, database, and release acceptance remains separate.
 
 This document owns the role vocabulary. The operation-specific rules remain
 in [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and the data
@@ -86,7 +85,7 @@ Sysadmin Course Instance Creation authority; after it creates the direct course
 relationship, ordinary account flows derive authority from the authenticated
 account and current course membership.
 
-The pending SD1 passwordless target, owned by migrations `2026082902` through
+The implemented passwordless foundation, owned by migrations `2026082902` through
 `2026082905` and `2026082933`, issues one immutable account and session role. It confirms that
 every selected Student or Instructor membership matches that role, and a
 Sysadmin account cannot select a course membership. The operator assigns the

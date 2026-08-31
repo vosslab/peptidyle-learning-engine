@@ -20,7 +20,7 @@ const expectedExports = [
   { name: "bridge_version", kind: "function" },
   { name: "memory", kind: "memory" },
   { name: "preview_native_draft", kind: "function" },
-  { name: "timer_verdict", kind: "function" },
+  { name: "question_attempt_timing_decision", kind: "function" },
   { name: "validate_assignment_config", kind: "function" },
   { name: "validate_response_format", kind: "function" },
   { name: "verify_presentation_descriptor", kind: "function" },

@@ -4,10 +4,10 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Deserializer, de};
 
-use super::CurriculumPinReplacement;
+use super::QuestionVersionSubstitution;
 use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionId,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionVersionReference,
 };
 
 pub(super) fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(
@@ -50,18 +50,18 @@ where
     deserializer.deserialize_seq(BoundedVecVisitor::<T, MAX>(PhantomData))
 }
 
-pub(super) fn deserialize_replacement_questions<'de, D>(
+pub(super) fn deserialize_replacement_question_versions<'de, D>(
     deserializer: D,
-) -> Result<Vec<QuestionId>, D::Error>
+) -> Result<Vec<QuestionVersionReference>, D::Error>
 where
     D: Deserializer<'de>,
 {
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL>(deserializer)
 }
 
-pub(super) fn deserialize_pin_replacements<'de, D>(
+pub(super) fn deserialize_question_version_substitutions<'de, D>(
     deserializer: D,
-) -> Result<Vec<CurriculumPinReplacement>, D::Error>
+) -> Result<Vec<QuestionVersionSubstitution>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -77,9 +77,9 @@ where
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_ORDERED_ENTRIES>(deserializer)
 }
 
-pub(super) fn deserialize_course_instance_provenance<'de, D>(
+pub(super) fn deserialize_assignment_sources<'de, D>(
     deserializer: D,
-) -> Result<Vec<super::course_instance::BlueprintAssignmentProvenance>, D::Error>
+) -> Result<Vec<super::course_instance::AssignmentSource>, D::Error>
 where
     D: Deserializer<'de>,
 {

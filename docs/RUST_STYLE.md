@@ -103,15 +103,15 @@ compiler enough information to enforce many of those decisions.
 
 Rust naming follows RFC 430, catalogued in the Rust API Guidelines.[^api-naming]
 
-| Item | Convention |
-| --- | --- |
-| Crates and modules | `snake_case` |
-| Types, traits, enum variants | `UpperCamelCase` |
-| Functions, methods, local variables | `snake_case` |
-| Macros | `snake_case!` |
-| Statics and constants | `SCREAMING_SNAKE_CASE` |
-| Type parameters | Single uppercase letter, for example `T` |
-| Lifetimes | Short lowercase, for example `'a` |
+| Item                                | Convention                               |
+| ----------------------------------- | ---------------------------------------- |
+| Crates and modules                  | `snake_case`                             |
+| Types, traits, enum variants        | `UpperCamelCase`                         |
+| Functions, methods, local variables | `snake_case`                             |
+| Macros                              | `snake_case!`                            |
+| Statics and constants               | `SCREAMING_SNAKE_CASE`                   |
+| Type parameters                     | Single uppercase letter, for example `T` |
+| Lifetimes                           | Short lowercase, for example `'a`        |
 
 In `UpperCamelCase`, an acronym counts as one word: write `Uuid`, not `UUID`.
 
@@ -139,14 +139,14 @@ marked `pub`, as described in the Rust book chapter
 
 Use this filename map:
 
-| Path | Cargo or module role |
-| --- | --- |
-| `src/main.rs` | Default binary crate root; use a thin stub that calls descriptive modules |
-| `src/lib.rs` | Library crate root; use a thin facade for crate docs, modules, and public re-exports |
-| `src/bin/name.rs` | Additional binary crate root; use a thin stub when the command has substantial behavior |
-| `src/name.rs` | Descriptive module declared as `mod name;` |
-| `src/name/child.rs` | Child module declared from `name.rs` |
-| `tests/name.rs` | Descriptive integration test crate compiled separately by Cargo |
+| Path                | Cargo or module role                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `src/main.rs`       | Default binary crate root; use a thin stub that calls descriptive modules               |
+| `src/lib.rs`        | Library crate root; use a thin facade for crate docs, modules, and public re-exports    |
+| `src/bin/name.rs`   | Additional binary crate root; use a thin stub when the command has substantial behavior |
+| `src/name.rs`       | Descriptive module declared as `mod name;`                                              |
+| `src/name/child.rs` | Child module declared from `name.rs`                                                    |
+| `tests/name.rs`     | Descriptive integration test crate compiled separately by Cargo                         |
 
 `docs.rs` names Rust's hosted crate-documentation service. Write crate front-page
 documentation with `//!` in the crate root, store extended prose under `docs/`, and
@@ -553,7 +553,7 @@ writes HTML into `target/doc` (the Rust book,
 [Publishing a Crate to Crates.io](https://doc.rust-lang.org/book/ch14-02-publishing-to-crates-io.html),
 section "Making Useful Documentation Comments").
 
-```rust
+````rust
 /// Adds one to the number given.
 ///
 /// # Examples
@@ -565,7 +565,7 @@ section "Making Useful Documentation Comments").
 pub fn add_one(x: i32) -> i32 {
     x + 1
 }
-```
+````
 
 In practice:
 
@@ -707,10 +707,10 @@ release exists. Confirm the current crate API and feature flags in `docs.rs` or 
 crate's official guide. Write each direct dependency in `Cargo.toml` with the one
 repository-wide form selected by the manager:
 
-| Form | Example | Contract |
-| --- | --- | --- |
+| Form           | Example                | Contract                                                            |
+| -------------- | ---------------------- | ------------------------------------------------------------------- |
 | Explicit floor | `version = ">=0.29.0"` | Latest known version is the minimum; newer versions remain eligible |
-| Wildcard | `version = "*"` | Every stable version remains eligible |
+| Wildcard       | `version = "*"`        | Every stable version remains eligible                               |
 
 Both forms intentionally allow future major, minor, and patch releases. Application
 repositories use `Cargo.lock` as the exact tested resolution between refreshes in
@@ -787,7 +787,11 @@ Every source cited here is freely readable online. Three carry most of the weigh
   source for public API design and naming.
 
 [^style-principles]: The Rust Style Guide, "Guiding principles and rationale." https://doc.rust-lang.org/stable/style-guide/principles.html
+
 [^style-index]: The Rust Style Guide, formatting conventions (4 spaces, no tabs, 100-character maximum width). https://doc.rust-lang.org/stable/style-guide/
+
 [^api-naming]: Rust API Guidelines, "Naming" (RFC 430 casing conventions and conversion prefixes). https://rust-lang.github.io/api-guidelines/naming.html
+
 [^book-appd]: The Rust Programming Language, Appendix D, "Useful Development Tools" (rustfmt, rustfix, Clippy, rust-analyzer). https://doc.rust-lang.org/book/appendix-04-useful-development-tools.html
+
 [^nomicon]: The Rustonomicon, the official guide to unsafe Rust. https://doc.rust-lang.org/nomicon/

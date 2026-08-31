@@ -199,7 +199,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   next state and moves focus predictably.
 - Mastery completion exposes Start another practice through ordinary Tab and Space. A fresh practice
   receives fresh server-owned seeds; resuming the current attempt preserves its seed.
-- A student can leave a response widget with Escape or a visible return action without committing an
+- A student can leave a question response control with Escape or a visible return action without committing an
   answer. If leaving would discard local work, PLE asks for confirmation through a keyboard-complete
   dialog.
 

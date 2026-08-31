@@ -3,7 +3,7 @@
 import type {
   FlatQuestionBlank,
   FlatQuestionSourceV2,
-  FlatQuestionTextMatchMode,
+  FlatQuestionTextResponseMatchRule,
 } from "./flat_question_source";
 
 const MAX_BLANKS = 50;
@@ -141,7 +141,7 @@ export function setMultiFillBlankLabel(
 export function setMultiFillBlankMatchMode(
   source: FlatQuestionSourceV2,
   blankId: string,
-  matchMode: FlatQuestionTextMatchMode,
+  matchMode: FlatQuestionTextResponseMatchRule,
 ): FlatMultiFillInEditResult {
   const response = multiFillResponse(source);
   const blank = response?.blanks.find((candidate) => candidate.id === blankId);

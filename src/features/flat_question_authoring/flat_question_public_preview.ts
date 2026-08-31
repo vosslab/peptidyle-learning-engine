@@ -1,10 +1,10 @@
 import type {
-  FlatQuestionAttemptPolicy,
+  FlatQuestionAttemptLimit,
   FlatQuestionChoice,
   FlatQuestionLicense,
   FlatQuestionSourceV2,
   FlatQuestionTaxonomyTerm,
-  FlatQuestionTimingPolicy,
+  FlatQuestionAttemptTimeLimit,
 } from "./flat_question_source";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 
@@ -14,8 +14,8 @@ export type FlatQuestionPublicPreview = {
   readonly prompt: string;
   readonly response: QuestionResponseFormat;
   readonly points: number;
-  readonly attemptPolicy: FlatQuestionAttemptPolicy;
-  readonly timingPolicy: FlatQuestionTimingPolicy;
+  readonly questionAttemptLimit: FlatQuestionAttemptLimit;
+  readonly questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
   readonly taxonomy: ReadonlyArray<FlatQuestionTaxonomyTerm>;
   readonly license: FlatQuestionLicense;
@@ -30,8 +30,8 @@ export function flatQuestionPublicPreview(source: FlatQuestionSourceV2): FlatQue
     prompt: source.prompt,
     response,
     points: source.points,
-    attemptPolicy: source.attemptPolicy,
-    timingPolicy: source.timingPolicy,
+    questionAttemptLimit: source.questionAttemptLimit,
+    questionAttemptTimeLimit: source.questionAttemptTimeLimit,
     tags: source.tags,
     taxonomy: source.taxonomy,
     license: source.license,

@@ -4,11 +4,11 @@ use chrono::{DateTime, LocalResult, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentLifecycle,
-    AssignmentTeachingSettings, BaseAssignmentPolicy, LateSubmissionPolicy,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    AssignmentDeadlineRule, AssignmentInstructions, AssignmentLifecycle,
+    AssignmentRevisionDefinition, BaseAssignmentPolicy, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
-use crate::{ActivityTimestamp, CourseTerm, IanaTimeZone};
+use crate::{ActivityTimestamp, AssignmentActivityRules, CourseTerm, CourseTimeZone};
 
 /// Server-derived current teaching state at one authoritative instant.
 ///
@@ -24,20 +24,20 @@ use crate::{ActivityTimestamp, CourseTerm, IanaTimeZone};
 pub enum InstructorAssignmentCurrentState {
     Draft,
     Scheduled {
-        available_at: CourseLocalDateTime,
+        available_at: CourseLocalDateAndTime,
     },
     Open,
     Closed {
-        closed_at: Option<CourseLocalDateTime>,
+        closed_at: Option<CourseLocalDateAndTime>,
     },
     Archived,
 }
 
 pub fn derive_instructor_assignment_current_state(
     term: &CourseTerm,
-    settings: &AssignmentTeachingSettings,
+    settings: &AssignmentRevisionDefinition,
     now: ActivityTimestamp,
-) -> Result<InstructorAssignmentCurrentState, AssignmentTeachingSettingsLocalError> {
+) -> Result<InstructorAssignmentCurrentState, AssignmentRevisionDefinitionLocalError> {
     use super::AssignmentLifecycle::{Archived, Closed, Draft, Published};
     match settings.lifecycle {
         Draft => Ok(InstructorAssignmentCurrentState::Draft),
@@ -48,14 +48,13 @@ pub fn derive_instructor_assignment_current_state(
                 available_at: project_optional_course_local_timestamp(
                     settings.base_policy.available_at,
                     term,
-                    AssignmentTeachingSettingsField::AvailableAt,
+                    AssignmentRevisionDefinitionField::AvailableAt,
                 )?
                 .expect("published scheduled state has an available-at instant"),
             })
         }
         Published => {
-            let due_boundary = (settings.base_policy.late_submission
-                == LateSubmissionPolicy::Reject)
+            let due_boundary = (settings.base_policy.late_work_rule == LateWorkRule::Reject)
                 .then_some(settings.base_policy.due_at)
                 .flatten();
             let closed_at = match (settings.base_policy.closes_at, due_boundary) {
@@ -69,7 +68,7 @@ pub fn derive_instructor_assignment_current_state(
                     closed_at: project_optional_course_local_timestamp(
                         closed_at,
                         term,
-                        AssignmentTeachingSettingsField::ClosesAt,
+                        AssignmentRevisionDefinitionField::ClosesAt,
                     )?,
                 });
             }
@@ -82,18 +81,18 @@ pub fn derive_instructor_assignment_current_state(
 ///
 /// This is deliberately a local wall-clock value, not a stored instant. The
 /// server resolves it with [`CourseTerm`] before persisting the resulting
-/// [`AssignmentTeachingSettings`]. Its wire form is exactly
+/// [`AssignmentRevisionDefinition`]. Its wire form is exactly
 /// `YYYY-MM-DDTHH:MM:SS.sss`, which is accepted by HTML `datetime-local`
 /// controls with `step="0.001"`. A browser may initialize its form at whole
 /// minutes, but this canonical wire value never loses an existing server
 /// timestamp's supported millisecond precision.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseLocalDateTime(String);
+pub struct CourseLocalDateAndTime(String);
 
-impl CourseLocalDateTime {
+impl CourseLocalDateAndTime {
     /// Parses one exact millisecond-precision local wall-clock string.
-    pub fn parse(value: &str) -> Result<Self, CourseLocalDateTimeError> {
+    pub fn parse(value: &str) -> Result<Self, CourseLocalDateAndTimeError> {
         let bytes = value.as_bytes();
         let exact_shape = bytes.len() == 23
             && bytes[4] == b'-'
@@ -106,7 +105,7 @@ impl CourseLocalDateTime {
                 matches!(index, 4 | 7 | 10 | 13 | 16 | 19) || byte.is_ascii_digit()
             });
         if !exact_shape || NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.3f").is_err() {
-            return Err(CourseLocalDateTimeError);
+            return Err(CourseLocalDateAndTimeError);
         }
         Ok(Self(value.to_string()))
     }
@@ -129,8 +128,8 @@ impl CourseLocalDateTime {
     pub fn resolve_for_course(
         &self,
         course_term: &CourseTerm,
-        field: AssignmentTeachingSettingsField,
-    ) -> Result<ActivityTimestamp, AssignmentTeachingSettingsLocalError> {
+        field: AssignmentRevisionDefinitionField,
+    ) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
         resolve_course_local_timestamp(self, course_term, field)
     }
 
@@ -141,89 +140,93 @@ impl CourseLocalDateTime {
     pub fn from_activity_timestamp(
         value: ActivityTimestamp,
         course_term: &CourseTerm,
-        field: AssignmentTeachingSettingsField,
-    ) -> Result<Self, AssignmentTeachingSettingsLocalError> {
+        field: AssignmentRevisionDefinitionField,
+    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
         project_course_local_timestamp(value, course_term, field)
     }
 }
 
-impl TryFrom<String> for CourseLocalDateTime {
-    type Error = CourseLocalDateTimeError;
+impl TryFrom<String> for CourseLocalDateAndTime {
+    type Error = CourseLocalDateAndTimeError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(&value)
     }
 }
 
-impl From<CourseLocalDateTime> for String {
-    fn from(value: CourseLocalDateTime) -> Self {
+impl From<CourseLocalDateAndTime> for String {
+    fn from(value: CourseLocalDateAndTime) -> Self {
         value.0
     }
 }
 
 /// A local wall-clock string is not exact `YYYY-MM-DDTHH:MM:SS.sss` calendar time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CourseLocalDateTimeError;
+pub struct CourseLocalDateAndTimeError;
 
-impl std::fmt::Display for CourseLocalDateTimeError {
+impl std::fmt::Display for CourseLocalDateAndTimeError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("course-local date time must be exact YYYY-MM-DDTHH:MM:SS.sss")
     }
 }
 
-impl std::error::Error for CourseLocalDateTimeError {}
+impl std::error::Error for CourseLocalDateAndTimeError {}
 
-/// Browser-facing instructor projection of stored absolute teaching settings.
+/// Browser-facing instructor projection of one stored Assignment Revision Definition.
 ///
 /// This is an edit/display boundary only. It contains local strings plus the
 /// course-owned IANA zone so a browser never consults its own machine zone.
-/// [`AssignmentTeachingSettings`] and its [`BaseAssignmentPolicy`] remain the
+/// [`AssignmentRevisionDefinition`] and its [`BaseAssignmentPolicy`] remain the
 /// only stored and effective-policy authority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorAssignmentTeachingSettingsLocal {
+pub struct InstructorAssignmentRevisionDefinitionLocal {
     /// Authoritative course IANA zone shown beside local form controls.
-    pub time_zone: IanaTimeZone,
+    pub time_zone: CourseTimeZone,
     /// Instructor-controlled assignment lifecycle intent.
     pub lifecycle: AssignmentLifecycle,
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// First local course time at which students may open the assignment.
-    pub available_at: Option<CourseLocalDateTime>,
+    pub available_at: Option<CourseLocalDateAndTime>,
     /// Ordinary local course due time.
-    pub due_at: Option<CourseLocalDateTime>,
+    pub due_at: Option<CourseLocalDateAndTime>,
     /// Hard local course time after which new work is closed.
-    pub closes_at: Option<CourseLocalDateTime>,
-    /// Whole-run limit when one applies.
-    pub time_limit_seconds: Option<NonZeroU32>,
+    pub closes_at: Option<CourseLocalDateAndTime>,
+    /// Whole Assignment Attempt limit when one applies.
+    pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of runs when one applies.
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
-    pub late_submission: LateSubmissionPolicy,
+    pub late_work_rule: LateWorkRule,
     /// Server behavior at an effective assignment deadline.
-    pub deadline_behavior: AssignmentDeadlineBehavior,
+    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
-impl InstructorAssignmentTeachingSettingsLocal {
+impl InstructorAssignmentRevisionDefinitionLocal {
     /// Builds a browser projection after validating limits and local ordering.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        time_zone: IanaTimeZone,
+        time_zone: CourseTimeZone,
         lifecycle: AssignmentLifecycle,
         instructions: AssignmentInstructions,
-        available_at: Option<CourseLocalDateTime>,
-        due_at: Option<CourseLocalDateTime>,
-        closes_at: Option<CourseLocalDateTime>,
-        time_limit_seconds: Option<NonZeroU32>,
+        available_at: Option<CourseLocalDateAndTime>,
+        due_at: Option<CourseLocalDateAndTime>,
+        closes_at: Option<CourseLocalDateAndTime>,
+        assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
         attempt_limit: Option<NonZeroU32>,
-        late_submission: LateSubmissionPolicy,
-        deadline_behavior: AssignmentDeadlineBehavior,
-    ) -> Result<Self, AssignmentTeachingSettingsLocalError> {
-        if time_limit_seconds.is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS) {
-            return Err(AssignmentTeachingSettingsLocalError::TimeLimitOutOfRange);
+        late_work_rule: LateWorkRule,
+        assignment_deadline_rule: AssignmentDeadlineRule,
+    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
+        if assignment_attempt_time_limit_seconds
+            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+        {
+            return Err(
+                AssignmentRevisionDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
+            );
         }
         if attempt_limit.is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT) {
-            return Err(AssignmentTeachingSettingsLocalError::AttemptLimitOutOfRange);
+            return Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange);
         }
         validate_local_ordering(&available_at, &due_at, &closes_at)?;
         Ok(Self {
@@ -233,10 +236,10 @@ impl InstructorAssignmentTeachingSettingsLocal {
             available_at,
             due_at,
             closes_at,
-            time_limit_seconds,
+            assignment_attempt_time_limit_seconds,
             attempt_limit,
-            late_submission,
-            deadline_behavior,
+            late_work_rule,
+            assignment_deadline_rule,
         })
     }
 
@@ -247,54 +250,58 @@ impl InstructorAssignmentTeachingSettingsLocal {
     pub fn into_absolute(
         self,
         course_term: &CourseTerm,
-    ) -> Result<AssignmentTeachingSettings, AssignmentTeachingSettingsLocalError> {
+        activity_rules: AssignmentActivityRules,
+    ) -> Result<AssignmentRevisionDefinition, AssignmentRevisionDefinitionLocalError> {
         self.validate()?;
         if self.time_zone != *course_term.time_zone() {
-            return Err(AssignmentTeachingSettingsLocalError::CourseTimeZoneMismatch);
+            return Err(AssignmentRevisionDefinitionLocalError::CourseTimeZoneMismatch);
         }
         let available_at = resolve_optional_course_local_timestamp(
             self.available_at.as_ref(),
             course_term,
-            AssignmentTeachingSettingsField::AvailableAt,
+            AssignmentRevisionDefinitionField::AvailableAt,
         )?;
         let due_at = resolve_optional_course_local_timestamp(
             self.due_at.as_ref(),
             course_term,
-            AssignmentTeachingSettingsField::DueAt,
+            AssignmentRevisionDefinitionField::DueAt,
         )?;
         let closes_at = resolve_optional_course_local_timestamp(
             self.closes_at.as_ref(),
             course_term,
-            AssignmentTeachingSettingsField::ClosesAt,
+            AssignmentRevisionDefinitionField::ClosesAt,
         )?;
         validate_absolute_ordering(available_at, due_at, closes_at)?;
-        Ok(AssignmentTeachingSettings {
+        Ok(AssignmentRevisionDefinition {
             lifecycle: self.lifecycle,
             instructions: self.instructions,
             base_policy: BaseAssignmentPolicy {
                 available_at,
                 due_at,
                 closes_at,
-                time_limit_seconds: self.time_limit_seconds,
+                assignment_attempt_time_limit_seconds: self.assignment_attempt_time_limit_seconds,
                 attempt_limit: self.attempt_limit,
-                late_submission: self.late_submission,
-                deadline_behavior: self.deadline_behavior,
+                late_work_rule: self.late_work_rule,
+                assignment_deadline_rule: self.assignment_deadline_rule,
             },
+            activity_rules,
         })
     }
 
-    fn validate(&self) -> Result<(), AssignmentTeachingSettingsLocalError> {
+    fn validate(&self) -> Result<(), AssignmentRevisionDefinitionLocalError> {
         if self
-            .time_limit_seconds
-            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+            .assignment_attempt_time_limit_seconds
+            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
         {
-            return Err(AssignmentTeachingSettingsLocalError::TimeLimitOutOfRange);
+            return Err(
+                AssignmentRevisionDefinitionLocalError::AssignmentAttemptTimeLimitOutOfRange,
+            );
         }
         if self
             .attempt_limit
             .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
         {
-            return Err(AssignmentTeachingSettingsLocalError::AttemptLimitOutOfRange);
+            return Err(AssignmentRevisionDefinitionLocalError::AttemptLimitOutOfRange);
         }
         validate_local_ordering(&self.available_at, &self.due_at, &self.closes_at)
     }
@@ -302,22 +309,22 @@ impl InstructorAssignmentTeachingSettingsLocal {
     /// Projects stored absolute settings into exact local course wall-clock values.
     pub fn from_absolute(
         course_term: &CourseTerm,
-        settings: &AssignmentTeachingSettings,
-    ) -> Result<Self, AssignmentTeachingSettingsLocalError> {
+        settings: &AssignmentRevisionDefinition,
+    ) -> Result<Self, AssignmentRevisionDefinitionLocalError> {
         let available_at = project_optional_course_local_timestamp(
             settings.base_policy.available_at,
             course_term,
-            AssignmentTeachingSettingsField::AvailableAt,
+            AssignmentRevisionDefinitionField::AvailableAt,
         )?;
         let due_at = project_optional_course_local_timestamp(
             settings.base_policy.due_at,
             course_term,
-            AssignmentTeachingSettingsField::DueAt,
+            AssignmentRevisionDefinitionField::DueAt,
         )?;
         let closes_at = project_optional_course_local_timestamp(
             settings.base_policy.closes_at,
             course_term,
-            AssignmentTeachingSettingsField::ClosesAt,
+            AssignmentRevisionDefinitionField::ClosesAt,
         )?;
         Self::new(
             course_term.time_zone().clone(),
@@ -326,10 +333,10 @@ impl InstructorAssignmentTeachingSettingsLocal {
             available_at,
             due_at,
             closes_at,
-            settings.base_policy.time_limit_seconds,
+            settings.base_policy.assignment_attempt_time_limit_seconds,
             settings.base_policy.attempt_limit,
-            settings.base_policy.late_submission,
-            settings.base_policy.deadline_behavior,
+            settings.base_policy.late_work_rule,
+            settings.base_policy.assignment_deadline_rule,
         )
     }
 }
@@ -337,22 +344,22 @@ impl InstructorAssignmentTeachingSettingsLocal {
 /// Refusal reason while translating an instructor local schedule at the server boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentTeachingSettingsFailureCode {
-    /// The submitted teaching settings cannot be accepted.
-    AssignmentTeachingSettingsInvalid,
+pub enum AssignmentRevisionDefinitionFailureCode {
+    /// The submitted Assignment Revision Definition cannot be accepted.
+    AssignmentRevisionDefinitionInvalid,
 }
 
-/// Browser-safe field that needs a correction in assignment teaching settings.
+/// Browser-safe field that needs a correction in an Assignment Revision Definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentTeachingSettingsField {
-    TeachingSettings,
+pub enum AssignmentRevisionDefinitionField {
+    AssignmentRevisionDefinition,
     TimeZone,
     AvailableAt,
     DueAt,
     ClosesAt,
     Schedule,
-    TimeLimitSeconds,
+    AssignmentAttemptTimeLimitSeconds,
     AttemptLimit,
     Lifecycle,
     Instructions,
@@ -361,7 +368,7 @@ pub enum AssignmentTeachingSettingsField {
 /// Browser-safe reason an assignment teaching-settings input was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentTeachingSettingsFailureReason {
+pub enum AssignmentRevisionDefinitionFailureReason {
     InvalidInput,
     CourseTimeZoneMismatch,
     OutsideCourseTerm,
@@ -369,7 +376,7 @@ pub enum AssignmentTeachingSettingsFailureReason {
     AmbiguousLocalTime,
     TimestampOutOfRange,
     ScheduleOutOfOrder,
-    TimeLimitOutOfRange,
+    AssignmentAttemptTimeLimitOutOfRange,
     AttemptLimitOutOfRange,
     IllegalLifecycleTransition,
     InvalidInstructions,
@@ -378,81 +385,85 @@ pub enum AssignmentTeachingSettingsFailureReason {
 /// Answer-free bounded correction contract for local teaching-settings input.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentTeachingSettingsValidationFailure {
-    pub error: AssignmentTeachingSettingsFailureCode,
-    pub field: AssignmentTeachingSettingsField,
-    pub reason: AssignmentTeachingSettingsFailureReason,
+pub struct AssignmentRevisionDefinitionValidationFailure {
+    pub error: AssignmentRevisionDefinitionFailureCode,
+    pub field: AssignmentRevisionDefinitionField,
+    pub reason: AssignmentRevisionDefinitionFailureReason,
     pub message: String,
 }
 
 /// Refusal reason while translating an instructor local schedule at the server boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignmentTeachingSettingsLocalError {
+pub enum AssignmentRevisionDefinitionLocalError {
     /// The browser repeated a zone other than the course's authoritative IANA zone.
     CourseTimeZoneMismatch,
     /// A local schedule timestamp lies outside the inclusive course calendar.
-    OutsideCourseTerm(AssignmentTeachingSettingsField),
+    OutsideCourseTerm(AssignmentRevisionDefinitionField),
     /// A local wall-clock time never occurred because DST skipped it.
-    NonexistentLocalTime(AssignmentTeachingSettingsField),
+    NonexistentLocalTime(AssignmentRevisionDefinitionField),
     /// A local wall-clock time occurred twice and lacks an offset discriminator.
-    AmbiguousLocalTime(AssignmentTeachingSettingsField),
+    AmbiguousLocalTime(AssignmentRevisionDefinitionField),
     /// A timestamp cannot be represented by Chrono's supported range.
-    TimestampOutOfRange(AssignmentTeachingSettingsField),
+    TimestampOutOfRange(AssignmentRevisionDefinitionField),
     /// Available, due, and closes values are not chronological.
     ScheduleOutOfOrder,
     /// The time limit exceeds PostgreSQL's supported integer range.
-    TimeLimitOutOfRange,
+    AssignmentAttemptTimeLimitOutOfRange,
     /// The attempt limit exceeds PostgreSQL's supported integer range.
     AttemptLimitOutOfRange,
 }
 
-impl AssignmentTeachingSettingsLocalError {
-    pub fn field(self) -> AssignmentTeachingSettingsField {
+impl AssignmentRevisionDefinitionLocalError {
+    pub fn field(self) -> AssignmentRevisionDefinitionField {
         match self {
-            Self::CourseTimeZoneMismatch => AssignmentTeachingSettingsField::TimeZone,
+            Self::CourseTimeZoneMismatch => AssignmentRevisionDefinitionField::TimeZone,
             Self::OutsideCourseTerm(field)
             | Self::NonexistentLocalTime(field)
             | Self::AmbiguousLocalTime(field)
             | Self::TimestampOutOfRange(field) => field,
-            Self::ScheduleOutOfOrder => AssignmentTeachingSettingsField::Schedule,
-            Self::TimeLimitOutOfRange => AssignmentTeachingSettingsField::TimeLimitSeconds,
-            Self::AttemptLimitOutOfRange => AssignmentTeachingSettingsField::AttemptLimit,
+            Self::ScheduleOutOfOrder => AssignmentRevisionDefinitionField::Schedule,
+            Self::AssignmentAttemptTimeLimitOutOfRange => {
+                AssignmentRevisionDefinitionField::AssignmentAttemptTimeLimitSeconds
+            }
+            Self::AttemptLimitOutOfRange => AssignmentRevisionDefinitionField::AttemptLimit,
         }
     }
 
-    pub fn reason(self) -> AssignmentTeachingSettingsFailureReason {
+    pub fn reason(self) -> AssignmentRevisionDefinitionFailureReason {
         match self {
             Self::CourseTimeZoneMismatch => {
-                AssignmentTeachingSettingsFailureReason::CourseTimeZoneMismatch
+                AssignmentRevisionDefinitionFailureReason::CourseTimeZoneMismatch
             }
             Self::OutsideCourseTerm(_) => {
-                AssignmentTeachingSettingsFailureReason::OutsideCourseTerm
+                AssignmentRevisionDefinitionFailureReason::OutsideCourseTerm
             }
             Self::NonexistentLocalTime(_) => {
-                AssignmentTeachingSettingsFailureReason::NonexistentLocalTime
+                AssignmentRevisionDefinitionFailureReason::NonexistentLocalTime
             }
             Self::AmbiguousLocalTime(_) => {
-                AssignmentTeachingSettingsFailureReason::AmbiguousLocalTime
+                AssignmentRevisionDefinitionFailureReason::AmbiguousLocalTime
             }
             Self::TimestampOutOfRange(_) => {
-                AssignmentTeachingSettingsFailureReason::TimestampOutOfRange
+                AssignmentRevisionDefinitionFailureReason::TimestampOutOfRange
             }
-            Self::ScheduleOutOfOrder => AssignmentTeachingSettingsFailureReason::ScheduleOutOfOrder,
-            Self::TimeLimitOutOfRange => {
-                AssignmentTeachingSettingsFailureReason::TimeLimitOutOfRange
+            Self::ScheduleOutOfOrder => {
+                AssignmentRevisionDefinitionFailureReason::ScheduleOutOfOrder
+            }
+            Self::AssignmentAttemptTimeLimitOutOfRange => {
+                AssignmentRevisionDefinitionFailureReason::AssignmentAttemptTimeLimitOutOfRange
             }
             Self::AttemptLimitOutOfRange => {
-                AssignmentTeachingSettingsFailureReason::AttemptLimitOutOfRange
+                AssignmentRevisionDefinitionFailureReason::AttemptLimitOutOfRange
             }
         }
     }
 }
 
-impl std::fmt::Display for AssignmentTeachingSettingsLocalError {
+impl std::fmt::Display for AssignmentRevisionDefinitionLocalError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::CourseTimeZoneMismatch => {
-                "teaching settings time zone must match the course time zone"
+                "Assignment Revision Definition time zone must match the course time zone"
             }
             Self::OutsideCourseTerm(_) => "teaching schedule must be inside the course calendar",
             Self::NonexistentLocalTime(_) => {
@@ -465,19 +476,21 @@ impl std::fmt::Display for AssignmentTeachingSettingsLocalError {
                 "teaching schedule timestamp is outside the supported range"
             }
             Self::ScheduleOutOfOrder => "available, due, and closes times must be chronological",
-            Self::TimeLimitOutOfRange => "teaching time limit exceeds the supported range",
+            Self::AssignmentAttemptTimeLimitOutOfRange => {
+                "teaching time limit exceeds the supported range"
+            }
             Self::AttemptLimitOutOfRange => "teaching attempt limit exceeds the supported range",
         })
     }
 }
 
-impl std::error::Error for AssignmentTeachingSettingsLocalError {}
+impl std::error::Error for AssignmentRevisionDefinitionLocalError {}
 
 fn validate_local_ordering(
-    available_at: &Option<CourseLocalDateTime>,
-    due_at: &Option<CourseLocalDateTime>,
-    closes_at: &Option<CourseLocalDateTime>,
-) -> Result<(), AssignmentTeachingSettingsLocalError> {
+    available_at: &Option<CourseLocalDateAndTime>,
+    due_at: &Option<CourseLocalDateAndTime>,
+    closes_at: &Option<CourseLocalDateAndTime>,
+) -> Result<(), AssignmentRevisionDefinitionLocalError> {
     if available_at
         .as_ref()
         .zip(due_at.as_ref())
@@ -491,7 +504,7 @@ fn validate_local_ordering(
             .zip(closes_at.as_ref())
             .is_some_and(|(available, closes)| available > closes)
     {
-        return Err(AssignmentTeachingSettingsLocalError::ScheduleOutOfOrder);
+        return Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder);
     }
     Ok(())
 }
@@ -500,7 +513,7 @@ fn validate_absolute_ordering(
     available_at: Option<ActivityTimestamp>,
     due_at: Option<ActivityTimestamp>,
     closes_at: Option<ActivityTimestamp>,
-) -> Result<(), AssignmentTeachingSettingsLocalError> {
+) -> Result<(), AssignmentRevisionDefinitionLocalError> {
     if available_at
         .zip(due_at)
         .is_some_and(|(available, due)| available > due)
@@ -511,7 +524,7 @@ fn validate_absolute_ordering(
             .zip(closes_at)
             .is_some_and(|(available, closes)| available > closes)
     {
-        return Err(AssignmentTeachingSettingsLocalError::ScheduleOutOfOrder);
+        return Err(AssignmentRevisionDefinitionLocalError::ScheduleOutOfOrder);
     }
     Ok(())
 }
@@ -525,10 +538,10 @@ fn course_time_zone(course_term: &CourseTerm) -> chrono_tz::Tz {
 }
 
 fn resolve_optional_course_local_timestamp(
-    value: Option<&CourseLocalDateTime>,
+    value: Option<&CourseLocalDateAndTime>,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<Option<ActivityTimestamp>, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<Option<ActivityTimestamp>, AssignmentRevisionDefinitionLocalError> {
     value
         .map(|value| resolve_course_local_timestamp(value, course_term, field))
         .transpose()
@@ -540,16 +553,16 @@ fn resolve_optional_course_local_timestamp(
 /// points at the browser control the instructor must correct. This function
 /// never consults a machine-local time zone.
 pub fn resolve_course_local_timestamp(
-    value: &CourseLocalDateTime,
+    value: &CourseLocalDateAndTime,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<ActivityTimestamp, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<ActivityTimestamp, AssignmentRevisionDefinitionLocalError> {
     let naive = value.naive();
     let date = naive.date().format("%Y-%m-%d").to_string();
     if date.as_str() < course_term.start_date().as_str()
         || date.as_str() > course_term.end_date().as_str()
     {
-        return Err(AssignmentTeachingSettingsLocalError::OutsideCourseTerm(
+        return Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
             field,
         ));
     }
@@ -557,11 +570,11 @@ pub fn resolve_course_local_timestamp(
         LocalResult::Single(value) => Ok(ActivityTimestamp::from_unix_millis(
             value.timestamp_millis(),
         )),
-        LocalResult::None => Err(AssignmentTeachingSettingsLocalError::NonexistentLocalTime(
-            field,
-        )),
+        LocalResult::None => {
+            Err(AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(field))
+        }
         LocalResult::Ambiguous(_, _) => Err(
-            AssignmentTeachingSettingsLocalError::AmbiguousLocalTime(field),
+            AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(field),
         ),
     }
 }
@@ -569,8 +582,8 @@ pub fn resolve_course_local_timestamp(
 fn project_optional_course_local_timestamp(
     value: Option<ActivityTimestamp>,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<Option<CourseLocalDateTime>, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<Option<CourseLocalDateAndTime>, AssignmentRevisionDefinitionLocalError> {
     value
         .map(|value| project_course_local_timestamp(value, course_term, field))
         .transpose()
@@ -584,33 +597,32 @@ fn project_optional_course_local_timestamp(
 pub fn project_course_local_timestamp(
     value: ActivityTimestamp,
     course_term: &CourseTerm,
-    field: AssignmentTeachingSettingsField,
-) -> Result<CourseLocalDateTime, AssignmentTeachingSettingsLocalError> {
+    field: AssignmentRevisionDefinitionField,
+) -> Result<CourseLocalDateAndTime, AssignmentRevisionDefinitionLocalError> {
     let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis()).ok_or(
-        AssignmentTeachingSettingsLocalError::TimestampOutOfRange(field),
+        AssignmentRevisionDefinitionLocalError::TimestampOutOfRange(field),
     )?;
     let local = course_time_zone(course_term).from_utc_datetime(&utc.naive_utc());
-    let wall_clock = CourseLocalDateTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
-        .expect("formatted course-local timestamp is valid");
+    let wall_clock =
+        CourseLocalDateAndTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
+            .expect("formatted course-local timestamp is valid");
     match course_time_zone(course_term).from_local_datetime(&wall_clock.naive()) {
         LocalResult::Single(round_trip)
             if round_trip.timestamp_millis() == value.as_unix_millis() => {}
         LocalResult::Single(_) | LocalResult::Ambiguous(_, _) => {
-            return Err(AssignmentTeachingSettingsLocalError::AmbiguousLocalTime(
+            return Err(AssignmentRevisionDefinitionLocalError::AmbiguousLocalTime(
                 field,
             ));
         }
         LocalResult::None => {
-            return Err(AssignmentTeachingSettingsLocalError::NonexistentLocalTime(
-                field,
-            ));
+            return Err(AssignmentRevisionDefinitionLocalError::NonexistentLocalTime(field));
         }
     }
     let date = local.format("%Y-%m-%d").to_string();
     if date.as_str() < course_term.start_date().as_str()
         || date.as_str() > course_term.end_date().as_str()
     {
-        return Err(AssignmentTeachingSettingsLocalError::OutsideCourseTerm(
+        return Err(AssignmentRevisionDefinitionLocalError::OutsideCourseTerm(
             field,
         ));
     }

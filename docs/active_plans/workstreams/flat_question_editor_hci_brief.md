@@ -62,7 +62,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 - **Draft**: private working question (`EditorDraft`) with no published `problem/version`.
 - **Revision**: server strong ETag string used for optimistic concurrency.
 - **Seed**: per-preview randomization input for reproducible student variant.
-- **Student preview**: local key-free derivation + response widget, no grading.
+- **Student preview**: local key-free derivation + question response control, no grading.
 - **Instructor preview**: protected server derivation of `correctResponse` + optional rationale.
 - **Capability**: policy dimension required before publish (`algorithmicGeneration`, `hints`, `perQuestionTiming`, `offlinePreview`).
 - **Publication readiness failure**: capability/infra issue message shown in editor.
@@ -71,27 +71,27 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 
 ## 4) State behavior matrix (actual evidence)
 
-| Surface                         | State             | User-visible behavior                                                       | Evidence                                                         |
-| ------------------------------- | ----------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Route access                    | Permission denied | "Workspace authoring is not available for this account" + no editor surface | `editor_live_pages.tsx:19-35`, `frontend_contract.spec.ts:57-63` |
-| Workspace list/editor container | `loading`         | `role= status` with "Loading workspace drafts..."                           | `editor_page.tsx:500-504`                                        |
-| Workspace list/editor container | `empty`           | panel: "No drafts yet"                                                      | `editor_page.tsx:505-510`                                        |
-| Workspace list/editor container | `error`           | route error panel + retry action                                            | `editor_page.tsx:511-518`                                        |
-| Draft edit state                | dirty local edits | "Save draft" available; "Draft saved..."/error message text region          | `editor_page.tsx:555-583`, `editor_page.tsx:496-498`             |
-| Student preview                 | `idle`            | "Seed" input + Preview button                                               | `editor_page.tsx:649-665`                                        |
-| Student preview                 | `loading`         | `role=status` "Generating preview..."                                       | `editor_page.tsx:673-675`                                        |
-| Student preview                 | `ready`           | question and response widget rendered (same components as student)          | `editor_page.tsx:691-709`                                        |
-| Student preview                 | `error`           | error region with message                                                   | `editor_page.tsx:676-680`                                        |
-| Instructor preview              | `idle`            | button available unless backend capability unavailable                      | `editor_page.tsx:713-733`                                        |
-| Instructor preview              | `loading`         | `role=status` "Loading protected instructor preview..."                     | `editor_page.tsx:737-739`                                        |
-| Instructor preview              | `available`       | question card + `Correct response` + optional `Why this works`              | `editor_page.tsx:754-777`                                        |
-| Instructor preview              | `unavailable`     | saved status notice from backend reason text                                | `editor_page.tsx:740-746`                                        |
-| Instructor preview              | `error`           | inline retry guidance, stale/conflict messages                              | `editor_page.tsx:747-753`                                        |
-| Publish                         | `idle/error`      | "Review publication changes" action + status/error message                  | `editor_page.tsx:859-869`, `851-854`                             |
-| Publish                         | `loadingDiff`     | `role=status` "Preparing publication review..."                             | `editor_page.tsx:856-858`                                        |
-| Publish                         | `confirm`         | version comparison + proposed title + scope + confirm action                | `editor_page.tsx:795-837`                                        |
-| Publish                         | `published`       | immutable version link + confirmation                                       | `editor_page.tsx:841-848`                                        |
-| Conflict states                 | stale conflict    | inline recovery notice + "Reload newest draft"                              | `editor_page.tsx:584-595`, `304`-`309`, `471-474`                |
+| Surface                         | State             | User-visible behavior                                                        | Evidence                                                         |
+| ------------------------------- | ----------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Route access                    | Permission denied | "Workspace authoring is not available for this account" + no editor surface  | `editor_live_pages.tsx:19-35`, `frontend_contract.spec.ts:57-63` |
+| Workspace list/editor container | `loading`         | `role= status` with "Loading workspace drafts..."                            | `editor_page.tsx:500-504`                                        |
+| Workspace list/editor container | `empty`           | panel: "No drafts yet"                                                       | `editor_page.tsx:505-510`                                        |
+| Workspace list/editor container | `error`           | route error panel + retry action                                             | `editor_page.tsx:511-518`                                        |
+| Draft edit state                | dirty local edits | "Save draft" available; "Draft saved..."/error message text region           | `editor_page.tsx:555-583`, `editor_page.tsx:496-498`             |
+| Student preview                 | `idle`            | "Seed" input + Preview button                                                | `editor_page.tsx:649-665`                                        |
+| Student preview                 | `loading`         | `role=status` "Generating preview..."                                        | `editor_page.tsx:673-675`                                        |
+| Student preview                 | `ready`           | question and question response control rendered (same components as student) | `editor_page.tsx:691-709`                                        |
+| Student preview                 | `error`           | error region with message                                                    | `editor_page.tsx:676-680`                                        |
+| Instructor preview              | `idle`            | button available unless backend capability unavailable                       | `editor_page.tsx:713-733`                                        |
+| Instructor preview              | `loading`         | `role=status` "Loading protected instructor preview..."                      | `editor_page.tsx:737-739`                                        |
+| Instructor preview              | `available`       | question card + `Correct response` + optional `Why this works`               | `editor_page.tsx:754-777`                                        |
+| Instructor preview              | `unavailable`     | saved status notice from backend reason text                                 | `editor_page.tsx:740-746`                                        |
+| Instructor preview              | `error`           | inline retry guidance, stale/conflict messages                               | `editor_page.tsx:747-753`                                        |
+| Publish                         | `idle/error`      | "Review publication changes" action + status/error message                   | `editor_page.tsx:859-869`, `851-854`                             |
+| Publish                         | `loadingDiff`     | `role=status` "Preparing publication review..."                              | `editor_page.tsx:856-858`                                        |
+| Publish                         | `confirm`         | version comparison + proposed title + scope + confirm action                 | `editor_page.tsx:795-837`                                        |
+| Publish                         | `published`       | immutable version link + confirmation                                        | `editor_page.tsx:841-848`                                        |
+| Conflict states                 | stale conflict    | inline recovery notice + "Reload newest draft"                               | `editor_page.tsx:584-595`, `304`-`309`, `471-474`                |
 
 ## 5) Error recovery model
 
@@ -205,7 +205,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 |                           | Student preview                                   |
 |                           | Seed input + Preview button                         |
 |                           | - question card                                   |
-|                           | - response widget                                 |
+|                           | - question response control                                 |
 |                           +--------------------------------------------------+
 |                           | Instructor answer preview                          |
 |                           | button: Load/Retry instructor answer preview        |

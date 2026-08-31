@@ -58,17 +58,17 @@ and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
 ## Does mastery end practice?
 
-No. Mastery, scoring, continued practice, and variation are independent assignment policies. An
+No. Mastery, scoring, continued practice, and the Question Variation Rule are independent Assignment rules. An
 Instructor can require mastery, keep the highest score, allow unlimited practice after completion,
 and issue fresh parameter seeds for each new run. A resumed attempt keeps its original seed so its
 question does not change mid-attempt. See [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 
 ## How does an exam differ?
 
-An activity type gives Instructors a teaching-intent starting point rather than asking them to
+An Assignment teaching pattern gives Instructors a teaching-intent starting point rather than asking them to
 compose implementation policies. A mastery assignment gives immediate full feedback, permits
 retries, and can offer fresh later practice. An exam uses a controlled run, restricted feedback, and
-no continued practice. PLE keeps completion, grading, variation, and feedback policies separate so
+no continued practice. PLE keeps completion, grading, Question Variation, and feedback rules separate so
 a Course Instance can use either activity honestly. See [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md).
 
 ## What runs in Solid and Wasm?

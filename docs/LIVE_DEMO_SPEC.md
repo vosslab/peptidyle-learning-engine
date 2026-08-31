@@ -78,9 +78,11 @@ submissions, grades, and instructor review are ordinary PLE records created by t
 
 Instructor and Sysadmin captures use the fixed `laptop` profile at exactly 1280 by 800 CSS pixels in a desktop 16:10
 viewport. Student captures use the maintained `laptop` (1280 by 800), `tablet` (800 by 1280), `iphone_pro` (393 by
-852), and `square` (800 by 800) profiles. These names and dimensions are defined by
-`tests/e2e/browser_screenshot_corpus.json`, the durable visual-evidence authority. Review each applicable capture for
-semantic usability, accessibility, privacy, and task completion.
+852), and `square` (800 by 800) profiles. These owner-required dimensions are
+currently documented here and in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md); the
+former screenshot-corpus authority was removed. A restored browser owner must
+use these profiles and record semantic usability, accessibility, privacy, and
+task-completion review before it claims current visual acceptance.
 
 ### WebWork Question Library baseline
 

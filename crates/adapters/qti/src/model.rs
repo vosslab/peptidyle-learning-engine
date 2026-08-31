@@ -4,7 +4,7 @@ use objects::Sha256Digest;
 use question_model::AssetId;
 use question_model::QuestionResponseFormat;
 use question_model::envelope::ContentBlock;
-use question_model::response::ChoiceId;
+use question_model::response::ResponseItemReference;
 use serde::{Deserialize, Serialize};
 
 /// Hard resource limits enforced before extraction or XML parsing.
@@ -204,7 +204,7 @@ pub enum QtiAssetReferenceError {
 /// correctness material.
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct QtiGradingHandoff {
-    pub(crate) choices_by_item: BTreeMap<String, ChoiceId>,
+    pub(crate) choices_by_item: BTreeMap<String, ResponseItemReference>,
 }
 
 /// Result of a validated import. `grading` and original bytes are deliberately
@@ -246,7 +246,7 @@ impl ImportedQtiPackage {
     /// This handoff is deliberately Rust-only: neither this package nor this
     /// method's result implements serialization for browser, WASM, or API
     /// delivery. The worker owns durable object writes and must never surface
-    /// the bytes in draft or catalog JSON.
+    /// the bytes in draft or Question Library JSON.
     pub fn worker_original_bytes(&self) -> &[u8] {
         &self.original.bytes
     }
@@ -270,7 +270,7 @@ impl ImportedQtiPackage {
     /// Returns the private correct-choice mapping only to the server import
     /// worker so it can write the grader-owned record. No browser projection,
     /// generated type, or Debug implementation receives this association.
-    pub fn worker_correct_choice(&self, item_id: &str) -> Option<ChoiceId> {
+    pub fn worker_correct_choice(&self, item_id: &str) -> Option<ResponseItemReference> {
         self.grading.choices_by_item.get(item_id).cloned()
     }
 }

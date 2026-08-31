@@ -1,14 +1,14 @@
 // Strict browser decoder for the Instructor assignment workspace projection.
 
-import type { AssignmentContentIssuedWorkConflict } from "../../../generated/api/AssignmentContentIssuedWorkConflict";
-import type { AssignmentPublicationReadiness } from "../../../generated/api/AssignmentPublicationReadiness";
+import type { SuccessorAssignmentRevisionRequired } from "../../../generated/api/SuccessorAssignmentRevisionRequired";
+import type { DraftAssignmentRevisionPublicationReadiness } from "../../../generated/api/DraftAssignmentRevisionPublicationReadiness";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
-import { DecodeError, decodeArray, decodeRecord, decodeStringEnum } from "../decoder";
+import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
 import {
   decodeInstructorAssignmentCurrentState,
-  decodeInstructorAssignmentTeachingSettingsLocal,
+  decodeInstructorAssignmentRevisionDefinitionLocal,
 } from "./assignment_teaching_delivery";
-import { decodeAssignmentSummary } from "./question_library";
+import { decodeAssignmentReference, decodeAssignmentSummary } from "./question_library";
 import {
   decodeCapability,
   decodeEnvelopeTitle,
@@ -32,58 +32,71 @@ export function decodeAssignmentEditorDetail(
     "courseId",
     "title",
     "entries",
-    "disclosurePolicy",
+    "studentFeedbackReleaseRule",
     "policies",
-    "teachingSettings",
+    "assignmentRevisionDefinition",
     "currentState",
-    "publicationReadiness",
+    "draftRevisionPublicationReadiness",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
-  const teachingSettings = decodeInstructorAssignmentTeachingSettingsLocal(
-    field(record, "teachingSettings", path),
-    `${path}.teachingSettings`,
+  const assignmentRevisionDefinition = decodeInstructorAssignmentRevisionDefinitionLocal(
+    field(record, "assignmentRevisionDefinition", path),
+    `${path}.assignmentRevisionDefinition`,
   );
   const currentState = decodeInstructorAssignmentCurrentState(
     field(record, "currentState", path),
     `${path}.currentState`,
   );
-  const publicationReadiness = decodeAssignmentPublicationReadiness(
-    field(record, "publicationReadiness", path),
-    `${path}.publicationReadiness`,
+  const draftRevisionPublicationReadiness = decodeDraftAssignmentRevisionPublicationReadiness(
+    field(record, "draftRevisionPublicationReadiness", path),
+    `${path}.draftRevisionPublicationReadiness`,
   );
-  assertCurrentStateMatchesLifecycle(teachingSettings.lifecycle, currentState, path);
+  assertCurrentStateMatchesLifecycle(assignmentRevisionDefinition.lifecycle, currentState, path);
   const decoded = {
     id: summary.id,
     reference: summary.reference,
     courseId: summary.courseId,
     title: summary.title,
     entries: summary.entries,
-    disclosurePolicy: summary.disclosurePolicy,
+    studentFeedbackReleaseRule: summary.studentFeedbackReleaseRule,
     policies: summary.policies,
-    teachingSettings,
+    assignmentRevisionDefinition,
     currentState,
-    publicationReadiness,
+    draftRevisionPublicationReadiness,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
 
-/** Decodes the exact 409 body that says issued Student work blocks content save. */
-export function decodeAssignmentContentIssuedWorkConflict(
+/** Decodes the exact 409 body requiring a successor Draft Assignment Revision. */
+export function decodeSuccessorAssignmentRevisionRequired(
   value: unknown,
   path = "response",
-): AssignmentContentIssuedWorkConflict {
+): SuccessorAssignmentRevisionRequired {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["kind"]);
+  requireOnlyFields(record, path, ["baseRevision"]);
+  const baseRevisionPath = `${path}.baseRevision`;
+  const baseRevision = decodeRecord(field(record, "baseRevision", path), baseRevisionPath);
+  requireOnlyFields(baseRevision, baseRevisionPath, ["assignment", "revision_number"]);
+  const revisionNumber = decodeString(
+    field(baseRevision, "revision_number", baseRevisionPath),
+    `${baseRevisionPath}.revision_number`,
+  );
+  if (!/^[1-9][0-9]*$/u.test(revisionNumber))
+    throw new DecodeError(`${baseRevisionPath}.revision_number`, "a positive revision number");
   const decoded = {
-    kind: decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-      "issuedStudentWork",
-    ] as const),
-  } satisfies AssignmentContentIssuedWorkConflict;
+    baseRevision: {
+      assignment: decodeAssignmentReference(
+        field(baseRevision, "assignment", baseRevisionPath),
+        `${baseRevisionPath}.assignment`,
+      ),
+      revision_number: revisionNumber,
+    },
+  } satisfies SuccessorAssignmentRevisionRequired;
   return decoded;
 }
 
 function assertCurrentStateMatchesLifecycle(
-  lifecycle: AssignmentEditorDetail["teachingSettings"]["lifecycle"],
+  lifecycle: AssignmentEditorDetail["assignmentRevisionDefinition"]["lifecycle"],
   currentState: AssignmentEditorDetail["currentState"],
   path: string,
 ): void {
@@ -103,10 +116,10 @@ function assertCurrentStateMatchesLifecycle(
   }
 }
 
-function decodeAssignmentPublicationReadiness(
+function decodeDraftAssignmentRevisionPublicationReadiness(
   value: unknown,
   path: string,
-): AssignmentPublicationReadiness {
+): DraftAssignmentRevisionPublicationReadiness {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["blockingIssues"]);
   return {
@@ -123,7 +136,7 @@ function decodeAssignmentPublicationReadiness(
         };
       },
     ),
-  } satisfies AssignmentPublicationReadiness;
+  } satisfies DraftAssignmentRevisionPublicationReadiness;
 }
 
 export function decodeAssignmentCapabilityViolations(

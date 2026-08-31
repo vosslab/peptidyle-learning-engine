@@ -11,8 +11,8 @@ import {
 import {
   numericResponseFromAuthoring,
   parseNumericLiteral,
-  setNumericToleranceKind,
-  setNumericToleranceValue,
+  setNumericResponseToleranceKind,
+  setNumericResponseToleranceValue,
   validateNumericResponse,
 } from "../src/features/flat_question_authoring/flat_numeric_model.ts";
 
@@ -89,7 +89,10 @@ test("numeric validation exposes only applicable tolerance errors and rejects in
 });
 
 test("numeric operations create one applicable tolerance field and construct only valid source responses", () => {
-  const relative = setNumericToleranceValue(setNumericToleranceKind("relative"), 0.01);
+  const relative = setNumericResponseToleranceValue(
+    setNumericResponseToleranceKind("relative"),
+    0.01,
+  );
   assert.deepEqual(relative, { kind: "relative", fraction: 0.01 });
   const response = { kind: "numeric", answer: 0, tolerance: { kind: "exact" }, unit: null };
   assert.deepEqual(numericResponseFromAuthoring(response, "6.022e23", relative, "mol^-1"), {

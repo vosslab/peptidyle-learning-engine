@@ -20,7 +20,7 @@ const CAPABILITIES = [
   "serverGrading",
   "partialCredit",
   "hints",
-  "perQuestionTiming",
+  "questionAttemptTimeLimit",
   "printExport",
   "offlinePreview",
 ] as const satisfies ReadonlyArray<Capability>;
@@ -50,7 +50,7 @@ function selectedCapability(value: string | null): Array<Capability> {
   }
   const selected = CAPABILITIES.find((candidate) => candidate === value);
   if (selected === undefined) {
-    throw new Error("Catalog capability selection is invalid");
+    throw new Error("Question Library capability selection is invalid");
   }
   return [selected];
 }
@@ -61,7 +61,7 @@ function selectedLicense(value: string | null): Array<QuestionSearchLicense> {
   }
   const selected = LICENSES.find((candidate) => candidate === value);
   if (selected === undefined) {
-    throw new Error("Catalog license selection is invalid");
+    throw new Error("Question Library license selection is invalid");
   }
   return [selected];
 }
@@ -69,14 +69,15 @@ function selectedLicense(value: string | null): Array<QuestionSearchLicense> {
 function selectedBackend(value: string | null): QuestionSearchRequest["backends"] {
   if (value === null) return [];
   const selected = BACKENDS.find((candidate) => candidate === value);
-  if (selected === undefined) throw new Error("Catalog backend selection is invalid");
+  if (selected === undefined) throw new Error("Question Library backend selection is invalid");
   return [selected];
 }
 
 function selectedQuestionType(value: string | null): QuestionSearchRequest["question_types"] {
   if (value === null) return [];
   const selected = QUESTION_TYPES.find((candidate) => candidate === value);
-  if (selected === undefined) throw new Error("Catalog Question Type selection is invalid");
+  if (selected === undefined)
+    throw new Error("Question Library Question Type selection is invalid");
   return [selected];
 }
 
@@ -90,7 +91,7 @@ function taxonomyFilter(value: string | null): QuestionSearchRequest["taxonomy"]
   }
   const separator = value.indexOf(":");
   if (separator < 1 || separator === value.length - 1) {
-    throw new Error("Catalog taxonomy selection is invalid");
+    throw new Error("Question Library taxonomy selection is invalid");
   }
   return [{ scheme: value.slice(0, separator), code: value.slice(separator + 1) }];
 }
@@ -184,7 +185,7 @@ export function createQuestionLibraryRepository(
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
           title: item.summary.metadata.title,
-          summary: `Published ${item.summary.backend} problem.`,
+          summary: `Published ${item.summary.backend} Question.`,
           byline: item.summary.byline.names,
           taxonomy: item.summary.metadata.taxonomy.map((term) => `${term.scheme}:${term.code}`),
           capabilities: item.summary.capabilities,

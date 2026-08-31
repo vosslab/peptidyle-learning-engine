@@ -1,23 +1,23 @@
 // model.ts - typed, browser-safe state helpers for assignment access modifiers.
 
-import type { AssignmentPolicyPatchUpdateRequest } from "../../../generated/api/AssignmentPolicyPatchUpdateRequest";
-import type { AccommodationPatchUpdateRequest } from "../../../generated/api/AccommodationPatchUpdateRequest";
-import type { TeachingPreviewFieldSource } from "../../../generated/api/TeachingPreviewFieldSource";
+import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
+import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/api/AccommodationAdjustmentUpdateRequest";
+import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
 import type { TeachingTimeFieldPatch } from "../../../generated/api/TeachingTimeFieldPatch";
 
 export type ModifierScope = "accommodation";
 export type PatchKind = "inherit" | "set" | "unrestricted";
-export type ModifierMode = "extendOnly" | "override";
+export type ModifierMode = "extendOnly" | "replace";
 
 export interface ModifierPatchDraft {
   readonly availableAt: { readonly kind: PatchKind; readonly value: string };
   readonly dueAt: { readonly kind: PatchKind; readonly value: string };
   readonly closesAt: { readonly kind: PatchKind; readonly value: string };
-  readonly timeLimitSeconds: { readonly kind: PatchKind; readonly value: string };
+  readonly assignmentAttemptTimeLimitSeconds: { readonly kind: PatchKind; readonly value: string };
   readonly attemptLimit: { readonly kind: PatchKind; readonly value: string };
 }
 
-export interface PreviewSubject {
+export interface SelectedStudent {
   readonly reference: string;
   readonly display: string;
 }
@@ -35,7 +35,7 @@ export function emptyPatchDraft(): ModifierPatchDraft {
     availableAt: { kind: "inherit", value: "" },
     dueAt: { kind: "inherit", value: "" },
     closesAt: { kind: "inherit", value: "" },
-    timeLimitSeconds: { kind: "inherit", value: "" },
+    assignmentAttemptTimeLimitSeconds: { kind: "inherit", value: "" },
     attemptLimit: { kind: "inherit", value: "" },
   };
 }
@@ -62,7 +62,7 @@ function timePatch(field: ModifierPatchDraft["availableAt"]): TeachingTimeFieldP
 }
 
 function limitPatch(
-  field: ModifierPatchDraft["timeLimitSeconds"],
+  field: ModifierPatchDraft["assignmentAttemptTimeLimitSeconds"],
   label: string,
 ): { kind: "inherit" } | { kind: "set"; value: number } | { kind: "unrestricted" } {
   if (field.kind === "inherit") return { kind: "inherit" };
@@ -73,33 +73,33 @@ function limitPatch(
 export function policyRequest(
   mode: ModifierMode,
   draft: ModifierPatchDraft,
-): AssignmentPolicyPatchUpdateRequest | AccommodationPatchUpdateRequest {
+): SyntheticPreviewAccommodationAdjustmentRequest | AccommodationAdjustmentUpdateRequest {
   return {
     mode,
-    patch: {
+    adjustment: {
       availableAt: timePatch(draft.availableAt),
       dueAt: timePatch(draft.dueAt),
       closesAt: timePatch(draft.closesAt),
-      timeLimitSeconds: limitPatch(draft.timeLimitSeconds, "Whole-run seconds"),
+      assignmentAttemptTimeLimitSeconds: limitPatch(draft.assignmentAttemptTimeLimitSeconds, "Whole Assignment Attempt seconds"),
       attemptLimit: limitPatch(draft.attemptLimit, "Attempt limit"),
     },
   };
 }
 
-export function sourceLabel(source: TeachingPreviewFieldSource): string {
+export function sourceLabel(source: AssignmentPolicySource): string {
   if (source.kind === "base") return source.label;
   return source.label;
 }
 
 export function startLabel(
-  start: "mayStart" | "notYetAvailable" | "closed" | "attemptLimitReached" | "dueDateRejectsNewRun",
+  start: "mayStart" | "notYetAvailable" | "closed" | "attemptLimitReached" | "lateWorkRefused",
 ): string {
   const labels: Record<typeof start, string> = {
     mayStart: "May start",
     notYetAvailable: "Not yet available",
     closed: "Closed",
     attemptLimitReached: "Attempt limit reached",
-    dueDateRejectsNewRun: "Due date prevents a new run",
+    lateWorkRefused: "Due date prevents a new run",
   };
   return labels[start];
 }

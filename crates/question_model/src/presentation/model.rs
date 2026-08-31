@@ -4,11 +4,11 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
 use crate::QuestionVersionReference;
-use crate::activity::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
 use crate::course_appearance::CourseThemeId;
 use crate::envelope::{AssetRef, ContentBlock};
 use crate::generation::Seed;
 use crate::identity::AssetId;
+use crate::student_work::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -3,10 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDefinitionSourceView, CourseInstanceBlueprintApplication,
-    CourseInstanceCreationWitness, CourseInstanceScheduleCorrection, CourseInstanceWitness,
-    CurriculumAdoptionIdempotencyKey, CurriculumPinReplacements, ObservedBlueprintSource,
-    UnavailableCurriculumPinRecovery,
+    BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken, BlueprintRevisionReference,
+    CourseInstanceCreationReservation, CourseInstanceScheduleCorrection, CourseInstanceSnapshot,
+    CourseOrigin, QuestionVersionSubstitutions, UnavailableQuestionVersionRecovery,
 };
 use crate::{
     AccountId, ActivityTimestamp, AssignmentReference, BlueprintCourseReference, BlueprintRevision,
@@ -18,21 +17,21 @@ use crate::{
 /// This value intentionally has no Serde implementation. The application service creates and
 /// retains it beside the server-held preview record; browser JSON remains intent-only.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BlueprintCourseCreationWitness {
-    source: ObservedBlueprintSource,
+pub struct BlueprintForkReservation {
+    source: BlueprintRevisionReference,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
     reserved_blueprint: BlueprintCourseReference,
 }
 
-impl BlueprintCourseCreationWitness {
+impl BlueprintForkReservation {
     /// Reserves a BlueprintCourse identity after the server has authorized the fork intent.
     pub fn new(
-        source: ObservedBlueprintSource,
+        source: BlueprintRevisionReference,
         authorized_account: AccountId,
         request_digest: [u8; 32],
-        idempotency_key: CurriculumAdoptionIdempotencyKey,
+        idempotency_key: BlueprintOperationRetryToken,
         reserved_blueprint: BlueprintCourseReference,
     ) -> Self {
         Self {
@@ -45,7 +44,7 @@ impl BlueprintCourseCreationWitness {
     }
 
     /// Returns the exact readable source that authorized the fork reservation.
-    pub fn source(&self) -> &ObservedBlueprintSource {
+    pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
 
@@ -60,7 +59,7 @@ impl BlueprintCourseCreationWitness {
     }
 
     /// Returns the browser retry key bound to this server-created reservation.
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 
@@ -73,28 +72,28 @@ impl BlueprintCourseCreationWitness {
 /// Closed server decision that allows a Blueprint operation to proceed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintAdoptionEligibility {
-    Eligible,
-    Refused { refusal: BlueprintAdoptionRefusal },
+pub enum BlueprintOperationReadiness {
+    Ready,
+    Blocked { blocker: BlueprintOperationBlocker },
 }
 
-/// Typed server refusal for a Blueprint operation preview.
+/// Typed server blocker for a Blueprint operation preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintAdoptionRefusal {
+pub enum BlueprintOperationBlocker {
     ScheduleCorrectionsRequired {
         #[serde(deserialize_with = "deserialize_schedule_corrections")]
         corrections: Vec<CourseInstanceScheduleCorrection>,
     },
-    UnavailablePin {
-        recovery: UnavailableCurriculumPinRecovery,
+    UnavailableQuestionVersion {
+        recovery: UnavailableQuestionVersionRecovery,
     },
     SourceRevisionDrift {
-        observed: ObservedBlueprintSource,
+        observed: BlueprintRevisionReference,
     },
     DestinationWitnessDrift {
-        expected: CourseInstanceWitness,
-        observed: CourseInstanceWitness,
+        expected: CourseInstanceSnapshot,
+        observed: CourseInstanceSnapshot,
     },
 }
 
@@ -103,9 +102,9 @@ pub enum BlueprintAdoptionRefusal {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ForkBlueprintCoursePreviewRequest {
     /// The exact readable source revision selected by the browser.
-    pub source: ObservedBlueprintSource,
-    /// Explicit QuestionId substitutions selected during preview correction.
-    pub replacements: CurriculumPinReplacements,
+    pub source: BlueprintRevisionReference,
+    /// Explicit Question Version substitutions selected during preview correction.
+    pub replacements: QuestionVersionSubstitutions,
 }
 
 /// Browser preview request for one bounded BlueprintCourse assignment adoption.
@@ -113,11 +112,11 @@ pub struct ForkBlueprintCoursePreviewRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct AdoptBlueprintAssignmentPreviewRequest {
     /// One bounded assignment location in the selected source revision.
-    pub source: AssignmentDefinitionSourceView,
+    pub source: BlueprintAssignmentRevisionReference,
     /// Existing CourseInstance destination.
     pub course: CourseInstanceReference,
-    /// Explicit QuestionId substitutions selected during preview correction.
-    pub replacements: CurriculumPinReplacements,
+    /// Explicit Question Version substitutions selected during preview correction.
+    pub replacements: QuestionVersionSubstitutions,
 }
 
 /// Browser preview request for a whole BlueprintCourse instantiation.
@@ -125,11 +124,11 @@ pub struct AdoptBlueprintAssignmentPreviewRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstantiateBlueprintCoursePreviewRequest {
     /// The exact readable source revision selected by the browser.
-    pub source: ObservedBlueprintSource,
+    pub source: BlueprintRevisionReference,
     /// Destination term whose local calendar resolves source schedule intent.
     pub target_term: CourseTerm,
     /// Explicit QuestionId substitutions selected during preview correction.
-    pub replacements: CurriculumPinReplacements,
+    pub replacements: QuestionVersionSubstitutions,
 }
 
 /// Answer-free result used to create a fork command.
@@ -137,11 +136,11 @@ pub struct InstantiateBlueprintCoursePreviewRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ForkBlueprintCoursePreviewView {
     /// Exact source observed by the authorized server read.
-    pub source: ObservedBlueprintSource,
+    pub source: BlueprintRevisionReference,
     /// Server-validated substitutions.
-    pub replacements: CurriculumPinReplacements,
+    pub replacements: QuestionVersionSubstitutions,
     /// Server-owned authorization to construct the fork command.
-    pub eligibility: BlueprintAdoptionEligibility,
+    pub readiness: BlueprintOperationReadiness,
 }
 
 /// Answer-free result used to create an assignment-adoption command.
@@ -149,13 +148,13 @@ pub struct ForkBlueprintCoursePreviewView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct AdoptBlueprintAssignmentPreviewView {
     /// Exact source location observed by the authorized server read.
-    pub source: AssignmentDefinitionSourceView,
+    pub source: BlueprintAssignmentRevisionReference,
     /// Exact existing CourseInstance state observed by the authorized server read.
-    pub destination: CourseInstanceWitness,
+    pub destination: CourseInstanceSnapshot,
     /// Server-validated substitutions.
-    pub replacements: CurriculumPinReplacements,
+    pub replacements: QuestionVersionSubstitutions,
     /// Server-owned authorization to construct the ordinary adoption command.
-    pub eligibility: BlueprintAdoptionEligibility,
+    pub readiness: BlueprintOperationReadiness,
 }
 
 /// Answer-free result used to create a course-instantiation command.
@@ -163,44 +162,44 @@ pub struct AdoptBlueprintAssignmentPreviewView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstantiateBlueprintCoursePreviewView {
     /// Exact source observed by the authorized server read.
-    pub source: ObservedBlueprintSource,
+    pub source: BlueprintRevisionReference,
     /// Destination term returned by preview.
     pub target_term: CourseTerm,
     /// Server-validated substitutions.
-    pub replacements: CurriculumPinReplacements,
+    pub replacements: QuestionVersionSubstitutions,
     /// Server-owned authorization to construct the instantiation command.
-    pub eligibility: BlueprintAdoptionEligibility,
+    pub readiness: BlueprintOperationReadiness,
 }
 
 /// Apply command derived only from a completed fork preview.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseCommand {
-    source: ObservedBlueprintSource,
-    replacements: CurriculumPinReplacements,
-    creation: BlueprintCourseCreationWitness,
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    source: BlueprintRevisionReference,
+    replacements: QuestionVersionSubstitutions,
+    creation: BlueprintForkReservation,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 /// Apply command derived only from a completed assignment-adoption preview.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdoptBlueprintAssignmentCommand {
-    source: AssignmentDefinitionSourceView,
-    destination: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
-    replacements: CurriculumPinReplacements,
+    source: BlueprintAssignmentRevisionReference,
+    destination: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
+    replacements: QuestionVersionSubstitutions,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 /// Apply command derived only from a completed course-instantiation preview.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstantiateBlueprintCourseCommand {
-    source: ObservedBlueprintSource,
+    source: BlueprintRevisionReference,
     target_term: CourseTerm,
-    replacements: CurriculumPinReplacements,
-    creation: CourseInstanceCreationWitness,
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    replacements: QuestionVersionSubstitutions,
+    creation: CourseInstanceCreationReservation,
+    idempotency_key: BlueprintOperationRetryToken,
 }
 
 impl AdoptBlueprintAssignmentCommand {
@@ -209,7 +208,7 @@ impl AdoptBlueprintAssignmentCommand {
         Self {
             source: record.source(),
             destination: record.destination().clone(),
-            blueprint_application: record.blueprint_application(),
+            course_origin: record.course_origin(),
             replacements: record.replacements().clone(),
             authorized_account: record.authorized_account(),
             request_digest: record.request_digest(),
@@ -217,16 +216,16 @@ impl AdoptBlueprintAssignmentCommand {
         }
     }
 
-    pub fn source(&self) -> &AssignmentDefinitionSourceView {
+    pub fn source(&self) -> &BlueprintAssignmentRevisionReference {
         &self.source
     }
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.destination
     }
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
-    pub fn replacements(&self) -> &CurriculumPinReplacements {
+    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -235,7 +234,7 @@ impl AdoptBlueprintAssignmentCommand {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 
@@ -257,19 +256,19 @@ impl ForkBlueprintCourseCommand {
         }
     }
 
-    pub fn source(&self) -> &ObservedBlueprintSource {
+    pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
 
-    pub fn replacements(&self) -> &CurriculumPinReplacements {
+    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
         &self.replacements
     }
 
-    pub fn creation(&self) -> &BlueprintCourseCreationWitness {
+    pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
 
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
@@ -287,7 +286,7 @@ impl InstantiateBlueprintCourseCommand {
         }
     }
 
-    pub fn source(&self) -> &ObservedBlueprintSource {
+    pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
 
@@ -295,33 +294,33 @@ impl InstantiateBlueprintCourseCommand {
         &self.target_term
     }
 
-    pub fn replacements(&self) -> &CurriculumPinReplacements {
+    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
         &self.replacements
     }
 
-    pub fn creation(&self) -> &CourseInstanceCreationWitness {
+    pub fn creation(&self) -> &CourseInstanceCreationReservation {
         &self.creation
     }
 
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
 }
 
 /// A preview has unresolved schedule or exact-pin correction.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CurriculumAdoptionCommandError {
-    Refused(BlueprintAdoptionRefusal),
+pub enum BlueprintOperationCommandError {
+    Blocked(BlueprintOperationBlocker),
     CreationWitnessMismatch,
 }
 
-pub(super) fn require_blueprint_eligible(
-    eligibility: &BlueprintAdoptionEligibility,
-) -> Result<(), CurriculumAdoptionCommandError> {
-    match eligibility {
-        BlueprintAdoptionEligibility::Eligible => Ok(()),
-        BlueprintAdoptionEligibility::Refused { refusal } => {
-            Err(CurriculumAdoptionCommandError::Refused(refusal.clone()))
+pub(super) fn require_blueprint_operation_ready(
+    readiness: &BlueprintOperationReadiness,
+) -> Result<(), BlueprintOperationCommandError> {
+    match readiness {
+        BlueprintOperationReadiness::Ready => Ok(()),
+        BlueprintOperationReadiness::Blocked { blocker } => {
+            Err(BlueprintOperationCommandError::Blocked(blocker.clone()))
         }
     }
 }
@@ -329,9 +328,9 @@ pub(super) fn require_blueprint_eligible(
 /// Immutable receipt retained for one successful BlueprintCourse fork.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseReceipt {
-    source: ObservedBlueprintSource,
-    created: ObservedBlueprintSource,
-    creation: BlueprintCourseCreationWitness,
+    source: BlueprintRevisionReference,
+    created: BlueprintRevisionReference,
+    creation: BlueprintForkReservation,
     server_time: ActivityTimestamp,
 }
 
@@ -345,9 +344,9 @@ pub enum ForkBlueprintCourseReceiptError {
 impl ForkBlueprintCourseReceipt {
     /// Records one committed fork with its source and server-reserved creation evidence.
     pub fn new(
-        source: ObservedBlueprintSource,
-        created: ObservedBlueprintSource,
-        creation: BlueprintCourseCreationWitness,
+        source: BlueprintRevisionReference,
+        created: BlueprintRevisionReference,
+        creation: BlueprintForkReservation,
         server_time: ActivityTimestamp,
     ) -> Result<Self, ForkBlueprintCourseReceiptError> {
         if creation.source() != &source {
@@ -364,16 +363,16 @@ impl ForkBlueprintCourseReceipt {
         })
     }
 
-    pub fn source(&self) -> &ObservedBlueprintSource {
+    pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
-    pub fn created(&self) -> &ObservedBlueprintSource {
+    pub fn created(&self) -> &BlueprintRevisionReference {
         &self.created
     }
-    pub fn creation(&self) -> &BlueprintCourseCreationWitness {
+    pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         self.creation.idempotency_key()
     }
     pub fn request_digest(&self) -> [u8; 32] {
@@ -405,20 +404,12 @@ where
     )
 }
 
-impl std::fmt::Display for CurriculumAdoptionCommandError {
+impl std::fmt::Display for BlueprintOperationCommandError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("curriculum adoption preview is not eligible for apply")
     }
 }
-impl std::error::Error for CurriculumAdoptionCommandError {}
-
-/// Whether a matching completed write was newly applied or replayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CurriculumReplayStatus {
-    Applied,
-    Replayed,
-}
+impl std::error::Error for BlueprintOperationCommandError {}
 
 /// Browser-safe completed assignment-adoption result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -426,7 +417,6 @@ pub enum CurriculumReplayStatus {
 pub struct AdoptBlueprintAssignmentCompleted {
     pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completion for a committed fork; it projects the exact created revision.
@@ -435,7 +425,6 @@ pub struct AdoptBlueprintAssignmentCompleted {
 pub struct ForkBlueprintCourseCompleted {
     pub blueprint: BlueprintCourseReference,
     pub revision: BlueprintRevision,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completed whole-course instantiation result.
@@ -443,7 +432,6 @@ pub struct ForkBlueprintCourseCompleted {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstantiateBlueprintCourseCompleted {
     pub course: CourseInstanceReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 #[cfg(test)]
@@ -451,13 +439,14 @@ mod tests {
     use super::*;
     use crate::{
         AccountId, BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision,
-        CourseInstanceApplicationBinding, CourseScheduleRevision, CurriculumAdoptionRequestBinding,
-        QuestionId, QuestionVersionNumber, QuestionVersionReference,
+        CourseScheduleRevisionNumber, CourseScheduleRevisionReference,
+        CurriculumAdoptionRequestBinding, QuestionId, QuestionVersionNumber,
+        QuestionVersionReference,
     };
     use uuid::Uuid;
 
-    fn source() -> ObservedBlueprintSource {
-        ObservedBlueprintSource {
+    fn source() -> BlueprintRevisionReference {
+        BlueprintRevisionReference {
             reference: BlueprintCourseReference::new(7).expect("BP reference"),
             revision: BlueprintRevision::new(2).expect("revision"),
         }
@@ -471,18 +460,25 @@ mod tests {
         BlueprintAssignmentId::from_uuid(Uuid::from_u128(10))
     }
 
-    fn blueprint_application() -> CourseInstanceBlueprintApplication {
-        CourseInstanceBlueprintApplication { source: source() }
+    fn course_origin() -> CourseOrigin {
+        CourseOrigin::from_blueprint(source())
     }
 
-    fn application_binding(destination: CourseInstanceWitness) -> CourseInstanceApplicationBinding {
-        CourseInstanceApplicationBinding::new(destination, blueprint_application())
+    #[test]
+    fn course_origin_distinguishes_direct_creation_from_rollover() {
+        let source_course = CourseInstanceReference::new(9).expect("source course");
+
+        assert_eq!(CourseOrigin::from_blueprint(source()).source_course, None);
+        assert_eq!(
+            CourseOrigin::from_rollover(source(), source_course).source_course,
+            Some(source_course)
+        );
     }
 
     fn request_binding(
         authorized_account: AccountId,
         request_digest: [u8; 32],
-        idempotency_key: CurriculumAdoptionIdempotencyKey,
+        idempotency_key: BlueprintOperationRetryToken,
     ) -> CurriculumAdoptionRequestBinding {
         CurriculumAdoptionRequestBinding::new(authorized_account, request_digest, idempotency_key)
     }
@@ -491,25 +487,36 @@ mod tests {
         AccountId::from_uuid(Uuid::from_u128(1))
     }
 
-    fn destination() -> CourseInstanceWitness {
-        CourseInstanceWitness::new(
-            CourseInstanceReference::new(3).expect("course"),
-            CourseScheduleRevision::new(1).expect("revision"),
-            vec![],
+    fn schedule_revision(
+        course: CourseInstanceReference,
+        revision_number: u64,
+    ) -> CourseScheduleRevisionReference {
+        CourseScheduleRevisionReference::new(
+            course,
+            CourseScheduleRevisionNumber::new(revision_number).expect("positive revision"),
         )
-        .expect("bounded witness")
     }
 
-    fn unavailable_recovery() -> UnavailableCurriculumPinRecovery {
-        UnavailableCurriculumPinRecovery {
-            source: AssignmentDefinitionSourceView::new(source(), assignment_id()),
-            position: super::super::CurriculumPinPosition::new(None, 0, 0, None).expect("position"),
+    fn destination() -> CourseInstanceSnapshot {
+        let course = CourseInstanceReference::new(3).expect("course");
+        CourseInstanceSnapshot::new(course, schedule_revision(course, 1), vec![])
+            .expect("bounded witness")
+    }
+
+    fn unavailable_recovery() -> UnavailableQuestionVersionRecovery {
+        UnavailableQuestionVersionRecovery {
+            source: BlueprintAssignmentRevisionReference::new(source(), assignment_id()),
+            position: super::super::BlueprintQuestionPosition::new(None, 0, 0, None)
+                .expect("position"),
             unavailable: QuestionVersionReference {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
                 version_number: QuestionVersionNumber::new(1).expect("positive version"),
             },
-            choices: super::super::ReplacementQuestionChoices::new(vec![
-                QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
+            choices: super::super::ReplacementQuestionVersionChoices::new(vec![
+                QuestionVersionReference {
+                    question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
+                    version_number: QuestionVersionNumber::new(2).expect("positive version"),
+                },
             ])
             .expect("choices"),
         }
@@ -517,41 +524,41 @@ mod tests {
 
     #[test]
     fn operations_are_closed_snake_case_and_preview_bound() {
-        let key = CurriculumAdoptionIdempotencyKey::parse("blueprint-apply").expect("key");
+        let key = BlueprintOperationRetryToken::parse("blueprint-apply").expect("key");
         let source = source();
         let fork = ForkBlueprintCoursePreviewView {
             source,
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
         let command = ForkBlueprintCourseCommand::from_server_record(
             super::super::ForkBlueprintCourseApplyRecord::new(
                 source,
                 fork.replacements.clone(),
-                BlueprintCourseCreationWitness::new(
+                BlueprintForkReservation::new(
                     source,
                     authorized_account(),
                     [4; 32],
                     key.clone(),
                     BlueprintCourseReference::new(8).expect("reserved blueprint"),
                 ),
-                fork.eligibility.clone(),
+                fork.readiness.clone(),
             )
             .expect("server-held record"),
         );
         assert_eq!(command.source(), &source);
         assert_eq!(command.idempotency_key(), &key);
         let wire = serde_json::to_value(&fork).expect("preview serializes");
-        assert!(wire.get("eligibility").is_some());
+        assert!(wire.get("readiness").is_some());
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(wire).is_ok());
 
-        let location = AssignmentDefinitionSourceView::new(source, assignment_id());
+        let location = BlueprintAssignmentRevisionReference::new(source, assignment_id());
         let adopt = AdoptBlueprintAssignmentPreviewView {
             source: location,
             destination: destination(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Refused {
-                refusal: BlueprintAdoptionRefusal::ScheduleCorrectionsRequired {
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Blocked {
+                blocker: BlueprintOperationBlocker::ScheduleCorrectionsRequired {
                     corrections: vec![],
                 },
             },
@@ -559,13 +566,14 @@ mod tests {
         assert_eq!(
             super::super::AdoptBlueprintAssignmentApplyRecord::new(
                 adopt.source,
-                application_binding(adopt.destination),
+                adopt.destination,
+                course_origin(),
                 adopt.replacements,
                 request_binding(authorized_account(), [3; 32], key),
-                adopt.eligibility,
+                adopt.readiness,
             ),
-            Err(CurriculumAdoptionCommandError::Refused(
-                BlueprintAdoptionRefusal::ScheduleCorrectionsRequired {
+            Err(BlueprintOperationCommandError::Blocked(
+                BlueprintOperationBlocker::ScheduleCorrectionsRequired {
                     corrections: vec![]
                 }
             ))
@@ -575,21 +583,22 @@ mod tests {
     #[test]
     fn adoption_and_instantiation_bind_exact_source_location_and_idempotency() {
         let source = source();
-        let location = AssignmentDefinitionSourceView::new(source, assignment_id());
-        let key = CurriculumAdoptionIdempotencyKey::parse("adopt-blueprint-1").expect("key");
+        let location = BlueprintAssignmentRevisionReference::new(source, assignment_id());
+        let key = BlueprintOperationRetryToken::parse("adopt-blueprint-1").expect("key");
         let adoption = AdoptBlueprintAssignmentPreviewView {
             source: location,
             destination: destination(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
         let command = AdoptBlueprintAssignmentCommand::from_server_record(
             super::super::AdoptBlueprintAssignmentApplyRecord::new(
                 adoption.source,
-                application_binding(adoption.destination),
+                adoption.destination,
+                course_origin(),
                 adoption.replacements,
                 request_binding(authorized_account(), [4; 32], key.clone()),
-                adoption.eligibility,
+                adoption.readiness,
             )
             .expect("server-held record"),
         );
@@ -597,22 +606,25 @@ mod tests {
         assert_eq!(command.source().assignment_id(), assignment_id());
         assert_eq!(command.idempotency_key(), &key);
         assert_eq!(command.destination(), &destination());
-        assert_eq!(command.course(), CourseInstanceReference::new(3).expect("course"));
+        assert_eq!(
+            command.course(),
+            CourseInstanceReference::new(3).expect("course")
+        );
 
         let term =
             CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
         let instantiation = InstantiateBlueprintCoursePreviewView {
             source,
             target_term: term.clone(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
         let command = InstantiateBlueprintCourseCommand::from_server_record(
             super::super::InstantiateBlueprintCourseApplyRecord::new(
                 source,
                 term.clone(),
                 instantiation.replacements,
-                CourseInstanceCreationWitness::for_blueprint(
+                CourseInstanceCreationReservation::for_blueprint(
                     source,
                     term.clone(),
                     authorized_account(),
@@ -620,7 +632,7 @@ mod tests {
                     key.clone(),
                     CourseInstanceReference::new(4).expect("reserved course"),
                 ),
-                instantiation.eligibility,
+                instantiation.readiness,
             )
             .expect("server-held record"),
         );
@@ -637,59 +649,61 @@ mod tests {
         let source = source();
         let preview = ForkBlueprintCoursePreviewView {
             source,
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
         let wire = serde_json::to_value(preview).expect("preview serializes");
-        assert!(wire.get("eligibility").is_some());
+        assert!(wire.get("readiness").is_some());
         assert!(wire.get("corrections_required").is_none());
         let mut forged = wire;
         forged["authority"] = serde_json::json!("instructor");
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(forged).is_err());
-        let source = AssignmentDefinitionSourceView::new(source, assignment_id());
+        let source = BlueprintAssignmentRevisionReference::new(source, assignment_id());
         let mut source_wire = serde_json::to_value(source).expect("source serializes");
         source_wire["module_index"] = serde_json::json!(0);
-        assert!(serde_json::from_value::<AssignmentDefinitionSourceView>(source_wire).is_err());
         assert!(
-            !AssignmentDefinitionSourceView::new(source.source(), other_assignment_id())
+            serde_json::from_value::<BlueprintAssignmentRevisionReference>(source_wire).is_err()
+        );
+        assert!(
+            !BlueprintAssignmentRevisionReference::new(source.source(), other_assignment_id())
                 .same_assignment_lineage(source)
         );
 
-        let refusal = serde_json::json!({
+        let blocker = serde_json::json!({
             "kind": "unavailable_pin",
             "recovery": serde_json::to_value(unavailable_recovery()).expect("recovery"),
         });
-        let mut nested = refusal;
+        let mut nested = blocker;
         nested["recovery"]["untrusted"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<BlueprintAdoptionRefusal>(nested).is_err());
+        assert!(serde_json::from_value::<BlueprintOperationBlocker>(nested).is_err());
     }
 
     #[test]
-    fn every_blueprint_refusal_prevents_command_construction() {
-        let key = CurriculumAdoptionIdempotencyKey::parse("refused-blueprint").expect("key");
-        let refusals = vec![
-            BlueprintAdoptionRefusal::ScheduleCorrectionsRequired {
+    fn every_blueprint_blocker_prevents_command_construction() {
+        let key = BlueprintOperationRetryToken::parse("refused-blueprint").expect("key");
+        let blockers = vec![
+            BlueprintOperationBlocker::ScheduleCorrectionsRequired {
                 corrections: vec![CourseInstanceScheduleCorrection {
                     field: super::super::CourseInstanceScheduleField::DueAt,
                     reason: super::super::CourseInstanceScheduleReason::AmbiguousLocalTime,
                 }],
             },
-            BlueprintAdoptionRefusal::UnavailablePin {
+            BlueprintOperationBlocker::UnavailableQuestionVersion {
                 recovery: unavailable_recovery(),
             },
-            BlueprintAdoptionRefusal::SourceRevisionDrift { observed: source() },
-            BlueprintAdoptionRefusal::DestinationWitnessDrift {
+            BlueprintOperationBlocker::SourceRevisionDrift { observed: source() },
+            BlueprintOperationBlocker::DestinationWitnessDrift {
                 expected: destination(),
-                observed: CourseInstanceWitness::new(
+                observed: CourseInstanceSnapshot::new(
                     CourseInstanceReference::new(3).expect("course"),
-                    CourseScheduleRevision::new(2).expect("revision"),
+                    schedule_revision(CourseInstanceReference::new(3).expect("course"), 2),
                     vec![],
                 )
                 .expect("bounded witness"),
             },
         ];
-        for refusal in refusals {
-            let creation = BlueprintCourseCreationWitness::new(
+        for blocker in blockers {
+            let creation = BlueprintForkReservation::new(
                 source(),
                 authorized_account(),
                 [9; 32],
@@ -699,26 +713,26 @@ mod tests {
             assert_eq!(
                 super::super::ForkBlueprintCourseApplyRecord::new(
                     source(),
-                    CurriculumPinReplacements::default(),
+                    QuestionVersionSubstitutions::default(),
                     creation,
-                    BlueprintAdoptionEligibility::Refused {
-                        refusal: refusal.clone(),
+                    BlueprintOperationReadiness::Blocked {
+                        blocker: blocker.clone(),
                     },
                 ),
-                Err(CurriculumAdoptionCommandError::Refused(refusal))
+                Err(BlueprintOperationCommandError::Blocked(blocker))
             );
         }
     }
 
     #[test]
-    fn creation_witnesses_bind_commands_without_a_browser_serde_path() {
-        let key = CurriculumAdoptionIdempotencyKey::parse("creation-binding").expect("key");
+    fn creation_reservations_bind_commands_without_a_browser_serde_path() {
+        let key = BlueprintOperationRetryToken::parse("creation-binding").expect("key");
         let fork = ForkBlueprintCoursePreviewView {
             source: source(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
-        let creation = BlueprintCourseCreationWitness::new(
+        let creation = BlueprintForkReservation::new(
             source(),
             authorized_account(),
             [6; 32],
@@ -730,15 +744,15 @@ mod tests {
                 source(),
                 fork.replacements.clone(),
                 creation.clone(),
-                fork.eligibility.clone(),
+                fork.readiness.clone(),
             )
             .expect("server creation binding"),
         );
         assert_eq!(command.creation(), &creation);
         assert!(serde_json::to_value(&fork).is_ok());
 
-        let mismatched = BlueprintCourseCreationWitness::new(
-            ObservedBlueprintSource {
+        let mismatched = BlueprintForkReservation::new(
+            BlueprintRevisionReference {
                 reference: BlueprintCourseReference::new(11).expect("other source"),
                 revision: BlueprintRevision::new(1).expect("revision"),
             },
@@ -752,9 +766,9 @@ mod tests {
                 source(),
                 fork.replacements.clone(),
                 mismatched,
-                fork.eligibility.clone(),
+                fork.readiness.clone(),
             ),
-            Err(CurriculumAdoptionCommandError::CreationWitnessMismatch)
+            Err(BlueprintOperationCommandError::CreationWitnessMismatch)
         );
 
         let term =
@@ -762,12 +776,11 @@ mod tests {
         let instantiate = InstantiateBlueprintCoursePreviewView {
             source: source(),
             target_term: term.clone(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
-        let instance_key =
-            CurriculumAdoptionIdempotencyKey::parse("instance-binding").expect("key");
-        let instance_creation = CourseInstanceCreationWitness::for_blueprint(
+        let instance_key = BlueprintOperationRetryToken::parse("instance-binding").expect("key");
+        let instance_creation = CourseInstanceCreationReservation::for_blueprint(
             source(),
             term.clone(),
             authorized_account(),
@@ -781,7 +794,7 @@ mod tests {
                 term,
                 instantiate.replacements,
                 instance_creation.clone(),
-                instantiate.eligibility,
+                instantiate.readiness,
             )
             .expect("server CourseInstance creation binding"),
         );
@@ -790,8 +803,8 @@ mod tests {
 
     #[test]
     fn server_record_authority_survives_preview_mutation_and_fork_receipt_binds_creation() {
-        let key = CurriculumAdoptionIdempotencyKey::parse("server-record").expect("key");
-        let creation = BlueprintCourseCreationWitness::new(
+        let key = BlueprintOperationRetryToken::parse("server-record").expect("key");
+        let creation = BlueprintForkReservation::new(
             source(),
             authorized_account(),
             [3; 32],
@@ -800,24 +813,24 @@ mod tests {
         );
         let record = super::super::ForkBlueprintCourseApplyRecord::new(
             source(),
-            CurriculumPinReplacements::default(),
+            QuestionVersionSubstitutions::default(),
             creation.clone(),
-            BlueprintAdoptionEligibility::Eligible,
+            BlueprintOperationReadiness::Ready,
         )
         .expect("server record");
         let mut browser_preview = ForkBlueprintCoursePreviewView {
             source: source(),
-            replacements: CurriculumPinReplacements::default(),
-            eligibility: BlueprintAdoptionEligibility::Eligible,
+            replacements: QuestionVersionSubstitutions::default(),
+            readiness: BlueprintOperationReadiness::Ready,
         };
-        browser_preview.source = ObservedBlueprintSource {
+        browser_preview.source = BlueprintRevisionReference {
             reference: BlueprintCourseReference::new(15).expect("forged source"),
             revision: BlueprintRevision::new(1).expect("forged revision"),
         };
         let command = ForkBlueprintCourseCommand::from_server_record(record);
         assert_ne!(command.source(), &browser_preview.source);
 
-        let created = ObservedBlueprintSource {
+        let created = BlueprintRevisionReference {
             reference: creation.reserved_blueprint(),
             revision: BlueprintRevision::new(1).expect("created revision"),
         };
@@ -831,11 +844,12 @@ mod tests {
         let completion = ForkBlueprintCourseCompleted {
             blueprint: receipt.created().reference,
             revision: receipt.created().revision,
-            replay: CurriculumReplayStatus::Applied,
         };
         assert_eq!(
             completion.blueprint,
             receipt.creation().reserved_blueprint()
         );
+        let completion_wire = serde_json::to_value(completion).expect("completion serializes");
+        assert!(completion_wire.get("replay").is_none());
     }
 }

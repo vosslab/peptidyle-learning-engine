@@ -33,7 +33,7 @@
 
 ## Historical start sequence and completed closure
 
-1) Startup lock-in (first 15 min)
+1. Startup lock-in (first 15 min)
 
 - Read the authoritative source of truth files:
   - `docs/active_plans/implementation_plan.md`
@@ -42,7 +42,7 @@
 - Confirm that `implementation_status.md` records accepted WP-INST-S4, immutable migration 1805, and
   the sole handoff to dependency-ready WP-INST-S6.
 
-2) Scope freeze (next 10 min)
+2. Scope freeze (next 10 min)
 
 - Write a one-line scope declaration before coding:
   - In scope: disclosure and student-projection behavior consumption only.
@@ -51,7 +51,7 @@
   - S3 = effective policy/resolution authority.
   - S5 = entitlement and membership authority.
 
-3) Inventory pass (30-45 min)
+3. Inventory pass (30-45 min)
 
 - Map all disclosure consumers (run list, run detail, summaries, grade-facing student projections, any retention views).
 - Ensure each path reads only through the accepted owners (S3/S5 + designated disclosure projection owners).
@@ -59,13 +59,13 @@
 - Verify the centrally derived role boundary denies every instructor-only route before transport,
   with direct roster and gradebook probes and no-transport assertions under a student session.
 
-4) Patch pass (work loop)
+4. Patch pass (work loop)
 
 - Keep changes narrow and additive.
 - Only touch the minimal files required for S4 projection behavior and evidence.
 - If a migration is needed, use only the S4-reserved package and include full contract/fixture updates atomically.
 
-5) Validation sequence (do not skip required gates)
+5. Validation sequence (do not skip required gates)
 
 - `./check_rust.sh`
 - `./check_codebase.sh`
@@ -77,7 +77,7 @@
 - Fresh student/access visual capture and human inspection at the required matrix; the accepted run
   produced and inspected all eight access artifacts.
 
-6) Closure steps
+6. Closure steps
 
 - Update:
   - `docs/active_plans/implementation_status.md`
@@ -85,7 +85,7 @@
   - any touched contract/architecture/docs files.
 - Record command output and any skipped gates (must be justified).
 
-7) Completion acceptance before end of day
+7. Completion acceptance before end of day
 
 - All required gates pass on final material tree.
 - No competing authority path introduced.

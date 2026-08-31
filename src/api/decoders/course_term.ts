@@ -63,7 +63,7 @@ export function decodeCourseTermValidationFailure(
       "required",
       "invalidCalendarDate",
       "endBeforeStart",
-      "unknownIanaTimeZone",
+      "unknownCourseTimeZone",
     ]),
     message,
   } satisfies CourseTermValidationFailure;

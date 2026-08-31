@@ -10,7 +10,7 @@ import {
   initialFlatQuestionEditorState,
   reduceFlatQuestionEditor,
   reorderChoices,
-  setAttemptPolicy,
+  setQuestionAttemptLimit,
   setFlatQuestionPoints,
   setFlatQuestionPrompt,
   setFlatQuestionTitle,
@@ -19,7 +19,7 @@ import {
   setOutcomeFeedback,
   setTags,
   setTaxonomy,
-  setTimingPolicy,
+  setQuestionAttemptTimeLimit,
   validateFlatQuestionSource,
   type FlatQuestionEditorAction,
   type FlatQuestionEditorState,
@@ -626,18 +626,18 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
               />
               <FlatPolicyFields
                 points={currentSource().points}
-                attemptPolicy={currentSource().attemptPolicy}
-                timingPolicy={currentSource().timingPolicy}
+                questionAttemptLimit={currentSource().questionAttemptLimit}
+                questionAttemptTimeLimit={currentSource().questionAttemptTimeLimit}
                 fieldErrors={errors()}
                 disabled={isLocked()}
                 onPointsChange={(points) =>
                   applyEdit(setFlatQuestionPoints(currentSource(), points))
                 }
-                onAttemptPolicyChange={(policy) =>
-                  applyEdit(setAttemptPolicy(currentSource(), policy))
+                onQuestionAttemptLimitChange={(limit) =>
+                  applyEdit(setQuestionAttemptLimit(currentSource(), limit))
                 }
-                onTimingPolicyChange={(policy) =>
-                  applyEdit(setTimingPolicy(currentSource(), policy))
+                onQuestionAttemptTimeLimitChange={(policy) =>
+                  applyEdit(setQuestionAttemptTimeLimit(currentSource(), policy))
                 }
               />
               <FlatMetadataFields

@@ -556,7 +556,7 @@ fn append_end_tag(output: &mut String, name: &str) {
 pub(super) fn opaque_choice_id(
     request: RenderRequest<'_>,
     ordinal: usize,
-) -> Result<ChoiceId, RendererFailure> {
+) -> Result<ResponseItemReference, RendererFailure> {
     opaque_item_id(request, 0, ordinal)
 }
 
@@ -564,7 +564,7 @@ pub(super) fn opaque_item_id(
     request: RenderRequest<'_>,
     role: u32,
     ordinal: usize,
-) -> Result<ChoiceId, RendererFailure> {
+) -> Result<ResponseItemReference, RendererFailure> {
     let mut hash = Sha256::new();
     hash.update(b"ple:webwork:choice:v1\0");
     hash.update(request.question_version.question_id.to_string().as_bytes());
@@ -578,5 +578,5 @@ pub(super) fn opaque_item_id(
         use std::fmt::Write as _;
         let _ = write!(&mut encoded, "{byte:02x}");
     }
-    Ok(ChoiceId::new(format!("ww-{encoded}")))
+    Ok(ResponseItemReference::new(format!("ww-{encoded}")))
 }

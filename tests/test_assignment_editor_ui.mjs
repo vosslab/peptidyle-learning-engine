@@ -63,10 +63,11 @@ test("Question Pool editor encodes public candidate Question IDs in entry order"
           { questionId: "7K4-M9QP", title: "Candidate one", backend: "native" },
           { questionId: "7K5-M9QP", title: "Candidate two", backend: "native" },
         ],
+        availability: "available",
+        scoringRule: "normal",
         drawCount: 1,
         pointsPerItem: "2",
-        ordering: "randomized",
-        algorithmVersion: 1,
+        selectionRule: { algorithm: "v1", ordering: "randomized" },
       },
     ],
   };
@@ -78,11 +79,13 @@ test("Question Pool editor encodes public candidate Question IDs in entry order"
   assert.deepEqual(body.entries[1], {
     kind: "questionPool",
     candidateQuestionIds: ["7K4-M9QP", "7K5-M9QP"],
+    availability: "available",
+    scoringRule: "normal",
     drawCount: 1,
     pointsPerItem: "2",
-    ordering: "randomized",
+    selectionRule: { algorithm: "v1", ordering: "randomized" },
   });
-  assert.equal(JSON.stringify(body).includes("algorithm"), false);
+  assert.equal(JSON.stringify(body).includes('"algorithm":"v1"'), true);
   assert.equal(JSON.stringify(body).includes("version"), false);
 });
 
@@ -90,10 +93,10 @@ test("pool validation keeps an actionable correction path", () => {
   const invalid = {
     kind: "questionPool",
     candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
+    availability: "available",
     drawCount: 2,
     pointsPerItem: "1",
-    ordering: "candidateOrder",
-    algorithmVersion: 1,
+    selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
   };
   assert.equal(
     validateQuestionPoolEntry(invalid),
@@ -109,10 +112,10 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
       ...candidate,
       questionId: `${index.toString(16).padStart(3, "0").toUpperCase()}-0000`,
     })),
+    availability: "available",
     drawCount: 1,
     pointsPerItem: "1",
-    ordering: "candidateOrder",
-    algorithmVersion: 1,
+    selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
   };
   assert.equal(
     validateQuestionPoolEntry(overfullPool),
@@ -140,14 +143,17 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
         .toString(16)
         .padStart(1, "0")}-0000`,
     })),
+    availability: "available",
     drawCount: 1,
     pointsPerItem: "1",
-    ordering: "candidateOrder",
-    algorithmVersion: 1,
+    selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
   });
   const tooManyCandidates = {
     ...createMasteryAssignmentDraft("course-1"),
-    entries: [...Array.from({ length: 8 }, (_value, entryIndex) => pool(entryIndex, 1024)), pool(8, 1)],
+    entries: [
+      ...Array.from({ length: 8 }, (_value, entryIndex) => pool(entryIndex, 1024)),
+      pool(8, 1),
+    ],
   };
   assert.equal(
     validateAssignmentEditorDraft(tooManyCandidates),
@@ -165,10 +171,10 @@ test("shared picker caps each assignment destination before the dialog opens", (
       {
         kind: "questionPool",
         candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
+        availability: "available",
         drawCount: 1,
         pointsPerItem: "1",
-        ordering: "candidateOrder",
-        algorithmVersion: 1,
+        selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
       },
     ],
   };

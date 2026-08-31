@@ -4,7 +4,7 @@ import type { AssignmentPoliciesValidationFailure } from "../../../generated/api
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPublicationBlockingIssue } from "../../../generated/api/AssignmentPublicationBlockingIssue";
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
-import { decodeAssignmentTeachingSettingsValidationFailure } from "./assignment_teaching_delivery";
+import { decodeAssignmentRevisionDefinitionValidationFailure } from "./assignment_teaching_delivery";
 import {
   decodeBoundedArray,
   decodeCapability,
@@ -35,17 +35,17 @@ function decodePolicyValidationIssue(
 ): AssignmentPoliciesValidationIssue {
   const record = decodeRecord(value, path);
   const issueKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "teachingSettings",
+    "assignmentRevisionDefinition",
     "configuration",
     "capability",
-    "publicationReadiness",
+    "draftRevisionPublicationReadiness",
   ] as const);
   switch (issueKind) {
-    case "teachingSettings":
+    case "assignmentRevisionDefinition":
       requireOnlyFields(record, path, ["kind", "correction"]);
       return {
         kind: issueKind,
-        correction: decodeAssignmentTeachingSettingsValidationFailure(
+        correction: decodeAssignmentRevisionDefinitionValidationFailure(
           field(record, "correction", path),
           `${path}.correction`,
         ),
@@ -66,7 +66,7 @@ function decodePolicyValidationIssue(
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         capability: decodeCapability(field(record, "capability", path), `${path}.capability`),
       } satisfies AssignmentPoliciesValidationIssue;
-    case "publicationReadiness": {
+    case "draftRevisionPublicationReadiness": {
       requireOnlyFields(record, path, ["kind", "blockingIssues"]);
       const blockingIssues = decodeBoundedArray(
         field(record, "blockingIssues", path),

@@ -12,7 +12,7 @@ import {
   renameChoiceId,
   reorderChoices,
   reorderMatchingItems,
-  setAttemptPolicy,
+  setQuestionAttemptLimit,
   setChoiceText,
   setCorrectChoice,
   setFlatQuestionTitle,
@@ -24,7 +24,7 @@ import {
   setOutcomeFeedback,
   setTags,
   setTaxonomy,
-  setTimingPolicy,
+  setQuestionAttemptTimeLimit,
   validateFlatQuestionSource,
 } from "../src/features/flat_question_authoring/flat_question_editor_model.ts";
 import {
@@ -134,12 +134,12 @@ test("policy and metadata helpers are immutable and validation gives safe author
     setLicense(
       setTaxonomy(
         setTags(
-          setTimingPolicy(
-            setAttemptPolicy(
+          setQuestionAttemptTimeLimit(
+            setQuestionAttemptLimit(
               setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }),
               { maxAttempts: 3 },
             ),
-            { kind: "perQuestion", seconds: 60, graceSeconds: 5 },
+            { kind: "limited", seconds: 60, graceSeconds: 5 },
           ),
           ["biology", "assessment"],
         ),
@@ -150,8 +150,8 @@ test("policy and metadata helpers are immutable and validation gives safe author
     "en",
   );
   assert.equal(base.language, "en-US");
-  assert.deepEqual(edited.attemptPolicy, { maxAttempts: 3 });
-  assert.equal(edited.timingPolicy.kind, "perQuestion");
+  assert.deepEqual(edited.questionAttemptLimit, { maxAttempts: 3 });
+  assert.equal(edited.questionAttemptTimeLimit.kind, "limited");
   assert.deepEqual(edited.tags, ["biology", "assessment"]);
   assert.equal(validateFlatQuestionSource(edited).valid, true);
   const invalid = setFlatQuestionTitle(edited, " ");

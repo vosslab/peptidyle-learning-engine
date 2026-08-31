@@ -123,7 +123,11 @@ impl_reference!(
     "R",
     "Assignment Attempt reference"
 );
-impl_reference!(AuthoringWorkspaceReference, "W", "Authoring Workspace reference");
+impl_reference!(
+    AuthoringWorkspaceReference,
+    "W",
+    "Authoring Workspace reference"
+);
 impl_reference!(AccountReference, "U", "account reference");
 impl_reference!(
     CourseMembershipReference,
@@ -135,11 +139,7 @@ impl_reference!(
     "CI",
     "Course Invitation reference"
 );
-impl_reference!(
-    QuestionFolderReference,
-    "QC",
-    "question-folder reference"
-);
+impl_reference!(QuestionFolderReference, "QC", "question-folder reference");
 impl_reference!(
     SavedQuestionSearchReference,
     "QS",

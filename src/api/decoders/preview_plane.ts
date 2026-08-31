@@ -6,13 +6,13 @@ import type { DerivedPreviewSubjectRequest } from "../../../generated/api/Derive
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { InstructorPreviewScheduleRow } from "../../../generated/api/InstructorPreviewScheduleRow";
 import type { PreviewAccommodationComparison } from "../../../generated/api/PreviewAccommodationComparison";
-import type { PreviewDisclosureProjection } from "../../../generated/api/PreviewDisclosureProjection";
+import type { StudentFeedbackReleaseView } from "../../../generated/api/StudentFeedbackReleaseView";
 import type { PreviewEvaluation } from "../../../generated/api/PreviewEvaluation";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
-import type { PreviewScheduleProjection } from "../../../generated/api/PreviewScheduleProjection";
+import type { EffectiveAssignmentPolicyView } from "../../../generated/api/EffectiveAssignmentPolicyView";
 import type { PreviewSelectedMoment } from "../../../generated/api/PreviewSelectedMoment";
-import type { PreviewSubject } from "../../../generated/api/PreviewSubject";
-import type { SyntheticPreviewSubjectRequest } from "../../../generated/api/SyntheticPreviewSubjectRequest";
+import type { StudentViewScenario } from "../../../generated/api/StudentViewScenario";
+import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
 import type {
   PoolDrawPreview,
   PoolDrawPreviewQuestion,
@@ -27,8 +27,14 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeAssignmentPolicyPatchUpdateRequest } from "./teaching_operations";
-import { decodeBoundedArray, decodeCursor, decodeIdentifier, field, requireOnlyFields } from "./shared";
+import { decodeSyntheticPreviewAccommodationAdjustmentRequest } from "./teaching_operations";
+import {
+  decodeBoundedArray,
+  decodeCursor,
+  decodeIdentifier,
+  field,
+  requireOnlyFields,
+} from "./shared";
 
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
 const POLICY_SOURCES = ["base", "accommodation"] as const;
@@ -84,7 +90,9 @@ export function decodePoolDrawPreviewRequest(
   path = "request",
 ): PoolDrawPreviewRequest {
   const record = closed(value, path, ["assignmentEntryId"]);
-  return { assignmentEntryId: decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`) };
+  return {
+    assignmentEntryId: decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`),
+  };
 }
 
 export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDrawPreview {
@@ -94,8 +102,7 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     "assignmentEntryId",
     "questionPoolLabel",
     "drawCount",
-    "ordering",
-    "algorithm",
+    "selectionRule",
     "candidates",
     "sampled",
   ]);
@@ -112,10 +119,7 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     previewQuestion,
   );
   const drawCount = decodeSafeInteger(record.drawCount, `${path}.drawCount`);
-  const assignmentEntryId = decodeIdentifier(
-    record.assignmentEntryId,
-    `${path}.assignmentEntryId`,
-  );
+  const assignmentEntryId = decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`);
   if (drawCount < 1 || drawCount > candidates.length || sampled.length !== drawCount)
     throw new DecodeError(`${path}.drawCount`, "a valid draw count for the returned pool");
   const sampledIds = new Set(sampled.map((question) => question.questionId));
@@ -132,13 +136,23 @@ export function decodePoolDrawPreview(value: unknown, path = "response"): PoolDr
     assignmentEntryId,
     questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
     drawCount,
+    selectionRule: selectionRule(record.selectionRule, `${path}.selectionRule`),
+    candidates,
+    sampled,
+  };
+}
+
+function selectionRule(
+  value: unknown,
+  path: string,
+): { readonly algorithm: "v1"; readonly ordering: "candidateOrder" | "randomized" } {
+  const record = closed(value, path, ["algorithm", "ordering"]);
+  return {
+    algorithm: decodeStringEnum(record.algorithm, `${path}.algorithm`, ["v1"] as const),
     ordering: decodeStringEnum(record.ordering, `${path}.ordering`, [
       "candidateOrder",
       "randomized",
     ] as const),
-    algorithm: decodeStringEnum(record.algorithm, `${path}.algorithm`, ["v1"] as const),
-    candidates,
-    sampled,
   };
 }
 
@@ -153,7 +167,7 @@ function label(value: unknown, path: string): string {
   return parsed;
 }
 
-function courseLocalDateTime(value: unknown, path: string): string {
+function courseLocalDateAndTime(value: unknown, path: string): string {
   const parsed = decodeString(value, path);
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/u.exec(parsed);
   if (match === null) throw new DecodeError(path, "an exact local date-time");
@@ -185,25 +199,28 @@ function selectedMoment(value: unknown, path: string): PreviewSelectedMoment {
   const timeZone = label(record.timeZone, `${path}.timeZone`);
   if (Array.from(timeZone).length > 255)
     throw new DecodeError(`${path}.timeZone`, "a bounded IANA zone");
-  return { value: courseLocalDateTime(record.value, `${path}.value`), timeZone };
+  return { value: courseLocalDateAndTime(record.value, `${path}.value`), timeZone };
 }
 
 function policySource(
   value: unknown,
   path: string,
-): PreviewScheduleProjection["availableAt"]["source"] {
+): EffectiveAssignmentPolicyView["availableAt"]["source"] {
   return decodeStringEnum(value, path, POLICY_SOURCES);
 }
 
-function timeField(value: unknown, path: string): PreviewScheduleProjection["availableAt"] {
+function timeField(value: unknown, path: string): EffectiveAssignmentPolicyView["availableAt"] {
   const record = closed(value, path, ["value", "source"]);
   return {
-    value: decodeNullable(record.value, `${path}.value`, courseLocalDateTime),
+    value: decodeNullable(record.value, `${path}.value`, courseLocalDateAndTime),
     source: policySource(record.source, `${path}.source`),
   };
 }
 
-function limitField(value: unknown, path: string): PreviewScheduleProjection["timeLimitSeconds"] {
+function limitField(
+  value: unknown,
+  path: string,
+): EffectiveAssignmentPolicyView["assignmentAttemptTimeLimitSeconds"] {
   const record = closed(value, path, ["value", "source"]);
   const limit = decodeNullable(record.value, `${path}.value`, decodeSafeInteger);
   if (limit !== null && limit < 1)
@@ -211,21 +228,21 @@ function limitField(value: unknown, path: string): PreviewScheduleProjection["ti
   return { value: limit, source: policySource(record.source, `${path}.source`) };
 }
 
-function schedule(value: unknown, path: string): PreviewScheduleProjection {
+function effective_assignment_policy(value: unknown, path: string): EffectiveAssignmentPolicyView {
   const record = closed(value, path, [
     "availableAt",
     "dueAt",
     "closesAt",
-    "timeLimitSeconds",
+    "assignmentAttemptTimeLimitSeconds",
     "attemptLimit",
-    "lateSubmission",
-    "deadlineBehavior",
+    "lateWorkRule",
+    "assignmentDeadlineRule",
   ]);
-  const lateSubmission = closed(record.lateSubmission, `${path}.lateSubmission`, [
+  const lateWorkRule = closed(record.lateWorkRule, `${path}.lateWorkRule`, [
     "value",
     "source",
   ]);
-  const deadlineBehavior = closed(record.deadlineBehavior, `${path}.deadlineBehavior`, [
+  const assignmentDeadlineRule = closed(record.assignmentDeadlineRule, `${path}.assignmentDeadlineRule`, [
     "value",
     "source",
   ]);
@@ -233,26 +250,29 @@ function schedule(value: unknown, path: string): PreviewScheduleProjection {
     availableAt: timeField(record.availableAt, `${path}.availableAt`),
     dueAt: timeField(record.dueAt, `${path}.dueAt`),
     closesAt: timeField(record.closesAt, `${path}.closesAt`),
-    timeLimitSeconds: limitField(record.timeLimitSeconds, `${path}.timeLimitSeconds`),
+    assignmentAttemptTimeLimitSeconds: limitField(
+      record.assignmentAttemptTimeLimitSeconds,
+      `${path}.assignmentAttemptTimeLimitSeconds`,
+    ),
     attemptLimit: limitField(record.attemptLimit, `${path}.attemptLimit`),
-    lateSubmission: {
-      value: decodeStringEnum(lateSubmission.value, `${path}.lateSubmission.value`, [
+    lateWorkRule: {
+      value: decodeStringEnum(lateWorkRule.value, `${path}.lateWorkRule.value`, [
         "accept",
         "markLate",
         "reject",
       ] as const),
-      source: policySource(lateSubmission.source, `${path}.lateSubmission.source`),
+      source: policySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
     },
-    deadlineBehavior: {
-      value: decodeStringEnum(deadlineBehavior.value, `${path}.deadlineBehavior.value`, [
+    assignmentDeadlineRule: {
+      value: decodeStringEnum(assignmentDeadlineRule.value, `${path}.assignmentDeadlineRule.value`, [
         "autoSubmit",
       ] as const),
-      source: policySource(deadlineBehavior.source, `${path}.deadlineBehavior.source`),
+      source: policySource(assignmentDeadlineRule.source, `${path}.assignmentDeadlineRule.source`),
     },
   };
 }
 
-function subject(value: unknown, path: string): PreviewSubject {
+function studentViewScenario(value: unknown, path: string): StudentViewScenario {
   const record = closed(value, path, [
     "kind",
     "assignment",
@@ -266,7 +286,7 @@ function subject(value: unknown, path: string): PreviewSubject {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
     selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
-    policy: schedule(record.policy, `${path}.policy`),
+    policy: effective_assignment_policy(record.policy, `${path}.policy`),
     priorRunCount: nonnegativeInteger(record.priorRunCount, `${path}.priorRunCount`),
   };
 }
@@ -277,7 +297,7 @@ function nonnegativeInteger(value: unknown, path: string): number {
   return parsed;
 }
 
-function disclosure(value: unknown, path: string): PreviewDisclosureProjection {
+function student_feedback_release(value: unknown, path: string): StudentFeedbackReleaseView {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "available") {
@@ -311,11 +331,11 @@ function disclosure(value: unknown, path: string): PreviewDisclosureProjection {
       ] as const),
     };
   }
-  throw new DecodeError(`${path}.kind`, "a known disclosure projection kind");
+  throw new DecodeError(`${path}.kind`, "a known student_feedback_release projection kind");
 }
 
-function disclosures(value: unknown, path: string): Array<PreviewDisclosureProjection> {
-  const decoded = decodeBoundedArray(value, path, DISCLOSURE_MOMENTS.length, disclosure);
+function disclosures(value: unknown, path: string): Array<StudentFeedbackReleaseView> {
+  const decoded = decodeBoundedArray(value, path, DISCLOSURE_MOMENTS.length, student_feedback_release);
   const moments = decoded.map((projection) => projection.moment);
   if (
     moments.length !== DISCLOSURE_MOMENTS.length ||
@@ -330,15 +350,15 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "allowed") {
-    requireOnlyFields(record, path, ["kind", "subject", "entitlement", "schedule", "disclosure"]);
+    requireOnlyFields(record, path, ["kind", "student_view_scenario", "active_student_course_membership", "effective_assignment_policy", "student_feedback_release"]);
     return {
       kind,
-      subject: subject(field(record, "subject", path), `${path}.subject`),
-      entitlement: decodeStringEnum(field(record, "entitlement", path), `${path}.entitlement`, [
+      student_view_scenario: studentViewScenario(field(record, "student_view_scenario", path), `${path}.student_view_scenario`),
+      active_student_course_membership: decodeStringEnum(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`, [
         "activeStudentCourseMembership",
       ] as const),
-      schedule: schedule(field(record, "schedule", path), `${path}.schedule`),
-      disclosure: disclosures(field(record, "disclosure", path), `${path}.disclosure`),
+      effective_assignment_policy: effective_assignment_policy(field(record, "effective_assignment_policy", path), `${path}.effective_assignment_policy`),
+      student_feedback_release: disclosures(field(record, "student_feedback_release", path), `${path}.student_feedback_release`),
     };
   }
   if (kind === "denied") {
@@ -346,7 +366,7 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
     return {
       kind,
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "notEntitled",
+        "activeStudentCourseMembershipRequired",
         "staleRevision",
       ] as const),
     };
@@ -357,8 +377,8 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
 function accommodation(value: unknown, path: string): PreviewAccommodationComparison {
   const record = closed(value, path, ["before", "after"]);
   return {
-    before: schedule(record.before, `${path}.before`),
-    after: schedule(record.after, `${path}.after`),
+    before: effective_assignment_policy(record.before, `${path}.before`),
+    after: effective_assignment_policy(record.after, `${path}.after`),
   };
 }
 
@@ -383,15 +403,15 @@ function scheduleRow(value: unknown, path: string): InstructorPreviewScheduleRow
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "granted") {
-    requireOnlyFields(record, path, ["kind", "membership", "display", "entitlement", "schedule"]);
+    requireOnlyFields(record, path, ["kind", "membership", "display", "active_student_course_membership", "effective_assignment_policy"]);
     return {
       kind,
       membership: reference(field(record, "membership", path), `${path}.membership`, "M"),
       display: label(field(record, "display", path), `${path}.display`),
-      entitlement: decodeStringEnum(field(record, "entitlement", path), `${path}.entitlement`, [
+      active_student_course_membership: decodeStringEnum(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`, [
         "activeStudentCourseMembership",
       ] as const),
-      schedule: schedule(field(record, "schedule", path), `${path}.schedule`),
+      effective_assignment_policy: effective_assignment_policy(field(record, "effective_assignment_policy", path), `${path}.effective_assignment_policy`),
     };
   }
   if (kind === "denied") {
@@ -401,7 +421,7 @@ function scheduleRow(value: unknown, path: string): InstructorPreviewScheduleRow
       membership: reference(field(record, "membership", path), `${path}.membership`, "M"),
       display: label(field(record, "display", path), `${path}.display`),
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "notEntitled",
+        "noActiveStudentCourseMembership",
       ] as const),
     };
   }
@@ -420,21 +440,16 @@ export function decodeInstructorPreviewSchedulePage(
   };
 }
 
-export function decodeSyntheticPreviewSubjectRequest(
+export function decodeStudentViewScenarioRequest(
   value: unknown,
   path = "request",
-): SyntheticPreviewSubjectRequest {
-  const record = closed(value, path, [
-    "assignment",
-    "revision",
-    "selectedMoment",
-    "modifiers",
-  ]);
+): StudentViewScenarioRequest {
+  const record = closed(value, path, ["assignment", "revision", "selectedMoment", "modifiers"]);
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
     selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
-    modifiers: decodeAssignmentPolicyPatchUpdateRequest(record.modifiers, `${path}.modifiers`),
+    modifiers: decodeSyntheticPreviewAccommodationAdjustmentRequest(record.modifiers, `${path}.modifiers`),
   };
 }
 

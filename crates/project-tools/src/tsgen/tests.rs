@@ -262,12 +262,12 @@ fn public_u32_constants_become_safe_typescript_constants() {
     let source_dir = temporary_output_dir("u32-constant-source");
     let out_dir = temporary_output_dir("u32-constant-output");
     fs::create_dir_all(&source_dir).expect("temporary source directory should be created");
-    fs::write(source_dir.join("timing.rs"), "/// A browser-safe whole-run time limit.\npub const DEFAULT_TIME_LIMIT_SECONDS: u32 = 900;\n").expect("temporary source should be written");
+    fs::write(source_dir.join("timing.rs"), "/// A browser-safe whole-run time limit.\npub const DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 900;\n").expect("temporary source should be written");
     run(&[source_dir.as_path()], &out_dir).expect("u32 constant should generate");
     assert!(
-        fs::read_to_string(out_dir.join("DEFAULT_TIME_LIMIT_SECONDS.ts"))
+        fs::read_to_string(out_dir.join("DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS.ts"))
             .expect("generated constant should be readable")
-            .contains("export const DEFAULT_TIME_LIMIT_SECONDS = 900 as const;")
+            .contains("export const DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS = 900 as const;")
     );
     fs::remove_dir_all(source_dir).expect("temporary source should be removed");
     fs::remove_dir_all(out_dir).expect("temporary output should be removed");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { projectStudentResponse } from "../src/features/attempt/student_response.ts";
+import { projectStudentResponse } from "../src/features/question_attempt/student_response.ts";
 
 const envelope = {
   version: "version-a",

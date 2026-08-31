@@ -5,7 +5,7 @@ import type { CourseInstanceReference } from "../../../generated/api/CourseInsta
 import type { DerivedPreviewSubjectRequest } from "../../../generated/api/DerivedPreviewSubjectRequest";
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
-import type { SyntheticPreviewSubjectRequest } from "../../../generated/api/SyntheticPreviewSubjectRequest";
+import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { ApiClient } from "../client";
 import type { PoolDrawPreview } from "../contracts";
@@ -15,7 +15,7 @@ import {
   decodePoolDrawPreview,
   decodePoolDrawPreviewRequest,
   decodePreviewPlaneResponse,
-  decodeSyntheticPreviewSubjectRequest,
+  decodeStudentViewScenarioRequest,
 } from "../decoders";
 import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError, PreviewPlaneConflictError } from "./error";
@@ -94,9 +94,9 @@ async function previewJson<T>(
 function syntheticBody(
   assignment: AssignmentReference,
   revision: TeachingOperationRevision,
-  request: Omit<SyntheticPreviewSubjectRequest, "assignment" | "revision">,
-): Omit<SyntheticPreviewSubjectRequest, "assignment" | "revision"> {
-  const parsed = decodeSyntheticPreviewSubjectRequest(
+  request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
+): Omit<StudentViewScenarioRequest, "assignment" | "revision"> {
+  const parsed = decodeStudentViewScenarioRequest(
     { assignment, revision, ...request },
     "request",
   );

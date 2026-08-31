@@ -3,7 +3,7 @@
 import { createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createSignal, Show, Suspense, type JSX } from "solid-js";
 
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import { assignmentAttemptRouteReference } from "../navigation/public_route";
 import {
@@ -13,7 +13,7 @@ import {
 import "../components/student_assignment_presentation.css";
 
 export function AssignmentOverviewPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const navigate = useNavigate();
   const params = useParams();
   const [starting, setStarting] = createSignal(false);

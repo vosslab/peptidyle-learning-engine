@@ -14,11 +14,18 @@ const QUESTION_SEARCH_CAPABILITIES = [
   "serverGrading",
   "partialCredit",
   "hints",
-  "perQuestionTiming",
+  "questionAttemptTimeLimit",
   "printExport",
   "offlinePreview",
 ] as const;
-const QUESTION_SEARCH_LICENSES = ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"] as const;
+const QUESTION_SEARCH_LICENSES = [
+  "allRightsReserved",
+  "ccBy",
+  "ccBySa",
+  "ccByNc",
+  "cc0",
+  "other",
+] as const;
 const QUESTION_SEARCH_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
 const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
@@ -95,7 +102,9 @@ function catalogCursor(value: string): string {
  */
 export function questionSearchPath(query: QuestionSearchRequest): string {
   for (const field of Object.keys(query)) {
-    if (!QUESTION_SEARCH_QUERY_FIELDS.includes(field as (typeof QUESTION_SEARCH_QUERY_FIELDS)[number])) {
+    if (
+      !QUESTION_SEARCH_QUERY_FIELDS.includes(field as (typeof QUESTION_SEARCH_QUERY_FIELDS)[number])
+    ) {
       throw new Error(`Question Library search query contains unknown field: ${field}`);
     }
   }
@@ -103,16 +112,34 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   if (query.text !== null) {
     parameters.set(
       "text",
-      catalogFilterText(query.text, "Question Library text", MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS),
+      catalogFilterText(
+        query.text,
+        "Question Library text",
+        MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS,
+      ),
     );
   }
-  boundedCatalogFilterValues(query.bylines, MAX_QUESTION_SEARCH_BYLINE_FILTERS, "Question Library bylines");
+  boundedCatalogFilterValues(
+    query.bylines,
+    MAX_QUESTION_SEARCH_BYLINE_FILTERS,
+    "Question Library bylines",
+  );
   for (const byline of query.bylines) {
-    parameters.append("bylines", normalizedCatalogFilterText(byline, "Question Library byline", 120));
+    parameters.append(
+      "bylines",
+      normalizedCatalogFilterText(byline, "Question Library byline", 120),
+    );
   }
-  boundedCatalogFilterValues(query.backends, QUESTION_SEARCH_BACKENDS.length, "Question Library backends");
+  boundedCatalogFilterValues(
+    query.backends,
+    QUESTION_SEARCH_BACKENDS.length,
+    "Question Library backends",
+  );
   for (const backend of query.backends) {
-    parameters.append("backends", catalogEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"));
+    parameters.append(
+      "backends",
+      catalogEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"),
+    );
   }
   boundedCatalogFilterValues(query.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, "Question Library tags");
   for (const tag of query.tags) {
@@ -140,7 +167,9 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     parameters.append("taxonomy", `${scheme}:${code}`);
   }
   if (query.capabilities.length > QUESTION_SEARCH_CAPABILITIES.length) {
-    throw new Error("Question Library capabilities must contain at most the supported capability count");
+    throw new Error(
+      "Question Library capabilities must contain at most the supported capability count",
+    );
   }
   for (const capability of query.capabilities) {
     parameters.append(
@@ -152,7 +181,10 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     throw new Error("Question Library licenses must contain at most the supported license count");
   }
   for (const license of query.licenses) {
-    parameters.append("licenses", catalogEnum(license, QUESTION_SEARCH_LICENSES, "Question Library license"));
+    parameters.append(
+      "licenses",
+      catalogEnum(license, QUESTION_SEARCH_LICENSES, "Question Library license"),
+    );
   }
   const evidence = catalogEnum(
     query.evidence,
@@ -197,14 +229,14 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   return `/api/problems/search${suffix}`;
 }
 
-/** Serializes the bounded copyable problem locator without interpreting its server-owned syntax. */
+/** Serializes the bounded copyable Question ID without interpreting its server-owned syntax. */
 export function questionReferencePath(displayReference: string): string {
   const reference = displayReference.trim();
   if (
     reference.length === 0 ||
     Array.from(reference).length > MAX_PROBLEM_DISPLAY_REFERENCE_CHARACTERS
   ) {
-    throw new Error("problem reference must be 1 to 44 characters");
+    throw new Error("Question ID must be 1 to 44 characters");
   }
   return `/api/problems/by-id/${encodeURIComponent(reference)}`;
 }

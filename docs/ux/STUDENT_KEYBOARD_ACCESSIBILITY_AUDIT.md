@@ -92,7 +92,7 @@ Practices convention for Tab into a group and arrow movement inside it
 | ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------- |
 | Operate everything without a pointer | WCAG 2.2 SC 2.1.1 Keyboard         | The complete primary journey works through visible platform controls without requiring a widget shortcut                            | Built mock platform journey, live WebWork, and source inspection           | Pass for recorded evidence scope  |
 | Use efficient optional controls      | WCAG 2.2 SC 2.1.1 Keyboard         | Arrow, digit, Enter-to-submit, and Escape behavior is scoped and fails independently of the primary path                            | Mounted production-component extension scenarios                           | Pass for recorded evidence scope  |
-| Leave widgets and embedded work      | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a response widget; provider frame uses ordinary iframe navigation                        | Built mock journey, widget tests, live WebWork, and mounted broker fixture | Pass for PLE-owned recorded scope |
+| Leave widgets and embedded work      | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a question response control; provider frame uses ordinary iframe navigation              | Built mock journey, widget tests, live WebWork, and mounted broker fixture | Pass for PLE-owned recorded scope |
 | Encounter controls in task order     | WCAG 2.2 SC 2.4.3 Focus Order      | Tab follows reading/task order and skips no-op history controls                                                                     | Built mock journey and 30-panel summary assertion                          | Pass for recorded evidence scope  |
 | See the focused control              | WCAG 2.2 SC 2.4.7 Focus Visible    | Every focusable PLE control uses the global visible focus treatment; response cards expose the indicator around the complete target | `src/style.css`, existing palette audit, browser focus assertions          | Pass for audited controls         |
 | Understand composite controls        | WAI-ARIA APG keyboard conventions  | Radio arrows select; checkbox arrows move focus; order arrows move the item; visible buttons remain available                       | Built mock radio journey and mounted dynamic production-component fixtures | Pass for recorded evidence scope  |
@@ -117,14 +117,14 @@ Scores use 0 for a critical problem and 4 for no material issue in this keyboard
 | Flexibility and efficiency      |      2 |     4 | Arrow movement avoids repeated Tab presses while visible controls remain available |
 | Aesthetic and minimalist design |      2 |     4 | Per-response no-op summary actions were removed                                    |
 | Error recognition and recovery  |      4 |     4 | Existing retry and preserved-response paths remain keyboard-operable               |
-| Help and documentation          |      3 |     4 | The response-family contract and task evidence are now recorded here               |
+| Help and documentation          |      3 |     4 | The response-widget and Question Type contract evidence is now recorded here       |
 
 ## Validation
 
 The focused acceptance gate is:
 
 ```bash
-node --import tsx --test tests/test_response_widgets.mjs
+node --import tsx --test tests/test_question_response_controls.mjs
 ./run_playwright_tests.sh --build \
   tests/playwright/frontend_contract.spec.ts \
   tests/playwright/feedback_panel.spec.ts \

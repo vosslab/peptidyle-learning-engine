@@ -19,16 +19,16 @@ function displayLimit(value: number | null): string {
   return value === null ? "Unrestricted" : String(value);
 }
 
-function displayStart(preview: Extract<TeachingPreviewView, { entitlement: "allowed" }>): string {
+function displayStart(preview: Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>): string {
   const label = startLabel(preview.start.kind);
   const result = preview.start.kind === "mayStart" ? `${label} (${preview.start.late})` : label;
   return result;
 }
 
 export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
-  const allowed = (): Extract<TeachingPreviewView, { entitlement: "allowed" }> | undefined => {
+  const allowed = (): Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }> | undefined => {
     const preview = props.preview;
-    return preview?.entitlement === "allowed" ? preview : undefined;
+    return preview?.active_student_course_membership === "allowed" ? preview : undefined;
   };
   return (
     <section
@@ -46,8 +46,8 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
             {props.failure}
           </p>
         </Match>
-        <Match when={props.preview?.entitlement === "denied"}>
-          <p role="status">This Student is not entitled to this assignment.</p>
+        <Match when={props.preview?.active_student_course_membership === "denied"}>
+          <p role="status">This Student does not currently have access to this assignment.</p>
         </Match>
         <Match when={allowed()}>
           <Show when={allowed()}>
@@ -65,14 +65,14 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                   <dd>{displayTime(preview().dueAt.value)}</dd>
                   <dt>Closes</dt>
                   <dd>{displayTime(preview().closesAt.value)}</dd>
-                  <dt>Whole-run seconds</dt>
-                  <dd>{displayLimit(preview().timeLimitSeconds.value)}</dd>
+                  <dt>Whole Assignment Attempt seconds</dt>
+                  <dd>{displayLimit(preview().assignmentAttemptTimeLimitSeconds.value)}</dd>
                   <dt>Attempt limit</dt>
                   <dd>{displayLimit(preview().attemptLimit.value)}</dd>
                   <dt>Late work</dt>
-                  <dd>{preview().lateSubmission.value}</dd>
+                  <dd>{preview().lateWorkRule.value}</dd>
                   <dt>Deadline behavior</dt>
-                  <dd>{preview().deadlineBehavior.value}</dd>
+                  <dd>{preview().assignmentDeadlineRule.value}</dd>
                 </dl>
                 <details>
                   <summary>Field provenance</summary>
@@ -83,10 +83,10 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                           ["Available", preview().availableAt.source],
                           ["Due", preview().dueAt.source],
                           ["Closes", preview().closesAt.source],
-                          ["Whole-run seconds", preview().timeLimitSeconds.source],
+                          ["Whole Assignment Attempt seconds", preview().assignmentAttemptTimeLimitSeconds.source],
                           ["Attempt limit", preview().attemptLimit.source],
-                          ["Late work", preview().lateSubmission.source],
-                          ["Deadline behavior", preview().deadlineBehavior.source],
+                          ["Late work", preview().lateWorkRule.source],
+                          ["Deadline behavior", preview().assignmentDeadlineRule.source],
                         ] as const
                       }
                     >

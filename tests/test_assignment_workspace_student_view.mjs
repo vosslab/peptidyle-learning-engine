@@ -32,14 +32,14 @@ test("Student view presentation stays answer-free and preserves live delivery fa
       availableAt: null,
       dueAt: null,
       closesAt: null,
-      timeLimitSeconds: 900,
+      assignmentAttemptTimeLimitSeconds: 900,
       attemptLimit: 2,
-      lateSubmission: "markLate",
-      deadlineBehavior: "autoSubmit",
+      lateWorkRule: "markLate",
+      assignmentDeadlineRule: "autoSubmit",
     },
     questionsPerRun: 3,
-    variation: "newSeeds",
-    disclosurePolicy: {
+    questionVariationRule: "reuseQuestionsWithNewSeeds",
+    studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
       feedback_text: "after_due",
@@ -50,7 +50,7 @@ test("Student view presentation stays answer-free and preserves live delivery fa
 
   assert.equal(presentation.title, "Protein structure");
   assert.equal(presentation.questionsPerRun, 3);
-  assert.equal(presentation.delivery.lateSubmission, "markLate");
+  assert.equal(presentation.delivery.lateWorkRule, "markLate");
   assert.equal("assignmentId" in presentation, false);
   assert.equal("run" in presentation, false);
 });

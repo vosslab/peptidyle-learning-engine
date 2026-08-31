@@ -52,7 +52,7 @@ def adapter_argv(action: str, manifest: pathlib.Path, *arguments: str) -> list[s
 	return [
 		sys.executable,
 		"-m",
-		"local_stack_control._consumer_cli",
+		"local_stack_control.disposable_stack_command",
 		action,
 		"--manifest",
 		str(manifest),

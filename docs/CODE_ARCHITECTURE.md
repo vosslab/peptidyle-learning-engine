@@ -61,7 +61,7 @@ scope under forced row-level security.
 
 ### BlueprintCourse
 
-`crates/question_model/src/reusable_curriculum.rs` owns the reusable meaning.
+`crates/question_model/src/blueprint_course.rs` owns the reusable meaning.
 The aggregate contains a title, reviewed byline/publication state, one strong
 revision, ordered modules, ordered reusable assignments, policy defaults,
 relative schedule defaults, evidence context, and public Question ID members.
@@ -94,19 +94,19 @@ assignment. Rollover and term shift are separate CourseInstance operations.
 
 ## Major components
 
-| Component | Canonical owner | Responsibility |
-| --- | --- | --- |
-| Question model | `crates/question_model/` | BlueprintCourse tree, typed references, exact question identities, assignment meaning, adoption commands, previews, and browser-safe projections. |
-| Domain | `crates/domain/` | Pure timing, policy, disclosure, run, scoring, generation, and validation behavior without database or wall-clock reads. |
-| Grading | `crates/grading/` | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure. |
-| Store contracts | `crates/learning-data-access/src/contracts/` | `ReusableCurriculumStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations. |
-| Retired Memory seam | `crates/learning-data-access/src/in_memory/` | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path. |
-| PostgreSQL Store | `crates/learning-data-access/src/postgres/` | Production persistence, transaction locks, source re-resolution, broker calls, and RLS-backed projections. |
-| Server | `crates/server/src/` | Authentication, preflight, route binding, HTTP policy, Store composition, worker composition, and answer-free response assembly. |
-| Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited. |
-| Browser | `src/` | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions. |
-| Object storage | `crates/objects/` | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains. |
-| Adapters | `crates/adapters/` | Bounded native, QTI, H5P, iMathAS, and WeBWorK interfaces behind declared capabilities. |
+| Component           | Canonical owner                                         | Responsibility                                                                                                                                    |
+| ------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question model      | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, adoption commands, previews, and browser-safe projections. |
+| Domain              | `crates/domain/`                                        | Pure timing, policy, disclosure, run, scoring, generation, and validation behavior without database or wall-clock reads.                          |
+| Grading             | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                           |
+| Store contracts     | `crates/learning-data-access/src/contracts/`            | `BlueprintCourseStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations.                                    |
+| Retired Memory seam | `crates/learning-data-access/src/in_memory/`            | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path.      |
+| PostgreSQL Store    | `crates/learning-data-access/src/postgres/`             | Production persistence, transaction locks, source re-resolution, broker calls, and RLS-backed projections.                                        |
+| Server              | `crates/server/src/`                                    | Authentication, preflight, route binding, HTTP policy, Store composition, worker composition, and answer-free response assembly.                  |
+| Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                               |
+| Browser             | `src/`                                                  | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions.                |
+| Object storage      | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.               |
+| Adapters            | `crates/adapters/`                                      | Bounded native, QTI, H5P, iMathAS, and WeBWorK interfaces behind declared capabilities.                                                           |
 
 The server composition root is `crates/server/src/composition/`. It selects
 PostgreSQL, object storage, identity, adapters, worker capabilities, and the
@@ -115,11 +115,11 @@ implementation.
 
 ## Persistence ownership
 
-`crates/learning-data-access/src/contracts/reusable_curriculum.rs` exposes one
+`crates/learning-data-access/src/contracts/blueprint_course.rs` exposes one
 BlueprintCourse capability: list, get, replace, publish/lifecycle projection,
-and delete where the lifecycle permits it. `crates/learning-data-access/src/in_memory/reusable_curriculum.rs`
+and delete where the lifecycle permits it. `crates/learning-data-access/src/in_memory/blueprint_course.rs`
 implements the same aggregate for conformance. The production implementation
-is `crates/learning-data-access/src/postgres/reusable_curriculum.rs`, with SQL
+is `crates/learning-data-access/src/postgres/blueprint_course.rs`, with SQL
 decoding, complete-tree validation, cursor paging, and authorization-aware
 projections.
 

@@ -13,10 +13,10 @@ use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 
 use crate::SafeProviderRender;
-use crate::broker_provider::{
-    ContractedSnapshot, ProtectedLaunchRequest, ProviderLaunchHandle, ProxyMethod, ProxyRequest,
-    ProxyResponse, RenderTransportRequest, ResultTransportRequest, ScoredEmbedTransport,
-    ScoredEmbedTransportFailure, SnapshotTransportRequest,
+use crate::external_question_provider::{
+    ContractedSnapshot, ExternalToolLaunchReference, ProtectedLaunchRequest, ProxyMethod,
+    ProxyRequest, ProxyResponse, RenderTransportRequest, ResultTransportRequest,
+    ScoredEmbedTransport, ScoredEmbedTransportFailure, SnapshotTransportRequest,
 };
 
 const SNAPSHOT_PATH: &str = "v1/imathas/snapshot";
@@ -297,7 +297,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ProviderLaunchHandle, ScoredEmbedTransportFailure> {
+    ) -> Result<ExternalToolLaunchReference, ScoredEmbedTransportFailure> {
         let response = self
             .request(reqwest::Method::POST, LAUNCH_PATH)?
             .json(&LaunchRequest {
@@ -315,7 +315,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
             .await?;
         let parsed: HandleResponse = serde_json::from_slice(&bytes)
             .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
-        ProviderLaunchHandle::from_server_handle(parsed.handle)
+        ExternalToolLaunchReference::from_server_handle(parsed.handle)
     }
     async fn fetch_signed_grade_get(
         &self,

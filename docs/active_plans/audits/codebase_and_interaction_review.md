@@ -84,13 +84,13 @@ Ranked by consequence rather than by how wrong they are.
 
 These follow from owner decisions already recorded, so they are not proposals.
 
-| ID | Requirement | Current behavior |
-| --- | --- | --- |
-| SEC-1 | The Library serves vetted Instructor accounts | Catalog routes and the navigation link are open to any authenticated session |
-| SEC-2 | Student access stays narrow | Nine instructor-only routes are gated per page with no single declaration |
-| EVD-5 | No sequential or version identity, and no UUID, in visible content | Both appear in images shipped from `README.md` |
-| INS-5 | A direct position selector accompanies directional controls | Only directional controls exist |
-| DOC-7 | Layout adapts with media and container queries | No container query exists |
+| ID    | Requirement                                                        | Current behavior                                                             |
+| ----- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| SEC-1 | The Library serves vetted Instructor accounts                      | Catalog routes and the navigation link are open to any authenticated session |
+| SEC-2 | Student access stays narrow                                        | Nine instructor-only routes are gated per page with no single declaration    |
+| EVD-5 | No sequential or version identity, and no UUID, in visible content | Both appear in images shipped from `README.md`                               |
+| INS-5 | A direct position selector accompanies directional controls        | Only directional controls exist                                              |
+| DOC-7 | Layout adapts with media and container queries                     | No container query exists                                                    |
 
 ## Category B: recommendations from evidence
 

@@ -9,7 +9,7 @@ import type { InstructorCourseInvitationView } from "../../generated/api/Instruc
 import type { InstructorMembershipView } from "../../generated/api/InstructorMembershipView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import { ApiRequestError } from "../api/http_client/error";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import {
   appendTeachingTeamPage,
   appendTeachingTeamRows,
@@ -52,7 +52,7 @@ function errorCopy(error: unknown): string {
 }
 
 export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const [data, setData] = createSignal<TeachingTeamData | null>(null);
   const [query, setQuery] = createSignal("");
   const [targets, setTargets] = createSignal<ReadonlyArray<CourseInvitationTargetView>>([]);
@@ -298,7 +298,10 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
             {searching() ? "Searching..." : "Search eligible people"}
           </button>
           <Show when={targets().length > 0}>
-            <ul class="teaching-team-results" aria-label="Eligible Instructor Course Invitation search results">
+            <ul
+              class="teaching-team-results"
+              aria-label="Eligible Instructor Course Invitation search results"
+            >
               <For each={targets()}>
                 {(target) => (
                   <li class="teaching-team-result">

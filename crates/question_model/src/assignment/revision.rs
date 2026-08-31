@@ -1,21 +1,17 @@
-//! Canonical optimistic-concurrency revision for editable assignments.
+//! Canonical immutable revision number within one stable Assignment.
 
 use std::num::NonZeroU64;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-/// Server-issued optimistic-concurrency value for one editable assignment.
-///
-/// Assignment definitions are course-owned artifacts. Their selected
-/// published versions stay immutable, while the ordered selection and policies
-/// change only through this compare-and-swap token.
+/// Positive number for one immutable Assignment Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AssignmentRevision(NonZeroU64);
+pub struct AssignmentRevisionNumber(NonZeroU64);
 
-impl AssignmentRevision {
-    /// Initial revision for a newly persisted assignment definition.
+impl AssignmentRevisionNumber {
+    /// Initial immutable revision number for a newly persisted assignment definition.
     pub const INITIAL: Self = Self(NonZeroU64::MIN);
 
     /// Rebuilds a positive revision that fits PostgreSQL `BIGINT`.
@@ -23,7 +19,7 @@ impl AssignmentRevision {
         (value > 0 && value <= i64::MAX as u64).then_some(Self(NonZeroU64::new(value)?))
     }
 
-    /// Returns the exact positive persistence revision scalar.
+    /// Returns the exact positive persistence revision number.
     pub fn value(self) -> u64 {
         self.0.get()
     }
@@ -34,52 +30,52 @@ impl AssignmentRevision {
     }
 }
 
-impl FromStr for AssignmentRevision {
-    type Err = AssignmentRevisionError;
+impl FromStr for AssignmentRevisionNumber {
+    type Err = AssignmentRevisionNumberError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if value.is_empty()
             || value.starts_with('0')
             || !value.bytes().all(|byte| byte.is_ascii_digit())
         {
-            return Err(AssignmentRevisionError);
+            return Err(AssignmentRevisionNumberError);
         }
         value
             .parse()
             .ok()
             .and_then(Self::new)
-            .ok_or(AssignmentRevisionError)
+            .ok_or(AssignmentRevisionNumberError)
     }
 }
 
-impl TryFrom<String> for AssignmentRevision {
-    type Error = AssignmentRevisionError;
+impl TryFrom<String> for AssignmentRevisionNumber {
+    type Error = AssignmentRevisionNumberError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
 
-impl From<AssignmentRevision> for String {
-    fn from(value: AssignmentRevision) -> Self {
+impl From<AssignmentRevisionNumber> for String {
+    fn from(value: AssignmentRevisionNumber) -> Self {
         value.to_string()
     }
 }
 
-impl std::fmt::Display for AssignmentRevision {
+impl std::fmt::Display for AssignmentRevisionNumber {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.value())
     }
 }
 
-/// An assignment revision was not one canonical positive PostgreSQL-`BIGINT` decimal.
+/// An Assignment Revision Number was not one canonical positive PostgreSQL-`BIGINT` decimal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AssignmentRevisionError;
+pub struct AssignmentRevisionNumberError;
 
-impl std::fmt::Display for AssignmentRevisionError {
+impl std::fmt::Display for AssignmentRevisionNumberError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("assignment revision must be a canonical positive decimal")
+        formatter.write_str("assignment revision number must be a canonical positive decimal")
     }
 }
 
-impl std::error::Error for AssignmentRevisionError {}
+impl std::error::Error for AssignmentRevisionNumberError {}

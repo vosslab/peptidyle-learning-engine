@@ -23,8 +23,8 @@ def run_owned_acceptance_profile(
 	repository_root: pathlib.Path,
 	profile_name: str,
 	oracle_runner: Callable[[pathlib.Path, pathlib.Path, tuple[int, ...]], None],
-	lease_factory: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease],
-	reset_runner_factory: Callable[[], local_stack_control.process.CommandRunner],
+	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease],
+	create_command_runner: Callable[[], local_stack_control.process.CommandRunner],
 	ports_selector: Callable[[], tuple[int, ...]],
 	port_checker: Callable[[tuple[int, ...], local_stack_control.process.CommandRunner, pathlib.Path], None],
 ) -> None:
@@ -33,11 +33,11 @@ def run_owned_acceptance_profile(
 	ASVS 2.3.1: the held suite lease serializes reset, port selection, private
 	workspace creation, child execution, and final cleanup as one closed flow.
 	"""
-	lease = lease_factory(repository_root)
+	lease = acquire_browser_suite_lease(repository_root)
 	failures: list[BaseException] = []
 	try:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(
-			lease, reset_runner_factory(), repository_root
+			lease, create_command_runner(), repository_root
 		)
 		workspace = lease.reset_workspace()
 		ports = ports_selector()
@@ -45,7 +45,7 @@ def run_owned_acceptance_profile(
 			raise local_stack_control.models.ControllerError(
 				f"{profile_name} ports are invalid"
 			)
-		port_checker(ports, reset_runner_factory(), repository_root)
+		port_checker(ports, create_command_runner(), repository_root)
 		try:
 			oracle_runner(repository_root, workspace, ports)
 		except BaseException as error:
@@ -53,7 +53,7 @@ def run_owned_acceptance_profile(
 	finally:
 		try:
 			final_snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
-				lease, reset_runner_factory(), repository_root
+				lease, create_command_runner(), repository_root
 			)
 			if not _resources_empty(final_snapshot):
 				raise local_stack_control.models.ControllerError(

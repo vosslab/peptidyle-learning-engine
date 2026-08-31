@@ -3,12 +3,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActivityTimestamp, AssignmentProgressRecord, AssignmentDeadlineBehavior,
-    AssignmentDeliveryState, AssignmentId, AssignmentInstructions, AssignmentEntryId,
-    AssignmentReference, AssignmentScoringMode, BackendCapabilities,
-    CourseId, CourseInstanceReference, IanaTimeZone, LateSubmissionPolicy, PointValue, QuestionBackend,
-    QuestionId, AssignmentActivityRules, ScoringStatus, SelectionOrdering, StudentDisclosurePolicy,
-    QuestionPoolCandidateId, StudentRecordId, VariationPolicy,
+    ActivityTimestamp, AssignmentActivityRules, AssignmentDeadlineRule,
+    AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
+    AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord, AssignmentReference,
+    AssignmentTitle, CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule,
+    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolCandidateAvailability,
+    QuestionPoolCandidateId, QuestionPoolSelectionRule, QuestionVariationRule, ScoringStatus,
+    StudentFeedbackReleaseRule, StudentRecordId,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -48,18 +49,18 @@ pub struct FixedQuestionAssignmentEntrySummary {
     pub id: AssignmentEntryId,
     /// Sole browser-visible locator for the immutable published question.
     pub question_id: QuestionId,
-    /// Safe catalog label shown while editing this assignment.
+    /// Safe Question Library label shown while editing this assignment.
     pub title: String,
     /// Question Backend selected for the item.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
-    pub capabilities: BackendCapabilities,
+    pub capabilities: QuestionBackendCapabilities,
     /// Current assignment-authored points.
-    pub points_possible: PointValue,
-    /// Whether future runs may receive the item.
-    pub delivery_state: AssignmentDeliveryState,
+    pub points_possible: AssignmentPointValue,
+    /// Whether future Assignment Attempts may receive this Assignment Entry.
+    pub availability: AssignmentEntryAvailability,
     /// Current-only scoring treatment.
-    pub scoring_mode: AssignmentScoringMode,
+    pub scoring_rule: AssignmentEntryScoringRule,
 }
 
 /// Browser-safe candidate in one random-Question Pool.
@@ -70,14 +71,14 @@ pub struct QuestionPoolCandidateSummary {
     pub id: QuestionPoolCandidateId,
     /// Sole browser-visible locator for the immutable published question.
     pub question_id: QuestionId,
-    /// Safe catalog label shown while editing this assignment.
+    /// Safe Question Library label shown while editing this assignment.
     pub title: String,
     /// Question Backend selected for the candidate.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
-    pub capabilities: BackendCapabilities,
-    /// Whether future runs may select this candidate.
-    pub delivery_state: AssignmentDeliveryState,
+    pub capabilities: QuestionBackendCapabilities,
+    /// Whether future Question Pool Selections may select this candidate.
+    pub availability: QuestionPoolCandidateAvailability,
 }
 
 /// Browser-safe Question Pool Assignment Entry.
@@ -86,21 +87,27 @@ pub struct QuestionPoolCandidateSummary {
 pub struct QuestionPoolAssignmentEntrySummary {
     /// Stable Assignment Entry identity.
     pub id: AssignmentEntryId,
-    /// Number of active candidates selected for each future run.
+    /// Whether future Assignment Attempts may receive this Assignment Entry.
+    pub availability: AssignmentEntryAvailability,
+    /// Current-only scoring rule applied to every selected candidate.
+    pub scoring_rule: AssignmentEntryScoringRule,
+    /// Number of available candidates selected for each future Assignment Attempt.
     pub draw_count: u32,
     /// Uniform current points for each selected candidate.
-    pub points_per_item: PointValue,
-    /// Output ordering after selection.
-    pub ordering: SelectionOrdering,
-    /// Stable algorithm version needed to reproduce selection.
-    pub algorithm_version: u16,
+    pub points_per_item: AssignmentPointValue,
+    /// Complete reviewed selection behavior.
+    pub selection_rule: QuestionPoolSelectionRule,
     /// Browser-safe current candidate set.
     pub candidates: Vec<QuestionPoolCandidateSummary>,
 }
 
 /// Browser-safe Assignment Entry in authored delivery order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum AssignmentEntrySummary {
     /// One exact fixed Question.
     FixedQuestion(FixedQuestionAssignmentEntrySummary),
@@ -119,12 +126,12 @@ pub struct AssignmentSummary {
     /// Course that owns this assignment.
     pub course_id: CourseId,
     /// Human-facing assignment title.
-    pub title: String,
+    pub title: AssignmentTitle,
     /// Ordered complete Assignment Entry definition.
     pub entries: Vec<AssignmentEntrySummary>,
     /// Assignment-owned student-facing disclosure schedule.
-    pub disclosure_policy: StudentDisclosurePolicy,
-    /// Four independent run policies.
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
+    /// Eight independent Assignment Activity Rules.
     pub policies: AssignmentActivityRules,
 }
 
@@ -136,19 +143,19 @@ pub struct AssignmentSummary {
 /// then use their role-appropriate envelope constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentLandingPresentation {
+pub struct AssignmentOverview {
     /// Student-facing assignment title.
-    pub title: String,
+    pub title: AssignmentTitle,
     /// Student-facing instructions.
     pub instructions: AssignmentInstructions,
     /// Course scheduling zone used to present delivery facts.
-    pub time_zone: IanaTimeZone,
+    pub time_zone: CourseTimeZone,
     /// Number of active questions a student receives in one run.
     pub questions_per_run: u32,
-    /// Student-visible variation policy.
-    pub variation: VariationPolicy,
+    /// Student-visible Question Variation Rule.
+    pub question_variation_rule: QuestionVariationRule,
     /// Student-visible disclosure schedule.
-    pub disclosure_policy: StudentDisclosurePolicy,
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
 /// Student-safe assignment definition.
@@ -164,13 +171,13 @@ pub struct StudentAssignmentLandingSummary {
     /// Stable typed locator used in application navigation.
     pub reference: AssignmentReference,
     /// Human-facing assignment title.
-    pub title: String,
+    pub title: AssignmentTitle,
 }
 
 /// Whether the Student's currently accepted work is late under resolved policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum StudentLateStatus {
+pub enum StudentLateWorkStatus {
     /// The work is on time, or no due instant applies.
     OnTime,
     /// Work after due remains accepted without a late mark.
@@ -181,7 +188,7 @@ pub enum StudentLateStatus {
 
 /// Server-resolved Student delivery limits for one authorized detail response.
 ///
-/// These values are projections of the effective policy after group and
+/// These values are projections of the effective Course policy after direct
 /// individual adjustments. They are not editable base-policy authority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -193,15 +200,15 @@ pub struct StudentAssignmentDelivery {
     /// Resolved hard instant after which new work closes.
     pub closes_at: Option<ActivityTimestamp>,
     /// Resolved whole-run time limit when one applies.
-    pub time_limit_seconds: Option<std::num::NonZeroU32>,
+    pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
     /// Resolved maximum number of runs when one applies.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Resolved treatment of work after the ordinary due instant.
-    pub late_submission: LateSubmissionPolicy,
+    pub late_work_rule: LateWorkRule,
     /// Server behavior at the resolved effective deadline.
-    pub deadline_behavior: AssignmentDeadlineBehavior,
+    pub assignment_deadline_rule: AssignmentDeadlineRule,
     /// Server-owned late condition for the Student's present work.
-    pub late_status: StudentLateStatus,
+    pub late_status: StudentLateWorkStatus,
 }
 
 /// Student-safe assignment material for the dedicated detail route.
@@ -217,11 +224,11 @@ pub struct StudentAssignmentDetail {
     /// Stable typed locator used in application navigation.
     pub reference: AssignmentReference,
     /// Human-facing assignment title.
-    pub title: String,
+    pub title: AssignmentTitle,
     /// Validated Student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// Authoritative IANA zone for displaying the server-resolved instants.
-    pub time_zone: IanaTimeZone,
+    pub time_zone: CourseTimeZone,
     /// Server-resolved delivery limits for this Student.
     pub delivery: StudentAssignmentDelivery,
     /// Ordered complete Assignment Entry definition.
@@ -243,7 +250,7 @@ impl StudentAssignmentDetail {
     /// envelope to the shared answer-free landing presentation.
     pub fn from_landing(
         assignment: AssignmentSummary,
-        landing: AssignmentLandingPresentation,
+        landing: AssignmentOverview,
         delivery: StudentAssignmentDelivery,
     ) -> Self {
         Self {
@@ -275,7 +282,7 @@ pub struct GradebookSummaryRow {
     /// Assignment whose grade policy selected the current score.
     pub assignment_id: AssignmentId,
     /// Human-facing assignment title from the assignment record.
-    pub assignment_title: String,
+    pub assignment_title: AssignmentTitle,
     /// Transactionally maintained compact activity and score projection.
     pub summary: AssignmentProgressRecord,
     /// Current visibility and freshness of assignment scores.
@@ -285,8 +292,15 @@ pub struct GradebookSummaryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CompletionRequirement, ContinuedPractice, GradePolicy, VariationPolicy};
+    use crate::{
+        AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule, AssignmentCompletionRule,
+        QuestionVariationRule,
+    };
     use uuid::Uuid;
+
+    fn assignment_title(value: &str) -> AssignmentTitle {
+        AssignmentTitle::try_new(value.to_string()).expect("valid Assignment Title fixture")
+    }
 
     #[test]
     fn rust_names_serialize_as_lower_camel_course_contracts() {
@@ -294,25 +308,26 @@ mod tests {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: "Peptide bonds".to_string(),
+            title: assignment_title("Peptide bonds"),
             entries: vec![AssignmentEntrySummary::FixedQuestion(
                 FixedQuestionAssignmentEntrySummary {
                     id: crate::AssignmentEntryId::from_uuid(Uuid::from_u128(4)),
                     question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                     title: "Peptide bonds".to_string(),
                     backend: crate::QuestionBackend::Native,
-                    capabilities: crate::BackendCapabilities::none(),
-                    points_possible: crate::PointValue::from_whole(1),
-                    delivery_state: crate::AssignmentDeliveryState::Active,
-                    scoring_mode: crate::AssignmentScoringMode::Normal,
+                    capabilities: crate::QuestionBackendCapabilities::none(),
+                    points_possible: crate::AssignmentPointValue::from_whole(1),
+                    availability: crate::AssignmentEntryAvailability::Available,
+                    scoring_rule: crate::AssignmentEntryScoringRule::Normal,
                 },
             )],
-            disclosure_policy: StudentDisclosurePolicy::default(),
+            student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssignmentActivityRules {
-                completion: CompletionRequirement::AllCorrect,
-                grade: GradePolicy::Highest,
-                continued_practice: ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
+                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
+                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
+                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                ..AssignmentActivityRules::default()
             },
         };
 
@@ -329,14 +344,15 @@ mod tests {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: "Peptide bonds".to_string(),
+            title: assignment_title("Peptide bonds"),
             entries: Vec::new(),
-            disclosure_policy: StudentDisclosurePolicy::default(),
+            student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssignmentActivityRules {
-                completion: CompletionRequirement::AllCorrect,
-                grade: GradePolicy::Highest,
-                continued_practice: ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
+                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
+                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
+                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                ..AssignmentActivityRules::default()
             },
         });
         let student_value = serde_json::to_value(student).expect("Student serializes");
@@ -350,36 +366,37 @@ mod tests {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: "Peptide bonds".to_string(),
+            title: assignment_title("Peptide bonds"),
             entries: Vec::new(),
-            disclosure_policy: StudentDisclosurePolicy::default(),
+            student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssignmentActivityRules {
-                completion: CompletionRequirement::AllCorrect,
-                grade: GradePolicy::Highest,
-                continued_practice: ContinuedPractice::Unlimited,
-                variation: VariationPolicy::NewSeeds,
+                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
+                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
+                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                ..AssignmentActivityRules::default()
             },
         };
         let detail = StudentAssignmentDetail::from_landing(
             assignment,
-            AssignmentLandingPresentation {
-                title: "Peptide bonds".to_string(),
+            AssignmentOverview {
+                title: assignment_title("Peptide bonds"),
                 instructions: AssignmentInstructions::try_new("Read the legend.".to_string())
                     .expect("valid instructions"),
-                time_zone: IanaTimeZone::parse("America/Chicago").expect("known zone"),
+                time_zone: CourseTimeZone::parse("America/Chicago").expect("known zone"),
                 questions_per_run: 0,
-                variation: VariationPolicy::NewSeeds,
-                disclosure_policy: StudentDisclosurePolicy::default(),
+                question_variation_rule: QuestionVariationRule::ReuseQuestionsWithNewSeeds,
+                student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
             StudentAssignmentDelivery {
                 available_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
                 due_at: Some(ActivityTimestamp::from_unix_millis(2_000)),
                 closes_at: Some(ActivityTimestamp::from_unix_millis(3_000)),
-                time_limit_seconds: None,
+                assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
-                late_submission: LateSubmissionPolicy::MarkLate,
-                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
-                late_status: StudentLateStatus::MarkedLate,
+                late_work_rule: LateWorkRule::MarkLate,
+                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
+                late_status: StudentLateWorkStatus::MarkedLate,
             },
         );
         let value = serde_json::to_value(&detail).expect("detail serializes");
@@ -408,7 +425,7 @@ mod tests {
             student_record_id: StudentRecordId::from_uuid(Uuid::from_u128(3)),
             student_name: "Ada Student".to_string(),
             assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
-            assignment_title: "Peptide bonds".to_string(),
+            assignment_title: assignment_title("Peptide bonds"),
             summary: AssignmentProgressRecord::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
                 AssignmentId::from_uuid(Uuid::from_u128(5)),

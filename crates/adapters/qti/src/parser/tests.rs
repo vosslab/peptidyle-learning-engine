@@ -106,25 +106,25 @@ fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
             response: QuestionResponseFormat::MultipleChoice {
                 choices: vec![
                     ChoiceOption {
-                        id: ChoiceId::new("a"),
+                        id: ResponseItemReference::new("a"),
                         body: vec![ContentBlock::Text {
                             markdown: "A".into(),
                         }],
                     },
                     ChoiceOption {
-                        id: ChoiceId::new("b"),
+                        id: ResponseItemReference::new("b"),
                         body: vec![ContentBlock::Text {
                             markdown: "B".into(),
                         }],
                     },
                 ],
-                selection: SelectionCardinality::ExactlyOne,
+                selection: ResponseSelectionRule::ExactlyOne,
             },
         }]
     );
     let debug = format!("{imported:?}");
     assert!(
-        !debug.contains("ChoiceId")
+        !debug.contains("ResponseItemReference")
             && !debug.contains("correctResponse")
             && !debug.contains("PK\\x03\\x04")
     );
@@ -133,7 +133,7 @@ fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
     let item_id = &imported.questions[0].item_id;
     assert_eq!(
         imported.worker_correct_choice(item_id),
-        Some(ChoiceId::new("b"))
+        Some(ResponseItemReference::new("b"))
     );
 }
 #[test]
@@ -396,7 +396,7 @@ fn import_handoff_keeps_archive_assets_and_grading_server_only() {
     let item_id = &imported.questions[0].item_id;
     assert_eq!(
         imported.worker_correct_choice(item_id),
-        Some(ChoiceId::new("b"))
+        Some(ResponseItemReference::new("b"))
     );
 }
 
@@ -468,11 +468,11 @@ fn reports_partial_success_and_normalized_duplicate_warnings() {
     );
     assert_eq!(
         imported.worker_correct_choice("accepted-item"),
-        Some(ChoiceId::new("b"))
+        Some(ResponseItemReference::new("b"))
     );
     assert_eq!(
         imported.worker_correct_choice("likely-item"),
-        Some(ChoiceId::new("a"))
+        Some(ResponseItemReference::new("a"))
     );
 }
 

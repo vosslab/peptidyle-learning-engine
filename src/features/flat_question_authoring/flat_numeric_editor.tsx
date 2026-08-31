@@ -4,13 +4,15 @@ import { Show, type JSX } from "solid-js";
 
 import {
   numericToleranceField,
-  setNumericToleranceKind,
-  setNumericToleranceValue,
+  setNumericResponseToleranceKind,
+  setNumericResponseToleranceValue,
   validateNumericResponse,
 } from "./flat_numeric_model";
-import type { FlatQuestionNumericTolerance } from "./flat_question_source";
+import type { FlatQuestionNumericResponseTolerance } from "./flat_question_source";
 
-function isNumericToleranceKind(value: string): value is FlatQuestionNumericTolerance["kind"] {
+function isNumericResponseToleranceKind(
+  value: string,
+): value is FlatQuestionNumericResponseTolerance["kind"] {
   return (
     value === "exact" ||
     value === "absolute" ||
@@ -22,10 +24,10 @@ function isNumericToleranceKind(value: string): value is FlatQuestionNumericTole
 export interface FlatNumericEditorProps {
   /** Owned by the parent so an in-progress literal such as 6.02e remains visible while editing. */
   readonly answerLiteral: string;
-  readonly tolerance: () => FlatQuestionNumericTolerance;
+  readonly tolerance: () => FlatQuestionNumericResponseTolerance;
   readonly unit: () => string | null;
   readonly onAnswerLiteralChange: (literal: string) => void;
-  readonly onToleranceChange: (tolerance: FlatQuestionNumericTolerance) => void;
+  readonly onToleranceChange: (tolerance: FlatQuestionNumericResponseTolerance) => void;
   readonly onUnitChange: (unit: string | null) => void;
   readonly disabled?: boolean;
   readonly fieldErrors?: Readonly<Record<string, string | undefined>>;
@@ -72,7 +74,10 @@ export function FlatNumericEditor(props: FlatNumericEditorProps): JSX.Element {
             aria-invalid={errorFor(field) !== undefined}
             onInput={(event) =>
               props.onToleranceChange(
-                setNumericToleranceValue(props.tolerance(), Number(event.currentTarget.value)),
+                setNumericResponseToleranceValue(
+                  props.tolerance(),
+                  Number(event.currentTarget.value),
+                ),
               )
             }
           />
@@ -124,8 +129,8 @@ export function FlatNumericEditor(props: FlatNumericEditorProps): JSX.Element {
           disabled={props.disabled}
           onChange={(event) => {
             const kind = event.currentTarget.value;
-            if (isNumericToleranceKind(kind)) {
-              props.onToleranceChange(setNumericToleranceKind(kind));
+            if (isNumericResponseToleranceKind(kind)) {
+              props.onToleranceChange(setNumericResponseToleranceKind(kind));
             }
           }}
         >

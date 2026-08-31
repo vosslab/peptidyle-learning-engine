@@ -1,7 +1,7 @@
 // Strict Student delivery and focused assignment-policy transport decoders.
 
-import type { AssignmentTeachingSettingsValidationFailure } from "../../../generated/api/AssignmentTeachingSettingsValidationFailure";
-import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
+import type { AssignmentRevisionDefinitionValidationFailure } from "../../../generated/api/AssignmentRevisionDefinitionValidationFailure";
+import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
 import type { StudentAssignmentDetail } from "../../../generated/api/StudentAssignmentDetail";
 import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
@@ -20,7 +20,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
-import { decodeStudentDisclosurePolicy } from "./assignment_policy";
+import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeAssignmentEntry, decodeAssignmentReference } from "./question_library";
 
 export function decodeStudentAssignmentLandingSummary(
@@ -41,21 +41,21 @@ export function decodeStudentAssignmentLandingSummary(
 
 const LIFECYCLES = ["draft", "published", "closed", "archived"] as const;
 const LATE_POLICIES = ["accept", "markLate", "reject"] as const;
-const DEADLINE_BEHAVIORS = ["autoSubmit"] as const;
+const ASSIGNMENT_DEADLINE_RULES = ["autoSubmit"] as const;
 const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
-const SETTINGS_FAILURE_FIELDS = [
-  "teachingSettings",
+const ASSIGNMENT_REVISION_DEFINITION_FAILURE_FIELDS = [
+  "assignmentRevisionDefinition",
   "timeZone",
   "availableAt",
   "dueAt",
   "closesAt",
   "schedule",
-  "timeLimitSeconds",
+  "assignmentAttemptTimeLimitSeconds",
   "attemptLimit",
   "lifecycle",
   "instructions",
 ] as const;
-const SETTINGS_FAILURE_REASONS = [
+const ASSIGNMENT_REVISION_DEFINITION_FAILURE_REASONS = [
   "invalidInput",
   "courseTimeZoneMismatch",
   "outsideCourseTerm",
@@ -63,7 +63,7 @@ const SETTINGS_FAILURE_REASONS = [
   "ambiguousLocalTime",
   "timestampOutOfRange",
   "scheduleOutOfOrder",
-  "timeLimitOutOfRange",
+  "assignmentAttemptTimeLimitOutOfRange",
   "attemptLimitOutOfRange",
   "illegalLifecycleTransition",
   "invalidInstructions",
@@ -94,30 +94,34 @@ function decodePolicyLimit(value: unknown, path: string): number | null {
   });
 }
 
-export function decodeAssignmentTeachingSettingsValidationFailure(
+export function decodeAssignmentRevisionDefinitionValidationFailure(
   value: unknown,
   path = "response",
-): AssignmentTeachingSettingsValidationFailure {
+): AssignmentRevisionDefinitionValidationFailure {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["error", "field", "reason", "message"]);
   return {
     error: decodeStringEnum(field(record, "error", path), `${path}.error`, [
-      "assignmentTeachingSettingsInvalid",
+      "assignmentRevisionDefinitionInvalid",
     ] as const),
-    field: decodeStringEnum(field(record, "field", path), `${path}.field`, SETTINGS_FAILURE_FIELDS),
+    field: decodeStringEnum(
+      field(record, "field", path),
+      `${path}.field`,
+      ASSIGNMENT_REVISION_DEFINITION_FAILURE_FIELDS,
+    ),
     reason: decodeStringEnum(
       field(record, "reason", path),
       `${path}.reason`,
-      SETTINGS_FAILURE_REASONS,
+      ASSIGNMENT_REVISION_DEFINITION_FAILURE_REASONS,
     ),
     message: decodeNonemptyString(field(record, "message", path), `${path}.message`),
   };
 }
 
-export function decodeInstructorAssignmentTeachingSettingsLocal(
+export function decodeInstructorAssignmentRevisionDefinitionLocal(
   value: unknown,
   path = "response",
-): InstructorAssignmentTeachingSettingsLocal {
+): InstructorAssignmentRevisionDefinitionLocal {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "timeZone",
@@ -126,10 +130,10 @@ export function decodeInstructorAssignmentTeachingSettingsLocal(
     "availableAt",
     "dueAt",
     "closesAt",
-    "timeLimitSeconds",
+    "assignmentAttemptTimeLimitSeconds",
     "attemptLimit",
-    "lateSubmission",
-    "deadlineBehavior",
+    "lateWorkRule",
+    "assignmentDeadlineRule",
   ]);
   return {
     timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
@@ -142,20 +146,20 @@ export function decodeInstructorAssignmentTeachingSettingsLocal(
     ),
     dueAt: decodeNullable(field(record, "dueAt", path), `${path}.dueAt`, decodeLocalTime),
     closesAt: decodeNullable(field(record, "closesAt", path), `${path}.closesAt`, decodeLocalTime),
-    timeLimitSeconds: decodePolicyLimit(
-      field(record, "timeLimitSeconds", path),
-      `${path}.timeLimitSeconds`,
+    assignmentAttemptTimeLimitSeconds: decodePolicyLimit(
+      field(record, "assignmentAttemptTimeLimitSeconds", path),
+      `${path}.assignmentAttemptTimeLimitSeconds`,
     ),
     attemptLimit: decodePolicyLimit(field(record, "attemptLimit", path), `${path}.attemptLimit`),
-    lateSubmission: decodeStringEnum(
-      field(record, "lateSubmission", path),
-      `${path}.lateSubmission`,
+    lateWorkRule: decodeStringEnum(
+      field(record, "lateWorkRule", path),
+      `${path}.lateWorkRule`,
       LATE_POLICIES,
     ),
-    deadlineBehavior: decodeStringEnum(
-      field(record, "deadlineBehavior", path),
-      `${path}.deadlineBehavior`,
-      DEADLINE_BEHAVIORS,
+    assignmentDeadlineRule: decodeStringEnum(
+      field(record, "assignmentDeadlineRule", path),
+      `${path}.assignmentDeadlineRule`,
+      ASSIGNMENT_DEADLINE_RULES,
     ),
   };
 }
@@ -213,10 +217,10 @@ export function decodeStudentAssignmentDetail(
     "available_at",
     "due_at",
     "closes_at",
-    "time_limit_seconds",
+    "assignment_attempt_time_limit_seconds",
     "attempt_limit",
-    "late_submission",
-    "deadline_behavior",
+    "late_work_rule",
+    "assignment_deadline_rule",
     "late_status",
   ]);
   const delivery: StudentAssignmentDelivery = {
@@ -235,23 +239,23 @@ export function decodeStudentAssignmentDetail(
       `${path}.delivery.closes_at`,
       decodeTimestamp,
     ),
-    time_limit_seconds: decodePolicyLimit(
-      field(deliveryRecord, "time_limit_seconds", `${path}.delivery`),
-      `${path}.delivery.time_limit_seconds`,
+    assignment_attempt_time_limit_seconds: decodePolicyLimit(
+      field(deliveryRecord, "assignment_attempt_time_limit_seconds", `${path}.delivery`),
+      `${path}.delivery.assignment_attempt_time_limit_seconds`,
     ),
     attempt_limit: decodePolicyLimit(
       field(deliveryRecord, "attempt_limit", `${path}.delivery`),
       `${path}.delivery.attempt_limit`,
     ),
-    late_submission: decodeStringEnum(
-      field(deliveryRecord, "late_submission", `${path}.delivery`),
-      `${path}.delivery.late_submission`,
+    late_work_rule: decodeStringEnum(
+      field(deliveryRecord, "late_work_rule", `${path}.delivery`),
+      `${path}.delivery.late_work_rule`,
       LATE_POLICIES,
     ),
-    deadline_behavior: decodeStringEnum(
-      field(deliveryRecord, "deadline_behavior", `${path}.delivery`),
-      `${path}.delivery.deadline_behavior`,
-      DEADLINE_BEHAVIORS,
+    assignment_deadline_rule: decodeStringEnum(
+      field(deliveryRecord, "assignment_deadline_rule", `${path}.delivery`),
+      `${path}.delivery.assignment_deadline_rule`,
+      ASSIGNMENT_DEADLINE_RULES,
     ),
     late_status: decodeStringEnum(
       field(deliveryRecord, "late_status", `${path}.delivery`),
@@ -282,18 +286,18 @@ export function decodeInstructorStudentView(
     "timeZone",
     "delivery",
     "questionsPerRun",
-    "variation",
-    "disclosurePolicy",
+    "questionVariationRule",
+    "studentFeedbackReleaseRule",
   ]);
   const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
   requireOnlyFields(deliveryRecord, `${path}.delivery`, [
     "availableAt",
     "dueAt",
     "closesAt",
-    "timeLimitSeconds",
+    "assignmentAttemptTimeLimitSeconds",
     "attemptLimit",
-    "lateSubmission",
-    "deadlineBehavior",
+    "lateWorkRule",
+    "assignmentDeadlineRule",
   ]);
   const delivery: InstructorStudentViewDelivery = {
     availableAt: decodeNullable(
@@ -311,23 +315,23 @@ export function decodeInstructorStudentView(
       `${path}.delivery.closesAt`,
       decodeTimestamp,
     ),
-    timeLimitSeconds: decodePolicyLimit(
-      field(deliveryRecord, "timeLimitSeconds", `${path}.delivery`),
-      `${path}.delivery.timeLimitSeconds`,
+    assignmentAttemptTimeLimitSeconds: decodePolicyLimit(
+      field(deliveryRecord, "assignmentAttemptTimeLimitSeconds", `${path}.delivery`),
+      `${path}.delivery.assignmentAttemptTimeLimitSeconds`,
     ),
     attemptLimit: decodePolicyLimit(
       field(deliveryRecord, "attemptLimit", `${path}.delivery`),
       `${path}.delivery.attemptLimit`,
     ),
-    lateSubmission: decodeStringEnum(
-      field(deliveryRecord, "lateSubmission", `${path}.delivery`),
-      `${path}.delivery.lateSubmission`,
+    lateWorkRule: decodeStringEnum(
+      field(deliveryRecord, "lateWorkRule", `${path}.delivery`),
+      `${path}.delivery.lateWorkRule`,
       LATE_POLICIES,
     ),
-    deadlineBehavior: decodeStringEnum(
-      field(deliveryRecord, "deadlineBehavior", `${path}.delivery`),
-      `${path}.delivery.deadlineBehavior`,
-      DEADLINE_BEHAVIORS,
+    assignmentDeadlineRule: decodeStringEnum(
+      field(deliveryRecord, "assignmentDeadlineRule", `${path}.delivery`),
+      `${path}.delivery.assignmentDeadlineRule`,
+      ASSIGNMENT_DEADLINE_RULES,
     ),
   };
   return {
@@ -339,14 +343,14 @@ export function decodeInstructorStudentView(
       field(record, "questionsPerRun", path),
       `${path}.questionsPerRun`,
     ),
-    variation: decodeStringEnum(field(record, "variation", path), `${path}.variation`, [
-      "newSeeds",
-      "selectedQuestionVariants",
-      "fullRegeneration",
-    ] as const),
-    disclosurePolicy: decodeStudentDisclosurePolicy(
-      field(record, "disclosurePolicy", path),
-      `${path}.disclosurePolicy`,
+    questionVariationRule: decodeStringEnum(
+      field(record, "questionVariationRule", path),
+      `${path}.questionVariationRule`,
+      ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"] as const,
+    ),
+    studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
     ),
   } satisfies InstructorStudentView;
 }

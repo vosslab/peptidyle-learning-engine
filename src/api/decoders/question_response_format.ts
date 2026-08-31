@@ -3,10 +3,10 @@
 import type { AssetRef } from "../../../generated/api/AssetRef";
 import type { ChoiceOption } from "../../../generated/api/ChoiceOption";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
-import type { NumericTolerance } from "../../../generated/api/NumericTolerance";
+import type { NumericResponseTolerance } from "../../../generated/api/NumericResponseTolerance";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionType } from "../../../generated/api/QuestionType";
-import type { SelectionCardinality } from "../../../generated/api/SelectionCardinality";
+import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
 import {
   DecodeError,
   decodeArray,
@@ -102,7 +102,11 @@ function decodeNormalizedCoordinate(value: unknown, path: string): number {
   return coordinate;
 }
 
-function decodeNumericTolerance(value: unknown, path: string, strict = false): NumericTolerance {
+function decodeNumericResponseTolerance(
+  value: unknown,
+  path: string,
+  strict = false,
+): NumericResponseTolerance {
   const record = decodeRecord(value, path);
   const tolerance = kind(record, path);
   switch (tolerance) {
@@ -114,19 +118,19 @@ function decodeNumericTolerance(value: unknown, path: string, strict = false): N
       return {
         kind: tolerance,
         epsilon: decodeFiniteNumber(field(record, "epsilon", path), `${path}.epsilon`),
-      } satisfies NumericTolerance;
+      } satisfies NumericResponseTolerance;
     case "relative":
       if (strict) requireOnlyFields(record, path, ["kind", "fraction"]);
       return {
         kind: tolerance,
         fraction: decodeFiniteNumber(field(record, "fraction", path), `${path}.fraction`),
-      } satisfies NumericTolerance;
+      } satisfies NumericResponseTolerance;
     case "significantFigures":
       if (strict) requireOnlyFields(record, path, ["kind", "digits"]);
       return {
         kind: tolerance,
         digits: decodePositiveInteger(field(record, "digits", path), `${path}.digits`),
-      } satisfies NumericTolerance;
+      } satisfies NumericResponseTolerance;
     default:
       throw new DecodeError(`${path}.kind`, "a known numeric tolerance");
   }
@@ -136,7 +140,7 @@ export function decodeSelectionCardinality(
   value: unknown,
   path: string,
   strict = false,
-): SelectionCardinality {
+): ResponseSelectionRule {
   const record = decodeRecord(value, path);
   const selection = kind(record, path);
   switch (selection) {
@@ -150,9 +154,9 @@ export function decodeSelectionCardinality(
       return {
         kind: selection,
         count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
-      } satisfies SelectionCardinality;
+      } satisfies ResponseSelectionRule;
     default:
-      throw new DecodeError(`${path}.kind`, "a known selection cardinality");
+      throw new DecodeError(`${path}.kind`, "a known Response Selection Rule");
   }
 }
 
@@ -210,7 +214,7 @@ export function decodeQuestionResponseFormat(
       if (strict) requireOnlyFields(record, path, ["kind", "tolerance", "unit"]);
       return {
         kind: response,
-        tolerance: decodeNumericTolerance(
+        tolerance: decodeNumericResponseTolerance(
           field(record, "tolerance", path),
           `${path}.tolerance`,
           strict,

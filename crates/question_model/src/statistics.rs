@@ -1,7 +1,7 @@
 //! Browser-safe anonymous question-statistics projections.
 //!
 //! The raw aggregate and its write path remain server-side. This module holds
-//! only the redacted, k-anonymity-gated view a visible catalog version may
+//! only the redacted, k-anonymity-gated view a visible Question Library version may
 //! disclose, plus the small policy value used to make that decision.
 
 use std::num::NonZeroU32;
@@ -145,7 +145,7 @@ pub struct QuestionStatisticsView {
 
 /// Safe result of applying the k-anonymity gate to one shared aggregate.
 ///
-/// `Suppressed` intentionally contains no count or partial metrics. Catalog
+/// `Suppressed` intentionally contains no count or partial metrics. Question Library
 /// composition maps it to its established `Unavailable` wire status, keeping
 /// existing unavailable responses stable while later adding safe metrics.
 #[derive(Debug, Clone, PartialEq)]

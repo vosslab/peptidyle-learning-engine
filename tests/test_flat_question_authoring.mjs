@@ -40,8 +40,8 @@ function source() {
     },
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
     points: 1,
-    attemptPolicy: { maxAttempts: null },
-    timingPolicy: { kind: "untimed" },
+    questionAttemptLimit: { maxAttempts: null },
+    questionAttemptTimeLimit: { kind: "unlimited" },
     tags: ["example"],
     taxonomy: [],
     license: { kind: "ccBySa" },
@@ -64,8 +64,8 @@ function publicDefinition(includeVersion = false) {
       selection: { kind: "exactlyOne" },
     },
     questionType: "multipleChoice",
-    attemptPolicy: { maxAttempts: null },
-    timingPolicy: { kind: "untimed" },
+    questionAttemptLimit: { maxAttempts: null },
+    questionAttemptTimeLimit: { kind: "unlimited" },
     randomization: { kind: "static" },
     grading: { mode: "allOrNothing", points: 1 },
     metadata: {
@@ -116,7 +116,7 @@ test("codec rejects every retired question-level feedback disclosure value", () 
     assert.throws(() =>
       decodeFlatQuestionSource({
         ...source(),
-        attemptPolicy: { maxAttempts: null, feedback },
+        questionAttemptLimit: { maxAttempts: null, feedback },
       }),
     );
   }
@@ -157,26 +157,26 @@ test("codec enforces Unicode title and Rust u32 numeric bounds", () => {
   const maximum = 4_294_967_295;
   const timed = {
     ...source(),
-    attemptPolicy: { maxAttempts: maximum },
-    timingPolicy: { kind: "perQuestion", seconds: maximum, graceSeconds: maximum },
+    questionAttemptLimit: { maxAttempts: maximum },
+    questionAttemptTimeLimit: { kind: "limited", seconds: maximum, graceSeconds: maximum },
   };
-  assert.deepEqual(decodeFlatQuestionSource(timed).timingPolicy, timed.timingPolicy);
+  assert.deepEqual(decodeFlatQuestionSource(timed).questionAttemptTimeLimit, timed.questionAttemptTimeLimit);
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...timed,
-      attemptPolicy: { maxAttempts: maximum + 1 },
+      questionAttemptLimit: { maxAttempts: maximum + 1 },
     }),
   );
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...timed,
-      timingPolicy: { kind: "perQuestion", seconds: maximum + 1, graceSeconds: 0 },
+      questionAttemptTimeLimit: { kind: "limited", seconds: maximum + 1, graceSeconds: 0 },
     }),
   );
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...timed,
-      timingPolicy: { kind: "perQuestion", seconds: 1, graceSeconds: maximum + 1 },
+      questionAttemptTimeLimit: { kind: "limited", seconds: 1, graceSeconds: maximum + 1 },
     }),
   );
 });
@@ -662,8 +662,7 @@ test("client rejects public responses whose identity does not match the requeste
 
 test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
   const wrongSave = createFlatQuestionClient({
-    fetch: async () =>
-      jsonResponse({ ...publicDefinition(), questionFormat: "nativeAlgorithmic" }),
+    fetch: async () => jsonResponse({ ...publicDefinition(), questionFormat: "nativeAlgorithmic" }),
   });
   await assert.rejects(wrongSave.save(workspace, source()), /PLE flat-question V2 format/u);
 
@@ -671,11 +670,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
     fetch: async () => jsonResponse(publicationSummary("webwork")),
   });
   await assert.rejects(
-    wrongPublication.publish(
-      workspace,
-      { byline: { names: ["Fixture Instructor"] } },
-      '"1"',
-    ),
+    wrongPublication.publish(workspace, { byline: { names: ["Fixture Instructor"] } }, '"1"'),
     /available native Question Library summary/u,
   );
 
@@ -687,7 +682,9 @@ test("client rejects save DTOs and publication summaries that do not exactly con
     /scope must be a field allowed/u,
   );
 
-  for (const summary of [{ ...publicationSummary(), availability: { availability: "archived", reason: "withdrawn" } }]) {
+  for (const summary of [
+    { ...publicationSummary(), availability: { availability: "archived", reason: "withdrawn" } },
+  ]) {
     const wrongLifecycleOrScope = createFlatQuestionClient({
       fetch: async () => jsonResponse(summary),
     });
@@ -766,7 +763,7 @@ test("repository does not regress a workspace revision when an older save finish
       observedRevisions.push(revision);
       return observedRevisions.length === 1 ? firstSave.promise : secondSave.promise;
     },
-  async publish(_workspace, _request, revision) {
+    async publish(_workspace, _request, revision) {
       publishedRevision = revision;
       return publicationSummary();
     },

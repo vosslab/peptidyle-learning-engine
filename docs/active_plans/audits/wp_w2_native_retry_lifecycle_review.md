@@ -16,13 +16,13 @@ that exact retry.
 
 ## Lifecycle review
 
-| Path | Result | Evidence |
-| --- | --- | --- |
-| Initial issue | OK | Initial runs pass `None`; no predecessor receipt is created. |
-| Wrong-answer retry | OK | `ensure_active_questions` passes `Some(predecessor)` to retry issuance, and the Memory and PostgreSQL issuers require a submitted same-run predecessor before recording its immutable successor. |
-| Prefetch promotion | OK | Promotion already passes the prefetch predecessor, validates the durable reservation, and consumes it atomically. |
-| Submission replay | OK | Replay re-enters `finish_submission`; a pending receipt heals using the original submitted attempt, and a finalized receipt returns its stored successor. |
-| Concurrent healers | OK | Memory accepts only the same existing successor. PostgreSQL uses the primary key plus `ON CONFLICT DO NOTHING`, then verifies the stored ID matches. |
+| Path               | Result | Evidence                                                                                                                                                                                         |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Initial issue      | OK     | Initial runs pass `None`; no predecessor receipt is created.                                                                                                                                     |
+| Wrong-answer retry | OK     | `ensure_active_questions` passes `Some(predecessor)` to retry issuance, and the Memory and PostgreSQL issuers require a submitted same-run predecessor before recording its immutable successor. |
+| Prefetch promotion | OK     | Promotion already passes the prefetch predecessor, validates the durable reservation, and consumes it atomically.                                                                                |
+| Submission replay  | OK     | Replay re-enters `finish_submission`; a pending receipt heals using the original submitted attempt, and a finalized receipt returns its stored successor.                                        |
+| Concurrent healers | OK     | Memory accepts only the same existing successor. PostgreSQL uses the primary key plus `ON CONFLICT DO NOTHING`, then verifies the stored ID matches.                                             |
 
 The Memory implementation rejects a different active successor or an explicit
 terminal receipt. The PostgreSQL implementation locks the run before issuance,

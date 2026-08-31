@@ -86,16 +86,16 @@ impl Error for CourseDateError {}
 /// One exact case-sensitive name in the embedded IANA time-zone database.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct IanaTimeZone(String);
+pub struct CourseTimeZone(String);
 
-impl IanaTimeZone {
+impl CourseTimeZone {
     /// Validates exact case-sensitive membership in the IANA database.
-    pub fn parse(value: &str) -> Result<Self, IanaTimeZoneError> {
+    pub fn parse(value: &str) -> Result<Self, CourseTimeZoneError> {
         let parsed = value
             .parse::<chrono_tz::Tz>()
-            .map_err(|_| IanaTimeZoneError)?;
+            .map_err(|_| CourseTimeZoneError)?;
         if parsed.name() != value {
-            return Err(IanaTimeZoneError);
+            return Err(CourseTimeZoneError);
         }
         Ok(Self(value.to_string()))
     }
@@ -106,45 +106,45 @@ impl IanaTimeZone {
     }
 }
 
-impl Display for IanaTimeZone {
+impl Display for CourseTimeZone {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
 
-impl FromStr for IanaTimeZone {
-    type Err = IanaTimeZoneError;
+impl FromStr for CourseTimeZone {
+    type Err = CourseTimeZoneError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Self::parse(value)
     }
 }
 
-impl TryFrom<String> for IanaTimeZone {
-    type Error = IanaTimeZoneError;
+impl TryFrom<String> for CourseTimeZone {
+    type Error = CourseTimeZoneError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(&value)
     }
 }
 
-impl From<IanaTimeZone> for String {
-    fn from(value: IanaTimeZone) -> Self {
+impl From<CourseTimeZone> for String {
+    fn from(value: CourseTimeZone) -> Self {
         value.0
     }
 }
 
 /// An input is not an exact known IANA time-zone name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IanaTimeZoneError;
+pub struct CourseTimeZoneError;
 
-impl Display for IanaTimeZoneError {
+impl Display for CourseTimeZoneError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("course time zone must be an exact known IANA name")
     }
 }
 
-impl Error for IanaTimeZoneError {}
+impl Error for CourseTimeZoneError {}
 
 /// Inclusive calendar bounds and authoritative scheduling zone for one course.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -152,7 +152,7 @@ impl Error for IanaTimeZoneError {}
 pub struct CourseTerm {
     start_date: CourseDate,
     end_date: CourseDate,
-    time_zone: IanaTimeZone,
+    time_zone: CourseTimeZone,
 }
 
 #[derive(Deserialize)]
@@ -160,7 +160,7 @@ pub struct CourseTerm {
 struct CourseTermParts {
     start_date: CourseDate,
     end_date: CourseDate,
-    time_zone: IanaTimeZone,
+    time_zone: CourseTimeZone,
 }
 
 impl TryFrom<CourseTermParts> for CourseTerm {
@@ -176,7 +176,7 @@ impl CourseTerm {
     pub fn new(
         start_date: CourseDate,
         end_date: CourseDate,
-        time_zone: IanaTimeZone,
+        time_zone: CourseTimeZone,
     ) -> Result<Self, CourseTermError> {
         if start_date > end_date {
             return Err(CourseTermError::EndBeforeStart);
@@ -196,7 +196,7 @@ impl CourseTerm {
     ) -> Result<Self, CourseTermError> {
         let start_date = CourseDate::parse(start_date).map_err(|_| CourseTermError::StartDate)?;
         let end_date = CourseDate::parse(end_date).map_err(|_| CourseTermError::EndDate)?;
-        let time_zone = IanaTimeZone::parse(time_zone).map_err(|_| CourseTermError::TimeZone)?;
+        let time_zone = CourseTimeZone::parse(time_zone).map_err(|_| CourseTermError::TimeZone)?;
         Self::new(start_date, end_date, time_zone)
     }
 
@@ -211,7 +211,7 @@ impl CourseTerm {
     }
 
     /// Course-owned zone for later local schedule resolution.
-    pub fn time_zone(&self) -> &IanaTimeZone {
+    pub fn time_zone(&self) -> &CourseTimeZone {
         &self.time_zone
     }
 }
@@ -275,7 +275,7 @@ pub enum CourseTermFailureReason {
     /// Inclusive end precedes inclusive start.
     EndBeforeStart,
     /// The zone is not an exact known IANA name.
-    UnknownIanaTimeZone,
+    UnknownCourseTimeZone,
 }
 
 /// Answer-free, bounded correction contract for course creation.
@@ -330,7 +330,7 @@ mod tests {
     fn iana_names_require_exact_case_sensitive_database_membership() {
         for zone in chrono_tz::TZ_VARIANTS {
             assert_eq!(
-                IanaTimeZone::parse(zone.name()).unwrap().as_str(),
+                CourseTimeZone::parse(zone.name()).unwrap().as_str(),
                 zone.name()
             );
         }
@@ -341,7 +341,7 @@ mod tests {
             "Etc/GMT+1",
             "UTC",
         ] {
-            assert_eq!(IanaTimeZone::parse(zone).unwrap().as_str(), zone);
+            assert_eq!(CourseTimeZone::parse(zone).unwrap().as_str(), zone);
         }
         for zone in [
             "america/chicago",
@@ -351,7 +351,7 @@ mod tests {
             "America/Chicago\n",
         ] {
             assert!(
-                IanaTimeZone::parse(zone).is_err(),
+                CourseTimeZone::parse(zone).is_err(),
                 "unexpected valid zone: {zone}"
             );
         }

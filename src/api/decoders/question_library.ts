@@ -1,9 +1,10 @@
 // Question Library, course, and assignment browser-visible API DTOs.
 
-import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
+import type { AssignmentEntryAvailability } from "../../../generated/api/AssignmentEntryAvailability";
+import type { QuestionPoolCandidateAvailability } from "../../../generated/api/QuestionPoolCandidateAvailability";
 import type { FixedQuestionAssignmentEntrySummary as FixedQuestionAssignmentEntry } from "../../../generated/api/FixedQuestionAssignmentEntrySummary";
 import type { AssignmentEntrySummary } from "../../../generated/api/AssignmentEntrySummary";
-import type { AssignmentScoringMode } from "../../../generated/api/AssignmentScoringMode";
+import type { AssignmentEntryScoringRule } from "../../../generated/api/AssignmentEntryScoringRule";
 import type { QuestionPoolCandidateSummary as QuestionPoolCandidate } from "../../../generated/api/QuestionPoolCandidateSummary";
 import type { QuestionPoolAssignmentEntrySummary as QuestionPoolAssignmentEntry } from "../../../generated/api/QuestionPoolAssignmentEntrySummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
@@ -16,8 +17,8 @@ import type { QuestionPromptProjection } from "../../../generated/api/QuestionPr
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionUseDetails } from "../../../generated/api/QuestionUseDetails";
 import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSummary";
-import type { CompletionRequirement } from "../../../generated/api/CompletionRequirement";
-import type { ContinuedPractice } from "../../../generated/api/ContinuedPractice";
+import type { AssignmentCompletionRule } from "../../../generated/api/AssignmentCompletionRule";
+import type { AssignmentAttemptContinuationRule } from "../../../generated/api/AssignmentAttemptContinuationRule";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
 import { decodePublicByline } from "../public_byline";
@@ -35,9 +36,10 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
   if (reference === null) throw new DecodeError(path, "an A- reference");
   return reference;
 }
-import type { PointValue } from "../../../generated/api/PointValue";
+import type { AssignmentPointValue } from "../../../generated/api/AssignmentPointValue";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { SelectionOrdering } from "../../../generated/api/SelectionOrdering";
+import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionPoolSelectionRule";
 import type {
   AssignmentContentInput,
   AssignmentEditorEntryInput,
@@ -66,7 +68,7 @@ import {
   MINIMUM_STATISTICS_COHORT_SIZE,
   STATISTICS_DURATION_ESTIMATES_SECONDS,
   decodeAssignmentTitle,
-  decodeBackendCapabilities,
+  decodeQuestionBackendCapabilities,
   decodeBoundedArray,
   decodeQuestionVersionAvailability,
   decodeCursor,
@@ -81,13 +83,13 @@ import {
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
 import { decodeContentBlock } from "./question_model";
-import { decodeStudentDisclosurePolicy } from "./assignment_policy";
+import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
-export { decodeStudentDisclosurePolicy } from "./assignment_policy";
+export { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 export {
   decodeCourseAppearance,
   decodeCourseAppearanceUpdate,
@@ -121,21 +123,17 @@ export function decodeQuestionSummary(
       "h5p",
       "imathas",
     ]),
-    questionType: decodeStringEnum(
-      field(record, "questionType", path),
-      `${path}.questionType`,
-      [
-        "multipleChoice",
-        "multipleAnswer",
-        "fillInBlank",
-        "multipleFillInBlank",
-        "numeric",
-        "matching",
-        "ordering",
-        "hotspot",
-      ],
-    ),
-    capabilities: decodeBackendCapabilities(
+    questionType: decodeStringEnum(field(record, "questionType", path), `${path}.questionType`, [
+      "multipleChoice",
+      "multipleAnswer",
+      "fillInBlank",
+      "multipleFillInBlank",
+      "numeric",
+      "matching",
+      "ordering",
+      "hotspot",
+    ]),
+    capabilities: decodeQuestionBackendCapabilities(
       field(record, "capabilities", path),
       `${path}.capabilities`,
     ),
@@ -157,15 +155,9 @@ export function decodeQuestionSummary(
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
  */
-export function isAvailableNativeQuestionSummary(
-  summary: QuestionSummary,
-): boolean {
-  return (
-    summary.backend === "native" &&
-    summary.availability.availability === "available"
-  );
+export function isAvailableNativeQuestionSummary(summary: QuestionSummary): boolean {
+  return summary.backend === "native" && summary.availability.availability === "available";
 }
-
 
 function decodeUnitInterval(value: unknown, path: string): number {
   const decoded = decodeFiniteNumber(value, path);
@@ -418,10 +410,7 @@ export function decodeQuestionSearchPage(value: unknown, path = "response"): Que
 }
 
 /** Strict safe immutable detail projection; source and grading fields are rejected. */
-export function decodeQuestionDetails(
-  value: unknown,
-  path = "response",
-): QuestionDetails {
+export function decodeQuestionDetails(value: unknown, path = "response"): QuestionDetails {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
   return {
@@ -432,11 +421,11 @@ export function decodeQuestionDetails(
   };
 }
 
-function decodeCompletionRequirement(
+function decodeAssignmentCompletionRule(
   value: unknown,
   path: string,
   strict = false,
-): CompletionRequirement {
+): AssignmentCompletionRule {
   const record = decodeRecord(value, path);
   const requirement = kind(record, path);
   switch (requirement) {
@@ -449,15 +438,19 @@ function decodeCompletionRequirement(
       const decoded = {
         kind: requirement,
         fraction: decodeFiniteNumber(field(record, "fraction", path), `${path}.fraction`),
-      } satisfies CompletionRequirement;
+      } satisfies AssignmentCompletionRule;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.kind`, "a known completion requirement");
+      throw new DecodeError(`${path}.kind`, "a known Assignment Completion Rule");
   }
 }
 
-function decodeContinuedPractice(value: unknown, path: string, strict = false): ContinuedPractice {
+function decodeAssignmentAttemptContinuationRule(
+  value: unknown,
+  path: string,
+  strict = false,
+): AssignmentAttemptContinuationRule {
   const record = decodeRecord(value, path);
   const practice = kind(record, path);
   switch (practice) {
@@ -473,41 +466,73 @@ function decodeContinuedPractice(value: unknown, path: string, strict = false): 
           field(record, "maxAdditionalRuns", path),
           `${path}.maxAdditionalRuns`,
         ),
-      } satisfies ContinuedPractice;
+      } satisfies AssignmentAttemptContinuationRule;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.kind`, "a known continued-practice policy");
+      throw new DecodeError(`${path}.kind`, "a known Assignment Attempt Continuation Rule");
   }
 }
 
-function decodeAssignmentActivityRules(value: unknown, path: string, strict = false): AssignmentActivityRules {
+function decodeAssignmentActivityRules(
+  value: unknown,
+  path: string,
+  strict = false,
+): AssignmentActivityRules {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["completion", "grade", "continuedPractice", "variation"]);
+    requireOnlyFields(record, path, [
+      "assignmentCompletionRule",
+      "assignmentAttemptGradeRule",
+      "assignmentAttemptContinuationRule",
+      "questionVariationRule",
+      "assignmentAttemptResumeRule",
+      "assignmentQuestionDisplayRule",
+      "assignmentNavigationRule",
+      "assignmentQuestionOrderRule",
+    ]);
   }
   const decoded = {
-    completion: decodeCompletionRequirement(
-      field(record, "completion", path),
-      `${path}.completion`,
+    assignmentCompletionRule: decodeAssignmentCompletionRule(
+      field(record, "assignmentCompletionRule", path),
+      `${path}.assignmentCompletionRule`,
       strict,
     ),
-    grade: decodeStringEnum(field(record, "grade", path), `${path}.grade`, [
-      "first",
-      "latest",
-      "highest",
-      "instructorSelected",
-    ]),
-    continuedPractice: decodeContinuedPractice(
-      field(record, "continuedPractice", path),
-      `${path}.continuedPractice`,
+    assignmentAttemptGradeRule: decodeStringEnum(
+      field(record, "assignmentAttemptGradeRule", path),
+      `${path}.assignmentAttemptGradeRule`,
+      ["first", "latest", "highest", "instructorSelected"],
+    ),
+    assignmentAttemptContinuationRule: decodeAssignmentAttemptContinuationRule(
+      field(record, "assignmentAttemptContinuationRule", path),
+      `${path}.assignmentAttemptContinuationRule`,
       strict,
     ),
-    variation: decodeStringEnum(field(record, "variation", path), `${path}.variation`, [
-      "newSeeds",
-      "selectedQuestionVariants",
-      "fullRegeneration",
-    ]),
+    questionVariationRule: decodeStringEnum(
+      field(record, "questionVariationRule", path),
+      `${path}.questionVariationRule`,
+      ["reuseQuestionsWithNewSeeds", "selectedQuestionVariants", "redrawQuestionPools"],
+    ),
+    assignmentAttemptResumeRule: decodeStringEnum(
+      field(record, "assignmentAttemptResumeRule", path),
+      `${path}.assignmentAttemptResumeRule`,
+      ["resumable", "singleSession"],
+    ),
+    assignmentQuestionDisplayRule: decodeStringEnum(
+      field(record, "assignmentQuestionDisplayRule", path),
+      `${path}.assignmentQuestionDisplayRule`,
+      ["allQuestions", "oneQuestionAtATime"],
+    ),
+    assignmentNavigationRule: decodeStringEnum(
+      field(record, "assignmentNavigationRule", path),
+      `${path}.assignmentNavigationRule`,
+      ["freeNavigation", "forwardOnly"],
+    ),
+    assignmentQuestionOrderRule: decodeStringEnum(
+      field(record, "assignmentQuestionOrderRule", path),
+      `${path}.assignmentQuestionOrderRule`,
+      ["authoredOrder", "shuffled"],
+    ),
   } satisfies AssignmentActivityRules;
   return decoded;
 }
@@ -549,7 +574,7 @@ export function decodeCourseRouteData(value: unknown, path: string): CourseRoute
   };
 }
 
-function decodePointValue(value: unknown, path: string): PointValue {
+function decodeAssignmentPointValue(value: unknown, path: string): AssignmentPointValue {
   const decoded = decodeString(value, path);
   if (!/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,4})?$/u.test(decoded)) {
     throw new DecodeError(path, "a canonical nonnegative decimal with at most four places");
@@ -561,7 +586,10 @@ function decodePointValue(value: unknown, path: string): PointValue {
   return decoded;
 }
 
-function decodeFixedQuestionAssignmentEntry(value: unknown, path: string): FixedQuestionAssignmentEntry {
+function decodeFixedQuestionAssignmentEntry(
+  value: unknown,
+  path: string,
+): FixedQuestionAssignmentEntry {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "kind",
@@ -571,8 +599,8 @@ function decodeFixedQuestionAssignmentEntry(value: unknown, path: string): Fixed
     "backend",
     "capabilities",
     "pointsPossible",
-    "deliveryState",
-    "scoringMode",
+    "availability",
+    "scoringRule",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -585,24 +613,24 @@ function decodeFixedQuestionAssignmentEntry(value: unknown, path: string): Fixed
       "h5p",
       "imathas",
     ]),
-    capabilities: decodeBackendCapabilities(
+    capabilities: decodeQuestionBackendCapabilities(
       field(record, "capabilities", path),
       `${path}.capabilities`,
     ),
-    pointsPossible: decodePointValue(
+    pointsPossible: decodeAssignmentPointValue(
       field(record, "pointsPossible", path),
       `${path}.pointsPossible`,
     ),
-    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
-      "active",
+    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+      "available",
       "retired",
-    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
-    scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
+    ] as const satisfies ReadonlyArray<AssignmentEntryAvailability>),
+    scoringRule: decodeStringEnum(field(record, "scoringRule", path), `${path}.scoringRule`, [
       "normal",
       "fullCredit",
       "extraCredit",
       "excluded",
-    ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
+    ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
   };
 }
 
@@ -618,32 +646,33 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
       "kind",
       "questionId",
       "pointsPossible",
-      "deliveryState",
-      "scoringMode",
+      "availability",
+      "scoringRule",
     ]);
     return {
       kind: "fixedQuestion",
       questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-      pointsPossible: decodePointValue(
+      pointsPossible: decodeAssignmentPointValue(
         field(record, "pointsPossible", path),
         `${path}.pointsPossible`,
       ),
-      deliveryState: decodeStringEnum(
-        field(record, "deliveryState", path),
-        `${path}.deliveryState`,
-        ["active", "retired"] as const satisfies ReadonlyArray<AssignmentDeliveryState>,
-      ),
-      scoringMode: decodeStringEnum(field(record, "scoringMode", path), `${path}.scoringMode`, [
+      availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+        "available",
+        "retired",
+      ] as const satisfies ReadonlyArray<AssignmentEntryAvailability>),
+      scoringRule: decodeStringEnum(field(record, "scoringRule", path), `${path}.scoringRule`, [
         "normal",
         "fullCredit",
         "extraCredit",
         "excluded",
-      ] as const satisfies ReadonlyArray<AssignmentScoringMode>),
+      ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
     };
   }
   requireOnlyFields(record, path, [
     "kind",
     "candidateQuestionIds",
+    "availability",
+    "scoringRule",
     "drawCount",
     "pointsPerItem",
     "ordering",
@@ -662,12 +691,22 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   return {
     kind: "questionPool",
     candidateQuestionIds,
+    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+      "available",
+      "retired",
+    ] as const satisfies ReadonlyArray<AssignmentEntryAvailability>),
+    scoringRule: decodeStringEnum(field(record, "scoringRule", path), `${path}.scoringRule`, [
+      "normal",
+      "fullCredit",
+      "extraCredit",
+      "excluded",
+    ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
     drawCount,
-    pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
-    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
-      "candidateOrder",
-      "randomized",
-    ] as const satisfies ReadonlyArray<SelectionOrdering>),
+    pointsPerItem: decodeAssignmentPointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    selectionRule: decodeQuestionPoolSelectionRule(
+      field(record, "selectionRule", path),
+      `${path}.selectionRule`,
+    ),
   };
 }
 
@@ -707,10 +746,7 @@ export function decodeAssignmentContentInput(
   };
 }
 
-function decodeQuestionPoolCandidate(
-  value: unknown,
-  path: string,
-): QuestionPoolCandidate {
+function decodeQuestionPoolCandidate(value: unknown, path: string): QuestionPoolCandidate {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -718,7 +754,7 @@ function decodeQuestionPoolCandidate(
     "title",
     "backend",
     "capabilities",
-    "deliveryState",
+    "availability",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -731,14 +767,26 @@ function decodeQuestionPoolCandidate(
       "h5p",
       "imathas",
     ]),
-    capabilities: decodeBackendCapabilities(
+    capabilities: decodeQuestionBackendCapabilities(
       field(record, "capabilities", path),
       `${path}.capabilities`,
     ),
-    deliveryState: decodeStringEnum(field(record, "deliveryState", path), `${path}.deliveryState`, [
-      "active",
+    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+      "available",
       "retired",
-    ] as const satisfies ReadonlyArray<AssignmentDeliveryState>),
+    ] as const satisfies ReadonlyArray<QuestionPoolCandidateAvailability>),
+  };
+}
+
+function decodeQuestionPoolSelectionRule(value: unknown, path: string): QuestionPoolSelectionRule {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["algorithm", "ordering"]);
+  return {
+    algorithm: decodeStringEnum(field(record, "algorithm", path), `${path}.algorithm`, ["v1"]),
+    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
+      "candidateOrder",
+      "randomized",
+    ] as const satisfies ReadonlyArray<SelectionOrdering>),
   };
 }
 
@@ -750,23 +798,30 @@ function decodeQuestionPoolAssignmentEntry(
   requireOnlyFields(record, path, [
     "kind",
     "id",
+    "availability",
+    "scoringRule",
     "drawCount",
     "pointsPerItem",
-    "ordering",
-    "algorithmVersion",
+    "selectionRule",
     "candidates",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
+      "available",
+      "retired",
+    ] as const satisfies ReadonlyArray<AssignmentEntryAvailability>),
+    scoringRule: decodeStringEnum(field(record, "scoringRule", path), `${path}.scoringRule`, [
+      "normal",
+      "fullCredit",
+      "extraCredit",
+      "excluded",
+    ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
     drawCount: decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`),
-    pointsPerItem: decodePointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
-    ordering: decodeStringEnum(field(record, "ordering", path), `${path}.ordering`, [
-      "candidateOrder",
-      "randomized",
-    ] as const satisfies ReadonlyArray<SelectionOrdering>),
-    algorithmVersion: decodePositiveInteger(
-      field(record, "algorithmVersion", path),
-      `${path}.algorithmVersion`,
+    pointsPerItem: decodeAssignmentPointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    selectionRule: decodeQuestionPoolSelectionRule(
+      field(record, "selectionRule", path),
+      `${path}.selectionRule`,
     ),
     candidates: decodeArray(
       field(record, "candidates", path),
@@ -801,7 +856,7 @@ export function decodeAssignmentSummary(
       "courseId",
       "title",
       "entries",
-      "disclosurePolicy",
+      "studentFeedbackReleaseRule",
       "policies",
     ]);
   }
@@ -811,9 +866,9 @@ export function decodeAssignmentSummary(
     courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssignmentEntry),
-    disclosurePolicy: decodeStudentDisclosurePolicy(
-      field(record, "disclosurePolicy", path),
-      `${path}.disclosurePolicy`,
+    studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
     ),
     policies: decodeAssignmentActivityRules(field(record, "policies", path), `${path}.policies`),
   } satisfies AssignmentSummary;
@@ -822,8 +877,8 @@ export function decodeAssignmentSummary(
 
 /** Decode the student transport, which deliberately excludes authority inputs. */
 export {
-  decodeAssignmentTeachingSettingsValidationFailure,
-  decodeInstructorAssignmentTeachingSettingsLocal,
+  decodeAssignmentRevisionDefinitionValidationFailure,
+  decodeInstructorAssignmentRevisionDefinitionLocal,
   decodeStudentAssignmentDetail,
   decodeStudentAssignmentLandingSummary,
 } from "./assignment_teaching_delivery";

@@ -12,7 +12,6 @@ CREATE TABLE ple_data.course_instance (
     assigned_instructor_account_id uuid NOT NULL,
     assigned_instructor_role text NOT NULL DEFAULT 'instructor' CHECK (assigned_instructor_role = 'instructor'),
     created_at timestamp with time zone NOT NULL,
-    delivery_time_zone text NOT NULL CHECK (char_length(btrim(delivery_time_zone)) BETWEEN 1 AND 100),
     CONSTRAINT course_instance_assigned_instructor_role_matches FOREIGN KEY (
         assigned_instructor_account_id, assigned_instructor_role
     ) REFERENCES ple_private.account (account_id, role),

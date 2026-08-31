@@ -2,20 +2,21 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use grading::{AnswerKey, GradeOutcome, grade};
+use grading::{AnswerKey, QuestionGradingOutcome, grade};
 use objects::ObjectKey;
 use objects::Sha256Digest;
 use objects::memory::MemoryObjectStore;
-use question_model::answer::SelectionCardinality;
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::answer::ResponseSelectionRule;
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
+use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
 use question_model::taxonomy::License;
 use question_model::{
-    GradingDefinition, ObjectId, QuestionId, QuestionMetadata, QuestionVersionNumber,
-    QuestionVersionReference, SourceArtifact, WorkspaceId,
+    GradingDefinition, ObjectId, QuestionFormat, QuestionId, QuestionMetadata, QuestionType,
+    QuestionVariation, QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
+    WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -74,9 +75,11 @@ impl WebworkRenderer for RecordedRenderer {
             ));
         }
         Ok(RenderedWebworkQuestion {
-            envelope: QuestionEnvelope {
-                question_version: request.question_version.clone(),
-                seed: Seed::new(request.seed),
+            envelope: QuestionPresentation {
+                variation: QuestionVariation::static_variation(
+                    request.question_version.clone(),
+                    Seed::new(request.seed),
+                ),
                 title: "Untrusted renderer title".to_string(),
                 prompt: vec![ContentBlock::Text {
                     markdown: "Which molecule is water?".to_string(),
@@ -84,19 +87,19 @@ impl WebworkRenderer for RecordedRenderer {
                 response: QuestionResponseFormat::MultipleChoice {
                     choices: vec![
                         ChoiceOption {
-                            id: ChoiceId::new("water"),
+                            id: ResponseItemReference::new("water"),
                             body: vec![ContentBlock::Text {
                                 markdown: "H&#x2082;O".to_string(),
                             }],
                         },
                         ChoiceOption {
-                            id: ChoiceId::new("oxygen"),
+                            id: ResponseItemReference::new("oxygen"),
                             body: vec![ContentBlock::Text {
                                 markdown: "O&#x2082;".to_string(),
                             }],
                         },
                     ],
-                    selection: SelectionCardinality::ExactlyOne,
+                    selection: ResponseSelectionRule::ExactlyOne,
                 },
             },
             html: self.html.clone(),
@@ -105,7 +108,10 @@ impl WebworkRenderer for RecordedRenderer {
         })
     }
 
-    async fn grade(&self, request: GradeRequest<'_>) -> Result<GradeOutcome, RendererFailure> {
+    async fn grade(
+        &self,
+        request: GradeRequest<'_>,
+    ) -> Result<QuestionGradingOutcome, RendererFailure> {
         if request.pg_source != OPL_FIXTURE.as_bytes()
             || request.pg_path != "Library/OPL/select-one.pg"
             || request.replay != &recorded_replay()
@@ -119,7 +125,7 @@ impl WebworkRenderer for RecordedRenderer {
             &question,
             request.response,
             Some(&AnswerKey::MultipleChoice {
-                correct: [ChoiceId::new("water")].into_iter().collect(),
+                correct: [ResponseItemReference::new("water")].into_iter().collect(),
             }),
         )
         .map_err(|error| RendererFailure::InvalidOutput(error.to_string()))
@@ -130,14 +136,14 @@ fn recorded_replay() -> WebworkReplayMappingV1 {
     WebworkReplayMappingV1::SingleChoice {
         controls: [
             (
-                ChoiceId::new("water"),
+                ResponseItemReference::new("water"),
                 UpstreamControlV1 {
                     field: "AnSwEr0001".into(),
                     value: "0".into(),
                 },
             ),
             (
-                ChoiceId::new("oxygen"),
+                ResponseItemReference::new("oxygen"),
                 UpstreamControlV1 {
                     field: "AnSwEr0001".into(),
                     value: "1".into(),
@@ -169,12 +175,14 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinitio
         source: QuestionSource::Webwork {
             pg_path: "Library/OPL/select-one.pg".to_string(),
         },
+        question_format: QuestionFormat::WebworkPg,
+        question_type: QuestionType::MultipleChoice,
         prompt: Vec::new(),
         response,
-        attempt_policy: AttemptPolicy {
+        question_attempt_limit: QuestionAttemptLimit {
             max_attempts: Some(2),
         },
-        timing_policy: TimingPolicy::Untimed,
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
@@ -188,7 +196,7 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionDefinitio
 }
 
 async fn source(store: &MemoryObjectStore, question: &QuestionDefinition) -> WebworkSource {
-    let artifact = SourceArtifact {
+    let source_object_reference = SourceObjectReference {
         object: ObjectId::from_uuid(Uuid::from_u128(4)),
         sha256: Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string(),
     };
@@ -199,7 +207,7 @@ async fn source(store: &MemoryObjectStore, question: &QuestionDefinition) -> Web
                     question_id: question.question_id.clone(),
                     version_number: question.version_number,
                 },
-                object: artifact.object,
+                object: source_object_reference.object,
             },
             bytes: OPL_FIXTURE.as_bytes().to_vec(),
             media_type: "text/x-wework-pg".to_string(),
@@ -215,7 +223,7 @@ async fn source(store: &MemoryObjectStore, question: &QuestionDefinition) -> Web
             question_id: question.question_id.clone(),
             version_number: question.version_number,
         },
-        artifact,
+        source_object_reference,
     )
     .await
     .expect("fixture source should resolve through trusted storage")
@@ -238,7 +246,7 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
         .await
         .expect("recorded OPL fixture should render");
     assert!(!issued.cache_hit);
-    assert_eq!(issued.envelope.seed, Seed::new(17));
+    assert_eq!(issued.envelope.variation.seed, Seed::new(17));
     assert_eq!(issued.envelope.title, question.metadata.title);
     assert_ne!(issued.envelope.title, "Untrusted renderer title");
     assert!(
@@ -253,13 +261,13 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
             Seed::new(17),
             &source,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("water")],
+                selected: vec![ResponseItemReference::new("water")],
             },
             issued.replay.as_ref().expect("issued replay state"),
         )
         .await
         .expect("renderer should grade server-side");
-    assert!(matches!(correct, GradeOutcome::Graded(result) if result.correct));
+    assert!(matches!(correct, QuestionGradingOutcome::Graded(result) if result.correct));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
@@ -463,8 +471,8 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
     let store = MemoryObjectStore::default();
     let question = question_with_response(fixture_response());
     let trusted = source(&store, &question).await;
-    let wrong_digest = SourceArtifact {
-        object: trusted.artifact().object,
+    let wrong_digest = SourceObjectReference {
+        object: trusted.source_object_reference().object,
         sha256: "00".repeat(32),
     };
     assert_eq!(
@@ -478,7 +486,7 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
                 question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
                 version_number: question.version_number,
             },
-            trusted.artifact().clone(),
+            trusted.source_object_reference().clone(),
         )
         .await,
         Err(WebworkAdapterError::ObjectStore(ObjectStoreError::NotFound))
@@ -516,7 +524,7 @@ async fn source_from_another_published_question_is_refused_before_renderer_or_ca
                 Seed::new(22),
                 &foreign_source,
                 &StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new("water")],
+                    selected: vec![ResponseItemReference::new("water")],
                 },
                 &recorded_replay(),
             )
@@ -643,7 +651,7 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
             Seed::new(17),
             &source,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("water")],
+                selected: vec![ResponseItemReference::new("water")],
             },
             &recorded_replay(),
         )
@@ -660,18 +668,18 @@ fn fixture_response() -> QuestionResponseFormat {
     QuestionResponseFormat::MultipleChoice {
         choices: vec![
             ChoiceOption {
-                id: ChoiceId::new("water"),
+                id: ResponseItemReference::new("water"),
                 body: vec![ContentBlock::Text {
                     markdown: "H&#x2082;O".to_string(),
                 }],
             },
             ChoiceOption {
-                id: ChoiceId::new("oxygen"),
+                id: ResponseItemReference::new("oxygen"),
                 body: vec![ContentBlock::Text {
                     markdown: "O&#x2082;".to_string(),
                 }],
             },
         ],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     }
 }

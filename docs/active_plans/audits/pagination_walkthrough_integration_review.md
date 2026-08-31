@@ -55,10 +55,10 @@ test oracle, so the helper no longer relies on a fixture-only URL transition.
 - `npx tsc --noEmit -p tsconfig.lint.json` - passed.
 - Focused `npx eslint` for the same files - passed.
 - `source source_me.sh && python3 -m pytest
-  tests/test_ui_walkthrough_harness_independence.py -q` - 7 passed.
+tests/test_ui_walkthrough_harness_independence.py -q` - 7 passed.
 - `PW_PORT=4177 npx playwright test
-  tests/playwright/simulator/keyboard_walkthrough.spec.ts
-  tests/playwright/course_assignments_pagination.spec.ts --workers=1` - 6
+tests/playwright/simulator/keyboard_walkthrough.spec.ts
+tests/playwright/course_assignments_pagination.spec.ts --workers=1` - 6
   passed on IPv4 loopback. The default preview port was occupied, so this used
   an unused loopback port.
 - Final fragment verification: `node --import tsx --test tests/test_*.mjs` -

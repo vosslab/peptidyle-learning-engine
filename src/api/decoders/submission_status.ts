@@ -2,7 +2,12 @@
 
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { ScoringStatus } from "../../../generated/api/ScoringStatus";
-import type { StudentSubmissionStatus, NextIssuedAttempt, SubmissionReceipt } from "../contracts";
+import type {
+  GradedQuestionSubmissionReceipt,
+  NextIssuedAttempt,
+  QuestionSubmissionAcknowledgement,
+  QuestionSubmissionReceipt,
+} from "../contracts";
 import {
   DecodeError,
   decodeBoolean,
@@ -13,7 +18,7 @@ import {
   decodeStringEnum,
   decodeTrue,
 } from "../decoder";
-import { decodeIssuedQuestion, decodeQuestionAttempt } from "./run";
+import { decodeIssuedQuestion, decodeQuestionAttempt } from "./assignment_attempt";
 import { decodeDisclosedFeedback } from "./question_delivery";
 import { decodeIdentifier, decodeSha256, field, requireOnlyFields } from "./shared";
 
@@ -27,7 +32,10 @@ const RUN_COMPLETION_STATUSES = [
   "completed",
 ] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
 
-export function decodeSubmissionReceipt(value: unknown, path = "response"): SubmissionReceipt {
+export function decodeGradedQuestionSubmissionReceipt(
+  value: unknown,
+  path = "response",
+): GradedQuestionSubmissionReceipt {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "accepted",
@@ -62,85 +70,80 @@ export function decodeSubmissionReceipt(value: unknown, path = "response"): Subm
       decodeNextIssuedAttempt,
     ),
     nextPending: decodeBoolean(field(record, "nextPending", path), `${path}.nextPending`),
-  } satisfies SubmissionReceipt;
-  if (decoded.nextPending && decoded.nextIssued !== null) {
+  } satisfies Omit<GradedQuestionSubmissionReceipt, "attemptId">;
+  const receipt = {
+    ...decoded,
+    attemptId: decoded.attempt.id,
+  } satisfies GradedQuestionSubmissionReceipt;
+  if (receipt.nextPending && receipt.nextIssued !== null) {
     throw new DecodeError(
       path,
       "a submission receipt with either an issued successor or a pending successor",
     );
   }
   if (
-    decoded.assignmentAttemptCompletion === "completed" &&
-    (decoded.nextIssued !== null || decoded.nextPending)
+    receipt.assignmentAttemptCompletion === "completed" &&
+    (receipt.nextIssued !== null || receipt.nextPending)
   ) {
     throw new DecodeError(path, "a completed run without successor delivery state");
   }
-  if (decoded.scoringStatus !== "current" && decoded.attempt.result !== null) {
+  if (
+    receipt.scoringStatus !== "current" &&
+    receipt.attempt.submission !== null &&
+    receipt.attempt.submission.gradingResult !== null
+  ) {
     throw new DecodeError(
-      `${path}.attempt.result`,
+      `${path}.attempt.submission.gradingResult`,
       "no numeric result while scoring is not current",
     );
   }
   if (
-    decoded.scoringStatus !== "current" &&
-    (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
+    receipt.scoringStatus !== "current" &&
+    (receipt.feedback?.pointsEarned !== undefined || receipt.feedback?.pointsPossible !== undefined)
   ) {
     throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
   }
-  return decoded;
+  return receipt;
 }
 
-/** Decodes only the three answer-free student status alternatives frozen by the wire contract. */
-export function decodeStudentSubmissionStatus(
+/** Decodes the accepted Question Submission Receipt and separate grading state. */
+export function decodeQuestionSubmissionAcknowledgement(
   value: unknown,
   path = "response",
-): StudentSubmissionStatus {
+): QuestionSubmissionAcknowledgement {
   const record = decodeRecord(value, path);
-  const statusKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "completed",
-    "accepted_pending",
-    "instructor_attention",
-  ] as const);
-  if (statusKind === "completed") {
-    requireOnlyFields(record, path, [
-      "kind",
-      "accepted",
-      "attempt",
-      "feedback",
-      "scoringStatus",
-      "assignmentAttemptCompletion",
-      "nextIssued",
-      "nextPending",
-    ]);
-    const { kind: _kind, ...receipt } = record;
-    return { kind: "completed", ...decodeSubmissionReceipt(receipt, path) };
+  requireOnlyFields(record, path, ["receipt", "gradingState", "nextAction"]);
+  const gradingState = decodeStringEnum(
+    field(record, "gradingState", path),
+    `${path}.gradingState`,
+    ["pending", "graded", "instructorAttention"] as const,
+  );
+  const receiptValue = field(record, "receipt", path);
+  if (gradingState === "graded") {
+    if ("nextAction" in record) {
+      throw new DecodeError(path, "a graded acknowledgement without a next action");
+    }
+    return {
+      receipt: decodeGradedQuestionSubmissionReceipt(receiptValue, `${path}.receipt`),
+      gradingState,
+    };
   }
-  requireOnlyFields(record, path, [
-    "kind",
-    "accepted",
-    "attemptId",
-    "automatedGradingStatus",
-    "nextAction",
-  ]);
-  const accepted = decodeTrue(field(record, "accepted", path), `${path}.accepted`);
-  const attemptId = decodeIdentifier(field(record, "attemptId", path), `${path}.attemptId`);
+  const receiptRecord = decodeRecord(receiptValue, `${path}.receipt`);
+  requireOnlyFields(receiptRecord, `${path}.receipt`, ["accepted", "attemptId"]);
+  const receipt = {
+    accepted: decodeTrue(
+      field(receiptRecord, "accepted", `${path}.receipt`),
+      `${path}.receipt.accepted`,
+    ),
+    attemptId: decodeIdentifier(
+      field(receiptRecord, "attemptId", `${path}.receipt`),
+      `${path}.receipt.attemptId`,
+    ),
+  } satisfies QuestionSubmissionReceipt;
   const nextAction = decodeStringEnum(field(record, "nextAction", path), `${path}.nextAction`, [
     "check_status",
   ] as const);
-  if (statusKind === "accepted_pending") {
-    const automatedGradingStatus = decodeStringEnum(
-      field(record, "automatedGradingStatus", path),
-      `${path}.automatedGradingStatus`,
-      ["pending"] as const,
-    );
-    return { kind: statusKind, accepted, attemptId, automatedGradingStatus, nextAction };
-  }
-  const automatedGradingStatus = decodeStringEnum(
-    field(record, "automatedGradingStatus", path),
-    `${path}.automatedGradingStatus`,
-    ["instructor_attention"] as const,
-  );
-  return { kind: statusKind, accepted, attemptId, automatedGradingStatus, nextAction };
+  return { receipt, gradingState, nextAction };
 }
 
 export function decodeNextIssuedAttempt(value: unknown, path = "response"): NextIssuedAttempt {

@@ -1,7 +1,7 @@
 //! Pure resolution of a Student's current assignment policy.
 //!
-//! S5 is the sole authority that evaluates membership and mints an
-//! [`EntitlementGrant`]. This module consumes that grant: it validates supplied
+//! S5 is the sole authority that evaluates the active-membership prerequisite
+//! and mints an [`ActiveStudentCourseMembershipGrant`]. This module consumes that grant: it validates supplied
 //! modifier identifiers against the grant's opaque scopes, then resolves the
 //! assignment window and limits without reading roster state or a clock.
 
@@ -9,16 +9,17 @@ use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineBehavior, AssignmentLifecycle, CourseTerm,
-    LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
-    StudentRecordId,
+    ActivityTimestamp, AssignmentDeadlineRule, AssignmentLifecycle, CourseTerm, LateWorkRule,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
 };
 
 /// Compatibility re-export for established policy-resolution callers.
 pub use question_model::BaseAssignmentPolicy;
 
-use crate::entitlement::{EntitlementDecision, EntitlementDenial, SyntheticPreviewEntitlementDecision};
-
+use crate::active_student_course_membership::{
+    ActiveStudentCourseMembershipDecision, ActiveStudentCourseMembershipDenial,
+    SyntheticPreviewAdmissionDecision,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignmentLifecycleGate {
@@ -80,14 +81,14 @@ pub enum AuthorizationDenial {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PolicyGate {
     Lifecycle,
-    Entitlement,
+    ActiveStudentCourseMembership,
     Authorization,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateDenial {
     Lifecycle(AssignmentLifecycleDenial),
-    Entitlement(EntitlementDenial),
+    ActiveStudentCourseMembership(ActiveStudentCourseMembershipDenial),
     Authorization(AuthorizationDenial),
 }
 
@@ -100,103 +101,104 @@ pub enum PolicySource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResolvedField<T> {
+pub struct EffectiveAssignmentPolicyValue<T> {
     pub value: T,
     pub source: PolicySource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectiveAssignmentPolicy {
-    pub available_at: ResolvedField<Option<ActivityTimestamp>>,
-    pub due_at: ResolvedField<Option<ActivityTimestamp>>,
-    pub closes_at: ResolvedField<Option<ActivityTimestamp>>,
-    pub time_limit_seconds: ResolvedField<Option<NonZeroU32>>,
-    pub attempt_limit: ResolvedField<Option<NonZeroU32>>,
-    pub late_submission: ResolvedField<LateSubmissionPolicy>,
-    pub deadline_behavior: ResolvedField<AssignmentDeadlineBehavior>,
+    pub available_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
+    pub due_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
+    pub closes_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
+    pub assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
+    pub attempt_limit: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
+    pub late_work_rule: EffectiveAssignmentPolicyValue<LateWorkRule>,
+    pub assignment_deadline_rule: EffectiveAssignmentPolicyValue<AssignmentDeadlineRule>,
 }
 
-/// A sparse direct-Student accommodation patch. Assignment-owned late and
+/// A sparse direct-Student accommodation adjustment. Assignment-owned late and
 /// deadline behavior remain Assignment policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PolicyPatchSet {
-    pub available_at: PolicyPatch<ActivityTimestamp>,
-    pub due_at: PolicyPatch<ActivityTimestamp>,
-    pub closes_at: PolicyPatch<ActivityTimestamp>,
-    pub time_limit_seconds: PolicyPatch<NonZeroU32>,
-    pub attempt_limit: PolicyPatch<NonZeroU32>,
+pub struct AccommodationAdjustment {
+    pub available_at: AccommodationAdjustmentValue<ActivityTimestamp>,
+    pub due_at: AccommodationAdjustmentValue<ActivityTimestamp>,
+    pub closes_at: AccommodationAdjustmentValue<ActivityTimestamp>,
+    pub assignment_attempt_time_limit_seconds: AccommodationAdjustmentValue<NonZeroU32>,
+    pub attempt_limit: AccommodationAdjustmentValue<NonZeroU32>,
 }
 
-impl PolicyPatchSet {
+impl AccommodationAdjustment {
     pub const INHERIT: Self = Self {
-        available_at: PolicyPatch::Inherit,
-        due_at: PolicyPatch::Inherit,
-        closes_at: PolicyPatch::Inherit,
-        time_limit_seconds: PolicyPatch::Inherit,
-        attempt_limit: PolicyPatch::Inherit,
+        available_at: AccommodationAdjustmentValue::Inherit,
+        due_at: AccommodationAdjustmentValue::Inherit,
+        closes_at: AccommodationAdjustmentValue::Inherit,
+        assignment_attempt_time_limit_seconds: AccommodationAdjustmentValue::Inherit,
+        attempt_limit: AccommodationAdjustmentValue::Inherit,
     };
 }
 
-/// A sparse patch distinguishes inheritance from removing an optional bound.
+/// A sparse adjustment distinguishes inheritance from removing an optional bound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PolicyPatch<T> {
+pub enum AccommodationAdjustmentValue<T> {
     Inherit,
     Set(T),
     Unrestricted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PolicyModificationMode {
+pub enum AccommodationApplicationRule {
     ExtendOnly,
-    Override,
+    Replace,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Accommodation {
     pub student_record: StudentRecordId,
-    pub mode: PolicyModificationMode,
-    pub patch: PolicyPatchSet,
+    pub mode: AccommodationApplicationRule,
+    pub adjustment: AccommodationAdjustment,
 }
 
 /// A preview-only individual policy modifier with no persisted Student key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HypotheticalAccommodation {
-    pub mode: PolicyModificationMode,
-    pub patch: PolicyPatchSet,
+    pub mode: AccommodationApplicationRule,
+    pub adjustment: AccommodationAdjustment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LateVerdict {
+pub enum StudentLateWorkStatus {
     OnTime,
     AcceptedLate,
     MarkedLate,
-    RejectedLate,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StartVerdict {
-    MayStart { late: LateVerdict },
+pub enum AssignmentStartDecision {
+    MayStart {
+        late_work_status: StudentLateWorkStatus,
+    },
     NotYetAvailable,
     Closed,
     AttemptLimitReached,
-    DueDateRejectsNewRun,
+    LateWorkRefused,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EffectivePolicyDecision {
+pub enum AssignmentAccessDecision {
     Denied {
         gate: PolicyGate,
         reason: GateDenial,
     },
     Allowed {
         policy: Box<EffectiveAssignmentPolicy>,
-        start: StartVerdict,
+        start_decision: AssignmentStartDecision,
     },
 }
 
 pub struct ResolveEffectivePolicyInput {
     pub lifecycle: AssignmentLifecycleGate,
-    pub entitlement: EntitlementDecision,
+    pub active_student_course_membership: ActiveStudentCourseMembershipDecision,
     pub authorization: AuthorizationGate,
     pub now: ActivityTimestamp,
     pub prior_run_count: u32,
@@ -207,7 +209,7 @@ pub struct ResolveEffectivePolicyInput {
 /// Identity-free S3 input for a synthetic T3 preview subject.
 pub struct ResolveSyntheticPreviewPolicyInput {
     pub lifecycle: AssignmentLifecycleGate,
-    pub entitlement: SyntheticPreviewEntitlementDecision,
+    pub active_student_course_membership: SyntheticPreviewAdmissionDecision,
     pub authorization: AuthorizationGate,
     pub now: ActivityTimestamp,
     pub prior_run_count: u32,
@@ -220,7 +222,7 @@ pub enum PolicyField {
     AvailableAt,
     DueAt,
     ClosesAt,
-    TimeLimitSeconds,
+    AssignmentAttemptTimeLimitSeconds,
     AttemptLimit,
 }
 
@@ -232,7 +234,7 @@ pub enum ModifierSource {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EffectivePolicyError {
-    BaseTimeLimitOutOfRange,
+    BaseAssignmentAttemptAssignmentAttemptTimeLimitOutOfRange,
     BaseAttemptLimitOutOfRange,
     BaseTimestampOutsideCourseTerm(PolicyField),
     BaseTimestampOutOfRange(PolicyField),
@@ -257,10 +259,12 @@ pub fn validate_base_assignment_policy(
     base: BaseAssignmentPolicy,
 ) -> Result<(), EffectivePolicyError> {
     if base
-        .time_limit_seconds
-        .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_TIME_LIMIT_SECONDS)
+        .assignment_attempt_time_limit_seconds
+        .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
     {
-        return Err(EffectivePolicyError::BaseTimeLimitOutOfRange);
+        return Err(
+            EffectivePolicyError::BaseAssignmentAttemptAssignmentAttemptTimeLimitOutOfRange,
+        );
     }
     if base
         .attempt_limit
@@ -313,29 +317,29 @@ fn validate_absolute_timestamp_in_course_term(
     Ok(())
 }
 
-/// Resolves the complete policy after lifecycle, S5 entitlement, and action
+/// Resolves the complete policy after lifecycle, the S5 active-membership gate, and action
 /// authorization, in that exact order. A denied gate is returned before any
 /// modifier is inspected.
 pub fn resolve_effective_policy(
     input: ResolveEffectivePolicyInput,
-) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
+) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
     if let AssignmentLifecycleGate::Denied(reason) = input.lifecycle {
-        return Ok(EffectivePolicyDecision::Denied {
+        return Ok(AssignmentAccessDecision::Denied {
             gate: PolicyGate::Lifecycle,
             reason: GateDenial::Lifecycle(reason),
         });
     }
-    let grant = match input.entitlement {
-        EntitlementDecision::Granted(grant) => grant,
-        EntitlementDecision::Denied(reason) => {
-            return Ok(EffectivePolicyDecision::Denied {
-                gate: PolicyGate::Entitlement,
-                reason: GateDenial::Entitlement(reason),
+    let grant = match input.active_student_course_membership {
+        ActiveStudentCourseMembershipDecision::Granted(grant) => grant,
+        ActiveStudentCourseMembershipDecision::Denied(reason) => {
+            return Ok(AssignmentAccessDecision::Denied {
+                gate: PolicyGate::ActiveStudentCourseMembership,
+                reason: GateDenial::ActiveStudentCourseMembership(reason),
             });
         }
     };
     if let AuthorizationGate::Denied(reason) = input.authorization {
-        return Ok(EffectivePolicyDecision::Denied {
+        return Ok(AssignmentAccessDecision::Denied {
             gate: PolicyGate::Authorization,
             reason: GateDenial::Authorization(reason),
         });
@@ -353,33 +357,35 @@ pub fn resolve_effective_policy(
         input.now,
         input.prior_run_count,
         input.base,
-        input.accommodation.map(AccommodationPatch::Student),
+        input
+            .accommodation
+            .map(AccommodationAdjustmentInput::Student),
     )
 }
 
 /// Resolves a synthetic preview policy after lifecycle, S5 synthetic
-/// entitlement, and action authorization. A hypothetical modifier cannot carry
+/// active-membership gate, and action authorization. A hypothetical modifier cannot carry
 /// a persisted Student identifier or receipt authority.
 pub fn resolve_synthetic_preview_policy(
     input: ResolveSyntheticPreviewPolicyInput,
-) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
+) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
     if let AssignmentLifecycleGate::Denied(reason) = input.lifecycle {
-        return Ok(EffectivePolicyDecision::Denied {
+        return Ok(AssignmentAccessDecision::Denied {
             gate: PolicyGate::Lifecycle,
             reason: GateDenial::Lifecycle(reason),
         });
     }
-    match input.entitlement {
-        SyntheticPreviewEntitlementDecision::Granted(grant) => grant,
-        SyntheticPreviewEntitlementDecision::Denied(reason) => {
-            return Ok(EffectivePolicyDecision::Denied {
-                gate: PolicyGate::Entitlement,
-                reason: GateDenial::Entitlement(reason),
+    match input.active_student_course_membership {
+        SyntheticPreviewAdmissionDecision::Granted(grant) => grant,
+        SyntheticPreviewAdmissionDecision::Denied(reason) => {
+            return Ok(AssignmentAccessDecision::Denied {
+                gate: PolicyGate::ActiveStudentCourseMembership,
+                reason: GateDenial::ActiveStudentCourseMembership(reason),
             });
         }
     };
     if let AuthorizationGate::Denied(reason) = input.authorization {
-        return Ok(EffectivePolicyDecision::Denied {
+        return Ok(AssignmentAccessDecision::Denied {
             gate: PolicyGate::Authorization,
             reason: GateDenial::Authorization(reason),
         });
@@ -391,7 +397,7 @@ pub fn resolve_synthetic_preview_policy(
         input.base,
         input
             .hypothetical_accommodation
-            .map(AccommodationPatch::Hypothetical),
+            .map(AccommodationAdjustmentInput::Hypothetical),
     )
 }
 
@@ -399,17 +405,17 @@ fn resolve_authorized_policy(
     now: ActivityTimestamp,
     prior_run_count: u32,
     base: BaseAssignmentPolicy,
-    accommodation: Option<AccommodationPatch>,
-) -> Result<EffectivePolicyDecision, EffectivePolicyError> {
+    accommodation: Option<AccommodationAdjustmentInput>,
+) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
     let mut policy = base_policy(base);
     if let Some(accommodation) = accommodation {
-        apply_accommodation_patch(&mut policy, accommodation)?;
+        apply_accommodation_adjustment(&mut policy, accommodation)?;
     }
     validate_schedule(&policy)?;
-    let start = start_verdict(&policy, now, prior_run_count);
-    Ok(EffectivePolicyDecision::Allowed {
+    let start_decision = assignment_start_decision(&policy, now, prior_run_count);
+    Ok(AssignmentAccessDecision::Allowed {
         policy: Box::new(policy),
-        start,
+        start_decision,
     })
 }
 
@@ -418,38 +424,38 @@ fn base_policy(base: BaseAssignmentPolicy) -> EffectiveAssignmentPolicy {
         available_at: resolved(base.available_at),
         due_at: resolved(base.due_at),
         closes_at: resolved(base.closes_at),
-        time_limit_seconds: resolved(base.time_limit_seconds),
+        assignment_attempt_time_limit_seconds: resolved(base.assignment_attempt_time_limit_seconds),
         attempt_limit: resolved(base.attempt_limit),
-        late_submission: resolved(base.late_submission),
-        deadline_behavior: resolved(base.deadline_behavior),
+        late_work_rule: resolved(base.late_work_rule),
+        assignment_deadline_rule: resolved(base.assignment_deadline_rule),
     }
 }
 
-fn resolved<T>(value: T) -> ResolvedField<T> {
-    ResolvedField {
+fn resolved<T>(value: T) -> EffectiveAssignmentPolicyValue<T> {
+    EffectiveAssignmentPolicyValue {
         value,
         source: PolicySource::Base,
     }
 }
 
 #[derive(Clone, Copy)]
-enum AccommodationPatch {
+enum AccommodationAdjustmentInput {
     Student(Accommodation),
     Hypothetical(HypotheticalAccommodation),
 }
 
-impl AccommodationPatch {
-    fn mode(self) -> PolicyModificationMode {
+impl AccommodationAdjustmentInput {
+    fn mode(self) -> AccommodationApplicationRule {
         match self {
             Self::Student(value) => value.mode,
             Self::Hypothetical(value) => value.mode,
         }
     }
 
-    fn patch(self) -> PolicyPatchSet {
+    fn adjustment(self) -> AccommodationAdjustment {
         match self {
-            Self::Student(value) => value.patch,
-            Self::Hypothetical(value) => value.patch,
+            Self::Student(value) => value.adjustment,
+            Self::Hypothetical(value) => value.adjustment,
         }
     }
 
@@ -461,16 +467,16 @@ impl AccommodationPatch {
     }
 }
 
-fn apply_accommodation_patch(
+fn apply_accommodation_adjustment(
     policy: &mut EffectiveAssignmentPolicy,
-    accommodation: AccommodationPatch,
+    accommodation: AccommodationAdjustmentInput,
 ) -> Result<(), EffectivePolicyError> {
     let source = accommodation.source();
-    let patch = accommodation.patch();
+    let adjustment = accommodation.adjustment();
     let mode = accommodation.mode();
     apply_accommodation_field(
         &mut policy.available_at,
-        patch.available_at,
+        adjustment.available_at,
         mode,
         PolicyField::AvailableAt,
         OptionalRule::Earlier,
@@ -478,7 +484,7 @@ fn apply_accommodation_patch(
     )?;
     apply_accommodation_field(
         &mut policy.due_at,
-        patch.due_at,
+        adjustment.due_at,
         mode,
         PolicyField::DueAt,
         OptionalRule::Later,
@@ -486,23 +492,23 @@ fn apply_accommodation_patch(
     )?;
     apply_accommodation_field(
         &mut policy.closes_at,
-        patch.closes_at,
+        adjustment.closes_at,
         mode,
         PolicyField::ClosesAt,
         OptionalRule::Later,
         source,
     )?;
     apply_accommodation_field(
-        &mut policy.time_limit_seconds,
-        patch.time_limit_seconds,
+        &mut policy.assignment_attempt_time_limit_seconds,
+        adjustment.assignment_attempt_time_limit_seconds,
         mode,
-        PolicyField::TimeLimitSeconds,
+        PolicyField::AssignmentAttemptTimeLimitSeconds,
         OptionalRule::Later,
         source,
     )?;
     apply_accommodation_field(
         &mut policy.attempt_limit,
-        patch.attempt_limit,
+        adjustment.attempt_limit,
         mode,
         PolicyField::AttemptLimit,
         OptionalRule::Later,
@@ -518,22 +524,24 @@ enum OptionalRule {
 }
 
 fn apply_accommodation_field<T: Ord + Copy>(
-    field: &mut ResolvedField<Option<T>>,
-    patch: PolicyPatch<T>,
-    mode: PolicyModificationMode,
+    field: &mut EffectiveAssignmentPolicyValue<Option<T>>,
+    adjustment: AccommodationAdjustmentValue<T>,
+    mode: AccommodationApplicationRule,
     policy_field: PolicyField,
     rule: OptionalRule,
     error_source: ModifierSource,
 ) -> Result<(), EffectivePolicyError> {
-    if matches!(patch, PolicyPatch::Inherit) {
+    if matches!(adjustment, AccommodationAdjustmentValue::Inherit) {
         return Ok(());
     }
-    let replacement = match patch {
-        PolicyPatch::Inherit => unreachable!("inherited accommodation fields return above"),
-        PolicyPatch::Set(value) => Some(value),
-        PolicyPatch::Unrestricted => None,
+    let replacement = match adjustment {
+        AccommodationAdjustmentValue::Inherit => {
+            unreachable!("inherited accommodation fields return above")
+        }
+        AccommodationAdjustmentValue::Set(value) => Some(value),
+        AccommodationAdjustmentValue::Unrestricted => None,
     };
-    if mode == PolicyModificationMode::ExtendOnly
+    if mode == AccommodationApplicationRule::ExtendOnly
         && !extends_optional(field.value, replacement, rule)
     {
         return Err(EffectivePolicyError::ExtendOnlyViolation {
@@ -582,40 +590,37 @@ fn validate_schedule_values(
     Ok(())
 }
 
-fn start_verdict(
+fn assignment_start_decision(
     policy: &EffectiveAssignmentPolicy,
     now: ActivityTimestamp,
     prior_run_count: u32,
-) -> StartVerdict {
+) -> AssignmentStartDecision {
     if policy.closes_at.value.is_some_and(|closes| now >= closes) {
-        return StartVerdict::Closed;
+        return AssignmentStartDecision::Closed;
     }
     if policy
         .available_at
         .value
         .is_some_and(|available| now < available)
     {
-        return StartVerdict::NotYetAvailable;
+        return AssignmentStartDecision::NotYetAvailable;
     }
     if policy
         .attempt_limit
         .value
         .is_some_and(|limit| prior_run_count >= limit.get())
     {
-        return StartVerdict::AttemptLimitReached;
+        return AssignmentStartDecision::AttemptLimitReached;
     }
-    let late = match policy.due_at.value {
-        Some(due) if now > due => match policy.late_submission.value {
-            LateSubmissionPolicy::Accept => LateVerdict::AcceptedLate,
-            LateSubmissionPolicy::MarkLate => LateVerdict::MarkedLate,
-            LateSubmissionPolicy::Reject => LateVerdict::RejectedLate,
+    let late_work_status = match policy.due_at.value {
+        Some(due) if now > due => match policy.late_work_rule.value {
+            LateWorkRule::Accept => StudentLateWorkStatus::AcceptedLate,
+            LateWorkRule::MarkLate => StudentLateWorkStatus::MarkedLate,
+            LateWorkRule::Reject => return AssignmentStartDecision::LateWorkRefused,
         },
-        _ => LateVerdict::OnTime,
+        _ => StudentLateWorkStatus::OnTime,
     };
-    match late {
-        LateVerdict::RejectedLate => StartVerdict::DueDateRejectsNewRun,
-        late => StartVerdict::MayStart { late },
-    }
+    AssignmentStartDecision::MayStart { late_work_status }
 }
 
 #[cfg(test)]

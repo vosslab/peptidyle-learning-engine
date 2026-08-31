@@ -445,7 +445,7 @@ def _adapter_argv(action: str, manifest_path: pathlib.Path, arguments: tuple[str
 	result = [
 		sys.executable,
 		"-m",
-		"local_stack_control._consumer_cli",
+		"local_stack_control.disposable_stack_command",
 		action,
 		"--manifest",
 		str(manifest_path),
@@ -520,14 +520,14 @@ def default_operations() -> DeveloperOperations:
 def run_supervisor(
 	repository_root: pathlib.Path,
 	operations: DeveloperOperations | None = None,
-	lease_factory: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
+	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
 	install_signal_handlers: bool = True,
 	inherited_descriptors: tuple[int, int, int] | None = None,
 ) -> None:
 	"""Hold the actual lease until an authenticated stop or termination cleans the fixed stack."""
 	active_operations = default_operations() if operations is None else operations
 	lease = (
-		lease_factory(repository_root)
+		acquire_browser_suite_lease(repository_root)
 		if inherited_descriptors is None
 		else local_stack_control.browser_suite_lease.BrowserSuiteLease.adopt(
 			repository_root, *inherited_descriptors

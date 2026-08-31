@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use objects::ObjectStoreError;
 use question_model::generation::Seed;
 use question_model::{
-    AttemptResult, QuestionAttemptId, QuestionTitleError, QuestionVersionReference,
+    GradingResult, QuestionAttemptId, QuestionTitleError, QuestionVersionReference,
 };
 
 use crate::cache::{binding_payload, constant_time_eq, hex};
@@ -127,7 +127,7 @@ impl std::fmt::Debug for ServerCorrelation {
 /// serde implementation, so an HTTP/browser payload cannot deserialize into it.
 #[derive(Clone, PartialEq)]
 pub struct VerifiedProviderGrade {
-    pub(crate) result: AttemptResult,
+    pub(crate) result: GradingResult,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) question_version: QuestionVersionReference,
     pub(crate) seed: Seed,
@@ -149,7 +149,7 @@ impl std::fmt::Debug for VerifiedProviderGrade {
 impl VerifiedProviderGrade {
     /// Server-only verified result; this type is non-serde and can only be
     /// obtained from the sealed contracted verifier.
-    pub fn result(&self) -> AttemptResult {
+    pub fn result(&self) -> GradingResult {
         self.result
     }
 
@@ -166,7 +166,7 @@ impl VerifiedProviderGrade {
     /// expiry/nonce verification succeeds.
     #[cfg(test)]
     pub(crate) fn verified(
-        result: AttemptResult,
+        result: GradingResult,
         attempt: QuestionAttemptId,
         question_version: QuestionVersionReference,
         seed: Seed,
@@ -185,7 +185,7 @@ impl VerifiedProviderGrade {
     /// result token has already passed signature, expiry, exact question, and
     /// single-use server-ledger checks before this sealed grade exists.
     pub(crate) fn from_scored_embed(
-        result: AttemptResult,
+        result: GradingResult,
         binding: GradeBinding,
         correlation: &ServerCorrelation,
     ) -> Self {

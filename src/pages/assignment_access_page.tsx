@@ -11,7 +11,7 @@ import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
 import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
-import { type ModifierMode, type ModifierPatchDraft, type PreviewSubject } from "./assignment_access/model";
+import { type ModifierMode, type ModifierPatchDraft, type SelectedStudent } from "./assignment_access/model";
 import { PolicyPreview } from "./assignment_access/policy_preview";
 import "./assignment_access/assignment_access.css";
 
@@ -25,7 +25,7 @@ export interface AssignmentAccessPageProps {
   /** Fetches the current strong revision after a compare-and-swap conflict. */
   readonly reloadAssignmentRevision: () => Promise<TeachingOperationRevision>;
   /** Route owners may supply the authorized course-members list when their projection supports it. */
-  readonly loadPreviewSubjects?: () => Promise<ReadonlyArray<PreviewSubject>>;
+  readonly loadPreviewSubjects?: () => Promise<ReadonlyArray<SelectedStudent>>;
 }
 
 type PageState = "loading" | "ready" | "error" | "permission" | "offline";
@@ -48,13 +48,13 @@ function namedDeleteCopy(name: string): string {
  */
 export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Element {
   const [state, setState] = createSignal<PageState>("loading");
-  const [subjects, setSubjects] = createSignal<ReadonlyArray<PreviewSubject>>([]);
+  const [subjects, setSubjects] = createSignal<ReadonlyArray<SelectedStudent>>([]);
   const [subjectsState, setSubjectsState] = createSignal<SubjectsState>("loading");
   const [revision, setRevision] = createSignal(props.initialRevision);
   const [dialogOpen, setDialogOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
-  const [previewSubject, setPreviewSubject] = createSignal<PreviewSubject>();
+  const [previewSubject, setPreviewSubject] = createSignal<SelectedStudent>();
   const [preview, setPreview] = createSignal<TeachingPreviewView>();
   const [previewLoading, setPreviewLoading] = createSignal(false);
   const [previewFailure, setPreviewFailure] = createSignal("");
@@ -89,7 +89,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     }
   }
 
-  async function requestPreview(subject: PreviewSubject | undefined): Promise<void> {
+  async function requestPreview(subject: SelectedStudent | undefined): Promise<void> {
     setPreviewSubject(subject);
     setPreview(undefined);
     setPreviewFailure("");

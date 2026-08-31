@@ -175,7 +175,7 @@ Role-specific visual coverage follows Human Guidance: Instructor and Sysadmin ev
 canonical 1280 by 800 desktop profile; Student evidence may use the maintained laptop, portrait,
 narrow-phone, and square profiles. Each applicable profile is reviewed for semantic usability,
 focus, contrast, recovery, and readable hierarchy; exact pixels, viewport shares, screenshot hashes,
-and artifact totals have no acceptance authority.
+and source_object_reference totals have no acceptance authority.
 Server response tests cover declared success, validation, conflict, denial, and pagination families
 rather than enumerating individual response instances. Teaching-policy tests choose representative
 precedence partitions, including deny, grant, override, conflict, and no-op paths.
@@ -218,7 +218,7 @@ ignored derivative output from `crates/project-tools/src/tsgen.rs`; authored con
 decoders and behavior. Durable M0 package evidence is recorded in
 [implementation_status.md](implementation_status.md) and [CHANGELOG.md](../CHANGELOG.md); one-time
 migration/schema/source/route/generated inventories, screenshots, and timing observations are
-historical evidence only and are not referenced through an ignored scratch artifact.
+historical evidence only and are not referenced through an ignored scratch source_object_reference.
 
 **Local renderer provenance.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
 pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
@@ -275,12 +275,12 @@ release boundary while writing code.
 - Make every historical attempt reproducible from seed, generator version, and problem version, at a
   per-row cost small enough to survive hundreds of millions of rows.
 - Separate draft identity from published identity so an abandoned experiment never occupies a durable
-Question Library numbers.
+  Question Library numbers.
 - Keep published content shared and immutable while every educational record carries exact course,
   Student, workspace, or AccountId ownership and is protected by database-enforced row-level security.
 - Delete Student records on a privacy-by-default schedule with the configured course lifecycle policy,
   while anonymous question statistics survive so the library keeps improving.
-- Keep binary and archival content out of PostgreSQL, with every artifact carrying checksum, size,
+- Keep binary and archival content out of PostgreSQL, with every source_object_reference carrying checksum, size,
   media type, license, and provenance.
 - Keep API containers stateless so demand is met by adding replicas.
 - Freeze module contracts early enough that at least six lanes proceed in parallel without
@@ -418,7 +418,7 @@ instruction directly.
   `schemas/migrations/2026080907_course_appearance.sql`; later filenames and owners are reserved in
   the release-completion plan.
 - The remaining work is not an architecture discovery exercise. WP-RC2 through WP-RC12 name every
-  production artifact, behavior, validation command, and release boundary.
+  production source_object_reference, behavior, validation command, and release boundary.
 
 ### What ADAPT actually does with content
 
@@ -445,37 +445,37 @@ Three weaknesses neither review named, each becoming a requirement here:
   uniquely indexes `(account_id, directory, filename)`.
 - **Signed URLs live seven days.** `temporaryUrl(..., Carbon::now()->addDays(7))`
   (`QuestionMediaController.php:279`). A leaked URL grants a week of access, which for a
-  student-record artifact is a FERPA-relevant exposure. This plan uses minutes.
+  student-record source_object_reference is a FERPA-relevant exposure. This plan uses minutes.
 
 ## Resolved decisions
 
-| Decision               | Choice                                                                                                                             | Reason                                                                                                                                                                                             |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server runtime         | Native Rust `axum`; shared crates also built for `wasm32`                                                                          | Owner-selected. Native is fastest and keeps direct database access                                                                                                                                 |
-| Web server             | No Apache, nginx, or lighttpd in the request path                                                                                  | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                                    |
-| Database               | **PostgreSQL on RDS**, one cluster                                                                                                 | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                    |
-| Authorization boundary | **One installation: global AccountId accounts, AuthenticatedSession, exact course/Student/workspace ownership, forced RLS**         | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; a missing authenticated session, foreign course, another AccountId, and revoked membership fail closed |
-| Grading location       | **Server only**                                                                                                                    | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                |
-| H5P grading            | Native H5P is ungraded practice; `serverGrading: false`                                                                            | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                    |
-| WASM contents          | Parameter generation, answer-format validation, timer display, state transitions                                                   | Non-secret work only, enforced by the dependency graph                                                                                                                                             |
-| Sharing boundary       | **Shared published content; private workspaces and exact course/Student records**                                                  | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                      |
-| Activity model         | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                   | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                    |
-| Grade computation      | Transactionally maintained summary rows; never scan attempt history                                                                | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                      |
-| Question identity      | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                              | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                      |
-| Partitioning           | Monthly range partitions on the four highest-volume append-only tables only                                                        | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                               |
-| Pagination             | Cursor only; `OFFSET` banned by lint and review                                                                                    | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                             |
-| Content storage        | Split by role with a size backstop (below)                                                                                         | Answers the owner's direct question                                                                                                                                                                |
-| Flat question source   | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                             | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                               |
-| Question Library table split | `problem_version` metadata separate from hash-partitioned `problem_version_payload`                                         | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                |
-| Object storage         | S3 with four physical security domains; MinIO locally                                                                              | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                               |
-| Asset delivery         | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                         |
-| Rendered output        | Cached by `(version_id, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation      | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                   |
-| Session storage        | Opaque session ID cookie, session row in the database                                                                              | Works across replicas and stays revocable                                                                                                                                                          |
-| Timer clock            | Timestamps from PostgreSQL, never a process clock                                                                                  | Replica clock skew would otherwise change verdicts                                                                                                                                                 |
-| Background work        | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                              | Import, export, and renderer work leave the request path                                                                                                                                           |
-| Autoscaling            | Fargate target tracking: request count for `api`, queue depth for `worker`                                                         | A class-start burst is a request spike; renderer load is a queue-depth signal                                                                                                                      |
-| Execution shape        | Contract freeze, then parallel module lanes                                                                                        | Owner-requested modularization; see the module catalog                                                                                                                                             |
-| Repo layout            | Reduced monorepo: `src/`, `crates/`, `pipeline/`, `containers/`, `schemas/`                                                        | No `apps/` or `packages/` split until a second app exists                                                                                                                                          |
+| Decision                     | Choice                                                                                                                                      | Reason                                                                                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server runtime               | Native Rust `axum`; shared crates also built for `wasm32`                                                                                   | Owner-selected. Native is fastest and keeps direct database access                                                                                                                                                      |
+| Web server                   | No Apache, nginx, or lighttpd in the request path                                                                                           | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                                                         |
+| Database                     | **PostgreSQL on RDS**, one cluster                                                                                                          | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                                         |
+| Authorization boundary       | **One installation: global AccountId accounts, AuthenticatedSession, exact course/Student/workspace ownership, forced RLS**                 | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; a missing authenticated session, foreign course, another AccountId, and revoked membership fail closed |
+| Grading location             | **Server only**                                                                                                                             | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                                     |
+| H5P grading                  | Native H5P is ungraded practice; `serverGrading: false`                                                                                     | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                         |
+| WASM contents                | Parameter generation, answer-format validation, timer display, state transitions                                                            | Non-secret work only, enforced by the dependency graph                                                                                                                                                                  |
+| Sharing boundary             | **Shared published content; private workspaces and exact course/Student records**                                                           | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                                           |
+| Student Work Records model   | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                            | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                                            |
+| Grade computation            | Transactionally maintained summary rows; never scan attempt history                                                                         | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                                           |
+| Question identity            | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                                       | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                                           |
+| Partitioning                 | Monthly range partitions on the four highest-volume append-only tables only                                                                 | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                                                    |
+| Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                             | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                                                 |
+| Content storage              | Split by role with a size backstop (below)                                                                                                  | Answers the owner's direct question                                                                                                                                                                                     |
+| Flat question source         | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                                      | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                    |
+| Question Library table split | `published_question_version` metadata separate from hash-partitioned `published_question_version_payload`                                  | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                     |
+| Object storage               | S3 with four physical security domains; MinIO locally                                                                                       | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                    |
+| Asset delivery               | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                                 |
+| Rendered output              | Cached by `(question_id, version_number, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                      |
+| Session storage              | Opaque session ID cookie, session row in the database                                                                                       | Works across replicas and stays revocable                                                                                                                                                                               |
+| Timer clock                  | Timestamps from PostgreSQL, never a process clock                                                                                           | Replica clock skew would otherwise change verdicts                                                                                                                                                                      |
+| Background work              | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                                       | Import, export, and renderer work leave the request path                                                                                                                                                                |
+| Autoscaling                  | Fargate target tracking: request count for `api`, queue depth for `worker`                                                                  | A class-start burst is a request spike; renderer load is a queue-depth signal                                                                                                                                           |
+| Execution shape              | Contract freeze, then parallel module lanes                                                                                                 | Owner-requested modularization; see the module catalog                                                                                                                                                                  |
+| Repo layout                  | Reduced monorepo: `src/`, `crates/`, `pipeline/`, `containers/`, `schemas/`                                                                 | No `apps/` or `packages/` split until a second app exists                                                                                                                                                               |
 
 ### Recorded disagreement with reviewer 1
 
@@ -509,8 +509,8 @@ Pushing it to object storage adds a network hop to the hottest path for no benef
 `reviewer_commments_2.md` names. Why not ADAPT's approach: unbounded payloads in operational tables
 with no threshold and no checksum, which is the bloat the owner is right to worry about.
 
-The rule that makes the split safe: **every artifact carries identity metadata regardless of which
-side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `category`, `version_id`,
+The rule that makes the split safe: **every source_object_reference carries identity metadata regardless of which
+side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `category`, `question_id`, `version_number`,
 `license`, `provenance`. Text in PostgreSQL is checksummed exactly like a ZIP in S3.
 
 ### The modern LAMP equivalent
@@ -540,11 +540,11 @@ would mean a Python backend, contradicting the Rust decision.
 Use plain capability names first. Cargo package and crate-directory names use
 hyphens; Rust import and module names use underscores:
 
-| Plain component name     | Physical path                                | Rust name                  | Responsibility                                                                                                                              |
-| ------------------------ | -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Learning data access     | `crates/learning-data-access`                | `learning_data_access`     | Typed persistence contracts, authorization-aware queries, PostgreSQL, migrations, and RLS                                                   |
-| In-memory data access    | `crates/learning-data-access/src/in_memory*` | `in_memory`                | Database-free implementation used by conformance and server behavior tests                                                                  |
-| Project tools            | `crates/project-tools`                       | Cargo-only binary          | Repository-only TypeScript generation, fixtures, database operations, and pilot-content validation invoked with `cargo tools` |
+| Plain component name  | Physical path                                | Rust name              | Responsibility                                                                                                                |
+| --------------------- | -------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Learning data access  | `crates/learning-data-access`                | `learning_data_access` | Typed persistence contracts, authorization-aware queries, PostgreSQL, migrations, and RLS                                     |
+| In-memory data access | `crates/learning-data-access/src/in_memory*` | `in_memory`            | Database-free implementation used by conformance and server behavior tests                                                    |
+| Project tools         | `crates/project-tools`                       | Cargo-only binary      | Repository-only TypeScript generation, fixtures, database operations, and pilot-content validation invoked with `cargo tools` |
 
 ```text
 browser                     ALB          stateless replicas
@@ -589,7 +589,7 @@ cluster; the distinction is ownership and policy, not physical separation.
 | Anonymous question statistics                    | Per-student analytics and audit logs            |
 | Public and community libraries                   | Student-record artifacts                        |
 
-An assignment is **not** shareable content. It is a course artifact referencing published problems,
+An assignment is **not** shareable content. It is a course source_object_reference referencing published problems,
 which is what lets one published problem serve thousands of instructors without copying:
 
 ```text
@@ -688,17 +688,17 @@ This table records the current designed dependencies rather than an exhaustive p
 composition boundaries are permanent only where the architecture requires them, with the exact
 `crates/wasm` dependency closure retained as a security gate that keeps answer-bearing grading outside browser builds.
 
-| Crate                                      | Owns                                                                                                                            | Depends only on                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `crates/question_model`                    | Question types, capabilities, identity, taxonomy, `ts-rs` derives                                                               | External crates                                                                 |
-| `crates/domain`                            | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation, audit events         | `question_model`                                                                |
-| `crates/grading`                           | **Answer keys, checkers, correctness decisions**                                                                                | `question_model`, `domain`                                                      |
-| `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                         | `question_model`                                                                |
-| `crates/learning-data-access`              | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                          | `question_model`, `domain`, `objects`                                           |
-| `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                             | `question_model`, `domain`, `grading`, `objects`                                |
-| `crates/export`                            | Print model, DOCX and PDF writers                                                                                               | `question_model`, `objects`                                                     |
-| `crates/wasm`                              | `wasm-bindgen` bridge, delegating every call to `domain`                                                                        | `question_model`, `domain`                                                      |
-| `crates/server`                            | axum routes, auth, worker mode, composition root                                                                                | Every crate above                                                               |
+| Crate                                      | Owns                                                                                                                    | Depends only on                                  |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `crates/question_model`                    | Question types, capabilities, identity, taxonomy, `ts-rs` derives                                                       | External crates                                  |
+| `crates/domain`                            | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation, audit events | `question_model`                                 |
+| `crates/grading`                           | **Answer keys, checkers, correctness decisions**                                                                        | `question_model`, `domain`                       |
+| `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                 | `question_model`                                 |
+| `crates/learning-data-access`              | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                  | `question_model`, `domain`, `objects`            |
+| `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                     | `question_model`, `domain`, `grading`, `objects` |
+| `crates/export`                            | Print model, DOCX and PDF writers                                                                                       | `question_model`, `objects`                      |
+| `crates/wasm`                              | `wasm-bindgen` bridge, delegating every call to `domain`                                                                | `question_model`, `domain`                       |
+| `crates/server`                            | axum routes, auth, worker mode, composition root                                                                        | Every crate above                                |
 
 `learning-data-access` remains the sole owner of Base Course SQL, PostgreSQL locking, durable
 install-state transitions, migrations, and Store implementation. `project-tools` calls the focused
@@ -712,33 +712,35 @@ seed-parity test meaningful; time and storage arrive as parameters. `crates/wasm
 dependency closure and shipping an answer to the browser becomes a compile-time impossibility rather
 than a code-review question.
 
-## Activity model
+## Student Work Records
 
 The owner's observation that students voluntarily rerun completed assignments 30 or more times for
 learning is the largest single change to this plan. Completion is not terminal, and the earlier
 model -- assignment to attempts -- could not express it.
 
-Three levels, per reviewer 3:
+Five ownership levels, per reviewer 3:
 
-| Entity                  | Holds                                                                             | Cardinality                               |
-| ----------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
+| Entity               | Holds                                                                                                                            | Cardinality                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `assignment_attempt` | Direct Student Record and Assignment parents, attempt number, started and completed times, score, activity, and variation policy | Many per Student Record and Assignment; 30 or more is normal |
-| `issued_question` | Source Assignment Entry, exact Question Version, issued order, scoring treatment, and selection evidence | One per delivered Question within an Assignment Attempt |
-| `question_attempt` | Issued Question ID, seed, parameter hash, timing, Student Response, and Grading Result | Several per Issued Question |
+| `issued_question`    | Source Assignment Entry, exact Question Version, issued order, scoring treatment, and selection evidence                         | One per delivered Question within an Assignment Attempt      |
+| `question_attempt`   | Issued Question ID, seed, parameter hash, timing, operational state, and exact source record                                     | Several per Issued Question                                  |
+| `question_submission` | One accepted Student Response for its exact Question Attempt                                                                    | At most one per Question Attempt                             |
+| `grading_result`     | One authoritative evaluation for its exact Question Submission and automated grading operation                                    | At most one per Question Submission                          |
 
 Four policies, deliberately independent so an instructor can combine them freely:
 
-| Policy                 | Options                                                    |
-| ---------------------- | ---------------------------------------------------------- |
-| Completion requirement | First time all required questions are correct              |
-| Grade policy           | First, latest, highest, or instructor-defined              |
+| Policy                 | Options                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| Completion requirement | First time all required questions are correct                 |
+| Grade policy           | First, latest, highest, or instructor-defined                 |
 | Continued practice     | Unlimited new Assignment Attempts after completion, or capped |
-| Variation policy       | New seeds, selected Question Variants, or full regeneration |
+| Variation policy       | New seeds, selected Question Variants, or full regeneration   |
 
 Two derivations that look contradictory and are not, so the distinction is stated once here:
-**within-run completion is derived** from question states, never stored as a boolean, which keeps the
-state machine honest. **Cross-run grade state is a maintained summary row**, updated transactionally
-when a run changes, because scanning hundreds of millions of attempts to render a course page is not
+**within-Assignment-Attempt completion is derived** from Question states, never stored as a boolean, which keeps the
+state machine honest. **Cross-Assignment-Attempt grade state is a maintained summary row**, updated transactionally
+when an Assignment Attempt changes, because scanning hundreds of millions of attempts to render a course page is not
 an option. Different scopes, different mechanisms.
 
 `student_assignment_summary` holds `best_score`, `latest_score`, `completed_run_count`,
@@ -772,7 +774,7 @@ What each stage touches:
 | Deleted with student records         | Retained indefinitely                                        |
 | ------------------------------------ | ------------------------------------------------------------ |
 | Enrollments                          | Published problems and immutable versions                    |
-| Runs, question attempts, submissions | Question Library, taxonomy, licensing                         |
+| Runs, question attempts, submissions | Question Library, taxonomy, licensing                        |
 | Grades and summary rows              | Instructor question drafts and workspaces                    |
 | Timer events and render traces       | Assignment definitions (instructor's choice at archive time) |
 | Per-student analytics                | Backend capability metadata                                  |
@@ -808,7 +810,7 @@ records that taught it are gone. Aggregate statistics live in **shared content**
 Student identifiers, and survive record deletion:
 
 ```text
-Question 123 (version_id ...)
+Question 123 (Question Version Number ...)
   attempts_mean 2.7
   time_median_s 58
   difficulty_index 0.71
@@ -832,19 +834,18 @@ One human identity sits above three implementation identities with distinct jobs
 
 | ID             | Scope                                   | Mutability                      | Visibility                              |
 | -------------- | --------------------------------------- | ------------------------------- | --------------------------------------- |
-| Question ID    | One published-question lineage          | Stable for its lineage          | Human-facing, discoverable, and citable |
-| `workspace_id` | One Instructor's private authoring item | Freely editable and deletable   | Private implementation identity         |
-| `problem_id`   | Opaque shared-content lineage evidence  | Stable for the lineage          | Hidden implementation identity          |
-| `version_id`   | One immutable published QuestionVersion | Never changes after publication | Hidden grading and provenance identity  |
+| Question ID                | One published-question lineage          | Stable for its lineage          | Human-facing, discoverable, and citable |
+| `workspace_id`             | One Instructor's private authoring item | Freely editable and deletable   | Private implementation identity         |
+| Question Version Number    | One immutable published Question Version | Never changes after publication | Exact version evidence                  |
 
 Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
-- The first publish transition mints the stable `QuestionId`, opaque `problem_id`, and immutable
-  `version_id` only after validation passes. A later same-lineage publication mints a new immutable
-  `version_id` after the same validation. Sequential `P-...`/`ProblemPublicId` and display version
-  numbers are not alternate published-question identities.
+- The first publish transition mints the stable `QuestionId` and immutable positive Question Version
+  Number `1` only after validation passes. A later same-lineage publication advances that immutable
+  version number after the same validation. Retired sequential display identifiers are not
+  published-question identities.
 - Editing never mutates a historical QuestionVersion. A moderate lineage-steward edit publishes a
   validated immutable successor under the same `QuestionId`, preserves original authorship and the
   existing Creative Commons license, and records its semantic class and impact. A full fork by any
@@ -858,8 +859,8 @@ Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
   threads through a focused accept/reject workflow.
 - Replacing an image creates a new asset object with a new checksum and key; the old object stays so
   historical attempts remain reproducible.
-- Assignments and issued runs retain hidden exact `(problem_id, version_id)` snapshot evidence. No
-  ordinary successor advances assignment, issued-run, or grading evidence; an Instructor applies a
+- Assignments and Issued Questions retain hidden exact `(question_id, version_number)` snapshot evidence. No
+  ordinary successor advances an Assignment, Issued Question, or grading evidence; an Instructor applies a
   controlled update under the assignment's strong revision contract. A
   `ForcedQuestionCorrection` follows its separately authorized, deterministic replacement and
   remediation contract.
@@ -900,7 +901,7 @@ to the existing improvement thread. A proposal whose base is stale is rebased an
 ### Replacing questions and teaching sets
 
 A validated moderate edit publishes a new immutable version in the same QuestionId lineage; a full
-fork that becomes a distinct teaching task has a new QuestionId. Existing assignments and issued runs
+fork that becomes a distinct teaching task has a new QuestionId. Existing Assignments and Issued Questions
 remain pinned. An Instructor may explicitly apply a controlled assignment update after revision
 checking; publication itself leaves teaching records unchanged. Assignment import/copy and selectable
 checklists from existing assignments are the normal way to reuse a teaching set; direct Question ID
@@ -911,9 +912,9 @@ entry is a bounded lookup tool, not a range or batch-selection language.
 Keys are immutable and derived from IDs and versions, never from user-supplied filenames:
 
 ```text
-private-content/problems/{problem_id}/versions/{version_id}/source/{object_id}
-public-assets/problems/{problem_id}/versions/{version_id}/assets/{asset_id}/{object_id}
-private-content/problems/{problem_id}/versions/{version_id}/restricted-assets/{asset_id}/{object_id}
+questions/{question_id}/versions/{version_number}/source/{object_id}
+questions/{question_id}/versions/{version_number}/assets/{asset_id}/{object_id}
+questions/{question_id}/versions/{version_number}/restricted-assets/{asset_id}/{object_id}
 student-records/exports/{course_id}/{export_id}/exam.pdf
 temp-processing/imports/{import_id}/
 ```
@@ -929,12 +930,12 @@ authorizes the authenticated Account, logs the grant, and returns a bounded shor
 protected GET route whose browser navigation, history, or speculative fetch can mint authority.
 
 The `renders/{seed}` prefix is what makes the WeBWorK renderer affordable: rendering is deterministic
-given `(version_id, seed)`, so the first render fills the cache and every later student with that seed
+given `(question_id, version_number, seed)`, so the first render fills the cache and every later Student with that seed
 gets a CDN hit instead of a Perl fork.
 
 Authoritative-versus-derived roles, settled per backend:
 
-| Backend            | Authoritative artifact                                     | Derived                                           |
+| Backend            | Authoritative source_object_reference                      | Derived                                           |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------------- |
 | Native algorithmic | Generator id and version; parameters derived from the seed | Rendered output                                   |
 | Native static      | Canonical versioned PLE flat-question JSON source          | Public question model and private grader material |
@@ -1001,7 +1002,7 @@ chosen inside MOD-OBJ, so a later move to `objects/sha256/ab/cd/...` changes no 
 
 ## Reproducibility record
 
-Every question attempt persists: `problem_id`, `version_id`, source artifact `object_id` and `sha256`,
+Every Question Attempt persists its exact `QuestionVersionReference { question_id, version_number }`, source Object Reference `object_id` and `sha256`,
 adapter id and version, renderer version where one applies, generator id and version, seed,
 **parameter hash**, asset `object_id` list, grading implementation version, and rendered-question hash.
 
@@ -1018,7 +1019,7 @@ image makes the record a lie.
 Four ownership questions that look like implementation details and are actually architecture. Each is
 settled here because discovering the answer during recovery or a decade-later migration is expensive.
 
-### Which artifact defines a native question
+### Which source_object_reference defines a native question
 
 The other backends have obvious authoritative artifacts; the native backend
 needed separate rulings for generated and static questions.
@@ -1157,7 +1158,7 @@ database budgets, with stateless replicas added when the measured workload requi
 
 Rendering and grading are CPU-heavy Perl in the observed provider configuration. A named load review
 records queue depth, CPU, timeout, and user-visible readiness behavior against configured budgets.
-Deterministic render caching by `(version_id, seed)`, question prefetch, and worker scaling remain
+Deterministic render caching by `(question_id, version_number, seed)`, Question prefetch, and worker scaling remain
 the first responses when the observations show pressure. Submitted answers are still graded
 server-side regardless of caching.
 
@@ -1201,22 +1202,22 @@ UUID model. Public
 references are locators, never authorization. Internal UUIDs may remain in background API and asset
 requests, but they do not appear in the address bar or user-copyable navigation links.
 
-| Route                                                                    | Surface                                              | Notes                                                            |
-| ------------------------------------------------------------------------ | ---------------------------------------------------- | ---------------------------------------------------------------- |
-| `/`                                                                      | Course list for the signed-in role                   | Student and instructor views diverge below this                  |
-| `/courses/:courseRef`                                                    | Assignment list with progress and run counts         | `C-n`; reads summary rows                                        |
-| `/courses/:courseRef/assignments/:assignmentRef`                         | Assignment overview, run history, start or resume    | `C-n` and `A-n`; entry point for a run                           |
-| `/assignment-attempts/:assignmentAttemptRef`                             | The Assignment Attempt loop, one Question at a time  | `R-n`; the screen that must feel instant                         |
-| `/assignment-attempts/:assignmentAttemptRef/summary`                     | Assignment Attempt result, per-Question outcomes, practice re-entry | `R-n`; where practice re-entry lives                 |
-| `/library`                                                               | Question Library browser                              | Virtualized, faceted, cursor-paged                               |
-| `/library/:questionId`                                                   | Exact published-question detail and statistics       | `AAA-BBBB`; hidden snapshot lineage is not UI state              |
-| `/workspace`                                                             | Instructor drafts                                    | Private, pre-publication                                         |
-| `/workspace/:workspaceRef`                                               | Draft editor with validation and preview             | `W-n`; preview renders through WASM generation                   |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef`              | Instructor assignment home and local navigation      | `C-n` and `A-n`; summary and next actions                        |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef/questions`    | Assignment questions, pools, and selection           | Focused revision-checked content mutation                        |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef/policies`     | Assignment delivery and lifecycle policies           | Focused revision-checked policy mutation                         |
-| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Current answer-free student landing                  | Instructor identity stays active; graded work uses Student entry |
-| `/instructor/courses/:courseRef/gradebook`                               | Gradebook                                            | `C-n`; reads summary rows only                                   |
+| Route                                                                    | Surface                                                             | Notes                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `/`                                                                      | Course list for the signed-in role                                  | Student and instructor views diverge below this                  |
+| `/courses/:courseRef`                                                    | Assignment list with progress and run counts                        | `C-n`; reads summary rows                                        |
+| `/courses/:courseRef/assignments/:assignmentRef`                         | Assignment overview, run history, start or resume                   | `C-n` and `A-n`; entry point for a run                           |
+| `/assignment-attempts/:assignmentAttemptRef`                             | The Assignment Attempt loop, one Question at a time                 | `R-n`; the screen that must feel instant                         |
+| `/assignment-attempts/:assignmentAttemptRef/summary`                     | Assignment Attempt result, per-Question outcomes, practice re-entry | `R-n`; where practice re-entry lives                             |
+| `/library`                                                               | Question Library browser                                            | Virtualized, faceted, cursor-paged                               |
+| `/library/:questionId`                                                   | Exact published-question detail and statistics                      | `AAA-BBBB`; hidden snapshot lineage is not UI state              |
+| `/workspace`                                                             | Instructor drafts                                                   | Private, pre-publication                                         |
+| `/workspace/:workspaceRef`                                               | Draft editor with validation and preview                            | `W-n`; preview renders through WASM generation                   |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef`              | Instructor assignment home and local navigation                     | `C-n` and `A-n`; summary and next actions                        |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/questions`    | Assignment questions, pools, and selection                          | Focused revision-checked content mutation                        |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/policies`     | Assignment delivery and lifecycle policies                          | Focused revision-checked policy mutation                         |
+| `/instructor/courses/:courseRef/assignments/:assignmentRef/student-view` | Current answer-free student landing                                 | Instructor identity stays active; graded work uses Student entry |
+| `/instructor/courses/:courseRef/gradebook`                               | Gradebook                                                           | `C-n`; reads summary rows only                                   |
 
 ### Reactivity contract
 
@@ -1224,15 +1225,15 @@ requests, but they do not appear in the address bar or user-copyable navigation 
 fine-grained model is the reason a timer ticking four times a second costs one text-node update rather
 than a component re-render.
 
-| State                               | Primitive                                | Owner               | Rationale                                                                                        |
-| ----------------------------------- | ---------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
-| Session and role                    | Context over a store                     | App shell           | Read everywhere, written rarely                                                                  |
-| Current run and per-question status | Store with granular reads                | Run route           | Nested and partially updated; a store avoids replacing the whole object on one question's change |
-| Remaining time                      | Signal holding an integer of deciseconds | Timer component     | Scalar, high-frequency, one subscriber                                                           |
-| Submission in flight                | Signal holding a discriminated union     | Attempt component   | `idle`, `validating`, `submitted`, `graded`, `failed`                                            |
-| Question content                    | Resource keyed on question attempt id    | Question component  | Async, suspendable, cache-friendly                                                               |
-| Prefetched next question            | Store keyed by question index            | Prefetch controller | Written by prefetch, read by navigation                                                          |
-| Question Library browse results     | Resource plus cursor signal              | Question Library route | Cursor pagination, never an offset                                                             |
+| State                               | Primitive                                | Owner                  | Rationale                                                                                        |
+| ----------------------------------- | ---------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
+| Session and role                    | Context over a store                     | App shell              | Read everywhere, written rarely                                                                  |
+| Current run and per-question status | Store with granular reads                | Run route              | Nested and partially updated; a store avoids replacing the whole object on one question's change |
+| Remaining time                      | Signal holding an integer of deciseconds | Timer component        | Scalar, high-frequency, one subscriber                                                           |
+| Submission in flight                | Signal holding a discriminated union     | Attempt component      | `idle`, `validating`, `submitted`, `graded`, `failed`                                            |
+| Question content                    | Resource keyed on question attempt id    | Question component     | Async, suspendable, cache-friendly                                                               |
+| Prefetched next question            | Store keyed by question index            | Prefetch controller    | Written by prefetch, read by navigation                                                          |
+| Question Library browse results     | Resource plus cursor signal              | Question Library route | Cursor pagination, never an offset                                                               |
 
 Conventions the review checklist enforces positively: read props at the use site so reactivity is
 preserved; place teardown in `onCleanup`; render dynamic lists with `<For>` when identity matters and
@@ -1246,7 +1247,7 @@ adapters return markup produced elsewhere.
 
 The pipeline: the API returns a **render envelope** holding prompt blocks, a response definition, and
 asset references. The renderer maps each block to a component, and each response definition to a
-response widget. Two block kinds carry supplied markup -- WeBWorK rendered HTML and QTI converted
+question response control. Two block kinds carry supplied markup -- WeBWorK rendered HTML and QTI converted
 content -- and both pass through a **server-side allowlist sanitizer** before ever reaching the
 envelope. Sanitization happens on the server, in the worker at render time, so the sanitized form is
 what gets cached and what every client receives; the browser trusts the envelope because the server
@@ -1257,7 +1258,7 @@ asset ID. Script, style, event-handler attributes, iframes, and external URLs ar
 sanitization time and the drop is recorded on the render record, so an adapter producing unexpected
 markup is visible rather than silent.
 
-Response widgets, one per response type in `question_model`, are the reusable core of the student UI:
+Question Response Controls, one per response type in `question_model`, are the reusable core of the student UI:
 numeric entry with unit display, formula entry with live format validation, single and multiple
 selection, ordering, matching, short text, and file upload. Each widget calls the WASM
 format-validator on input and shows a local, immediate hint when the shape is wrong -- the one place
@@ -1339,7 +1340,7 @@ designed rather than discovered:
 
 An assessment platform carries institutional accessibility obligations, so this is a gate rather than
 a polish pass. `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md` owns the complete student interaction
-contract. Every response widget has a visible platform path: Tab and Shift+Tab move focus, Space
+contract. Every question response control has a visible platform path: Tab and Shift+Tab move focus, Space
 selects choices and activates buttons, and native links retain Enter activation. The primary
 acceptance journey reaches the explicit Submit answer button without requiring an Arrow key, digit,
 response-input Enter, or Escape. Enter-to-submit, Arrows, visible-choice digits 1-9, and Escape are
@@ -1399,13 +1400,13 @@ table above.
 
 ### Forms, errors, and focus
 
-- Response widgets are controlled inputs with validation state as data, so a widget renders its own
+- Question Response Controls are controlled inputs with validation state as data, so a widget renders its own
   error text and a run-level summary can list every outstanding issue from the same source.
 - An error boundary wraps each route and, separately, the question renderer, so a failure in one
   question's content leaves the run shell and timer intact and offers a retry.
 - Focus moves deliberately between attempt phases: to the feedback panel when a result arrives, so a
   screen-reader user hears the teaching content immediately, then to the advance control once feedback
-  has been announced. Focus returns to the first response widget on the next question.
+  has been announced. Focus returns to the first question response control on the next question.
 - Every asset carries required accessibility text on its object record, and the renderer surfaces it as
   alt text or an extended description. Math renders as MathML with a text alternative; structure and
   sequence figures require a description before a problem version may be published, which is a
@@ -1415,7 +1416,7 @@ table above.
 
 | Layer                    | Covers                                                                                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node component tests     | Response widget behavior, validation state transitions, envelope-to-component mapping                                                                                           |
+| Node component tests     | Question Response Control behavior, validation state transitions, envelope-to-component mapping                                                                                 |
 | Playwright functional    | Mastery loop, post-completion practice run, give-up flow, resume after refresh, retry after a failed submission, timer expiry, publish refusal                                  |
 | Playwright accessibility | Keyboard-only completion of a full run, focus order across attempt phases, live-region announcements, contrast measured against `docs/COLOR_CONTRAST_ACCESSIBILITY.md`          |
 | Playwright network       | Offline submit and recovery, slow renderer, expired session mid-run, WASM instantiation failure falling back to server validation                                               |
@@ -1435,7 +1436,7 @@ service can replace it without a UI change.
 **Assignment editor.** Question selection uses one exact published Question ID from the Question Library; a
 workspace draft must be published before it can be selected. Internal references retain the exact
 snapshot needed for deterministic grading without exposing a version choice. The editor exposes the four
-assignment-level `RunPolicies` controls with their current values visible. Timing and attempt
+Assignment Activity Rule controls with their current values visible. Timing and attempt
 policies remain properties of each published question rather than assignment overrides. The browser
 submits only the ordered resolved references and policy choices. The server resolves every Question
 ID through the Question Library after the approved-Instructor and exact-course checks, uses the persisted
@@ -1484,57 +1485,57 @@ executable reference/test implementation where isolation is useful, and one inde
 verification. A reference implementation is behavior-bearing test infrastructure, not release
 substitution for a required production path.
 
-| ID               | Module                                                                   | Exposes                                                                           | Consumes                                                              | Reference/test implementation        | Independent verification                                                                                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MOD-QM           | `question_model`                                                         | Types, capabilities, identity, taxonomy                                           | none                                                                  | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                  |
-| MOD-ID           | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionVersionNumber`, lifecycle            | MOD-QM                                                                | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                    |
-| MOD-RUN          | Enrollment, run, attempt model and policies                              | Run lifecycle, four policy types                                                  | MOD-QM                                                                | n/a                                  | Representative repeat-practice history preserves issued runs and summary behavior across policy combinations                                                                                                                           |
-| MOD-STATE        | Attempt state machine                                                    | `apply(state, event)`, within-run completion                                      | MOD-QM, MOD-RUN                                                       | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                     |
-| MOD-TIME         | Timing rules                                                             | `timer_verdict(...)` pure fn                                                      | MOD-QM                                                                | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                     |
-| MOD-SCORE        | Scoring and grade policies                                               | `score(...)`, summary projection                                                  | MOD-QM, MOD-RUN                                                       | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                |
-| MOD-CAP          | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                    | MOD-QM                                                                | n/a                                  | Committed violation table                                                                                                                                                                                                              |
-| MOD-GEN          | Seeded generation                                                        | `generate(seed, spec)`                                                            | MOD-QM                                                                | n/a                                  | Seed-vector parity (WP-C4)                                                                                                                                                                                                             |
-| MOD-GRD          | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                 | MOD-QM, MOD-STATE                                                     | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                  |
-| MOD-OBJ          | Object store                                                             | `ObjectStore` trait                                                               | MOD-ID                                                                | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                 |
-| MOD-STO          | Persistence and RLS context                                              | `Store` trait                                                                     | MOD-QM, MOD-ID, MOD-RUN, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                    |
-| MOD-SCHEMA       | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                  | MOD-ID, MOD-RUN                                                       | n/a                                  | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                            |
-| MOD-ADP-NAT      | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                        | MOD-QM, MOD-GEN, MOD-GRD                                              | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                      |
-| MOD-ADP-WW       | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                       | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
-| MOD-ADP-QTI      | QTI adapter                                                              | Import pipeline, export                                                           | MOD-QM, MOD-OBJ                                                       | `MemoryObjectStore`                  | Hostile-ZIP fixture set rejected; unsupported features recorded                                                                                                                                                                       |
-| MOD-ADP-H5P      | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                              | MOD-QM                                                                | n/a                                  | Capability honesty test; import path to internal model                                                                                                                                                                                 |
-| MOD-ADP-IMATHAS  | iMathAS adapter                                                          | Immutable snapshot, verified remote broker, render cache, capabilities            | MOD-QM, MOD-OBJ, MOD-STO, MOD-API-RUN                                 | Recorded, redacted provider fixtures | Pinned seeded item renders and grades; replay, cache, outage, disclosure, and isolation gates                                                                                                                                          |
-| MOD-EXPORT       | Print model and writers                                                  | DOCX and PDF                                                                      | MOD-QM                                                                | Fixture version                      | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                       |
-| MOD-WASM         | WASM bridge                                                              | Typed exports                                                                     | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                         | n/a                                  | Export allowlist; no `grading` in closure                                                                                                                                                                                              |
-| MOD-API-AUTH     | Auth and sessions                                                        | `/auth`                                                                           | MOD-STO                                                               | `MemoryStore`                        | Login on one replica, proceed on another                                                                                                                                                                                               |
-| MOD-API-CAT      | Question Library routes                                                  | `/problems`, taxonomy, publish                                                    | MOD-STO, MOD-ID, MOD-CAP                                              | `MemoryStore`                        | Publish refuses on violations; drafts hold no `problem_id`; cursor paging                                                                                                                                                              |
-| MOD-API-COURSE   | Course routes                                                            | `/courses`, `/assignments`                                                        | MOD-STO                                                               | `MemoryStore`                        | Assignments store `(problem_id, version_id)`                                                                                                                                                                                           |
-| MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading` | MOD-STO, MOD-RUN, MOD-STATE, MOD-TIME, MOD-GRD | `MemoryStore` | DB timestamps; idempotent replay; summary updated transactionally; no key in any response |
-| MOD-API-ASSET    | Asset delivery                                                           | `POST /api/assets/{id}`                                                           | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                           |
-| MOD-WORKER       | Jobs queue and worker pool                                               | Enqueue and drain                                                                 | MOD-STO                                                               | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                                 |
-| MOD-STATS        | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                         | MOD-RUN, MOD-STO                                                      | `MemoryStore`                        | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                       |
-| MOD-RETENTION    | Retention lifecycle                                                      | Scheduled notify, archive, delete; configured course policy                       | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | Controlled-clock checks exercise configured notification, archive, and deletion stages; deletion removes records and bucket artifacts while Question Library content and statistics retain their declared state                        |
-| MOD-CLIENT       | Typed API client                                                         | TS client from generated types                                                    | Generated types                                                       | Mock handler set                     | Type tests; no `any`, no unchecked `as`                                                                                                                                                                                                |
-| MOD-UI-SHELL     | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                    | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                              |
-| MOD-UI-COURSE    | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow     | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual artifact gates                                                                                                                  |
-| MOD-UI-WIDGETS   | Response widget set                                                      | One component per response type, with local format validation                     | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                 |
-| MOD-UI-RENDER    | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives     | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                             |
-| MOD-UI-ATTEMPT   | Attempt loop                                                             | Submit, pending state, current student-disclosure display, timer, prefetch, retry | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                                |
-| MOD-UI-BROWSE    | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                           | MOD-CLIENT                                                            | Mock handlers                        | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                     |
-| MOD-UI-EDITOR    | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow     | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                       |
-| MOD-UI-GRADEBOOK | Gradebook                                                                | Summary-row views, run-history drill-down                                         | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                          |
-| MOD-LTI          | LTI Advantage                                                            | Launch and grade passback                                                         | MOD-STO, MOD-API-AUTH                                                 | Sandbox fixtures                     | Passback verified against an LMS sandbox                                                                                                                                                                                               |
-| MOD-DEPLOY       | Containers and AWS                                                       | Compose, images, Fargate, RDS, buckets, CDN                                       | all                                                                   | n/a                                  | A declared workload-model exercise demonstrates independent replicas and records observed capacity, failures, and scaling decisions; numeric projections have no permanent gate authority                                              |
+| ID                         | Module                                                                   | Exposes                                                                             | Consumes                                                              | Reference/test implementation        | Independent verification                                                                                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, taxonomy                                             | none                                                                  | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
+| MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionVersionNumber`, lifecycle | MOD-QM                                                                | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
+| MOD-ACTIVITY               | Assignment Activity model and policies                                   | Assignment Attempt lifecycle, four policy types                                     | MOD-QM                                                                | n/a                                  | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
+| MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, within-Assignment-Attempt completion                         | MOD-QM, MOD-ACTIVITY                                                  | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
+| MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                        | MOD-QM                                                                | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                          |
+| MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                    | MOD-QM, MOD-ACTIVITY                                                  | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
+| MOD-CAP                    | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                      | MOD-QM                                                                | n/a                                  | Committed violation table                                                                                                                                                                                                                   |
+| MOD-GEN                    | Seeded generation                                                        | `generate(seed, spec)`                                                              | MOD-QM                                                                | n/a                                  | Seed-vector parity (WP-C4)                                                                                                                                                                                                                  |
+| MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                   | MOD-QM, MOD-STATE                                                     | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
+| MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                 | MOD-ID                                                                | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
+| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                       | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                     | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
+| MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                    | MOD-ID, MOD-ACTIVITY                                                  | n/a                                  | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
+| MOD-ADP-NAT                | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                          | MOD-QM, MOD-GEN, MOD-GRD                                              | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                           |
+| MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                         | MOD-QM, MOD-OBJ                                                       | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
+| MOD-ADP-QTI                | QTI adapter                                                              | Import pipeline, export                                                             | MOD-QM, MOD-OBJ                                                       | `MemoryObjectStore`                  | Hostile-ZIP fixture set rejected; unsupported features recorded                                                                                                                                                                             |
+| MOD-ADP-H5P                | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                                | MOD-QM                                                                | n/a                                  | Capability honesty test; import path to internal model                                                                                                                                                                                      |
+| MOD-ADP-IMATHAS            | iMathAS adapter                                                          | Immutable snapshot, verified remote broker, render cache, capabilities              | MOD-QM, MOD-OBJ, MOD-STO, MOD-API-RUN                                 | Recorded, redacted provider fixtures | Pinned seeded item renders and grades; replay, cache, outage, disclosure, and isolation gates                                                                                                                                               |
+| MOD-EXPORT                 | Print model and writers                                                  | DOCX and PDF                                                                        | MOD-QM                                                                | Fixture version                      | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                            |
+| MOD-WASM                   | WASM bridge                                                              | Typed exports                                                                       | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                         | n/a                                  | Export allowlist; no `grading` in closure                                                                                                                                                                                                   |
+| MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                             | MOD-STO                                                               | `MemoryStore`                        | Login on one replica, proceed on another                                                                                                                                                                                                    |
+| MOD-API-CAT                | Question Library routes                                                  | `/problems`, taxonomy, publish                                                      | MOD-STO, MOD-ID, MOD-CAP                                              | `MemoryStore`                        | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
+| MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                          | MOD-STO                                                               | `MemoryStore`                        | Assignments store exact `(question_id, version_number)` pins                                                                                                                                                                                |
+| MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`            | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                   | `MemoryStore`                        | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                                   |
+| MOD-API-ASSET              | Asset delivery                                                           | `POST /api/assets/{id}`                                                             | MOD-OBJ, MOD-STO                                                      | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                                |
+| MOD-WORKER                 | Jobs queue and worker pool                                               | Enqueue and drain                                                                   | MOD-STO                                                               | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                                      |
+| MOD-STATS                  | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                           | MOD-ACTIVITY, MOD-STO                                                 | `MemoryStore`                        | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                            |
+| MOD-RETENTION              | Retention lifecycle                                                      | Scheduled notify, archive, delete; configured course policy                         | MOD-STO, MOD-OBJ, MOD-STATS                                           | `MemoryStore`                        | Controlled-clock checks exercise configured notification, archive, and deletion stages; deletion removes records and bucket artifacts while Question Library content and statistics retain their declared state                             |
+| MOD-CLIENT                 | Typed API client                                                         | TS client from generated types                                                      | Generated types                                                       | Mock handler set                     | Type tests; no `any`, no unchecked `as`                                                                                                                                                                                                     |
+| MOD-UI-SHELL               | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                      | MOD-CLIENT, WP-C9                                                     | Mock handlers                        | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                                   |
+| MOD-UI-COURSE              | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow       | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                     | Appearance mock repository           | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual source_object_reference gates                                                                                                        |
+| MOD-UI-WIDGETS             | Question Response Control set                                            | One component per response type, with local format validation                       | MOD-WASM, WP-C9                                                       | Reference widget                     | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                      |
+| MOD-UI-RENDER              | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives       | MOD-UI-WIDGETS                                                        | Fixture envelopes                    | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                  |
+| MOD-UI-ATTEMPT             | Attempt loop                                                             | Submit, pending state, current student-disclosure display, timer, prefetch, retry   | MOD-UI-RENDER, MOD-CLIENT                                             | Mock handlers                        | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                                     |
+| MOD-UI-BROWSE              | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                             | MOD-CLIENT                                                            | Mock handlers                        | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                           |
+| MOD-UI-EDITOR              | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow       | MOD-UI-RENDER, MOD-WASM                                               | Mock handlers                        | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                            |
+| MOD-UI-GRADEBOOK           | Gradebook                                                                | Summary-row views, run-history drill-down                                           | MOD-CLIENT                                                            | Mock handlers                        | Default view issues one summary query regardless of run count                                                                                                                                                                               |
+| MOD-LTI                    | LTI Advantage                                                            | Launch and grade passback                                                           | MOD-STO, MOD-API-AUTH                                                 | Sandbox fixtures                     | Passback verified against an LMS sandbox                                                                                                                                                                                                    |
+| MOD-DEPLOY                 | Containers and AWS                                                       | Compose, images, Fargate, RDS, buckets, CDN                                         | all                                                                   | n/a                                  | A declared workload-model exercise demonstrates independent replicas and records observed capacity, failures, and scaling decisions; numeric projections have no permanent gate authority                                                   |
 
 Shared artifacts with exactly one owning module, so lanes never contend:
 
-| Artifact                                   | Owner      |
-| ------------------------------------------ | ---------- |
-| `crates/domain/tests/seed_vectors.json`    | MOD-GEN    |
+| Artifact                                        | Owner      |
+| ----------------------------------------------- | ---------- |
+| `crates/domain/tests/seed_vectors.json`         | MOD-GEN    |
 | `tests/fixtures/published_problem/` fixture set | MOD-QM     |
-| `schemas/migrations/**`                    | MOD-SCHEMA |
-| WASM export allowlist                      | MOD-WASM   |
-| Mock API handler set                       | MOD-CLIENT |
-| `containers/compose.yaml`                  | MOD-DEPLOY |
+| `schemas/migrations/**`                         | MOD-SCHEMA |
+| WASM export allowlist                           | MOD-WASM   |
+| Mock API handler set                            | MOD-CLIENT |
+| `containers/compose.yaml`                       | MOD-DEPLOY |
 
 ## Milestone plan
 
@@ -1564,12 +1565,12 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 ### Milestone: M1 contract freeze
 
 - Depends on: M0.
-- Deliverables: MOD-QM types with generated TypeScript; MOD-ID identity; MOD-RUN run and policy model;
+- Deliverables: MOD-QM types with generated TypeScript; MOD-ID identity; MOD-ACTIVITY Assignment Activity and policy model;
   trait signatures for MOD-OBJ, MOD-STO, and the adapter boundary; `MemoryStore` and
   `MemoryObjectStore`; both conformance suites; the approved serialization fixture set; narrow
   test-local fakes; the WASM
   export allowlist; the frontend architecture contract with `docs/SOLID_MODEL.md`,
-  `docs/FRONTEND_ARCHITECTURE.md`, and one reference response widget; `docs/CONTRACTS.md`.
+  `docs/FRONTEND_ARCHITECTURE.md`, and one reference question response control; `docs/CONTRACTS.md`.
 - Entry criteria: M0 exit criteria met.
 - Exit criteria: each declared Question Library contract has compiling consumers and its executable reference
   backend where required; conformance suites pass against in-memory backends; generated TypeScript passes
@@ -1577,7 +1578,7 @@ Shared artifacts with exactly one owning module, so lanes never contend:
   screen against the WASM facade and generated client with no backend running; isolated protocol tests
   use only narrow test-local fakes; a
   reviewer examines the changed contract surfaces and their declared consumers for a contract gap.
-- Parallel-plan ready: partly. MOD-QM is serial and first; MOD-ID, MOD-RUN, the reference-backend
+- Parallel-plan ready: partly. MOD-QM is serial and first; MOD-ID, MOD-ACTIVITY, the reference-backend
   packages, and the frontend contract then run as lanes.
 
 The frontend contract lands here rather than in M3 for the same reason the backend contracts do: the
@@ -1606,7 +1607,7 @@ widget exist to build against.
 
 - Depends on: M2 for live behavior; browser behavior uses the real stack, while browser-independent
   unit work may start after M1 with narrow test-local fakes.
-- Deliverables: app shell and routing; the response widget set; the question renderer; the attempt loop
+- Deliverables: app shell and routing; the question response control set; the question renderer; the attempt loop
   with prefetch, timer, and server-projected student disclosure; Question Library browser; draft and assignment editors;
   gradebook; course appearance theme/banner capability and instructor settings; worker pool and jobs
   queue; print model with DOCX and PDF writers.
@@ -1643,7 +1644,7 @@ widget exist to build against.
 - Entry criteria: M2 exit criteria met.
 - Exit criteria: the immutable licensed authored
   `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades
-  through the shared model; a repeat `(version_id, seed)` is served from cache without touching the
+  through the shared model; a repeat `(question_id, version_number, seed)` is served from cache without touching the
   renderer; the renderer has no public endpoint, no PLE database access, enforced CPU, memory, and
   request-time limits, no SQL database or persistent renderer volume; its timeout degrades only
   WeBWorK questions; PLE
@@ -1776,7 +1777,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
    same live selection is available to the assignment picker. If `WP-INST-D3` is accepted, she may
    review and confirm a proposed tag with recorded provenance; otherwise human taxonomy is the
    demonstrated path.
-3. **Reuse.** Elena creates or revises a reusable curriculum with one fixed question and one pool
+3. **Reuse.** Elena creates or revises a Blueprint Course with one fixed question and one pool
    definition. The fixed member remains selected; the pool records its draw rule and delivery order
    without becoming a student assignment or grade.
 4. **Instantiate.** Elena instantiates that reusable definition into an ordinary Fall teaching term
@@ -1804,7 +1805,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
     the source question. The receipt records the shifted schedule and the decision for later review.
 
 Each step asserts the semantic transition and its visible result; it does not require a fixed
-collection size, artifact total, screenshot match, or timing target. The named student state is the
+collection size, source_object_reference total, screenshot match, or timing target. The named student state is the
 smallest live state that demonstrates the transition, while aggregate/item-analysis evidence uses
 the configured privacy threshold and existing seeded contributions where required.
 
@@ -1832,7 +1833,7 @@ or implementer-authored specification is required.
 
 - Owner: `architect`. Module: MOD-QM. Depends on: WP-F1.
 - Touch points: `crates/question_model/src/`, `docs/QUESTION_MODEL.md`.
-- Acceptance criteria: covers the spec's `QuestionDefinition` fields; `BackendCapabilities` carries all
+- Acceptance criteria: covers the spec's `QuestionDefinition` fields; `QuestionBackendCapabilities` carries all
   eight flags; response and grading shapes are enums whose invalid combinations do not compile; tags,
   taxonomy, and licensing types included as shared-content data; **no answer-bearing type defined
   here**; every public item documented per `docs/RUST_STYLE.md` section 13; `ts-rs` derives on every
@@ -1845,25 +1846,29 @@ or implementer-authored specification is required.
 #### Work package: WP-C2 define identity and lifecycle
 
 - Owner: `architect`. Module: MOD-ID. Depends on: WP-C1.
-- Touch points: `crates/question_model/src/identity.rs`, `docs/PROBLEM_IDENTITY.md`.
-- Acceptance criteria: `WorkspaceId`, `QuestionId`, and `QuestionVersionNumber` are distinct branded types that
-  cannot substitute for one another; the lifecycle is an enum with transitions through one fallible
-  function; `QuestionId` is constructible only on the publish transition; the document states the
-  draft-versus-published rule in one sentence a maintainer can apply.
+- Touch points: `crates/question_model/src/identity.rs`,
+  `crates/question_model/src/question_library.rs`, `docs/QUESTION_ID_SPEC.md`,
+  `docs/IDENTITY_CONTRACTS.md`, and `docs/QUESTION_MODEL.md`.
+- Acceptance criteria: `WorkspaceId`, `QuestionId`, and `QuestionVersionNumber` are distinct branded
+  types that cannot substitute for one another; publication creates a stable Question ID and Version
+  Number 1; each accepted same-lineage change advances the positive monotonic Version Number; a fork
+  creates a new Question ID; and `QuestionVersionReference` carries the exact pair. Question
+  Publication Readiness, Question Publication Event, and Question Version Availability remain
+  separate contracts.
 - Next dependency: WP-C3 and WP-C4 consume this accepted package.
 
-#### Work package: WP-C3 define the run, policy, and summary model
+#### Work package: WP-C3 define the Assignment Activity, policy, and summary model
 
-- Owner: `architect`. Module: MOD-RUN. Depends on: WP-C2.
-- Touch points: `crates/question_model/src/activity.rs`, `crates/domain/src/run.rs`,
-  `docs/ACTIVITY_MODEL.md`.
-- Acceptance criteria: enrollment, run, and attempt as distinct types; the four policies
-  (completion requirement, grade policy, continued practice, variation policy) are independent enums
-  that compose freely; within-run completion is a derivation with no stored boolean; the summary
-  projection is a pure function of a run transition so the store can apply it transactionally; compact
-  behavior tests cover varied completion and grade-policy histories against hand-computed outcomes
-  without making an arbitrary run count part of the contract.
-- Evidence or review: the transition examples are the artifact a reviewer reads because they encode
+- Owner: `architect`. Module: MOD-ACTIVITY. Depends on: WP-C2.
+- Touch points: `crates/question_model/src/student_work.rs`, `crates/domain/src/assignment_activity.rs`,
+  `docs/STUDENT_WORK_RECORDS.md`.
+- Acceptance criteria: Student Record, Assignment Attempt, and Question Attempt as distinct types; the four
+  policies (completion requirement, grade policy, continued practice, variation policy) are independent enums
+  that compose freely; within-Assignment-Attempt completion is a derivation with no stored boolean; the summary
+  projection is a pure function of an Assignment Activity transition so the Store can apply it transactionally;
+  compact behavior tests cover varied completion and grade-policy histories against hand-computed outcomes
+  without making an arbitrary Assignment Attempt count part of the contract.
+- Evidence or review: the transition examples are the source_object_reference a reviewer reads because they encode
   the owner's observed student behavior as requirements.
 - Next dependency: WP-C4 and WP-C5 consume this accepted package.
 
@@ -1910,7 +1915,7 @@ or implementer-authored specification is required.
   compared against a committed allowlist so any new export fails the gate until deliberately added; a
   second check asserts `crates/grading` is absent from the `wasm32` dependency closure. The dependency
   boundary runs in the fast architecture lane; the compiled-export inspection remains the explicit
-  non-browser E2E artifact gate. The document states which side new code belongs on.
+  non-browser E2E source_object_reference gate. The document states which side new code belongs on.
 - Evidence or review: the allowlist diff is what a reviewer reads. This makes "answers never reach the
   browser" checkable rather than aspirational.
 - Next dependency: M2 lane 3 consumes this accepted package.
@@ -1932,11 +1937,11 @@ or implementer-authored specification is required.
 
 - Owner: `architect`, with `solid-js-expert` and `ui-ux-engineer` guidance. Depends on: WP-C1, WP-C7.
 - Touch points: `docs/SOLID_MODEL.md`, `docs/FRONTEND_ARCHITECTURE.md`, `src/routes.ts`,
-  `src/wasm/index.ts` facade signature, `src/api/` client shape, one reference response widget.
+  `src/wasm/index.ts` facade signature, `src/api/` client shape, one reference question response control.
 - Acceptance criteria: the route map, reactivity contract, client architecture table, persistence
   boundaries, security rules, focus and error conventions, and the validation strategy from the browser
   interface design section are recorded as the frontend's frozen contract; the WASM facade and generated
-  client signatures exist so both UI lanes compile against them; one response widget is implemented end
+  client signatures exist so both UI lanes compile against them; one question response control is implemented end
   to end as the pattern the remaining widgets follow; the accessibility baseline is stated as testable
   conditions rather than aspirations; a test asserts the generated client surface contains no
   answer-bearing type.
@@ -2069,29 +2074,29 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 
 ## Risk register
 
-| Risk                                                | Impact                                                                       | Trigger                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An answer or key reaches the browser                | Assessment integrity lost, silent until exploited                            | A new WASM export, or grading code moved into `domain`                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
-| RLS is bypassed, unset, or outlives membership      | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked student uses stale identifiers | `expert_coder` | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate |
-| A frozen contract turns out incomplete              | Parallel lanes stall or diverge                                              | A lane finds a missing trait method mid-flight                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                     |
-| Native and wasm32 generation diverge                | Historical attempts not reproducible; render cache serves wrong content      | Parity mismatch                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
-| Attempt tables outgrow the design                   | Slow gradebook, painful migrations                                           | Observed workload approaches a configured storage or query budget                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                |
-| Grade computed by scanning history                  | Course pages time out at scale                                               | A convenient aggregate query in a page path                                                                                  | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                          |
-| Database bloat from payloads in operational tables  | Slow backups, restores, replication                                          | A payload exceeds its documented operational-storage budget                                                                  | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                 |
-| WeBWorK renderer saturates                          | Timed questions fail to load under burst                                     | Many students on WeBWorK questions at once                                                                                   | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                           |
-| External-tool callback or retry accepted as a grade | Assessment integrity or cross-course isolation lost                          | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading         | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-course, expiry, and crash-window gates |
-| Malicious archive during QTI import                 | Remote code execution or disk exhaustion                                     | A crafted ZIP uploaded                                                                                                       | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile fixture-set test                                                                                                                                                                                                                             |
-| Course banner exhausts image processing             | Availability failure or active-content exposure                              | Oversized decoded raster, SVG, animation, malformed codec input                                                              | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                                                                                                                                                                                                           |
-| Course theme bleeds across route scope              | Wrong course identity or unreadable global/status UI                         | Prior course variables remain after navigation                                                                               | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                                                                                                                                                                                                              |
-| Orphaned objects accumulate                         | Storage cost and retention drift                                             | Deleted records leaving objects behind                                                                                       | `expert_coder`   | Reconciliation job comparing object records to bucket inventory; lifecycle rules; M5 deliverable                                                                                                                                                                                                                                                                                                      |
-| Small-cohort statistics re-identify a student       | Privacy failure disguised as an anonymous aggregate                          | A question attempted by one or two students publishes its statistics                                                         | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                      |
-| Statistics lost when records are deleted            | The library stops learning, and deletion becomes something instructors avoid | Statistics computed on demand from attempt history                                                                           | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                       |
-| Retention deletes reusable content                  | Instructors lose authored work and stop trusting the system                  | A deletion path following assignment references into shared content                                                          | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts Question Library content and private drafts survive                                                                                                                                                                                                                                                  |
-| Signed URL leakage                                  | Educational records exposed                                                  | A URL is shared, logged, or used after its configured expiry                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                       |
-| Draft problems leak into shared content             | The exact ADAPT failure this design exists to avoid                          | A code path minting `QuestionId` outside publish                                                                              | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                    |
-| Parallel lanes collide on a shared artifact         | Merge conflicts and lost work                                                | Two lanes editing migrations or the seed table                                                                               | `integrator`     | One owning module per shared artifact, tabulated in the catalog                                                                                                                                                                                                                                                                                                                                       |
-| Scope creep toward ADAPT parity                     | Version 1 never ships                                                        | Requests for rubrics, Adaptive Question Support, discussions                                                                 | `architect`      | Binary out-of-scope ledger in the release-completion plan                                                                                                                                                                                                                                                                                                                                             |
-| Plan drifts from implementation                     | Reviews check the wrong thing                                                | Package work outpacing the tracker                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                                |
+| Risk                                                       | Impact                                                                          | Trigger                                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An answer or key reaches the browser                       | Assessment integrity lost, silent until exploited                               | A new WASM export, or grading code moved into `domain`                                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                           |
+| RLS is bypassed, unset, or outlives membership             | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked student uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate                                                                                                                                 |
+| A frozen contract turns out incomplete                     | Parallel lanes stall or diverge                                                 | A lane finds a missing trait method mid-flight                                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                     |
+| Native and wasm32 generation diverge                       | Historical attempts not reproducible; render cache serves wrong content         | Parity mismatch                                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                  |
+| Attempt tables outgrow the design                          | Slow gradebook, painful migrations                                              | Observed workload approaches a configured storage or query budget                                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                |
+| Grade computed by scanning history                         | Course pages time out at scale                                                  | A convenient aggregate query in a page path                                                                                                  | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                          |
+| Database bloat from payloads in operational tables         | Slow backups, restores, replication                                             | A payload exceeds its documented operational-storage budget                                                                                  | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                 |
+| WeBWorK renderer saturates                                 | Timed questions fail to load under burst                                        | Many students on WeBWorK questions at once                                                                                                   | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                           |
+| External-tool callback or retry accepted as a grade        | Assessment integrity or cross-course isolation lost                             | Browser message, stale launch, an unverifiable provider response, or an ambiguous failed launch POST reaches grading                         | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before provider contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-course, expiry, and crash-window gates |
+| Malicious archive during QTI import                        | Remote code execution or disk exhaustion                                        | A crafted ZIP uploaded                                                                                                                       | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile fixture-set test                                                                                                                                                                                                                            |
+| Course banner exhausts image processing                    | Availability failure or active-content exposure                                 | Oversized decoded raster, SVG, animation, malformed codec input                                                                              | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                                                                                                                                                                                                           |
+| Course theme bleeds across route scope                     | Wrong course identity or unreadable global/status UI                            | Prior course variables remain after navigation                                                                                               | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                                                                                                                                                                                                              |
+| Orphaned objects accumulate                                | Storage cost and retention drift                                                | Deleted records leaving objects behind                                                                                                       | `expert_coder`   | Reconciliation job comparing object records to bucket inventory; lifecycle rules; M5 deliverable                                                                                                                                                                                                                                                                                                      |
+| Small-cohort statistics re-identify a student              | Privacy failure disguised as an anonymous aggregate                             | A question attempted by one or two students publishes its statistics                                                                         | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                      |
+| Statistics lost when records are deleted                   | The library stops learning, and deletion becomes something instructors avoid    | Statistics computed on demand from attempt history                                                                                           | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                       |
+| Retention deletes reusable content                         | Instructors lose authored work and stop trusting the system                     | A deletion path following assignment references into shared content                                                                          | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts Question Library content and private drafts survive                                                                                                                                                                                                                                                  |
+| Signed URL leakage                                         | Educational records exposed                                                     | A URL is shared, logged, or used after its configured expiry                                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                       |
+| Draft problems leak into shared content                    | The exact ADAPT failure this design exists to avoid                             | A code path minting `QuestionId` outside publish                                                                                             | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                   |
+| Parallel lanes collide on a shared source_object_reference | Merge conflicts and lost work                                                   | Two lanes editing migrations or the seed table                                                                                               | `integrator`     | One owning module per shared source_object_reference, tabulated in the catalog                                                                                                                                                                                                                                                                                                                        |
+| Scope creep toward ADAPT parity                            | Version 1 never ships                                                           | Requests for rubrics, Adaptive Question Support, discussions                                                                                 | `architect`      | Binary out-of-scope ledger in the release-completion plan                                                                                                                                                                                                                                                                                                                                             |
+| Plan drifts from implementation                            | Reviews check the wrong thing                                                   | Package work outpacing the tracker                                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                                |
 
 ## Rollout and release checklist
 
@@ -2134,8 +2139,9 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - New durable docs, each owned by the work package creating it: `docs/CONTRACTS.md`,
   `docs/CODE_ARCHITECTURE.md`, `docs/FILE_STRUCTURE.md`, `docs/INSTALL.md`, `docs/USAGE.md`,
   `docs/LOCAL_STACK_OPERATIONS.md`, `docs/MACOS_PODMAN.md`, `docs/QUESTION_MODEL.md`,
-  `docs/ACTIVITY_MODEL.md`,
-  `docs/PROBLEM_IDENTITY.md`, `docs/OBJECT_STORAGE.md`, `docs/DATABASE_AUTHORIZATION.md`,
+  `docs/STUDENT_WORK_RECORDS.md`,
+  `docs/QUESTION_ID_SPEC.md`, `docs/IDENTITY_CONTRACTS.md`, `docs/OBJECT_STORAGE.md`,
+  `docs/DATABASE_AUTHORIZATION.md`,
   `docs/DETERMINISM_CONTRACT.md`, `docs/ADAPTER_DEVELOPMENT.md`, `docs/SECURITY_MODEL.md`,
   `docs/RETENTION_POLICY.md`, `docs/SOLID_MODEL.md`, `docs/FRONTEND_ARCHITECTURE.md`,
   `docs/DEVELOPMENT.md`.

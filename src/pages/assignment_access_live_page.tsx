@@ -7,8 +7,8 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { StudentMembershipView } from "../../generated/api/StudentMembershipView";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
-import type { PreviewSubject } from "./assignment_access/model";
-import { useApiRuntime } from "../api/runtime";
+import type { SelectedStudent } from "./assignment_access/model";
+import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -43,8 +43,8 @@ async function loadAllPreviewSubjects(
     readonly students: ReadonlyArray<StudentMembershipView>;
     readonly nextCursor: string | null;
   }>,
-): Promise<ReadonlyArray<PreviewSubject>> {
-  const subjects: Array<PreviewSubject> = [];
+): Promise<ReadonlyArray<SelectedStudent>> {
+  const subjects: Array<SelectedStudent> = [];
   const seen = new Set<string>();
   let cursor: string | undefined;
   do {
@@ -61,7 +61,7 @@ async function loadAllPreviewSubjects(
 
 /** The route resolves public references once, proves course ownership, then passes typed IDs inward. */
 export function AssignmentAccessLivePage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const params = useParams();
   const scopedRoute = useCourseThemeRouteData();
   const [gate, setGate] = createSignal<Gate>({ kind: "loading" });

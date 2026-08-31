@@ -5,13 +5,17 @@ import type { CourseId } from "../../generated/api/CourseId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ApiClient } from "../api/client";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
-import type { QuestionSearchPage, QuestionSearchQuery, QuestionSearchResult } from "./library_page_model";
+import type {
+  QuestionSearchPage,
+  QuestionSearchQuery,
+  QuestionSearchResult,
+} from "./library_page_model";
 import type {
   QuestionPickerSearchRequest,
   QuestionPickerSource,
   QuestionPickerSourceRepository,
 } from "../features/question_picker";
-import { reusableCurriculumQuestionPickerRepository } from "../features/question_picker/question_picker_model";
+import { blueprintCourseQuestionPickerRepository } from "../features/question_picker/question_picker_model";
 import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
 import type { AssignmentQuestionRow } from "./assignment_editor_model";
 
@@ -52,7 +56,10 @@ function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQu
   return true;
 }
 
-function page(rows: ReadonlyArray<QuestionSearchResult>, nextCursor: string | null): QuestionSearchPage {
+function page(
+  rows: ReadonlyArray<QuestionSearchResult>,
+  nextCursor: string | null,
+): QuestionSearchPage {
   return { items: rows, nextCursor, aggregates: [] };
 }
 
@@ -68,11 +75,11 @@ function questionRow(item: {
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
   const questionLibrary = createQuestionLibraryRepository(client);
   const curation = createQuestionCurationRepository(client, questionLibrary);
-  const reusableCurriculum = reusableCurriculumQuestionPickerRepository(client);
+  const blueprintCourse = blueprintCourseQuestionPickerRepository(client);
   const questionPickerRepository: QuestionPickerSourceRepository = {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       if (request.source.kind === "blueprintCourseAssignment") {
-        return await reusableCurriculum.search(request);
+        return await blueprintCourse.search(request);
       }
       if (request.source.kind !== "retainedAssignment")
         return await curation.picker.search(request);
@@ -84,7 +91,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       const fixedRows = assignment.entries
         .filter(
           (entry): entry is Extract<typeof entry, { readonly kind: "fixedQuestion" }> =>
-            entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+            entry.kind === "fixedQuestion" && entry.availability === "available",
         )
         .map((entry) => ({
           displayId: entry.questionId,
@@ -99,14 +106,14 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       const poolRows = assignment.entries.flatMap((entry) =>
         entry.kind === "questionPool"
           ? entry.candidates.map((candidate) => ({
-          displayId: candidate.questionId,
-          title: candidate.title,
-          summary: "Question retained in this assignment pool.",
-          byline: [],
-          taxonomy: [],
-          capabilities: [],
-          license: "allRightsReserved",
-          evidence: { state: "insufficientEvidence" as const },
+              displayId: candidate.questionId,
+              title: candidate.title,
+              summary: "Question retained in this assignment pool.",
+              byline: [],
+              taxonomy: [],
+              capabilities: [],
+              license: "allRightsReserved",
+              evidence: { state: "insufficientEvidence" as const },
             }))
           : [],
       );
@@ -117,8 +124,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
     },
   };
   return {
-    resolvePublished: async (questionId) =>
-      questionRow(await client.resolveQuestion(questionId)),
+    resolvePublished: async (questionId) => questionRow(await client.resolveQuestion(questionId)),
     questionPickerRepository,
     listQuestionPickerSources: async (
       course,
@@ -131,12 +137,11 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       return [
         { kind: "library", label: "Library" },
         { kind: "mine", label: "My Questions" },
-        ...folders.items
-          .map((folder) => ({
-            kind: "folder" as const,
-            label: folder.title,
-            folder: folder.reference,
-          })),
+        ...folders.items.map((folder) => ({
+          kind: "folder" as const,
+          label: folder.title,
+          folder: folder.reference,
+        })),
         ...reusable.map((assignment) => ({
           kind: "retainedAssignment" as const,
           label: `Assignment: ${assignment.title}`,
@@ -179,7 +184,7 @@ async function listReusableAssignments(
     questions: assignment.entries
       .filter(
         (entry): entry is Extract<typeof entry, { readonly kind: "fixedQuestion" }> =>
-          entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+          entry.kind === "fixedQuestion" && entry.availability === "available",
       )
       .map((entry) => ({
         questionId: entry.questionId,

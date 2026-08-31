@@ -78,7 +78,7 @@ function decodeFilterText(value: unknown, path: string, maximum: number): string
   return text;
 }
 
-function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearchFilter {
+function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearchFilter {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "text",
@@ -165,7 +165,7 @@ function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearch
           "serverGrading",
           "partialCredit",
           "hints",
-          "perQuestionTiming",
+          "questionAttemptTimeLimit",
           "printExport",
           "offlinePreview",
         ]),
@@ -248,7 +248,7 @@ function decodeSavedQuestionSearch(value: unknown, path: string): SavedQuestionS
   return {
     reference: decodeReference(field(record, "reference", path), `${path}.reference`, "QS"),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
-    filter: decodeCatalogSearchFilter(field(record, "filter", path), `${path}.filter`),
+    filter: decodeQuestionSearchFilter(field(record, "filter", path), `${path}.filter`),
     editNumber: decodeEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
   };
 }
@@ -315,7 +315,7 @@ export function decodeSavedQuestionSearchFilter(
   value: unknown,
   path = "response",
 ): QuestionSearchFilter {
-  return decodeCatalogSearchFilter(value, path);
+  return decodeQuestionSearchFilter(value, path);
 }
 
 export function decodeQuestionFolderQuestionIds(

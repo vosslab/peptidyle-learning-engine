@@ -60,8 +60,8 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 def run_owned_sd1_staged_database(
 	repository_root: pathlib.Path,
 	oracle_runner: Callable[[pathlib.Path, pathlib.Path, int], None] = _run_oracle,
-	lease_factory: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
-	reset_runner_factory: Callable[[], local_stack_control.process.CommandRunner] = local_stack_control.process.SubprocessRunner,
+	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
+	create_command_runner: Callable[[], local_stack_control.process.CommandRunner] = local_stack_control.process.SubprocessRunner,
 	port_selector: Callable[[], int] = _select_loopback_port,
 	port_checker: Callable[[tuple[int, ...], local_stack_control.process.CommandRunner, pathlib.Path], None] = local_stack_control.process.require_available_loopback_ports,
 ) -> None:
@@ -75,8 +75,8 @@ def run_owned_sd1_staged_database(
 		repository_root,
 		"SD1 staged database",
 		profile_oracle,
-		lease_factory,
-		reset_runner_factory,
+		acquire_browser_suite_lease,
+		create_command_runner,
 		lambda: (port_selector(),),
 		port_checker,
 	)

@@ -19,11 +19,11 @@
   },
   "feedback": {},
   "points": 1.0,
-  "attemptPolicy": {
+  "questionAttemptLimit": {
     "maxAttempts": null
   },
-  "timingPolicy": {
-    "kind": "untimed"
+  "questionAttemptTimeLimit": {
+    "kind": "unlimited"
   },
   "tags": [],
   "taxonomy": [],

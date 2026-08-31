@@ -1,6 +1,6 @@
 // assignment_workspace_policy_model.ts - policy-page request construction and local control values.
 
-import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
+import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
@@ -11,11 +11,11 @@ export type PolicyFocusTarget =
   | "availableAt"
   | "dueAt"
   | "closesAt"
-  | "timeLimitSeconds"
+  | "assignmentAttemptTimeLimitSeconds"
   | "attemptLimit"
   | "completionFraction"
   | "additionalRuns"
-  | "variation"
+  | "questionVariationRule"
   | "questions"
   | "schedule";
 
@@ -63,11 +63,11 @@ export function assignmentPolicyFeedbackNeedsQuestionRepair(
 
 /** Keeps the page's focused write closed to the policies-owned aggregate slice. */
 export function assignmentPoliciesInput(
-  disclosurePolicy: AssignmentPoliciesInput["disclosurePolicy"],
+  studentFeedbackReleaseRule: AssignmentPoliciesInput["studentFeedbackReleaseRule"],
   policies: AssignmentPoliciesInput["policies"],
-  teachingSettings: InstructorAssignmentTeachingSettingsLocal,
+  assignmentRevisionDefinition: InstructorAssignmentRevisionDefinitionLocal,
 ): AssignmentPoliciesInput {
-  return { disclosurePolicy, policies, teachingSettings };
+  return { studentFeedbackReleaseRule, policies, assignmentRevisionDefinition };
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */
@@ -77,22 +77,22 @@ export function canonicalCourseLocalTime(value: string): string | null {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
 }
 
-function teachingTarget(
-  field: AssignmentPoliciesValidationIssue & { kind: "teachingSettings" },
+function assignmentRevisionDefinitionTarget(
+  field: AssignmentPoliciesValidationIssue & { kind: "assignmentRevisionDefinition" },
 ): PolicyFocusTarget {
   const target = field.correction.field;
   if (target === "instructions") return "instructions";
   if (target === "availableAt") return "availableAt";
   if (target === "dueAt") return "dueAt";
   if (target === "closesAt") return "closesAt";
-  if (target === "timeLimitSeconds") return "timeLimitSeconds";
+  if (target === "assignmentAttemptTimeLimitSeconds") return "assignmentAttemptTimeLimitSeconds";
   if (target === "attemptLimit") return "attemptLimit";
   if (target === "lifecycle") return "lifecycle";
   return "schedule";
 }
 
-function teachingMessage(
-  reason: AssignmentPoliciesValidationIssue & { kind: "teachingSettings" },
+function assignmentRevisionDefinitionMessage(
+  reason: AssignmentPoliciesValidationIssue & { kind: "assignmentRevisionDefinition" },
 ): string {
   switch (reason.correction.reason) {
     case "courseTimeZoneMismatch":
@@ -105,7 +105,7 @@ function teachingMessage(
       return "Choose a valid course-local date and time.";
     case "scheduleOutOfOrder":
       return "Arrange the available, due, and close times in order.";
-    case "timeLimitOutOfRange":
+    case "assignmentAttemptTimeLimitOutOfRange":
       return "Choose a valid whole Assignment Attempt time limit.";
     case "attemptLimitOutOfRange":
       return "Choose a valid attempt limit.";
@@ -132,7 +132,7 @@ function capabilityLabel(
       return "partial credit";
     case "hints":
       return "hints";
-    case "perQuestionTiming":
+    case "questionAttemptTimeLimit":
       return "per-question timing";
     case "printExport":
       return "print export";
@@ -143,11 +143,11 @@ function capabilityLabel(
 
 function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPolicySaveFeedback {
   switch (issue.kind) {
-    case "teachingSettings":
+    case "assignmentRevisionDefinition":
       return {
         kind: "error",
-        message: teachingMessage(issue),
-        target: teachingTarget(issue),
+        message: assignmentRevisionDefinitionMessage(issue),
+        target: assignmentRevisionDefinitionTarget(issue),
         details: [],
         questionRepairRequired: false,
       };
@@ -155,7 +155,7 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
       return {
         kind: "error",
         message: "Selected Question Variants require fixed Assignment Questions.",
-        target: "variation",
+        target: "questionVariationRule",
         details: [
           "Choose a different next-practice Assignment Attempt rule or revise the Assignment Questions.",
         ],
@@ -167,14 +167,14 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
       return {
         kind: "error",
         message: variationTarget
-          ? "The variation policy needs a compatible question."
+          ? "The Question Variation Rule needs a compatible Question."
           : "One or more assignment questions need attention.",
-        target: variationTarget ? "variation" : "questions",
+        target: variationTarget ? "questionVariationRule" : "questions",
         details: [detail],
         questionRepairRequired: !variationTarget,
       };
     }
-    case "publicationReadiness":
+    case "draftRevisionPublicationReadiness":
       return {
         kind: "error",
         message: "Add at least one question before publishing this assignment.",
@@ -267,14 +267,18 @@ export function nonnegativeIntegerDraft(raw: string): PositiveIntegerDraft {
     : { raw, value: null, valid: false };
 }
 
-export function activityRuleDraftFromRules(policies: AssignmentActivityRules): AssignmentActivityRuleDraft {
+export function activityRuleDraftFromRules(
+  policies: AssignmentActivityRules,
+): AssignmentActivityRuleDraft {
   return {
     completionFraction: numberDraft(
-      policies.completion.kind === "scoreAtLeast" ? policies.completion.fraction : 0.8,
+      policies.assignmentCompletionRule.kind === "scoreAtLeast"
+        ? policies.assignmentCompletionRule.fraction
+        : 0.8,
     ),
     additionalRuns: numberDraft(
-      policies.continuedPractice.kind === "capped"
-        ? policies.continuedPractice.maxAdditionalRuns
+      policies.assignmentAttemptContinuationRule.kind === "capped"
+        ? policies.assignmentAttemptContinuationRule.maxAdditionalRuns
         : 3,
     ),
   };
@@ -287,12 +291,12 @@ export function mergeSavedActivityRuleDraft(
 ): AssignmentActivityRuleDraft {
   return {
     completionFraction:
-      saved.completion.kind === "scoreAtLeast"
-        ? numberDraft(saved.completion.fraction)
+      saved.assignmentCompletionRule.kind === "scoreAtLeast"
+        ? numberDraft(saved.assignmentCompletionRule.fraction)
         : current.completionFraction,
     additionalRuns:
-      saved.continuedPractice.kind === "capped"
-        ? numberDraft(saved.continuedPractice.maxAdditionalRuns)
+      saved.assignmentAttemptContinuationRule.kind === "capped"
+        ? numberDraft(saved.assignmentAttemptContinuationRule.maxAdditionalRuns)
         : current.additionalRuns,
   };
 }

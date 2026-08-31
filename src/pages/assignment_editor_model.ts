@@ -4,7 +4,7 @@ import type { FixedQuestionAssignmentEntrySummary } from "../../generated/api/Fi
 import type { QuestionPoolAssignmentEntrySummary } from "../../generated/api/QuestionPoolAssignmentEntrySummary";
 import type { AssignmentEntrySummary } from "../../generated/api/AssignmentEntrySummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
+import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
@@ -36,12 +36,15 @@ export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySum
 export interface AssignmentEditorQuestionPoolEntry {
   readonly kind: "questionPool";
   readonly id?: string;
+  readonly availability: "available" | "retired";
+  readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
   readonly candidates: ReadonlyArray<AssignmentQuestionRow>;
   readonly drawCount: number;
   readonly pointsPerItem: string;
-  readonly ordering: "candidateOrder" | "randomized";
-  /** The only currently executable server algorithm. It is intentionally not editable. */
-  readonly algorithmVersion: 1;
+  readonly selectionRule: {
+    readonly algorithm: "v1";
+    readonly ordering: "candidateOrder" | "randomized";
+  };
 }
 
 export type AssignmentEditorEntry =
@@ -54,7 +57,7 @@ export interface AssignmentEditorDraft {
   /** One ordered definition, shared by fixed questions and Question Pools. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
   readonly policies: AssignmentActivityRules;
-  readonly disclosurePolicy: StudentDisclosurePolicy;
+  readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
   readonly revision: string;
 }
 
@@ -65,7 +68,7 @@ export function assignmentEditorDraftFrom(detail: AssignmentEditorDetail): Assig
     title: detail.title,
     entries: detail.entries.map(assignmentEditorEntryFrom),
     policies: detail.policies,
-    disclosurePolicy: detail.disclosurePolicy,
+    studentFeedbackReleaseRule: detail.studentFeedbackReleaseRule,
     revision: detail.revision,
   };
 }
@@ -79,12 +82,14 @@ export function fixedQuestionEntry(
 export function questionPoolEntry(
   entry: QuestionPoolAssignmentEntrySummary,
 ): AssignmentEditorQuestionPoolEntry {
-  if (entry.algorithmVersion !== 1) {
+  if (entry.selectionRule.algorithm !== "v1") {
     throw new Error("This assignment uses an unsupported pool draw algorithm.");
   }
   return {
     kind: "questionPool",
     id: entry.id,
+    availability: entry.availability,
+    scoringRule: entry.scoringRule,
     candidates: entry.candidates.map((candidate) => ({
       questionId: candidate.questionId,
       title: candidate.title,
@@ -92,8 +97,7 @@ export function questionPoolEntry(
     })),
     drawCount: entry.drawCount,
     pointsPerItem: entry.pointsPerItem,
-    ordering: entry.ordering,
-    algorithmVersion: 1,
+    selectionRule: entry.selectionRule,
   };
 }
 
@@ -143,8 +147,8 @@ export function appendFixedEntries(
         backend: row.backend,
         capabilities: [],
         pointsPossible: "1",
-        deliveryState: "active",
-        scoringMode: "normal",
+        availability: "available",
+        scoringRule: "normal",
       }),
     ),
   ];
@@ -155,10 +159,11 @@ export function appendQuestionPool(draft: AssignmentEditorDraft): AssignmentEdit
   const questionPool: AssignmentEditorQuestionPoolEntry = {
     kind: "questionPool",
     candidates: [],
+    availability: "available",
+    scoringRule: "normal",
     drawCount: 1,
     pointsPerItem: "1",
-    ordering: "candidateOrder",
-    algorithmVersion: 1,
+    selectionRule: { algorithm: "v1", ordering: "candidateOrder" },
   };
   return { ...draft, entries: [...draft.entries, questionPool] };
 }
@@ -169,16 +174,18 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
       kind: "fixedQuestion",
       questionId: entry.questionId,
       pointsPossible: entry.pointsPossible,
-      deliveryState: entry.deliveryState,
-      scoringMode: entry.scoringMode,
+      availability: entry.availability,
+      scoringRule: entry.scoringRule,
     };
   }
   return {
     kind: "questionPool",
     candidateQuestionIds: entry.candidates.map((candidate) => candidate.questionId),
+    availability: entry.availability,
+    scoringRule: entry.scoringRule,
     drawCount: entry.drawCount,
     pointsPerItem: entry.pointsPerItem,
-    ordering: entry.ordering,
+    selectionRule: entry.selectionRule,
   };
 }
 
@@ -190,9 +197,7 @@ export function assignmentContentInput(draft: AssignmentEditorDraft): Assignment
   };
 }
 
-export function validateQuestionPoolEntry(
-  entry: AssignmentEditorQuestionPoolEntry,
-): string | null {
+export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEntry): string | null {
   if (entry.candidates.length === 0) return "Add at least one candidate Question ID.";
   if (entry.candidates.length > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
     return `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer.`;
@@ -218,7 +223,8 @@ export function validateAssignmentEditorDraft(draft: AssignmentEditorDraft): str
   for (const entry of draft.entries) {
     if (entry.kind !== "questionPool") continue;
     const entryError = validateQuestionPoolEntry(entry);
-    if (entryError !== null) return `Question pool ${draft.entries.indexOf(entry) + 1}: ${entryError}`;
+    if (entryError !== null)
+      return `Question pool ${draft.entries.indexOf(entry) + 1}: ${entryError}`;
     totalCandidates += entry.candidates.length;
     if (totalCandidates > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
       return `Keep all pools to ${MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES} candidate Question IDs or fewer.`;
@@ -244,7 +250,9 @@ export function parseExactProblemDisplayReferences(value: string): ReadonlyArray
 export function capabilityLabel(capability: Capability): string {
   return capability.replace(/([A-Z])/gu, " $1").toLowerCase();
 }
-export function assignmentProblemLabel(row: AssignmentQuestionRow | FixedQuestionAssignmentEntrySummary): string {
+export function assignmentProblemLabel(
+  row: AssignmentQuestionRow | FixedQuestionAssignmentEntrySummary,
+): string {
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {

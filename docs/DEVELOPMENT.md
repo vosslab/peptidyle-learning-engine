@@ -123,14 +123,14 @@ instructor-visible UI, URLs, copyable links, or public fixtures.
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 active work package.
 
-| Change or concern                          | Command                                                     | What it proves                                                                            |
-| ------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                           | The complete offline Cargo and Rust gate.                                                 |
-| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                       | The vendored TypeScript and Node gate.                                                    |
-| Repository documentation and hygiene       | `source source_me.sh && .venv/bin/python -m pytest tests/` | Fast Python hygiene and repository-rule checks.                                           |
+| Change or concern                          | Command                                                             | What it proves                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                                   | The complete offline Cargo and Rust gate.                            |
+| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                               | The vendored TypeScript and Node gate.                               |
+| Repository documentation and hygiene       | `source source_me.sh && .venv/bin/python -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
 | Connected current acceptance               | `source source_me.sh && .venv/bin/python local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
-| Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                              | The named disposable whole-system oracle.                                                 |
-| Local stack diagnosis and lifecycle        | `source source_me.sh && .venv/bin/python local_stack.py <command>` | The scoped controller contract.                                                           |
+| Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                                      | The named disposable whole-system oracle.                            |
+| Local stack diagnosis and lifecycle        | `source source_me.sh && .venv/bin/python local_stack.py <command>`  | The scoped controller contract.                                      |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see

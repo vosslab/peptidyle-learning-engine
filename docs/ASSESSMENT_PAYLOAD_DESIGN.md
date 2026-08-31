@@ -79,11 +79,11 @@ authorization selector.
 
 ### Current render payload
 
-The implemented [QuestionEnvelope](../crates/question_model/src/envelope.rs) is deliberately
-answer-free. It currently contains:
+The implemented [QuestionPresentation](../crates/question_model/src/envelope.rs) is deliberately
+answer-free. Its nested [QuestionVariation](../crates/question_model/src/envelope.rs) retains the
+exact Question Version, seed, and declared generator recipe in server/cache evidence; its browser
+serialization carries only the version-and-seed binding. The presentation contains:
 
-- immutable question `version`;
-- server-issued `seed`;
 - student-facing `title`;
 - ordered prompt blocks for text, math, images, code, and tables;
 - public asset IDs, SHA-256 checksums, and accessible descriptions; and
@@ -105,10 +105,10 @@ routes. This keeps a large image from being retransmitted with every question or
 
 ### Current attempt projection
 
-The current browser run screen receives a complete
-[QuestionAttempt](../crates/question_model/src/activity.rs). That persistence record contains:
+The current browser Assignment Attempt screen receives a complete
+[QuestionAttempt](../crates/question_model/src/lib.rs). That persistence record contains:
 
-- course, Student, run, immutable problem/version reference, assignment position, and seed;
+- course, Student Record, Assignment Attempt, immutable Question Version reference, Assignment Entry, and seed;
 - parameter hash, response, status, result, and timer state; and
 - adapter, renderer, generator, source-object, asset-object, grading, and rendered-hash provenance.
 
@@ -117,8 +117,9 @@ needs only the attempt ID, student-visible deadline, presentation binding, and p
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
 implementation versions, or complete provenance.
 
-The implemented `getRunScreen` client currently assembles a screen by loading the run, enrollment,
-cursor-paged attempts, assignment, course, appearance, and issued question. In a one-time wire
+The implemented `getAssignmentAttemptScreen` client currently assembles a screen by loading the
+Assignment Attempt, Student Record, cursor-paged Question Attempts, Assignment, Course Instance,
+appearance, and Issued Question. In a one-time wire
 fixture,
 that required at least seven JSON responses across four dependent waves. A purpose-built server
 projection can perform those relationship checks once and return one bounded student screen.
@@ -235,7 +236,7 @@ descriptor, and one public envelope:
 ```
 
 The Assignment Attempt reference is already in the request path. The response omits complete Student Record, assignment,
-course, Student, Question Attempt, and provenance records. The authenticated server resolves Student ownership
+course, Student, Question Attempt, and Question Attempt Source Records. The authenticated server resolves Student ownership
 from the exact Course Membership; the browser does not choose or receive a Student identifier. The
 browser receives `version` and `seed` because they help identify and reproduce the public render, but
 it does not send either value back when answering.
@@ -686,7 +687,7 @@ easy to navigate without duplicating its exact migration and codec specification
 ### WP-P5: Browser recovery
 
 - Owner: SolidJS browser implementation with HCI review.
-- Files: API decoders/query owner, run page, attempt state, response widgets, Wasm bridge, and
+- Files: API decoders/query owner, run page, attempt state, question response controls, Wasm bridge, and
   Playwright scenarios.
 - Behavior: consume the single student screen, compute/verify through Wasm, gate required asset
   readiness, submit the compact body, and recover compatible drafts after same-attempt refresh.
@@ -756,7 +757,7 @@ Historical records remain available through bounded history and summary projecti
 is never deleted or recreated as a shortcut. File upload and external-tool submission contracts stay
 out of this v1 cutover because they require separate object-transfer and broker designs. The file
 boundary is specified separately in
-  `docs/active_plans/active/secure_student_file_upload_plan.md`.
+`docs/active_plans/active/secure_student_file_upload_plan.md`.
 
 ## Final decisions
 

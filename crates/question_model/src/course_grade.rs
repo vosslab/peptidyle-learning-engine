@@ -105,7 +105,7 @@ pub enum CourseGradeRoundingRule {
 /// A grade category with its exact contribution to a weighted course total.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WeightedGradeCategory {
+pub struct GradeCategory {
     /// Stable category identifier selected by included assignments.
     pub id: GradeCategoryId,
     /// Human-readable category title shown to the instructor.
@@ -255,7 +255,7 @@ pub struct CourseGradeScheme {
     /// Explicit, shared final-score rounding rule.
     pub rounding: CourseGradeRoundingRule,
     /// Ordered categories; required and empty only for total-points mode.
-    pub categories: Vec<WeightedGradeCategory>,
+    pub categories: Vec<GradeCategory>,
     /// Descending threshold bands applied after final rounding.
     pub letter_bands: Vec<LetterBand>,
 }
@@ -327,7 +327,7 @@ impl<'de> Deserialize<'de> for CourseGradeScheme {
         struct RawCourseGradeScheme {
             mode: CourseGradeMode,
             rounding: CourseGradeRoundingRule,
-            categories: Vec<WeightedGradeCategory>,
+            categories: Vec<GradeCategory>,
             letter_bands: Vec<LetterBand>,
         }
         let raw = RawCourseGradeScheme::deserialize(deserializer)?;
@@ -369,8 +369,8 @@ impl std::error::Error for CourseGradeSchemeError {}
 mod tests {
     use super::*;
 
-    fn category(id: u128, position: u32, weight_basis_points: u16) -> WeightedGradeCategory {
-        WeightedGradeCategory {
+    fn category(id: u128, position: u32, weight_basis_points: u16) -> GradeCategory {
+        GradeCategory {
             id: GradeCategoryId::from_uuid(Uuid::from_u128(id)),
             title: GradeCategoryTitle::new("Labs").expect("valid title"),
             position,

@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useParams } from "@solidjs/router";
 import { Show, createResource, createSignal, type JSX } from "solid-js";
 
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useWasmFacade } from "../wasm/context";
 import {
   createFlatQuestionClient,
@@ -26,7 +26,7 @@ import { resolveWorkspaceRoute } from "../navigation/resolved_route";
 
 /** `/workspace`: a server-backed private draft list with its first draft selected. */
 export function WorkspaceListLivePage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const navigate = useNavigate();
   const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
   async function createFlatQuestion(): Promise<void> {
@@ -37,7 +37,9 @@ export function WorkspaceListLivePage(): JSX.Element {
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
-      onOpenDraft={(draft) => navigate(`/workspace/${authoringWorkspaceRouteReference(draft.reference)}`)}
+      onOpenDraft={(draft) =>
+        navigate(`/workspace/${authoringWorkspaceRouteReference(draft.reference)}`)
+      }
       onCreateFlatQuestion={createFlatQuestion}
     />
   );
@@ -48,7 +50,7 @@ interface WorkspaceEditorResolvedProps {
 }
 
 function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const wasm = useWasmFacade();
   const workspace = props.workspace;
   const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
@@ -134,7 +136,7 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
 
 /** Resolves a visible `W-n` locator before mounting the private editor transport. */
 export function WorkspaceEditorLivePage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const params = useParams();
   const location = useLocation<{ readonly workspace?: unknown }>();
   const [workspace] = createResource(

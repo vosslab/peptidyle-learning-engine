@@ -3,7 +3,7 @@
 import { createAsync } from "@solidjs/router";
 import { createMemo, createSignal, Show, type JSX } from "solid-js";
 
-import { useApiRuntime } from "../../api/runtime";
+import { useApplicationApi } from "../../api/application_api";
 import type { CourseRouteData } from "../../api/contracts";
 import {
   CourseManagementFrame,
@@ -17,7 +17,11 @@ import {
 } from "./course_theme_context";
 import { courseThemeRouteRequest, type CourseThemeRouteRequest } from "./course_theme_route";
 import { COURSE_THEME_SCOPE_STYLES } from "./course_theme_scope_styles";
-import { courseThemeStyle, courseThemeTokens, type CourseThemeTokens } from "./theme_catalog";
+import {
+  courseThemeStyle,
+  courseThemeTokens,
+  type CourseThemeTokens,
+} from "./course_theme_registry";
 import { resolveAssignmentAttemptRoute, resolveCourseRoute } from "../../navigation/resolved_route";
 import { courseRouteReference } from "../../navigation/public_route";
 import type { CourseId } from "../../../generated/api/CourseId";
@@ -46,7 +50,7 @@ interface ResolvedCourseThemeScopeProps {
 }
 
 function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
 
   const resolvedReference = createAsync<ResolvedThemeReference>(async () => {
     switch (props.request.kind) {

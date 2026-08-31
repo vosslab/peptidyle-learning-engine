@@ -12,9 +12,9 @@ use std::sync::Arc;
 use domain::draft_preview::PresentationError;
 use domain::generator::{GeneratedVariant, GenerationError};
 use grading::GradingError;
-use question_model::envelope::{ContentBlock, QuestionEnvelope};
+use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::{
-    AssetId, AttemptProvenance, ImplementationVersion, ObjectId, QuestionTitleError,
+    AssetId, ImplementationVersion, ObjectId, QuestionAttemptSourceRecord, QuestionTitleError,
 };
 
 use crate::generator::NativeQuestionImplementation;
@@ -37,7 +37,7 @@ use registry::{
 };
 
 #[cfg(test)]
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 #[cfg(test)]
 use question_model::QuestionDefinition;
 #[cfg(test)]
@@ -83,11 +83,11 @@ pub struct AssetObjectBinding {
 #[derive(Debug, Clone, PartialEq)]
 pub struct NativeIssuedAttempt {
     /// Generated prompt and response shape safe to deliver to the browser.
-    pub envelope: QuestionEnvelope,
+    pub envelope: QuestionPresentation,
     /// SHA-256 of the canonical generated parameter map.
     pub parameter_hash: String,
     /// Versions and object identities needed to reproduce the attempt.
-    pub provenance: AttemptProvenance,
+    pub source_record: QuestionAttemptSourceRecord,
 }
 
 /// Server-only author presentation for one native draft seed.
@@ -124,7 +124,7 @@ pub struct NativeAdapter {
 struct PreparedNativeQuestion {
     generated: GeneratedVariant,
     materialized: MaterializedNativeQuestion,
-    envelope: QuestionEnvelope,
+    envelope: QuestionPresentation,
     parameter_hash: String,
     rendered_question_sha256: String,
 }

@@ -124,16 +124,16 @@ For example:
 
 ```ts
 interface QuestionDefinition {
-	id: string
-	source: QuestionSource
-	version: string
-	prompt: QuestionContent
-	response: ResponseDefinition
-	attemptPolicy: AttemptPolicy
-	timingPolicy: TimingPolicy
-	randomization?: RandomizationDefinition
-	grading: GradingDefinition
-	metadata: QuestionMetadata
+  id: string;
+  source: QuestionSource;
+  version: string;
+  prompt: QuestionContent;
+  responseFormat: QuestionResponseFormat;
+  attemptPolicy: AttemptPolicy;
+  timingPolicy: TimingPolicy;
+  randomization?: RandomizationDefinition;
+  grading: GradingDefinition;
+  metadata: QuestionMetadata;
 }
 ```
 
@@ -142,15 +142,15 @@ The internal model should represent platform behavior without requiring every ba
 Each backend adapter should publish its capabilities.
 
 ```ts
-interface BackendCapabilities {
-	algorithmicGeneration: boolean
-	clientRendering: boolean
-	serverGrading: boolean
-	partialCredit: boolean
-	hints: boolean
-	perQuestionTiming: boolean
-	printExport: boolean
-	offlinePreview: boolean
+interface QuestionBackendCapabilities {
+  algorithmicGeneration: boolean;
+  clientRendering: boolean;
+  serverGrading: boolean;
+  partialCredit: boolean;
+  hints: boolean;
+  perQuestionTiming: boolean;
+  printExport: boolean;
+  offlinePreview: boolean;
 }
 ```
 
@@ -162,26 +162,15 @@ Each question system should implement a common adapter boundary.
 
 ```ts
 interface QuestionBackendAdapter {
-	getCapabilities(): BackendCapabilities
+  getCapabilities(): QuestionBackendCapabilities;
 
-	loadQuestion(
-		reference: ExternalQuestionReference
-	): Promise<QuestionDefinition>
+  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionDefinition>;
 
-	createAttempt(
-		question: QuestionDefinition,
-		context: AttemptContext
-	): Promise<QuestionAttempt>
+  createAttempt(question: QuestionDefinition, context: AttemptContext): Promise<QuestionAttempt>;
 
-	gradeAttempt(
-		attempt: QuestionAttempt,
-		response: StudentResponse
-	): Promise<GradeResult>
+  gradeAttempt(attempt: QuestionAttempt, response: StudentResponse): Promise<GradeResult>;
 
-	exportQuestion?(
-		question: QuestionDefinition,
-		format: ExportFormat
-	): Promise<ExportedQuestion>
+  exportQuestion?(question: QuestionDefinition, format: ExportFormat): Promise<ExportedQuestion>;
 }
 ```
 
@@ -200,25 +189,21 @@ An assignment contains question references and policy definitions.
 
 ```ts
 interface Assignment {
-	id: string
-	title: string
-	mode: AssignmentMode
-	questions: AssignmentQuestion[]
-	completionPolicy: CompletionPolicy
-	timingPolicy: TimingPolicy
-	attemptPolicy: AttemptPolicy
-	availability: AvailabilityPolicy
+  id: string;
+  title: string;
+  mode: AssignmentMode;
+  questions: AssignmentQuestion[];
+  completionPolicy: CompletionPolicy;
+  timingPolicy: TimingPolicy;
+  attemptPolicy: AttemptPolicy;
+  availability: AvailabilityPolicy;
 }
 ```
 
 Primary modes:
 
 ```ts
-type AssignmentMode =
-	| "mastery"
-	| "quiz"
-	| "exam"
-	| "practice"
+type AssignmentMode = "mastery" | "quiz" | "exam" | "practice";
 ```
 
 ### Mastery mode

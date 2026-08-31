@@ -5,8 +5,8 @@ use std::fmt::Write as _;
 use objects::ObjectKey;
 use question_model::generation::Seed;
 use question_model::{
-    ImplementationVersion, ObjectId, QuestionDefinition, QuestionEnvelope, QuestionSource,
-    QuestionVersionReference, SourceArtifact,
+    ImplementationVersion, ObjectId, QuestionDefinition, QuestionPresentation, QuestionSource,
+    QuestionVersionReference, SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,10 +18,10 @@ use crate::{GradeBinding, ImathasAdapterError, ImathasSource};
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct CachedRender {
     pub(super) schema: u8,
-    pub(super) source: SourceArtifact,
+    pub(super) source: SourceObjectReference,
     pub(super) provider: String,
     pub(super) profile: String,
-    pub(super) envelope: QuestionEnvelope,
+    pub(super) envelope: QuestionPresentation,
 }
 
 pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterError> {
@@ -38,12 +38,12 @@ pub(super) fn validate_cache(
         || cached.source != source.artifact
         || cached.provider != source.provider
         || cached.profile != source.profile
-        || cached.envelope.question_version
+        || cached.envelope.variation.question_version
             != (QuestionVersionReference {
                 question_id: question.question_id.clone(),
                 version_number: question.version_number,
             })
-        || cached.envelope.seed != seed
+        || cached.envelope.variation.seed != seed
         || question_model::validate_question_title(&cached.envelope.title).is_err()
         || !matches!(
             cached.envelope.response,

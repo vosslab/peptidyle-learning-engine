@@ -8,13 +8,13 @@
 
 use domain::generator::GeneratedVariant;
 use grading::AnswerKey;
-use question_model::capability::BackendCapabilities;
+use question_model::capability::QuestionBackendCapabilities;
 use question_model::definition::DraftQuestionDefinition;
 use question_model::envelope::ContentBlock;
-use question_model::envelope::QuestionEnvelope;
+use question_model::envelope::QuestionPresentation;
 use question_model::generation::GeneratorReference;
 use question_model::{
-    AttemptResult, FeedbackContent, ImplementationVersion, QuestionDefinition, QuestionFormat,
+    FeedbackContent, GradingResult, ImplementationVersion, QuestionDefinition, QuestionFormat,
     QuestionType, StudentResponse,
 };
 
@@ -56,7 +56,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     fn generator(&self) -> Option<GeneratorReference>;
 
     /// Capabilities this implementation can honestly provide now.
-    fn capabilities(&self) -> BackendCapabilities;
+    fn capabilities(&self) -> QuestionBackendCapabilities;
 
     /// Derives server-only grading material after shared prompt materialization.
     ///
@@ -78,9 +78,9 @@ pub trait NativeQuestionImplementation: Send + Sync {
         &self,
         question: &QuestionDefinition,
         generated: &GeneratedVariant,
-        envelope: &QuestionEnvelope,
+        envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
-        result: &AttemptResult,
+        result: &GradingResult,
         response: &StudentResponse,
     ) -> Result<FeedbackContent, NativeAdapterError> {
         let _ = (question, generated, envelope, answer_key, result, response);

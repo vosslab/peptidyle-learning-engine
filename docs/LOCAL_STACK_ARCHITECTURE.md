@@ -73,11 +73,11 @@ one.
 
 ## Volumes
 
-| Volume                 | Owner                             | Meaning                                                                                                                                   |
-| ---------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `ple_pgdata`           | PostgreSQL                        | Durable relational authority. Preserve it across normal `down` and rebuild operations.                                                    |
-| `ple_miniodata`        | MinIO                             | Durable object bytes and metadata. Preserve it with the relational volume.                                                                |
-| `ple_identity_runtime` | Secret initializer and API        | Runtime-only permission-normalized invitation issuer and Question ID capability copies, mounted only by the API; not educational records. |
+| Volume                 | Owner                      | Meaning                                                                                                                                   |
+| ---------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ple_pgdata`           | PostgreSQL                 | Durable relational authority. Preserve it across normal `down` and rebuild operations.                                                    |
+| `ple_miniodata`        | MinIO                      | Durable object bytes and metadata. Preserve it with the relational volume.                                                                |
+| `ple_identity_runtime` | Secret initializer and API | Runtime-only permission-normalized invitation issuer and Question ID capability copies, mounted only by the API; not educational records. |
 
 PostgreSQL, MinIO, and `createbuckets` use fixed non-root identities, immutable
 container roots, empty capability sets, `no-new-privileges`, bounded resources,

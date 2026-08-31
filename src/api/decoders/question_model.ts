@@ -1,6 +1,6 @@
 // Authoring and publication decoders.
 
-import type { AttemptPolicy } from "../../../generated/api/AttemptPolicy";
+import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemptLimit";
 import type { ContentBlock } from "../../../generated/api/ContentBlock";
 import type { DraftQuestionSource } from "../../../generated/api/DraftQuestionSource";
 import type { GradingDefinition } from "../../../generated/api/GradingDefinition";
@@ -9,7 +9,7 @@ import type { QuestionSource } from "../../../generated/api/QuestionSource";
 import type { RandomizationDefinition } from "../../../generated/api/RandomizationDefinition";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
-import type { TimingPolicy } from "../../../generated/api/TimingPolicy";
+import type { QuestionAttemptTimeLimit } from "../../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraftSummary";
 import type { WorkspaceRouteReference } from "../../navigation/public_route";
 import { parseWorkspaceReference } from "../../navigation/public_route";
@@ -106,7 +106,11 @@ export function decodeKeyFreeDraftPreview(
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeQuestionResponseFormat(field(record, "response", path), `${path}.response`, true),
+    response: decodeQuestionResponseFormat(
+      field(record, "response", path),
+      `${path}.response`,
+      true,
+    ),
   };
 }
 
@@ -240,7 +244,7 @@ export function decodeGeneratorReference(
   };
 }
 
-function decodeParameterSpec(value: unknown, path: string, strict = false): ParameterSpec {
+export function decodeParameterSpec(value: unknown, path: string, strict = false): ParameterSpec {
   const record = decodeRecord(value, path);
   const parameter = kind(record, path);
   switch (parameter) {
@@ -329,7 +333,11 @@ export function decodeRandomization(
   }
 }
 
-export function decodeAttemptPolicy(value: unknown, path: string, strict = false): AttemptPolicy {
+export function decodeQuestionAttemptLimit(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionAttemptLimit {
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, ["maxAttempts"]);
@@ -340,21 +348,20 @@ export function decodeAttemptPolicy(value: unknown, path: string, strict = false
       `${path}.maxAttempts`,
       decodePositiveInteger,
     ),
-  } satisfies AttemptPolicy;
+  } satisfies QuestionAttemptLimit;
   return decoded;
 }
 
-export function decodeTimingPolicy(value: unknown, path: string, strict = false): TimingPolicy {
+export function decodeQuestionAttemptTimeLimit(value: unknown, path: string, strict = false): QuestionAttemptTimeLimit {
   const record = decodeRecord(value, path);
   const timing = kind(record, path);
   switch (timing) {
-    case "untimed":
+    case "unlimited":
       if (strict) {
         requireOnlyFields(record, path, ["kind"]);
       }
       return { kind: timing };
-    case "perQuestion":
-    case "perAttempt": {
+    case "limited": {
       if (strict) {
         requireOnlyFields(record, path, ["kind", "seconds", "graceSeconds"]);
       }
@@ -365,7 +372,7 @@ export function decodeTimingPolicy(value: unknown, path: string, strict = false)
           field(record, "graceSeconds", path),
           `${path}.graceSeconds`,
         ),
-      } satisfies TimingPolicy;
+      } satisfies QuestionAttemptTimeLimit;
       return decoded;
     }
     default:
@@ -411,7 +418,10 @@ export function decodeWorkspaceDraftSummary(
   requireOnlyFields(record, path, ["workspace", "reference", "title", "sourceBackend"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    reference: decodeAuthoringWorkspaceReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeAuthoringWorkspaceReference(
+      field(record, "reference", path),
+      `${path}.reference`,
+    ),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     sourceBackend: decodeStringEnum(
       field(record, "sourceBackend", path),
@@ -449,8 +459,8 @@ const PUBLICATION_FIELDS = [
   "title",
   "prompt",
   "response",
-  "attemptPolicy",
-  "timingPolicy",
+  "questionAttemptLimit",
+  "questionAttemptTimeLimit",
   "randomization",
   "metadata",
 ] as const;
@@ -525,8 +535,8 @@ function decodePublicationSemanticProjection(
     "title",
     "prompt",
     "response",
-    "attemptPolicy",
-    "timingPolicy",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
     "randomization",
     "metadata",
   ]);
@@ -584,14 +594,14 @@ function decodePublicationSemanticProjection(
       ),
     },
     response: { kind: responseKind, optionCount },
-    attemptPolicy: decodeAttemptPolicy(
-      field(record, "attemptPolicy", path),
-      `${path}.attemptPolicy`,
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
       true,
     ),
-    timingPolicy: decodeTimingPolicy(
-      field(record, "timingPolicy", path),
-      `${path}.timingPolicy`,
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
       true,
     ),
     randomization: {

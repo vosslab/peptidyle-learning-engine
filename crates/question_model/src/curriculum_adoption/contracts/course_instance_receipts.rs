@@ -1,12 +1,12 @@
 //! Immutable server receipt evidence for CourseInstance operations.
 
-use crate::{AccountId, ActivityTimestamp, CourseTerm, ResolvedRelativeAssignmentSchedule};
+use crate::{AccountId, ActivityTimestamp, CourseTerm, ResolvedAssignmentSchedule};
 
 use super::{
-    AppliedAssignmentImportEvidence, AssignmentImportReceiptTarget, BoundedResolvedScheduleSet,
-    ControlledUpdateEffect, CourseInstanceBlueprintApplication, CourseInstanceCreationWitness,
-    CourseInstanceImportWitness, CourseInstanceWitness, CurriculumAdoptionIdempotencyKey,
-    CurriculumImportRevision, RolloverCourseInstanceManifest,
+    AssignmentImportReceiptTarget, AssignmentSourceRecord, AssignmentSourceSnapshot,
+    BlueprintOperationRetryToken, BoundedResolvedScheduleSet, ControlledUpdateEffect,
+    CourseInstanceCreationReservation, CourseInstanceSnapshot, CourseOrigin,
+    CourseRolloverManifest, CurriculumImportRevision,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,20 +22,20 @@ pub enum CourseInstanceOperationKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CourseInstanceReceiptBinding {
     operation: CourseInstanceOperationKind,
-    precondition: CourseInstanceWitness,
-    outcome: CourseInstanceWitness,
-    blueprint_application: CourseInstanceBlueprintApplication,
+    precondition: CourseInstanceSnapshot,
+    outcome: CourseInstanceSnapshot,
+    course_origin: CourseOrigin,
     authorized_account: AccountId,
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
     request_digest: [u8; 32],
     server_time: ActivityTimestamp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CourseInstanceReceiptAuthority {
-    blueprint_application: CourseInstanceBlueprintApplication,
+    course_origin: CourseOrigin,
     authorized_account: AccountId,
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
     request_digest: [u8; 32],
     server_time: ActivityTimestamp,
 }
@@ -43,15 +43,15 @@ struct CourseInstanceReceiptAuthority {
 impl CourseInstanceReceiptBinding {
     fn new(
         operation: CourseInstanceOperationKind,
-        precondition: CourseInstanceWitness,
-        outcome: CourseInstanceWitness,
+        precondition: CourseInstanceSnapshot,
+        outcome: CourseInstanceSnapshot,
         authority: CourseInstanceReceiptAuthority,
     ) -> Self {
         Self {
             operation,
             precondition,
             outcome,
-            blueprint_application: authority.blueprint_application,
+            course_origin: authority.course_origin,
             authorized_account: authority.authorized_account,
             idempotency_key: authority.idempotency_key,
             request_digest: authority.request_digest,
@@ -62,26 +62,26 @@ impl CourseInstanceReceiptBinding {
     pub fn operation(&self) -> CourseInstanceOperationKind {
         self.operation
     }
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.outcome
     }
     /// Returns the exact current witness consumed by the server-held command.
-    pub fn precondition(&self) -> &CourseInstanceWitness {
+    pub fn precondition(&self) -> &CourseInstanceSnapshot {
         &self.precondition
     }
     /// Returns the exact resulting witness after the mutation completed.
-    pub fn outcome(&self) -> &CourseInstanceWitness {
+    pub fn outcome(&self) -> &CourseInstanceSnapshot {
         &self.outcome
     }
 
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.blueprint_application
+    pub fn course_origin(&self) -> CourseOrigin {
+        self.course_origin
     }
     /// Returns the authenticated account bound by the consumed server apply record.
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
     pub fn request_digest(&self) -> [u8; 32] {
@@ -94,13 +94,13 @@ impl CourseInstanceReceiptBinding {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RolloverCourseInstanceReceipt {
-    source_course_instance: CourseInstanceWitness,
-    source_blueprint_application: CourseInstanceBlueprintApplication,
-    created_course_instance: CourseInstanceWitness,
-    created_blueprint_application: CourseInstanceBlueprintApplication,
-    created_from: CourseInstanceCreationWitness,
+    source_course_instance: CourseInstanceSnapshot,
+    source_course_origin: CourseOrigin,
+    created_course_instance: CourseInstanceSnapshot,
+    created_course_origin: CourseOrigin,
+    created_from: CourseInstanceCreationReservation,
     target_term: CourseTerm,
-    manifest: RolloverCourseInstanceManifest,
+    manifest: CourseRolloverManifest,
     server_time: ActivityTimestamp,
 }
 
@@ -114,16 +114,16 @@ pub struct ShiftCourseInstanceTermReceipt {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ControlledUpdateBlueprintAssignmentReceipt {
     binding: CourseInstanceReceiptBinding,
-    consumed_import: CourseInstanceImportWitness,
-    applied: AppliedAssignmentImportEvidence,
+    consumed_import: AssignmentSourceSnapshot,
+    applied: AssignmentSourceRecord,
     effect: ControlledUpdateEffect,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CreateSelectedBlueprintAssignmentReceipt {
+pub struct CopyAssignmentFromBlueprintReceipt {
     binding: CourseInstanceReceiptBinding,
-    applied: AppliedAssignmentImportEvidence,
-    schedule: ResolvedRelativeAssignmentSchedule,
+    applied: AssignmentSourceRecord,
+    schedule: ResolvedAssignmentSchedule,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,16 +166,11 @@ impl RolloverCourseInstanceReceipt {
     /// Builds immutable rollover evidence from the consumed server apply record.
     pub fn from_server_record(
         record: super::RolloverCourseInstanceApplyRecord,
-        created_course_instance: CourseInstanceWitness,
+        created_course_instance: CourseInstanceSnapshot,
         server_time: ActivityTimestamp,
     ) -> Result<Self, RolloverCourseInstanceReceiptError> {
-        let (
-            source_course_instance,
-            source_blueprint_application,
-            target_term,
-            manifest,
-            created_from,
-        ) = record.into_receipt_parts();
+        let (source_course_instance, source_course_origin, target_term, manifest, created_from) =
+            record.into_receipt_parts();
         if !created_from.matches_rollover_source(&source_course_instance) {
             return Err(RolloverCourseInstanceReceiptError::CreationSourceMismatch);
         }
@@ -187,9 +182,9 @@ impl RolloverCourseInstanceReceipt {
         }
         Ok(Self {
             source_course_instance,
-            source_blueprint_application,
+            source_course_origin,
             created_course_instance,
-            created_blueprint_application: source_blueprint_application,
+            created_course_origin: source_course_origin,
             created_from,
             target_term,
             manifest,
@@ -197,28 +192,28 @@ impl RolloverCourseInstanceReceipt {
         })
     }
 
-    pub fn source_course_instance(&self) -> &CourseInstanceWitness {
+    pub fn source_course_instance(&self) -> &CourseInstanceSnapshot {
         &self.source_course_instance
     }
-    pub fn source_blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.source_blueprint_application
+    pub fn source_course_origin(&self) -> CourseOrigin {
+        self.source_course_origin
     }
-    pub fn created_course_instance(&self) -> &CourseInstanceWitness {
+    pub fn created_course_instance(&self) -> &CourseInstanceSnapshot {
         &self.created_course_instance
     }
-    pub fn created_blueprint_application(&self) -> CourseInstanceBlueprintApplication {
-        self.created_blueprint_application
+    pub fn created_course_origin(&self) -> CourseOrigin {
+        self.created_course_origin
     }
-    pub fn created_from(&self) -> &CourseInstanceCreationWitness {
+    pub fn created_from(&self) -> &CourseInstanceCreationReservation {
         &self.created_from
     }
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn manifest(&self) -> &RolloverCourseInstanceManifest {
+    pub fn manifest(&self) -> &CourseRolloverManifest {
         &self.manifest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         self.created_from.idempotency_key()
     }
     pub fn request_digest(&self) -> [u8; 32] {
@@ -237,12 +232,12 @@ impl ShiftCourseInstanceTermReceipt {
     /// Builds immutable term-shift evidence from the consumed server apply record.
     pub fn from_server_record(
         record: super::ShiftCourseInstanceTermApplyRecord,
-        outcome: CourseInstanceWitness,
+        outcome: CourseInstanceSnapshot,
         server_time: ActivityTimestamp,
     ) -> Result<Self, ShiftCourseInstanceTermReceiptError> {
         let (
             destination,
-            blueprint_application,
+            course_origin,
             target_term,
             schedules,
             authorized_account,
@@ -252,20 +247,20 @@ impl ShiftCourseInstanceTermReceipt {
         if destination.course != outcome.course {
             return Err(ShiftCourseInstanceTermReceiptError::CourseMismatch);
         }
-        if destination.assignments().len() != outcome.assignments().len()
+        if destination.assignment_revisions().len() != outcome.assignment_revisions().len()
             || !destination
-                .assignments()
+                .assignment_revisions()
                 .iter()
-                .zip(outcome.assignments())
+                .zip(outcome.assignment_revisions())
                 .all(|(before, after)| before.assignment == after.assignment)
         {
             return Err(ShiftCourseInstanceTermReceiptError::AssignmentShapeMismatch);
         }
         if !destination
-            .assignments()
+            .assignment_revisions()
             .iter()
-            .zip(outcome.assignments())
-            .all(|(before, after)| before.revision < after.revision)
+            .zip(outcome.assignment_revisions())
+            .all(|(before, after)| before.revision_number < after.revision_number)
         {
             return Err(ShiftCourseInstanceTermReceiptError::AssignmentRevisionDidNotAdvance);
         }
@@ -278,7 +273,7 @@ impl ShiftCourseInstanceTermReceipt {
                 destination,
                 outcome,
                 CourseInstanceReceiptAuthority {
-                    blueprint_application,
+                    course_origin,
                     authorized_account,
                     idempotency_key,
                     request_digest,
@@ -296,7 +291,7 @@ impl ShiftCourseInstanceTermReceipt {
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn schedules(&self) -> &[ResolvedRelativeAssignmentSchedule] {
+    pub fn schedules(&self) -> &[ResolvedAssignmentSchedule] {
         self.schedules.as_slice()
     }
 }
@@ -305,8 +300,8 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
     /// Builds immutable controlled-update evidence from the consumed server apply record.
     pub fn from_server_record(
         record: super::ControlledUpdateBlueprintAssignmentApplyRecord,
-        outcome: CourseInstanceWitness,
-        applied: AppliedAssignmentImportEvidence,
+        outcome: CourseInstanceSnapshot,
+        applied: AssignmentSourceRecord,
         effect: ControlledUpdateEffect,
         server_time: ActivityTimestamp,
     ) -> Result<Self, AssignmentReceiptError> {
@@ -314,7 +309,7 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
             source,
             import,
             destination,
-            blueprint_application,
+            course_origin,
             authorized_account,
             request_digest,
             idempotency_key,
@@ -327,10 +322,16 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
         if destination.course != outcome.course {
             return Err(AssignmentReceiptError::CourseMismatch);
         }
-        if !destination.assignments().contains(&import.destination) {
+        if !destination
+            .assignment_revisions()
+            .contains(&import.destination)
+        {
             return Err(AssignmentReceiptError::ControlledImportMissing);
         }
-        if !outcome.assignments().contains(&applied.assignment()) {
+        if !outcome
+            .assignment_revisions()
+            .contains(&applied.assignment())
+        {
             return Err(AssignmentReceiptError::OutcomeAssignmentMissing);
         }
         let expected_revision = import
@@ -360,7 +361,7 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
                 destination,
                 outcome,
                 CourseInstanceReceiptAuthority {
-                    blueprint_application,
+                    course_origin,
                     authorized_account,
                     idempotency_key,
                     request_digest,
@@ -376,10 +377,10 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
     pub fn binding(&self) -> &CourseInstanceReceiptBinding {
         &self.binding
     }
-    pub fn consumed_import(&self) -> &CourseInstanceImportWitness {
+    pub fn consumed_import(&self) -> &AssignmentSourceSnapshot {
         &self.consumed_import
     }
-    pub fn applied(&self) -> &AppliedAssignmentImportEvidence {
+    pub fn applied(&self) -> &AssignmentSourceRecord {
         &self.applied
     }
     pub fn effect(&self) -> ControlledUpdateEffect {
@@ -387,18 +388,18 @@ impl ControlledUpdateBlueprintAssignmentReceipt {
     }
 }
 
-impl CreateSelectedBlueprintAssignmentReceipt {
+impl CopyAssignmentFromBlueprintReceipt {
     /// Builds immutable selected-copy evidence from the consumed server apply record.
     pub fn from_server_record(
-        record: super::CreateSelectedBlueprintAssignmentApplyRecord,
-        outcome: CourseInstanceWitness,
-        applied: AppliedAssignmentImportEvidence,
+        record: super::CopyAssignmentFromBlueprintApplyRecord,
+        outcome: CourseInstanceSnapshot,
+        applied: AssignmentSourceRecord,
         server_time: ActivityTimestamp,
     ) -> Result<Self, AssignmentReceiptError> {
         let (
             source,
             destination,
-            blueprint_application,
+            course_origin,
             schedule,
             replacements,
             authorized_account,
@@ -415,7 +416,7 @@ impl CreateSelectedBlueprintAssignmentReceipt {
             return Err(AssignmentReceiptError::CourseMismatch);
         }
         if destination
-            .assignments()
+            .assignment_revisions()
             .iter()
             .any(|observed| observed.assignment == applied.assignment().assignment)
         {
@@ -435,7 +436,7 @@ impl CreateSelectedBlueprintAssignmentReceipt {
                 destination,
                 outcome,
                 CourseInstanceReceiptAuthority {
-                    blueprint_application,
+                    course_origin,
                     authorized_account,
                     idempotency_key,
                     request_digest,
@@ -450,36 +451,36 @@ impl CreateSelectedBlueprintAssignmentReceipt {
     pub fn binding(&self) -> &CourseInstanceReceiptBinding {
         &self.binding
     }
-    pub fn applied(&self) -> &AppliedAssignmentImportEvidence {
+    pub fn applied(&self) -> &AssignmentSourceRecord {
         &self.applied
     }
-    pub fn schedule(&self) -> &ResolvedRelativeAssignmentSchedule {
+    pub fn schedule(&self) -> &ResolvedAssignmentSchedule {
         &self.schedule
     }
 }
 
 fn controlled_update_effect_matches(
-    precondition: &CourseInstanceWitness,
-    outcome: &CourseInstanceWitness,
-    consumed: super::ObservedCourseInstanceAssignment,
-    applied: super::ObservedCourseInstanceAssignment,
+    precondition: &CourseInstanceSnapshot,
+    outcome: &CourseInstanceSnapshot,
+    consumed: super::AssignmentRevisionReference,
+    applied: super::AssignmentRevisionReference,
     effect: ControlledUpdateEffect,
 ) -> bool {
     match effect {
         ControlledUpdateEffect::SourceRevisionOnly => precondition == outcome,
         ControlledUpdateEffect::MeaningChanged => {
             precondition.schedule_revision < outcome.schedule_revision
-                && precondition.assignments().len() == outcome.assignments().len()
+                && precondition.assignment_revisions().len() == outcome.assignment_revisions().len()
                 && precondition
-                    .assignments()
+                    .assignment_revisions()
                     .iter()
-                    .zip(outcome.assignments())
+                    .zip(outcome.assignment_revisions())
                     .all(|(before, after)| {
                         if before.assignment == consumed.assignment {
                             *before == consumed
                                 && after.assignment == applied.assignment
                                 && *after == applied
-                                && before.revision < after.revision
+                                && before.revision_number < after.revision_number
                         } else {
                             before == after
                         }
@@ -489,16 +490,16 @@ fn controlled_update_effect_matches(
 }
 
 fn selected_copy_outcome_matches(
-    precondition: &CourseInstanceWitness,
-    outcome: &CourseInstanceWitness,
-    applied: super::ObservedCourseInstanceAssignment,
+    precondition: &CourseInstanceSnapshot,
+    outcome: &CourseInstanceSnapshot,
+    applied: super::AssignmentRevisionReference,
 ) -> bool {
     outcome.schedule_revision > precondition.schedule_revision
-        && outcome.assignments().len() == precondition.assignments().len() + 1
+        && outcome.assignment_revisions().len() == precondition.assignment_revisions().len() + 1
         && outcome
-            .assignments()
-            .starts_with(precondition.assignments())
-        && outcome.assignments().last() == Some(&applied)
+            .assignment_revisions()
+            .starts_with(precondition.assignment_revisions())
+        && outcome.assignment_revisions().last() == Some(&applied)
 }
 
 impl ReconcileCourseInstanceAdoptionReceipt {
@@ -507,7 +508,7 @@ impl ReconcileCourseInstanceAdoptionReceipt {
         record: super::ReconcileCourseInstanceAdoptionApplyRecord,
         server_time: ActivityTimestamp,
     ) -> Result<Self, AssignmentReceiptError> {
-        let (receipt, blueprint_application, authorized_account, request_digest, idempotency_key) =
+        let (receipt, course_origin, authorized_account, request_digest, idempotency_key) =
             record.into_receipt_parts();
         let original_import_target = receipt
             .assignment_import_target()
@@ -518,7 +519,7 @@ impl ReconcileCourseInstanceAdoptionReceipt {
                 receipt.destination().clone(),
                 receipt.destination().clone(),
                 CourseInstanceReceiptAuthority {
-                    blueprint_application,
+                    course_origin,
                     authorized_account,
                     idempotency_key,
                     request_digest,
@@ -540,15 +541,15 @@ impl ReconcileCourseInstanceAdoptionReceipt {
 
 /// Server/operator-only reconciliation target. It cannot deserialize from browser input.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CourseInstanceReceiptTarget {
+pub enum CourseInstanceOperationReceipt {
     Rollover(Box<RolloverCourseInstanceReceipt>),
     ShiftTerm(ShiftCourseInstanceTermReceipt),
     ControlledUpdate(ControlledUpdateBlueprintAssignmentReceipt),
-    SelectedCopy(CreateSelectedBlueprintAssignmentReceipt),
+    SelectedCopy(CopyAssignmentFromBlueprintReceipt),
     Reconcile(ReconcileCourseInstanceAdoptionReceipt),
 }
 
-impl CourseInstanceReceiptTarget {
+impl CourseInstanceOperationReceipt {
     /// Returns the operation recorded by this immutable receipt target.
     pub fn operation(&self) -> CourseInstanceOperationKind {
         match self {
@@ -561,7 +562,7 @@ impl CourseInstanceReceiptTarget {
     }
 
     /// Returns the exact committed destination retained by this receipt target.
-    pub fn destination(&self) -> &CourseInstanceWitness {
+    pub fn destination(&self) -> &CourseInstanceSnapshot {
         match self {
             Self::Rollover(receipt) => receipt.created_course_instance(),
             Self::ShiftTerm(receipt) => receipt.binding().destination(),
@@ -572,18 +573,18 @@ impl CourseInstanceReceiptTarget {
     }
 
     /// Returns the immutable Blueprint application bound to this destination.
-    pub fn blueprint_application(&self) -> CourseInstanceBlueprintApplication {
+    pub fn course_origin(&self) -> CourseOrigin {
         match self {
-            Self::Rollover(receipt) => receipt.created_blueprint_application(),
-            Self::ShiftTerm(receipt) => receipt.binding().blueprint_application(),
-            Self::ControlledUpdate(receipt) => receipt.binding().blueprint_application(),
-            Self::SelectedCopy(receipt) => receipt.binding().blueprint_application(),
-            Self::Reconcile(receipt) => receipt.binding().blueprint_application(),
+            Self::Rollover(receipt) => receipt.created_course_origin(),
+            Self::ShiftTerm(receipt) => receipt.binding().course_origin(),
+            Self::ControlledUpdate(receipt) => receipt.binding().course_origin(),
+            Self::SelectedCopy(receipt) => receipt.binding().course_origin(),
+            Self::Reconcile(receipt) => receipt.binding().course_origin(),
         }
     }
 
     /// Returns the exact idempotency binding for every operation receipt.
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         match self {
             Self::Rollover(receipt) => receipt.idempotency_key(),
             Self::ShiftTerm(receipt) => receipt.binding().idempotency_key(),

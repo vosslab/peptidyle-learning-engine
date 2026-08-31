@@ -14,13 +14,13 @@ pub use grading::flat_question::{
     FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
     validate_flat_question_question, validate_for_draft,
 };
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::envelope::ContentBlock;
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
     DraftQuestionDefinition, ImplementationVersion, QuestionDefinition, QuestionFormat,
     QuestionType, WorkspaceId,
-    capability::{BackendCapabilities, Capability},
+    capability::{Capability, QuestionBackendCapabilities},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -53,15 +53,15 @@ const MAX_METADATA_TEXT_CHARS: usize = 256;
 #[serde(transparent)]
 pub struct FlatQuestionDocument(v2::FlatQuestionV2);
 
-/// Closed authoring form of the shared attempt policy.
+/// Closed authoring form of the shared Question Attempt Limit.
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct FlatAttemptPolicy {
+struct FlatQuestionAttemptLimit {
     max_attempts: Option<u32>,
 }
 
-impl From<FlatAttemptPolicy> for AttemptPolicy {
-    fn from(value: FlatAttemptPolicy) -> Self {
+impl From<FlatQuestionAttemptLimit> for QuestionAttemptLimit {
+    fn from(value: FlatQuestionAttemptLimit) -> Self {
         Self {
             max_attempts: value.max_attempts,
         }
@@ -76,27 +76,19 @@ impl From<FlatAttemptPolicy> for AttemptPolicy {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-enum FlatTimingPolicy {
-    Untimed,
-    PerQuestion { seconds: u32, grace_seconds: u32 },
-    PerAttempt { seconds: u32, grace_seconds: u32 },
+enum FlatQuestionAttemptTimeLimit {
+    Unlimited,
+    Limited { seconds: u32, grace_seconds: u32 },
 }
 
-impl From<FlatTimingPolicy> for TimingPolicy {
-    fn from(value: FlatTimingPolicy) -> Self {
+impl From<FlatQuestionAttemptTimeLimit> for QuestionAttemptTimeLimit {
+    fn from(value: FlatQuestionAttemptTimeLimit) -> Self {
         match value {
-            FlatTimingPolicy::Untimed => Self::Untimed,
-            FlatTimingPolicy::PerQuestion {
+            FlatQuestionAttemptTimeLimit::Unlimited => Self::Unlimited,
+            FlatQuestionAttemptTimeLimit::Limited {
                 seconds,
                 grace_seconds,
-            } => Self::PerQuestion {
-                seconds,
-                grace_seconds,
-            },
-            FlatTimingPolicy::PerAttempt {
-                seconds,
-                grace_seconds,
-            } => Self::PerAttempt {
+            } => Self::Limited {
                 seconds,
                 grace_seconds,
             },
@@ -180,7 +172,7 @@ pub struct CompiledFlatQuestion {
 }
 
 impl CompiledFlatQuestion {
-    /// Returns the answer-free canonical draft used by catalog publication.
+    /// Returns the answer-free canonical draft used by Question Library publication.
     pub fn draft(&self) -> &DraftQuestionDefinition {
         &self.draft
     }
@@ -220,12 +212,12 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
         None
     }
 
-    fn capabilities(&self) -> BackendCapabilities {
-        BackendCapabilities::from_iter([
+    fn capabilities(&self) -> QuestionBackendCapabilities {
+        QuestionBackendCapabilities::from_iter([
             Capability::ClientRendering,
             Capability::ServerGrading,
             Capability::Hints,
-            Capability::PerQuestionTiming,
+            Capability::QuestionAttemptTimeLimit,
         ])
     }
 
@@ -310,11 +302,11 @@ impl FlatQuestionDocument {
         self.0.compile(workspace)
     }
 
-    /// Returns a publication-only HOTSPOT source with the exact catalog asset
+    /// Returns a publication-only HOTSPOT source with the exact Question Library asset
     /// identity substituted for the private workspace image identity.
     ///
     /// The returned source remains answer-bearing and canonical, so the
-    /// published source artifact, public definition, and server-only key can
+    /// published source source_object_reference, public definition, and server-only key can
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,

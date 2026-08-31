@@ -69,8 +69,8 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, ports: t
 def run_owned_course_appearance_cross_store(
 	repository_root: pathlib.Path,
 	oracle_runner: Callable[[pathlib.Path, pathlib.Path, tuple[int, ...]], None] = _run_oracle,
-	lease_factory: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
-	reset_runner_factory: Callable[[], local_stack_control.process.CommandRunner] = local_stack_control.process.SubprocessRunner,
+	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
+	create_command_runner: Callable[[], local_stack_control.process.CommandRunner] = local_stack_control.process.SubprocessRunner,
 	ports_selector: Callable[[], tuple[int, int]] = _select_loopback_ports,
 	port_checker: Callable[[tuple[int, ...], local_stack_control.process.CommandRunner, pathlib.Path], None] = local_stack_control.process.require_available_loopback_ports,
 ) -> None:
@@ -79,8 +79,8 @@ def run_owned_course_appearance_cross_store(
 		repository_root,
 		"course appearance cross-store",
 		oracle_runner,
-		lease_factory,
-		reset_runner_factory,
+		acquire_browser_suite_lease,
+		create_command_runner,
 		ports_selector,
 		port_checker,
 	)

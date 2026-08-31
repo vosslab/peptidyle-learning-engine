@@ -31,26 +31,26 @@ See [Good tests](#good-tests) for examples of stable assertion shapes and [Britt
 
 ## Test structure
 
-* Prefer pytest for automated tests when a repo has more than a few simple asserts.
-* `tests/` (including `tests/playwright/` and `tests/e2e/`) is the only place `assert` statements should appear in this repo. Plain scripts and library modules must not contain `assert`. See [PYTHON_STYLE.md](PYTHON_STYLE.md#assert) for the rationale (module-level asserts slow script startup).
-* Pytest is the fast lane: keep tests deterministic and quick. Slow end-to-end tests live in `tests/playwright/` (browser-driven) and `tests/e2e/` (shell/Python) and run outside pytest (excluded via `collect_ignore = ["e2e", "playwright"]` in `tests/conftest.py`); see [E2E_TESTS.md](E2E_TESTS.md).
-* Store tests in `tests/` with files named `test_*.py`.
-* Use `tests/conftest.py` for pytest configuration, collection hooks, and shared pytest setup.
-* Test functions should be named `test_*` and should use plain `assert`.
-* Keep tests small and deterministic.
-* Avoid network calls, random behavior, and time based logic unless mocked.
-* Keep setup inline and close to the test.
-* Use `tmp_path` for temp files.
-* Avoid complex logic inside tests.
-* If test logic needs comments, move the logic into helper functions and test those helpers.
-* Before writing any test, ask: "will this test still pass next week without code changes?"
-* If a test will not stay stable without code changes, do not write it.
-* One or two assertions per function is enough.
-* Five assertions for a simple function is overkill.
-* Do not test trivial behavior or thin wrappers around standard library calls.
-* Do not create permanent pytest files for temporary or scratch code.
-* Do not write tests for `_temp.*` files, ad-hoc debugging scripts, or any code intended to be deleted shortly after use.
-* Tests in `tests/` are reserved for code that will remain in the repo.
+- Prefer pytest for automated tests when a repo has more than a few simple asserts.
+- `tests/` (including `tests/playwright/` and `tests/e2e/`) is the only place `assert` statements should appear in this repo. Plain scripts and library modules must not contain `assert`. See [PYTHON_STYLE.md](PYTHON_STYLE.md#assert) for the rationale (module-level asserts slow script startup).
+- Pytest is the fast lane: keep tests deterministic and quick. Slow end-to-end tests live in `tests/playwright/` (browser-driven) and `tests/e2e/` (shell/Python) and run outside pytest (excluded via `collect_ignore = ["e2e", "playwright"]` in `tests/conftest.py`); see [E2E_TESTS.md](E2E_TESTS.md).
+- Store tests in `tests/` with files named `test_*.py`.
+- Use `tests/conftest.py` for pytest configuration, collection hooks, and shared pytest setup.
+- Test functions should be named `test_*` and should use plain `assert`.
+- Keep tests small and deterministic.
+- Avoid network calls, random behavior, and time based logic unless mocked.
+- Keep setup inline and close to the test.
+- Use `tmp_path` for temp files.
+- Avoid complex logic inside tests.
+- If test logic needs comments, move the logic into helper functions and test those helpers.
+- Before writing any test, ask: "will this test still pass next week without code changes?"
+- If a test will not stay stable without code changes, do not write it.
+- One or two assertions per function is enough.
+- Five assertions for a simple function is overkill.
+- Do not test trivial behavior or thin wrappers around standard library calls.
+- Do not create permanent pytest files for temporary or scratch code.
+- Do not write tests for `_temp.*` files, ad-hoc debugging scripts, or any code intended to be deleted shortly after use.
+- Tests in `tests/` are reserved for code that will remain in the repo.
 
 ## Fixture policy
 
@@ -90,18 +90,18 @@ sign-off before adding one. These directories often accumulate stale files after
 
 Test files are organized by execution model and scope:
 
-* **`tests/test_*.py`** - Fast, deterministic unit and integration tests. Rules: no network, no file I/O beyond `tmp_path`, no sleeps, no subprocess CLI round-trips. Examples: lint checks (pyflakes, ASCII compliance, indentation), parser correctness, round-trip invariants.
-* **`tests/e2e/`** - Non-browser end-to-end (shell or Python orchestration); excluded from pytest (outside scope of `pytest tests/`); run via explicit shell or Python runner. Examples: full bootstrap flow, multi-repo propagation with real git operations, CLI round-trip chains.
-* **`tests/playwright/`** - Browser-driven E2E; excluded from pytest; run via Playwright runner or explicit shell. Examples: full-stack web app flows, UI interaction and assertion, rendered-output verification. The website family (`website` and its inheriting `typescript`) includes `PLAYWRIGHT_TEST_STYLE.md` in their propagated `docs/` folder for browser test authoring rules.
+- **`tests/test_*.py`** - Fast, deterministic unit and integration tests. Rules: no network, no file I/O beyond `tmp_path`, no sleeps, no subprocess CLI round-trips. Examples: lint checks (pyflakes, ASCII compliance, indentation), parser correctness, round-trip invariants.
+- **`tests/e2e/`** - Non-browser end-to-end (shell or Python orchestration); excluded from pytest (outside scope of `pytest tests/`); run via explicit shell or Python runner. Examples: full bootstrap flow, multi-repo propagation with real git operations, CLI round-trip chains.
+- **`tests/playwright/`** - Browser-driven E2E; excluded from pytest; run via Playwright runner or explicit shell. Examples: full-stack web app flows, UI interaction and assertion, rendered-output verification. The website family (`website` and its inheriting `typescript`) includes `PLAYWRIGHT_TEST_STYLE.md` in their propagated `docs/` folder for browser test authoring rules.
 
 ## Runtime budget
 
-* Every pytest under `tests/` should finish in well under one second. `pytest tests/` is the
+- Every pytest under `tests/` should finish in well under one second. `pytest tests/` is the
   fast lane; slow tests poison it and discourage running the suite during development.
-* If a check needs sleeps, real subprocess calls, real network, large file trees beyond
+- If a check needs sleeps, real subprocess calls, real network, large file trees beyond
   `tmp_path`, model loads, or a multi-step CLI run, it is not a pytest. Move it to
   `tests/playwright/` (browser-driven) or `tests/e2e/` (shell/Python) per [E2E_TESTS.md](E2E_TESTS.md).
-* Prefer deleting a slow or fragile pytest over rewriting it. Less is more.
+- Prefer deleting a slow or fragile pytest over rewriting it. Less is more.
 
 ## Good tests
 
@@ -109,13 +109,13 @@ Tests should verify logic that could plausibly be wrong, using assertions that r
 when unrelated code changes. Good tests survive refactors, renamed fields, added config keys,
 and tuned constants.
 
-* **Pure function correctness**: fixed inputs produce expected outputs, such as math, parsing,
+- **Pure function correctness**: fixed inputs produce expected outputs, such as math, parsing,
   or encoding.
-* **Round-trip invariants**: encode then decode, serialize then deserialize, or convert then
+- **Round-trip invariants**: encode then decode, serialize then deserialize, or convert then
   convert back.
-* **Behavioral properties**: `score A > score B`, output is sorted, or result is within a range.
-* **Error detection**: invalid input produces errors or warnings.
-* **Boundary enforcement**: architectural rules like core code must not import PySide6.
+- **Behavioral properties**: `score A > score B`, output is sorted, or result is within a range.
+- **Error detection**: invalid input produces errors or warnings.
+- **Boundary enforcement**: architectural rules like core code must not import PySide6.
 
 ```python
 # Good: tests logic with fixed inputs
@@ -366,10 +366,10 @@ Two vendored hygiene tests keep the discovery scaffold clean:
 
 ## Failure triage
 
-* If you are unsure whether a failing pytest result is pre-existing or introduced by your
+- If you are unsure whether a failing pytest result is pre-existing or introduced by your
   current work, assume it is new first.
-* Reason: we try not to commit code with known failing tests, so a fresh failure is usually
+- Reason: we try not to commit code with known failing tests, so a fresh failure is usually
   related to current uncommitted changes.
-* If uncertainty remains, inspect `git diff` and check whether the suspicious lines are part
+- If uncertainty remains, inspect `git diff` and check whether the suspicious lines are part
   of current uncommitted edits.
-* Never use `git stash` as a diagnostic step for this.
+- Never use `git stash` as a diagnostic step for this.

@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 
 use adapter_native::{AssetObjectBinding, NativeAdapter};
 use anyhow::{Context, Result, bail, ensure};
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 use question_model::definition::{DraftQuestionDefinition, QuestionDefinition, QuestionSource};
 use question_model::generation::Seed;
 use question_model::{
@@ -276,18 +276,18 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
     let bindings = asset_bindings(&fixture_set.assets);
     for attempt in &fixture_set.attempts {
         ensure!(
-            attempt.provenance.source_artifact.is_none(),
-            "native stored fixture must not claim an external source artifact"
+            attempt.source_record.source_object_reference.is_none(),
+            "native stored fixture must not claim an external source source_object_reference"
         );
         let envelope = adapter.reproduce(
             &fixture_set.published_problem,
             Seed::new(attempt.seed),
             &attempt.parameter_hash,
-            &attempt.provenance,
+            &attempt.source_record,
             &bindings,
         )?;
         ensure!(
-            envelope.question_version
+            envelope.variation.question_version
                 == QuestionVersionReference {
                     question_id: fixture_set.published_problem.question_id.clone(),
                     version_number: fixture_set.published_problem.version_number,
@@ -295,23 +295,28 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
             "reproduced fixture uses a different Question Version"
         );
 
-        match (&attempt.response, &attempt.result) {
-            (Some(response), Some(recorded_result)) => {
+        match &attempt.submission {
+            Some(submission) => {
                 let outcome = adapter.grade(
                     &fixture_set.published_problem,
                     Seed::new(attempt.seed),
                     &attempt.parameter_hash,
-                    &attempt.provenance,
+                    &attempt.source_record,
                     &bindings,
-                    response,
+                    &submission.response,
                 )?;
-                ensure!(
-                    outcome == GradeOutcome::Graded(*recorded_result),
-                    "stored grading result does not reproduce"
-                );
+                match submission.grading_result {
+                    Some(recorded_result) => ensure!(
+                        outcome == QuestionGradingOutcome::Graded(recorded_result),
+                        "stored Grading Result does not reproduce"
+                    ),
+                    None => ensure!(
+                        outcome == QuestionGradingOutcome::Ungraded,
+                        "an accepted ungraded Question Submission must not fabricate a Grading Result"
+                    ),
+                }
             }
-            (None, None) => {}
-            _ => bail!("stored Question Attempt must carry response and result together"),
+            None => {}
         }
     }
     Ok(())

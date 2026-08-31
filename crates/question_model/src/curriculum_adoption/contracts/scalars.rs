@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ReusableCurriculumTitleError, validate_reusable_curriculum_title};
+use crate::{BlueprintCourseTitleError, validate_blueprint_course_title};
 
 /// Largest browser-supplied idempotency key accepted by one B2 write.
 pub const MAX_CURRICULUM_ADOPTION_IDEMPOTENCY_KEY_BYTES: usize = 128;
@@ -13,11 +13,11 @@ pub const MAX_CURRICULUM_ADOPTION_IDEMPOTENCY_KEY_BYTES: usize = 128;
 /// A validated opaque browser key that binds a completed adoption retry.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CurriculumAdoptionIdempotencyKey(String);
+pub struct BlueprintOperationRetryToken(String);
 
-impl CurriculumAdoptionIdempotencyKey {
+impl BlueprintOperationRetryToken {
     /// Parses the bounded opaque key used for one completed retry.
-    pub fn parse(value: &str) -> Result<Self, CurriculumAdoptionIdempotencyKeyError> {
+    pub fn parse(value: &str) -> Result<Self, BlueprintOperationRetryTokenError> {
         let valid = !value.is_empty()
             && value.len() <= MAX_CURRICULUM_ADOPTION_IDEMPOTENCY_KEY_BYTES
             && value
@@ -25,7 +25,7 @@ impl CurriculumAdoptionIdempotencyKey {
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
         valid
             .then(|| Self(value.to_owned()))
-            .ok_or(CurriculumAdoptionIdempotencyKeyError)
+            .ok_or(BlueprintOperationRetryTokenError)
     }
 
     /// Returns the opaque browser value without assigning any authority to it.
@@ -34,37 +34,37 @@ impl CurriculumAdoptionIdempotencyKey {
     }
 }
 
-impl TryFrom<String> for CurriculumAdoptionIdempotencyKey {
-    type Error = CurriculumAdoptionIdempotencyKeyError;
+impl TryFrom<String> for BlueprintOperationRetryToken {
+    type Error = BlueprintOperationRetryTokenError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(&value)
     }
 }
 
-impl From<CurriculumAdoptionIdempotencyKey> for String {
-    fn from(value: CurriculumAdoptionIdempotencyKey) -> Self {
+impl From<BlueprintOperationRetryToken> for String {
+    fn from(value: BlueprintOperationRetryToken) -> Self {
         value.0
     }
 }
 
-impl std::fmt::Debug for CurriculumAdoptionIdempotencyKey {
+impl std::fmt::Debug for BlueprintOperationRetryToken {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("CurriculumAdoptionIdempotencyKey([opaque])")
+        formatter.write_str("BlueprintOperationRetryToken([opaque])")
     }
 }
 
 /// An idempotency key was blank, oversized, or outside the opaque-key alphabet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CurriculumAdoptionIdempotencyKeyError;
+pub struct BlueprintOperationRetryTokenError;
 
-impl std::fmt::Display for CurriculumAdoptionIdempotencyKeyError {
+impl std::fmt::Display for BlueprintOperationRetryTokenError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("curriculum adoption idempotency key is invalid")
     }
 }
 
-impl std::error::Error for CurriculumAdoptionIdempotencyKeyError {}
+impl std::error::Error for BlueprintOperationRetryTokenError {}
 
 /// Strong revision evidence for one durable curriculum import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -141,7 +141,7 @@ pub struct CurriculumAdoptionTitle(String);
 impl CurriculumAdoptionTitle {
     /// Builds one bounded, trimmed nonblank title using the shared curriculum rule.
     pub fn parse(value: &str) -> Result<Self, CurriculumAdoptionTitleError> {
-        validate_reusable_curriculum_title(value).map_err(CurriculumAdoptionTitleError::from)?;
+        validate_blueprint_course_title(value).map_err(CurriculumAdoptionTitleError::from)?;
         Ok(Self(value.to_owned()))
     }
 
@@ -169,8 +169,8 @@ impl From<CurriculumAdoptionTitle> for String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CurriculumAdoptionTitleError;
 
-impl From<ReusableCurriculumTitleError> for CurriculumAdoptionTitleError {
-    fn from(_: ReusableCurriculumTitleError) -> Self {
+impl From<BlueprintCourseTitleError> for CurriculumAdoptionTitleError {
+    fn from(_: BlueprintCourseTitleError) -> Self {
         Self
     }
 }

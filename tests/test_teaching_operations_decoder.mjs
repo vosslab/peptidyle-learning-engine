@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
-  decodeAssignmentPolicyPatchUpdateRequest,
+  decodeSyntheticPreviewAccommodationAdjustmentRequest,
   decodeInstructorCourseInvitationCreateRequest,
   decodeCourseInvitationTargetSearchPage,
   decodeCourseInvitationTargetSearchRequest,
@@ -24,57 +24,57 @@ function baseSource() {
   return { kind: "base", label: "Course policy" };
 }
 
-test("allowed preview carries exact provenance while denied preview is sealed", () => {
+test("allowed preview carries its Assignment Policy Source while denied preview is sealed", () => {
   const source = baseSource();
   const preview = {
-    entitlement: "allowed",
+    active_student_course_membership: "allowed",
     timeZone: "America/Chicago",
     start: { kind: "mayStart", late: "onTime" },
     availableAt: { value: null, source },
     dueAt: { value: "2026-08-20T09:30:00.000", source },
     closesAt: { value: "2026-08-20T10:30:00.000", source },
-    timeLimitSeconds: { value: 3600, source },
+    assignmentAttemptTimeLimitSeconds: { value: 3600, source },
     attemptLimit: { value: 2, source },
-    lateSubmission: { value: "accept", source },
-    deadlineBehavior: { value: "autoSubmit", source },
+    lateWorkRule: { value: "accept", source },
+    assignmentDeadlineRule: { value: "autoSubmit", source },
   };
   assert.deepEqual(decodeTeachingPreviewView(preview), preview);
   assert.throws(
     () =>
       decodeTeachingPreviewView({
-        entitlement: "denied",
-        reason: "notEntitled",
+        active_student_course_membership: "denied",
+        reason: "activeStudentCourseMembershipRequired",
         dueAt: preview.dueAt,
       }),
     DecodeError,
   );
 });
 
-test("policy mutation decoders require every explicit patch state", () => {
+test("policy mutation decoders require every explicit adjustment state", () => {
   const request = {
-    mode: "override",
-    patch: {
+    mode: "replace",
+    adjustment: {
       availableAt: { kind: "inherit" },
       dueAt: { kind: "set", value: "2026-08-20T09:30:00.000" },
       closesAt: { kind: "unrestricted" },
-      timeLimitSeconds: { kind: "set", value: 3600 },
+      assignmentAttemptTimeLimitSeconds: { kind: "set", value: 3600 },
       attemptLimit: { kind: "set", value: 2 },
     },
   };
-  assert.deepEqual(decodeAssignmentPolicyPatchUpdateRequest(request), request);
+  assert.deepEqual(decodeSyntheticPreviewAccommodationAdjustmentRequest(request), request);
   assert.throws(
     () =>
-      decodeAssignmentPolicyPatchUpdateRequest({
+      decodeSyntheticPreviewAccommodationAdjustmentRequest({
         ...request,
-        patch: { ...request.patch, dueAt: { kind: "set" } },
+        adjustment: { ...request.adjustment, dueAt: { kind: "set" } },
       }),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeAssignmentPolicyPatchUpdateRequest({
+      decodeSyntheticPreviewAccommodationAdjustmentRequest({
         ...request,
-        patch: { ...request.patch, dueAt: { kind: "set", value: 100 } },
+        adjustment: { ...request.adjustment, dueAt: { kind: "set", value: 100 } },
       }),
     DecodeError,
   );

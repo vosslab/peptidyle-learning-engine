@@ -258,6 +258,7 @@ opens the exact current Mastery and Exam cards selected by their hrefs.
   again 0700/0600, `.last-run.json` again reported passed/no failures, its
   redaction scan found none of the prohibited classes, and final
   `podman ps --all --quiet` was empty.
+
 - NOTE: the execution harness surfaced the running containers before its
   completion notification had reliably delivered the runner's final output. I
   issued a no-volume `down --remove-orphans` for only that exact runner-created

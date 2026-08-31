@@ -1,8 +1,8 @@
 // question_picker_model.ts - reusable, answer-free Question Picker contracts.
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
-import type { AssignmentDefinitionSourceView } from "../../../generated/api/AssignmentDefinitionSourceView";
-import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
+import type { BlueprintAssignmentRevisionReference } from "../../../generated/api/BlueprintAssignmentRevisionReference";
+import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import {
   EMPTY_QUESTION_SEARCH_QUERY,
   decodeQuestionSearchPage,
@@ -44,7 +44,7 @@ export type QuestionPickerSource =
     }
   | {
       readonly kind: "blueprintCourseAssignment";
-      readonly source: AssignmentDefinitionSourceView;
+      readonly source: BlueprintAssignmentRevisionReference;
       readonly label: string;
     };
 
@@ -237,7 +237,7 @@ function pickerPageOffset(cursor: string | null): number {
   return offset;
 }
 
-function reusableCatalogRow(item: {
+function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
     readonly metadata: {
@@ -291,10 +291,10 @@ function reusableCatalogRow(item: {
 }
 
 function selectedBlueprintAssignment(
-  source: AssignmentDefinitionSourceView,
-  course: Awaited<ReturnType<ReusableCurriculumClient["getBlueprintCourse"]>>["blueprintCourse"],
+  source: BlueprintAssignmentRevisionReference,
+  course: Awaited<ReturnType<BlueprintCourseClient["getBlueprintCourse"]>>["blueprintCourse"],
 ): Awaited<
-  ReturnType<ReusableCurriculumClient["getBlueprintCourse"]>
+  ReturnType<BlueprintCourseClient["getBlueprintCourse"]>
 >["blueprintCourse"]["modules"][number]["definitions"][number] {
   if (course.reference !== source.reference || course.revision !== source.revision) {
     throw new Error("The selected Blueprint Course changed. Choose a current reusable assignment.");
@@ -314,20 +314,20 @@ function definitionRows(definition: {
   readonly entries: ReadonlyArray<
     | {
         readonly kind: "fixed";
-        readonly question: { readonly catalog: Parameters<typeof reusableCatalogRow>[0] };
+        readonly question: { readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0] };
       }
     | {
         readonly kind: "pool";
         readonly candidates: ReadonlyArray<{
-          readonly catalog: Parameters<typeof reusableCatalogRow>[0];
+          readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
         }>;
       }
   >;
 }): ReadonlyArray<QuestionSearchResult> {
   const rows: QuestionSearchResult[] = [];
   for (const entry of definition.entries) {
-    if (entry.kind === "fixed") rows.push(reusableCatalogRow(entry.question.catalog));
-    else for (const candidate of entry.candidates) rows.push(reusableCatalogRow(candidate.catalog));
+    if (entry.kind === "fixed") rows.push(reusableQuestionLibraryRow(entry.question.question_library));
+    else for (const candidate of entry.candidates) rows.push(reusableQuestionLibraryRow(candidate.question_library));
   }
   return rows;
 }
@@ -342,8 +342,8 @@ function sourceRowsMatchQuery(
 }
 
 /** Connects reusable definitions to the established picker without creating a second row model. */
-export function reusableCurriculumQuestionPickerRepository(
-  client: ReusableCurriculumClient,
+export function blueprintCourseQuestionPickerRepository(
+  client: BlueprintCourseClient,
 ): QuestionPickerSourceRepository {
   return {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
@@ -355,7 +355,7 @@ export function reusableCurriculumQuestionPickerRepository(
           selectedBlueprintAssignment(request.source.source, observed.blueprintCourse).definition,
         );
       } else {
-        throw new Error("Choose a reusable curriculum source for this picker composition.");
+        throw new Error("Choose a Blueprint Course source for this picker composition.");
       }
       const matched = sourceRowsMatchQuery(rows, request.query);
       const items = matched.slice(offset, offset + PICKER_SOURCE_PAGE_SIZE);

@@ -4,7 +4,7 @@ import { A, createAsync, revalidate } from "@solidjs/router";
 import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import type { CursorPage, StudentAssignmentLandingSummary } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import {
@@ -48,11 +48,11 @@ interface AssignmentCardProps {
 }
 
 function AssignmentCard(props: AssignmentCardProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const progress = createAsync(() =>
     props.canManageAssignment
       ? Promise.resolve(null)
-      : runtime.queries.assignmentSummary(props.assignment.id).catch(() => null),
+      : applicationApi.queries.assignmentSummary(props.assignment.id).catch(() => null),
   );
 
   return (
@@ -118,7 +118,7 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
 }
 
 export function AssignmentList(props: AssignmentListProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const [state, setState] = createSignal<CursorPageSessionState<StudentAssignmentLandingSummary>>({
     items: [],
     nextCursor: null,
@@ -131,7 +131,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
   let reloadButton: HTMLButtonElement | undefined;
   const session = new CursorPageSession(
     props.initialPage,
-    (cursor) => runtime.client.listAssignments(props.courseId, cursor),
+    (cursor) => applicationApi.client.listAssignments(props.courseId, cursor),
     (assignment) => assignment.id,
     setState,
   );
@@ -307,7 +307,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
 }
 
 export function CourseAssignmentsPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
   const courseScope = useCourseThemeRouteData();
   const course = courseScope?.kind === "course" ? courseRouteData(courseScope).summary : undefined;
@@ -317,7 +317,7 @@ export function CourseAssignmentsPage(): JSX.Element {
     if (courseId === undefined) {
       return Promise.reject(new Error("Course route is unavailable"));
     }
-    return runtime.queries.assignments(courseId);
+    return applicationApi.queries.assignments(courseId);
   });
   const canManageCourse = (): boolean => {
     const current = session.state();
@@ -329,7 +329,7 @@ export function CourseAssignmentsPage(): JSX.Element {
   };
   async function reloadAssignments(): Promise<void> {
     if (courseId === undefined) return;
-    await revalidate(runtime.queries.assignments.keyFor(courseId));
+    await revalidate(applicationApi.queries.assignments.keyFor(courseId));
   }
 
   return (

@@ -1,7 +1,7 @@
 use super::*;
-use crate::entitlement::{
-    evaluate_assignment_entitlement, evaluate_synthetic_preview_entitlement, ActiveStudentMembership,
-    EntitlementFacts, SyntheticPreviewEntitlementFacts,
+use crate::active_student_course_membership::{
+    ActiveStudentCourseMembershipFacts, ActiveStudentMembership, SyntheticPreviewAdmissionFacts,
+    admit_synthetic_preview, evaluate_active_student_course_membership,
 };
 use question_model::{AccountId, AssignmentId, CourseId, CourseMembershipId};
 use std::num::NonZeroU32;
@@ -24,15 +24,15 @@ fn base() -> BaseAssignmentPolicy {
         available_at: Some(stamp(10_000)),
         due_at: Some(stamp(20_000)),
         closes_at: Some(stamp(30_000)),
-        time_limit_seconds: NonZeroU32::new(60),
+        assignment_attempt_time_limit_seconds: NonZeroU32::new(60),
         attempt_limit: NonZeroU32::new(2),
-        late_submission: LateSubmissionPolicy::Reject,
-        deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+        late_work_rule: LateWorkRule::Reject,
+        assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
     }
 }
 
-fn entitlement() -> EntitlementDecision {
-    evaluate_assignment_entitlement(EntitlementFacts {
+fn active_student_course_membership() -> ActiveStudentCourseMembershipDecision {
+    evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
         course: CourseId::from_uuid(id(2)),
         assignment: AssignmentId::from_uuid(id(3)),
         student_account: AccountId::from_uuid(id(4)),
@@ -46,7 +46,7 @@ fn entitlement() -> EntitlementDecision {
 fn input() -> ResolveEffectivePolicyInput {
     ResolveEffectivePolicyInput {
         lifecycle: AssignmentLifecycleGate::Open,
-        entitlement: entitlement(),
+        active_student_course_membership: active_student_course_membership(),
         authorization: AuthorizationGate::Authorized,
         now: stamp(20_000),
         prior_run_count: 0,
@@ -57,14 +57,21 @@ fn input() -> ResolveEffectivePolicyInput {
 
 #[test]
 fn active_student_course_membership_resolves_base_policy() {
-    let EffectivePolicyDecision::Allowed { policy, start } =
-        resolve_effective_policy(input()).expect("valid direct policy")
+    let AssignmentAccessDecision::Allowed {
+        policy,
+        start_decision,
+    } = resolve_effective_policy(input()).expect("valid direct policy")
     else {
         panic!("active student should receive an assignment policy");
     };
     assert_eq!(policy.due_at.value, Some(stamp(20_000)));
     assert_eq!(policy.due_at.source, PolicySource::Base);
-    assert_eq!(start, StartVerdict::MayStart { late: LateVerdict::OnTime });
+    assert_eq!(
+        start_decision,
+        AssignmentStartDecision::MayStart {
+            late_work_status: StudentLateWorkStatus::OnTime
+        }
+    );
 }
 
 #[test]
@@ -72,13 +79,13 @@ fn direct_student_accommodation_extends_due_time() {
     let mut value = input();
     value.accommodation = Some(Accommodation {
         student_record: student_record(6),
-        mode: PolicyModificationMode::ExtendOnly,
-        patch: PolicyPatchSet {
-            due_at: PolicyPatch::Set(stamp(25_000)),
-            ..PolicyPatchSet::INHERIT
+        mode: AccommodationApplicationRule::ExtendOnly,
+        adjustment: AccommodationAdjustment {
+            due_at: AccommodationAdjustmentValue::Set(stamp(25_000)),
+            ..AccommodationAdjustment::INHERIT
         },
     });
-    let EffectivePolicyDecision::Allowed { policy, .. } =
+    let AssignmentAccessDecision::Allowed { policy, .. } =
         resolve_effective_policy(value).expect("valid accommodation")
     else {
         panic!("active student should receive an assignment policy");
@@ -95,8 +102,8 @@ fn accommodation_must_belong_to_the_entitled_student() {
     let mut value = input();
     value.accommodation = Some(Accommodation {
         student_record: student_record(7),
-        mode: PolicyModificationMode::Override,
-        patch: PolicyPatchSet::INHERIT,
+        mode: AccommodationApplicationRule::Replace,
+        adjustment: AccommodationAdjustment::INHERIT,
     });
     assert_eq!(
         resolve_effective_policy(value),
@@ -113,7 +120,7 @@ fn lifecycle_denial_precedes_policy_evaluation() {
     value.lifecycle = AssignmentLifecycleGate::Denied(AssignmentLifecycleDenial::NotPublished);
     assert_eq!(
         resolve_effective_policy(value),
-        Ok(EffectivePolicyDecision::Denied {
+        Ok(AssignmentAccessDecision::Denied {
             gate: PolicyGate::Lifecycle,
             reason: GateDenial::Lifecycle(AssignmentLifecycleDenial::NotPublished),
         })
@@ -124,24 +131,28 @@ fn lifecycle_denial_precedes_policy_evaluation() {
 fn synthetic_preview_can_apply_a_hypothetical_accommodation() {
     let decision = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
         lifecycle: AssignmentLifecycleGate::Open,
-        entitlement: evaluate_synthetic_preview_entitlement(SyntheticPreviewEntitlementFacts::new(
-            CourseId::from_uuid(id(2)),
-            AssignmentId::from_uuid(id(3)),
-        )),
+        active_student_course_membership: admit_synthetic_preview(
+            SyntheticPreviewAdmissionFacts::new(
+                CourseId::from_uuid(id(2)),
+                AssignmentId::from_uuid(id(3)),
+            ),
+        ),
         authorization: AuthorizationGate::Authorized,
         now: stamp(20_000),
         prior_run_count: 0,
         base: base(),
         hypothetical_accommodation: Some(HypotheticalAccommodation {
-            mode: PolicyModificationMode::ExtendOnly,
-            patch: PolicyPatchSet {
-                attempt_limit: PolicyPatch::Set(NonZeroU32::new(3).expect("non-zero")),
-                ..PolicyPatchSet::INHERIT
+            mode: AccommodationApplicationRule::ExtendOnly,
+            adjustment: AccommodationAdjustment {
+                attempt_limit: AccommodationAdjustmentValue::Set(
+                    NonZeroU32::new(3).expect("non-zero"),
+                ),
+                ..AccommodationAdjustment::INHERIT
             },
         }),
     })
     .expect("valid synthetic policy");
-    let EffectivePolicyDecision::Allowed { policy, .. } = decision else {
+    let AssignmentAccessDecision::Allowed { policy, .. } = decision else {
         panic!("synthetic preview should be authorized");
     };
     assert_eq!(policy.attempt_limit.value, NonZeroU32::new(3));

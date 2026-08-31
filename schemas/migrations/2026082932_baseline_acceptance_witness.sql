@@ -1,7 +1,7 @@
 -- SD1 baseline schema acceptance witness for forced RLS and default-deny ACLs.
 
 SET LOCAL ROLE ple_api_owner;
-CREATE FUNCTION ple_api.assert_baseline_security_catalog()
+CREATE FUNCTION ple_api.assert_baseline_security_audit()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api
 AS $$
@@ -47,6 +47,6 @@ BEGIN
     END IF;
 END
 $$;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_api.assert_baseline_security_catalog() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.assert_baseline_security_catalog() TO ple_auth;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.assert_baseline_security_audit() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.assert_baseline_security_audit() TO ple_auth;
 RESET ROLE;

@@ -1,8 +1,8 @@
 // assignment_workspace_presentation_model.ts - Student-accessible state language for policies.
 
 import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
-import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
-import type { StudentDisclosurePolicy } from "../../../generated/api/StudentDisclosurePolicy";
+import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
+import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
   nonnegativeIntegerDraft,
@@ -13,13 +13,13 @@ import {
 
 export type AssignmentPolicySummaryKey =
   | "savedDelivery"
-  | "completion"
-  | "grade"
-  | "continuedPractice"
-  | "variation"
+  | "assignmentCompletionRule"
+  | "assignmentAttemptGradeRule"
+  | "assignmentAttemptContinuationRule"
+  | "questionVariationRule"
   | "disclosure"
   | "lifecycle"
-  | "scheduleLimits"
+  | "scheduleLimits";
 
 export interface AssignmentPolicySummaryItem {
   readonly key: AssignmentPolicySummaryKey;
@@ -28,13 +28,13 @@ export interface AssignmentPolicySummaryItem {
 }
 
 export interface AssignmentPolicyDraftSummaryInput {
-  readonly savedLifecycle: InstructorAssignmentTeachingSettingsLocal["lifecycle"];
+  readonly savedLifecycle: InstructorAssignmentRevisionDefinitionLocal["lifecycle"];
   readonly savedCurrentState: InstructorAssignmentCurrentState;
   readonly policies: AssignmentActivityRules;
   readonly activityRuleDraft: AssignmentActivityRuleDraft;
-  readonly disclosurePolicy: StudentDisclosurePolicy;
-  readonly teachingSettings: InstructorAssignmentTeachingSettingsLocal;
-  readonly timeLimitSecondsDraft: string;
+  readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
+  readonly assignmentRevisionDefinition: InstructorAssignmentRevisionDefinitionLocal;
+  readonly assignmentAttemptTimeLimitSecondsDraft: string;
   readonly attemptLimitDraft: string;
 }
 
@@ -44,7 +44,7 @@ function displayCourseLocalTime(value: string): string {
 
 /** Explains the current student-access state without exposing an implementation detail. */
 export function assignmentCurrentStateCopy(
-  lifecycle: InstructorAssignmentTeachingSettingsLocal["lifecycle"],
+  lifecycle: InstructorAssignmentRevisionDefinitionLocal["lifecycle"],
   current: InstructorAssignmentCurrentState,
   timeZone: string,
 ): string {
@@ -61,16 +61,26 @@ export function assignmentCurrentStateCopy(
 }
 
 function completionSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  if (input.policies.completion.kind === "allCorrect") return "All questions correct";
-  if (input.policies.completion.kind === "answerAll") return "Answer every question";
+  if (input.policies.assignmentCompletionRule.kind === "allCorrect") {
+    return "All questions correct";
+  }
+  if (input.policies.assignmentCompletionRule.kind === "answerAll") {
+    return "Answer every question";
+  }
   const threshold = scoreFractionDraft(input.activityRuleDraft.completionFraction);
   if (!threshold.valid || threshold.value === null) return "Score threshold needs correction";
   return `Score at least ${threshold.value * 100}%`;
 }
 
-function continuedPracticeSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  if (input.policies.continuedPractice.kind === "unlimited") return "Unlimited after completion";
-  if (input.policies.continuedPractice.kind === "closed") return "Closed after completion";
+function assignmentAttemptContinuationRuleSummary(
+  input: AssignmentPolicyDraftSummaryInput,
+): string {
+  if (input.policies.assignmentAttemptContinuationRule.kind === "unlimited") {
+    return "Unlimited after completion";
+  }
+  if (input.policies.assignmentAttemptContinuationRule.kind === "closed") {
+    return "Closed after completion";
+  }
   const additionalRuns = nonnegativeIntegerDraft(input.activityRuleDraft.additionalRuns);
   if (!additionalRuns.valid || additionalRuns.value === null) {
     return "Additional Assignment Attempt limit needs correction";
@@ -78,7 +88,7 @@ function continuedPracticeSummary(input: AssignmentPolicyDraftSummaryInput): str
   return `${additionalRuns.value} additional Assignment Attempt${additionalRuns.value === 1 ? "" : "s"}`;
 }
 
-function disclosureSummary(policy: StudentDisclosurePolicy): string {
+function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
   const timing = {
     during_attempt: "while working",
     after_submit: "after submit",
@@ -87,17 +97,17 @@ function disclosureSummary(policy: StudentDisclosurePolicy): string {
     never: "never",
   } as const;
   return [
-    `Score ${timing[policy.score]}`,
-    `correctness ${timing[policy.per_item_correctness]}`,
-    `feedback ${timing[policy.feedback_text]}`,
-    `solutions ${timing[policy.solution]}`,
-    `statistics ${timing[policy.class_statistics]}`,
+    `Score ${timing[rule.score]}`,
+    `correctness ${timing[rule.per_item_correctness]}`,
+    `feedback ${timing[rule.feedback_text]}`,
+    `solutions ${timing[rule.solution]}`,
+    `statistics ${timing[rule.class_statistics]}`,
   ].join("; ");
 }
 
 function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  const teaching = input.teachingSettings;
-  const timeLimit = optionalPositiveIntegerDraft(input.timeLimitSecondsDraft);
+  const assignmentRevisionDefinition = input.assignmentRevisionDefinition;
+  const timeLimit = optionalPositiveIntegerDraft(input.assignmentAttemptTimeLimitSecondsDraft);
   const attempts = optionalPositiveIntegerDraft(input.attemptLimitDraft);
   const timeLimitCopy = !timeLimit.valid
     ? "time limit needs correction"
@@ -110,16 +120,16 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
       ? "unlimited attempts"
       : `${attempts.value} attempt${attempts.value === 1 ? "" : "s"}`;
   const lateCopy =
-    teaching.lateSubmission === "accept"
+    assignmentRevisionDefinition.lateWorkRule === "accept"
       ? "late work accepted"
-      : teaching.lateSubmission === "markLate"
+      : assignmentRevisionDefinition.lateWorkRule === "markLate"
         ? "late work accepted and marked"
         : "late work rejected";
   return [
-    `Course time zone ${teaching.timeZone}`,
-    `Available ${teaching.availableAt === null ? "now" : displayCourseLocalTime(teaching.availableAt)}`,
-    `due ${teaching.dueAt === null ? "not set" : displayCourseLocalTime(teaching.dueAt)}`,
-    `closes ${teaching.closesAt === null ? "not set" : displayCourseLocalTime(teaching.closesAt)}`,
+    `Course time zone ${assignmentRevisionDefinition.timeZone}`,
+    `Available ${assignmentRevisionDefinition.availableAt === null ? "now" : displayCourseLocalTime(assignmentRevisionDefinition.availableAt)}`,
+    `due ${assignmentRevisionDefinition.dueAt === null ? "not set" : displayCourseLocalTime(assignmentRevisionDefinition.dueAt)}`,
+    `closes ${assignmentRevisionDefinition.closesAt === null ? "not set" : displayCourseLocalTime(assignmentRevisionDefinition.closesAt)}`,
     timeLimitCopy,
     attemptCopy,
     lateCopy,
@@ -137,10 +147,10 @@ export function assignmentPolicyDraftSummary(
     first: "First Assignment Attempt score",
     instructorSelected: "Instructor-selected Assignment Attempt",
   } as const;
-  const variation = {
-    newSeeds: "Use new seeds",
+  const questionVariationRule = {
+    reuseQuestionsWithNewSeeds: "Keep Questions and use fresh Question Seeds",
     selectedQuestionVariants: "Use selected Question Variants",
-    fullRegeneration: "Fully regenerate",
+    redrawQuestionPools: "Redraw Question Pools",
   } as const;
   const lifecycle = {
     draft: "Draft",
@@ -155,26 +165,38 @@ export function assignmentPolicyDraftSummary(
       value: assignmentCurrentStateCopy(
         input.savedLifecycle,
         input.savedCurrentState,
-        input.teachingSettings.timeZone,
+        input.assignmentRevisionDefinition.timeZone,
       ),
     },
-    { key: "completion", label: "Completion", value: completionSummary(input) },
-    { key: "grade", label: "Grade", value: grade[input.policies.grade] },
     {
-      key: "continuedPractice",
-      label: "Continued practice",
-      value: continuedPracticeSummary(input),
+      key: "assignmentCompletionRule",
+      label: "Assignment completion rule",
+      value: completionSummary(input),
     },
-    { key: "variation", label: "Variation", value: variation[input.policies.variation] },
+    {
+      key: "assignmentAttemptGradeRule",
+      label: "Assignment Attempt grade rule",
+      value: grade[input.policies.assignmentAttemptGradeRule],
+    },
+    {
+      key: "assignmentAttemptContinuationRule",
+      label: "Assignment Attempt continuation rule",
+      value: assignmentAttemptContinuationRuleSummary(input),
+    },
+    {
+      key: "questionVariationRule",
+      label: "Question variation",
+      value: questionVariationRule[input.policies.questionVariationRule],
+    },
     {
       key: "disclosure",
       label: "Student disclosure",
-      value: disclosureSummary(input.disclosurePolicy),
+      value: disclosureSummary(input.studentFeedbackReleaseRule),
     },
     {
       key: "lifecycle",
       label: "Draft lifecycle",
-      value: `${lifecycle[input.teachingSettings.lifecycle]}; ${input.teachingSettings.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
+      value: `${lifecycle[input.assignmentRevisionDefinition.lifecycle]}; ${input.assignmentRevisionDefinition.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
     },
     {
       key: "scheduleLimits",

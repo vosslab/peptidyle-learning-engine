@@ -43,17 +43,17 @@ The strict public reader accepted the report with seed 42. It records status
 `PASS`, stage `complete`, empty diagnostics, one label-only arrangement
 `api-retry-corpus-publication`, and these exact ordered PASS journeys:
 
-| Journey | Public visible outcomes |
-| --- | --- |
-| J11 | course created; course opened |
-| J12 | local student active |
-| J13 | assignment created; catalog problem selected; Mastery policy |
-| J1 | feedback; response; retry; submit |
-| J2 | completion; feedback; fresh practice; submit |
-| J3 | controls cleared; leave; resume; start |
-| J4 | back action; completion; controls cleared; submit |
-| J5 | gradebook; score summary; two-run history |
-| J8 | instructor gradebook; student completion; shared assignment |
+| Journey | Public visible outcomes                                      |
+| ------- | ------------------------------------------------------------ |
+| J11     | course created; course opened                                |
+| J12     | local student active                                         |
+| J13     | assignment created; catalog problem selected; Mastery policy |
+| J1      | feedback; response; retry; submit                            |
+| J2      | completion; feedback; fresh practice; submit                 |
+| J3      | controls cleared; leave; resume; start                       |
+| J4      | back action; completion; controls cleared; submit            |
+| J5      | gradebook; score summary; two-run history                    |
+| J8      | instructor gradebook; student completion; shared assignment  |
 
 The top-level elapsed time equals the nine journey elapsed values. The public
 schema admits no IDs, titles, student identity, email, score value, answer,

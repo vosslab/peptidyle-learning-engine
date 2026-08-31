@@ -7,104 +7,132 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentDefinitionSourceView, CourseInstanceReceiptTarget, CurriculumAdoptionIdempotencyKey,
-    CurriculumImportRevision, CurriculumPinPosition, CurriculumPinReplacements,
-    CurriculumReplayStatus, ObservedBlueprintSource, ReplacementQuestionChoices,
+    BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken, BlueprintQuestionPosition,
+    BlueprintRevisionReference, CourseInstanceOperationReceipt, CurriculumImportRevision,
+    QuestionVersionSubstitutions, ReplacementQuestionVersionChoices,
 };
 use crate::{
-    AccountId, AssignmentReference, AssignmentRevision, CourseInstanceReference, CourseScheduleRevision,
-    CourseTerm, QuestionVersionReference, ResolvedRelativeAssignmentSchedule,
+    AccountId, AssignmentReference, AssignmentRevisionNumber, CourseInstanceReference,
+    CourseScheduleRevisionReference, CourseTerm, QuestionVersionReference,
+    ResolvedAssignmentSchedule,
 };
 
-use super::bounded::{
-    deserialize_course_instance_corrections, deserialize_course_instance_provenance,
-};
+use super::bounded::{deserialize_assignment_sources, deserialize_course_instance_corrections};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ObservedCourseInstanceAssignment {
+pub struct AssignmentRevisionReference {
     pub assignment: AssignmentReference,
-    pub revision: AssignmentRevision,
+    pub revision_number: AssignmentRevisionNumber,
 }
 
 /// Exact destination scope and revision evidence observed by the server.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CourseInstanceWitness {
+pub struct CourseInstanceSnapshot {
     pub course: CourseInstanceReference,
-    pub schedule_revision: CourseScheduleRevision,
-    assignments: BoundedCourseInstanceAssignments,
+    pub schedule_revision: CourseScheduleRevisionReference,
+    assignment_revisions: BoundedAssignmentRevisionReferences,
 }
 
-/// Immutable Blueprint application that established a CourseInstance.
-///
-/// This is the CourseInstance's parent and initial applied revision.  It is
-/// deliberately separate from assignment-level provenance: later controlled
-/// updates and selected copies may have different source revisions without
-/// changing the instance's origin.
+/// Immutable source history that established one Course Instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CourseInstanceBlueprintApplication {
-    pub source: ObservedBlueprintSource,
+pub struct CourseOrigin {
+    pub blueprint_revision: BlueprintRevisionReference,
+    pub source_course: Option<CourseInstanceReference>,
+}
+
+impl CourseOrigin {
+    /// Records direct creation from one exact Blueprint Revision.
+    pub const fn from_blueprint(blueprint_revision: BlueprintRevisionReference) -> Self {
+        Self {
+            blueprint_revision,
+            source_course: None,
+        }
+    }
+
+    /// Records rollover from one exact Course Instance while retaining its Blueprint Revision.
+    pub const fn from_rollover(
+        blueprint_revision: BlueprintRevisionReference,
+        source_course: CourseInstanceReference,
+    ) -> Self {
+        Self {
+            blueprint_revision,
+            source_course: Some(source_course),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CourseInstanceWitnessError;
+pub enum CourseInstanceSnapshotError {
+    ScheduleRevisionCourseMismatch,
+    TooManyOrRepeatedAssignmentRevisions,
+}
 
-impl CourseInstanceWitness {
+impl CourseInstanceSnapshot {
     /// Creates exact bounded destination evidence retained by commands and receipts.
     pub fn new(
         course: CourseInstanceReference,
-        schedule_revision: CourseScheduleRevision,
-        assignments: Vec<ObservedCourseInstanceAssignment>,
-    ) -> Result<Self, CourseInstanceWitnessError> {
+        schedule_revision: CourseScheduleRevisionReference,
+        assignment_revisions: Vec<AssignmentRevisionReference>,
+    ) -> Result<Self, CourseInstanceSnapshotError> {
+        if schedule_revision.course != course {
+            return Err(CourseInstanceSnapshotError::ScheduleRevisionCourseMismatch);
+        }
         Ok(Self {
             course,
             schedule_revision,
-            assignments: BoundedCourseInstanceAssignments::new(assignments)
-                .map_err(|_| CourseInstanceWitnessError)?,
+            assignment_revisions: BoundedAssignmentRevisionReferences::new(assignment_revisions)
+                .map_err(|_| CourseInstanceSnapshotError::TooManyOrRepeatedAssignmentRevisions)?,
         })
     }
 
     /// Returns the observed assignment revisions in their server-observed order.
-    pub fn assignments(&self) -> &[ObservedCourseInstanceAssignment] {
-        self.assignments.as_slice()
+    pub fn assignment_revisions(&self) -> &[AssignmentRevisionReference] {
+        self.assignment_revisions.as_slice()
     }
 }
 
-impl std::fmt::Display for CourseInstanceWitnessError {
+impl std::fmt::Display for CourseInstanceSnapshotError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .write_str("course instance assignment evidence exceeds the course assignment bound")
+        match self {
+            Self::ScheduleRevisionCourseMismatch => formatter.write_str(
+                "Course Schedule Revision Reference belongs to a different Course Instance",
+            ),
+            Self::TooManyOrRepeatedAssignmentRevisions => formatter.write_str(
+                "course instance assignment evidence exceeds the course assignment bound",
+            ),
+        }
     }
 }
-impl std::error::Error for CourseInstanceWitnessError {}
+impl std::error::Error for CourseInstanceSnapshotError {}
 
 /// Server-only origin evidence for one reserved CourseInstance creation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CourseInstanceCreationOrigin {
-    Blueprint(ObservedBlueprintSource),
-    Rollover(CourseInstanceWitness),
+    Blueprint(BlueprintRevisionReference),
+    Rollover(CourseInstanceSnapshot),
 }
 
 /// One server-reserved CourseInstance creation bound to an authenticated Instructor operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CourseInstanceCreationWitness {
+pub struct CourseInstanceCreationReservation {
     origin: CourseInstanceCreationOrigin,
     target_term: CourseTerm,
     authorized_account: AccountId,
     request_digest: [u8; 32],
-    idempotency_key: CurriculumAdoptionIdempotencyKey,
+    idempotency_key: BlueprintOperationRetryToken,
     reserved_course: CourseInstanceReference,
 }
 
-impl CourseInstanceCreationWitness {
+impl CourseInstanceCreationReservation {
     pub fn for_blueprint(
-        source: ObservedBlueprintSource,
+        source: BlueprintRevisionReference,
         target_term: CourseTerm,
         authorized_account: AccountId,
         request_digest: [u8; 32],
-        idempotency_key: CurriculumAdoptionIdempotencyKey,
+        idempotency_key: BlueprintOperationRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
@@ -118,11 +146,11 @@ impl CourseInstanceCreationWitness {
     }
 
     pub fn for_rollover(
-        source: CourseInstanceWitness,
+        source: CourseInstanceSnapshot,
         target_term: CourseTerm,
         authorized_account: AccountId,
         request_digest: [u8; 32],
-        idempotency_key: CurriculumAdoptionIdempotencyKey,
+        idempotency_key: BlueprintOperationRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
@@ -138,10 +166,10 @@ impl CourseInstanceCreationWitness {
     pub fn origin(&self) -> &CourseInstanceCreationOrigin {
         &self.origin
     }
-    pub fn matches_blueprint_source(&self, source: &ObservedBlueprintSource) -> bool {
+    pub fn matches_blueprint_source(&self, source: &BlueprintRevisionReference) -> bool {
         matches!(&self.origin, CourseInstanceCreationOrigin::Blueprint(value) if value == source)
     }
-    pub fn matches_rollover_source(&self, source: &CourseInstanceWitness) -> bool {
+    pub fn matches_rollover_source(&self, source: &CourseInstanceSnapshot) -> bool {
         matches!(&self.origin, CourseInstanceCreationOrigin::Rollover(value) if value == source)
     }
     pub fn target_term(&self) -> &CourseTerm {
@@ -153,7 +181,7 @@ impl CourseInstanceCreationWitness {
     pub fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
-    pub fn idempotency_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
     pub fn reserved_course(&self) -> CourseInstanceReference {
@@ -163,9 +191,9 @@ impl CourseInstanceCreationWitness {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CourseInstanceImportWitness {
-    pub source: AssignmentDefinitionSourceView,
-    pub destination: ObservedCourseInstanceAssignment,
+pub struct AssignmentSourceSnapshot {
+    pub source: BlueprintAssignmentRevisionReference,
+    pub destination: AssignmentRevisionReference,
     pub import_revision: CurriculumImportRevision,
 }
 
@@ -174,40 +202,40 @@ pub struct CourseInstanceImportWitness {
 /// No Serde implementation is provided: a browser may request an update, but
 /// cannot manufacture the post-mutation evidence that proves its result.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AppliedAssignmentImportEvidence {
-    source: AssignmentDefinitionSourceView,
-    replacements: CurriculumPinReplacements,
-    semantic_digest: super::super::CurriculumSemanticDigest,
-    assignment: ObservedCourseInstanceAssignment,
+pub struct AssignmentSourceRecord {
+    source: BlueprintAssignmentRevisionReference,
+    replacements: QuestionVersionSubstitutions,
+    blueprint_content_digest: super::super::BlueprintContentDigest,
+    assignment: AssignmentRevisionReference,
     import_revision: CurriculumImportRevision,
 }
 
-impl AppliedAssignmentImportEvidence {
+impl AssignmentSourceRecord {
     pub fn new(
-        source: AssignmentDefinitionSourceView,
-        replacements: CurriculumPinReplacements,
-        semantic_digest: super::super::CurriculumSemanticDigest,
-        assignment: ObservedCourseInstanceAssignment,
+        source: BlueprintAssignmentRevisionReference,
+        replacements: QuestionVersionSubstitutions,
+        blueprint_content_digest: super::super::BlueprintContentDigest,
+        assignment: AssignmentRevisionReference,
         import_revision: CurriculumImportRevision,
     ) -> Self {
         Self {
             source,
             replacements,
-            semantic_digest,
+            blueprint_content_digest,
             assignment,
             import_revision,
         }
     }
-    pub fn source(&self) -> AssignmentDefinitionSourceView {
+    pub fn source(&self) -> BlueprintAssignmentRevisionReference {
         self.source
     }
-    pub fn replacements(&self) -> &CurriculumPinReplacements {
+    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
         &self.replacements
     }
-    pub fn semantic_digest(&self) -> super::super::CurriculumSemanticDigest {
-        self.semantic_digest
+    pub fn blueprint_content_digest(&self) -> super::super::BlueprintContentDigest {
+        self.blueprint_content_digest
     }
-    pub fn assignment(&self) -> ObservedCourseInstanceAssignment {
+    pub fn assignment(&self) -> AssignmentRevisionReference {
         self.assignment
     }
     pub fn import_revision(&self) -> CurriculumImportRevision {
@@ -226,7 +254,7 @@ pub enum ControlledUpdateEffect {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentImportReceiptTarget {
     receipt_account: AccountId,
-    receipt_key: CurriculumAdoptionIdempotencyKey,
+    receipt_key: BlueprintOperationRetryToken,
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     import_revision: CurriculumImportRevision,
@@ -235,7 +263,7 @@ pub struct AssignmentImportReceiptTarget {
 impl AssignmentImportReceiptTarget {
     pub fn new(
         receipt_account: AccountId,
-        receipt_key: CurriculumAdoptionIdempotencyKey,
+        receipt_key: BlueprintOperationRetryToken,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
         import_revision: CurriculumImportRevision,
@@ -251,7 +279,7 @@ impl AssignmentImportReceiptTarget {
     pub fn receipt_account(&self) -> AccountId {
         self.receipt_account
     }
-    pub fn receipt_key(&self) -> &CurriculumAdoptionIdempotencyKey {
+    pub fn receipt_key(&self) -> &BlueprintOperationRetryToken {
         &self.receipt_key
     }
     pub fn course(&self) -> CourseInstanceReference {
@@ -294,32 +322,32 @@ pub struct CourseInstanceScheduleCorrection {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct UnavailableCurriculumPinRecovery {
-    pub source: AssignmentDefinitionSourceView,
-    pub position: CurriculumPinPosition,
+pub struct UnavailableQuestionVersionRecovery {
+    pub source: BlueprintAssignmentRevisionReference,
+    pub position: BlueprintQuestionPosition,
     pub unavailable: QuestionVersionReference,
-    pub choices: ReplacementQuestionChoices,
+    pub choices: ReplacementQuestionVersionChoices,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentProvenance {
-    pub source: AssignmentDefinitionSourceView,
+pub struct AssignmentSource {
+    pub source: BlueprintAssignmentRevisionReference,
     pub import_revision: CurriculumImportRevision,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseInstanceBlueprintInspectionView {
-    pub initial_blueprint_application: CourseInstanceBlueprintApplication,
-    pub witness: CourseInstanceWitness,
-    #[serde(deserialize_with = "deserialize_course_instance_provenance")]
-    pub assignments: Vec<BlueprintAssignmentProvenance>,
+    pub initial_course_origin: CourseOrigin,
+    pub witness: CourseInstanceSnapshot,
+    #[serde(deserialize_with = "deserialize_assignment_sources")]
+    pub assignment_sources: Vec<AssignmentSource>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CourseInstanceRefusal {
+pub enum CourseInstanceOperationBlocker {
     IssuedWork {
         course: CourseInstanceReference,
     },
@@ -327,23 +355,60 @@ pub enum CourseInstanceRefusal {
         assignment: AssignmentReference,
     },
     SourceRevisionDrift {
-        source: ObservedBlueprintSource,
+        source: BlueprintRevisionReference,
     },
     ScheduleCorrectionsRequired {
         #[serde(deserialize_with = "deserialize_course_instance_corrections")]
         corrections: Vec<CourseInstanceScheduleCorrection>,
     },
-    UnavailablePin {
-        recovery: UnavailableCurriculumPinRecovery,
+    UnavailableQuestionVersion {
+        recovery: UnavailableQuestionVersionRecovery,
     },
     ReceiptUnavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CourseInstanceEligibility {
-    Eligible,
-    Refused { refusal: CourseInstanceRefusal },
+pub enum CopyCourseForNewTermReadiness {
+    Ready,
+    Blocked {
+        blocker: CourseInstanceOperationBlocker,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ShiftCourseDatesReadiness {
+    Ready,
+    Blocked {
+        blocker: CourseInstanceOperationBlocker,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ApplyBlueprintUpdateReadiness {
+    Ready,
+    Blocked {
+        blocker: CourseInstanceOperationBlocker,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CopyAssignmentFromBlueprintReadiness {
+    Ready,
+    Blocked {
+        blocker: CourseInstanceOperationBlocker,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BlueprintOperationReconciliationReadiness {
+    Ready,
+    Blocked {
+        blocker: CourseInstanceOperationBlocker,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -364,7 +429,7 @@ pub struct ShiftCourseInstanceTermPreviewRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ControlledUpdateBlueprintAssignmentPreviewRequest {
     pub course: CourseInstanceReference,
-    pub source: AssignmentDefinitionSourceView,
+    pub source: BlueprintAssignmentRevisionReference,
     pub assignment: AssignmentReference,
 }
 
@@ -372,8 +437,8 @@ pub struct ControlledUpdateBlueprintAssignmentPreviewRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateSelectedBlueprintAssignmentPreviewRequest {
     pub course: CourseInstanceReference,
-    pub source: AssignmentDefinitionSourceView,
-    pub replacements: CurriculumPinReplacements,
+    pub source: BlueprintAssignmentRevisionReference,
+    pub replacements: QuestionVersionSubstitutions,
 }
 
 /// Server-only repair intent for one retained CourseInstance receipt.
@@ -382,14 +447,14 @@ pub struct CreateSelectedBlueprintAssignmentPreviewRequest {
 /// key for a retry and issue a new key for a later repair action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconcileCourseInstanceAdoptionIntent {
-    pub target: CourseInstanceReceiptTarget,
-    pub idempotency_key: CurriculumAdoptionIdempotencyKey,
+    pub target: CourseInstanceOperationReceipt,
+    pub idempotency_key: BlueprintOperationRetryToken,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RolloverReusableStateManifest {
-    pub source: ObservedBlueprintSource,
+    pub source: BlueprintRevisionReference,
     assignments: BoundedAssignmentDefinitionSources,
     schedules: BoundedResolvedScheduleSet,
 }
@@ -400,9 +465,9 @@ pub struct RolloverReusableStateManifestError;
 impl RolloverReusableStateManifest {
     /// Validates the complete reusable-only state copied into a rollover.
     pub fn new(
-        source: ObservedBlueprintSource,
-        assignments: Vec<AssignmentDefinitionSourceView>,
-        schedules: Vec<ResolvedRelativeAssignmentSchedule>,
+        source: BlueprintRevisionReference,
+        assignments: Vec<BlueprintAssignmentRevisionReference>,
+        schedules: Vec<ResolvedAssignmentSchedule>,
     ) -> Result<Self, RolloverReusableStateManifestError> {
         Ok(Self {
             source,
@@ -414,12 +479,12 @@ impl RolloverReusableStateManifest {
     }
 
     /// Returns copied source locations in their original reusable-course order.
-    pub fn assignments(&self) -> &[AssignmentDefinitionSourceView] {
+    pub fn assignments(&self) -> &[BlueprintAssignmentRevisionReference] {
         self.assignments.as_slice()
     }
 
     /// Returns resolved reusable schedules in their original reusable-course order.
-    pub fn schedules(&self) -> &[ResolvedRelativeAssignmentSchedule] {
+    pub fn schedules(&self) -> &[ResolvedAssignmentSchedule] {
         self.schedules.as_slice()
     }
 }
@@ -439,12 +504,12 @@ pub enum RolloverExclusionPolicy {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct RolloverCourseInstanceManifest {
+pub struct CourseRolloverManifest {
     pub copied: RolloverReusableStateManifest,
     pub exclusion_policy: RolloverExclusionPolicy,
 }
 
-impl RolloverCourseInstanceManifest {
+impl CourseRolloverManifest {
     pub fn new(copied: RolloverReusableStateManifest) -> Self {
         Self {
             copied,
@@ -456,36 +521,36 @@ impl RolloverCourseInstanceManifest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RolloverCourseInstancePreview {
-    pub witness: CourseInstanceWitness,
+    pub witness: CourseInstanceSnapshot,
     pub target_term: CourseTerm,
-    pub manifest: RolloverCourseInstanceManifest,
-    pub eligibility: CourseInstanceEligibility,
+    pub manifest: CourseRolloverManifest,
+    pub readiness: CopyCourseForNewTermReadiness,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ShiftCourseInstanceTermPreview {
-    pub witness: CourseInstanceWitness,
+    pub witness: CourseInstanceSnapshot,
     pub target_term: CourseTerm,
     pub schedules: BoundedResolvedScheduleSet,
-    pub eligibility: CourseInstanceEligibility,
+    pub readiness: ShiftCourseDatesReadiness,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ControlledUpdateBlueprintAssignmentPreview {
-    pub import: CourseInstanceImportWitness,
-    pub witness: CourseInstanceWitness,
-    pub eligibility: CourseInstanceEligibility,
+    pub import: AssignmentSourceSnapshot,
+    pub witness: CourseInstanceSnapshot,
+    pub readiness: ApplyBlueprintUpdateReadiness,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateSelectedBlueprintAssignmentPreview {
-    pub source: AssignmentDefinitionSourceView,
-    pub witness: CourseInstanceWitness,
-    pub schedule: ResolvedRelativeAssignmentSchedule,
-    pub eligibility: CourseInstanceEligibility,
+    pub source: BlueprintAssignmentRevisionReference,
+    pub witness: CourseInstanceSnapshot,
+    pub schedule: ResolvedAssignmentSchedule,
+    pub readiness: CopyAssignmentFromBlueprintReadiness,
 }
 
 /// Server-only reconciliation projection bound to one immutable completed receipt.
@@ -494,30 +559,27 @@ pub struct CreateSelectedBlueprintAssignmentPreview {
 /// rechecks current derived projections and consumes the matching reconciliation record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconcileCourseInstanceAdoptionPreview {
-    receipt: super::CourseInstanceReceiptTarget,
-    eligibility: CourseInstanceEligibility,
+    receipt: super::CourseInstanceOperationReceipt,
+    readiness: BlueprintOperationReconciliationReadiness,
 }
 
 impl ReconcileCourseInstanceAdoptionPreview {
     /// Creates a server-held reconciliation projection for exactly one receipt target.
     pub fn new(
-        receipt: super::CourseInstanceReceiptTarget,
-        eligibility: CourseInstanceEligibility,
+        receipt: super::CourseInstanceOperationReceipt,
+        readiness: BlueprintOperationReconciliationReadiness,
     ) -> Self {
-        Self {
-            receipt,
-            eligibility,
-        }
+        Self { receipt, readiness }
     }
 
     /// Returns the immutable completed operation selected for reconciliation.
-    pub fn receipt(&self) -> &super::CourseInstanceReceiptTarget {
+    pub fn receipt(&self) -> &super::CourseInstanceOperationReceipt {
         &self.receipt
     }
 
-    /// Returns the server-computed eligibility outcome.
-    pub fn eligibility(&self) -> &CourseInstanceEligibility {
-        &self.eligibility
+    /// Returns the server-computed reconciliation readiness.
+    pub fn readiness(&self) -> &BlueprintOperationReconciliationReadiness {
+        &self.readiness
     }
 }
 
@@ -526,7 +588,6 @@ impl ReconcileCourseInstanceAdoptionPreview {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct RolloverCourseInstanceCompleted {
     pub course: CourseInstanceReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completion for one atomic CourseInstance term shift.
@@ -534,7 +595,6 @@ pub struct RolloverCourseInstanceCompleted {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ShiftCourseInstanceTermCompleted {
     pub course: CourseInstanceReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completion for one controlled Blueprint assignment update.
@@ -543,7 +603,6 @@ pub struct ShiftCourseInstanceTermCompleted {
 pub struct ControlledUpdateBlueprintAssignmentCompleted {
     pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completion for one selected Blueprint assignment copy.
@@ -552,7 +611,6 @@ pub struct ControlledUpdateBlueprintAssignmentCompleted {
 pub struct CreateSelectedBlueprintAssignmentCompleted {
     pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 /// Browser-safe completion for rebuilding derived projections from one receipt.
@@ -560,12 +618,11 @@ pub struct CreateSelectedBlueprintAssignmentCompleted {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReconcileCourseInstanceAdoptionCompleted {
     pub course: CourseInstanceReference,
-    pub replay: CurriculumReplayStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CourseInstanceCommandError {
-    Refused(CourseInstanceRefusal),
+    Blocked(CourseInstanceOperationBlocker),
     CreationWitnessMismatch,
     ScheduleEvidence(BoundedResolvedScheduleSetError),
     ControlledUpdateLineageMismatch,
@@ -580,33 +637,67 @@ impl std::fmt::Display for CourseInstanceCommandError {
 }
 impl std::error::Error for CourseInstanceCommandError {}
 
-pub(super) fn require_course_instance_eligible(
-    value: &CourseInstanceEligibility,
-) -> Result<(), CourseInstanceCommandError> {
-    match value {
-        CourseInstanceEligibility::Eligible => Ok(()),
-        CourseInstanceEligibility::Refused { refusal } => {
-            Err(CourseInstanceCommandError::Refused(refusal.clone()))
+impl CopyCourseForNewTermReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(CourseInstanceCommandError::Blocked(blocker.clone())),
+        }
+    }
+}
+
+impl ShiftCourseDatesReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(CourseInstanceCommandError::Blocked(blocker.clone())),
+        }
+    }
+}
+
+impl ApplyBlueprintUpdateReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(CourseInstanceCommandError::Blocked(blocker.clone())),
+        }
+    }
+}
+
+impl CopyAssignmentFromBlueprintReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(CourseInstanceCommandError::Blocked(blocker.clone())),
+        }
+    }
+}
+
+impl BlueprintOperationReconciliationReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(CourseInstanceCommandError::Blocked(blocker.clone())),
         }
     }
 }
 
 /// Checked, immutable schedule evidence retained by server apply records and receipts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoundedResolvedScheduleSet(Vec<ResolvedRelativeAssignmentSchedule>);
+pub struct BoundedResolvedScheduleSet(Vec<ResolvedAssignmentSchedule>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoundedResolvedScheduleSetError;
 
 impl BoundedResolvedScheduleSet {
     pub fn new(
-        schedules: Vec<ResolvedRelativeAssignmentSchedule>,
+        schedules: Vec<ResolvedAssignmentSchedule>,
     ) -> Result<Self, BoundedResolvedScheduleSetError> {
         (schedules.len() <= crate::MAX_ASSIGNMENT_ORDERED_ENTRIES)
             .then_some(Self(schedules))
             .ok_or(BoundedResolvedScheduleSetError)
     }
-    pub fn as_slice(&self) -> &[ResolvedRelativeAssignmentSchedule] {
+    pub fn as_slice(&self) -> &[ResolvedAssignmentSchedule] {
         &self.0
     }
     pub fn is_empty(&self) -> bool {
@@ -640,41 +731,77 @@ impl<'de> Deserialize<'de> for BoundedResolvedScheduleSet {
 
 /// Checked assignment-revision evidence retained by CourseInstance records and receipts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoundedCourseInstanceAssignments(Vec<ObservedCourseInstanceAssignment>);
+pub struct BoundedAssignmentRevisionReferences(Vec<AssignmentRevisionReference>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BoundedCourseInstanceAssignmentsError;
+pub struct BoundedAssignmentRevisionReferencesError;
 
-impl BoundedCourseInstanceAssignments {
+impl BoundedAssignmentRevisionReferences {
     pub fn new(
-        assignments: Vec<ObservedCourseInstanceAssignment>,
-    ) -> Result<Self, BoundedCourseInstanceAssignmentsError> {
-        if assignments.len() > crate::MAX_ASSIGNMENT_ORDERED_ENTRIES
-            || assignments.iter().enumerate().any(|(index, assignment)| {
-                assignments[..index]
-                    .iter()
-                    .any(|prior| prior.assignment == assignment.assignment)
-            })
+        assignment_revisions: Vec<AssignmentRevisionReference>,
+    ) -> Result<Self, BoundedAssignmentRevisionReferencesError> {
+        if assignment_revisions.len() > crate::MAX_ASSIGNMENT_ORDERED_ENTRIES
+            || assignment_revisions
+                .iter()
+                .enumerate()
+                .any(|(index, assignment_revision)| {
+                    assignment_revisions[..index]
+                        .iter()
+                        .any(|prior| prior.assignment == assignment_revision.assignment)
+                })
         {
-            return Err(BoundedCourseInstanceAssignmentsError);
+            return Err(BoundedAssignmentRevisionReferencesError);
         }
-        Ok(Self(assignments))
+        Ok(Self(assignment_revisions))
     }
 
-    pub fn as_slice(&self) -> &[ObservedCourseInstanceAssignment] {
+    pub fn as_slice(&self) -> &[AssignmentRevisionReference] {
         &self.0
     }
 }
 
-impl std::fmt::Display for BoundedCourseInstanceAssignmentsError {
+impl std::fmt::Display for BoundedAssignmentRevisionReferencesError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .write_str("course instance assignment evidence exceeds the course assignment bound")
     }
 }
-impl std::error::Error for BoundedCourseInstanceAssignmentsError {}
+impl std::error::Error for BoundedAssignmentRevisionReferencesError {}
 
-impl Serialize for BoundedCourseInstanceAssignments {
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{CourseScheduleRevisionNumber, CourseScheduleRevisionReference};
+
+    #[test]
+    fn assignment_revision_reference_keeps_assignment_and_immutable_revision_number_together() {
+        let reference = AssignmentRevisionReference {
+            assignment: "A-7".parse().expect("Assignment reference"),
+            revision_number: AssignmentRevisionNumber::new(3).expect("revision number"),
+        };
+        assert_eq!(
+            serde_json::to_value(reference).expect("portable reference"),
+            serde_json::json!({"assignment": "A-7", "revision_number": "3"})
+        );
+    }
+
+    #[test]
+    fn course_instance_snapshot_refuses_a_schedule_revision_from_another_course() {
+        let course = CourseInstanceReference::new(7).expect("course");
+        let other_course = CourseInstanceReference::new(8).expect("other course");
+        let revision = CourseScheduleRevisionReference::new(
+            other_course,
+            CourseScheduleRevisionNumber::new(1).expect("positive revision"),
+        );
+
+        assert_eq!(
+            CourseInstanceSnapshot::new(course, revision, vec![]),
+            Err(CourseInstanceSnapshotError::ScheduleRevisionCourseMismatch)
+        );
+    }
+}
+
+impl Serialize for BoundedAssignmentRevisionReferences {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -683,7 +810,7 @@ impl Serialize for BoundedCourseInstanceAssignments {
     }
 }
 
-impl<'de> Deserialize<'de> for BoundedCourseInstanceAssignments {
+impl<'de> Deserialize<'de> for BoundedAssignmentRevisionReferences {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -697,21 +824,21 @@ impl<'de> Deserialize<'de> for BoundedCourseInstanceAssignments {
 
 /// Checked reusable source-location evidence retained by rollover records and receipts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoundedAssignmentDefinitionSources(Vec<AssignmentDefinitionSourceView>);
+pub struct BoundedAssignmentDefinitionSources(Vec<BlueprintAssignmentRevisionReference>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoundedAssignmentDefinitionSourcesError;
 
 impl BoundedAssignmentDefinitionSources {
     pub fn new(
-        assignments: Vec<AssignmentDefinitionSourceView>,
+        assignments: Vec<BlueprintAssignmentRevisionReference>,
     ) -> Result<Self, BoundedAssignmentDefinitionSourcesError> {
         (assignments.len() <= crate::MAX_ASSIGNMENT_ORDERED_ENTRIES)
             .then_some(Self(assignments))
             .ok_or(BoundedAssignmentDefinitionSourcesError)
     }
 
-    pub fn as_slice(&self) -> &[AssignmentDefinitionSourceView] {
+    pub fn as_slice(&self) -> &[BlueprintAssignmentRevisionReference] {
         &self.0
     }
 }

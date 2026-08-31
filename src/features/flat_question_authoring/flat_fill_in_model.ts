@@ -1,6 +1,9 @@
 // flat_fill_in_model.ts - private authoring operations for one accepted text response.
 
-import type { FlatQuestionFillInResponse, FlatQuestionTextMatchMode } from "./flat_question_source";
+import type {
+  FlatQuestionFillInResponse,
+  FlatQuestionTextResponseMatchRule,
+} from "./flat_question_source";
 
 const MAX_TEXT_RESPONSE_CHARS = 16_384;
 
@@ -89,7 +92,7 @@ export function removeFillInAnswer(
 
 export function setFillInMatchMode(
   response: FlatQuestionFillInResponse,
-  matchMode: FlatQuestionTextMatchMode,
+  matchMode: FlatQuestionTextResponseMatchRule,
 ): FlatQuestionFillInResponse {
   return { ...response, matchMode };
 }

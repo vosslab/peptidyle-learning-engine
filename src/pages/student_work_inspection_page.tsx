@@ -16,14 +16,14 @@ import {
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { InspectedStudentResponseV1 } from "../../generated/api/InspectedStudentResponseV1";
-import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type {
   InspectedStudentSubmission,
   InspectedStudentWorkDetail,
 } from "../api/decoders/calculated_gradebook";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { QuestionPromptRenderer } from "../components/question_renderer";
-import { textFromBlocks } from "../components/responses/common";
+import { textFromBlocks } from "../components/question_response_controls/common";
 import {
   courseRouteData,
   useCourseThemeRouteData,
@@ -56,7 +56,7 @@ function formatActivity(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
-function responseItemLabel(question: QuestionEnvelope, item: string): string {
+function responseItemLabel(question: QuestionPresentation, item: string): string {
   switch (question.response.kind) {
     case "multipleChoice":
       return (question.response.choices.find((choice) => choice.id === item)?.body ?? []).length ===
@@ -90,7 +90,7 @@ function responseItemLabel(question: QuestionEnvelope, item: string): string {
 
 function InspectedResponse(props: {
   readonly response: InspectedStudentResponseV1;
-  readonly question?: QuestionEnvelope;
+  readonly question?: QuestionPresentation;
 }): JSX.Element {
   const label = (item: string): string =>
     props.question === undefined ? item : responseItemLabel(props.question, item);
@@ -199,11 +199,11 @@ function SubmissionCard(props: {
   readonly submission: InspectedStudentSubmission;
   readonly position: number;
 }): JSX.Element {
-  const question = (): QuestionEnvelope | undefined =>
+  const question = (): QuestionPresentation | undefined =>
     props.submission.evidence.kind === "issuedPresentation"
       ? props.submission.evidence.question
       : undefined;
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   return (
     <article class="student-work-submission">
       <header>
@@ -263,7 +263,7 @@ function StudentWorkCoursePage(props: {
   readonly courseId: CourseId;
   readonly courseReference: CourseInstanceReference;
 }): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const location = useLocation();
   const params = useParams<{
     membershipRef: string;
@@ -367,8 +367,8 @@ function StudentWorkCoursePage(props: {
             This submitted Assignment Attempt could not be inspected
           </h1>
           <p>
-            Return to the current Gradebook. The Assignment Attempt may have changed, or this account may not have
-            direct Instructor access to the course.
+            Return to the current Gradebook. The Assignment Attempt may have changed, or this
+            account may not have direct Instructor access to the course.
           </p>
           <button class="primary-action" type="button" onClick={() => void load(route())}>
             Try again

@@ -55,22 +55,22 @@ best-effort data. PLE either reconstructs the exact durable state or fails close
 result; it is not a browser error schema and does not authorize exposing its
 attached diagnostic text.
 
-| Store result                    | Durable meaning                                                         | Normal recovery                                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `NotFound`                      | No visible record exists in the active scope.                           | Treat as absent; routes may also use it to conceal a foreign record.                                  |
-| `AlreadyExists`                 | Immutable identity or first-writer boundary already exists.             | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload. |
-| `Forbidden` | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record. |
-| `Conflict`                      | A compare-and-swap, lifecycle, or immutable-state precondition changed. | Reload the authoritative projection and ask the user to review before retrying.                       |
-| `RetryableTransaction`          | PostgreSQL aborted the whole serializable/deadlock transaction.         | Retry only at the owner-defined transaction or idempotent command boundary.                           |
-| `TimedOut`                      | The database-authoritative attempt deadline already passed.             | Stop the submission path and reload the current attempt or summary.                                   |
-| `InvalidRecord` or `RunModel`   | Trusted code or accepted wire data violated a model rule.               | Do not retry unchanged; return the bounded, route-approved validation message.                        |
-| `Unavailable`                   | A bounded dependency is unavailable.                                    | Preserve input and retry the same logical operation after recovery.                                   |
+| Store result                  | Durable meaning                                                                                                                | Normal recovery                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `NotFound`                    | No visible record exists in the active scope.                                                                                  | Treat as absent; routes may also use it to conceal a foreign record.                                  |
+| `AlreadyExists`               | Immutable identity or first-writer boundary already exists.                                                                    | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload. |
+| `Forbidden`                   | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record.                                             |
+| `Conflict`                    | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative projection and ask the user to review before retrying.                       |
+| `RetryableTransaction`        | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                           |
+| `TimedOut`                    | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                   |
+| `InvalidRecord` or Assignment Activity Model | Trusted code or accepted wire data violated a model rule.                                                                      | Do not retry unchanged; return the bounded, route-approved validation message.                        |
+| `Unavailable`                 | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                   |
 
 HTTP routes project this classification narrowly. For example,
-The deferred run route maps a missing attempt record to `404`, a run conflict
+The deferred Assignment Attempt route maps a missing attempt record to `404`, an Assignment Attempt conflict
 or expired attempt to `409`, malformed accepted input to `422`, and storage or backend
 unavailability to `503`. It sends `Cache-Control: no-store` error responses. Other routes may use
-different public wording or concealment. In particular, an owner-scoped run lookup returns not
+different public wording or concealment. In particular, a Student-owned Assignment Attempt lookup returns not
 found for a nonowner rather than confirming that the attempt exists. A new route must copy the
 relevant boundary's concealment rule instead of exposing a raw `StoreError` or making one global
 status mapping.

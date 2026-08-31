@@ -21,10 +21,11 @@ pub use codec::{
     DESCRIPTOR_VERSION_V1, PresentationDigestV1, descriptor_bytes_v1, verify_presentation_v1,
 };
 pub use model::{
-    AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1, PresentationNonceV1,
-    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    RenderedItemIdV1, IssuedQuestionResponseFormatV1, StudentAssignmentAttemptScreenAttemptV1,
-    StudentAssignmentAttemptScreenScopeV1, StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
+    AssetBindingV1, IssuedQuestionResponseFormatV1, PresentationDigestTokenV1,
+    PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
+    PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1,
+    StudentAssignmentAttemptScreenAttemptV1, StudentAssignmentAttemptScreenScopeV1,
+    StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
 };
 pub use response_translation::{
     InspectedExternalToolStateV1, InspectedMatchPairV1, InspectedStudentArtifactStateV1,

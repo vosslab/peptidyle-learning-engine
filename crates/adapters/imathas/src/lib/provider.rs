@@ -192,7 +192,7 @@ pub struct ProviderRenderRequest<'a> {
     pub profile: &'a str,
     /// Exact immutable Question Version.
     pub question_version: QuestionVersionReference,
-    /// Deterministic variation seed.
+    /// Deterministic Question Seed.
     pub seed: Seed,
 }
 

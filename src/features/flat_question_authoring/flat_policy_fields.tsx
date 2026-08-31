@@ -2,15 +2,15 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { FlatQuestionAttemptPolicy, FlatQuestionTimingPolicy } from "./flat_question_source";
+import type { FlatQuestionAttemptLimit, FlatQuestionAttemptTimeLimit } from "./flat_question_source";
 
 export interface FlatPolicyFieldsProps {
   readonly points: number;
-  readonly attemptPolicy: FlatQuestionAttemptPolicy;
-  readonly timingPolicy: FlatQuestionTimingPolicy;
+  readonly questionAttemptLimit: FlatQuestionAttemptLimit;
+  readonly questionAttemptTimeLimit: FlatQuestionAttemptTimeLimit;
   readonly onPointsChange: (points: number) => void;
-  readonly onAttemptPolicyChange: (policy: FlatQuestionAttemptPolicy) => void;
-  readonly onTimingPolicyChange: (policy: FlatQuestionTimingPolicy) => void;
+  readonly onQuestionAttemptLimitChange: (limit: FlatQuestionAttemptLimit) => void;
+  readonly onQuestionAttemptTimeLimitChange: (policy: FlatQuestionAttemptTimeLimit) => void;
   readonly fieldErrors?: Readonly<Record<string, string | undefined>>;
   readonly disabled?: boolean;
 }
@@ -30,27 +30,27 @@ function nonnegativeInteger(value: string, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-function isTimingKind(value: string): value is FlatQuestionTimingPolicy["kind"] {
-  return value === "untimed" || value === "perQuestion" || value === "perAttempt";
+function isTimingKind(value: string): value is FlatQuestionAttemptTimeLimit["kind"] {
+  return value === "unlimited" || value === "limited";
 }
 
 /** Retry and timing edits use native controls and keep unlimited attempts reversible. */
 export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
-  const timingKind = (): FlatQuestionTimingPolicy["kind"] => props.timingPolicy.kind;
+  const timingKind = (): FlatQuestionAttemptTimeLimit["kind"] => props.questionAttemptTimeLimit.kind;
   const timingSeconds = (): number =>
-    props.timingPolicy.kind === "untimed" ? 60 : props.timingPolicy.seconds;
+    props.questionAttemptTimeLimit.kind === "unlimited" ? 60 : props.questionAttemptTimeLimit.seconds;
   const graceSeconds = (): number =>
-    props.timingPolicy.kind === "untimed" ? 0 : props.timingPolicy.graceSeconds;
+    props.questionAttemptTimeLimit.kind === "unlimited" ? 0 : props.questionAttemptTimeLimit.graceSeconds;
   const error =
     (field: string): (() => string | undefined) =>
     (): string | undefined =>
       props.fieldErrors?.[field];
-  const setTimingKind = (kind: FlatQuestionTimingPolicy["kind"]): void => {
-    if (kind === "untimed") {
-      props.onTimingPolicyChange({ kind });
+  const setTimingKind = (kind: FlatQuestionAttemptTimeLimit["kind"]): void => {
+    if (kind === "unlimited") {
+      props.onQuestionAttemptTimeLimitChange({ kind });
       return;
     }
-    props.onTimingPolicyChange({ kind, seconds: timingSeconds(), graceSeconds: graceSeconds() });
+    props.onQuestionAttemptTimeLimitChange({ kind, seconds: timingSeconds(), graceSeconds: graceSeconds() });
   };
   const setTimingValue = (field: "seconds" | "graceSeconds", value: string): void => {
     const next =
@@ -58,8 +58,8 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
         ? positiveInteger(value, timingSeconds())
         : nonnegativeInteger(value, graceSeconds());
     const kind = timingKind();
-    if (kind === "untimed") return;
-    props.onTimingPolicyChange({ ...props.timingPolicy, [field]: next });
+    if (kind === "unlimited") return;
+    props.onQuestionAttemptTimeLimitChange({ ...props.questionAttemptTimeLimit, [field]: next });
   };
   return (
     <fieldset>
@@ -86,15 +86,17 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
             type="number"
             min="1"
             step="1"
-            disabled={props.disabled || props.attemptPolicy.maxAttempts === null}
-            value={props.attemptPolicy.maxAttempts ?? ""}
-            aria-invalid={error("attemptPolicy.maxAttempts")() !== undefined}
+            disabled={props.disabled || props.questionAttemptLimit.maxAttempts === null}
+            value={props.questionAttemptLimit.maxAttempts ?? ""}
+            aria-invalid={error("questionAttemptLimit.maxAttempts")() !== undefined}
             aria-describedby={
-              error("attemptPolicy.maxAttempts")() === undefined ? undefined : "flat-attempts-error"
+              error("questionAttemptLimit.maxAttempts")() === undefined
+                ? undefined
+                : "flat-attempts-error"
             }
             onInput={(event) =>
-              props.onAttemptPolicyChange({
-                ...props.attemptPolicy,
+              props.onQuestionAttemptLimitChange({
+                ...props.questionAttemptLimit,
                 maxAttempts: positiveInteger(event.currentTarget.value, 1),
               })
             }
@@ -109,20 +111,20 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
           {error("points")()}
         </p>
       </Show>
-      <Show when={error("attemptPolicy.maxAttempts")() !== undefined}>
+      <Show when={error("questionAttemptLimit.maxAttempts")() !== undefined}>
         <p class="flat-question-authoring__error" id="flat-attempts-error" role="alert">
-          {error("attemptPolicy.maxAttempts")()}
+          {error("questionAttemptLimit.maxAttempts")()}
         </p>
       </Show>
       <label class="flat-question-authoring__field">
         <span>
           <input
             type="checkbox"
-            checked={props.attemptPolicy.maxAttempts === null}
+            checked={props.questionAttemptLimit.maxAttempts === null}
             disabled={props.disabled}
             onChange={(event) =>
-              props.onAttemptPolicyChange({
-                ...props.attemptPolicy,
+              props.onQuestionAttemptLimitChange({
+                ...props.questionAttemptLimit,
                 maxAttempts: event.currentTarget.checked ? null : 1,
               })
             }
@@ -142,12 +144,11 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
               if (isTimingKind(kind)) setTimingKind(kind);
             }}
           >
-            <option value="untimed">Untimed</option>
-            <option value="perQuestion">Time for the question</option>
-            <option value="perAttempt">Time for each attempt</option>
+            <option value="unlimited">No Question Attempt time limit</option>
+            <option value="limited">Question Attempt time limit</option>
           </select>
         </label>
-        <Show when={timingKind() !== "untimed"}>
+        <Show when={timingKind() !== "unlimited"}>
           <div class="flat-question-authoring__grid">
             <label class="flat-question-authoring__field">
               <span>Seconds</span>

@@ -34,7 +34,7 @@ CREATE TABLE ple_private.assignment_grade (
     CONSTRAINT assignment_grade_student_assignment_is_unique UNIQUE (student_record_id, assignment_id)
 );
 GRANT USAGE ON SCHEMA ple_private TO ple_audit_owner;
-GRANT REFERENCES ON TABLE ple_private.assignment_grade_calculation TO ple_audit_owner;
+GRANT REFERENCES ON TABLE ple_private.assignment_grade_calculation, ple_private.assignment_grade TO ple_audit_owner;
 ALTER TABLE ple_private.assignment_grade_calculation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.assignment_grade_calculation FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.assignment_grade ENABLE ROW LEVEL SECURITY;

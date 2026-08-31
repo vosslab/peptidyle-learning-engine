@@ -13,7 +13,7 @@ tests/
   conftest.py            pytest config; declares collect_ignore
   conftest.py includes:  collect_ignore = ["e2e", "playwright"]
   playwright/            staged browser scenarios awaiting the fresh owner
-    e2e/*.spec.ts        catalog-owned future production browser scenarios
+    e2e/*.spec.ts        scenario-registry-owned future production browser scenarios
     *.mjs                browser-free contract checks
   e2e/                   non-browser whole-system E2E (shell/Python/Node)
     e2e_*.sh             shell orchestration
@@ -40,7 +40,7 @@ Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a
 - `tests/playwright/` -- browser-driven tests (Playwright; future tools like Cypress would get their own tool-named folder)
 - `tests/e2e/` -- non-browser whole-system orchestration (CLIs, build pipelines, multi-suite runners)
 
-The `tests/playwright/e2e/` subfolder is the catalog-owned set of full-path browser journeys. The
+The `tests/playwright/e2e/` subfolder is the scenario-registry-owned set of full-path browser journeys. The
 The fresh browser owner will select registered scenarios and own their disposable production stack.
 
 ## Disposable stack ownership
@@ -48,7 +48,7 @@ The fresh browser owner will select registered scenarios and own their disposabl
 The Podman-backed adapter E2Es do not select Compose projects from shell
 arguments. Their runner creates a private mode-0600 manifest with a declared
 owner, isolated project, private environment path, and runner-held cleanup
-capability. The private `python3 -m local_stack_control._consumer_cli` adapter
+capability. The private `python3 -m local_stack_control.disposable_stack_command` adapter
 then enforces a closed owner policy:
 
 - Browser-free data and security oracles use closed fixed-owner profiles and never launch
@@ -77,7 +77,7 @@ operational, one-time developer-volume cleanup check rather than product
 behavior or release acceptance. Pytest never collects test functions from the
 excluded E2E subtrees, regardless of filename inside
 them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
-for catalog-owned Playwright scenarios) are a readability layer on top of this active guard.
+for scenario-registry-owned Playwright scenarios) are a readability layer on top of this active guard.
 
 Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed.
 

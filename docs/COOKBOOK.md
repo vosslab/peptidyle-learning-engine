@@ -96,7 +96,7 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
    disclosure settings. Choose **Save assignment policies**.
 4. Read **Publication readiness** on **Overview**. Resolve every blocking action. Choose **Published
    - eligible for Student access** in the lifecycle control and save it. Until that save succeeds,
-   the assignment remains **Draft - students cannot access it**.
+     the assignment remains **Draft - students cannot access it**.
 5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
    Instructor session and creates no Student run or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course
@@ -107,7 +107,8 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 
 Assignments pin exact immutable questions for issued Student work. A Questions replacement applies to
 future runs; existing runs keep their original question. Prefer saved-assignment reuse for a group of
-questions. See [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) and [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
+questions. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) and
+[INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
 
 ## Apply a blueprint update
 

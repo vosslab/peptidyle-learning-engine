@@ -22,15 +22,15 @@ legacy readers, or parallel authorization model.
 
 ## Physical ownership map
 
-| Migration range | Physical owner | Principal records |
-| --- | --- | --- |
-| 2901–2906 | Global Account and Authenticated Session | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, Instructor Approval Events, and session-resolution brokers. |
-| 2907–2910 | Question Library and private authoring | Published Questions and immutable Question Versions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, source, grading material, and private QTI import facts. |
-| 2911–2915 | Reusable and live course roots | Blueprint Courses and Revisions, Account-owned Question Folders and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records. |
-| 2916–2918 | Assignment delivery and Student work | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release. |
-| 2919–2924 | Course objects, grading, analysis, and correction | Course Object Metadata, Automated Grading Operations and Receipts, Assignment Grades and Events, Course and Item Analysis, Forced Question Corrections, Question Change Events, and correction evidence. |
-| 2925–2931 | Jobs, retention, external tools, objects, and authorization closure | Typed Jobs and leases, exports and retention events, external-tool state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure. |
-| 2932–2936 | Baseline witness and current root extensions | Baseline Acceptance Witness, authentication ceremony brokers, Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Version Statistics. |
+| Migration range | Physical owner                                                      | Principal records                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2901-2906       | Global Account and Authenticated Session                            | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, Instructor Approval Events, and session-resolution brokers.                          |
+| 2907-2910       | Question Library and private authoring                              | Published Questions and immutable Question Versions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, source, grading material, and private QTI import facts. |
+| 2911-2915       | Reusable and live course roots                                      | Blueprint Courses and Revisions, Account-owned Question Folders and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records.                                     |
+| 2916-2918       | Assignment delivery and Student work                                | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release.                                                   |
+| 2919-2924       | Course objects, grading, analysis, and correction                   | Course Object Metadata, Automated Grading Operations, Grading Results, and Receipts, Assignment Grades and Events, Course and Item Analysis, Forced Question Corrections, Question Change Events, and correction evidence.                 |
+| 2925-2931       | Jobs, retention, external tools, objects, and authorization closure | Typed Jobs and leases, exports and retention events, external-tool state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure.              |
+| 2932-2936       | Baseline witness and current root extensions                        | Baseline Acceptance Witness, authentication ceremony brokers, Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Version Statistics.                                        |
 
 ## Ownership boundaries
 
@@ -57,6 +57,14 @@ Blueprint Course -> Blueprint Course Revision -> Course Instance -> Course Origi
 Published Question -> Question Version -> Question Version Availability Event
 Authoring Workspace -> Draft Question -> Draft Question Revision
 ```
+
+An immutable Assignment Revision carries the exact resolved delivery schedule,
+Assignment Attempt Time Limit, Attempt Limit, Late Work Rule, Assignment
+Deadline Rule, and all eight independent Assignment Activity Rules. Its
+completion threshold and continuation cap exist only for the rule variants
+that require them. A later Instructor edit creates a new Assignment Revision;
+an Assignment Attempt uses the delivery facts of its referenced revision
+rather than a mutable current policy.
 
 Question Folders organize Question Library lineages for an Account; they do
 not grant visibility or Course authority. Course Invitations are target-bound

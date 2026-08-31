@@ -4,7 +4,7 @@ import { useNavigate } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { SeededDemoAccount } from "../api/live_demo";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { isLiveDemoUnavailable, seededDemoDescription } from "./live_demo_auth_model";
 import "./live_demo_auth.css";
@@ -29,7 +29,7 @@ function seededDemoOpeningName(state: SeededDemoState): string {
  * authentication will return here once their canonical session adapters exist.
  */
 export function SignInPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const runtime = useApplicationApi();
   const session = useSessionBootstrap();
   const navigate = useNavigate();
   const [seededDemo, setSeededDemo] = createSignal<SeededDemoState>({ kind: "loading" });

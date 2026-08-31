@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -60,18 +61,18 @@ eight native Question Types, broader WeBWorK compatibility, and explicitly bound
 ### Mastery is an assignment activity
 
 **Decision.** Mastery assignments mean repeated practice with immediate educational feedback,
-fresh variation on a new Assignment Attempt, and a highest-score learning record. A first perfect score does not
+fresh Question Seeds on a new Assignment Attempt, and a highest-score learning record. A first perfect score does not
 silently end practice.
 
 **Why.** The teaching goal is confident transfer to varied problems, not one completion of a fixed
 set. The instructor should choose a recognizable activity such as Mastery, Exam, or Practice rather
 than assemble ordinary pedagogy from implementation primitives.
 
-**Consequence.** The domain keeps completion, grade, continued-practice, variation, timing, and
+**Consequence.** The domain keeps completion, grade, continued-practice, Question Variation, timing, and
 feedback policies orthogonal for correctness. The instructor and student interfaces present
 opinionated activity behavior, with only evidence-supported advanced controls.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-content-philosophy),
-[crates/question_model/src/run_policy.rs](../crates/question_model/src/run_policy.rs), and
+`crates/question_model/src/assignment_activity_rules.rs`, and
 [crates/domain/src/policy.rs](../crates/domain/src/policy.rs).
 **Planned closure.** Each new Question Type preserves the same retry, feedback, score, and
 continued-practice semantics through its owning release package.
@@ -334,7 +335,7 @@ discoverable in the Question Library.
 [implementation_status.md](active_plans/implementation_status.md),
 [CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses),
 [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md#blueprint-and-instance-courses), and
-`crates/question_model/src/reusable_curriculum.rs`.
+`crates/question_model/src/blueprint_course.rs`.
 
 ### Python owns complex orchestration
 
@@ -389,7 +390,7 @@ The acceptance transaction creates the immutable submission, pending evaluation,
 and receipt; the sealed worker later reloads that private response and grades it. Exact replay and
 status reads return the answer-free current projection rather than resubmitting the answer.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
-[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs), and MOD-API-RUN
+[Question Model Student Work Records](../crates/question_model/src/lib.rs), and MOD-API-RUN
 in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 **Current boundary.** The student submission and submission-status routes return a flattened,
@@ -554,7 +555,7 @@ closeout.
 **Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
 role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
 and Sysadmin accounts. Instructor approval requires real-person validation, and teaching requires
-direct Instructor membership. A Sysadmin provisions a course only for an explicitly assigned
+direct Instructor membership. A Sysadmin creates a Course Instance only for an explicitly assigned
 approved Instructor account, which receives the initial membership; the Sysadmin receives none.
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
 Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the

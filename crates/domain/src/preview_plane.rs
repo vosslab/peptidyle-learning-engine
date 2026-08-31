@@ -1,33 +1,34 @@
-//! Pure composition of S5 entitlement, S3 policy, and S4 disclosure for WP-INST-T3.
+//! Pure composition of the S5 active-membership gate, S3 policy, and S4 disclosure for WP-INST-T3.
 //!
 //! The Store owns route locators and authorization. It resolves them, discards all
-//! identity-bearing values, owns the resulting `PreviewSubject`, and passes this
+//! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
 //! module only the already-resolved S5/S3 facts. Evaluation borrows those facts
 //! and returns an owned, closed browser projection.
 
 use question_model::{
-    ActivityTimestamp, AssignmentTeachingSettingsField, CourseLocalDateTime, CourseTerm,
-    PreviewDeadlineBehaviorField, PreviewDenialReason, PreviewDisclosureFlags,
-    PreviewDisclosureMoment, PreviewDisclosureProjection, PreviewDisclosureUnavailableReason,
-    PreviewEntitlementDenialReason, PreviewEntitlementGrantReason, PreviewEntitlementOutcome,
-    PreviewLateSubmissionField, PreviewLimitField, PreviewPolicySourceLayer, PreviewResolvedPolicy,
-    PreviewScheduleProjection, PreviewTimeField, StudentDisclosurePolicy,
+    ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
+    ActiveStudentCourseMembershipOutcome, ActivityTimestamp, AssignmentPolicySourceKind,
+    AssignmentRevisionDefinitionField, CourseLocalDateAndTime, CourseTerm,
+    EffectiveAssignmentPolicyView, PreviewAssignmentDeadlineRuleField, PreviewDenialReason,
+    PreviewDisclosureFlags, PreviewDisclosureMoment, PreviewDisclosureUnavailableReason,
+    PreviewLateWorkRuleField, PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseView,
 };
 
 use crate::{
-    disclosure_policy::evaluate_student_disclosure,
+    active_student_course_membership::ActiveStudentCourseMembershipDecision,
     effective_assignment_policy::{
-        EffectiveAssignmentPolicy, EffectivePolicyDecision, PolicySource,
+        AssignmentAccessDecision, EffectiveAssignmentPolicy, PolicySource,
     },
-    entitlement::EntitlementDecision,
+    student_feedback_release::evaluate_student_feedback_release,
 };
 
 /// Maps an internal S3 source to a closed label, discarding every source identifier.
-pub fn preview_source_layer(source: &PolicySource) -> PreviewPolicySourceLayer {
+pub fn assignment_policy_source_kind(source: &PolicySource) -> AssignmentPolicySourceKind {
     match source {
-        PolicySource::Base => PreviewPolicySourceLayer::Base,
+        PolicySource::Base => AssignmentPolicySourceKind::Base,
         PolicySource::Accommodation(_) | PolicySource::HypotheticalAccommodation => {
-            PreviewPolicySourceLayer::Accommodation
+            AssignmentPolicySourceKind::Accommodation
         }
     }
 }
@@ -41,60 +42,70 @@ pub fn project_preview_policy(
         time(
             &policy.available_at,
             term,
-            AssignmentTeachingSettingsField::AvailableAt,
+            AssignmentRevisionDefinitionField::AvailableAt,
         )
         .map_err(|_| "invalid local preview time")?,
-        time(&policy.due_at, term, AssignmentTeachingSettingsField::DueAt)
-            .map_err(|_| "invalid local preview time")?,
+        time(
+            &policy.due_at,
+            term,
+            AssignmentRevisionDefinitionField::DueAt,
+        )
+        .map_err(|_| "invalid local preview time")?,
         time(
             &policy.closes_at,
             term,
-            AssignmentTeachingSettingsField::ClosesAt,
+            AssignmentRevisionDefinitionField::ClosesAt,
         )
         .map_err(|_| "invalid local preview time")?,
-        limit(&policy.time_limit_seconds),
+        limit(&policy.assignment_attempt_time_limit_seconds),
         limit(&policy.attempt_limit),
-        late(&policy.late_submission),
-        deadline(&policy.deadline_behavior),
+        late(&policy.late_work_rule),
+        deadline(&policy.assignment_deadline_rule),
     )
 }
 fn time(
-    field: &crate::effective_assignment_policy::ResolvedField<Option<ActivityTimestamp>>,
+    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+        Option<ActivityTimestamp>,
+    >,
     term: &CourseTerm,
-    kind: AssignmentTeachingSettingsField,
-) -> Result<PreviewTimeField, question_model::AssignmentTeachingSettingsLocalError> {
+    kind: AssignmentRevisionDefinitionField,
+) -> Result<PreviewTimeField, question_model::AssignmentRevisionDefinitionLocalError> {
     Ok(PreviewTimeField {
         value: field
             .value
-            .map(|v| CourseLocalDateTime::from_activity_timestamp(v, term, kind))
+            .map(|v| CourseLocalDateAndTime::from_activity_timestamp(v, term, kind))
             .transpose()?,
-        source: preview_source_layer(&field.source),
+        source: assignment_policy_source_kind(&field.source),
     })
 }
 fn limit(
-    field: &crate::effective_assignment_policy::ResolvedField<Option<std::num::NonZeroU32>>,
+    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+        Option<std::num::NonZeroU32>,
+    >,
 ) -> PreviewLimitField {
     PreviewLimitField {
         value: field.value.map(|v| v.get()),
-        source: preview_source_layer(&field.source),
+        source: assignment_policy_source_kind(&field.source),
     }
 }
 fn late(
-    field: &crate::effective_assignment_policy::ResolvedField<question_model::LateSubmissionPolicy>,
-) -> PreviewLateSubmissionField {
-    PreviewLateSubmissionField {
+    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+        question_model::LateWorkRule,
+    >,
+) -> PreviewLateWorkRuleField {
+    PreviewLateWorkRuleField {
         value: field.value,
-        source: preview_source_layer(&field.source),
+        source: assignment_policy_source_kind(&field.source),
     }
 }
 fn deadline(
-    field: &crate::effective_assignment_policy::ResolvedField<
-        question_model::AssignmentDeadlineBehavior,
+    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+        question_model::AssignmentDeadlineRule,
     >,
-) -> PreviewDeadlineBehaviorField {
-    PreviewDeadlineBehaviorField {
+) -> PreviewAssignmentDeadlineRuleField {
+    PreviewAssignmentDeadlineRuleField {
         value: field.value,
-        source: preview_source_layer(&field.source),
+        source: assignment_policy_source_kind(&field.source),
     }
 }
 
@@ -102,46 +113,56 @@ fn deadline(
 pub fn project_preview_schedule(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
-) -> Result<PreviewScheduleProjection, question_model::AssignmentTeachingSettingsLocalError> {
-    Ok(PreviewScheduleProjection {
+) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentRevisionDefinitionLocalError> {
+    Ok(EffectiveAssignmentPolicyView {
         available_at: time(
             &policy.available_at,
             term,
-            AssignmentTeachingSettingsField::AvailableAt,
+            AssignmentRevisionDefinitionField::AvailableAt,
         )?,
-        due_at: time(&policy.due_at, term, AssignmentTeachingSettingsField::DueAt)?,
+        due_at: time(
+            &policy.due_at,
+            term,
+            AssignmentRevisionDefinitionField::DueAt,
+        )?,
         closes_at: time(
             &policy.closes_at,
             term,
-            AssignmentTeachingSettingsField::ClosesAt,
+            AssignmentRevisionDefinitionField::ClosesAt,
         )?,
-        time_limit_seconds: limit(&policy.time_limit_seconds),
+        assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
         attempt_limit: limit(&policy.attempt_limit),
-        late_submission: late(&policy.late_submission),
-        deadline_behavior: deadline(&policy.deadline_behavior),
+        late_work_rule: late(&policy.late_work_rule),
+        assignment_deadline_rule: deadline(&policy.assignment_deadline_rule),
     })
 }
 
-/// Maps S5 result to the transport-safe entitlement outcome.
-pub fn project_preview_entitlement(decision: &EntitlementDecision) -> PreviewEntitlementOutcome {
+/// Maps the S5 active-membership result to the transport-safe Assignment Access outcome.
+pub fn project_active_student_course_membership(
+    decision: &ActiveStudentCourseMembershipDecision,
+) -> ActiveStudentCourseMembershipOutcome {
     match decision {
-        EntitlementDecision::Granted(_) => PreviewEntitlementOutcome::Granted {
-            reason: PreviewEntitlementGrantReason::ActiveStudentCourseMembership,
-        },
-        EntitlementDecision::Denied(_) => PreviewEntitlementOutcome::Denied {
-            reason: PreviewEntitlementDenialReason::NotEntitled,
-        },
+        ActiveStudentCourseMembershipDecision::Granted(_) => {
+            ActiveStudentCourseMembershipOutcome::Granted {
+                reason: ActiveStudentCourseMembershipGrantReason::ActiveStudentCourseMembership,
+            }
+        }
+        ActiveStudentCourseMembershipDecision::Denied(_) => {
+            ActiveStudentCourseMembershipOutcome::Denied {
+                reason: ActiveStudentCourseMembershipDenialReason::NoActiveStudentCourseMembership,
+            }
+        }
     }
 }
 
 /// Runs S4 at the requested preview boundary. Due and Close remain unavailable when absent.
-pub fn project_preview_disclosure(
-    effective: &EffectivePolicyDecision,
-    disclosure: StudentDisclosurePolicy,
+pub fn project_preview_student_feedback_release(
+    effective: &AssignmentAccessDecision,
+    rule: StudentFeedbackReleaseRule,
     moment: PreviewDisclosureMoment,
     now: ActivityTimestamp,
     submitted_at: Option<ActivityTimestamp>,
-) -> PreviewDisclosureProjection {
+) -> StudentFeedbackReleaseView {
     let boundary = match moment {
         PreviewDisclosureMoment::Now => Some(now),
         PreviewDisclosureMoment::Due => {
@@ -152,19 +173,19 @@ pub fn project_preview_disclosure(
         }
     };
     let Some(moment_time) = boundary else {
-        return PreviewDisclosureProjection::Unavailable {
+        return StudentFeedbackReleaseView::Unavailable {
             moment,
             reason: PreviewDisclosureUnavailableReason::BoundaryMissing,
         };
     };
-    let Some(value) = evaluate_student_disclosure(disclosure, effective, moment_time, submitted_at)
+    let Some(value) = evaluate_student_feedback_release(rule, effective, moment_time, submitted_at)
     else {
-        return PreviewDisclosureProjection::Unavailable {
+        return StudentFeedbackReleaseView::Unavailable {
             moment,
             reason: PreviewDisclosureUnavailableReason::BoundaryMissing,
         };
     };
-    PreviewDisclosureProjection::Available {
+    StudentFeedbackReleaseView::Available {
         moment,
         flags: PreviewDisclosureFlags {
             score_shown: value.score,
@@ -176,42 +197,44 @@ pub fn project_preview_disclosure(
     }
 }
 
-fn allowed_policy(value: &EffectivePolicyDecision) -> Option<&EffectiveAssignmentPolicy> {
+fn allowed_policy(value: &AssignmentAccessDecision) -> Option<&EffectiveAssignmentPolicy> {
     match value {
-        EffectivePolicyDecision::Allowed { policy, .. } => Some(policy),
-        EffectivePolicyDecision::Denied { .. } => None,
+        AssignmentAccessDecision::Allowed { policy, .. } => Some(policy),
+        AssignmentAccessDecision::Denied { .. } => None,
     }
 }
 
 /// A T3 denial is deliberately closed; callers must not attach any resolved data.
 pub fn preview_denial_for(
-    entitlement: &EntitlementDecision,
+    active_student_course_membership: &ActiveStudentCourseMembershipDecision,
     current_revision_matches: bool,
 ) -> Option<PreviewDenialReason> {
     if !current_revision_matches {
         return Some(PreviewDenialReason::StaleRevision);
     }
-    matches!(entitlement, EntitlementDecision::Denied(_))
-        .then_some(PreviewDenialReason::NotEntitled)
+    matches!(
+        active_student_course_membership,
+        ActiveStudentCourseMembershipDecision::Denied(_)
+    )
+    .then_some(PreviewDenialReason::ActiveStudentCourseMembershipRequired)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::effective_assignment_policy::{
-        AssignmentLifecycleGate, AuthorizationGate, BaseAssignmentPolicy, LateVerdict,
-        PolicySource, ResolveEffectivePolicyInput, ResolvedField, StartVerdict,
-        resolve_effective_policy,
+    use crate::active_student_course_membership::{
+        ActiveStudentCourseMembershipDenial, ActiveStudentCourseMembershipFacts,
+        ActiveStudentMembership, evaluate_active_student_course_membership,
     };
-    use crate::entitlement::{
-        ActiveStudentMembership, EntitlementDenial, EntitlementFacts,
-        evaluate_assignment_entitlement,
+    use crate::effective_assignment_policy::{
+        AssignmentLifecycleGate, AssignmentStartDecision, AuthorizationGate, BaseAssignmentPolicy,
+        EffectiveAssignmentPolicyValue, PolicySource, ResolveEffectivePolicyInput,
+        StudentLateWorkStatus, resolve_effective_policy,
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssignmentDeadlineBehavior, AssignmentId, CourseId, CourseMembershipId,
-        CourseTerm, LateSubmissionPolicy,
-        StudentDisclosureTiming, StudentRecordId,
+        AccountId, AssignmentDeadlineRule, AssignmentId, CourseId, CourseMembershipId, CourseTerm,
+        LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -219,8 +242,11 @@ mod tests {
     fn id(value: u128) -> Uuid {
         Uuid::from_u128(value)
     }
-    fn allowed() -> (EntitlementDecision, EffectivePolicyDecision) {
-        let facts = EntitlementFacts {
+    fn allowed() -> (
+        ActiveStudentCourseMembershipDecision,
+        AssignmentAccessDecision,
+    ) {
+        let facts = ActiveStudentCourseMembershipFacts {
             course: CourseId::from_uuid(id(2)),
             assignment: AssignmentId::from_uuid(id(3)),
             student_account: AccountId::from_uuid(id(4)),
@@ -229,65 +255,65 @@ mod tests {
                 student_record: StudentRecordId::from_uuid(id(6)),
             }),
         };
-        let entitlement = evaluate_assignment_entitlement(facts);
+        let active_student_course_membership = evaluate_active_student_course_membership(facts);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
             lifecycle: AssignmentLifecycleGate::Open,
             authorization: AuthorizationGate::Authorized,
-            entitlement: entitlement.clone(),
+            active_student_course_membership: active_student_course_membership.clone(),
             now: ActivityTimestamp::from_unix_millis(10),
             prior_run_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
                 due_at: Some(ActivityTimestamp::from_unix_millis(20)),
                 closes_at: None,
-                time_limit_seconds: None,
+                assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
-                late_submission: LateSubmissionPolicy::Accept,
-                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                late_work_rule: LateWorkRule::Accept,
+                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
             },
             accommodation: None,
         })
         .unwrap();
-        (entitlement, effective)
+        (active_student_course_membership, effective)
     }
 
     #[test]
     fn s5_s3_s4_projection_has_parity_and_missing_boundaries_are_explicit() {
-        let (entitlement, effective) = allowed();
+        let (active_student_course_membership, effective) = allowed();
         assert!(matches!(
-            project_preview_entitlement(&entitlement),
-            PreviewEntitlementOutcome::Granted { .. }
+            project_active_student_course_membership(&active_student_course_membership),
+            ActiveStudentCourseMembershipOutcome::Granted { .. }
         ));
-        let disclosure = StudentDisclosurePolicy::default();
+        let disclosure = StudentFeedbackReleaseRule::default();
         assert!(matches!(
-            project_preview_disclosure(
+            project_preview_student_feedback_release(
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Now,
                 ActivityTimestamp::from_unix_millis(10),
                 None
             ),
-            PreviewDisclosureProjection::Available { .. }
+            StudentFeedbackReleaseView::Available { .. }
         ));
         assert!(matches!(
-            project_preview_disclosure(
+            project_preview_student_feedback_release(
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Due,
                 ActivityTimestamp::from_unix_millis(10),
                 None
             ),
-            PreviewDisclosureProjection::Available { .. }
+            StudentFeedbackReleaseView::Available { .. }
         ));
         assert!(matches!(
-            project_preview_disclosure(
+            project_preview_student_feedback_release(
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Close,
                 ActivityTimestamp::from_unix_millis(10),
                 None
             ),
-            PreviewDisclosureProjection::Unavailable {
+            StudentFeedbackReleaseView::Unavailable {
                 reason: PreviewDisclosureUnavailableReason::BoundaryMissing,
                 ..
             }
@@ -295,20 +321,23 @@ mod tests {
     }
 
     #[test]
-    fn stale_revision_precedes_entitlement_and_denial_is_closed() {
-        let (entitlement, _) = allowed();
+    fn stale_revision_precedes_assignment_access_denial_and_is_closed() {
+        let (active_student_course_membership, _) = allowed();
         assert_eq!(
-            preview_denial_for(&entitlement, false),
+            preview_denial_for(&active_student_course_membership, false),
             Some(PreviewDenialReason::StaleRevision)
         );
-        let denied = EntitlementDecision::Denied(EntitlementDenial::StudentNotActiveCourse);
-        assert_eq!(
-            preview_denial_for(&denied, true),
-            Some(PreviewDenialReason::NotEntitled)
+        let denied = ActiveStudentCourseMembershipDecision::Denied(
+            ActiveStudentCourseMembershipDenial::StudentNotActiveCourse,
         );
         assert_eq!(
-            serde_json::to_value(PreviewDenialReason::NotEntitled).unwrap(),
-            serde_json::json!("notEntitled")
+            preview_denial_for(&denied, true),
+            Some(PreviewDenialReason::ActiveStudentCourseMembershipRequired)
+        );
+        assert_eq!(
+            serde_json::to_value(PreviewDenialReason::ActiveStudentCourseMembershipRequired)
+                .unwrap(),
+            serde_json::json!("activeStudentCourseMembershipRequired")
         );
     }
 
@@ -316,12 +345,12 @@ mod tests {
     fn actual_and_hypothetical_individual_sources_share_the_safe_layer() {
         let student = StudentRecordId::from_uuid(id(9));
         assert_eq!(
-            preview_source_layer(&PolicySource::Accommodation(student)),
-            PreviewPolicySourceLayer::Accommodation
+            assignment_policy_source_kind(&PolicySource::Accommodation(student)),
+            AssignmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            preview_source_layer(&PolicySource::HypotheticalAccommodation),
-            PreviewPolicySourceLayer::Accommodation
+            assignment_policy_source_kind(&PolicySource::HypotheticalAccommodation),
+            AssignmentPolicySourceKind::Accommodation
         );
     }
 
@@ -337,32 +366,32 @@ mod tests {
             )
         };
         let policy = EffectiveAssignmentPolicy {
-            available_at: ResolvedField {
+            available_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(14)),
                 source: PolicySource::Base,
             },
-            due_at: ResolvedField {
+            due_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(15)),
                 source: PolicySource::Accommodation(student),
             },
-            closes_at: ResolvedField {
+            closes_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(16)),
                 source: PolicySource::Accommodation(student),
             },
-            time_limit_seconds: ResolvedField {
+            assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
                 value: NonZeroU32::new(1_200),
                 source: PolicySource::Accommodation(student),
             },
-            attempt_limit: ResolvedField {
+            attempt_limit: EffectiveAssignmentPolicyValue {
                 value: NonZeroU32::new(3),
                 source: PolicySource::Base,
             },
-            late_submission: ResolvedField {
-                value: LateSubmissionPolicy::Accept,
+            late_work_rule: EffectiveAssignmentPolicyValue {
+                value: LateWorkRule::Accept,
                 source: PolicySource::Base,
             },
-            deadline_behavior: ResolvedField {
-                value: AssignmentDeadlineBehavior::AutoSubmit,
+            assignment_deadline_rule: EffectiveAssignmentPolicyValue {
+                value: AssignmentDeadlineRule::AutoSubmit,
                 source: PolicySource::Base,
             },
         };
@@ -384,37 +413,43 @@ mod tests {
         );
         assert_eq!(
             projected.available_at().source,
-            PreviewPolicySourceLayer::Base
+            AssignmentPolicySourceKind::Base
         );
         assert_eq!(
             projected.due_at().source,
-            PreviewPolicySourceLayer::Accommodation
+            AssignmentPolicySourceKind::Accommodation
         );
         assert_eq!(
             projected.closes_at().source,
-            PreviewPolicySourceLayer::Accommodation
+            AssignmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            projected.time_limit_seconds().source,
-            PreviewPolicySourceLayer::Accommodation
+            projected.assignment_attempt_time_limit_seconds().source,
+            AssignmentPolicySourceKind::Accommodation
         );
-        assert_eq!(projected.time_limit_seconds().value, Some(1_200));
+        assert_eq!(
+            projected.assignment_attempt_time_limit_seconds().value,
+            Some(1_200)
+        );
         assert_eq!(projected.attempt_limit().value, Some(3));
+        assert_eq!(projected.late_work_rule().value, LateWorkRule::Accept);
         assert_eq!(
-            projected.late_submission().value,
-            LateSubmissionPolicy::Accept
-        );
-        assert_eq!(
-            projected.deadline_behavior().value,
-            AssignmentDeadlineBehavior::AutoSubmit
+            projected.assignment_deadline_rule().value,
+            AssignmentDeadlineRule::AutoSubmit
         );
         assert_eq!(schedule.available_at, *projected.available_at());
         assert_eq!(schedule.due_at, *projected.due_at());
         assert_eq!(schedule.closes_at, *projected.closes_at());
-        assert_eq!(schedule.time_limit_seconds, *projected.time_limit_seconds());
+        assert_eq!(
+            schedule.assignment_attempt_time_limit_seconds,
+            *projected.assignment_attempt_time_limit_seconds()
+        );
         assert_eq!(schedule.attempt_limit, *projected.attempt_limit());
-        assert_eq!(schedule.late_submission, *projected.late_submission());
-        assert_eq!(schedule.deadline_behavior, *projected.deadline_behavior());
+        assert_eq!(schedule.late_work_rule, *projected.late_work_rule());
+        assert_eq!(
+            schedule.assignment_deadline_rule,
+            *projected.assignment_deadline_rule()
+        );
 
         let wire = serde_json::to_string(&projected).unwrap();
         for forbidden in [
@@ -431,37 +466,42 @@ mod tests {
 
     #[test]
     fn denied_s5_s3_s4_never_produces_preview_data() {
-        let entitlement = EntitlementDecision::Denied(EntitlementDenial::StudentNotActiveCourse);
+        let active_student_course_membership = ActiveStudentCourseMembershipDecision::Denied(
+            ActiveStudentCourseMembershipDenial::StudentNotActiveCourse,
+        );
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
             lifecycle: AssignmentLifecycleGate::Open,
             authorization: AuthorizationGate::Authorized,
-            entitlement: entitlement.clone(),
+            active_student_course_membership: active_student_course_membership.clone(),
             now: ActivityTimestamp::from_unix_millis(10),
             prior_run_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
                 due_at: None,
                 closes_at: None,
-                time_limit_seconds: None,
+                assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
-                late_submission: LateSubmissionPolicy::Accept,
-                deadline_behavior: AssignmentDeadlineBehavior::AutoSubmit,
+                late_work_rule: LateWorkRule::Accept,
+                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
             },
             accommodation: None,
         })
         .unwrap();
 
-        assert!(matches!(&effective, EffectivePolicyDecision::Denied { .. }));
+        assert!(matches!(
+            &effective,
+            AssignmentAccessDecision::Denied { .. }
+        ));
 
         assert_eq!(
-            project_preview_entitlement(&entitlement),
-            PreviewEntitlementOutcome::Denied {
-                reason: PreviewEntitlementDenialReason::NotEntitled,
+            project_active_student_course_membership(&active_student_course_membership),
+            ActiveStudentCourseMembershipOutcome::Denied {
+                reason: ActiveStudentCourseMembershipDenialReason::NoActiveStudentCourseMembership,
             }
         );
         assert_eq!(
-            preview_denial_for(&entitlement, true),
-            Some(PreviewDenialReason::NotEntitled)
+            preview_denial_for(&active_student_course_membership, true),
+            Some(PreviewDenialReason::ActiveStudentCourseMembershipRequired)
         );
         for moment in [
             PreviewDisclosureMoment::Now,
@@ -469,14 +509,14 @@ mod tests {
             PreviewDisclosureMoment::Close,
         ] {
             assert_eq!(
-                project_preview_disclosure(
+                project_preview_student_feedback_release(
                     &effective,
-                    StudentDisclosurePolicy::default(),
+                    StudentFeedbackReleaseRule::default(),
                     moment,
                     ActivityTimestamp::from_unix_millis(10),
                     None,
                 ),
-                PreviewDisclosureProjection::Unavailable {
+                StudentFeedbackReleaseView::Unavailable {
                     moment,
                     reason: PreviewDisclosureUnavailableReason::BoundaryMissing,
                 }
@@ -487,47 +527,47 @@ mod tests {
     #[test]
     fn disclosure_now_due_close_matches_s4_flags() {
         let policy = EffectiveAssignmentPolicy {
-            available_at: ResolvedField {
+            available_at: EffectiveAssignmentPolicyValue {
                 value: None,
                 source: PolicySource::Base,
             },
-            due_at: ResolvedField {
+            due_at: EffectiveAssignmentPolicyValue {
                 value: Some(ActivityTimestamp::from_unix_millis(20)),
                 source: PolicySource::Base,
             },
-            closes_at: ResolvedField {
+            closes_at: EffectiveAssignmentPolicyValue {
                 value: Some(ActivityTimestamp::from_unix_millis(30)),
                 source: PolicySource::Base,
             },
-            time_limit_seconds: ResolvedField {
+            assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
                 value: None,
                 source: PolicySource::Base,
             },
-            attempt_limit: ResolvedField {
+            attempt_limit: EffectiveAssignmentPolicyValue {
                 value: None,
                 source: PolicySource::Base,
             },
-            late_submission: ResolvedField {
-                value: LateSubmissionPolicy::Accept,
+            late_work_rule: EffectiveAssignmentPolicyValue {
+                value: LateWorkRule::Accept,
                 source: PolicySource::Base,
             },
-            deadline_behavior: ResolvedField {
-                value: AssignmentDeadlineBehavior::AutoSubmit,
+            assignment_deadline_rule: EffectiveAssignmentPolicyValue {
+                value: AssignmentDeadlineRule::AutoSubmit,
                 source: PolicySource::Base,
             },
         };
-        let effective = EffectivePolicyDecision::Allowed {
+        let effective = AssignmentAccessDecision::Allowed {
             policy: Box::new(policy),
-            start: StartVerdict::MayStart {
-                late: LateVerdict::OnTime,
+            start_decision: AssignmentStartDecision::MayStart {
+                late_work_status: StudentLateWorkStatus::OnTime,
             },
         };
-        let disclosure = StudentDisclosurePolicy {
-            score: StudentDisclosureTiming::DuringAttempt,
-            per_item_correctness: StudentDisclosureTiming::AfterSubmit,
-            feedback_text: StudentDisclosureTiming::AfterDue,
-            solution: StudentDisclosureTiming::AfterClose,
-            class_statistics: StudentDisclosureTiming::Never,
+        let disclosure = StudentFeedbackReleaseRule {
+            score: StudentFeedbackReleaseTiming::DuringAttempt,
+            per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
+            feedback_text: StudentFeedbackReleaseTiming::AfterDue,
+            solution: StudentFeedbackReleaseTiming::AfterClose,
+            class_statistics: StudentFeedbackReleaseTiming::Never,
         };
         let flags = |score_shown, feedback_shown, solution_shown| PreviewDisclosureFlags {
             score_shown,
@@ -542,14 +582,14 @@ mod tests {
             (PreviewDisclosureMoment::Close, flags(true, true, true)),
         ] {
             assert_eq!(
-                project_preview_disclosure(
+                project_preview_student_feedback_release(
                     &effective,
                     disclosure,
                     moment,
                     ActivityTimestamp::from_unix_millis(10),
                     None,
                 ),
-                PreviewDisclosureProjection::Available {
+                StudentFeedbackReleaseView::Available {
                     moment,
                     flags: expected,
                 }

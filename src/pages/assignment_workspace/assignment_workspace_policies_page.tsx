@@ -3,7 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
-import type { InstructorAssignmentTeachingSettingsLocal } from "../../../generated/api/InstructorAssignmentTeachingSettingsLocal";
+import type { InstructorAssignmentRevisionDefinitionLocal } from "../../../generated/api/InstructorAssignmentRevisionDefinitionLocal";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
   ApiRequestError,
@@ -43,20 +43,20 @@ function controlValue(value: string | null): string {
 
 function lifecycle(
   value: string,
-): InstructorAssignmentTeachingSettingsLocal["lifecycle"] | undefined {
+): InstructorAssignmentRevisionDefinitionLocal["lifecycle"] | undefined {
   if (value === "draft" || value === "published" || value === "closed" || value === "archived")
     return value;
   return undefined;
 }
 
-function lateSubmission(
+function lateWorkRule(
   value: string,
-): InstructorAssignmentTeachingSettingsLocal["lateSubmission"] | undefined {
+): InstructorAssignmentRevisionDefinitionLocal["lateWorkRule"] | undefined {
   if (value === "accept" || value === "markLate" || value === "reject") return value;
   return undefined;
 }
 
-function lifecycleLabel(value: InstructorAssignmentTeachingSettingsLocal["lifecycle"]): string {
+function lifecycleLabel(value: InstructorAssignmentRevisionDefinitionLocal["lifecycle"]): string {
   if (value === "draft") return "Draft - students cannot access it";
   if (value === "published") return "Published - eligible for Student access";
   if (value === "closed") return "Closed - no new Student work";
@@ -64,8 +64,8 @@ function lifecycleLabel(value: InstructorAssignmentTeachingSettingsLocal["lifecy
 }
 
 function lifecycleChoices(
-  value: InstructorAssignmentTeachingSettingsLocal["lifecycle"],
-): ReadonlyArray<InstructorAssignmentTeachingSettingsLocal["lifecycle"]> {
+  value: InstructorAssignmentRevisionDefinitionLocal["lifecycle"],
+): ReadonlyArray<InstructorAssignmentRevisionDefinitionLocal["lifecycle"]> {
   if (value === "draft") return ["draft", "published", "archived"];
   if (value === "published") return ["published", "closed", "archived"];
   if (value === "closed") return ["closed", "published", "archived"];
@@ -94,11 +94,11 @@ function fieldErrorDescription(
 export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
   const [policies, setPolicies] = createSignal(workspace.assignment().policies);
-  const [disclosurePolicy, setDisclosurePolicy] = createSignal(
-    workspace.assignment().disclosurePolicy,
+  const [studentFeedbackReleaseRule, setStudentFeedbackReleaseRule] = createSignal(
+    workspace.assignment().studentFeedbackReleaseRule,
   );
-  const [teachingSettings, setTeachingSettings] = createSignal(
-    workspace.assignment().teachingSettings,
+  const [assignmentRevisionDefinition, setAssignmentRevisionDefinition] = createSignal(
+    workspace.assignment().assignmentRevisionDefinition,
   );
   const [busy, setBusy] = createSignal(false);
   const [feedback, setFeedback] = createSignal<AssignmentPolicyFeedback>();
@@ -107,24 +107,24 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [activityRuleDraft, setActivityRuleDraft] = createSignal<AssignmentActivityRuleDraft>(
     activityRuleDraftFromRules(policies()),
   );
-  const [timeLimitSecondsDraft, setTimeLimitSecondsDraft] = createSignal(
-    numberDraft(teachingSettings().timeLimitSeconds),
+  const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] = createSignal(
+    numberDraft(assignmentRevisionDefinition().assignmentAttemptTimeLimitSeconds),
   );
   const [attemptLimitDraft, setAttemptLimitDraft] = createSignal(
-    numberDraft(teachingSettings().attemptLimit),
+    numberDraft(assignmentRevisionDefinition().attemptLimit),
   );
   const controls = new Map<PolicyFocusTarget, HTMLElement>();
   let saveButton!: HTMLButtonElement;
   let reloadButton: HTMLButtonElement | undefined;
   const policySummary = createMemo(() =>
     assignmentPolicyDraftSummary({
-      savedLifecycle: workspace.assignment().teachingSettings.lifecycle,
+      savedLifecycle: workspace.assignment().assignmentRevisionDefinition.lifecycle,
       savedCurrentState: workspace.assignment().currentState,
       policies: policies(),
       activityRuleDraft: activityRuleDraft(),
-      disclosurePolicy: disclosurePolicy(),
-      teachingSettings: teachingSettings(),
-      timeLimitSecondsDraft: timeLimitSecondsDraft(),
+      studentFeedbackReleaseRule: studentFeedbackReleaseRule(),
+      assignmentRevisionDefinition: assignmentRevisionDefinition(),
+      assignmentAttemptTimeLimitSecondsDraft: assignmentAttemptTimeLimitSecondsDraft(),
       attemptLimitDraft: attemptLimitDraft(),
     }),
   );
@@ -134,7 +134,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const questionsRequired = (): boolean =>
     workspace
       .assignment()
-      .publicationReadiness.blockingIssues.some((issue) => issue.kind === "questionsRequired");
+      .draftRevisionPublicationReadiness.blockingIssues.some(
+        (issue) => issue.kind === "questionsRequired",
+      );
   const questionRepairRequired = (): boolean =>
     questionsRequired() || assignmentPolicyFeedbackNeedsQuestionRepair(feedback());
 
@@ -165,10 +167,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   });
 
   function updateTeaching(
-    next: Partial<InstructorAssignmentTeachingSettingsLocal>,
+    next: Partial<InstructorAssignmentRevisionDefinitionLocal>,
     control?: PolicyFocusTarget,
   ): void {
-    setTeachingSettings((current) => ({ ...current, ...next }));
+    setAssignmentRevisionDefinition((current) => ({ ...current, ...next }));
     if (control !== undefined) clearRecoveredControl(control);
   }
 
@@ -193,14 +195,14 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     if (matches && recovered !== undefined) clearRecoveredField(recovered);
   }
 
-  function updateNumberDraft(field: "timeLimitSeconds" | "attemptLimit", raw: string): void {
+  function updateNumberDraft(field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit", raw: string): void {
     const parsed = optionalPositiveIntegerDraft(raw);
-    if (field === "timeLimitSeconds") setTimeLimitSecondsDraft(raw);
+    if (field === "assignmentAttemptTimeLimitSeconds") setAssignmentAttemptTimeLimitSecondsDraft(raw);
     else setAttemptLimitDraft(raw);
     if (!parsed.valid) return;
     updateTeaching(
-      field === "timeLimitSeconds"
-        ? { timeLimitSeconds: parsed.value }
+      field === "assignmentAttemptTimeLimitSeconds"
+        ? { assignmentAttemptTimeLimitSeconds: parsed.value }
         : { attemptLimit: parsed.value },
       field,
     );
@@ -213,52 +215,64 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     const value = parsed.value;
     if (!parsed.valid || value === null) return;
     clearRecoveredField(field);
-    if (field === "completionFraction" && policies().completion.kind === "scoreAtLeast") {
+    if (
+      field === "completionFraction" &&
+      policies().assignmentCompletionRule.kind === "scoreAtLeast"
+    ) {
       setPolicies((current) => ({
         ...current,
-        completion: { kind: "scoreAtLeast", fraction: value },
+        assignmentCompletionRule: { kind: "scoreAtLeast", fraction: value },
       }));
     }
-    if (field === "additionalRuns" && policies().continuedPractice.kind === "capped") {
+    if (
+      field === "additionalRuns" &&
+      policies().assignmentAttemptContinuationRule.kind === "capped"
+    ) {
       setPolicies((current) => ({
         ...current,
-        continuedPractice: { kind: "capped", maxAdditionalRuns: value },
+        assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalRuns: value },
       }));
     }
   }
 
-  function changeCompletionKind(kind: AssignmentActivityRules["completion"]["kind"]): void {
+  function changeCompletionKind(
+    kind: AssignmentActivityRules["assignmentCompletionRule"]["kind"],
+  ): void {
     if (kind === "allCorrect") {
-      setPolicies((current) => ({ ...current, completion: { kind } }));
+      setPolicies((current) => ({ ...current, assignmentCompletionRule: { kind } }));
       return;
     }
     if (kind === "answerAll") {
-      setPolicies((current) => ({ ...current, completion: { kind } }));
+      setPolicies((current) => ({ ...current, assignmentCompletionRule: { kind } }));
       return;
     }
     const parsed = scoreFractionDraft(activityRuleDraft().completionFraction);
     setPolicies((current) => ({
       ...current,
-      completion: { kind, fraction: parsed.value ?? 0.8 },
+      assignmentCompletionRule: { kind, fraction: parsed.value ?? 0.8 },
     }));
   }
 
-  function changeContinuedPracticeKind(kind: AssignmentActivityRules["continuedPractice"]["kind"]): void {
+  function changeAssignmentAttemptContinuationRuleKind(
+    kind: AssignmentActivityRules["assignmentAttemptContinuationRule"]["kind"],
+  ): void {
     if (kind === "unlimited" || kind === "closed") {
-      setPolicies((current) => ({ ...current, continuedPractice: { kind } }));
+      setPolicies((current) => ({ ...current, assignmentAttemptContinuationRule: { kind } }));
       return;
     }
     const parsed = nonnegativeIntegerDraft(activityRuleDraft().additionalRuns);
     setPolicies((current) => ({
       ...current,
-      continuedPractice: { kind, maxAdditionalRuns: parsed.value ?? 3 },
+      assignmentAttemptContinuationRule: { kind, maxAdditionalRuns: parsed.value ?? 3 },
     }));
   }
 
   function activityRuleFieldError(field: AssignmentActivityRuleDraftField): string | undefined {
     const active =
-      (field === "completionFraction" && policies().completion.kind === "scoreAtLeast") ||
-      (field === "additionalRuns" && policies().continuedPractice.kind === "capped");
+      (field === "completionFraction" &&
+        policies().assignmentCompletionRule.kind === "scoreAtLeast") ||
+      (field === "additionalRuns" &&
+        policies().assignmentAttemptContinuationRule.kind === "capped");
     if (!active) return undefined;
     const parsed =
       field === "completionFraction"
@@ -273,40 +287,40 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   }
 
   function deliveryNumberFieldError(
-    field: "timeLimitSeconds" | "attemptLimit",
+    field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
   ): string | undefined {
     const parsed = optionalPositiveIntegerDraft(
-      field === "timeLimitSeconds" ? timeLimitSecondsDraft() : attemptLimitDraft(),
+      field === "assignmentAttemptTimeLimitSeconds" ? assignmentAttemptTimeLimitSecondsDraft() : attemptLimitDraft(),
     );
     if (!parsed.valid) {
-      return `${field === "timeLimitSeconds" ? "Whole Assignment Attempt seconds" : "Attempt limit"} must be a positive whole number or blank.`;
+      return `${field === "assignmentAttemptTimeLimitSeconds" ? "Whole Assignment Attempt seconds" : "Attempt limit"} must be a positive whole number or blank.`;
     }
     return relevantField(failureField(), field) ? feedback()?.message : undefined;
   }
 
-  function variationPolicyError(): string | undefined {
-    return relevantField(failureField(), "variation") ? feedback()?.message : undefined;
+  function questionVariationRuleError(): string | undefined {
+    return relevantField(failureField(), "questionVariationRule") ? feedback()?.message : undefined;
   }
 
-  function updateVariationPolicy(next: AssignmentActivityRules): void {
+  function updateQuestionVariationRule(next: AssignmentActivityRules): void {
     setPolicies(next);
-    clearRecoveredControl("variation");
+    clearRecoveredControl("questionVariationRule");
   }
 
   function firstInvalidNumericField(): PolicyFocusTarget | undefined {
     if (
-      policies().completion.kind === "scoreAtLeast" &&
+      policies().assignmentCompletionRule.kind === "scoreAtLeast" &&
       !scoreFractionDraft(activityRuleDraft().completionFraction).valid
     ) {
       return "completionFraction";
     }
     if (
-      policies().continuedPractice.kind === "capped" &&
+      policies().assignmentAttemptContinuationRule.kind === "capped" &&
       !nonnegativeIntegerDraft(activityRuleDraft().additionalRuns).valid
     ) {
       return "additionalRuns";
     }
-    if (!optionalPositiveIntegerDraft(timeLimitSecondsDraft()).valid) return "timeLimitSeconds";
+    if (!optionalPositiveIntegerDraft(assignmentAttemptTimeLimitSecondsDraft()).valid) return "assignmentAttemptTimeLimitSeconds";
     if (!optionalPositiveIntegerDraft(attemptLimitDraft()).valid) return "attemptLimit";
     return undefined;
   }
@@ -327,7 +341,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           ? "Required score fraction"
           : invalidField === "additionalRuns"
             ? "Additional Assignment Attempts"
-            : invalidField === "timeLimitSeconds"
+            : invalidField === "assignmentAttemptTimeLimitSeconds"
               ? "Whole Assignment Attempt seconds"
               : "Attempt limit";
       setFailureField(invalidField);
@@ -342,22 +356,23 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     setFailureField(undefined);
     try {
       const input = assignmentPoliciesInput(
-        disclosurePolicy(),
+        studentFeedbackReleaseRule(),
         policies(),
-        teachingSettings(),
+        assignmentRevisionDefinition(),
       );
       const saved = await workspace.client.saveAssignmentPolicies(
         workspace.courseId,
         workspace.assignmentId,
+        workspace.assignment().reference,
         input,
         workspace.assignment().revision,
       );
       workspace.replaceAssignment(saved);
       setPolicies(saved.policies);
-      setDisclosurePolicy(saved.disclosurePolicy);
-      setTeachingSettings(saved.teachingSettings);
-      setTimeLimitSecondsDraft(numberDraft(saved.teachingSettings.timeLimitSeconds));
-      setAttemptLimitDraft(numberDraft(saved.teachingSettings.attemptLimit));
+      setStudentFeedbackReleaseRule(saved.studentFeedbackReleaseRule);
+      setAssignmentRevisionDefinition(saved.assignmentRevisionDefinition);
+      setAssignmentAttemptTimeLimitSecondsDraft(numberDraft(saved.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds));
+      setAttemptLimitDraft(numberDraft(saved.assignmentRevisionDefinition.attemptLimit));
       setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
       setNeedsReload(false);
       setFeedback({
@@ -395,10 +410,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     try {
       const latest = await workspace.reloadAssignment();
       setPolicies(latest.policies);
-      setDisclosurePolicy(latest.disclosurePolicy);
-      setTeachingSettings(latest.teachingSettings);
-      setTimeLimitSecondsDraft(numberDraft(latest.teachingSettings.timeLimitSeconds));
-      setAttemptLimitDraft(numberDraft(latest.teachingSettings.attemptLimit));
+      setStudentFeedbackReleaseRule(latest.studentFeedbackReleaseRule);
+      setAssignmentRevisionDefinition(latest.assignmentRevisionDefinition);
+      setAssignmentAttemptTimeLimitSecondsDraft(numberDraft(latest.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds));
+      setAttemptLimitDraft(numberDraft(latest.assignmentRevisionDefinition.attemptLimit));
       setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
       setFailureField(undefined);
       setNeedsReload(false);
@@ -427,8 +442,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-policies-heading">Policies</h1>
         <p class="page-lede">
-          Configure how {workspace.assignment().title} opens, accepts Assignment Attempts, and shares
-          Student Feedback. Times use the Course wall clock.
+          Configure how {workspace.assignment().title} opens, accepts Assignment Attempts, and
+          shares Student Feedback. Times use the Course wall clock.
         </p>
       </header>
 
@@ -478,10 +493,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             ref={registerSaveButton}
             class="primary-action"
             type="button"
-            disabled={
-              needsReload() ||
-              firstInvalidNumericField() !== undefined
-            }
+            disabled={needsReload() || firstInvalidNumericField() !== undefined}
             onClick={() => void save()}
           >
             {busy() ? "Saving assignment policies..." : "Save assignment policies"}
@@ -520,16 +532,18 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         <div class="assignment-workspace-policy-grid">
           <AssignmentWorkspacePolicyPanel
             policies={policies}
-            disclosurePolicy={disclosurePolicy}
+            studentFeedbackReleaseRule={studentFeedbackReleaseRule}
             activityRuleDraft={activityRuleDraft}
             activityRuleFieldError={activityRuleFieldError}
-            variationPolicyError={variationPolicyError}
+            questionVariationRuleError={questionVariationRuleError}
             onPoliciesChange={setPolicies}
-            onVariationChange={updateVariationPolicy}
-            onDisclosurePolicyChange={setDisclosurePolicy}
+            onQuestionVariationRuleChange={updateQuestionVariationRule}
+            onStudentFeedbackReleaseRuleChange={setStudentFeedbackReleaseRule}
             onActivityRuleDraftChange={updateActivityRuleDraft}
             onCompletionKindChange={changeCompletionKind}
-            onContinuedPracticeKindChange={changeContinuedPracticeKind}
+            onAssignmentAttemptContinuationRuleKindChange={
+              changeAssignmentAttemptContinuationRuleKind
+            }
             onRegisterActivityRuleControl={(field, element) => controls.set(field, element)}
             onRegisterPolicyControl={(field, element) => controls.set(field, element)}
           />
@@ -541,12 +555,14 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             <h2 id="assignment-delivery-policies-heading">Release and delivery</h2>
             <p class="assignment-editor-note" role="status">
               {assignmentCurrentStateCopy(
-                workspace.assignment().teachingSettings.lifecycle,
+                workspace.assignment().assignmentRevisionDefinition.lifecycle,
                 workspace.assignment().currentState,
-                workspace.assignment().teachingSettings.timeZone,
+                workspace.assignment().assignmentRevisionDefinition.timeZone,
               )}
             </p>
-            <p class="assignment-editor-note">Course time zone: {teachingSettings().timeZone}.</p>
+            <p class="assignment-editor-note">
+              Course time zone: {assignmentRevisionDefinition().timeZone}.
+            </p>
 
             <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--lifecycle">
               <legend>Lifecycle and Student instructions</legend>
@@ -554,16 +570,22 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 Lifecycle
                 <select
                   ref={(element) => controls.set("lifecycle", element)}
-                  value={teachingSettings().lifecycle}
+                  value={assignmentRevisionDefinition().lifecycle}
                   aria-invalid={relevantField(failureField(), "lifecycle")}
                   aria-describedby={fieldErrorDescription(failureField(), "lifecycle")}
-                  disabled={workspace.assignment().teachingSettings.lifecycle === "archived"}
+                  disabled={
+                    workspace.assignment().assignmentRevisionDefinition.lifecycle === "archived"
+                  }
                   onChange={(event) => {
                     const next = lifecycle(event.currentTarget.value);
                     if (next !== undefined) updateTeaching({ lifecycle: next }, "lifecycle");
                   }}
                 >
-                  <For each={lifecycleChoices(workspace.assignment().teachingSettings.lifecycle)}>
+                  <For
+                    each={lifecycleChoices(
+                      workspace.assignment().assignmentRevisionDefinition.lifecycle,
+                    )}
+                  >
                     {(choice) => <option value={choice}>{lifecycleLabel(choice)}</option>}
                   </For>
                 </select>
@@ -573,7 +595,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 <textarea
                   ref={(element) => controls.set("instructions", element)}
                   rows="4"
-                  value={teachingSettings().instructions}
+                  value={assignmentRevisionDefinition().instructions}
                   aria-invalid={relevantField(failureField(), "instructions")}
                   aria-describedby={fieldErrorDescription(failureField(), "instructions")}
                   onInput={(event) =>
@@ -591,7 +613,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("availableAt", element)}
                   step="0.001"
-                  value={controlValue(teachingSettings().availableAt)}
+                  value={controlValue(assignmentRevisionDefinition().availableAt)}
                   aria-invalid={relevantField(failureField(), "availableAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
                   onChange={(event) =>
@@ -610,7 +632,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("dueAt", element)}
                   step="0.001"
-                  value={controlValue(teachingSettings().dueAt)}
+                  value={controlValue(assignmentRevisionDefinition().dueAt)}
                   aria-invalid={relevantField(failureField(), "dueAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
                   onChange={(event) =>
@@ -627,7 +649,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("closesAt", element)}
                   step="0.001"
-                  value={controlValue(teachingSettings().closesAt)}
+                  value={controlValue(assignmentRevisionDefinition().closesAt)}
                   aria-invalid={relevantField(failureField(), "closesAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
                   onChange={(event) =>
@@ -642,23 +664,23 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 Whole Assignment Attempt seconds
                 <input
                   type="number"
-                  ref={(element) => controls.set("timeLimitSeconds", element)}
+                  ref={(element) => controls.set("assignmentAttemptTimeLimitSeconds", element)}
                   min="1"
-                  aria-invalid={deliveryNumberFieldError("timeLimitSeconds") !== undefined}
+                  aria-invalid={deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") !== undefined}
                   aria-describedby={
-                    deliveryNumberFieldError("timeLimitSeconds") === undefined
+                    deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") === undefined
                       ? undefined
-                      : "assignment-policies-timeLimitSeconds-error"
+                      : "assignment-policies-assignmentAttemptTimeLimitSeconds-error"
                   }
-                  value={timeLimitSecondsDraft()}
+                  value={assignmentAttemptTimeLimitSecondsDraft()}
                   onInput={(event) =>
-                    updateNumberDraft("timeLimitSeconds", event.currentTarget.value)
+                    updateNumberDraft("assignmentAttemptTimeLimitSeconds", event.currentTarget.value)
                   }
                 />
-                <Show when={deliveryNumberFieldError("timeLimitSeconds")}>
+                <Show when={deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds")}>
                   {(message) => (
                     <p
-                      id="assignment-policies-timeLimitSeconds-error"
+                      id="assignment-policies-assignmentAttemptTimeLimitSeconds-error"
                       class="assignment-editor-note"
                       role="status"
                     >
@@ -697,10 +719,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               <label class="assignment-editor-field">
                 Late work
                 <select
-                  value={teachingSettings().lateSubmission}
+                  value={assignmentRevisionDefinition().lateWorkRule}
                   onChange={(event) => {
-                    const next = lateSubmission(event.currentTarget.value);
-                    if (next !== undefined) updateTeaching({ lateSubmission: next }, "schedule");
+                    const next = lateWorkRule(event.currentTarget.value);
+                    if (next !== undefined) updateTeaching({ lateWorkRule: next }, "schedule");
                   }}
                 >
                   <option value="accept">Accept</option>
@@ -712,7 +734,6 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 At the effective deadline, the server automatically submits active work.
               </p>
             </fieldset>
-
           </section>
         </div>
       </fieldset>

@@ -34,11 +34,11 @@ configuration; it is not an institution selector, account setting, installation 
 authorization boundary. When no explicit configuration is present, PLE uses these privacy-first
 defaults:
 
-| Time after course end | Persisted action | Student-visible result |
-| --- | --- | --- |
-| 30 days | Create the in-app instructor notification. | Records remain available. |
-| 100 days | Archive student records. | Student record aliases and StudentRecord deliveries are concealed. |
-| 365 days | Permanently delete student records. | The terminal `studentRecordsDeleted` lifecycle is recorded. |
+| Time after course end | Persisted action                           | Student-visible result                                             |
+| --------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| 30 days               | Create the in-app instructor notification. | Records remain available.                                          |
+| 100 days              | Archive student records.                   | Student record aliases and StudentRecord deliveries are concealed. |
+| 365 days              | Permanently delete student records.        | The terminal `studentRecordsDeleted` lifecycle is recorded.        |
 
 The fixed current notification says:
 
@@ -144,7 +144,7 @@ The deleted student graph includes:
 
 The purge retains:
 
-- Published Questions, immutable versions, source artifacts, Question Library metadata, taxonomy, and
+- Published Questions, immutable versions, Source Object References, Question Library metadata, taxonomy, and
   licensing;
 - the Question Library and every `BlueprintCourse`, including its reusable
   assignment definitions and immutable revisions;

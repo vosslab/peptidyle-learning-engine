@@ -5,20 +5,20 @@ use std::num::NonZeroU64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    QuestionSummary, QuestionSearchFilter, QuestionFolderReference, QuestionId,
+    QuestionFolderReference, QuestionId, QuestionSearchFilter, QuestionSummary,
     QuestionVersionAvailability, SavedQuestionSearchReference,
 };
 
-/// Maximum ordered Question IDs accepted in one atomic collection replacement.
+/// Maximum ordered Question IDs accepted in one atomic Question Folder replacement.
 pub const MAX_QUESTION_FOLDER_MEMBERS: usize = 200;
-/// Maximum named collections owned by one instructor in this installation.
+/// Maximum named Question Folders owned by one Instructor in this installation.
 pub const MAX_NAMED_QUESTION_FOLDERS: usize = 100;
 /// Maximum personal saved searches owned by one instructor in this installation.
 pub const MAX_SAVED_QUESTION_SEARCHES: usize = 100;
-/// Maximum trimmed Unicode scalar values in a collection or saved-search title.
+/// Maximum trimmed Unicode scalar values in a Question Folder or Saved Question Search title.
 pub const MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS: usize = 200;
 
-/// Strong edit-number evidence for one complete collection state.
+/// Strong edit-number evidence for one complete Question Folder state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionFolderEditNumber(NonZeroU64);
@@ -84,7 +84,7 @@ macro_rules! impl_edit_number {
 impl_edit_number!(QuestionFolderEditNumber);
 impl_edit_number!(SavedQuestionSearchEditNumber);
 
-/// One title validation failure shared by collections and saved searches.
+/// One title validation failure shared by Question Folders and Saved Question Searches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionCurationTitleError {
     Invalid,
@@ -106,7 +106,7 @@ pub fn validate_question_curation_title(value: &str) -> Result<(), QuestionCurat
         .ok_or(QuestionCurationTitleError::Invalid)
 }
 
-/// Safe current projection of one exact immutable collection member.
+/// Safe current projection of one exact immutable Question Folder member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionFolderEntryView {

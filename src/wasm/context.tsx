@@ -19,7 +19,7 @@ export interface WasmRuntimeProviderProps {
   readonly children: JSX.Element;
 }
 
-/** Initializes one shared module before any response widget is mounted. */
+/** Initializes one shared module before any question response control is mounted. */
 export function WasmRuntimeProvider(props: WasmRuntimeProviderProps): JSX.Element {
   const [facade] = createResource(() =>
     loadWasmFacade(props.formatFallback, props.timerFallback, props.capabilityFallback),

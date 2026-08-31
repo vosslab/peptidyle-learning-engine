@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { decodeInstructorStudentView } from "../src/api/decoders/assignment_teaching_delivery.ts";
 
-test("Instructor Student view accepts an empty draft and full regeneration without identities", () => {
+test("Instructor Student view accepts an empty draft and Question Pool redraw without identities", () => {
   const view = decodeInstructorStudentView({
     title: "Peptide bonds",
     instructions: "Add questions before publishing.",
@@ -12,14 +12,14 @@ test("Instructor Student view accepts an empty draft and full regeneration witho
       availableAt: null,
       dueAt: null,
       closesAt: null,
-      timeLimitSeconds: null,
+      assignmentAttemptTimeLimitSeconds: null,
       attemptLimit: null,
-      lateSubmission: "accept",
-      deadlineBehavior: "autoSubmit",
+      lateWorkRule: "accept",
+      assignmentDeadlineRule: "autoSubmit",
     },
     questionsPerRun: 0,
-    variation: "fullRegeneration",
-    disclosurePolicy: {
+    questionVariationRule: "redrawQuestionPools",
+    studentFeedbackReleaseRule: {
       score: "never",
       per_item_correctness: "never",
       feedback_text: "never",
@@ -28,7 +28,7 @@ test("Instructor Student view accepts an empty draft and full regeneration witho
     },
   });
   assert.equal(view.questionsPerRun, 0);
-  assert.equal(view.variation, "fullRegeneration");
+  assert.equal(view.questionVariationRule, "redrawQuestionPools");
   assert.equal("lateStatus" in view.delivery, false);
   assert.throws(() =>
     decodeInstructorStudentView({ ...view, assignmentId: "00000000-0000-0000-0000-000000000001" }),

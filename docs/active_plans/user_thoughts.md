@@ -12,9 +12,10 @@ to Apache, but that seems dated at this point; M -> mariadb, postgres; sqlite: n
 typescript/framework/wasm/rust?
 
 Key principles:
-* Dream big. Build on the ambition already present.
-* Fix the design, not the symptom.
-* Long-term over short-term.
-* Best software design is focused on adaptability.
+
+- Dream big. Build on the ambition already present.
+- Fix the design, not the symptom.
+- Long-term over short-term.
+- Best software design is focused on adaptability.
 
 Problem types need to be plugin-like, so we can support any future type as well.

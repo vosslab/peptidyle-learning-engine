@@ -7,10 +7,10 @@ import type { PresentationEnvelopeV1 } from "../../../generated/api/Presentation
 import type { PresentedBlankV1 } from "../../../generated/api/PresentedBlankV1";
 import type { PresentedChoiceV1 } from "../../../generated/api/PresentedChoiceV1";
 import type { PresentedHotspotRegionV1 } from "../../../generated/api/PresentedHotspotRegionV1";
-import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { IssuedQuestionResponseFormatV1 } from "../../../generated/api/IssuedQuestionResponseFormatV1";
-import type { SelectionCardinality } from "../../../generated/api/SelectionCardinality";
+import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
 import {
   DecodeError,
   decodeBoolean,
@@ -132,7 +132,10 @@ function bounds(record: Record<string, unknown>, path: string, count: number): [
   return [minimum, maximum];
 }
 
-function issuedQuestionResponseFormat(value: unknown, path: string): IssuedQuestionResponseFormatV1 {
+function issuedQuestionResponseFormat(
+  value: unknown,
+  path: string,
+): IssuedQuestionResponseFormatV1 {
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
     case "singleChoice": {
@@ -250,19 +253,22 @@ function selectionFromBounds(
   maximum: number,
   count: number,
   path: string,
-): SelectionCardinality {
+): ResponseSelectionRule {
   if (minimum === 1 && maximum === 1) return { kind: "exactlyOne" };
   if (minimum === 0 && maximum === count) return { kind: "anyNumber" };
   if (minimum === 1 && maximum === count) return { kind: "atLeastOne" };
   if (minimum === maximum) return { kind: "exactly", count: minimum };
-  throw new DecodeError(path, "selection bounds supported by the response widget");
+  throw new DecodeError(path, "selection bounds supported by the question response control");
 }
 
 function choicesForWidget(choices: ReadonlyArray<PresentedChoiceV1>): ChoiceOption[] {
   return choices.map((choice) => ({ id: choice.id, body: choice.body }));
 }
 
-function responseForWidget(response: IssuedQuestionResponseFormatV1, path: string): QuestionResponseFormat {
+function responseForWidget(
+  response: IssuedQuestionResponseFormatV1,
+  path: string,
+): QuestionResponseFormat {
   switch (response.kind) {
     case "singleChoice":
       return {
@@ -326,7 +332,7 @@ function responseForWidget(response: IssuedQuestionResponseFormatV1, path: strin
 export function decodeIssuedPresentationEnvelope(
   value: unknown,
   path = "response",
-): QuestionEnvelope {
+): QuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionVersion",
@@ -358,8 +364,10 @@ export function decodeIssuedPresentationEnvelope(
     response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
   } satisfies PresentationEnvelopeV1;
   return {
-    questionVersion: presentation.questionVersion,
-    seed: presentation.seed,
+    variation: {
+      questionVersion: presentation.questionVersion,
+      seed: presentation.seed,
+    },
     title: presentation.title,
     prompt: presentation.prompt,
     response: responseForWidget(presentation.response, `${path}.response`),

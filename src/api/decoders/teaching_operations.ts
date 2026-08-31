@@ -1,7 +1,7 @@
 // Strict browser decoders for generated WP-INST-T2 teaching-operation DTOs.
 
 import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
-import { MAX_ASSIGNMENT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_TIME_LIMIT_SECONDS";
+import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS";
 import { MAX_RETENTION_EXTENSION_DAYS } from "../../../generated/api/MAX_RETENTION_EXTENSION_DAYS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
@@ -10,11 +10,11 @@ import type { SysadminInstructorApprovalView } from "../../../generated/api/Sysa
 import type { SysadminInstructorCandidateSearchPage } from "../../../generated/api/SysadminInstructorCandidateSearchPage";
 import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { SysadminInstructorCandidateView } from "../../../generated/api/SysadminInstructorCandidateView";
-import type { AssignmentPolicyPatchUpdateRequest } from "../../../generated/api/AssignmentPolicyPatchUpdateRequest";
+import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
 import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
 import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
-import type { AccommodationPatchUpdateRequest } from "../../../generated/api/AccommodationPatchUpdateRequest";
+import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/api/AccommodationAdjustmentUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
@@ -30,7 +30,7 @@ import type { CourseInvitationTargetSearchPage } from "../../../generated/api/Co
 import type { CourseInvitationTargetSearchRequest } from "../../../generated/api/CourseInvitationTargetSearchRequest";
 import type { CourseStudentMembershipsPage } from "../../../generated/api/CourseStudentMembershipsPage";
 import type { StudentMembershipView } from "../../../generated/api/StudentMembershipView";
-import type { TeachingPreviewFieldSource } from "../../../generated/api/TeachingPreviewFieldSource";
+import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
 import type { TeachingPreviewLimitField } from "../../../generated/api/TeachingPreviewLimitField";
 import type { TeachingPreviewTimeField } from "../../../generated/api/TeachingPreviewTimeField";
 import type { RetentionDispositionView } from "../../../generated/api/RetentionDispositionView";
@@ -116,7 +116,7 @@ function positiveInteger(value: unknown, path: string, maximum: number): number 
   return parsed;
 }
 
-function courseLocalDateTime(value: unknown, path: string): string {
+function courseLocalDateAndTime(value: unknown, path: string): string {
   const text = decodeString(value, path);
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})$/u.exec(text);
   if (match === null)
@@ -144,7 +144,7 @@ function courseLocalDateTime(value: unknown, path: string): string {
   return text;
 }
 
-function ianaTimeZone(value: unknown, path: string): string {
+function courseTimeZone(value: unknown, path: string): string {
   const timeZone = boundedTrimmedText(value, path, 255);
   return timeZone;
 }
@@ -161,7 +161,7 @@ export function decodeTeachingOperationRevisionResponse(
 function timePatch(
   value: unknown,
   path: string,
-): AssignmentPolicyPatchUpdateRequest["patch"]["availableAt"] {
+): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"]["availableAt"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -171,7 +171,7 @@ function timePatch(
       return { kind };
     case "set":
       requireOnlyFields(record, path, ["kind", "value"]);
-      return { kind, value: courseLocalDateTime(field(record, "value", path), `${path}.value`) };
+      return { kind, value: courseLocalDateAndTime(field(record, "value", path), `${path}.value`) };
     default:
       throw new DecodeError(`${path}.kind`, "one of inherit, set, unrestricted");
   }
@@ -181,7 +181,7 @@ function limitPatch(
   value: unknown,
   path: string,
   maximum: number,
-): AssignmentPolicyPatchUpdateRequest["patch"]["timeLimitSeconds"] {
+): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"]["assignmentAttemptTimeLimitSeconds"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -200,22 +200,22 @@ function limitPatch(
   }
 }
 
-function policyPatch(value: unknown, path: string): AssignmentPolicyPatchUpdateRequest["patch"] {
+function accommodationAdjustment(value: unknown, path: string): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"] {
   const record = closed(value, path, [
     "availableAt",
     "dueAt",
     "closesAt",
-    "timeLimitSeconds",
+    "assignmentAttemptTimeLimitSeconds",
     "attemptLimit",
   ]);
   return {
     availableAt: timePatch(record.availableAt, `${path}.availableAt`),
     dueAt: timePatch(record.dueAt, `${path}.dueAt`),
     closesAt: timePatch(record.closesAt, `${path}.closesAt`),
-    timeLimitSeconds: limitPatch(
-      record.timeLimitSeconds,
-      `${path}.timeLimitSeconds`,
-      MAX_ASSIGNMENT_TIME_LIMIT_SECONDS,
+    assignmentAttemptTimeLimitSeconds: limitPatch(
+      record.assignmentAttemptTimeLimitSeconds,
+      `${path}.assignmentAttemptTimeLimitSeconds`,
+      MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     ),
     attemptLimit: limitPatch(
       record.attemptLimit,
@@ -225,29 +225,29 @@ function policyPatch(value: unknown, path: string): AssignmentPolicyPatchUpdateR
   };
 }
 
-function decodePolicyWrite(value: unknown, path: string): AssignmentPolicyPatchUpdateRequest {
-  const record = closed(value, path, ["mode", "patch"]);
+function decodeAccommodationAdjustmentWrite(value: unknown, path: string): SyntheticPreviewAccommodationAdjustmentRequest {
+  const record = closed(value, path, ["mode", "adjustment"]);
   return {
-    mode: decodeStringEnum(record.mode, `${path}.mode`, ["extendOnly", "override"] as const),
-    patch: policyPatch(record.patch, `${path}.patch`),
+    mode: decodeStringEnum(record.mode, `${path}.mode`, ["extendOnly", "replace"] as const),
+    adjustment: accommodationAdjustment(record.adjustment, `${path}.adjustment`),
   };
 }
 
-export function decodeAssignmentPolicyPatchUpdateRequest(
+export function decodeSyntheticPreviewAccommodationAdjustmentRequest(
   value: unknown,
   path = "request",
-): AssignmentPolicyPatchUpdateRequest {
-  return decodePolicyWrite(value, path);
+): SyntheticPreviewAccommodationAdjustmentRequest {
+  return decodeAccommodationAdjustmentWrite(value, path);
 }
 
-export function decodeAccommodationPatchUpdateRequest(
+export function decodeAccommodationAdjustmentUpdateRequest(
   value: unknown,
   path = "request",
-): AccommodationPatchUpdateRequest {
-  return decodePolicyWrite(value, path);
+): AccommodationAdjustmentUpdateRequest {
+  return decodeAccommodationAdjustmentWrite(value, path);
 }
 
-function previewSource(value: unknown, path: string): TeachingPreviewFieldSource {
+function assignmentPolicySource(value: unknown, path: string): AssignmentPolicySource {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -273,15 +273,15 @@ function previewSource(value: unknown, path: string): TeachingPreviewFieldSource
         ),
       };
     default:
-      throw new DecodeError(`${path}.kind`, "a known preview provenance kind");
+      throw new DecodeError(`${path}.kind`, "a known Assignment Policy Source kind");
   }
 }
 
 function previewTimeField(value: unknown, path: string): TeachingPreviewTimeField {
   const record = closed(value, path, ["value", "source"]);
   return {
-    value: decodeNullable(record.value, `${path}.value`, courseLocalDateTime),
-    source: previewSource(record.source, `${path}.source`),
+    value: decodeNullable(record.value, `${path}.value`, courseLocalDateAndTime),
+    source: assignmentPolicySource(record.source, `${path}.source`),
   };
 }
 
@@ -289,16 +289,16 @@ function previewLimitField(value: unknown, path: string): TeachingPreviewLimitFi
   const record = closed(value, path, ["value", "source"]);
   return {
     value: decodeNullable(record.value, `${path}.value`, (entry, entryPath) =>
-      positiveInteger(entry, entryPath, MAX_ASSIGNMENT_TIME_LIMIT_SECONDS),
+      positiveInteger(entry, entryPath, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS),
     ),
-    source: previewSource(record.source, `${path}.source`),
+    source: assignmentPolicySource(record.source, `${path}.source`),
   };
 }
 
 function startVerdict(
   value: unknown,
   path: string,
-): Extract<TeachingPreviewView, { entitlement: "allowed" }>["start"] {
+): Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>["start"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -315,7 +315,7 @@ function startVerdict(
     case "notYetAvailable":
     case "closed":
     case "attemptLimitReached":
-    case "dueDateRejectsNewRun":
+    case "lateWorkRefused":
       requireOnlyFields(record, path, ["kind"]);
       return { kind };
     default:
@@ -325,63 +325,63 @@ function startVerdict(
 
 export function decodeTeachingPreviewView(value: unknown, path = "response"): TeachingPreviewView {
   const record = decodeRecord(value, path);
-  const entitlement = decodeString(field(record, "entitlement", path), `${path}.entitlement`);
-  if (entitlement === "denied") {
-    requireOnlyFields(record, path, ["entitlement", "reason"]);
+  const active_student_course_membership = decodeString(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`);
+  if (active_student_course_membership === "denied") {
+    requireOnlyFields(record, path, ["active_student_course_membership", "reason"]);
     return {
-      entitlement,
+      active_student_course_membership,
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "notEntitled",
+        "activeStudentCourseMembershipRequired",
       ] as const),
     };
   }
-  if (entitlement !== "allowed") throw new DecodeError(`${path}.entitlement`, "allowed or denied");
+  if (active_student_course_membership !== "allowed") throw new DecodeError(`${path}.active_student_course_membership`, "allowed or denied");
   requireOnlyFields(record, path, [
-    "entitlement",
+    "active_student_course_membership",
     "timeZone",
     "start",
     "availableAt",
     "dueAt",
     "closesAt",
-    "timeLimitSeconds",
+    "assignmentAttemptTimeLimitSeconds",
     "attemptLimit",
-    "lateSubmission",
-    "deadlineBehavior",
+    "lateWorkRule",
+    "assignmentDeadlineRule",
   ]);
-  const lateSubmission = closed(field(record, "lateSubmission", path), `${path}.lateSubmission`, [
+  const lateWorkRule = closed(field(record, "lateWorkRule", path), `${path}.lateWorkRule`, [
     "value",
     "source",
   ]);
-  const deadlineBehavior = closed(
-    field(record, "deadlineBehavior", path),
-    `${path}.deadlineBehavior`,
+  const assignmentDeadlineRule = closed(
+    field(record, "assignmentDeadlineRule", path),
+    `${path}.assignmentDeadlineRule`,
     ["value", "source"],
   );
   return {
-    entitlement,
-    timeZone: ianaTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
+    active_student_course_membership,
+    timeZone: courseTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
     start: startVerdict(field(record, "start", path), `${path}.start`),
     availableAt: previewTimeField(field(record, "availableAt", path), `${path}.availableAt`),
     dueAt: previewTimeField(field(record, "dueAt", path), `${path}.dueAt`),
     closesAt: previewTimeField(field(record, "closesAt", path), `${path}.closesAt`),
-    timeLimitSeconds: previewLimitField(
-      field(record, "timeLimitSeconds", path),
-      `${path}.timeLimitSeconds`,
+    assignmentAttemptTimeLimitSeconds: previewLimitField(
+      field(record, "assignmentAttemptTimeLimitSeconds", path),
+      `${path}.assignmentAttemptTimeLimitSeconds`,
     ),
     attemptLimit: previewLimitField(field(record, "attemptLimit", path), `${path}.attemptLimit`),
-    lateSubmission: {
-      value: decodeStringEnum(lateSubmission.value, `${path}.lateSubmission.value`, [
+    lateWorkRule: {
+      value: decodeStringEnum(lateWorkRule.value, `${path}.lateWorkRule.value`, [
         "accept",
         "markLate",
         "reject",
       ] as const),
-      source: previewSource(lateSubmission.source, `${path}.lateSubmission.source`),
+      source: assignmentPolicySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
     },
-    deadlineBehavior: {
-      value: decodeStringEnum(deadlineBehavior.value, `${path}.deadlineBehavior.value`, [
+    assignmentDeadlineRule: {
+      value: decodeStringEnum(assignmentDeadlineRule.value, `${path}.assignmentDeadlineRule.value`, [
         "autoSubmit",
       ] as const),
-      source: previewSource(deadlineBehavior.source, `${path}.deadlineBehavior.source`),
+      source: assignmentPolicySource(assignmentDeadlineRule.source, `${path}.assignmentDeadlineRule.source`),
     },
   };
 }

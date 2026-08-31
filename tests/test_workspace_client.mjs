@@ -38,8 +38,8 @@ function semanticProjection(definition) {
     title: definition.metadata.title,
     prompt: { blocks: definition.prompt.map((block) => block.kind) },
     response: { kind: response.kind, optionCount },
-    attemptPolicy: definition.attemptPolicy,
-    timingPolicy: definition.timingPolicy,
+    questionAttemptLimit: definition.questionAttemptLimit,
+    questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
     randomization: { kind: definition.randomization.kind },
     metadata: {
       tags: definition.metadata.tags,
@@ -162,7 +162,7 @@ test("publication 422 shapes keep readiness distinct from complete capability vi
             {
               workspace,
               title: draft.metadata.title,
-              capability: "perQuestionTiming",
+              capability: "questionAttemptTimeLimit",
             },
           ],
         },

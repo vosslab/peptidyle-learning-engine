@@ -4,7 +4,7 @@ import { A, createAsync, revalidate } from "@solidjs/router";
 import { createMemo, createSignal, For, Show, Suspense, type JSX } from "solid-js";
 
 import type { CourseSummary, CursorPage } from "../api/contracts";
-import { useApiRuntime } from "../api/runtime";
+import { useApplicationApi } from "../api/application_api";
 import { CourseTermValidationError } from "../api/http_client/error";
 import { useSessionBootstrap } from "../auth/session_context";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
@@ -49,7 +49,7 @@ function pluralize(count: number, singular: string, plural: string): string {
 
 /** Visible, append-only course paging keeps a large student roster reachable without a route shortcut. */
 export function CourseList(props: CourseListProps): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const [state, setState] = createSignal<CursorPageSessionState<CourseSummary>>({
     items: [],
     nextCursor: null,
@@ -61,7 +61,7 @@ export function CourseList(props: CourseListProps): JSX.Element {
   let reloadButton: HTMLButtonElement | undefined;
   const session = new CursorPageSession(
     props.initialPage,
-    (cursor) => runtime.client.listCourses(cursor),
+    (cursor) => applicationApi.client.listCourses(cursor),
     (course) => course.id,
     setState,
   );
@@ -223,9 +223,9 @@ export function CourseList(props: CourseListProps): JSX.Element {
 }
 
 export function CourseListPage(): JSX.Element {
-  const runtime = useApiRuntime();
+  const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
-  const courses = createAsync(() => runtime.queries.courses());
+  const courses = createAsync(() => applicationApi.queries.courses());
   const [title, setTitle] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
@@ -241,15 +241,16 @@ export function CourseListPage(): JSX.Element {
   let timeZoneInput: HTMLInputElement | undefined;
 
   async function reloadCourses(): Promise<void> {
-    await revalidate(runtime.queries.courses.key);
+    await revalidate(applicationApi.queries.courses.key);
   }
 
   const mayCreateCourse = createMemo((): boolean => {
     const state = session.state();
-    return (
-      state.kind === "authenticated" &&
-      (state.session.account.role === "instructor" || state.session.account.role === "sysadmin")
-    );
+    return state.kind === "authenticated" && state.session.account.role === "instructor";
+  });
+  const isSysadmin = createMemo((): boolean => {
+    const state = session.state();
+    return state.kind === "authenticated" && state.session.account.role === "sysadmin";
   });
 
   function registerCourseLink(course: CourseSummary, element: HTMLAnchorElement): void {
@@ -300,7 +301,7 @@ export function CourseListPage(): JSX.Element {
     setCreationErrorField(null);
     setIsCreating(true);
     try {
-      const course = await runtime.client.createCourse({
+      const course = await applicationApi.client.createCourse({
         title: title(),
         term: {
           startDate: startDate(),
@@ -328,13 +329,32 @@ export function CourseListPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="courses">
-      <p class="eyebrow">{mayCreateCourse() ? "Instructor workspace" : "Your courses"}</p>
-      <h1>{mayCreateCourse() ? "Courses you teach" : "Pick up where you left off"}</h1>
+      <p class="eyebrow">
+        {mayCreateCourse()
+          ? "Instructor workspace"
+          : isSysadmin()
+            ? "Sysadmin tools"
+            : "Your courses"}
+      </p>
+      <h1>
+        {mayCreateCourse()
+          ? "Courses you teach"
+          : isSysadmin()
+            ? "System administration"
+            : "Pick up where you left off"}
+      </h1>
       <p class="page-lede">
         {mayCreateCourse()
           ? "Open a course to manage assignments, Students, progress, and its visual identity."
-          : "Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt."}
+          : isSysadmin()
+            ? "Approve Instructors and use explicit support capabilities for course-specific work."
+            : "Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt."}
       </p>
+      <Show when={isSysadmin()}>
+        <A class="primary-link" href="/sysadmin/instructor-approval">
+          Review Instructor approvals
+        </A>
+      </Show>
       <Show when={mayCreateCourse()}>
         <form
           class="course-create-form"

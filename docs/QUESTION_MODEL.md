@@ -20,16 +20,17 @@ details the renderer does not need.
 
 Applied to answers, the split is:
 
-| Belongs here                                               | Belongs in `crates/grading`     |
-| ---------------------------------------------------------- | ------------------------------- |
-| The tolerance a number is compared within                  | The expected value              |
-| How text is compared (exact, case-insensitive, normalized) | The accepted text               |
-| How many choices may be selected                           | Which choices are correct       |
-| Whether partial credit applies, and the points available   | The per-part weighting of a key |
+| Belongs here                                                       | Belongs in `crates/grading`     |
+| ------------------------------------------------------------------ | ------------------------------- |
+| The Numeric Response Tolerance a number is compared within         | The expected value              |
+| The Text Response Match Rule (Exact, Case Insensitive, Normalized) | The accepted text               |
+| How many choices may be selected                                   | Which choices are correct       |
+| Whether partial credit applies, and the points available           | The per-part weighting of a key |
 
 The left column is answer-free shared-model information. An individual
 Student projection may still omit it when it is not needed to render an input;
-for example, the current issued `IssuedQuestionResponseFormatV1` omits numeric tolerance and text match mode.
+for example, the current issued `IssuedQuestionResponseFormatV1` omits Numeric
+Response Tolerance and Text Response Match Rule.
 Everything in the right column decides correctness and remains server-only.
 
 ## Types
@@ -56,6 +57,12 @@ UUIDv5 from an opaque Assignment Attempt identity and the frozen selection. A
 resume therefore resolves the same Issued Question without selecting again.
 The value remains a durable server record identity, not browser authority.
 
+Every Assignment Attempt also retains its exact Published Assignment Revision
+Reference. The stable Assignment groups later revisions; the retained revision
+is the immutable definition and delivery policy expanded into that Student's
+Issued Questions. A Student cannot begin an Assignment Attempt from a Draft,
+Closed, or Archived Assignment Revision.
+
 UUIDs name durable records; they are not credentials, authorization evidence,
 or browser-facing choice codes. A submission places its `QuestionAttemptId`
 once in the route. The server resolves Student, assignment, version, seed,
@@ -70,7 +77,7 @@ boolean to fall out of sync with that boundary.
 `QuestionId` is stable across one question lineage. Each publication in that
 lineage has a fresh immutable `QuestionVersionNumber`, and `QuestionVersionReference` keeps the
 exact `(QuestionId, QuestionVersionNumber)` evidence only in trusted delivery, grading,
-replay, audit, assignment pins, and optional non-operative provenance records.
+replay, audit, assignment pins, and optional non-operative Question Attempt Source Records.
 An allowed original-lineage correction may retain the `QuestionId` while
 archiving the replaced version. A major objective, task, or Question Type
 change is a fork: its creator edits a private draft and publication gives it a
@@ -88,7 +95,7 @@ resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
-`CatalogQuestionSummary` is the current hot Question Search projection. It contains the Question
+`QuestionSummary` is the current hot Question Search projection. It contains the Question
 ID, Question Backend, capabilities, metadata, Current Question Version Availability, and publication time,
 but not prompt, response, private source-locator fields, or the opaque internal
 pair. Trusted server work resolves the Question ID and loads the separate
@@ -147,7 +154,7 @@ published content.
 may be stored on a direct membership. There is no second effective-course-role
 enum.
 
-Every `QuestionCatalogEntry` is already published, with its immutable Question
+Every `QuestionSearchResult` is already published, with its immutable Question
 Publication Event retained separately from its current Question Version
 Availability. The ordinary new-assignment selector accepts only `Available`
 versions. `Archived` versions remain discoverable and resolvable for exact
@@ -196,13 +203,13 @@ never an opaque `QuestionVersionReference` or question payload.
 
 ### Capabilities
 
-`Capability` has the specification's eight variants, and `BackendCapabilities`
+`Capability` has the specification's eight variants, and `QuestionBackendCapabilities`
 is a set of them. The support question has exactly one implementation,
 `supports`, and `missing_from` returns every gap rather than the first, because
 an instructor fixing an assignment wants the whole list.
 
 The eight: `algorithmicGeneration`, `clientRendering`, `serverGrading`,
-`partialCredit`, `hints`, `perQuestionTiming`, `printExport`,
+`partialCredit`, `hints`, `questionAttemptTimeLimit`, `printExport`,
 `offlinePreview`.
 
 An enum rather than eight booleans means a violation can name the capability it
@@ -224,7 +231,7 @@ Question definitions imply these requirements:
 | All-or-nothing grading            | `serverGrading`                     |
 | Partial-credit grading            | `serverGrading` and `partialCredit` |
 | Immediate correctness with a hint | `hints`                             |
-| Per-question timer                | `perQuestionTiming`                 |
+| Per-question timer                | `questionAttemptTimeLimit`                 |
 | Untimed, ungraded static question | None                                |
 
 Assignment delivery can additionally require `clientRendering`, `printExport`,
@@ -236,20 +243,20 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionDefinition` carries the fields the specification names:
 
-| Field           | Type                      | Purpose                                   |
-| --------------- | ------------------------- | ----------------------------------------- |
-| `questionId`    | `QuestionId`              | Stable Question lineage                   |
-| `versionNumber` | `QuestionVersionNumber`   | Exact immutable version within the lineage |
-| `workspace`     | `WorkspaceId`             | Authoring workspace                       |
-| `source`        | `QuestionSource`          | Which engine, and where to find it there  |
-| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order              |
+| Field           | Type                      | Purpose                                                                        |
+| --------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `questionId`    | `QuestionId`              | Stable Question lineage                                                        |
+| `versionNumber` | `QuestionVersionNumber`   | Exact immutable version within the lineage                                     |
+| `workspace`     | `WorkspaceId`             | Authoring workspace                                                            |
+| `source`        | `QuestionSource`          | Which engine, and where to find it there                                       |
+| `prompt`        | `Vec<ContentBlock>`       | Renderable content, in order                                                   |
 | `questionType`  | `QuestionType`            | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
-| `response`      | `QuestionResponseFormat`  | Accepted Student Response shape and constraints |
-| `attemptPolicy` | `AttemptPolicy`           | Retry bound for this question             |
-| `timingPolicy`  | `TimingPolicy`            | Time limits, with grace                   |
-| `randomization` | `RandomizationDefinition` | How content varies                        |
-| `grading`       | `GradingDefinition`       | How a response is judged                  |
-| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language  |
+| `response`      | `QuestionResponseFormat`  | Accepted Student Response shape and constraints                                |
+| `questionAttemptLimit` | `AttemptPolicy`           | Retry bound for this question                                                  |
+| `questionAttemptTimeLimit`  | `QuestionAttemptTimeLimit`            | Time limits, with grace                                                        |
+| `randomization` | `RandomizationDefinition` | How content varies                                                             |
+| `grading`       | `GradingDefinition`       | How a response is judged                                                       |
+| `metadata`      | `QuestionMetadata`        | Title, tags, taxonomy, license, language                                       |
 
 ### Response shapes
 
@@ -290,7 +297,7 @@ Grading is deterministic and automated for every supported Question Type.
 ### Attempt presentation
 
 `presentation` is a second, narrower contract for an issued Student screen.
-It does not replace `QuestionDefinition`, `QuestionEnvelope`, or
+It does not replace `QuestionDefinition`, `QuestionPresentation`, or
 `StudentResponse`; it projects their public rendering portion for a specific
 attempt and provides a consistency binding for that presentation.
 
@@ -303,14 +310,14 @@ covers the eight native flat Question Types:
 
 | `IssuedQuestionResponseFormatV1` | Shared response definition  |
 | -------------------------------- | --------------------------- |
-| `singleChoice`     | exactly-one multiple choice |
-| `multipleAnswer`   | one-or-more multiple choice |
-| `fillIn`           | short text                  |
-| `multiFillIn`      | multi-blank                 |
-| `numerical`        | numeric                     |
-| `matching`         | matching                    |
-| `ordering`         | ordering                    |
-| `hotspot`          | hotspot                     |
+| `singleChoice`                   | exactly-one multiple choice |
+| `multipleAnswer`                 | one-or-more multiple choice |
+| `fillIn`                         | short text                  |
+| `multiFillIn`                    | multi-blank                 |
+| `numerical`                      | numeric                     |
+| `matching`                       | matching                    |
+| `ordering`                       | ordering                    |
+| `hotspot`                        | hotspot                     |
 
 `FileUpload` and `ExternalTool` intentionally have no `IssuedQuestionResponseFormatV1`
 variant. The presentation builder rejects them as unsupported rather than
@@ -339,7 +346,7 @@ an answer is correct.
 
 This is an accepted v1 presentation contract, not a statement that the live
 generic run route has already completed its payload cutover. The current route
-still issues `QuestionEnvelope` and accepts a tagged `StudentResponse` in
+still issues `QuestionPresentation` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation
 digest, and rendered IDs, then resolves the Question Type and durable IDs
@@ -361,27 +368,44 @@ error.
 ### Policies
 
 Question-level policies are authored with the question: `AttemptPolicy`
-(a retry bound) and `TimingPolicy` (untimed, per question, or per attempt,
-each with a grace period for network delay). Student disclosure is not a
-question policy: the assignment owns its five-field `StudentDisclosurePolicy`
+(a retry bound) and `QuestionAttemptTimeLimit` (unlimited or limited for one Question Attempt,
+each with a grace period for network delay). Student Feedback Release is not a
+question policy: the assignment owns its five-field `StudentFeedbackReleaseRule`
 and the server evaluates it for current Student projections.
 For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
 
 The four explicit Assignment activity rules are chosen per Assignment and are independent enums:
-`CompletionRequirement`, `GradePolicy`, `ContinuedPractice`, and
-`VariationPolicy`. They stay independent so an instructor can express "mastery
-required, highest score kept, practice allowed after completion with fresh
-seeds", which is the behavior students were observed using. A single combined
+`AssignmentCompletionRule`, `AssignmentAttemptGradeRule`, `AssignmentAttemptContinuationRule`, and
+`QuestionVariationRule`. They stay independent so an instructor can express "mastery
+required, highest score kept, practice allowed after completion while retaining
+Questions with fresh Question Seeds", which is the behavior students were observed using. A single combined
 mode enum would offer a fixed menu instead.
 
-Assignment teaching operations form a separate closed contract.
-`AssignmentTeachingSettings` stores one `AssignmentLifecycle`, validated
-plain-text `AssignmentInstructions`, and the absolute `BaseAssignmentPolicy`.
+Each top-level Fixed Question or Question Pool has Assignment Entry Availability:
+Available includes it in future Assignment Attempts and Retired preserves historical
+Issued Questions without future delivery. Each Question Pool Candidate has its own
+Question Pool Candidate Availability, separate from the owning pool's availability.
+Each top-level entry also carries its Assignment Entry Scoring Rule: Normal,
+Full Credit, Extra Credit, or Excluded. An Issued Question freezes the rule and
+point value from its source entry.
+Question Pool Selection Rule combines the reviewed candidate-selection algorithm
+and output ordering for one pool. Question Variation Rule separately controls
+whether later Assignment Attempts reuse or redraw pool selections.
+
+Assignment Revision definition editing is a separate closed contract.
+`AssignmentRevisionDefinition` carries one `AssignmentLifecycle`, validated
+plain-text `AssignmentInstructions`, and the absolute `BaseAssignmentPolicy`
+for the exact immutable Assignment Revision. `AssignmentTitle` is the separate
+validated short name for that same revision, rather than generic text at a
+shared contract boundary.
+Every Questions, Policies, and fixed-question replacement request carries its
+reviewed `AssignmentRevisionReference` as `baseRevision`; the HTTP strong ETag
+is the transport concurrency condition for that exact reference.
 New assignments default to Draft and therefore are not Student-visible until an
 instructor explicitly publishes them. The instructor transport uses
-`InstructorAssignmentTeachingSettingsLocal`: local timestamps include
+`InstructorAssignmentRevisionDefinitionLocal`: local timestamps include
 milliseconds and the exact course IANA zone, but the server performs every
 DST, term, ordering, and integer-bound conversion before storage.
 `InstructorAssignmentCurrentState` is a separate closed server projection for
@@ -395,7 +419,7 @@ lifecycle intent, base-policy provenance, course identifiers, and evaluation
 clocks. `ScoringStatus`
 is also independent: Current allows the otherwise authorized score projection;
 Recalculating and Failed retain the semantic score state while omitting every
-numeric Student score, attempt result, and disclosed point value.
+numeric Student score, Grading Result, and disclosed point value.
 
 ### Generation
 

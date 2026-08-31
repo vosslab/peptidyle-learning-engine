@@ -1,4 +1,4 @@
-//! Validation for the reviewed Chapter 1 pilot-content corpus.
+//! Validation for the reviewed Chapter 1 Pilot Question Set.
 
 use std::collections::HashSet;
 use std::fmt::Write as _;
@@ -6,11 +6,10 @@ use std::path::{Component, Path, PathBuf};
 
 use adapter_native::flat_question::FlatQuestionDocument;
 use anyhow::{Context, Result, bail};
-use question_model::response::{ChoiceId, MatchPair, QuestionType, StudentResponse};
+use question_model::response::{ResponseItemReference, StudentMatch, QuestionType, StudentResponse};
 use question_model::{
     QuestionDefinition, QuestionFormat, QuestionId, QuestionSource, QuestionVersionNumber,
-    WorkspaceId,
-    taxonomy::License,
+    WorkspaceId, taxonomy::License,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -84,7 +83,7 @@ pub(crate) enum Backend {
     PleFlat,
 }
 
-/// The Question Types present in the deliberately small pilot corpus.
+/// The Question Types present in the deliberately small Pilot Question Set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum PilotQuestionType {
@@ -353,7 +352,10 @@ fn validate_flat(
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
         PilotQuestionType::Matching => QuestionType::Matching,
     };
-    if !matches!(compiled.draft().source, question_model::DraftQuestionSource::Native) {
+    if !matches!(
+        compiled.draft().source,
+        question_model::DraftQuestionSource::Native
+    ) {
         bail!("PLE flat payload compiled to a non-native source");
     }
     if compiled.draft().question_format != QuestionFormat::PleFlatQuestionV2
@@ -405,10 +407,10 @@ fn validate_correct_and_wrong_grading(
     );
     let correct_result = private.evaluate(&published, &correct)?;
     let wrong_result = private.evaluate(&published, &wrong)?;
-    let grading::GradeOutcome::Graded(correct_result) = correct_result.outcome else {
+    let grading::QuestionGradingOutcome::Graded(correct_result) = correct_result.outcome else {
         bail!("PLE flat correct response did not produce a grade");
     };
-    let grading::GradeOutcome::Graded(wrong_result) = wrong_result.outcome else {
+    let grading::QuestionGradingOutcome::Graded(wrong_result) = wrong_result.outcome else {
         bail!("PLE flat wrong response did not produce a grade");
     };
     if !correct_result.correct || wrong_result.correct {
@@ -436,10 +438,10 @@ fn source_responses(
                 .ok_or_else(|| anyhow::anyhow!("PLE flat MC payload lacks a wrong choice"))?;
             Ok((
                 StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new(correct)],
+                    selected: vec![ResponseItemReference::new(correct)],
                 },
                 StudentResponse::MultipleChoice {
-                    selected: vec![ChoiceId::new(wrong)],
+                    selected: vec![ResponseItemReference::new(wrong)],
                 },
             ))
         }
@@ -448,7 +450,7 @@ fn source_responses(
                 .get("matches")
                 .and_then(Value::as_array)
                 .ok_or_else(|| anyhow::anyhow!("PLE flat MATCH payload lacks matches"))?;
-            let correct = matches.iter().map(match_pair).collect::<Result<Vec<_>>>()?;
+            let correct = matches.iter().map(student_match).collect::<Result<Vec<_>>>()?;
             let mut wrong = correct.clone();
             if wrong.len() < 2 {
                 bail!("PLE flat MATCH payload needs at least two matches");
@@ -464,13 +466,13 @@ fn source_responses(
     }
 }
 
-fn match_pair(value: &Value) -> Result<MatchPair> {
+fn student_match(value: &Value) -> Result<StudentMatch> {
     let record = value
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("PLE flat match is not an object"))?;
-    Ok(MatchPair {
-        prompt: ChoiceId::new(string_field(record, "prompt")?),
-        choice: ChoiceId::new(string_field(record, "choice")?),
+    Ok(StudentMatch {
+        prompt: ResponseItemReference::new(string_field(record, "prompt")?),
+        choice: ResponseItemReference::new(string_field(record, "choice")?),
     })
 }
 
@@ -530,14 +532,14 @@ fn corpus_file(root: &Path, relative: &Path) -> Result<PathBuf> {
             .components()
             .any(|component| !matches!(component, Component::Normal(_)))
     {
-        bail!("pilot corpus paths must be simple relative paths");
+        bail!("Pilot Question Set paths must be simple relative paths");
     }
     let path = root.join(relative);
     let metadata = std::fs::symlink_metadata(&path)
-        .with_context(|| format!("reading pilot corpus metadata {}", path.display()))?;
+        .with_context(|| format!("reading Pilot Question Set metadata {}", path.display()))?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {
         bail!(
-            "pilot corpus path is not a regular file: {}",
+            "Pilot Question Set path is not a regular file: {}",
             path.display()
         );
     }
@@ -549,13 +551,13 @@ fn validate_digest(path: &Path, expected: &str) -> Result<()> {
         bail!("pilot checksum is not lowercase SHA-256: {expected}");
     }
     let bytes = std::fs::read(path)
-        .with_context(|| format!("reading pilot corpus file {}", path.display()))?;
+        .with_context(|| format!("reading Pilot Question Set file {}", path.display()))?;
     let mut actual = String::with_capacity(64);
     for byte in Sha256::digest(bytes) {
         write!(&mut actual, "{byte:02x}").expect("writing to a String cannot fail");
     }
     if actual != expected {
-        bail!("pilot corpus checksum changed for {}", path.display());
+        bail!("Pilot Question Set checksum changed for {}", path.display());
     }
     Ok(())
 }

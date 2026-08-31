@@ -5,7 +5,7 @@
 //! publication establishes the first version and each accepted same-lineage
 //! change advances the version number.
 //!
-//! Fresh server-minted identifiers are UUIDv7: random enough that a catalog
+//! Fresh server-minted identifiers are UUIDv7: random enough that a Question Library
 //! number leaks no volume information, time-ordered enough to index well, and
 //! never sequential. Storage and wire decoding still accept every canonical
 //! UUID value so deterministic local fixtures and previously persisted IDs can
@@ -27,7 +27,7 @@ pub struct WorkspaceId(Uuid);
 
 /// One workspace-owned staged import.
 ///
-/// This is deliberately neither a catalog number nor an object-store key. It
+/// This is deliberately neither a Question Library number nor an object-store key. It
 /// identifies an import while it remains private to an instructor workspace;
 /// publication resolves the import into fresh immutable published identities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
 ## Non-negotiable boundaries
 
 - Map engine-specific input into `crates/question_model`. Downstream code reads the shared
-  `QuestionDefinition`, `QuestionEnvelope`, and `StudentResponse` contracts rather than adapter
+  `QuestionDefinition`, `QuestionPresentation`, and `StudentResponse` contracts rather than adapter
   types.
 - Put answer keys, correct-choice bindings, and correctness logic in `crates/grading` or a
   server-only injected grading capability. The browser and WebAssembly dependency closure must not
@@ -17,11 +17,11 @@ adapter, not for defining a new student Question Type. The shared public contrac
 - Deliver only an answer-free envelope: title, prompt blocks, response definition, immutable
   version, and seed. Do not put source bytes, credentials, upstream session state, correct answers,
   or private feedback in an envelope, browser cache, or browser request.
-- Accept an immutable, verified source artifact at issue time and retain the protected attempt
+- Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
   provenance required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, provider profile, or renderer identity.
 - Record source object and checksum, adapter/grader/renderer implementation versions, parameter
-  hash, rendered-envelope hash, and bound assets in `AttemptProvenance`. Presentation-bearing
+  hash, rendered-envelope hash, and bound assets in `QuestionAttemptSourceRecord`. Presentation-bearing
   attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
   mismatched state makes grade unavailable rather than reissuing.
 - Keep provider configuration, credentials, network policy, correlation state, and upstream
@@ -30,7 +30,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
 
 ## Declare capabilities first
 
-Every adapter returns `BackendCapabilities` from the closed `Capability` set in
+Every adapter returns `QuestionBackendCapabilities` from the closed `Capability` set in
 `crates/question_model/src/capability.rs`. The empty declaration is safe: an undeclared capability
 is unavailable. Assignment validation compares requested behavior with that declaration before
 publication, so an instructor sees every missing capability before a student starts work.
@@ -40,7 +40,7 @@ Declare only capabilities the adapter enforces for every source it accepts:
 - `algorithmicGeneration` requires deterministic variants from the recorded seed.
 - `clientRendering` means the browser can render the safe envelope; it never grants browser grading.
 - `serverGrading` requires a server-held key or verified server-to-server correctness result.
-- `partialCredit`, `hints`, `perQuestionTiming`, `printExport`, and `offlinePreview` require their
+- `partialCredit`, `hints`, `questionAttemptTimeLimit`, `printExport`, and `offlinePreview` require their
   own complete behavior, not a plausible future implementation.
 
 Adding a capability expands the enum and its exhaustive consumers, then requires contract, adapter,
@@ -62,7 +62,7 @@ Use the following sequence for a question-agnostic adapter.
 3. Compile the source to a key-free `QuestionDefinition`. Keep an answer-bearing compilation product
    in private grading storage, or retain an immutable source that only server-side grading can read.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
-   `QuestionEnvelope`, a parameter hash, and complete `AttemptProvenance`.
+   `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptSourceRecord`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
    public rendered IDs through the protected grading envelope, and use retained immutable source
    provenance where a private grader needs it. A family that needs private first-grade material
@@ -94,11 +94,11 @@ raw provider responses, browser submissions, and upstream session state. If stat
 to write the same key, reload and validate the winning immutable record.
 
 Static questions still record a seed and a deterministic parameter hash. This makes the attempt
-record uniform and lets reproduction reject swapped version/source/provenance records.
+record uniform and lets reproduction reject swapped version/source/Question Attempt Source Records.
 
 ## Browser and grading boundary
 
-The browser renders `QuestionEnvelope` blocks and validates response format locally. It submits a
+The browser renders `QuestionPresentation` blocks and validates response format locally. It submits a
 typed response to PLE; the server owns the authoritative attempt, seed, source resolution, grading,
 feedback release, and receipt. `crates/grading` is intentionally outside the Wasm closure, and
 `crates/server/src/*_backend.rs` are the server bridges that repeat immutable-source and provenance
@@ -114,7 +114,7 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 | Adapter     | Implemented behavior                                                                                                                                       | Current boundary and status                                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime Question Types                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
+| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime Question Types                                                    | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
 | QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, native conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
 | H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-native conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |
@@ -151,7 +151,7 @@ documentation, or release notes.
 
 - [ ] Capability declaration is exact and assignment validation refuses unsupported use.
 - [ ] Published source and all assets are immutable, checksummed, private where required, and carried
-      in attempt provenance.
+      in Question Attempt Source Record.
 - [ ] Issued envelope and cache are answer-free, browser-safe, deterministic, and version/seed bound.
 - [ ] Grading runs server-side from trusted state and revalidates source plus issued provenance.
 - [ ] External integration has no browser endpoint, credential, launch secret, upstream state, or

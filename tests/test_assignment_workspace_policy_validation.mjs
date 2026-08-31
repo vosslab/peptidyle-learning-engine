@@ -11,12 +11,12 @@ import {
   AssignmentPoliciesValidationError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
-import { jsonResponse } from "./http_client_test_support.mjs";
+import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
 
 const course = "0198e000-0000-7000-8000-000000000001";
 const assignment = "0198e000-0000-7000-8000-000000000002";
 const input = {
-  disclosurePolicy: {
+  studentFeedbackReleaseRule: {
     score: "after_submit",
     per_item_correctness: "after_submit",
     feedback_text: "after_due",
@@ -24,22 +24,26 @@ const input = {
     class_statistics: "never",
   },
   policies: {
-    completion: { kind: "allCorrect" },
-    grade: "highest",
-    continuedPractice: { kind: "unlimited" },
-    variation: "newSeeds",
+    assignmentCompletionRule: { kind: "allCorrect" },
+    assignmentAttemptGradeRule: "highest",
+    assignmentAttemptContinuationRule: { kind: "unlimited" },
+    questionVariationRule: "reuseQuestionsWithNewSeeds",
+    assignmentAttemptResumeRule: "resumable",
+    assignmentQuestionDisplayRule: "allQuestions",
+    assignmentNavigationRule: "freeNavigation",
+    assignmentQuestionOrderRule: "authoredOrder",
   },
-  teachingSettings: {
+  assignmentRevisionDefinition: {
     timeZone: "America/Chicago",
     lifecycle: "draft",
     instructions: "Use a structural drawing.",
     availableAt: null,
     dueAt: null,
     closesAt: null,
-    timeLimitSeconds: null,
+    assignmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
-    lateSubmission: "markLate",
-    deadlineBehavior: "autoSubmit",
+    lateWorkRule: "markLate",
+    assignmentDeadlineRule: "autoSubmit",
   },
 };
 
@@ -59,10 +63,36 @@ function policySave(response) {
   return createHttpApiClient({ fetch: async () => response }).saveAssignmentPolicies(
     course,
     assignment,
+    "A-1",
     input,
     '"1"',
   );
 }
+
+test("Policies save binds the reviewed Assignment Revision", async () => {
+  const { recordingFetch, requests } = createRecordingFetch(async () =>
+    jsonResponse({ error: "assignment changed" }, 412),
+  );
+
+  await assert.rejects(
+    createHttpApiClient({ fetch: recordingFetch }).saveAssignmentPolicies(
+      course,
+      assignment,
+      "A-1",
+      input,
+      '"1"',
+    ),
+    AssignmentConflictError,
+  );
+
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.equal(request.headers.get("if-match"), '"1"');
+  assert.deepEqual(await request.json(), {
+    ...input,
+    baseRevision: { assignment: "A-1", revision_number: "1" },
+  });
+});
 
 test("Policies validation decoder accepts only the closed bounded envelope", () => {
   assert.deepEqual(decodeAssignmentPoliciesValidationFailure(validationFailure), validationFailure);
@@ -90,7 +120,7 @@ test("Policies validation decoder accepts only the closed bounded envelope", () 
     () =>
       decodeAssignmentPoliciesValidationFailure({
         ...validationFailure,
-        issues: [{ kind: "publicationReadiness", blockingIssues: [] }],
+        issues: [{ kind: "draftRevisionPublicationReadiness", blockingIssues: [] }],
       }),
     DecodeError,
   );

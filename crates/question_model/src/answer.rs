@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum NumericTolerance {
+pub enum NumericResponseTolerance {
     /// The response must match exactly, digit for digit.
     Exact,
     /// The response must fall within a fixed distance of the expected value.
@@ -51,7 +51,7 @@ pub enum NumericTolerance {
 /// that comes from invisible whitespace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
-pub enum TextMatchMode {
+pub enum TextResponseMatchRule {
     /// Character-for-character comparison.
     Exact,
     /// Comparison that treats upper and lower case as equal.
@@ -71,7 +71,7 @@ pub enum TextMatchMode {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum SelectionCardinality {
+pub enum ResponseSelectionRule {
     /// Exactly one choice: radio buttons.
     ExactlyOne,
     /// A fixed number of choices.
@@ -91,15 +91,15 @@ mod tests {
 
     #[test]
     fn tolerances_serialize_with_their_parameters() {
-        let tolerance = NumericTolerance::Relative { fraction: 0.01 };
+        let tolerance = NumericResponseTolerance::Relative { fraction: 0.01 };
         let json = serde_json::to_string(&tolerance).expect("serialization should succeed");
         assert_eq!(json, r#"{"kind":"relative","fraction":0.01}"#);
     }
 
     #[test]
     fn text_match_modes_use_camel_case_names() {
-        let json =
-            serde_json::to_string(&TextMatchMode::CaseInsensitive).expect("serialization works");
+        let json = serde_json::to_string(&TextResponseMatchRule::CaseInsensitive)
+            .expect("serialization works");
         assert_eq!(json, r#""caseInsensitive""#);
     }
 }

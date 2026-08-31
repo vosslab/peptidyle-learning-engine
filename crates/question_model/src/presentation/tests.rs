@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use crate::answer::{SelectionCardinality, TextMatchMode};
-use crate::envelope::{ContentBlock, QuestionEnvelope};
+use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
+use crate::envelope::{ContentBlock, QuestionPresentation};
 use crate::generation::Seed;
 use crate::response::{
-    ChoiceId, ChoiceOption, MatchPair, QuestionResponseFormat, StudentResponse, TextEntryAnswer,
+    ResponseItemReference, ChoiceOption, StudentMatch, QuestionResponseFormat, StudentResponse, StudentTextEntry,
     TextEntrySlot,
 };
 use crate::{QuestionVersionNumber, QuestionVersionReference};
@@ -16,28 +16,30 @@ use super::builder::{
 use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
 use super::{
     InspectedExternalToolStateV1, InspectedStudentArtifactStateV1, InspectedStudentResponseV1,
-    PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
-    RenderedResponseTranslationErrorV1, IssuedQuestionResponseFormatV1, project_durable_response_to_rendered_v1,
+    IssuedQuestionResponseFormatV1, PresentationBindingV1, PresentationNonceV1, RenderedItemRoleV1,
+    RenderedResponseTranslationErrorV1, project_durable_response_to_rendered_v1,
     project_rendered_response_for_inspection_v1, rebuild_public_presentation_v1,
     reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
 };
 
 fn choice(id: &str, text: &str) -> ChoiceOption {
     ChoiceOption {
-        id: ChoiceId::new(id),
+        id: ResponseItemReference::new(id),
         body: vec![ContentBlock::Text {
             markdown: text.to_owned(),
         }],
     }
 }
 
-fn fixture() -> QuestionEnvelope {
-    QuestionEnvelope {
-        question_version: QuestionVersionReference {
-            question_id: "123-4567".parse().expect("valid Question ID"),
-            version_number: QuestionVersionNumber::new(1).expect("positive version"),
-        },
-        seed: Seed::new(42),
+fn fixture() -> QuestionPresentation {
+    QuestionPresentation {
+        variation: crate::QuestionVariation::static_variation(
+            QuestionVersionReference {
+                question_id: "123-4567".parse().expect("valid Question ID"),
+                version_number: QuestionVersionNumber::new(1).expect("positive version"),
+            },
+            Seed::new(42),
+        ),
         title: "Peptide bond".to_owned(),
         prompt: vec![ContentBlock::Text {
             markdown: "Which group forms the peptide bond?".to_owned(),
@@ -47,7 +49,7 @@ fn fixture() -> QuestionEnvelope {
                 choice("amine", "Amino group"),
                 choice("carboxyl", "Carboxyl group"),
             ],
-            selection: SelectionCardinality::ExactlyOne,
+            selection: ResponseSelectionRule::ExactlyOne,
         },
     }
 }
@@ -160,7 +162,8 @@ fn public_json_uses_rendered_ids_and_schema_kind_only() {
     let mut source = Nonces::new([[4; 16]]);
     let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
-    let IssuedQuestionResponseFormatV1::SingleChoice { choices } = &presentation.envelope.response else {
+    let IssuedQuestionResponseFormatV1::SingleChoice { choices } = &presentation.envelope.response
+    else {
         panic!("single choice schema")
     };
     assert_eq!(choices.len(), 2);
@@ -214,8 +217,8 @@ fn presentation_for(response: QuestionResponseFormat) -> super::PresentationV1 {
         .expect("valid presentation")
 }
 
-fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> ChoiceId {
-    ChoiceId::new(
+fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> ResponseItemReference {
+    ResponseItemReference::new(
         presentation
             .item_bindings
             .iter()
@@ -230,7 +233,7 @@ fn rendered(presentation: &super::PresentationV1, role: RenderedItemRoleV1) -> C
 fn rendered_response_translation_rewrites_every_identifier_family() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A"), choice("b", "B")],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     });
     let multiple_response = StudentResponse::MultipleChoice {
         selected: vec![rendered(&multiple, RenderedItemRoleV1::Choice)],
@@ -238,22 +241,22 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     assert_eq!(
         translate_rendered_response_v1(&multiple_response, &multiple).expect("choice response"),
         StudentResponse::MultipleChoice {
-            selected: vec![ChoiceId::new("a")],
+            selected: vec![ResponseItemReference::new("a")],
         }
     );
 
     let blanks = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
-            id: ChoiceId::new("slot-a"),
+            id: ResponseItemReference::new("slot-a"),
             label: vec![ContentBlock::Text {
                 markdown: "A".to_owned(),
             }],
-            match_mode: TextMatchMode::Exact,
+            match_mode: TextResponseMatchRule::Exact,
             max_length: 10,
         }],
     });
     let blanks_response = StudentResponse::MultiBlank {
-        answers: vec![TextEntryAnswer {
+        answers: vec![StudentTextEntry {
             slot: rendered(&blanks, RenderedItemRoleV1::Blank),
             text: "value".to_owned(),
         }],
@@ -261,8 +264,8 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     assert_eq!(
         translate_rendered_response_v1(&blanks_response, &blanks).expect("blank response"),
         StudentResponse::MultiBlank {
-            answers: vec![TextEntryAnswer {
-                slot: ChoiceId::new("slot-a"),
+            answers: vec![StudentTextEntry {
+                slot: ResponseItemReference::new("slot-a"),
                 text: "value".to_owned(),
             }],
         }
@@ -273,7 +276,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         choices: vec![choice("choice-a", "Choice")],
     });
     let matching_response = StudentResponse::Matching {
-        matches: vec![MatchPair {
+        matches: vec![StudentMatch {
             prompt: rendered(&matching, RenderedItemRoleV1::MatchPrompt),
             choice: rendered(&matching, RenderedItemRoleV1::MatchChoice),
         }],
@@ -281,9 +284,9 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     assert_eq!(
         translate_rendered_response_v1(&matching_response, &matching).expect("matching response"),
         StudentResponse::Matching {
-            matches: vec![MatchPair {
-                prompt: ChoiceId::new("prompt-a"),
-                choice: ChoiceId::new("choice-a"),
+            matches: vec![StudentMatch {
+                prompt: ResponseItemReference::new("prompt-a"),
+                choice: ResponseItemReference::new("choice-a"),
             }],
         }
     );
@@ -297,7 +300,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     assert_eq!(
         translate_rendered_response_v1(&ordering_response, &ordering).expect("ordering response"),
         StudentResponse::Ordering {
-            order: vec![ChoiceId::new("first")],
+            order: vec![ResponseItemReference::new("first")],
         }
     );
 }
@@ -306,7 +309,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
 fn rendered_response_translation_preserves_scalar_question_types() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     });
     for response in [
         StudentResponse::Numeric { value: 1.25 },
@@ -330,23 +333,23 @@ fn rendered_response_translation_preserves_scalar_question_types() {
 fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_states() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(&StudentResponse::MultipleChoice { selected: vec![ChoiceId::new("a")] }, &multiple),
+        project_durable_response_to_rendered_v1(&StudentResponse::MultipleChoice { selected: vec![ResponseItemReference::new("a")] }, &multiple),
         Ok(InspectedStudentResponseV1::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
     ));
 
     let blank = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
-            id: ChoiceId::new("slot"),
+            id: ResponseItemReference::new("slot"),
             label: vec![],
-            match_mode: TextMatchMode::Exact,
+            match_mode: TextResponseMatchRule::Exact,
             max_length: 10,
         }],
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(&StudentResponse::MultiBlank { answers: vec![TextEntryAnswer { slot: ChoiceId::new("slot"), text: "entered".into() }] }, &blank),
+        project_durable_response_to_rendered_v1(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemReference::new("slot"), text: "entered".into() }] }, &blank),
         Ok(InspectedStudentResponseV1::MultiBlank { answers }) if answers[0].text == "entered"
     ));
 
@@ -357,9 +360,9 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
     assert!(matches!(
         project_durable_response_to_rendered_v1(
             &StudentResponse::Matching {
-                matches: vec![MatchPair {
-                    prompt: ChoiceId::new("p"),
-                    choice: ChoiceId::new("c")
+                matches: vec![StudentMatch {
+                    prompt: ResponseItemReference::new("p"),
+                    choice: ResponseItemReference::new("c")
                 }]
             },
             &matching
@@ -372,7 +375,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
     assert!(matches!(
         project_durable_response_to_rendered_v1(
             &StudentResponse::Ordering {
-                order: vec![ChoiceId::new("first")]
+                order: vec![ResponseItemReference::new("first")]
             },
             &ordering
         ),
@@ -427,7 +430,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
 fn browser_submitted_response_round_trips_through_safe_inspection() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A"), choice("b", "B")],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     });
     let submitted = StudentResponse::MultipleChoice {
         selected: vec![rendered(&presentation, RenderedItemRoleV1::Choice)],
@@ -446,10 +449,10 @@ fn browser_submitted_response_round_trips_through_safe_inspection() {
 fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_role_ids() {
     let presentation = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![choice("a", "A")],
-        selection: SelectionCardinality::ExactlyOne,
+        selection: ResponseSelectionRule::ExactlyOne,
     });
     let response_for = |id| StudentResponse::MultipleChoice {
-        selected: vec![ChoiceId::new(id)],
+        selected: vec![ResponseItemReference::new(id)],
     };
     assert_eq!(
         translate_rendered_response_v1(&response_for("not-an-id"), &presentation),

@@ -15,7 +15,7 @@ import {
   scoreFractionDraft,
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
-const disclosurePolicy = {
+const studentFeedbackReleaseRule = {
   score: "after_submit",
   per_item_correctness: "after_submit",
   feedback_text: "after_due",
@@ -24,33 +24,33 @@ const disclosurePolicy = {
 };
 
 const policies = {
-  completion: { kind: "allCorrect" },
-  grade: "highest",
-  continuedPractice: { kind: "unlimited" },
-  variation: "newSeeds",
+  assignmentCompletionRule: { kind: "allCorrect" },
+  assignmentAttemptGradeRule: "highest",
+  assignmentAttemptContinuationRule: { kind: "unlimited" },
+  questionVariationRule: "reuseQuestionsWithNewSeeds",
+  assignmentAttemptResumeRule: "resumable",
+  assignmentQuestionDisplayRule: "allQuestions",
+  assignmentNavigationRule: "freeNavigation",
+  assignmentQuestionOrderRule: "authoredOrder",
 };
 
-const teachingSettings = {
+const assignmentRevisionDefinition = {
   timeZone: "America/Chicago",
   lifecycle: "draft",
   instructions: "Use a clear structural drawing.",
   availableAt: null,
   dueAt: "2026-09-01T17:00:00.000",
   closesAt: null,
-  timeLimitSeconds: null,
+  assignmentAttemptTimeLimitSeconds: null,
   attemptLimit: null,
-  lateSubmission: "markLate",
-  deadlineBehavior: "autoSubmit",
+  lateWorkRule: "markLate",
+  assignmentDeadlineRule: "autoSubmit",
 };
 
 test("focused policy input preserves direct delivery settings", () => {
-  const input = assignmentPoliciesInput(
-    disclosurePolicy,
-    policies,
-    teachingSettings,
-  );
+  const input = assignmentPoliciesInput(studentFeedbackReleaseRule, policies, assignmentRevisionDefinition);
 
-  assert.equal(input.teachingSettings.instructions, "Use a clear structural drawing.");
+  assert.equal(input.assignmentRevisionDefinition.instructions, "Use a clear structural drawing.");
 });
 
 test("policy local-time normalization accepts only explicit course wall-clock values", () => {
@@ -95,8 +95,8 @@ test("inactive conditional Assignment activity-rule drafts survive a successful 
   const original = { completionFraction: "0.65", additionalRuns: "7" };
   const saved = {
     ...policies,
-    completion: { kind: "answerAll" },
-    continuedPractice: { kind: "unlimited" },
+    assignmentCompletionRule: { kind: "answerAll" },
+    assignmentAttemptContinuationRule: { kind: "unlimited" },
   };
 
   assert.deepEqual(activityRuleDraftFromRules(saved), {
@@ -118,15 +118,13 @@ test("server policy issues select the first repair while keeping concise safe de
 
   assert.equal(feedback.target, "questions");
   assert.equal(feedback.questionRepairRequired, true);
-  assert.deepEqual(feedback.details, [
-    "Peptide geometry needs server grading.",
-  ]);
+  assert.deepEqual(feedback.details, ["Peptide geometry needs server grading."]);
   assert.equal(JSON.stringify(feedback).includes("7K3-M9QP"), false);
 });
 
-test("publication readiness gives lifecycle focus and a Questions repair route", () => {
+test("draft revision publication readiness gives lifecycle focus and a Questions repair route", () => {
   const feedback = assignmentPoliciesValidationFeedback([
-    { kind: "publicationReadiness", blockingIssues: [{ kind: "questionsRequired" }] },
+    { kind: "draftRevisionPublicationReadiness", blockingIssues: [{ kind: "questionsRequired" }] },
   ]);
 
   assert.equal(feedback.target, "lifecycle");

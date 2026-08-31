@@ -1,8 +1,8 @@
-// curriculum_route_page.tsx - route-owned composition boundary for the reusable curriculum list.
+// curriculum_route_page.tsx - route-owned composition boundary for the Blueprint Course list.
 
 import type { JSX } from "solid-js";
 
-import type { ReusableCurriculumClient } from "../api/reusable_curriculum";
+import type { BlueprintCourseClient } from "../api/blueprint_course";
 import type {
   QuestionPickerSource,
   QuestionPickerSourceRepository,
@@ -10,7 +10,7 @@ import type {
 import {
   CurriculumWorkspace,
   type CurriculumWorkspaceProps,
-} from "../features/reusable_curriculum/reusable_curriculum_workspace";
+} from "../features/blueprint_course/blueprint_course_workspace";
 
 export type CurriculumRoutePageProps = CurriculumWorkspaceProps;
 
@@ -19,4 +19,4 @@ export function CurriculumRoutePage(props: CurriculumRoutePageProps): JSX.Elemen
   return <CurriculumWorkspace {...props} />;
 }
 
-export type { ReusableCurriculumClient, QuestionPickerSource, QuestionPickerSourceRepository };
+export type { BlueprintCourseClient, QuestionPickerSource, QuestionPickerSourceRepository };

@@ -5,7 +5,7 @@
 //! translating a browser response, and validation of the response's bounded
 //! public shape remains the caller's responsibility.
 
-use crate::response::{ChoiceId, MatchPair, StudentResponse, TextEntryAnswer};
+use crate::response::{ResponseItemReference, StudentMatch, StudentResponse, StudentTextEntry};
 use serde::{Deserialize, Serialize};
 
 use super::{PresentationV1, RenderedItemIdV1, RenderedItemRoleV1};
@@ -72,7 +72,7 @@ pub enum InspectedStudentResponseV1 {
     /// Submitted hotspot coordinates.
     Hotspot {
         /// Submitted points, without image storage or answer data.
-        points: Vec<crate::response::HotspotPoint>,
+        points: Vec<crate::response::StudentHotspotPoint>,
     },
     /// Coarse file-upload submission state.
     FileUpload {
@@ -180,7 +180,7 @@ pub fn translate_rendered_response_v1(
     response: &StudentResponse,
     presentation: &PresentationV1,
 ) -> Result<StudentResponse, RenderedResponseTranslationErrorV1> {
-    let durable_id = |id: &ChoiceId, role| durable_id_v1(id, role, presentation);
+    let durable_id = |id: &ResponseItemReference, role| durable_id_v1(id, role, presentation);
 
     match response {
         StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
@@ -193,7 +193,7 @@ pub fn translate_rendered_response_v1(
             answers: answers
                 .iter()
                 .map(|answer| {
-                    Ok(TextEntryAnswer {
+                    Ok(StudentTextEntry {
                         slot: durable_id(&answer.slot, RenderedItemRoleV1::Blank)?,
                         text: answer.text.clone(),
                     })
@@ -204,7 +204,7 @@ pub fn translate_rendered_response_v1(
             matches: matches
                 .iter()
                 .map(|pair| {
-                    Ok(MatchPair {
+                    Ok(StudentMatch {
                         prompt: durable_id(&pair.prompt, RenderedItemRoleV1::MatchPrompt)?,
                         choice: durable_id(&pair.choice, RenderedItemRoleV1::MatchChoice)?,
                     })
@@ -240,7 +240,7 @@ pub fn project_durable_response_to_rendered_v1(
     response: &StudentResponse,
     presentation: &PresentationV1,
 ) -> Result<InspectedStudentResponseV1, RenderedResponseTranslationErrorV1> {
-    let rendered_id = |id: &ChoiceId, role| rendered_id_v1(id, role, presentation);
+    let rendered_id = |id: &ResponseItemReference, role| rendered_id_v1(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(InspectedStudentResponseV1::Numeric { value: *value })
@@ -307,7 +307,7 @@ pub fn project_rendered_response_for_inspection_v1(
     response: &StudentResponse,
     presentation: &PresentationV1,
 ) -> Result<InspectedStudentResponseV1, RenderedResponseTranslationErrorV1> {
-    let rendered_id = |id: &ChoiceId, role| verified_rendered_id_v1(id, role, presentation);
+    let rendered_id = |id: &ResponseItemReference, role| verified_rendered_id_v1(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(InspectedStudentResponseV1::Numeric { value: *value })
@@ -364,11 +364,11 @@ pub fn project_rendered_response_for_inspection_v1(
 }
 
 fn durable_id_v1(
-    id: &ChoiceId,
+    id: &ResponseItemReference,
     expected_role: RenderedItemRoleV1,
     presentation: &PresentationV1,
-) -> Result<ChoiceId, RenderedResponseTranslationErrorV1> {
-    Ok(ChoiceId::new(
+) -> Result<ResponseItemReference, RenderedResponseTranslationErrorV1> {
+    Ok(ResponseItemReference::new(
         rendered_binding_v1(id, expected_role, presentation)?
             .durable_id
             .clone(),
@@ -376,7 +376,7 @@ fn durable_id_v1(
 }
 
 fn verified_rendered_id_v1(
-    id: &ChoiceId,
+    id: &ResponseItemReference,
     expected_role: RenderedItemRoleV1,
     presentation: &PresentationV1,
 ) -> Result<RenderedItemIdV1, RenderedResponseTranslationErrorV1> {
@@ -386,7 +386,7 @@ fn verified_rendered_id_v1(
 }
 
 fn rendered_binding_v1<'a>(
-    id: &ChoiceId,
+    id: &ResponseItemReference,
     expected_role: RenderedItemRoleV1,
     presentation: &'a PresentationV1,
 ) -> Result<&'a super::RenderedItemBindingV1, RenderedResponseTranslationErrorV1> {
@@ -409,7 +409,7 @@ fn rendered_binding_v1<'a>(
 }
 
 fn rendered_id_v1(
-    durable: &ChoiceId,
+    durable: &ResponseItemReference,
     expected_role: RenderedItemRoleV1,
     presentation: &PresentationV1,
 ) -> Result<RenderedItemIdV1, RenderedResponseTranslationErrorV1> {

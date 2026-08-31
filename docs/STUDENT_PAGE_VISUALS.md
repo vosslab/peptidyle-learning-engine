@@ -10,12 +10,12 @@ assertions remain the authority for access control; screenshots show the student
 Student captures use these exact CSS-pixel viewports. The percentages are planning weights, not test
 quotas or telemetry targets.
 
-| Viewport | Aspect | Planning weight |
-| --- | --- | --- |
-| 1280 by 800 | 16:10 laptop | 40% |
-| 800 by 1280 | 10:16 portrait tablet | 30% |
-| 393 by 852 | iPhone Pro aspect | 20% |
-| 800 by 800 | square | 10% |
+| Viewport    | Aspect                | Planning weight |
+| ----------- | --------------------- | --------------- |
+| 1280 by 800 | 16:10 laptop          | 40%             |
+| 800 by 1280 | 10:16 portrait tablet | 30%             |
+| 393 by 852  | iPhone Pro aspect     | 20%             |
+| 800 by 800  | square                | 10%             |
 
 The student corpus must include an allowed student surface and an access-denial state for
 instructor-only routes. Pixels show composition and the visible denial; they cannot prove
@@ -35,6 +35,7 @@ access to the representative instructor gradebook route. Each set follows the ta
 portrait tablet, iPhone Pro, and square order.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
 ![Student assignment overview at the 1280 by 800 laptop viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_laptop.png)
 ![Student assignment overview at the 800 by 1280 portrait-tablet viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_tablet.png)
 ![Student assignment overview at the 393 by 852 iPhone Pro viewport](screenshots/student/access/allowed_assignment_overview/01_assignment_overview_iphone_pro.png)
@@ -47,34 +48,24 @@ portrait tablet, iPhone Pro, and square order.
 
 ## Refreshing evidence
 
-From the repository root, publish fresh visual evidence whenever a student UI,
-corpus, or viewport change requires it:
-
-```bash
-./capture_screenshots.sh
-```
-
-The gate uses the fixed real-stack browser owner, stages the dynamic
-manifest-owned corpus, verifies origin and provenance, and atomically publishes
-the resulting `docs/screenshots/` artifacts. `./all_test.sh` exercises the
-same stack's behavior and contract gates without rewriting documentation
-assets.
+The retired screenshot corpus and its publication command are absent from the
+current tree. These images are historical reference, not current acceptance.
+Student visual changes require a restored real-browser owner, a fresh capture,
+and human visual review before they can claim visual acceptance.
 
 ## Planned surfaces
 
-| Surface | Role | Evidence purpose | Corpus area |
-| --- | --- | --- | --- |
-| Student assignment list | Student | Allowed course work | `docs/screenshots/student/` |
-| Student assignment or run | Student | Allowed Student task | `docs/screenshots/student/` |
-| Student access denial | Student/access | Fail-closed instructor-route denial | `docs/screenshots/student/access/` |
-| Roster denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
-| Gradebook denial probe | Student/access | No instructor transport | `docs/screenshots/student/access/` |
+| Surface                   | Role           | Evidence purpose                    | Corpus area                        |
+| ------------------------- | -------------- | ----------------------------------- | ---------------------------------- |
+| Student assignment list   | Student        | Allowed course work                 | `docs/screenshots/student/`        |
+| Student assignment or run | Student        | Allowed Student task                | `docs/screenshots/student/`        |
+| Student access denial     | Student/access | Fail-closed instructor-route denial | `docs/screenshots/student/access/` |
+| Roster denial probe       | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
+| Gradebook denial probe    | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
 
-`tests/e2e/browser_screenshot_corpus.json` is the sole screenshot ownership
-authority. `tests/playwright/ui_corpus_manifest.ts` and
-`tests/e2e/e2e_browser_screenshot_contract.py` strictly consume it; capture
-pipelines derive artifact names, role, route, viewport, and evidence purpose
-from it. This page does not create a second executable ownership list.
+The former screenshot-corpus source and consumers were removed. This table is
+the retained product coverage target for a future single browser-owner rebuild;
+it does not create an executable artifact list.
 
 ## Evidence boundaries
 

@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use sha2::{Digest, Sha256};
 
-use crate::answer::SelectionCardinality;
-use crate::envelope::{AssetRef, ContentBlock, QuestionEnvelope};
+use crate::answer::ResponseSelectionRule;
+use crate::envelope::{AssetRef, ContentBlock, QuestionPresentation};
 use crate::response::{ChoiceOption, QuestionResponseFormat};
 
 use super::binding::PresentationBindingV1;
@@ -13,9 +13,9 @@ use super::codec::{
     PresentationDigestV1, crc16_ccitt_false, descriptor_bytes_v1, item_basis_bytes,
 };
 use super::model::{
-    AssetBindingV1, PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1,
-    PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1,
-    IssuedQuestionResponseFormatV1,
+    AssetBindingV1, IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentationNonceV1,
+    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
+    RenderedItemIdV1,
 };
 
 const MAX_PRESENTED_ITEMS: usize = 32;
@@ -144,7 +144,7 @@ impl NonceSourceV1 for OsNonceSourceV1 {
 
 /// Builds one presentation using operating-system randomness.
 pub fn build_presentation_v1(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetBindingV1],
 ) -> Result<PresentationV1, PresentationBuildError> {
     build_presentation_v1_with_nonce_source(envelope, asset_bindings, &mut OsNonceSourceV1)
@@ -166,7 +166,7 @@ impl NonceSourceV1 for PersistedNonceSource {
 /// rendered-item ID and the full descriptor rather than trusting stored or
 /// browser-supplied public fields.
 pub fn reproduce_presentation_v1(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetBindingV1],
     binding: PresentationBindingV1,
 ) -> Result<PresentationV1, PresentationBuildError> {
@@ -183,7 +183,7 @@ pub fn reproduce_presentation_v1(
 
 /// Builds one presentation using an injected nonce source.
 pub fn build_presentation_v1_with_nonce_source<N: NonceSourceV1>(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetBindingV1],
     nonce_source: &mut N,
 ) -> Result<PresentationV1, PresentationBuildError> {
@@ -227,7 +227,7 @@ pub fn rebuild_public_presentation_v1(
 
 #[cfg(test)]
 pub(super) fn build_presentation_v1_with_hasher<N, H>(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetBindingV1],
     nonce_source: &mut N,
     hasher: H,
@@ -240,7 +240,7 @@ where
 }
 
 fn build_with_hasher<N, H>(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     asset_bindings: &[AssetBindingV1],
     nonce_source: &mut N,
     mut hasher: H,
@@ -294,7 +294,7 @@ where
 }
 
 fn rendered_id_input(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     nonce: PresentationNonceV1,
     item: &PendingItemV1,
     basis_bytes: &[u8],
@@ -303,10 +303,22 @@ fn rendered_id_input(
     bytes.extend_from_slice(&nonce.as_bytes());
     push_bytes(
         &mut bytes,
-        envelope.question_version.question_id.to_string().as_bytes(),
+        envelope
+            .variation
+            .question_version
+            .question_id
+            .to_string()
+            .as_bytes(),
     )?;
-    bytes.extend_from_slice(&envelope.question_version.version_number.get().to_be_bytes());
-    bytes.extend_from_slice(&envelope.seed.value().to_be_bytes());
+    bytes.extend_from_slice(
+        &envelope
+            .variation
+            .question_version
+            .version_number
+            .get()
+            .to_be_bytes(),
+    );
+    bytes.extend_from_slice(&envelope.variation.seed.value().to_be_bytes());
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
     push_bytes(&mut bytes, item.durable_id.as_bytes())?;
@@ -324,7 +336,7 @@ fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuil
 }
 
 fn pending_items(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     assets: &[AssetBindingV1],
 ) -> Result<Vec<PendingItemV1>, PresentationBuildError> {
     let mut items = Vec::new();
@@ -456,7 +468,7 @@ fn push_item(
 }
 
 fn public_envelope(
-    source: &QuestionEnvelope,
+    source: &QuestionPresentation,
     nonce: PresentationNonceV1,
     bindings: &[RenderedItemBindingV1],
 ) -> Result<PresentationEnvelopeV1, PresentationBuildError> {
@@ -474,7 +486,7 @@ fn public_envelope(
             choices: source_choices,
             selection,
         } => match selection {
-            SelectionCardinality::ExactlyOne => IssuedQuestionResponseFormatV1::SingleChoice {
+            ResponseSelectionRule::ExactlyOne => IssuedQuestionResponseFormatV1::SingleChoice {
                 choices: choices(RenderedItemRoleV1::Choice),
             },
             _ => {
@@ -486,9 +498,11 @@ fn public_envelope(
                 }
             }
         },
-        QuestionResponseFormat::ShortText { max_length, .. } => IssuedQuestionResponseFormatV1::FillIn {
-            max_characters: *max_length,
-        },
+        QuestionResponseFormat::ShortText { max_length, .. } => {
+            IssuedQuestionResponseFormatV1::FillIn {
+                max_characters: *max_length,
+            }
+        }
         QuestionResponseFormat::MultiBlank { blanks } => {
             let rendered: Vec<_> = by_role(RenderedItemRoleV1::Blank).collect();
             if rendered.len() != blanks.len() {
@@ -551,8 +565,8 @@ fn public_envelope(
         }
     };
     Ok(PresentationEnvelopeV1 {
-        question_version: source.question_version.clone(),
-        seed: source.seed,
+        question_version: source.variation.question_version.clone(),
+        seed: source.variation.seed,
         presentation_nonce: nonce,
         title: source.title.clone(),
         prompt: source.prompt.clone(),
@@ -780,26 +794,26 @@ fn validate_regions(regions: &[PresentedHotspotRegionV1]) -> Result<(), Presenta
 }
 
 fn selection_bounds(
-    selection: SelectionCardinality,
+    selection: ResponseSelectionRule,
     item_count: usize,
 ) -> Result<(u32, u32), PresentationBuildError> {
     let maximum = u32::try_from(item_count).map_err(|_| PresentationBuildError::TooManyItems)?;
     let bounds = match selection {
-        SelectionCardinality::ExactlyOne => (1, 1),
-        SelectionCardinality::Exactly { count } => (count, count),
-        SelectionCardinality::AnyNumber => (0, maximum),
-        SelectionCardinality::AtLeastOne => (1, maximum),
+        ResponseSelectionRule::ExactlyOne => (1, 1),
+        ResponseSelectionRule::Exactly { count } => (count, count),
+        ResponseSelectionRule::AnyNumber => (0, maximum),
+        ResponseSelectionRule::AtLeastOne => (1, maximum),
     };
     if bounds.0 > bounds.1 || bounds.1 > maximum {
         return Err(PresentationBuildError::InvalidPublicContent(
-            "selection cardinality exceeds presented objects",
+            "Response Selection Rule exceeds presented objects",
         ));
     }
     Ok(bounds)
 }
 
 fn validate_assets(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     bindings: &[AssetBindingV1],
 ) -> Result<Vec<AssetBindingV1>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
@@ -844,7 +858,8 @@ fn validate_public_assets(
                 collect_assets(&region.label, &mut referenced);
             }
         }
-        IssuedQuestionResponseFormatV1::FillIn { .. } | IssuedQuestionResponseFormatV1::Numerical { .. } => {}
+        IssuedQuestionResponseFormatV1::FillIn { .. }
+        | IssuedQuestionResponseFormatV1::Numerical { .. } => {}
     }
     validate_asset_refs(&referenced, bindings)
 }

@@ -59,7 +59,7 @@ multi-student, or release work.
   with the five canonical visible codes and no diagnostics. `.last-run.json` records `passed` with
   no failed tests.
 - PASS (final cleanup recheck): after a separate concurrent HCI run completed, `podman ps --all
-  --quiet` was empty. No `ple-ui-walkthrough-*` temporary directory and no trace, screenshot, or
+--quiet` was empty. No `ple-ui-walkthrough-*` temporary directory and no trace, screenshot, or
   error-context artifact remained under the inspected output locations. The brief nonempty project
   state observed during this review belonged to that concurrent run, not to the completed M4 run.
 

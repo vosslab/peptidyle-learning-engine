@@ -25,8 +25,8 @@ test("Questions save owns only the title and ordered public definition", () => {
         backend: "native",
         capabilities: [],
         pointsPossible: "1",
-        deliveryState: "active",
-        scoringMode: "normal",
+        availability: "available",
+        scoringRule: "normal",
       },
     ],
   };
@@ -38,8 +38,8 @@ test("Questions save owns only the title and ordered public definition", () => {
         kind: "fixedQuestion",
         questionId: "7K3-M9QP",
         pointsPossible: "1",
-        deliveryState: "active",
-        scoringMode: "normal",
+        availability: "available",
+        scoringRule: "normal",
       },
     ],
   });

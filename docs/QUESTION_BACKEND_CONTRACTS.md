@@ -5,8 +5,8 @@ reader's map of the implemented system, not a replacement for the active impleme
 The plan and its active release plan remain authoritative for dependency order and acceptance.
 
 PLE is question agnostic at the learning-engine boundary. An Issued Question preserves one exact
-published Question Version, and a Question Attempt uses the common `RunBackend` contract. A
-backend safely issues, reproduces, and grades its own material; PLE owns Account and exact
+published Question Version, and a Question Attempt binds one exact Question Backend adapter. Each
+adapter safely issues, reproduces, and grades its own material; PLE owns Account and exact
 course/Student authorization, assignment policy, attempt identity, timing, idempotency,
 gradebook persistence, retention, and the
 browser API.
@@ -23,42 +23,45 @@ and [RELATED_PROJECTS.md](RELATED_PROJECTS.md) for ecosystem scope and compariso
 - **Configured** means composition must deliberately install the backend and protected dependencies.
 - **Planned** means it is deliberately outside the current contract, not an implied feature.
 
-## Shared engine contract
+## Current adapter contract
 
-All installed backends enter the server through `crates/server/src/run/contracts.rs`.
+The mounted `server_core` surface currently has no Question delivery route. The
+native, WeBWorK, and iMathAS adapters each expose their explicit issue,
+reproduce, and grade operations; a later server delivery boundary will compose
+them without creating a second product vocabulary.
 
-| Concern          | Common PLE rule                                                                                                                                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source authority | A published `QuestionDefinition` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                              |
-| Issuance         | `RunBackend::issue` receives trusted `AuthenticatedSession`, exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and provenance. |
-| Reproduction     | `RunBackend::reproduce` is limited to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead. |
-| Response         | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                |
-| Grade            | `RunBackend::grade` returns a server-side outcome. The common route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                      |
-| Provenance       | `AttemptProvenance` records adapter, optional renderer/generator, source artifact, bound assets, grader, and rendered-question SHA-256.                                                                          |
-| Failure          | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a student incorrect response.                                                            |
-| Capabilities     | `BackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                         |
+| Concern                        | Common PLE rule                                                                                                                                                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source authority               | A published `QuestionDefinition` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                            |
+| Issuance                       | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Source Record. |
+| Reproduction                   | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                 |
+| Response                       | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                                                     |
+| Grade                          | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                                            |
+| Question Attempt Source Record | `QuestionAttemptSourceRecord` records adapter, optional renderer/generator, source source_object_reference, bound assets, grader, and rendered-question SHA-256.                                                                                                     |
+| Failure                        | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a student incorrect response.                                                                                                 |
+| Capabilities                   | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                      |
 
-The browser-safe `QuestionEnvelope` contains a public response shape and student presentation, never
+The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
 an answer key. Its render `kind` selects the browser widget. The planned compact response wire drops
 the redundant response `kind`, because the authoritative attempt already selects the response schema.
 See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and target payloads.
 
 ## Backend comparison
 
-| Backend              | Current authority                                                   | Browser response                                           | Server grading authority                            | Current scope                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload          | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
-| QTI profile          | Immutable staged/published archive plus profile conversion evidence | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                              |
-| WeBWorK              | Immutable licensed PGML source and private renderer                 | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                    |
-| iMathAS              | Immutable server snapshot and deployment-selected provider profile  | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                              |
-| External-tool broker | Exact course/Student attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof | Backend-owned atomic verified-result commit | Shared mechanism used by the contracted iMathAS path |
+| Backend              | Current authority                                                        | Browser response                                           | Server grading authority                            | Current scope                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native flat          | Immutable PLE flat source and private flat grading payload               | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
+| QTI profile          | Immutable staged/published archive plus profile conversion evidence      | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                  |
+| WeBWorK              | Immutable licensed PGML source and private renderer                      | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                        |
+| iMathAS              | Immutable server snapshot and deployment-selected provider profile       | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                                  |
+| External-tool broker | Exact course/Student attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                                                         |
 
 ## Native flat questions
 
 ### Source and render
 
 **Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
-`QuestionDefinition`/`QuestionEnvelope` and private grading material. The trusted server bridge
+`QuestionDefinition`/`QuestionPresentation` and private grading material. The trusted server bridge
 resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt
 blocks, public response definition, asset references, version, and seed. It returns only the PLE
 response shape; it does not return source bytes, a private key, asset-object binding, implementation
@@ -66,7 +69,7 @@ version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered Native Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the run model type-specific. The protected visual author
+registered Native Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the Assignment Attempt model type-specific. The protected visual author
 editor exposes all eight v2 Question Types. Its instructor route is a convenience surface only: the server
 re-resolves source and asset bindings at save and publication, and the student contract remains
 answer-free. Integrated author-to-publication-to-student acceptance for every family, including the
@@ -112,8 +115,8 @@ answer binding.
 `QtiBackend` obtains answer-bearing material only through separately injected, least-privilege
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
-asset mapping, or private binding no longer reproduces. Provenance records private-profile adapter,
-source artifact, bound assets, QTI private grader, and rendered envelope hash.
+asset mapping, or private binding no longer reproduces. The Question Attempt Source Record records private-profile adapter,
+source source_object_reference, bound assets, QTI private grader, and rendered envelope hash.
 
 When explicitly configured, QTI declares `serverGrading`. Current accepted import profiles are static
 single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, interaction types,
@@ -148,7 +151,7 @@ render or resolve a current published Question definition. The mapping never
 appears in an envelope, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free
-envelope/markup, source-artifact binding, renderer identity, and rendered-output checksum. A cache hit
+envelope/markup, source-source_object_reference binding, renderer identity, and rendered-output checksum. A cache hit
 for a new issuance still performs the bounded private render needed to create that attempt's replay
 mapping; reproduction and normal grade do not. Telemetry uses only `renderer_call` and `cache_hit`
 event names.
@@ -223,15 +226,15 @@ acceptance is not implied by the implemented broker boundary and recorded fixtur
 The external-tool transaction is reusable server-side machinery, currently exercised by contracted
 iMathAS. It allows an external activity UI without handing it PLE grading authority.
 
-| Stage     | Current contract                                                                                                                                 |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Authorize | Authenticate, load an RLS-visible attempt, and prove ownership of its run before launch, proxy, or submission work.                              |
-| Bind      | `ExternalToolBinding` covers provider, problem/version, seed, immutable source checksum, profile, and SHA-256 of canonical `ExternalTool {}`.    |
-| Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit. |
+| Stage     | Current contract                                                                                                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authorize | Authenticate, load an RLS-visible attempt, and prove ownership of its run before launch, proxy, or submission work.                                                                                                                            |
+| Bind      | `ExternalToolBinding` covers provider, problem/version, seed, immutable source checksum, profile, and SHA-256 of canonical `ExternalTool {}`.                                                                                                  |
+| Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit.                                                                                              |
 | Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
-| Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading. |
-| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, problem, version, seed, and correlation. |
-| Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                         |
+| Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading.           |
+| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, problem, version, seed, and correlation.                                                                                       |
+| Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                                                                                                                       |
 
 The marker does not mean "trust the external tool." It means the current attempt requires the
 server-held launch and verification protocol. A new external backend may use this transaction only
@@ -241,9 +244,9 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 ## Extension rules
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
-2. Pin source bytes, checksum, license, provenance, implementation/profile facts, and assets at publication.
+2. Pin source bytes, checksum, license, Question Attempt Source Record facts, implementation/profile facts, and assets at publication.
 3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, correlation, and raw results server-only.
-4. At issue, capture the exact version/seed render, compare complete provenance, and persist its
+4. At issue, capture the exact version/seed render, compare the complete Question Attempt Source Record, and persist its
    answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.
 5. Choose one grading authority: private PLE material, private renderer, or verified external result.
@@ -253,13 +256,12 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 
 ## Contract locations
 
-| Contract                    | Primary locations                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared model and provenance | `crates/question_model/src/definition.rs`, `activity.rs`, `response.rs`, and `capability.rs`                                                |
-| Common run seam             | `crates/server/src/run/contracts.rs` and `crates/server/src/composite_backend.rs`                                                           |
-| Native flat                 | `crates/adapters/native`, `crates/server/src/native_backend.rs`, and `crates/learning-data-access/src/flat_question.rs`                     |
-| QTI private grading         | `crates/adapters/qti`, `crates/server/src/qti_backend.rs`, and `crates/learning-data-access/src/qti.rs`                                     |
-| WeBWorK renderer            | `crates/adapters/webwork`, `crates/server/src/webwork_backend.rs`, and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) |
-| iMathAS broker              | `crates/adapters/imathas`, `crates/server/src/imathas_backend.rs`, and `crates/server/src/run/external_tool.rs`                             |
-| Student payload design      | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)                                                                                |
-| Security and storage        | [SECURITY_MODEL.md](SECURITY_MODEL.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#typed-operations-and-objects) |
+| Contract                                                 | Primary locations                                                                                                                                                       |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared Question model and Question Attempt Source Record | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                                 |
+| Adapter operations                                       | `crates/adapters/{native,webwork,imathas,qti}`                                                                                                                          |
+| Server composition                                       | `crates/server/src/{application.rs,composition.rs}`; Question delivery composition remains unmounted                                                                    |
+| WeBWorK renderer                                         | `crates/adapters/webwork` and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)                                                                      |
+| iMathAS broker                                           | `crates/adapters/imathas`                                                                                                                                               |
+| Student payload design                                   | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)                                                                                                            |
+| Security and storage                                     | [SECURITY_MODEL.md](SECURITY_MODEL.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#typed-operations-and-objects) |

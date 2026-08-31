@@ -65,7 +65,7 @@ assert.equal(secondRepeatedReport, firstRepeatedReport, "flat-v2 format validati
 
 assert.throws(
   () => bridge.validate_response_format("{", "{}"),
-  /^invalid response definition:/u,
+  /^invalid Question Response Format:/u,
   "malformed public input keeps its documented JavaScript error category",
 );
 
@@ -97,17 +97,17 @@ assert.deepEqual(report, {
   violations: [{ kind: "textTooLong", maxLength: 2, actualLength: 3 }],
 });
 
-const timerVerdict = JSON.parse(
-  bridge.timer_verdict(
+const questionAttemptTimingDecision = JSON.parse(
+  bridge.question_attempt_timing_decision(
     JSON.stringify({
-      policy: { kind: "perAttempt", seconds: 60, graceSeconds: 2 },
+      policy: { kind: "limited", seconds: 60, graceSeconds: 2 },
       timer: { issuedAt: 1_000, deadline: 10_000, submittedAt: 11_500 },
       evaluatedAt: 11_500,
       pauseExtensionMillis: 0,
     }),
   ),
 );
-assert.equal(timerVerdict, "submittedWithinGrace");
+assert.equal(questionAttemptTimingDecision, "submittedWithinGrace");
 
 const fixture = JSON.parse(
   fs.readFileSync(
@@ -121,7 +121,7 @@ const capabilityViolations = JSON.parse(
       questions: [
         {
           question: fixture.publishedProblem,
-          backendCapabilities: [],
+          questionBackendCapabilities: [],
         },
       ],
       requiredCapabilities: [],
@@ -134,7 +134,7 @@ assert.deepEqual(
 );
 
 const presentation = {
-  version: "01923f4b-5c6d-7e8f-9012-3456789abcde",
+  questionVersion: { questionId: "ABC-DEFG", versionNumber: 1 },
   seed: 42,
   presentationNonce: "11111111111111111111111111111111",
   title: "Peptide bond",
@@ -147,7 +147,7 @@ const presentation = {
     ],
   },
 };
-const presentationDigest = "pd1_hL2BEeGIfzUHyaDMW5so6A";
+const presentationDigest = "pd1_q2fE1ezXCkT6_yd7zeqkCQ";
 assert.equal(
   bridge.verify_presentation_descriptor(
     JSON.stringify(presentation),

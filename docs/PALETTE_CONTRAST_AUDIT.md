@@ -33,12 +33,12 @@ python3 /Users/vosslab/nsh/vosslab-skills/skills/color-accessibility-expert/scri
   -r 5.5
 ```
 
-## Course-theme catalog
+## Course Theme Registry
 
-The closed catalog is
-[`src/features/course_appearance/theme_catalog.ts`](../src/features/course_appearance/theme_catalog.ts).
+The closed registry is
+`src/features/course_appearance/course_theme_registry.ts`.
 It contains these 15 current themes. Each row records the raw canvas,
-secondary, and accent anchors exactly as the catalog declares them.
+secondary, and accent anchors exactly as the registry declares them.
 
 | Theme       | Canvas    | Secondary | Accent    |
 | ----------- | --------- | --------- | --------- |
@@ -61,18 +61,18 @@ secondary, and accent anchors exactly as the catalog declares them.
 Raw anchors are decorative design inputs, not universal text foregrounds.
 In particular, Grass preserves its Roosevelt-inspired `#bddeb1`, `#73c167`,
 and `#008852` anchors. Where an anchor cannot meet the normal-text target,
-the catalog provides the darker `action` and `link` tokens instead; no raw
+the registry provides the darker `action` and `link` tokens instead; no raw
 anchor is silently remapped or reported as a text-pair pass.
 
 ## Executable rendered-pair evidence
 
 Contrast for course themes is measured from browser-computed colors because
-the relevant foreground/background pairs are composed from catalog tokens,
+the relevant foreground/background pairs are composed from registry tokens,
 course-scope CSS, and component styles. The durable behavior gates are:
 
 - [`tests/test_course_theme_scope.mjs`](../tests/test_course_theme_scope.mjs)
   checks the exact 15 IDs, complete tokens, 5.5:1 text pairs, and 3:1
-  focus/boundary pairs directly from catalog values.
+  focus/boundary pairs directly from registry values.
 - The canonical real-stack `learner_delivery` scenario saves and reloads a
   course appearance through the production HTTPS origin. Screenshot publication
   is a separate deliberate operation, not a parallel browser suite.
@@ -81,19 +81,14 @@ Run the durable behavior gates:
 
 ```bash
 node --import tsx --test tests/test_course_theme_scope.mjs
-./run_playwright_tests.sh --scenario learner_delivery
 ```
 
-When a fresh published screenshot corpus is deliberately required, run:
-
-```bash
-./capture_screenshots.sh
-```
-
-`./all_test.sh` validates the current system without publishing or rewriting screenshots. The
-earlier 15-theme rendered comparison is accepted historical evidence, not a generated verifier or
-current Validation command.
+The real-browser and screenshot-corpus commands named in earlier evidence are
+not present in the current tree. The earlier 15-theme rendered comparison is
+historical evidence, not a current validation command. A theme UI change needs
+a restored browser owner and fresh human visual review in addition to the
+durable behavior gate.
 
 This document therefore does not claim a single white-background ratio for
-every raw course swatch. The catalog table preserves the source palette; the
+every raw course swatch. The registry table preserves the source palette; the
 tests above are the current numerical oracle for the rendered pairs users see.

@@ -8,7 +8,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{ActivityTimestamp, AttemptResult, QuestionVersionReference};
+use question_model::{ActivityTimestamp, GradingResult, QuestionVersionReference};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -503,7 +503,7 @@ impl ScoredEmbedResultVerifier {
         // invented JWT guarantee.
         ledger.consumed = true;
         Ok(VerifiedProviderGrade::from_scored_embed(
-            AttemptResult {
+            GradingResult {
                 correct: claims.score >= 1.0,
                 points_earned: claims.score,
                 points_possible: 1.0,

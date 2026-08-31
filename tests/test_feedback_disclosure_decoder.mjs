@@ -9,7 +9,7 @@ import {
   decodeStudentQuestionAttempt,
   decodeQuestionAttempt,
   decodeAssignmentAttemptSummaryResponse,
-  decodeSubmissionReceipt,
+  decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
@@ -44,10 +44,18 @@ test("Student attempts require score freshness and redact stale numeric results"
   );
 
   for (const scoringStatus of ["recalculating", "failed"]) {
-    const redacted = { ...attempt, result: null, scoringStatus };
+    const redacted = {
+      ...attempt,
+      submission: { ...attempt.submission, gradingResult: null },
+      scoringStatus,
+    };
     assert.deepEqual(decodeStudentQuestionAttempt(redacted), redacted);
     assert.throws(
-      () => decodeStudentQuestionAttempt({ ...redacted, result: attempt.result }),
+      () =>
+        decodeStudentQuestionAttempt({
+          ...redacted,
+          submission: { ...redacted.submission, gradingResult: attempt.submission.gradingResult },
+        }),
       DecodeError,
       `${scoringStatus} must reject a numeric result`,
     );
@@ -61,32 +69,35 @@ test("Student attempts require score freshness and redact stale numeric results"
   );
 });
 
-test("attempt decoder rejects an unrecognized retired attempt status", () => {
+test("attempt decoder rejects an unrecognized Question Attempt state", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   assert.throws(
-    () => decodeStudentQuestionAttempt({ ...attempt, status: "retired_attempt_status" }),
+    () => decodeStudentQuestionAttempt({ ...attempt, state: "retired_question_attempt_state" }),
     DecodeError,
   );
 });
 
-test("Student pool provenance exposes only a valid server-selected ordinal", () => {
+test("Student Question Pool selection exposes only a valid server-selected ordinal", () => {
   const attempt = structuredClone(publishedProblemFixture.attempts[0]);
   const pooled = {
     ...attempt,
     scoringStatus: "current",
-    poolSelection: { itemNumber: 1, itemCount: 2 },
+    questionPoolSelection: { itemNumber: 1, itemCount: 2 },
   };
   assert.deepEqual(decodeStudentQuestionAttempt(pooled), pooled);
   assert.throws(
     () =>
-      decodeStudentQuestionAttempt({ ...pooled, poolSelection: { itemNumber: 3, itemCount: 2 } }),
+      decodeStudentQuestionAttempt({
+        ...pooled,
+        questionPoolSelection: { itemNumber: 3, itemCount: 2 },
+      }),
     DecodeError,
   );
   assert.throws(
     () =>
       decodeStudentQuestionAttempt({
         ...pooled,
-        poolSelection: { itemNumber: 1, itemCount: 2, seed: 7 },
+        questionPoolSelection: { itemNumber: 1, itemCount: 2, seed: 7 },
       }),
     DecodeError,
   );
@@ -142,7 +153,8 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
 });
 
 test("submission receipts require an exact feedback field and reject hostile nested material", () => {
-  const { poolSelection: _poolSelection, ...attempt } = publishedProblemFixture.attempts[0];
+  const { questionPoolSelection: _questionPoolSelection, ...attempt } =
+    publishedProblemFixture.attempts[0];
   const receipt = {
     accepted: true,
     attempt,
@@ -152,40 +164,53 @@ test("submission receipts require an exact feedback field and reject hostile nes
     nextIssued: null,
     nextPending: false,
   };
-  assert.deepEqual(decodeSubmissionReceipt(receipt), receipt);
+  assert.deepEqual(decodeGradedQuestionSubmissionReceipt(receipt), {
+    ...receipt,
+    attemptId: receipt.attempt.id,
+  });
   assert.throws(
-    () => decodeSubmissionReceipt({ ...receipt, feedback: { correctness: true, token: "no" } }),
+    () =>
+      decodeGradedQuestionSubmissionReceipt({
+        ...receipt,
+        feedback: { correctness: true, token: "no" },
+      }),
     DecodeError,
   );
 
   for (const scoringStatus of ["recalculating", "failed"]) {
     const redacted = structuredClone(receipt);
     redacted.scoringStatus = scoringStatus;
-    redacted.attempt.result = null;
+    redacted.attempt.submission.gradingResult = null;
     redacted.feedback = { correctness: true };
-    assert.deepEqual(decodeSubmissionReceipt(redacted), redacted);
+    assert.deepEqual(decodeGradedQuestionSubmissionReceipt(redacted), {
+      ...redacted,
+      attemptId: redacted.attempt.id,
+    });
 
     const resultLeak = structuredClone(redacted);
-    resultLeak.attempt.result = receipt.attempt.result;
-    assert.throws(() => decodeSubmissionReceipt(resultLeak), DecodeError);
+    resultLeak.attempt.submission.gradingResult = receipt.attempt.submission.gradingResult;
+    assert.throws(() => decodeGradedQuestionSubmissionReceipt(resultLeak), DecodeError);
 
     const pointLeak = structuredClone(redacted);
     pointLeak.feedback = { correctness: true, pointsEarned: 1, pointsPossible: 1 };
-    assert.throws(() => decodeSubmissionReceipt(pointLeak), DecodeError);
+    assert.throws(() => decodeGradedQuestionSubmissionReceipt(pointLeak), DecodeError);
   }
   const { scoringStatus: _scoringStatus, ...withoutScoringStatus } = receipt;
-  assert.throws(() => decodeSubmissionReceipt(withoutScoringStatus), DecodeError);
+  assert.throws(() => decodeGradedQuestionSubmissionReceipt(withoutScoringStatus), DecodeError);
   const {
     assignmentAttemptCompletion: _assignmentAttemptCompletion,
     ...withoutAssignmentAttemptCompletion
   } = receipt;
-  assert.throws(() => decodeSubmissionReceipt(withoutAssignmentAttemptCompletion), DecodeError);
+  assert.throws(
+    () => decodeGradedQuestionSubmissionReceipt(withoutAssignmentAttemptCompletion),
+    DecodeError,
+  );
   for (const [path, forbidden] of [
     ["answerKey", "answerKey"],
     ["timing.key", "key"],
-    ["provenance.adapter.provider", "provider"],
-    ["provenance.sourceArtifact.source", "source"],
-    ["result.checker", "checker"],
+    ["sourceRecord.adapter.provider", "provider"],
+    ["sourceRecord.sourceObjectReference.source", "source"],
+    ["submission.gradingResult.checker", "checker"],
   ]) {
     const hostile = structuredClone(receipt);
     const fields = path.split(".");
@@ -194,7 +219,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
       if (field === "answerKey") break;
       if (target[field] === null) {
         target[field] =
-          field === "sourceArtifact"
+          field === "sourceObjectReference"
             ? {
                 object: "0198e000-0000-7000-8000-000000000011",
                 sha256: "4cddff550d3e53f980baab609ada99a57ca7854edbfd2426f2c8db7cd43a6c01",
@@ -204,13 +229,17 @@ test("submission receipts require an exact feedback field and reject hostile nes
       target = target[field];
     }
     target[fields.at(-1)] = forbidden;
-    assert.throws(() => decodeSubmissionReceipt(hostile), DecodeError, `rejects ${path}`);
+    assert.throws(
+      () => decodeGradedQuestionSubmissionReceipt(hostile),
+      DecodeError,
+      `rejects ${path}`,
+    );
   }
   const { feedback: _feedback, ...withoutFeedback } = receipt;
-  assert.throws(() => decodeSubmissionReceipt(withoutFeedback), DecodeError);
+  assert.throws(() => decodeGradedQuestionSubmissionReceipt(withoutFeedback), DecodeError);
   assert.throws(
     () =>
-      decodeSubmissionReceipt({
+      decodeGradedQuestionSubmissionReceipt({
         ...receipt,
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
@@ -225,7 +254,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
   );
   assert.throws(
     () =>
-      decodeSubmissionReceipt({
+      decodeGradedQuestionSubmissionReceipt({
         ...receipt,
         assignmentAttemptCompletion: "completed",
         nextIssued: {
@@ -240,7 +269,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
   );
   assert.throws(
     () =>
-      decodeSubmissionReceipt({
+      decodeGradedQuestionSubmissionReceipt({
         ...receipt,
         assignmentAttemptCompletion: "completed",
         nextPending: true,

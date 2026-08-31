@@ -5,31 +5,33 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Current Student-safe evaluation projection.
+/// Current state of one accepted Question Submission.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SubmissionEvaluationStatus {
-    AutomatedPending,
-    AutomatedException,
+pub enum QuestionSubmissionGradingState {
+    Pending,
+    InstructorAttention,
     Graded,
     Exempt,
 }
 
-/// The Student-visible subset of an automated evaluation state.
+/// Student-visible state for one accepted Question Submission.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AutomatedGradingStatus {
+pub enum StudentQuestionSubmissionGradingState {
     Pending,
     Graded,
     InstructorAttention,
 }
 
-impl From<SubmissionEvaluationStatus> for AutomatedGradingStatus {
-    fn from(value: SubmissionEvaluationStatus) -> Self {
+impl From<QuestionSubmissionGradingState> for StudentQuestionSubmissionGradingState {
+    fn from(value: QuestionSubmissionGradingState) -> Self {
         match value {
-            SubmissionEvaluationStatus::AutomatedPending => Self::Pending,
-            SubmissionEvaluationStatus::Graded | SubmissionEvaluationStatus::Exempt => Self::Graded,
-            SubmissionEvaluationStatus::AutomatedException => Self::InstructorAttention,
+            QuestionSubmissionGradingState::Pending => Self::Pending,
+            QuestionSubmissionGradingState::Graded | QuestionSubmissionGradingState::Exempt => {
+                Self::Graded
+            }
+            QuestionSubmissionGradingState::InstructorAttention => Self::InstructorAttention,
         }
     }
 }
@@ -83,70 +85,76 @@ mod tests {
     #[test]
     fn student_status_is_closed_and_does_not_expose_exception_detail() {
         assert_eq!(
-            serde_json::to_string(&SubmissionEvaluationStatus::AutomatedPending)
-                .expect("serializes"),
-            "\"automated_pending\""
-        );
-        assert_eq!(
-            serde_json::to_string(&SubmissionEvaluationStatus::AutomatedException)
-                .expect("serializes"),
-            "\"automated_exception\""
-        );
-        assert_eq!(
-            serde_json::to_string(&SubmissionEvaluationStatus::Graded).expect("serializes"),
-            "\"graded\""
-        );
-        assert_eq!(
-            serde_json::to_string(&SubmissionEvaluationStatus::Exempt).expect("serializes"),
-            "\"exempt\""
-        );
-        assert_eq!(
-            serde_json::from_str::<SubmissionEvaluationStatus>("\"automated_pending\"")
-                .expect("deserializes"),
-            SubmissionEvaluationStatus::AutomatedPending
-        );
-        assert_eq!(
-            serde_json::from_str::<SubmissionEvaluationStatus>("\"automated_exception\"")
-                .expect("deserializes"),
-            SubmissionEvaluationStatus::AutomatedException
-        );
-        assert_eq!(
-            serde_json::from_str::<SubmissionEvaluationStatus>("\"graded\"").expect("deserializes"),
-            SubmissionEvaluationStatus::Graded
-        );
-        assert_eq!(
-            serde_json::from_str::<SubmissionEvaluationStatus>("\"exempt\"").expect("deserializes"),
-            SubmissionEvaluationStatus::Exempt
-        );
-        assert!(
-            serde_json::from_str::<SubmissionEvaluationStatus>("\"automatedPending\"").is_err()
-        );
-        assert_eq!(
-            AutomatedGradingStatus::from(SubmissionEvaluationStatus::AutomatedException),
-            AutomatedGradingStatus::InstructorAttention
-        );
-        assert_eq!(
-            AutomatedGradingStatus::from(SubmissionEvaluationStatus::AutomatedPending),
-            AutomatedGradingStatus::Pending
-        );
-        assert_eq!(
-            AutomatedGradingStatus::from(SubmissionEvaluationStatus::Graded),
-            AutomatedGradingStatus::Graded
-        );
-        assert_eq!(
-            AutomatedGradingStatus::from(SubmissionEvaluationStatus::Exempt),
-            AutomatedGradingStatus::Graded
-        );
-        assert_eq!(
-            serde_json::to_string(&AutomatedGradingStatus::Pending).expect("serializes"),
+            serde_json::to_string(&QuestionSubmissionGradingState::Pending).expect("serializes"),
             "\"pending\""
         );
         assert_eq!(
-            serde_json::to_string(&AutomatedGradingStatus::Graded).expect("serializes"),
+            serde_json::to_string(&QuestionSubmissionGradingState::InstructorAttention)
+                .expect("serializes"),
+            "\"instructor_attention\""
+        );
+        assert_eq!(
+            serde_json::to_string(&QuestionSubmissionGradingState::Graded).expect("serializes"),
             "\"graded\""
         );
         assert_eq!(
-            serde_json::to_string(&AutomatedGradingStatus::InstructorAttention)
+            serde_json::to_string(&QuestionSubmissionGradingState::Exempt).expect("serializes"),
+            "\"exempt\""
+        );
+        assert_eq!(
+            serde_json::from_str::<QuestionSubmissionGradingState>("\"pending\"")
+                .expect("deserializes"),
+            QuestionSubmissionGradingState::Pending
+        );
+        assert_eq!(
+            serde_json::from_str::<QuestionSubmissionGradingState>("\"instructor_attention\"")
+                .expect("deserializes"),
+            QuestionSubmissionGradingState::InstructorAttention
+        );
+        assert_eq!(
+            serde_json::from_str::<QuestionSubmissionGradingState>("\"graded\"")
+                .expect("deserializes"),
+            QuestionSubmissionGradingState::Graded
+        );
+        assert_eq!(
+            serde_json::from_str::<QuestionSubmissionGradingState>("\"exempt\"")
+                .expect("deserializes"),
+            QuestionSubmissionGradingState::Exempt
+        );
+        assert!(
+            serde_json::from_str::<QuestionSubmissionGradingState>("\"automated_pending\"")
+                .is_err()
+        );
+        assert_eq!(
+            StudentQuestionSubmissionGradingState::from(
+                QuestionSubmissionGradingState::InstructorAttention
+            ),
+            StudentQuestionSubmissionGradingState::InstructorAttention
+        );
+        assert_eq!(
+            StudentQuestionSubmissionGradingState::from(QuestionSubmissionGradingState::Pending),
+            StudentQuestionSubmissionGradingState::Pending
+        );
+        assert_eq!(
+            StudentQuestionSubmissionGradingState::from(QuestionSubmissionGradingState::Graded),
+            StudentQuestionSubmissionGradingState::Graded
+        );
+        assert_eq!(
+            StudentQuestionSubmissionGradingState::from(QuestionSubmissionGradingState::Exempt),
+            StudentQuestionSubmissionGradingState::Graded
+        );
+        assert_eq!(
+            serde_json::to_string(&StudentQuestionSubmissionGradingState::Pending)
+                .expect("serializes"),
+            "\"pending\""
+        );
+        assert_eq!(
+            serde_json::to_string(&StudentQuestionSubmissionGradingState::Graded)
+                .expect("serializes"),
+            "\"graded\""
+        );
+        assert_eq!(
+            serde_json::to_string(&StudentQuestionSubmissionGradingState::InstructorAttention)
                 .expect("serializes"),
             "\"instructor_attention\""
         );
@@ -165,7 +173,8 @@ mod tests {
             "\"scoring_recalculation_requested\""
         );
         assert_eq!(
-            serde_json::to_string(&InstructorGradingOperationState::ActionInProgress).expect("serializes"),
+            serde_json::to_string(&InstructorGradingOperationState::ActionInProgress)
+                .expect("serializes"),
             "\"action_in_progress\""
         );
         assert_eq!(

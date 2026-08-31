@@ -6,21 +6,21 @@ import type { InstructorStudentView } from "../../generated/api/InstructorStuden
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentClassStatistics } from "../../generated/api/StudentClassStatistics";
-import type { StudentDisclosurePolicy } from "../../generated/api/StudentDisclosurePolicy";
-import type { StudentDisclosureTiming } from "../../generated/api/StudentDisclosureTiming";
-import type { StudentLateStatus } from "../../generated/api/StudentLateStatus";
-import type { VariationPolicy } from "../../generated/api/VariationPolicy";
+import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
+import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
+import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
+import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export interface StudentAssignmentPresentationDelivery {
   readonly availableAt: number | null;
   readonly dueAt: number | null;
   readonly closesAt: number | null;
-  readonly timeLimitSeconds: number | null;
+  readonly assignmentAttemptTimeLimitSeconds: number | null;
   readonly attemptLimit: number | null;
-  readonly lateSubmission: "accept" | "markLate" | "reject";
-  readonly deadlineBehavior: "autoSubmit";
-  readonly lateStatus?: StudentLateStatus;
+  readonly lateWorkRule: "accept" | "markLate" | "reject";
+  readonly assignmentDeadlineRule: "autoSubmit";
+  readonly lateStatus?: StudentLateWorkStatus;
 }
 
 /**
@@ -36,8 +36,8 @@ export interface StudentAssignmentPresentationData {
   readonly timeZone: string;
   readonly delivery: StudentAssignmentPresentationDelivery;
   readonly questionsPerRun: number;
-  readonly variation?: VariationPolicy;
-  readonly disclosurePolicy?: StudentDisclosurePolicy;
+  readonly questionVariationRule?: QuestionVariationRule;
+  readonly studentFeedbackReleaseRule?: StudentFeedbackReleaseRule;
 }
 
 export interface StudentAssignmentPresentationProps {
@@ -60,8 +60,8 @@ export function toStudentAssignmentPresentationData(
       timeZone: assignment.timeZone,
       delivery: assignment.delivery,
       questionsPerRun: assignment.questionsPerRun,
-      variation: assignment.variation,
-      disclosurePolicy: assignment.disclosurePolicy,
+      questionVariationRule: assignment.questionVariationRule,
+      studentFeedbackReleaseRule: assignment.studentFeedbackReleaseRule,
     };
   }
 
@@ -73,17 +73,17 @@ export function toStudentAssignmentPresentationData(
       availableAt: assignment.delivery.available_at,
       dueAt: assignment.delivery.due_at,
       closesAt: assignment.delivery.closes_at,
-      timeLimitSeconds: assignment.delivery.time_limit_seconds,
+      assignmentAttemptTimeLimitSeconds: assignment.delivery.assignment_attempt_time_limit_seconds,
       attemptLimit: assignment.delivery.attempt_limit,
-      lateSubmission: assignment.delivery.late_submission,
-      deadlineBehavior: assignment.delivery.deadline_behavior,
+      lateWorkRule: assignment.delivery.late_work_rule,
+      assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
       lateStatus: assignment.delivery.late_status,
     },
     questionsPerRun: assignment.entries.reduce(
       (count, entry) =>
         entry.kind === "fixedQuestion"
-          ? count + (entry.deliveryState === "active" ? 1 : 0)
-          : count + entry.drawCount,
+          ? count + (entry.availability === "available" ? 1 : 0)
+          : count + (entry.availability === "available" ? entry.drawCount : 0),
       0,
     ),
   };
@@ -130,28 +130,30 @@ export function formatAssignmentAttemptTimeLimit(seconds: number | null): string
   return `${seconds} ${seconds === 1 ? "second" : "seconds"} per attempt`;
 }
 
-export function formatLateSubmission(value: "accept" | "markLate" | "reject"): string {
+export function formatLateWorkRule(value: "accept" | "markLate" | "reject"): string {
   if (value === "accept") return "Accepted after the due time";
   if (value === "markLate") return "Accepted and marked late after the due time";
   return "Not accepted after the due time";
 }
 
-function formatLateStatus(value: StudentLateStatus): string {
+function formatLateStatus(value: StudentLateWorkStatus): string {
   if (value === "on_time") return "On time";
   if (value === "marked_late") return "Accepted and marked late";
   return "Accepted late";
 }
 
-function formatVariation(variation: VariationPolicy | undefined): string {
-  if (variation === "newSeeds") return "Each attempt uses new question seeds.";
-  if (variation === "selectedQuestionVariants") {
+function formatQuestionVariationRule(rule: QuestionVariationRule | undefined): string {
+  if (rule === "reuseQuestionsWithNewSeeds") {
+    return "Each Assignment Attempt keeps these Questions and uses fresh Question Seeds.";
+  }
+  if (rule === "selectedQuestionVariants") {
     return "Each attempt selects Question Variants.";
   }
-  if (variation === "fullRegeneration") return "Each attempt is fully regenerated.";
-  return "Each attempt is a fresh variation.";
+  if (rule === "redrawQuestionPools") return "Each Assignment Attempt redraws its Question Pools.";
+  return "This Assignment uses its Question Variation Rule.";
 }
 
-function formatDisclosureTiming(timing: StudentDisclosureTiming): string {
+function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
   if (timing === "during_attempt") return "during the attempt";
   if (timing === "after_submit") return "after submission";
   if (timing === "after_due") return "after the due time";
@@ -159,10 +161,10 @@ function formatDisclosureTiming(timing: StudentDisclosureTiming): string {
   return "not shown";
 }
 
-function disclosureSummary(policy: StudentDisclosurePolicy | undefined): string | undefined {
-  if (policy === undefined) return undefined;
-  const feedbackTiming = formatDisclosureTiming(policy.feedback_text);
-  const solutionTiming = formatDisclosureTiming(policy.solution);
+function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string | undefined {
+  if (rule === undefined) return undefined;
+  const feedbackTiming = formatDisclosureTiming(rule.feedback_text);
+  const solutionTiming = formatDisclosureTiming(rule.solution);
   return `Feedback is shown ${feedbackTiming}; solutions are shown ${solutionTiming}.`;
 }
 
@@ -179,7 +181,7 @@ export function StudentAssignmentPresentation(
   props: StudentAssignmentPresentationProps,
 ): JSX.Element {
   function disclosure(): string | undefined {
-    return disclosureSummary(props.assignment.disclosurePolicy);
+    return disclosureSummary(props.assignment.studentFeedbackReleaseRule);
   }
 
   function hasActions(): boolean {
@@ -253,7 +255,11 @@ export function StudentAssignmentPresentation(
           </div>
           <div>
             <dt>Whole-run limit</dt>
-            <dd>{formatAssignmentAttemptTimeLimit(props.assignment.delivery.timeLimitSeconds)}</dd>
+            <dd>
+              {formatAssignmentAttemptTimeLimit(
+                props.assignment.delivery.assignmentAttemptTimeLimitSeconds,
+              )}
+            </dd>
           </div>
           <div>
             <dt>Attempt limit</dt>
@@ -263,7 +269,7 @@ export function StudentAssignmentPresentation(
           </div>
           <div>
             <dt>Late work</dt>
-            <dd>{formatLateSubmission(props.assignment.delivery.lateSubmission)}</dd>
+            <dd>{formatLateWorkRule(props.assignment.delivery.lateWorkRule)}</dd>
           </div>
           <div>
             <dt>Deadline behavior</dt>
@@ -286,7 +292,7 @@ export function StudentAssignmentPresentation(
         </div>
         <div>
           <dt>Variation</dt>
-          <dd>{formatVariation(props.assignment.variation)}</dd>
+          <dd>{formatQuestionVariationRule(props.assignment.questionVariationRule)}</dd>
         </div>
         <div>
           <dt>Feedback</dt>

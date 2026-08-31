@@ -211,7 +211,7 @@ async function completeDeliveredPoolRun(
 
   const byTitle = new Map(candidates.map((candidate) => [candidate.title, candidate]));
   await expect(page.getByRole("heading", { name: fixed.title, exact: true })).toBeVisible();
-  await expect(page.locator(".run-pool-provenance")).toHaveCount(0);
+  await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveCount(0);
   await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
   const fixedFeedback = await waitForAutomatedFeedback(page);
@@ -221,8 +221,8 @@ async function completeDeliveredPoolRun(
   const deliveredCandidateIndexes: number[] = [];
   const questionHeading = page.locator(".run-header h1");
   for (let position = 0; position < 2; position += 1) {
-    await expect(page.locator(".run-pool-provenance")).toHaveText(
-      `Server-selected pool item ${position + 1} of 2 for this run.`,
+    await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
+      `Server-selected Question Pool item ${position + 1} of 2 for this Assignment Attempt.`,
     );
     const title = await questionHeading.innerText();
     const candidate = byTitle.get(title);

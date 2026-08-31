@@ -38,7 +38,7 @@ require_command() {
 compose() {
 	(
 		cd "$REPO_ROOT"
-		python3 -m local_stack_control._consumer_cli compose \
+		python3 -m local_stack_control.disposable_stack_command compose \
 			--manifest "$runtime_manifest_path" "$@"
 	)
 }
@@ -49,7 +49,7 @@ cleanup() {
 	if [ "$compose_started" = "1" ]; then
 		(
 			cd "$REPO_ROOT"
-			python3 -m local_stack_control._consumer_cli cleanup \
+			python3 -m local_stack_control.disposable_stack_command cleanup \
 				--manifest "$runtime_manifest_path"
 		) || cleanup_failed=1
 	fi

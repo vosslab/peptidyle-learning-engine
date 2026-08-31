@@ -1,10 +1,10 @@
 // Issued-question, response, and feedback decoders.
 
-import type { AttemptResult } from "../../../generated/api/AttemptResult";
+import type { GradingResult } from "../../../generated/api/GradingResult";
 import type { DisclosedFeedback } from "../../../generated/api/DisclosedFeedback";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { QuestionDefinition } from "../../../generated/api/QuestionDefinition";
-import type { QuestionEnvelope } from "../../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch, PublicationResult } from "../contracts";
 import { isCanonicalExternalToolLaunchPath } from "../external_tool_launch";
@@ -31,7 +31,7 @@ import {
 } from "./shared";
 import { decodeQuestionSummary } from "./question_library";
 import {
-  decodeAttemptPolicy,
+  decodeQuestionAttemptLimit,
   decodeContentBlock,
   decodeDraftQuestionSource,
   decodeGradingDefinition,
@@ -40,7 +40,7 @@ import {
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
   decodeQuestionType,
-  decodeTimingPolicy,
+  decodeQuestionAttemptTimeLimit,
   questionResponseFormatSupportsType,
 } from "./question_model";
 
@@ -64,7 +64,10 @@ function decodeQuestionContent(
     `${path}.questionType`,
   );
   if (!questionResponseFormatSupportsType(response, questionType)) {
-    throw new DecodeError(`${path}.questionType`, "a type supported by the Question Response Format");
+    throw new DecodeError(
+      `${path}.questionType`,
+      "a type supported by the Question Response Format",
+    );
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
@@ -78,14 +81,14 @@ function decodeQuestionContent(
     ),
     response,
     questionType,
-    attemptPolicy: decodeAttemptPolicy(
-      field(record, "attemptPolicy", path),
-      `${path}.attemptPolicy`,
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
       true,
     ),
-    timingPolicy: decodeTimingPolicy(
-      field(record, "timingPolicy", path),
-      `${path}.timingPolicy`,
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
       true,
     ),
     randomization: decodeRandomization(
@@ -112,7 +115,10 @@ function decodeDraftQuestionContent(
     `${path}.questionType`,
   );
   if (!questionResponseFormatSupportsType(response, questionType)) {
-    throw new DecodeError(`${path}.questionType`, "a type supported by the Question Response Format");
+    throw new DecodeError(
+      `${path}.questionType`,
+      "a type supported by the Question Response Format",
+    );
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
@@ -126,14 +132,14 @@ function decodeDraftQuestionContent(
     ),
     response,
     questionType,
-    attemptPolicy: decodeAttemptPolicy(
-      field(record, "attemptPolicy", path),
-      `${path}.attemptPolicy`,
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
       true,
     ),
-    timingPolicy: decodeTimingPolicy(
-      field(record, "timingPolicy", path),
-      `${path}.timingPolicy`,
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
       true,
     ),
     randomization: decodeRandomization(
@@ -157,8 +163,8 @@ export function decodeQuestionDefinition(value: unknown, path = "response"): Que
     "prompt",
     "response",
     "questionType",
-    "attemptPolicy",
-    "timingPolicy",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
     "randomization",
     "grading",
     "metadata",
@@ -187,8 +193,8 @@ export function decodeDraftQuestionDefinition(
     "prompt",
     "response",
     "questionType",
-    "attemptPolicy",
-    "timingPolicy",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
     "randomization",
     "grading",
     "metadata",
@@ -201,22 +207,36 @@ export function decodePublicationResult(value: unknown, path = "response"): Publ
 }
 
 /** Strictly decodes the key-free rendered variant delivered for an attempt. */
-export function decodeQuestionEnvelope(value: unknown, path = "response"): QuestionEnvelope {
+export function decodeQuestionPresentation(
+  value: unknown,
+  path = "response",
+): QuestionPresentation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionVersion", "seed", "title", "prompt", "response"]);
+  requireOnlyFields(record, path, ["variation", "title", "prompt", "response"]);
+  const variation = decodeRecord(field(record, "variation", path), `${path}.variation`);
+  requireOnlyFields(variation, `${path}.variation`, ["questionVersion", "seed"]);
   const decoded = {
-    questionVersion: decodeQuestionVersionReference(
-      field(record, "questionVersion", path),
-      `${path}.questionVersion`,
-      true,
-    ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
+    variation: {
+      questionVersion: decodeQuestionVersionReference(
+        field(variation, "questionVersion", `${path}.variation`),
+        `${path}.variation.questionVersion`,
+        true,
+      ),
+      seed: decodeNonnegativeInteger(
+        field(variation, "seed", `${path}.variation`),
+        `${path}.variation.seed`,
+      ),
+    },
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeContentBlock(block, blockPath, true),
     ),
-    response: decodeQuestionResponseFormat(field(record, "response", path), `${path}.response`, true),
-  } satisfies QuestionEnvelope;
+    response: decodeQuestionResponseFormat(
+      field(record, "response", path),
+      `${path}.response`,
+      true,
+    ),
+  } satisfies QuestionPresentation;
   return decoded;
 }
 
@@ -355,7 +375,7 @@ export function decodeStudentResponse(value: unknown, path = "response"): Studen
   }
 }
 
-export function decodeAttemptResult(value: unknown, path: string): AttemptResult {
+export function decodeGradingResult(value: unknown, path: string): GradingResult {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["correct", "pointsEarned", "pointsPossible"]);
   const decoded = {
@@ -365,7 +385,7 @@ export function decodeAttemptResult(value: unknown, path: string): AttemptResult
       field(record, "pointsPossible", path),
       `${path}.pointsPossible`,
     ),
-  } satisfies AttemptResult;
+  } satisfies GradingResult;
   return decoded;
 }
 

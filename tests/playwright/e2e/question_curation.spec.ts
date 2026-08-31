@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/features/question_curation/question_curation_panel.tsx owns the reuse workspace,
-//   its recovery text, and the owner/private-owner collection presentations.
+//   its recovery text, and the owner/private-owner Question Folder presentations.
 // - src/features/question_picker/question_picker.tsx owns the accessible shared picker dialog.
 // - src/pages/assignment_workspace/ owns focused assignment Questions and Policies reuse.
 // - src/pages/account_security_page.tsx owns ordinary passkey enrollment and reauthentication.
@@ -55,9 +55,9 @@ function curationPanel(page: Page): Locator {
   });
 }
 
-function collectionItem(panel: Locator, title: string): Locator {
+function questionFolderItem(panel: Locator, title: string): Locator {
   return panel
-    .getByRole("region", { name: "Collections", exact: true })
+    .getByRole("region", { name: "Question Folders", exact: true })
     .getByRole("listitem")
     .filter({ has: panel.page().getByText(title, { exact: true }) });
 }
@@ -106,7 +106,7 @@ async function captureLaptop(
 
 function curationPath(url: string): string | null {
   const path = new URL(url).pathname;
-  return path.startsWith("/api/question-collections") ||
+  return path.startsWith("/api/question-folders") ||
     path.startsWith("/api/saved-question-searches")
     ? path
     : null;
@@ -187,16 +187,16 @@ async function stageCurrentLibraryQuestion(
   ).toBeVisible();
 }
 
-async function createNamedCollection(
+async function createQuestionFolder(
   panel: Locator,
   title: string,
 ): Promise<void> {
-  await panel.getByRole("button", { name: "Create collection", exact: true }).click();
+  await panel.getByRole("button", { name: "Create Question Folder", exact: true }).click();
   const editor = panel
-    .getByRole("heading", { name: "Create collection", exact: true })
+    .getByRole("heading", { name: "Create Question Folder", exact: true })
     .locator("..");
-  await editor.getByLabel("Collection name").fill(title);
-  await editor.getByRole("button", { name: "Save collection", exact: true }).click();
+  await editor.getByLabel("Question Folder name").fill(title);
+  await editor.getByRole("button", { name: "Save Question Folder", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText(
     `${title} now contains 0 ordered questions.`,
   );
@@ -205,9 +205,9 @@ async function createNamedCollection(
 async function appendStagedQuestion(panel: Locator, title: string): Promise<void> {
   await panel.getByRole("button", { name: `Add to ${title}`, exact: true }).click();
   await expect(
-    panel.getByRole("heading", { name: "Update collection", exact: true }),
+    panel.getByRole("heading", { name: "Update Question Folder", exact: true }),
   ).toBeVisible();
-  await panel.getByRole("button", { name: "Save collection", exact: true }).click();
+  await panel.getByRole("button", { name: "Save Question Folder", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText(
     `${title} now contains 1 ordered questions.`,
   );
@@ -242,7 +242,7 @@ test.describe("question curation on the production PLE stack", () => {
     "the disposable production browser-suite owner supplies this scenario input",
   );
 
-  test("Instructor curates public questions into reusable work while Sysadmin browses the private collection", async ({
+  test("Instructor curates public questions into reusable work while Sysadmin browses the private Question Folder", async ({
     browser,
   }) => {
     test.setTimeout(scenarioTimeoutMs);
@@ -297,14 +297,14 @@ test.describe("question curation on the production PLE stack", () => {
           elena.getByRole("link", { name: "Teaching operations", exact: true }),
         ).toBeVisible();
         const panel = await openLibrary(elena);
-        await createNamedCollection(panel, privateTitle);
+        await createQuestionFolder(panel, privateTitle);
         await stageCurrentLibraryQuestion(elena, panel, privateFolderQuestionTitle);
         await appendStagedQuestion(panel, privateTitle);
-        await createNamedCollection(panel, concurrentTitle);
+        await createQuestionFolder(panel, concurrentTitle);
         await stageCurrentLibraryQuestion(elena, panel, concurrentFolderQuestionTitle);
         await appendStagedQuestion(panel, concurrentTitle);
-        await expect(collectionItem(panel, concurrentTitle)).toContainText(
-          "Private collection",
+        await expect(questionFolderItem(panel, concurrentTitle)).toContainText(
+          "Private Question Folder",
         );
         await captureLaptop(elena, scenarioInput, panel, workspaceArtifacts);
 
@@ -347,41 +347,41 @@ test.describe("question curation on the production PLE stack", () => {
 
       await test.step("Two ordinary Elena contexts make the revision recovery visible without losing her selected list", async () => {
         const panel = curationPanel(elena);
-        await collectionItem(panel, concurrentTitle)
+        await questionFolderItem(panel, concurrentTitle)
           .getByRole("button", { name: "Open", exact: true })
           .click();
         const localEditor = panel
-          .getByRole("heading", { name: "Update collection", exact: true })
+          .getByRole("heading", { name: "Update Question Folder", exact: true })
           .locator("..");
-        await localEditor.getByLabel("Collection name").fill(`${concurrentTitle} local revision`);
-        await expect(localEditor).toContainText("1 questions in this ordered collection.");
+        await localEditor.getByLabel("Question Folder name").fill(`${concurrentTitle} local revision`);
+        await expect(localEditor).toContainText("1 questions in this ordered Question Folder.");
 
         await chooseSeededIdentity(concurrentElena, /Elena Rivera/u);
         await selectVisibleCourse(concurrentElena, BIOCHEMISTRY_COURSE_TITLE);
         const concurrentPanel = await openLibrary(concurrentElena);
-        await collectionItem(concurrentPanel, concurrentTitle)
+        await questionFolderItem(concurrentPanel, concurrentTitle)
           .getByRole("button", { name: "Open", exact: true })
           .click();
         const remoteEditor = concurrentPanel
-          .getByRole("heading", { name: "Update collection", exact: true })
+          .getByRole("heading", { name: "Update Question Folder", exact: true })
           .locator("..");
-        await remoteEditor.getByLabel("Collection name").fill(remoteConcurrentTitle);
-        await remoteEditor.getByRole("button", { name: "Save collection", exact: true }).click();
+        await remoteEditor.getByLabel("Question Folder name").fill(remoteConcurrentTitle);
+        await remoteEditor.getByRole("button", { name: "Save Question Folder", exact: true }).click();
         await expect(concurrentPanel.getByRole("status")).toContainText(
           `${remoteConcurrentTitle} now contains 1 ordered questions.`,
         );
 
-        await localEditor.getByRole("button", { name: "Save collection", exact: true }).click();
+        await localEditor.getByRole("button", { name: "Save Question Folder", exact: true }).click();
         await expect(panel.getByRole("status")).toContainText(
           "Someone saved a newer version first.",
         );
-        await expect(localEditor.getByLabel("Collection name")).toHaveValue(
+        await expect(localEditor.getByLabel("Question Folder name")).toHaveValue(
           `${concurrentTitle} local revision`,
         );
-        await expect(localEditor).toContainText("1 questions in this ordered collection.");
+        await expect(localEditor).toContainText("1 questions in this ordered Question Folder.");
         await captureLaptop(elena, scenarioInput, panel, recoveryArtifacts);
         await panel.getByRole("button", { name: "Reload curation", exact: true }).click();
-        await expect(collectionItem(panel, remoteConcurrentTitle)).toBeVisible();
+        await expect(questionFolderItem(panel, remoteConcurrentTitle)).toBeVisible();
       });
 
       let invitationUrl = "";

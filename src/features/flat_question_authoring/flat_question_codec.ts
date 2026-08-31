@@ -10,7 +10,7 @@ import {
   FLAT_QUESTION_ORDERING_RESPONSE_KIND,
   FLAT_QUESTION_SINGLE_CHOICE_RESPONSE_KIND,
   FLAT_QUESTION_VERSION,
-  type FlatQuestionAttemptPolicy,
+  type FlatQuestionAttemptLimit,
   type FlatQuestionBlank,
   type FlatQuestionChoice,
   type FlatQuestionHotspotRegion,
@@ -18,12 +18,12 @@ import {
   type FlatQuestionLicense,
   type FlatQuestionItem,
   type FlatQuestionMatch,
-  type FlatQuestionNumericTolerance,
+  type FlatQuestionNumericResponseTolerance,
   type FlatQuestionOutcomeFeedback,
   type FlatQuestionSourceV2,
   type FlatQuestionTaxonomyTerm,
-  type FlatQuestionTimingPolicy,
-  type FlatQuestionTextMatchMode,
+  type FlatQuestionAttemptTimeLimit,
+  type FlatQuestionTextResponseMatchRule,
 } from "./flat_question_source";
 
 const MAX_SOURCE_BYTES = 256 * 1024;
@@ -131,7 +131,10 @@ function decodeItems(value: unknown, path: string, label: string): ReadonlyArray
   return items;
 }
 
-function decodeTextMatchMode(value: unknown, path: string): FlatQuestionTextMatchMode {
+function decodeTextResponseMatchRule(
+  value: unknown,
+  path: string,
+): FlatQuestionTextResponseMatchRule {
   const mode = string(value, path);
   if (mode === "exact" || mode === "caseInsensitive" || mode === "normalized") return mode;
   throw new DecodeError(path, "a known text match mode");
@@ -160,7 +163,10 @@ function decodeTextMaxLength(value: unknown, path: string): number {
   return integer(value, path, 1, MAX_TEXT_RESPONSE_CHARS);
 }
 
-function decodeNumericTolerance(value: unknown, path: string): FlatQuestionNumericTolerance {
+function decodeNumericResponseTolerance(
+  value: unknown,
+  path: string,
+): FlatQuestionNumericResponseTolerance {
   const record = decodeRecord(value, path);
   const kind = string(field(record, "kind", path), `${path}.kind`);
   if (kind === "exact") {
@@ -195,7 +201,7 @@ function decodeBlank(value: unknown, path: string): FlatQuestionBlank {
     id,
     label: boundedText(field(record, "label", path), `${path}.label`, MAX_CHOICE_TEXT_CHARS),
     answers: decodeAnswers(field(record, "answers", path), `${path}.answers`, maxLength),
-    matchMode: decodeTextMatchMode(field(record, "matchMode", path), `${path}.matchMode`),
+    matchMode: decodeTextResponseMatchRule(field(record, "matchMode", path), `${path}.matchMode`),
     maxLength,
   };
 }
@@ -444,7 +450,7 @@ function decodeOutcomeFeedback(value: unknown, path: string): FlatQuestionOutcom
   return { correct: decodedCorrect, incorrect: decodedIncorrect };
 }
 
-function decodeAttemptPolicy(value: unknown, path: string): FlatQuestionAttemptPolicy {
+function decodeQuestionAttemptLimit(value: unknown, path: string): FlatQuestionAttemptLimit {
   const record = decodeRecord(value, path);
   onlyFields(record, path, ["maxAttempts"]);
   const attemptsValue = field(record, "maxAttempts", path);
@@ -454,14 +460,14 @@ function decodeAttemptPolicy(value: unknown, path: string): FlatQuestionAttemptP
   };
 }
 
-function decodeTimingPolicy(value: unknown, path: string): FlatQuestionTimingPolicy {
+function decodeQuestionAttemptTimeLimit(value: unknown, path: string): FlatQuestionAttemptTimeLimit {
   const record = decodeRecord(value, path);
   const kind = string(field(record, "kind", path), `${path}.kind`);
-  if (kind === "untimed") {
+  if (kind === "unlimited") {
     onlyFields(record, path, ["kind"]);
     return { kind };
   }
-  if (kind !== "perQuestion" && kind !== "perAttempt") {
+  if (kind !== "limited" && kind !== "limited") {
     throw new DecodeError(`${path}.kind`, "a known timing policy");
   }
   onlyFields(record, path, ["kind", "seconds", "graceSeconds"]);
@@ -532,8 +538,8 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
     "response",
     "feedback",
     "points",
-    "attemptPolicy",
-    "timingPolicy",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
     "tags",
     "taxonomy",
     "license",
@@ -569,7 +575,7 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
         `${responsePath}.answers`,
         maxLength,
       ),
-      matchMode: decodeTextMatchMode(
+      matchMode: decodeTextResponseMatchRule(
         field(responseRecord, "matchMode", responsePath),
         `${responsePath}.matchMode`,
       ),
@@ -606,7 +612,7 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
     response = {
       kind: FLAT_QUESTION_NUMERIC_RESPONSE_KIND,
       answer,
-      tolerance: decodeNumericTolerance(
+      tolerance: decodeNumericResponseTolerance(
         field(responseRecord, "tolerance", responsePath),
         `${responsePath}.tolerance`,
       ),
@@ -655,11 +661,11 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
         ? { correct: null, incorrect: null }
         : decodeOutcomeFeedback(record.feedback, `${path}.feedback`),
     points: finiteNonnegative(field(record, "points", path), `${path}.points`),
-    attemptPolicy: decodeAttemptPolicy(
-      field(record, "attemptPolicy", path),
-      `${path}.attemptPolicy`,
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
     ),
-    timingPolicy: decodeTimingPolicy(field(record, "timingPolicy", path), `${path}.timingPolicy`),
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(field(record, "questionAttemptTimeLimit", path), `${path}.questionAttemptTimeLimit`),
     tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
     taxonomy:
       record.taxonomy === undefined ? [] : decodeTaxonomy(record.taxonomy, `${path}.taxonomy`),

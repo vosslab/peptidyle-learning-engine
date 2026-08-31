@@ -2,14 +2,17 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import type { FlatQuestionBlank, FlatQuestionTextMatchMode } from "./flat_question_source";
+import type { FlatQuestionBlank, FlatQuestionTextResponseMatchRule } from "./flat_question_source";
 
 const MAX_BLANKS = 50;
 
 export interface FlatMultiFillInEditorProps {
   readonly blanks: () => ReadonlyArray<FlatQuestionBlank>;
   readonly onBlankLabelChange: (blankId: string, label: string) => void;
-  readonly onBlankMatchModeChange: (blankId: string, matchMode: FlatQuestionTextMatchMode) => void;
+  readonly onBlankMatchModeChange: (
+    blankId: string,
+    matchMode: FlatQuestionTextResponseMatchRule,
+  ) => void;
   readonly onBlankMaxLengthChange: (blankId: string, maxLength: number) => void;
   readonly onAnswerChange: (blankId: string, answerIndex: number, answer: string) => void;
   readonly onAddAnswer: (blankId: string) => void;
@@ -26,7 +29,7 @@ function errorFor(props: FlatMultiFillInEditorProps, path: string): string | und
   return props.fieldErrors?.[path];
 }
 
-function isTextMatchMode(value: string): value is FlatQuestionTextMatchMode {
+function isTextResponseMatchRule(value: string): value is FlatQuestionTextResponseMatchRule {
   return value === "exact" || value === "caseInsensitive" || value === "normalized";
 }
 
@@ -130,7 +133,7 @@ export function FlatMultiFillInEditor(props: FlatMultiFillInEditorProps): JSX.El
                       disabled={props.disabled}
                       onChange={(event) => {
                         const matchMode = event.currentTarget.value;
-                        if (isTextMatchMode(matchMode)) {
+                        if (isTextResponseMatchRule(matchMode)) {
                           props.onBlankMatchModeChange(blankId, matchMode);
                         }
                       }}

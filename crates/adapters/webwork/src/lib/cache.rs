@@ -2,7 +2,9 @@
 
 use objects::ObjectKey;
 use question_model::generation::Seed;
-use question_model::{ObjectId, QuestionEnvelope, QuestionVersionReference, SourceArtifact};
+use question_model::{
+    ObjectId, QuestionPresentation, QuestionVersionReference, SourceObjectReference,
+};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -14,7 +16,7 @@ pub(super) const CACHE_SCHEMA_VERSION: u8 = 1;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SafeRenderedWebworkQuestion {
-    pub(super) envelope: QuestionEnvelope,
+    pub(super) envelope: QuestionPresentation,
     pub(super) sanitized_html: String,
     pub(super) renderer: crate::renderer_contract::RendererIdentity,
 }
@@ -23,7 +25,7 @@ pub(super) struct SafeRenderedWebworkQuestion {
 #[serde(rename_all = "camelCase")]
 pub(super) struct CachedWebworkRender {
     pub(super) schema_version: u8,
-    pub(super) source_artifact: SourceArtifact,
+    pub(super) source_object_reference: SourceObjectReference,
     pub(super) rendered: SafeRenderedWebworkQuestion,
 }
 
@@ -64,12 +66,12 @@ pub(super) fn validate_cached(
     active_renderer: &crate::renderer_contract::RendererIdentity,
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
-        || cached.source_artifact != source.artifact
+        || cached.source_object_reference != source.source_object_reference
         || cached.rendered.renderer.id.is_empty()
         || cached.rendered.renderer.version.is_empty()
     {
         return Err(WebworkAdapterError::InvalidCache(
-            "cache provenance is incomplete or does not match the published source".to_string(),
+            "cache source record is incomplete or does not match the published source".to_string(),
         ));
     }
     if &cached.rendered.renderer != active_renderer {
@@ -87,16 +89,16 @@ pub(super) fn validate_cached(
 }
 
 pub(super) fn validate_envelope(
-    envelope: &QuestionEnvelope,
+    envelope: &QuestionPresentation,
     question_version: &QuestionVersionReference,
     seed: Seed,
 ) -> Result<(), WebworkAdapterError> {
-    if &envelope.question_version != question_version {
+    if &envelope.variation.question_version != question_version {
         return Err(WebworkAdapterError::InvalidRendererEnvelope(
             "renderer returned a different immutable version".to_string(),
         ));
     }
-    if envelope.seed != seed {
+    if envelope.variation.seed != seed {
         return Err(WebworkAdapterError::InvalidRendererEnvelope(
             "renderer returned a different deterministic seed".to_string(),
         ));

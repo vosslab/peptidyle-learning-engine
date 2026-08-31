@@ -1,7 +1,7 @@
 // editor_page_typecheck.ts - compile-time boundary proof for unversioned workspace preview.
 
 import type { QuestionDefinition } from "../../generated/api/QuestionDefinition";
-import type { QuestionEnvelope } from "../../generated/api/QuestionEnvelope";
+import type { QuestionPresentation as IssuedQuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { QuestionPresentation } from "../components/question_renderer";
 import type { EditorPreview } from "./editor_page_model";
 
@@ -10,7 +10,7 @@ export function assertPreviewPresentationBoundary(preview: EditorPreview): Quest
   const presentation: QuestionPresentation = preview;
 
   // @ts-expect-error A workspace preview cannot enter a published-envelope path.
-  const invalidEnvelope: QuestionEnvelope = preview;
+  const invalidEnvelope: IssuedQuestionPresentation = preview;
   // @ts-expect-error A workspace preview cannot enter an assignment's published definition path.
   const invalidDefinition: QuestionDefinition = preview;
   void invalidEnvelope;

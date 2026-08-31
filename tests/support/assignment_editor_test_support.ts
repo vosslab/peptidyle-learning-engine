@@ -7,12 +7,16 @@ export function createMasteryAssignmentDraft(courseId: string): AssignmentEditor
     title: "",
     entries: [],
     policies: {
-      completion: { kind: "allCorrect" },
-      grade: "highest",
-      continuedPractice: { kind: "unlimited" },
-      variation: "newSeeds",
+      assignmentCompletionRule: { kind: "allCorrect" },
+      assignmentAttemptGradeRule: "highest",
+      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      questionVariationRule: "reuseQuestionsWithNewSeeds",
+      assignmentAttemptResumeRule: "resumable",
+      assignmentQuestionDisplayRule: "allQuestions",
+      assignmentNavigationRule: "freeNavigation",
+      assignmentQuestionOrderRule: "authoredOrder",
     },
-    disclosurePolicy: {
+    studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
       feedback_text: "after_submit",

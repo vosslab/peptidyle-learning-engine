@@ -21,7 +21,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
   const assignment = workspace.assignment;
   const fixedCount = (): number =>
     assignment().entries.filter(
-      (entry) => entry.kind === "fixedQuestion" && entry.deliveryState === "active",
+      (entry) => entry.kind === "fixedQuestion" && entry.availability === "available",
     ).length;
   const poolCount = (): number =>
     assignment().entries.filter((entry) => entry.kind === "questionPool").length;
@@ -52,7 +52,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
           <dl class="assignment-facts">
             <div>
               <dt>Lifecycle</dt>
-              <dd>{stateCopy(assignment().teachingSettings.lifecycle)}</dd>
+              <dd>{stateCopy(assignment().assignmentRevisionDefinition.lifecycle)}</dd>
             </div>
             <div>
               <dt>Current state</dt>
@@ -77,12 +77,12 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         >
           <h2 id="assignment-readiness-heading">Publication readiness</h2>
           <Show
-            when={assignment().publicationReadiness.blockingIssues.length === 0}
+            when={assignment().draftRevisionPublicationReadiness.blockingIssues.length === 0}
             fallback={
               <>
                 <p role="status">This assignment is not ready to publish.</p>
                 <ul class="assignment-workspace-next-actions">
-                  <For each={assignment().publicationReadiness.blockingIssues}>
+                  <For each={assignment().draftRevisionPublicationReadiness.blockingIssues}>
                     {(issue) => (
                       <li>
                         {issue.kind === "questionsRequired" ? (
@@ -137,27 +137,27 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         >
           <h2 id="assignment-instructions-heading">Instructions and delivery</h2>
           <Show
-            when={assignment().teachingSettings.instructions.length > 0}
+            when={assignment().assignmentRevisionDefinition.instructions.length > 0}
             fallback={<p>No Student instructions have been added.</p>}
           >
-            <p class="plain-text-instructions">{assignment().teachingSettings.instructions}</p>
+            <p class="plain-text-instructions">{assignment().assignmentRevisionDefinition.instructions}</p>
           </Show>
           <dl class="assignment-facts">
             <div>
               <dt>Time zone</dt>
-              <dd>{assignment().teachingSettings.timeZone}</dd>
+              <dd>{assignment().assignmentRevisionDefinition.timeZone}</dd>
             </div>
             <div>
               <dt>Available</dt>
-              <dd>{localTime(assignment().teachingSettings.availableAt)}</dd>
+              <dd>{localTime(assignment().assignmentRevisionDefinition.availableAt)}</dd>
             </div>
             <div>
               <dt>Due</dt>
-              <dd>{localTime(assignment().teachingSettings.dueAt)}</dd>
+              <dd>{localTime(assignment().assignmentRevisionDefinition.dueAt)}</dd>
             </div>
             <div>
               <dt>Closes</dt>
-              <dd>{localTime(assignment().teachingSettings.closesAt)}</dd>
+              <dd>{localTime(assignment().assignmentRevisionDefinition.closesAt)}</dd>
             </div>
           </dl>
         </section>

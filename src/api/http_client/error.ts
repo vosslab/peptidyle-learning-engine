@@ -49,19 +49,24 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
-/** A 409 content-save refusal because immutable Student work has been issued. */
-export class AssignmentIssuedWorkError extends ApiRequestError {
+/** A 409 content-save refusal that requires a successor Draft Assignment Revision. */
+export class AssignmentSuccessorRevisionRequiredError extends ApiRequestError {
   declare public readonly status: 409;
+  public readonly requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired;
 
-  public constructor(path: string) {
+  public constructor(
+    path: string,
+    requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired,
+  ) {
     super(409, path);
-    this.name = "AssignmentIssuedWorkError";
+    this.name = "AssignmentSuccessorRevisionRequiredError";
+    this.requirement = requirement;
   }
 }
 
 export type AssignmentContentSaveFailure =
   | { readonly kind: "staleRevision"; readonly message: string }
-  | { readonly kind: "issuedStudentWork"; readonly message: string }
+  | { readonly kind: "successorRevisionRequired"; readonly message: string }
   | { readonly kind: "retryable"; readonly message: string };
 
 /**
@@ -71,11 +76,11 @@ export type AssignmentContentSaveFailure =
  * identity diagnostics.  Callers retain their local draft for every outcome.
  */
 export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentContentSaveFailure {
-  if (error instanceof AssignmentIssuedWorkError) {
+  if (error instanceof AssignmentSuccessorRevisionRequiredError) {
     return {
-      kind: "issuedStudentWork",
+      kind: "successorRevisionRequired",
       message:
-        "Student work has already been issued, so this assignment's question structure remains unchanged.",
+        "Student work already pins this Assignment Revision. Create a successor Draft Assignment Revision for structural question changes.",
     };
   }
   if (
@@ -159,12 +164,12 @@ export class QuestionCurationConflictError extends ApiRequestError {
 }
 
 /** A reusable-curriculum replacement lost its strong revision race. */
-export class ReusableCurriculumConflictError extends ApiRequestError {
+export class BlueprintCourseConflictError extends ApiRequestError {
   declare public readonly status: 412;
 
   public constructor(path: string) {
     super(412, path);
-    this.name = "ReusableCurriculumConflictError";
+    this.name = "BlueprintCourseConflictError";
   }
 }
 

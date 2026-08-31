@@ -489,5 +489,4 @@ mod tests {
                 .any(|entry| entry.disposition() == MigrationDisposition::Dirty)
         );
     }
-
 }

@@ -6,20 +6,20 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Write as _;
 
-use question_model::answer::SelectionCardinality;
+use question_model::answer::ResponseSelectionRule;
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::envelope::ContentBlock;
 use question_model::generation::RandomizationDefinition;
-use question_model::response::{ChoiceId, QuestionResponseFormat, QuestionType, StudentResponse};
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::response::{ResponseItemReference, QuestionResponseFormat, QuestionType, StudentResponse};
 use question_model::{
-    AttemptResult, DraftQuestionDefinition, DraftQuestionSource, FeedbackContent,
-    GradingDefinition, QuestionDefinition, QuestionFormat, QuestionMetadata, QuestionSource,
+    DraftQuestionDefinition, DraftQuestionSource, FeedbackContent, GradingDefinition,
+    GradingResult, QuestionDefinition, QuestionFormat, QuestionMetadata, QuestionSource,
     QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{AnswerKey, GradeOutcome, GradingError, grade};
+use crate::{AnswerKey, GradingError, QuestionGradingOutcome, grade};
 
 /// Upper bound shared by persisted private material and source adapters.
 pub const MAX_FLAT_QUESTION_BYTES: usize = 256 * 1024;
@@ -104,7 +104,7 @@ struct FlatOutcomeFeedback {
 
 /// Result and private teaching content from one trusted evaluation.
 pub struct FlatQuestionEvaluation {
-    pub outcome: GradeOutcome,
+    pub outcome: QuestionGradingOutcome,
     pub feedback: FeedbackContent,
 }
 
@@ -113,7 +113,7 @@ impl FlatQuestionPrivate {
     pub fn new_with_key(
         draft: &DraftQuestionDefinition,
         answer_key: AnswerKey,
-        choice_feedback: Vec<(ChoiceId, String)>,
+        choice_feedback: Vec<(ResponseItemReference, String)>,
         correct_feedback: Option<String>,
         incorrect_feedback: Option<String>,
     ) -> Result<Self, FlatQuestionError> {
@@ -154,7 +154,7 @@ impl FlatQuestionPrivate {
     /// emitted during publication.
     ///
     /// Publication uses this only when a private HOTSPOT workspace asset is
-    /// assigned its fresh version-scoped catalog asset identity.  The answer
+    /// assigned its fresh version-scoped Question Library asset identity.  The answer
     /// key and feedback remain byte-for-byte unchanged; the public binding
     /// digest changes because that browser-safe asset identifier is part of
     /// the public Question Response Format.
@@ -228,13 +228,13 @@ impl FlatQuestionPrivate {
         self.validate_against_question(question)?;
         let outcome = grade(question, response, Some(&self.answer_key))
             .map_err(FlatQuestionError::Grading)?;
-        let GradeOutcome::Graded(result) = outcome else {
+        let QuestionGradingOutcome::Graded(result) = outcome else {
             return Err(FlatQuestionError::Grading(GradingError::InvalidDefinition(
                 "flat-question grading must produce a numeric result".to_string(),
             )));
         };
         Ok(FlatQuestionEvaluation {
-            outcome: GradeOutcome::Graded(result),
+            outcome: QuestionGradingOutcome::Graded(result),
             feedback: self.feedback_for(question, response, result)?,
         })
     }
@@ -289,7 +289,7 @@ impl FlatQuestionPrivate {
         if self
             .choice_feedback
             .iter()
-            .any(|feedback| !available.contains(&ChoiceId::new(&feedback.choice)))
+            .any(|feedback| !available.contains(&ResponseItemReference::new(&feedback.choice)))
         {
             return Err(FlatQuestionError::PublicBindingMismatch);
         }
@@ -300,7 +300,7 @@ impl FlatQuestionPrivate {
         &self,
         question: &QuestionDefinition,
         response: &StudentResponse,
-        result: AttemptResult,
+        result: GradingResult,
     ) -> Result<FeedbackContent, FlatQuestionError> {
         let mut teaching = Vec::new();
         if let StudentResponse::MultipleChoice { selected } = response {
@@ -392,11 +392,11 @@ fn validate_response_for_type(
         (
             QuestionType::MultipleChoice,
             QuestionResponseFormat::MultipleChoice { choices, selection },
-        ) if *selection == SelectionCardinality::ExactlyOne => validate_options(choices, 2),
+        ) if *selection == ResponseSelectionRule::ExactlyOne => validate_options(choices, 2),
         (
             QuestionType::MultipleAnswer,
             QuestionResponseFormat::MultipleChoice { choices, selection },
-        ) if *selection == SelectionCardinality::AtLeastOne => validate_options(choices, 2),
+        ) if *selection == ResponseSelectionRule::AtLeastOne => validate_options(choices, 2),
         (QuestionType::FillInBlank, QuestionResponseFormat::ShortText { max_length, .. })
             if *max_length > 0 =>
         {
@@ -437,7 +437,7 @@ fn validate_response_for_type(
         ) if !regions.is_empty() => {
             if description.trim().is_empty()
                 || !is_hex_sha256(&surface.checksum)
-                || matches!(selection, SelectionCardinality::AnyNumber)
+                || matches!(selection, ResponseSelectionRule::AnyNumber)
             {
                 return invalid("flat hotspot surface or selection is invalid");
             }
@@ -478,20 +478,22 @@ fn validate_options(
 }
 
 fn validate_numeric_tolerance(
-    tolerance: &question_model::answer::NumericTolerance,
+    tolerance: &question_model::answer::NumericResponseTolerance,
 ) -> Result<(), FlatQuestionError> {
     match tolerance {
-        question_model::answer::NumericTolerance::Exact => Ok(()),
-        question_model::answer::NumericTolerance::Absolute { epsilon } => {
+        question_model::answer::NumericResponseTolerance::Exact => Ok(()),
+        question_model::answer::NumericResponseTolerance::Absolute { epsilon } => {
             validate_nonnegative_finite("absolute epsilon", *epsilon)
         }
-        question_model::answer::NumericTolerance::Relative { fraction } => {
+        question_model::answer::NumericResponseTolerance::Relative { fraction } => {
             validate_nonnegative_finite("relative fraction", *fraction)
         }
-        question_model::answer::NumericTolerance::SignificantFigures { digits } if *digits > 0 => {
+        question_model::answer::NumericResponseTolerance::SignificantFigures { digits }
+            if *digits > 0 =>
+        {
             Ok(())
         }
-        question_model::answer::NumericTolerance::SignificantFigures { .. } => {
+        question_model::answer::NumericResponseTolerance::SignificantFigures { .. } => {
             invalid("significant figures must be at least one")
         }
     }
@@ -540,7 +542,10 @@ fn validate_key_against_response(
             }
             Ok(())
         }
-        (QuestionResponseFormat::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
+        (
+            QuestionResponseFormat::Matching { prompts, choices },
+            AnswerKey::Matching { correct },
+        ) => {
             let prompt_ids: BTreeSet<_> = prompts.iter().map(|prompt| prompt.id.clone()).collect();
             let choice_ids: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
             let correct_choices: BTreeSet<_> = correct.values().cloned().collect();
@@ -571,7 +576,7 @@ fn validate_key_against_response(
     }
 }
 
-fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ChoiceId> {
+fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemReference> {
     match response {
         QuestionResponseFormat::MultipleChoice { choices, .. } => {
             choices.iter().map(|choice| choice.id.clone()).collect()
@@ -627,7 +632,10 @@ fn correct_response_blocks(
                 description: "Correct responses for each blank".to_string(),
             }]
         }
-        (QuestionResponseFormat::Matching { prompts, choices }, AnswerKey::Matching { correct }) => {
+        (
+            QuestionResponseFormat::Matching { prompts, choices },
+            AnswerKey::Matching { correct },
+        ) => {
             vec![ContentBlock::Table {
                 headers: vec!["Prompt".to_string(), "Match".to_string()],
                 rows: prompts
@@ -655,11 +663,13 @@ fn correct_response_blocks(
                     .clone()
             })
             .collect(),
-        (QuestionResponseFormat::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => regions
-            .iter()
-            .filter(|region| correct.contains(&region.id))
-            .flat_map(|region| region.label.clone())
-            .collect(),
+        (QuestionResponseFormat::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => {
+            regions
+                .iter()
+                .filter(|region| correct.contains(&region.id))
+                .flat_map(|region| region.label.clone())
+                .collect()
+        }
         _ => return Err(FlatQuestionError::PublicBindingMismatch),
     };
     Ok(blocks)
@@ -686,8 +696,8 @@ struct PublicBinding<'a> {
     question_type: QuestionType,
     prompt: &'a [ContentBlock],
     response: &'a QuestionResponseFormat,
-    attempt_policy: AttemptPolicy,
-    timing_policy: TimingPolicy,
+    question_attempt_limit: QuestionAttemptLimit,
+    question_attempt_time_limit: QuestionAttemptTimeLimit,
     randomization: &'a RandomizationDefinition,
     grading: &'a GradingDefinition,
     metadata: &'a QuestionMetadata,
@@ -707,8 +717,8 @@ pub fn public_binding_sha256_for_draft(
         question_type: draft.question_type,
         prompt: &draft.prompt,
         response: &draft.response,
-        attempt_policy: draft.attempt_policy,
-        timing_policy: draft.timing_policy,
+        question_attempt_limit: draft.question_attempt_limit,
+        question_attempt_time_limit: draft.question_attempt_time_limit,
         randomization: &draft.randomization,
         grading: &draft.grading,
         metadata: &draft.metadata,
@@ -727,8 +737,8 @@ fn public_binding_sha256_for_question(
         question_type: question.question_type,
         prompt: &question.prompt,
         response: &question.response,
-        attempt_policy: question.attempt_policy,
-        timing_policy: question.timing_policy,
+        question_attempt_limit: question.question_attempt_limit,
+        question_attempt_time_limit: question.question_attempt_time_limit,
         randomization: &question.randomization,
         grading: &question.grading,
         metadata: &question.metadata,

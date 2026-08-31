@@ -6,10 +6,10 @@ import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSourc
 import type { RandomizationDefinition } from "../../generated/api/RandomizationDefinition";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { Seed } from "../../generated/api/Seed";
-import type { TimingPolicy } from "../../generated/api/TimingPolicy";
+import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
-import type { AttemptPolicy } from "../../generated/api/AttemptPolicy";
+import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
 import type { PublicByline } from "../../generated/api/PublicByline";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
 
@@ -25,8 +25,8 @@ export interface EditorDraft {
   readonly source: DraftQuestionSource;
   readonly prompt: ReadonlyArray<ContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly attemptPolicy: AttemptPolicy;
-  readonly timingPolicy: TimingPolicy;
+  readonly questionAttemptLimit: QuestionAttemptLimit;
+  readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
   readonly randomization: RandomizationDefinition;
 }
 

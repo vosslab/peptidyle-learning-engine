@@ -1,4 +1,4 @@
-// Strict runtime decoding for the answer-free catalog-search facet DTO.
+// Strict runtime decoding for the answer-free Question Search facet DTO.
 
 import { MAX_QUESTION_SEARCH_TAXONOMY_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAXONOMY_FACETS";
 import { MAX_QUESTION_SEARCH_BYLINE_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FACETS";
@@ -34,7 +34,7 @@ import {
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
 const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
 
-function decodeCatalogTaxonomyFacet(value: unknown, path: string): QuestionSearchTaxonomyFacet {
+function decodeQuestionSearchTaxonomyFacet(value: unknown, path: string): QuestionSearchTaxonomyFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["term", "count"]);
   return {
@@ -43,7 +43,7 @@ function decodeCatalogTaxonomyFacet(value: unknown, path: string): QuestionSearc
   };
 }
 
-function decodeCatalogFacetText(value: unknown, path: string, maximum: number): string {
+function decodeQuestionSearchFacetText(value: unknown, path: string, maximum: number): string {
   const decoded = decodeNonemptyString(value, path);
   if (
     decoded !== decoded.trim() ||
@@ -55,16 +55,16 @@ function decodeCatalogFacetText(value: unknown, path: string, maximum: number): 
   return decoded;
 }
 
-function decodeCatalogBylineFacet(value: unknown, path: string): QuestionSearchBylineFacet {
+function decodeQuestionSearchBylineFacet(value: unknown, path: string): QuestionSearchBylineFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["byline", "count"]);
   return {
-    byline: decodeCatalogFacetText(field(record, "byline", path), `${path}.byline`, 120),
+    byline: decodeQuestionSearchFacetText(field(record, "byline", path), `${path}.byline`, 120),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
 
-function decodeCatalogBackendFacet(value: unknown, path: string): QuestionSearchBackendFacet {
+function decodeQuestionSearchBackendFacet(value: unknown, path: string): QuestionSearchBackendFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["backend", "count"]);
   return {
@@ -79,11 +79,11 @@ function decodeCatalogBackendFacet(value: unknown, path: string): QuestionSearch
   };
 }
 
-function decodeCatalogTagFacet(value: unknown, path: string): QuestionSearchTagFacet {
+function decodeQuestionSearchTagFacet(value: unknown, path: string): QuestionSearchTagFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["tag", "count"]);
   return {
-    tag: decodeCatalogFacetText(field(record, "tag", path), `${path}.tag`, 256),
+    tag: decodeQuestionSearchFacetText(field(record, "tag", path), `${path}.tag`, 256),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
@@ -113,7 +113,7 @@ function decodeQuestionTypeFacet(
   };
 }
 
-function decodeCatalogCapabilityFacet(value: unknown, path: string): QuestionSearchCapabilityFacet {
+function decodeQuestionSearchCapabilityFacet(value: unknown, path: string): QuestionSearchCapabilityFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["capability", "count"]);
   return {
@@ -122,7 +122,7 @@ function decodeCatalogCapabilityFacet(value: unknown, path: string): QuestionSea
   };
 }
 
-function decodeCatalogLicenseFacet(value: unknown, path: string): QuestionSearchLicenseFacet {
+function decodeQuestionSearchLicenseFacet(value: unknown, path: string): QuestionSearchLicenseFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["license", "count"]);
   return {
@@ -135,7 +135,10 @@ function decodeCatalogLicenseFacet(value: unknown, path: string): QuestionSearch
   };
 }
 
-function decodeCatalogEvidenceFacet(value: unknown, path: string): QuestionStatisticsAvailabilityFacet {
+function decodeQuestionStatisticsAvailabilityFacet(
+  value: unknown,
+  path: string,
+): QuestionStatisticsAvailabilityFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["available", "unavailable"]);
   return {
@@ -147,7 +150,7 @@ function decodeCatalogEvidenceFacet(value: unknown, path: string): QuestionStati
   };
 }
 
-function decodeCatalogUsedInMyCoursesFacet(
+function decodeQuestionSearchCourseUseFacet(
   value: unknown,
   path: string,
 ): QuestionSearchCourseUseFacet {
@@ -160,7 +163,7 @@ function decodeCatalogUsedInMyCoursesFacet(
 
 /**
  * ASVS 1.5.2 and 2.2.1: strictly decodes only the same-query, answer-free
- * catalog facet projection generated from the Rust contract.
+ * Question Search facet projection generated from the Rust contract.
  */
 export function decodeQuestionSearchFacets(value: unknown, path: string): QuestionSearchFacets {
   const record = decodeRecord(value, path);
@@ -180,19 +183,19 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       field(record, "bylines", path),
       `${path}.bylines`,
       MAX_QUESTION_SEARCH_BYLINE_FACETS,
-      decodeCatalogBylineFacet,
+      decodeQuestionSearchBylineFacet,
     ),
     backends: decodeBoundedArray(
       field(record, "backends", path),
       `${path}.backends`,
       MAX_QUESTION_SEARCH_BACKEND_FACETS,
-      decodeCatalogBackendFacet,
+      decodeQuestionSearchBackendFacet,
     ),
     tags: decodeBoundedArray(
       field(record, "tags", path),
       `${path}.tags`,
       MAX_QUESTION_SEARCH_TAG_FACETS,
-      decodeCatalogTagFacet,
+      decodeQuestionSearchTagFacet,
     ),
     questionTypes: decodeBoundedArray(
       field(record, "questionTypes", path),
@@ -204,22 +207,25 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       field(record, "taxonomy", path),
       `${path}.taxonomy`,
       MAX_QUESTION_SEARCH_TAXONOMY_FACETS,
-      decodeCatalogTaxonomyFacet,
+      decodeQuestionSearchTaxonomyFacet,
     ),
     capabilities: decodeBoundedArray(
       field(record, "capabilities", path),
       `${path}.capabilities`,
       MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
-      decodeCatalogCapabilityFacet,
+      decodeQuestionSearchCapabilityFacet,
     ),
     licenses: decodeBoundedArray(
       field(record, "licenses", path),
       `${path}.licenses`,
       MAX_QUESTION_SEARCH_LICENSE_FACETS,
-      decodeCatalogLicenseFacet,
+      decodeQuestionSearchLicenseFacet,
     ),
-    evidence: decodeCatalogEvidenceFacet(field(record, "evidence", path), `${path}.evidence`),
-    usedInMyCourses: decodeCatalogUsedInMyCoursesFacet(
+    evidence: decodeQuestionStatisticsAvailabilityFacet(
+      field(record, "evidence", path),
+      `${path}.evidence`,
+    ),
+    usedInMyCourses: decodeQuestionSearchCourseUseFacet(
       field(record, "usedInMyCourses", path),
       `${path}.usedInMyCourses`,
     ),

@@ -2,9 +2,9 @@ use std::fmt::Write as _;
 
 use domain::draft_preview::materialize_prompt;
 use domain::generator::generate;
-use question_model::envelope::QuestionEnvelope;
+use question_model::envelope::QuestionPresentation;
 use question_model::generation::Seed;
-use question_model::{AttemptProvenance, DraftQuestionDefinition, QuestionDefinition};
+use question_model::{DraftQuestionDefinition, QuestionAttemptSourceRecord, QuestionDefinition};
 use sha2::{Digest, Sha256};
 
 use crate::generator::AuthorPresentationContent;
@@ -19,7 +19,7 @@ impl NativeAdapter {
     /// Generates one key-free native Issued Question.
     ///
     /// Trusted asset bindings are resolved against the generated envelope,
-    /// then canonical immutable object IDs are persisted in provenance.
+    /// then canonical immutable object IDs are persisted in the source record.
     pub fn issue(
         &self,
         question: &QuestionDefinition,
@@ -28,11 +28,11 @@ impl NativeAdapter {
     ) -> Result<NativeIssuedAttempt, NativeAdapterError> {
         let prepared = self.prepare(question, seed)?;
         let asset_objects = resolve_asset_objects(&prepared.envelope, asset_bindings)?;
-        let provenance = AttemptProvenance {
+        let source_record = QuestionAttemptSourceRecord {
             adapter: self.current_adapter.clone(),
             renderer: None,
             generator: prepared.generated.generator.clone(),
-            source_artifact: None,
+            source_object_reference: None,
             asset_objects,
             grading: self.current_grading.clone(),
             rendered_question_sha256: prepared.rendered_question_sha256,
@@ -40,7 +40,7 @@ impl NativeAdapter {
         Ok(NativeIssuedAttempt {
             envelope: prepared.envelope,
             parameter_hash: prepared.parameter_hash,
-            provenance,
+            source_record,
         })
     }
 
@@ -100,12 +100,15 @@ impl NativeAdapter {
             prompt,
             answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
-        let envelope = QuestionEnvelope {
-            question_version: question_model::QuestionVersionReference {
-                question_id: question.question_id.clone(),
-                version_number: question.version_number,
-            },
-            seed,
+        let envelope = QuestionPresentation {
+            variation: question_model::QuestionVariation::from_randomization(
+                question_model::QuestionVersionReference {
+                    question_id: question.question_id.clone(),
+                    version_number: question.version_number,
+                },
+                &question.randomization,
+                seed,
+            ),
             title: question.metadata.title.clone(),
             prompt: materialized.prompt.clone(),
             response: question.response.clone(),
@@ -134,7 +137,7 @@ impl NativeAdapter {
     }
 }
 
-fn hash_json(value: &QuestionEnvelope) -> Result<String, NativeAdapterError> {
+fn hash_json(value: &QuestionPresentation) -> Result<String, NativeAdapterError> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| NativeAdapterError::Serialization(error.to_string()))?;
     let digest = Sha256::digest(bytes);

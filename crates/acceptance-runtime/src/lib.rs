@@ -180,7 +180,6 @@ impl AcceptanceRuntime {
     pub fn admin_url(&self) -> &PostgresUrl {
         &self.admin_url
     }
-
 }
 
 #[cfg(all(test, unix))]
@@ -288,9 +287,7 @@ fn load_from_workspace_descriptor(
         .then(|| load_minio_runtime(&secrets))
         .transpose()?;
     Ok(LoadedRuntime {
-        acceptance: AcceptanceRuntime {
-            admin_url,
-        },
+        acceptance: AcceptanceRuntime { admin_url },
         minio,
     })
 }

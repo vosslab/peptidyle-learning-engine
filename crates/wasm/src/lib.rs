@@ -45,8 +45,10 @@ pub fn validate_response_format(
     definition_json: &str,
     response_json: &str,
 ) -> Result<String, JsValue> {
-    let definition: QuestionResponseFormat = serde_json::from_str(definition_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid Question Response Format: {error}")))?;
+    let definition: QuestionResponseFormat =
+        serde_json::from_str(definition_json).map_err(|error| {
+            JsValue::from_str(&format!("invalid Question Response Format: {error}"))
+        })?;
     let response: StudentResponse = serde_json::from_str(response_json)
         .map_err(|error| JsValue::from_str(&format!("invalid student response: {error}")))?;
     let report = validation::validate_response_format(&definition, &response);
@@ -65,10 +67,10 @@ pub fn validate_response_format(
 /// Returns a JavaScript error when the input is malformed, the timer record is
 /// inconsistent, or the verdict cannot be serialized.
 #[wasm_bindgen]
-pub fn timer_verdict(evaluation_json: &str) -> Result<String, JsValue> {
-    let evaluation: timing::TimerEvaluation = serde_json::from_str(evaluation_json)
+pub fn question_attempt_timing_decision(evaluation_json: &str) -> Result<String, JsValue> {
+    let evaluation: timing::QuestionAttemptTimingEvaluation = serde_json::from_str(evaluation_json)
         .map_err(|error| JsValue::from_str(&format!("invalid timer evaluation: {error}")))?;
-    let verdict = timing::timer_verdict(&evaluation)
+    let verdict = timing::question_attempt_timing_decision(&evaluation)
         .map_err(|error| JsValue::from_str(&format!("invalid timer evaluation: {error}")))?;
     serde_json::to_string(&verdict)
         .map_err(|error| JsValue::from_str(&format!("could not serialize timer verdict: {error}")))
@@ -156,9 +158,9 @@ mod tests {
 
     #[test]
     fn timer_evaluation_delegates_to_the_clock_free_domain_module() {
-        let verdict = timer_verdict(
+        let verdict = question_attempt_timing_decision(
             r#"{
-                "policy":{"kind":"perQuestion","seconds":9,"graceSeconds":2},
+                "policy":{"kind":"limited","seconds":9,"graceSeconds":2},
                 "timer":{"issuedAt":1000,"deadline":10000,"submittedAt":10500},
                 "evaluatedAt":10500,
                 "pauseExtensionMillis":0

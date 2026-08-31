@@ -2,10 +2,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
-use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::generation::RandomizationDefinition;
 use question_model::taxonomy::License;
-use question_model::{DraftQuestionSource, GradingDefinition, QuestionMetadata, WorkspaceId};
+use question_model::{
+    DraftQuestionSource, GradingDefinition, QuestionFormat, QuestionMetadata, QuestionType,
+    WorkspaceId,
+};
 
 use super::*;
 
@@ -67,7 +70,7 @@ impl ImathasProvider for RecordedProvider {
             return Err(ProviderFailure::Timeout);
         }
         let mut verdict = VerifiedProviderGrade::verified(
-            AttemptResult {
+            GradingResult {
                 correct: true,
                 points_earned: 1.0,
                 points_possible: 1.0,
@@ -125,10 +128,12 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
             snapshot_sha256: digest,
             integration_profile: "recorded-v1".into(),
         },
+        question_format: QuestionFormat::Imathas,
         prompt: Vec::new(),
         response: question_model::QuestionResponseFormat::ExternalTool {},
-        attempt_policy: AttemptPolicy { max_attempts: None },
-        timing_policy: TimingPolicy::Untimed,
+        question_type: QuestionType::Numeric,
+        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         randomization: RandomizationDefinition::Static,
         grading: GradingDefinition::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
@@ -143,7 +148,7 @@ fn question(snapshot: ObjectId, digest: String) -> QuestionDefinition {
 
 async fn stored_source(
     store: &MemoryObjectStore,
-) -> (QuestionDefinition, ImathasSource, SourceArtifact) {
+) -> (QuestionDefinition, ImathasSource, SourceObjectReference) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
     let digest = hex(Sha256::digest(b"{\"recorded\":true}").as_slice());
     let question = question(snapshot, digest);
@@ -164,7 +169,7 @@ async fn stored_source(
         })
         .await
         .unwrap();
-    let artifact = SourceArtifact {
+    let artifact = SourceObjectReference {
         object: snapshot,
         sha256: object.sha256.to_string(),
     };

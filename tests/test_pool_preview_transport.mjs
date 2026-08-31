@@ -21,8 +21,7 @@ function previewResponse() {
     assignmentEntryId,
     questionPoolLabel: "Pool 2",
     drawCount: 1,
-    ordering: "randomized",
-    algorithm: "v1",
+    selectionRule: { ordering: "randomized", algorithm: "v1" },
     candidates: [
       { questionId: "7K3-M9QP", title: "First candidate" },
       { questionId: "7K4-M9QP", title: "Second candidate" },

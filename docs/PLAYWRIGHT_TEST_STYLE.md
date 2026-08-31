@@ -128,15 +128,15 @@ Assert visible behavior and app state, and signal pass or fail one way per file.
 
 Each row pairs a house default with the pitfall it replaces.
 
-| Use this | Instead of | Why |
-| --- | --- | --- |
-| Web-first waits (`expect`, `expect.poll`, `waitForFunction`) | Fixed `waitForTimeout` sleeps | Sleeps flake as timing shifts; readiness waits are stable |
-| Real visible clicks | Synthetic event dispatch on hidden nodes | A real click proves the control is reachable |
-| Built output over HTTP | Loading a raw file over `file://` | HTTP matches shipped behavior and avoids CORS gaps |
-| `getByRole` / `getByLabel`, then `data-*` | `data-testid` hooks | Accessible selectors test user intent |
-| One signaling style per file | Mixing `expect`, `assert`, and bare exits | Consistent signaling makes failures unambiguous |
-| Behavior and visibility assertions | Pixel, elapsed-ms, or motion-magnitude checks | Behavioral checks stay deterministic |
-| One repo-local server helper | A fresh `node:http` server in every file | One helper keeps MIME and path handling correct |
+| Use this                                                     | Instead of                                    | Why                                                       |
+| ------------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------- |
+| Web-first waits (`expect`, `expect.poll`, `waitForFunction`) | Fixed `waitForTimeout` sleeps                 | Sleeps flake as timing shifts; readiness waits are stable |
+| Real visible clicks                                          | Synthetic event dispatch on hidden nodes      | A real click proves the control is reachable              |
+| Built output over HTTP                                       | Loading a raw file over `file://`             | HTTP matches shipped behavior and avoids CORS gaps        |
+| `getByRole` / `getByLabel`, then `data-*`                    | `data-testid` hooks                           | Accessible selectors test user intent                     |
+| One signaling style per file                                 | Mixing `expect`, `assert`, and bare exits     | Consistent signaling makes failures unambiguous           |
+| Behavior and visibility assertions                           | Pixel, elapsed-ms, or motion-magnitude checks | Behavioral checks stay deterministic                      |
+| One repo-local server helper                                 | A fresh `node:http` server in every file      | One helper keeps MIME and path handling correct           |
 
 ## Minimal good test examples
 
@@ -147,10 +147,10 @@ A runner test (`tests/playwright/smoke.spec.ts`), served by the config
 import { test, expect } from "@playwright/test";
 
 test("smoke: the app boots and adds a row", async ({ page }) => {
-	await page.goto("/");
-	await expect(page.getByRole("heading", { name: "My App" })).toBeVisible();
-	await page.getByRole("button", { name: "Add row" }).click();
-	await expect(page.getByRole("row")).toHaveCount(1);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "My App" })).toBeVisible();
+  await page.getByRole("button", { name: "Add row" }).click();
+  await expect(page.getByRole("row")).toHaveCount(1);
 });
 ```
 
@@ -165,7 +165,9 @@ const BASE_URL = process.env.PW_BASE_URL ?? "http://127.0.0.1:8000";
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
-page.on("pageerror", (error) => { throw error; });
+page.on("pageerror", (error) => {
+  throw error;
+});
 
 await page.goto(`${BASE_URL}/topic01/`);
 await page.getByRole("button", { name: "Check answer" }).click();

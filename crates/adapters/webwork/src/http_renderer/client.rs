@@ -18,13 +18,13 @@ use std::time::Duration;
 use async_trait::async_trait;
 use base64::Engine as _;
 #[cfg(test)]
-use grading::GradeOutcome;
+use grading::QuestionGradingOutcome;
 #[cfg(test)]
-use question_model::AttemptResult;
-use question_model::answer::SelectionCardinality;
+use question_model::GradingResult;
+use question_model::answer::ResponseSelectionRule;
 use question_model::envelope::ContentBlock;
-use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
-use question_model::{QuestionEnvelope, StudentResponse};
+use question_model::response::{ResponseItemReference, ChoiceOption, QuestionResponseFormat};
+use question_model::{QuestionPresentation, StudentResponse};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use reqwest::{Client, StatusCode, Url};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -226,7 +226,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
     async fn grade(
         &self,
         request: GradeRequest<'_>,
-    ) -> Result<grading::GradeOutcome, RendererFailure> {
+    ) -> Result<grading::QuestionGradingOutcome, RendererFailure> {
         if !request.points_possible.is_finite() || request.points_possible <= 0.0 {
             return Err(RendererFailure::InvalidOutput(
                 "WeBWorK supported questions require positive finite points".into(),
@@ -344,7 +344,7 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
 }
 
 struct ParsedRender {
-    envelope: QuestionEnvelope,
+    envelope: QuestionPresentation,
     html: String,
     replay: WebworkReplayMappingV1,
 }
@@ -417,14 +417,16 @@ fn project_single_radio(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionEnvelope {
-            question_version: request.question_version.clone(),
-            seed: question_model::generation::Seed::new(request.seed),
+        envelope: QuestionPresentation {
+            variation: question_model::QuestionVariation::static_variation(
+                request.question_version.clone(),
+                question_model::generation::Seed::new(request.seed),
+            ),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text { markdown: prompt }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices,
-                selection: SelectionCardinality::ExactlyOne,
+                selection: ResponseSelectionRule::ExactlyOne,
             },
         },
         html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
@@ -473,9 +475,11 @@ fn project_matching(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionEnvelope {
-            question_version: request.question_version.clone(),
-            seed: question_model::generation::Seed::new(request.seed),
+        envelope: QuestionPresentation {
+            variation: question_model::QuestionVariation::static_variation(
+                request.question_version.clone(),
+                question_model::generation::Seed::new(request.seed),
+            ),
             title: "WeBWorK question".into(),
             prompt: vec![ContentBlock::Text {
                 markdown: parsed_html.prompt_text,

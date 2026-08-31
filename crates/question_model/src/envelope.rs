@@ -9,10 +9,12 @@
 //! grading material stay in `crates/grading`; an M3 gate inspects a browser
 //! network trace to confirm it.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::QuestionVersionReference;
-use crate::generation::Seed;
+use crate::generation::{GeneratorReference, ParameterSpec, RandomizationDefinition, Seed};
 use crate::identity::AssetId;
 use crate::response::QuestionResponseFormat;
 
@@ -80,19 +82,64 @@ pub enum ContentBlock {
     },
 }
 
-/// One generated variant of a question, ready to render.
+/// The reproducible generated state for one exact Question Version and seed.
 ///
-/// This is the unit the render cache stores and the reproducibility record
-/// describes. It is keyed by `(Question Version Reference, seed)`: the same pair produces the same
-/// envelope on every machine, which is what lets a repeat request be served
-/// from cache and lets a grade be re-derived years later.
+/// The same pair produces the same Question Presentation on every machine,
+/// allowing the render cache to serve a repeat request and grading to be
+/// re-derived years later.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionEnvelope {
-    /// Exact immutable Question Version that produced this envelope.
+pub struct QuestionVariation {
+    /// Exact immutable Question Version that produced this presentation.
     pub question_version: QuestionVersionReference,
+    /// Exact generator used for this variation, when the Question is seeded.
+    #[serde(skip)]
+    pub generator: Option<GeneratorReference>,
+    /// Declared generator parameters, in deterministic key order.
+    #[serde(skip)]
+    pub parameters: BTreeMap<String, ParameterSpec>,
     /// The seed that produced this variant.
     pub seed: Seed,
+}
+
+impl QuestionVariation {
+    /// Records an exact static variation with no generator or parameters.
+    pub fn static_variation(question_version: QuestionVersionReference, seed: Seed) -> Self {
+        Self {
+            question_version,
+            generator: None,
+            parameters: BTreeMap::new(),
+            seed,
+        }
+    }
+
+    /// Records the exact declared variation recipe for an issued Question.
+    pub fn from_randomization(
+        question_version: QuestionVersionReference,
+        randomization: &RandomizationDefinition,
+        seed: Seed,
+    ) -> Self {
+        match randomization {
+            RandomizationDefinition::Static => Self::static_variation(question_version, seed),
+            RandomizationDefinition::Seeded {
+                generator,
+                parameters,
+            } => Self {
+                question_version,
+                generator: Some(generator.clone()),
+                parameters: parameters.clone(),
+                seed,
+            },
+        }
+    }
+}
+
+/// One answer-free Question Presentation derived from a Question Variation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionPresentation {
+    /// The exact reproducible variation this presentation renders.
+    pub variation: QuestionVariation,
     /// A bounded student-facing title from published metadata or a safe imported
     /// provider label. This deliberately excludes authored source and grading
     /// material while letting the student identify the issued question.
@@ -106,6 +153,13 @@ pub struct QuestionEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn reference() -> QuestionVersionReference {
+        QuestionVersionReference {
+            question_id: "123-4567".parse().expect("valid Question ID"),
+            version_number: crate::QuestionVersionNumber::new(1).expect("positive version"),
+        }
+    }
 
     #[test]
     fn visual_blocks_carry_their_description() {
@@ -124,5 +178,32 @@ mod tests {
         };
         let json = serde_json::to_string(&block).expect("serialization should succeed");
         assert!(json.starts_with(r#"{"kind":"text""#));
+    }
+
+    #[test]
+    fn variation_retains_the_exact_declared_generation_recipe() {
+        let static_variation = QuestionVariation::static_variation(reference(), Seed::new(3));
+        assert_eq!(static_variation.generator, None);
+        assert!(static_variation.parameters.is_empty());
+
+        let mut parameters = BTreeMap::new();
+        parameters.insert(
+            "count".to_string(),
+            ParameterSpec::IntegerRange { low: 2, high: 7 },
+        );
+        let variation = QuestionVariation::from_randomization(
+            reference(),
+            &RandomizationDefinition::Seeded {
+                generator: GeneratorReference {
+                    id: "counted".to_string(),
+                    version: "2".to_string(),
+                },
+                parameters,
+            },
+            Seed::new(5),
+        );
+        assert_eq!(variation.seed, Seed::new(5));
+        assert_eq!(variation.generator.expect("seeded generator").id, "counted");
+        assert_eq!(variation.parameters.len(), 1);
     }
 }
