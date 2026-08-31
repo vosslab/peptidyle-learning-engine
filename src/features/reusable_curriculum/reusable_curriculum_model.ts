@@ -9,7 +9,7 @@ import type { ReusableAssignmentEntryInput } from "../../../generated/api/Reusab
 import type { ReusableAssignmentEntryView } from "../../../generated/api/ReusableAssignmentEntryView";
 import type { RelativeAssignmentSchedule } from "../../../generated/api/RelativeAssignmentSchedule";
 import type { RelativeScheduleMoment } from "../../../generated/api/RelativeScheduleMoment";
-import type { ProblemPickerSelection } from "../problem_picker";
+import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
 export const MAX_POOL_CANDIDATES = 1024;
@@ -96,7 +96,7 @@ export function emptyBlueprintCourseDefinition(): CreateBlueprintCourseDefinitio
   };
 }
 
-function uniqueQuestionIds(selection: ProblemPickerSelection): ReadonlyArray<string> {
+function uniqueQuestionIds(selection: QuestionPickerSelection): ReadonlyArray<string> {
   return selection.questionIds.filter(
     (questionId, index, all) => all.indexOf(questionId) === index,
   );
@@ -120,7 +120,7 @@ function poolEntry(questionIds: ReadonlyArray<string>): ReusableAssignmentEntryI
 /** Appends chosen Questions as fixed entries while retaining picker order. */
 export function appendPickedFixedEntries(
   definition: ReusableAssignmentDefinitionInput,
-  selection: ProblemPickerSelection,
+  selection: QuestionPickerSelection,
 ): ReusableAssignmentDefinitionInput {
   return {
     ...definition,
@@ -131,7 +131,7 @@ export function appendPickedFixedEntries(
 /** Appends one Question Pool with candidate order selected by the Instructor. */
 export function appendPickedPool(
   definition: ReusableAssignmentDefinitionInput,
-  selection: ProblemPickerSelection,
+  selection: QuestionPickerSelection,
 ): ReusableAssignmentDefinitionInput {
   const candidates = uniqueQuestionIds(selection);
   return candidates.length === 0

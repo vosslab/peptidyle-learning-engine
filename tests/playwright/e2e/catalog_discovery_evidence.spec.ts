@@ -3,7 +3,7 @@
 //
 // Selector contract:
 // - src/pages/library_page.tsx owns search, metadata filters, and the Library result region.
-// - src/pages/problem_detail_page.tsx and catalog_statistics_panel.tsx own evidence and usage.
+// - src/pages/question_detail_page.tsx and question_statistics_panel.tsx own evidence and usage.
 // - src/pages/course_assignments_page.tsx, assignment_workspace/, and course_roster_page.tsx own
 //   title-first draft creation, Questions, Policies, publishing, and visible invitation links.
 // - src/pages/course_invitation_page.tsx, assignment_overview_page.tsx, and assignment_attempt_page.tsx own
@@ -70,7 +70,7 @@ async function openLibraryDetail(page: Page): Promise<void> {
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: nativeQuestionTitle, exact: true }) });
   await card.getByRole("link", { name: "Open question", exact: true }).click();
-  await expect(page.locator('[data-route-surface="problemDetail"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="questionDetail"]')).toBeVisible();
 }
 
 async function expectUsageOnlyInCourse(page: Page, allowedCourse: string): Promise<void> {
@@ -179,7 +179,7 @@ async function assertInitialInsufficientEvidence(page: Page): Promise<void> {
 }
 
 async function assertGeneratedCatalogPrompt(page: Page): Promise<void> {
-  const prompt = page.getByRole("region", { name: "Problem prompt", exact: true });
+  const prompt = page.getByRole("region", { name: "Question prompt", exact: true });
   await expect(prompt).toBeVisible();
   await expect(prompt).toContainText(/(glycine|alanine|proline) peptide example/u);
   await expect(prompt).not.toContainText("{{residue}}");
@@ -247,7 +247,7 @@ async function captureLaptopState(
 }
 
 async function verifyLibraryFilters(page: Page): Promise<void> {
-  await page.getByRole("link", { name: "Return to problem library", exact: true }).click();
+  await page.getByRole("link", { name: "Return to question library", exact: true }).click();
   const library = page.locator('[data-route-surface="library"]');
   await expect(library).toBeVisible();
   await page.getByLabel("Search published questions").fill(nativeQuestionTitle);
@@ -283,7 +283,7 @@ async function verifyLaptopLibraryKeyboardPath(page: Page): Promise<void> {
   await page.keyboard.press("Tab");
   await expect(openQuestion).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator('[data-route-surface="problemDetail"]')).toBeVisible();
+  await expect(page.locator('[data-route-surface="questionDetail"]')).toBeVisible();
 }
 
 test.describe("catalog discovery evidence on the production PLE stack", () => {

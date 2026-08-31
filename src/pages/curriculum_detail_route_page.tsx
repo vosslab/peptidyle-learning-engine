@@ -4,9 +4,9 @@ import type { JSX } from "solid-js";
 
 import type { ReusableCurriculumClient } from "../api/reusable_curriculum";
 import type {
-  ProblemPickerSource,
-  ProblemPickerSourceRepository,
-} from "../features/problem_picker";
+  QuestionPickerSource,
+  QuestionPickerSourceRepository,
+} from "../features/question_picker";
 import {
   CurriculumDetailWorkspace,
   type CurriculumDetailWorkspaceProps,
@@ -19,4 +19,4 @@ export function CurriculumDetailRoutePage(props: CurriculumDetailRoutePageProps)
   return <CurriculumDetailWorkspace {...props} />;
 }
 
-export type { ReusableCurriculumClient, ProblemPickerSource, ProblemPickerSourceRepository };
+export type { ReusableCurriculumClient, QuestionPickerSource, QuestionPickerSourceRepository };

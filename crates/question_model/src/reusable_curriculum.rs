@@ -14,16 +14,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AssignmentDeadlineBehavior, AssignmentInstructions, AssignmentScoringMode, BlueprintCourseReference,
-    CatalogDiscoveryItem, LateSubmissionPolicy, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    LateSubmissionPolicy, QuestionSearchResult, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
     MAX_ASSIGNMENT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
-    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, QuestionId,
+    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS, PointValue, PoolDrawAlgorithm, QuestionId,
     AssignmentActivityRules, SelectionOrdering, StudentDisclosurePolicy,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
 pub const MAX_REUSABLE_CURRICULUM_TITLE_UNICODE_SCALARS: usize =
-    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS;
+    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS;
 
 mod blueprint_children;
 pub use blueprint_children::*;
@@ -305,7 +305,7 @@ pub enum ReusableSelectionAvailability {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableQuestionView {
     /// Current public catalog metadata and disclosed evidence.
-    pub catalog: CatalogDiscoveryItem,
+    pub catalog: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.
     pub selection_availability: ReusableSelectionAvailability,
 }
@@ -315,7 +315,7 @@ pub struct ReusableQuestionView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolCandidateView {
     /// Current public catalog metadata and disclosed evidence.
-    pub catalog: CatalogDiscoveryItem,
+    pub catalog: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.
     pub selection_availability: ReusableSelectionAvailability,
 }
@@ -553,8 +553,8 @@ mod tests {
     use super::*;
     use crate::taxonomy::License;
     use crate::{
-        ActivityTimestamp, BackendCapabilities, CatalogDiscoveryEvidence, QuestionVersionAvailability,
-        CatalogQuestionSummary, QuestionType, PublicAuthorName, PublicByline,
+        ActivityTimestamp, BackendCapabilities, QuestionStatistics, QuestionVersionAvailability,
+        QuestionSummary, QuestionType, PublicAuthorName, PublicByline,
         QuestionBackend, QuestionMetadata,
     };
     use uuid::Uuid;
@@ -614,9 +614,9 @@ mod tests {
         }
     }
 
-    fn discovery() -> CatalogDiscoveryItem {
-        CatalogDiscoveryItem {
-            summary: CatalogQuestionSummary {
+    fn discovery() -> QuestionSearchResult {
+        QuestionSearchResult {
+            summary: QuestionSummary {
                 question_id: question_id(),
                 backend: QuestionBackend::Native,
                 question_type: QuestionType::MultipleChoice,
@@ -635,7 +635,7 @@ mod tests {
                 availability: QuestionVersionAvailability::Available,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
-            evidence: CatalogDiscoveryEvidence::InsufficientEvidence,
+            evidence: QuestionStatistics::InsufficientEvidence,
         }
     }
 

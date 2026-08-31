@@ -12,10 +12,10 @@ platform capability that applies to that operation. This target remains pending
 implementation and acceptance; pre-SD1 plural account/session role source is
 cutover input.
 
-Every published assignment question is shared Instructor-visible catalog
-content. A private draft has no catalog identity and remains visible only
+Every published assignment question is shared Instructor-visible Question Library
+content. A private draft has no Question Library identity and remains visible only
 through its workspace relationship until validated publication creates a new
-immutable published question identity. Shared catalog content is answer-free
+immutable published question identity. Shared Question Library content is answer-free
 and contains no Student records.
 
 This document maps identities and their scopes. It supplements
@@ -38,7 +38,7 @@ former installation-scope model to these identities.
 - Educational records are owned by their exact Course Instance and Student
   Course Membership relationships. They do not inherit authority from a
   Product Role or a visible Course Reference.
-- Published catalog content is immutable and shared. Courses, memberships,
+- Published Question Library content is immutable and shared. Courses, memberships,
   enrollments, runs, attempts, jobs, and protected objects are independent
   records that may refer to it.
 - Rust uses distinct newtypes where mixing values would be a correctness risk.
@@ -121,12 +121,12 @@ reads; neither another course nor a visible record ID extends that authority.
 | `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.   |
 | Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                      |
 | `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                |
-| `QuestionId`                | Global immutable published question identity | Human-facing catalog locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared catalog. |
+| `QuestionId`                | Global immutable published question identity | Human-facing Question Library locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared Question Library. |
 | `QuestionId` and `QuestionVersionNumber` | Server-only immutable content evidence       | Exact hidden identity for replay, grading, audit, provenance, and transport. It never lets a browser choose a version or resolve a latest question.              |
 | `AssetId`                   | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                              |
 | `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                          |
 
-Validated publication either starts a new immutable catalog identity for a new
+Validated publication either starts a new immutable Question Library identity for a new
 question or records a new immutable `QuestionVersion` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
@@ -162,8 +162,8 @@ version pins and are never changed automatically by a later revision. A
 correction mapping may affect only future unissued resolution and its audited
 remediation; issued and graded evidence remains pinned to the original.
 
-Published catalog discovery and reuse use current approved-Instructor state.
-The catalog projection releases only its answer-free, content-focused fields.
+Question Library discovery and reuse use current approved-Instructor state.
+Question Search and Question Details release only answer-free, content-focused fields.
 It excludes Student-linked data, accepted responses, grades, source packages,
 private grader payloads, provider identifiers and credentials, object keys,
 signed URLs, and workspace identifiers.
@@ -201,7 +201,7 @@ until each workflow has its complete privacy and disclosure contract.
 
 A worker derives every target from its locked current lease and immutable job
 manifest. Queue payload, retry input, provider response, object reference, and
-caller input are evidence; they do not establish course, workspace, catalog,
+caller input are evidence; they do not establish course, workspace, `catalog`,
 object, or provider authority.
 
 ## Human-facing references and browser identifiers
@@ -212,7 +212,7 @@ session account and the appropriate parent relationship before returning a recor
 
 | Value                                                                                                  | Browser use                                        | Server meaning                                                                                                                                 |
 | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuestionId` (`AAA-BBBB`)                                                                              | Instructor catalog search, display, and selection  | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
+| `QuestionId` (`AAA-BBBB`)                                                                              | Question Library search, display, and selection     | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                 |
 | `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display locators              | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship. |
 | `QuestionAttemptId` in a route                                                                         | Names an already issued Question Attempt           | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                  |
 | `SubmissionIdempotencyKey` header                                                                      | Bounded ASCII key for one retry                    | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                  |
@@ -234,7 +234,7 @@ student authority to select another variant or browser input to define grading.
 | Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor projection.                                                |
 | `JobLeaseToken` and external-tool tokens                     | Exact worker/broker exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
 | Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
-| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in catalog, ordinary browser, Wasm, observer, or student-response DTOs.                                     |
+| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
 
 ## Maintainer checklist
 

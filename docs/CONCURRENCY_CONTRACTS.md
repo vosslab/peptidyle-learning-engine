@@ -53,7 +53,7 @@ operation final.
 | Student submission outcome             | Attempt-scoped idempotency and append-only evidence         | Deferred SD1-C/D | Store-backed Student delivery composition |
 | Background work ownership              | PostgreSQL job row plus opaque lease token                  | Deferred SD1-C/D | Store-backed job composition |
 | Current analytic projection            | Assignment/timing generation plus an active lease           | Deferred SD1-C/D | Store-backed scoring and analysis composition |
-| Published catalog version              | Immutable version rows created from an exact draft revision | Deferred SD1-C/D | Store-backed catalog composition |
+| Published Question Version             | Immutable version rows created from an exact draft revision | Deferred SD1-C/D | Store-backed published-Question composition |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                    | Planned, WP-RC7 | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                           |
 
 ## Account-scoped transactions and retries
@@ -125,7 +125,7 @@ Required behavior:
 Publication consumes one exact workspace draft revision and mints a new
 immutable published question with a fresh Question ID and hidden exact pair. It
 locks the draft row, checks its payload and revision, checks publisher
-ownership, then writes the immutable catalog facts in the same transaction. A
+ownership, then writes the immutable published-Question facts in the same transaction. A
 concurrent edit or a second publication request cannot silently publish a
 different draft. The publication and assignment-reference constraints are
 described in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).

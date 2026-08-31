@@ -7,7 +7,7 @@ requires each account and session to carry exactly one immutable Student,
 Instructor, or Sysadmin role; a person needing multiple roles uses separate
 accounts. This target remains pending implementation and acceptance; pre-SD1
 plural account/session role source is cutover input. The installation has one
-immutable shared catalog of published assignment questions, private Instructor
+immutable shared Question Library of published assignment questions, private Instructor
 authoring workspaces, and course-scoped Student educational records. It has no
 institution selector, publication-visibility tier, or creator-owned course
 authority.
@@ -64,8 +64,8 @@ approved_instructor(account_id, now)
 ```
 
 It is true only for a current, manually approved Instructor account. It
-authorizes global catalog discovery, collections, Stars, saved searches,
-course creation, publication, reuse, and improvement. Every approved
+authorizes Question Library discovery, Question Folders, Stars, Watches, and Saved Question
+Searches, course creation, publication, reuse, and improvement. Every approved
 Instructor has the same global product capabilities.
 
 Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin provisions
@@ -233,15 +233,15 @@ An author preview is an authorized Instructor workspace operation with
 `no-store`; it is not a Student delivery path. Its projection is answer-free
 and contains no key, private rubric, source package, provider credential,
 object key, signed URL, or draft-to-published identity shortcut. Drafts remain
-private until successful publication. Collections, Stars, and saved
-searches may be personal or explicitly shared without changing the global
+private until successful publication. Question Folders, Stars, Watches, and Saved Question
+Searches may be personal or explicitly shared without changing the Question Library
 visibility of any published question they reference.
 
 ## Shared publication and Instructor DTO contract
 
 Every published question has one stable Question ID lineage and immutable
 QuestionVersions, visible to every approved Instructor through exactly one shared
-catalog state. A publication mints a new Question ID only for a new lineage,
+Question Library state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionVersion under the existing Question ID. An
 incompatible objective, task, Question Type, or educational-purpose change is
@@ -250,23 +250,23 @@ Question ID and visible source ancestry. Existing assignments and issued runs
 retain their exact reference until a current course Instructor performs an
 explicit revision-checked replacement.
 
-Shared-catalog visibility is authenticated approved-Instructor visibility.
+Question Library visibility is authenticated approved-Instructor visibility.
 Student delivery is a separate assignment-entitlement operation: a Student
 receives only the exact question snapshot entitled by that assignment. Students
-do not receive catalog discovery. An anonymous web request receives no catalog
-authority.
+do not receive Question Library discovery. An anonymous web request receives no Question
+Library access authority.
 
 The caller projections are closed:
 
 | Caller | Question projection |
 | --- | --- |
-| Authenticated approved (vetted) Instructor | Versioned answer-free catalog question, lineage, usage, and thresholded evidence DTOs. |
-| Authenticated Student | No catalog projection; only the exact answer-free or policy-permitted content delivered by an authorized assignment entitlement. |
-| Anonymous caller | No catalog projection and no Question ID resolution, existence, search, or lifecycle disclosure. |
+| Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs. |
+| Authenticated Student | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an authorized assignment entitlement. |
+| Anonymous caller | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure. |
 
 Lifecycle state is visible and does not change discovery authority. Every
 published question remains discoverable to every approved Instructor while its
-state is `active`, `deprecated`, or `archived`; the catalog projection exposes
+state is `active`, `deprecated`, or `archived`; Question Search and Question Details expose
 that state. Selection eligibility is a separate rule: only `active` questions
 may be selected for an ordinary new assignment. `deprecated` and `archived`
 questions remain resolvable for exact historical references and retained
@@ -314,7 +314,7 @@ in-progress work is reissued or excused and completed work receives superseding
 receipts and deterministic recalculation when required. There is no per-course
 approval step.
 
-The Instructor catalog exposes only these versioned, closed, Serde-generated
+The Question Library exposes only these versioned, closed, Serde-generated
 `snake_case` DTOs; each rejects unknown fields and advances its version when
 its field set changes:
 
@@ -355,9 +355,9 @@ commit, or repeat work. Queue messages carry bounded IDs and generations, not
 names, raw responses, answer keys, grades, object URLs, or authority claims.
 
 Object metadata and delivery likewise use exactly one typed scope: public
-catalog presentation, private workspace, or course Student record. Browser
+Question Library presentation, private workspace, or course Student record. Browser
 markup names a logical `AssetId`; it never receives a bucket name, physical key,
-source path, or signed URL. Public catalog presentation assets may use immutable
+source path, or signed URL. Public Question Library presentation assets may use immutable
 public delivery. Workspace and course-record objects require the current typed
 relationship, database registry binding, and retention fence. Protected
 delivery writes its audit event before issuing a short-lived `no-store`

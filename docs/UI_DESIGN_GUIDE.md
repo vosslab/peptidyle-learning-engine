@@ -30,8 +30,8 @@ visible content already proves the state.
 - Global shell: use nearly the full viewport, with bounded edge gutters rather than a narrow centered
   column. Reading-heavy student prose may use a local readable measure inside the wider shell.
 - Instructor pages: prioritize horizontal scanning, compact rows, sticky local actions when useful,
-  and one coherent primary work surface. Avoid placing a browse catalog below an unrelated narrow
-  sidebar.
+  and one coherent primary work surface. Give Question Library results the primary work surface
+  beside a compact, task-related sidebar.
 - Student questions: keep prompt, response, feedback, navigation, and timer in one visual sequence.
   On large screens, use width to improve line length and grouping, not to separate the question from
   its answer across a long eye movement.
@@ -68,11 +68,28 @@ course identity surface and clearly marks the active section. Assignment progres
 sequence and state. Page actions live with the content they affect.
 
 For an instructor, **Courses is the home workspace**: it lists recognizable courses and starts a new
-one. Library owns published-question discovery, Workspace owns drafts, and Account owns personal
-settings. Do not add a generic Dashboard dropdown that merely duplicates those destinations or hides
-them behind another navigation step. Once an instructor opens a course, its local navigation owns
-assignments, students, gradebook, and appearance. Add a future dashboard only when it answers a
-distinct cross-course monitoring task that these object-centered workspaces cannot answer directly.
+one. The Product Ribbon has four ordered slots: **Courses**, **Question Library**, **Blueprint
+Courses**, and **Account**. Question Library owns published-Question discovery and My Question
+Drafts; Account owns personal settings. Keep those destinations directly visible in the Product
+Ribbon.
+
+Question Library has five Ribbon Tasks in two areas: **All Questions**, **My Questions**, and **My
+Question Drafts** are Library views; **Starred** and **Watched** are Question relationships. Library
+means discoverable, My means ownership, Draft means publication state, Starred means endorsement,
+and Watched means a private subscription. Question Folders, tags, classifications, Saved Question
+Searches, and search facets organize or find Questions inside these views.
+
+Once an instructor opens a course, its Course Instance Ribbon has six ordered slots:
+**Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint Updates**, and
+**Course Setup**. Course Setup has the Ribbon Tasks **Grade Settings** and **Appearance**. Create
+Assignment is a Page Action on Assignments, rather than a Ribbon Slot. Add a future dashboard only
+when it answers a distinct cross-course monitoring task that these object-centered surfaces cannot
+answer directly.
+
+Within each Ribbon Scope, slots available to every applicable Course Membership Role come first and
+role-narrowed slots form the remaining suffix. Resolve that suffix before displaying it, omit
+unavailable slots, and preserve the relative order of visible controls. A later availability result
+can therefore append controls without moving a visible control.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.

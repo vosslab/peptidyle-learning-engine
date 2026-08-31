@@ -4,10 +4,10 @@ import type { AssetId } from "../../generated/api/AssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
-import type { CatalogQuestionSummary } from "../../generated/api/CatalogQuestionSummary";
-import type { CatalogQuestionDetail } from "../../generated/api/CatalogQuestionDetail";
-import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
-import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
+import type { QuestionSummary } from "../../generated/api/QuestionSummary";
+import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
+import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanceUpdate";
@@ -87,7 +87,7 @@ import type {
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
-import type { ProblemCurationClient } from "./problem_curation";
+import type { QuestionCurationClient } from "./question_curation";
 import type { ReusableCurriculumClient } from "./reusable_curriculum";
 import type { CurriculumAdoptionClient } from "./curriculum_adoption";
 import type {
@@ -171,7 +171,7 @@ export interface SysadminInstructorCandidateClient {
 export interface ApiClient
   extends
     CourseRosterClient,
-    ProblemCurationClient,
+    QuestionCurationClient,
     ReusableCurriculumClient,
     CurriculumAdoptionClient,
     GradingOperationsClient,
@@ -326,13 +326,13 @@ export interface ApiClient
     request: PublicationRequest,
     revision: string,
   ) => Promise<PublicationResult>;
-  readonly listProblems: (cursor?: string) => Promise<CursorPage<CatalogQuestionSummary>>;
-  /** Searches immutable hot catalog metadata with server-computed facets. */
-  readonly searchCatalog: (query: CatalogSearchQuery) => Promise<CatalogSearchPage>;
-  /** Resolves one copyable instructor-facing ID to its exact safe catalog summary. */
-  readonly resolveCatalogQuestion: (displayReference: string) => Promise<CatalogQuestionSummary>;
+  readonly listProblems: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
+  /** Searches Question Library metadata with server-computed facets. */
+  readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
+  /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
+  readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable library projection, never a question definition. */
-  readonly getCatalogQuestionDetail: (questionId: QuestionId) => Promise<CatalogQuestionDetail>;
+  readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listTaxonomy: (cursor?: string) => Promise<CursorPage<TaxonomyTerm>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Creates one course for an authenticated instructor or sysadmin. */

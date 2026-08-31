@@ -1,10 +1,10 @@
-// library_page_model.ts - bounded, transport-validated catalog browse state.
+// library_page_model.ts - bounded, transport-validated Question Library browse state.
 
 import { normalizeQuestionIdSyntax } from "../question_id";
-import type { CatalogAuthorship } from "../../generated/api/CatalogAuthorship";
+import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 
-/** A browser-safe current-question catalog record. */
-export interface CatalogBrowseRow {
+/** A browser-safe current Question Library record. */
+export interface QuestionSearchResult {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
   readonly title: string;
@@ -15,7 +15,7 @@ export interface CatalogBrowseRow {
   readonly capabilities: ReadonlyArray<string>;
   readonly license: string;
   /** Server-disclosed learning evidence for this exact immutable publication. */
-  readonly evidence: CatalogBrowseEvidence;
+  readonly evidence: QuestionSearchEvidence;
 }
 
 /**
@@ -25,7 +25,7 @@ export interface CatalogBrowseRow {
  * supplies only the disclosed observations instructors can interpret; an
  * insufficient state stays explicitly neutral in relevance-ranked search.
  */
-export type CatalogBrowseEvidence =
+export type QuestionSearchEvidence =
   | { readonly state: "insufficientEvidence" }
   | {
       readonly state: "available";
@@ -36,7 +36,7 @@ export type CatalogBrowseEvidence =
     };
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
-export interface CatalogFacetAggregate {
+export interface QuestionSearchFacetAggregate {
   readonly facet:
     | "byline"
     | "backend"
@@ -51,7 +51,7 @@ export interface CatalogFacetAggregate {
   readonly count: number;
 }
 
-export interface CatalogBrowseQuery {
+export interface QuestionSearchQuery {
   readonly search: string;
   readonly byline: string | null;
   readonly backend: string | null;
@@ -63,41 +63,41 @@ export interface CatalogBrowseQuery {
   readonly evidence: string | null;
   readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
-  readonly authorship: CatalogAuthorship;
+  readonly authorship: QuestionSearchAuthorship;
 }
 
-export interface CatalogBrowsePage {
-  readonly items: ReadonlyArray<CatalogBrowseRow>;
+export interface QuestionSearchPage {
+  readonly items: ReadonlyArray<QuestionSearchResult>;
   readonly nextCursor: string | null;
-  readonly aggregates: ReadonlyArray<CatalogFacetAggregate>;
+  readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
 }
 
 /**
- * The production catalog repository adapts to this narrow boundary. A hostile result is
+ * The production Question Library repository adapts to this narrow boundary. A hostile result is
  * intentional: this module owns browser-side validation before any row reaches JSX.
  */
-export interface CatalogBrowseRepository {
-  readonly search: (query: CatalogBrowseQuery, cursor: string | null) => Promise<unknown>;
+export interface QuestionLibraryRepository {
+  readonly search: (query: QuestionSearchQuery, cursor: string | null) => Promise<unknown>;
 }
 
-export type CatalogBrowseState =
+export type QuestionSearchState =
   | {
       readonly kind: "loading";
-      readonly rows: ReadonlyArray<CatalogBrowseRow>;
-      readonly aggregates: ReadonlyArray<CatalogFacetAggregate>;
+      readonly rows: ReadonlyArray<QuestionSearchResult>;
+      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
       readonly nextCursor: string | null;
     }
   | {
       readonly kind: "ready";
-      readonly rows: ReadonlyArray<CatalogBrowseRow>;
+      readonly rows: ReadonlyArray<QuestionSearchResult>;
       readonly nextCursor: string | null;
-      readonly aggregates: ReadonlyArray<CatalogFacetAggregate>;
+      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
     }
-  | { readonly kind: "empty"; readonly aggregates: ReadonlyArray<CatalogFacetAggregate> }
+  | { readonly kind: "empty"; readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate> }
   | {
       readonly kind: "error";
-      readonly rows: ReadonlyArray<CatalogBrowseRow>;
-      readonly aggregates: ReadonlyArray<CatalogFacetAggregate>;
+      readonly rows: ReadonlyArray<QuestionSearchResult>;
+      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
       readonly nextCursor: string | null;
     };
 
@@ -135,7 +135,7 @@ function stringList(value: unknown, path: string): ReadonlyArray<string> {
   return value.map((item, index) => boundedText(item, `${path}[${index}]`));
 }
 
-function decodeRow(value: unknown, path: string): CatalogBrowseRow {
+function decodeRow(value: unknown, path: string): QuestionSearchResult {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -168,7 +168,7 @@ function decodeRow(value: unknown, path: string): CatalogBrowseRow {
   };
 }
 
-function decodeBrowseEvidence(value: unknown, path: string): CatalogBrowseEvidence {
+function decodeBrowseEvidence(value: unknown, path: string): QuestionSearchEvidence {
   if (!isRecord(value) || typeof value["state"] !== "string") {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -241,7 +241,7 @@ function correlation(value: unknown, path: string): number {
   return value;
 }
 
-function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
+function decodeAggregate(value: unknown, path: string): QuestionSearchFacetAggregate {
   if (!isRecord(value) || !hasExactKeys(value, ["count", "facet", "value"])) {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -257,7 +257,7 @@ function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
     facet !== "evidence" &&
     facet !== "usedInMyCourses"
   ) {
-    throw new Error(`${path}.facet is not a catalog facet`);
+    throw new Error(`${path}.facet is not a Question Library facet`);
   }
   const count = value["count"];
   if (
@@ -272,9 +272,9 @@ function decodeAggregate(value: unknown, path: string): CatalogFacetAggregate {
 }
 
 /** Strictly decode the live/generated-client result before browser presentation. */
-export function decodeCatalogBrowsePage(value: unknown): CatalogBrowsePage {
+export function decodeQuestionSearchPage(value: unknown): QuestionSearchPage {
   if (!isRecord(value) || !hasExactKeys(value, ["aggregates", "items", "nextCursor"])) {
-    throw new Error("catalog response has an unexpected shape");
+    throw new Error("Question Library response has an unexpected shape");
   }
   if (
     !Array.isArray(value["items"]) ||
@@ -282,7 +282,7 @@ export function decodeCatalogBrowsePage(value: unknown): CatalogBrowsePage {
     !Array.isArray(value["aggregates"]) ||
     value["aggregates"].length > MAX_CATALOG_AGGREGATES
   ) {
-    throw new Error("catalog response arrays are invalid");
+    throw new Error("Question Library response arrays are invalid");
   }
   const nextCursor = value["nextCursor"];
   if (
@@ -291,7 +291,7 @@ export function decodeCatalogBrowsePage(value: unknown): CatalogBrowsePage {
       nextCursor.length === 0 ||
       nextCursor.length > MAX_CURSOR_LENGTH)
   ) {
-    throw new Error("catalog response cursor is invalid");
+    throw new Error("Question Library response cursor is invalid");
   }
   return {
     items: value["items"].map((item, index) => decodeRow(item, `items[${index}]`)),
@@ -302,7 +302,7 @@ export function decodeCatalogBrowsePage(value: unknown): CatalogBrowsePage {
   };
 }
 
-export const EMPTY_CATALOG_QUERY: CatalogBrowseQuery = {
+export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
   search: "",
   byline: null,
   backend: null,
@@ -316,7 +316,7 @@ export const EMPTY_CATALOG_QUERY: CatalogBrowseQuery = {
   authorship: "any",
 };
 
-export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogBrowseQuery {
+export function normalizeQuestionSearchQuery(query: QuestionSearchQuery): QuestionSearchQuery {
   return {
     search: query.search.trim().replace(/\s+/g, " "),
     byline: query.byline,
@@ -332,8 +332,8 @@ export function normalizeCatalogBrowseQuery(query: CatalogBrowseQuery): CatalogB
   };
 }
 
-/** Fixed-row virtual window keeps the DOM work bounded independently of catalog size. */
-export function catalogVirtualWindow<T>(
+/** Fixed-row virtual window keeps DOM work bounded independently of Question Library size. */
+export function questionSearchVirtualWindow<T>(
   rows: ReadonlyArray<T>,
   scrollTop: number,
   viewportHeight: number,
@@ -348,14 +348,14 @@ export function catalogVirtualWindow<T>(
   return { offset: first * rowHeight, rows: rows.slice(first, first + count) };
 }
 
-function rowKey(row: CatalogBrowseRow): string {
+function rowKey(row: QuestionSearchResult): string {
   return row.displayId;
 }
 
 function appendUnique(
-  previous: ReadonlyArray<CatalogBrowseRow>,
-  incoming: ReadonlyArray<CatalogBrowseRow>,
-): ReadonlyArray<CatalogBrowseRow> {
+  previous: ReadonlyArray<QuestionSearchResult>,
+  incoming: ReadonlyArray<QuestionSearchResult>,
+): ReadonlyArray<QuestionSearchResult> {
   const keys = new Set(previous.map(rowKey));
   const appended = incoming.filter((row) => {
     const key = rowKey(row);
@@ -377,25 +377,25 @@ function appendUnique(
  * through the asynchronous transition. Those retained counts describe the last
  * completed query only; the next completed response replaces them wholesale.
  */
-export class CatalogBrowseSession {
+export class QuestionSearchSession {
   #generation = 0;
-  #query = EMPTY_CATALOG_QUERY;
-  #state: CatalogBrowseState = { kind: "loading", rows: [], aggregates: [], nextCursor: null };
+  #query = EMPTY_QUESTION_SEARCH_QUERY;
+  #state: QuestionSearchState = { kind: "loading", rows: [], aggregates: [], nextCursor: null };
   #loading = false;
   #queuedReset = false;
 
   public constructor(
-    private readonly repository: CatalogBrowseRepository,
-    private readonly publish: (state: CatalogBrowseState) => void,
+    private readonly repository: QuestionLibraryRepository,
+    private readonly publish: (state: QuestionSearchState) => void,
   ) {}
 
-  public get state(): CatalogBrowseState {
+  public get state(): QuestionSearchState {
     return this.#state;
   }
 
-  public async reset(query: CatalogBrowseQuery): Promise<void> {
+  public async reset(query: QuestionSearchQuery): Promise<void> {
     this.#generation += 1;
-    this.#query = normalizeCatalogBrowseQuery(query);
+    this.#query = normalizeQuestionSearchQuery(query);
     if (this.#loading) {
       this.#queuedReset = true;
       return;
@@ -427,7 +427,7 @@ export class CatalogBrowseSession {
     await this.loadPage(this.#state.nextCursor, false, this.#generation);
   }
 
-  private setState(state: CatalogBrowseState): void {
+  private setState(state: QuestionSearchState): void {
     this.#state = state;
     this.publish(state);
   }
@@ -454,7 +454,7 @@ export class CatalogBrowseSession {
       nextCursor: retainedCursor,
     });
     try {
-      const page = decodeCatalogBrowsePage(await this.repository.search(this.#query, cursor));
+      const page = decodeQuestionSearchPage(await this.repository.search(this.#query, cursor));
       if (generation !== this.#generation) {
         return;
       }

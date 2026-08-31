@@ -27,18 +27,18 @@ CREATE TABLE ple_data.question_version_availability_event (
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT question_version_availability_event_kind_is_unique UNIQUE (question_id, version_number, availability)
 );
-CREATE FUNCTION ple_data.reject_question_catalog_event_change()
+CREATE FUNCTION ple_data.reject_question_publication_event_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a Question Catalog event is immutable';
+    RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a Question Publication Event is immutable';
 END
 $$;
 CREATE TRIGGER question_publication_event_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.question_publication_event
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_catalog_event_change();
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_publication_event_change();
 CREATE TRIGGER question_version_availability_event_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.question_version_availability_event
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_catalog_event_change();
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_question_publication_event_change();
 CREATE FUNCTION ple_data.validate_question_version_availability_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 BEGIN
@@ -67,7 +67,7 @@ ALTER TABLE ple_data.question_publication_event FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.question_version_availability_event ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.question_version_availability_event FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_data.question_publication_event, ple_data.question_version_availability_event FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_question_catalog_event_change(),
+REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_question_publication_event_change(),
     ple_data.validate_question_version_availability_event() FROM PUBLIC;
 COMMENT ON TABLE ple_data.question_publication_event IS 'One immutable publication event for one Question Version.';
 COMMENT ON TABLE ple_data.question_version_availability_event IS 'Append-only Available or Archived selection evidence for one published Question Version.';

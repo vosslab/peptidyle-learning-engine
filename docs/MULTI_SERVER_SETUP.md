@@ -25,21 +25,21 @@ not a new authorization claim.
 | Draft Blueprint Revision | Exact Blueprint Course and revision | Blueprint Course Owner or Blueprint Collaborator |
 | Course, roster, assignment, schedule | Exact `CourseId` and child identity | Current direct Instructor membership |
 | Student run, attempt, response, grade, artifact | Exact `CourseId` plus Student owner | Student self or current course Instructor |
-| Question Collection, Star, or saved search | Account-owned reference to global published content | Exact Account relationship; Question Collection Shares are explicit |
-| Job, export, object, or provider state | Typed course, workspace, catalog, or system target | Locked lease and durable target |
+| Question Folder, Star, Watch, or Saved Question Search | Account-owned reference to a Published Question | Exact Account relationship; Question Folder Shares are explicit |
+| Job, export, object, or provider state | Typed course, workspace, Question Library, or system target | Locked lease and durable target |
 
 Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
 Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
-is not a course or catalog. The shared catalog exposes only the reviewed,
+is not a course or Question Library. The Question Library exposes only the reviewed,
 answer-free projection: every published lifecycle state is discoverable to an
 approved Instructor, while only `active` questions are ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,
 or routing. They are never an Account, role, course, Student, workspace,
-catalog, or lease authority. PLE-owned account and session state remains the
+Question Library, or lease authority. PLE-owned account and session state remains the
 authority even when an optional institutional or external provider integration
 is enabled.
 
@@ -146,7 +146,7 @@ they do not replace PLE account/session or course relationships.
 
 The worker claims one PostgreSQL job row under a fresh opaque `JobLeaseToken`.
 The locked lease and immutable job manifest determine the typed target:
-course, workspace, catalog, object, export, retention, or system. Before any
+course, workspace, Question Library, object, export, retention, or system. Before any
 read, write, provider dispatch, or finalization, all of these must agree:
 
 - Job Kind Registration and declared typed Job Payload;

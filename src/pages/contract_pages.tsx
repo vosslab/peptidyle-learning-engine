@@ -26,11 +26,11 @@ export const AssignmentAttemptSummaryPage = contractPage(
   "Assignment Attempt summary",
   "the Assignment Attempt lane",
 );
-export const LibraryPage = contractPage("library", "Problem library", "the catalog-browser lane");
-export const ProblemDetailPage = contractPage(
-  "problemDetail",
-  "Problem version",
-  "the catalog-browser lane",
+export const LibraryPage = contractPage("library", "Question Library", "the Question Library browser lane");
+export const QuestionDetailPage = contractPage(
+  "questionDetail",
+  "Question version",
+  "the Question Library browser lane",
 );
 export const WorkspaceListPage = contractPage(
   "workspaceList",

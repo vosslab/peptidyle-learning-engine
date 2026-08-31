@@ -170,7 +170,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | C1      | Calculated Gradebook, Student/operation selection, submitted-run chooser, audited detail, roster, roster import, roster score CSV export                          |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                     |
 | C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                        |
-| C4      | Catalog browse/search/resolve/detail/publication; workspace CRUD/validation/diff; flat assets/source/publication; item analysis; collection/saved-search curation |
+| C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; flat assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                             |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                  |
 
@@ -233,7 +233,7 @@ one direct contract rather than leaving serialization in a shared routing module
   - Consecutive migrations `2026081879` through `2026081888` provide atomic forward SQL ownership:
     course-authority broker ownership; authority-function argument rebinding; Student-role schema
     vocabulary; Student-work broker vocabulary; automated-only scoring; Student-work payloads;
-    canonical receipt V2; catalog/workspace payloads; curriculum payloads; and operational payloads.
+    canonical receipt V2; Question Library/Question authoring workspace payloads; Blueprint Course payloads; and operational payloads.
     They run on a clean volume with zero row backfill.
   - Canonical JSON, semantic/request digests, receipts, native/QTI/H5P records, object metadata,
     replay schemas, and seed vectors retain their existing named identity and receive an explicit

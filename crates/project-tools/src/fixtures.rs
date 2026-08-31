@@ -35,7 +35,7 @@ use question_model::{
     ActivityTimestamp, AssignmentAttempt, AssignmentAttemptId, AssignmentDeliveryState,
     AssignmentEntryId, AssignmentEntrySummary, AssignmentId,
     FixedQuestionAssignmentEntrySummary, AssignmentProgressRecord,
-    AssignmentScoringMode, AssignmentSummary, CatalogQuestionSummary,
+    AssignmentScoringMode, AssignmentSummary, QuestionSummary,
     CourseId, CourseMembershipRole, CourseSummary, GradebookSummaryRow,
     IssuedQuestion, IssuedQuestionId, PointValue, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptTiming, QuestionBackend, QuestionId, QuestionVersionNumber,
@@ -114,7 +114,7 @@ struct FixtureAsset {
 struct FixtureCorpus {
     fixture_schema_version: u32,
     model_schema_version: u32,
-    catalog_question: CatalogQuestionSummary,
+    catalog_question: QuestionSummary,
     published_problem: QuestionDefinition,
     draft: DraftQuestionDefinition,
     assets: Vec<FixtureAsset>,
@@ -195,7 +195,7 @@ fn build_corpus() -> Result<FixtureCorpus> {
         QuestionSource::Native,
     );
     let adapter = NativeAdapter::new();
-    let catalog_question = CatalogQuestionSummary {
+    let catalog_question = QuestionSummary {
         question_id: "7K3-M9QP"
             .parse()
             .expect("fixture Question ID is canonical"),

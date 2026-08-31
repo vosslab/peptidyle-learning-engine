@@ -33,7 +33,7 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
 
 test("issued external-tool envelopes accept only their public marker", () => {
   const envelope = {
-    version: "0198e000-0000-7000-8000-000000000004",
+    questionVersion: { questionId: "7K3-M9QP", versionNumber: 1 },
     seed: 2,
     title: "External practice item",
     prompt: [],

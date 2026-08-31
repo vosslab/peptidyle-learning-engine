@@ -8,11 +8,11 @@ import {
   courseRouteReference,
   parseAssignmentReference,
   parseCourseReference,
-  parseProblemRouteReference,
+  parseQuestionRouteReference,
   parsePublicRouteReference,
   parseAssignmentAttemptReference,
   parseWorkspaceReference,
-  problemRouteReference,
+  questionRouteReference,
   assignmentAttemptRouteReference,
   authoringWorkspaceRouteReference,
 } from "../src/navigation/public_route.ts";
@@ -29,7 +29,7 @@ test("human route references are compact, typed, and bounded", () => {
   assert.equal(assignmentRouteReference("A-2147483647"), "A-2147483647");
   assert.equal(assignmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
-  assert.equal(problemRouteReference("7K3-M9QP"), "7K3-M9QP");
+  assert.equal(questionRouteReference("7K3-M9QP"), "7K3-M9QP");
   assert.equal(isCourseReference("C-1"), true);
   assert.equal(isCourseReference("A-1"), false);
   assert.equal(isAssignmentReference("A-1"), true);
@@ -55,10 +55,10 @@ test("human route references are compact, typed, and bounded", () => {
       assert.equal(parser(rejected), null);
     }
   }
-  assert.equal(parseProblemRouteReference("7k3m9qp"), "7K3-M9QP");
-  assert.equal(parseProblemRouteReference("OI0-001x"), "010-001X");
-  assert.equal(parseProblemRouteReference("P-50-v3"), null);
-  assert.equal(parseProblemRouteReference("7K3-M9QU"), null);
+  assert.equal(parseQuestionRouteReference("7k3m9qp"), "7K3-M9QP");
+  assert.equal(parseQuestionRouteReference("OI0-001x"), "010-001X");
+  assert.equal(parseQuestionRouteReference("P-50-v3"), null);
+  assert.equal(parseQuestionRouteReference("7K3-M9QU"), null);
 });
 
 test("route resolution recovers protected API identities without weakening reference kinds", async () => {

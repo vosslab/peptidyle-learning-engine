@@ -42,7 +42,7 @@ newtypes over `Uuid`. `QuestionId` is a validated stable text identity and
 another, so passing a draft identifier where published content is expected or
 an assignment identifier where a course is required fails to compile.
 
-Fresh server-minted identifiers are UUIDv7: random enough that a catalog number
+Fresh server-minted identifiers are UUIDv7: random enough that a Question Library record number
 reveals no volume information, time-ordered enough to index well, and never
 sequential. The storage and wire contract is the canonical 36-character UUID
 shape backed by PostgreSQL's native 16-byte `uuid` value; it does not require a
@@ -75,28 +75,31 @@ An allowed original-lineage correction may retain the `QuestionId` while
 archiving the replaced version. A major objective, task, or Question Type
 change is a fork: its creator edits a private draft and publication gives it a
 new `QuestionId`, a new version, and exact source ancestry. Every successful
-publication enters one installation-wide shared catalog for approved
+publication enters one installation-wide shared Question Library for approved
 Instructors. Private content remains a draft and therefore has no published
 identity.
 
-Tags and taxonomy guide search within the shared catalog; they do not partition
-questions by subject, author, course, or audience. Every assignment item
-resolves a Question ID already present in this published corpus. A draft must
+Question Library is the shared authoritative set of Published Questions.
+My Questions filters it to Published Questions owned by the current Account,
+and My Question Drafts filters private Draft Questions the current Account may
+edit. Tags and taxonomy guide search within the Question Library; they do not
+partition questions by subject, author, course, or audience. Every assignment item
+resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
-`CatalogQuestionSummary` is the hot browse projection. It contains the Question
+`CatalogQuestionSummary` is the current hot Question Search projection. It contains the Question
 ID, Question Backend, capabilities, metadata, Current Question Version Availability, and publication time,
 but not prompt, response, private source-locator fields, or the opaque internal
 pair. Trusted server work resolves the Question ID and loads the separate
-internal `QuestionDefinition` payload. Browser catalog detail uses that safe
+internal `QuestionDefinition` payload. Question Details uses that safe
 Question-ID projection and presents one selected immutable version within the
 stable lineage. Approved
 Instructors may inspect this published content even when another course
 references it; that access does not expose the other course's assignment
 composition or Student records.
 
-The catalog uses semantic change classes to define compatible evolution.
+The Question Library uses semantic change classes to define compatible evolution.
 Transport-size limits protect request handling and do not define compatibility.
 The original creator or an authorized lineage steward may publish only an
 allowed same-lineage correction or compatible improvement under the existing
@@ -129,36 +132,36 @@ assignment update; publication, correction, lifecycle work, and recalculation
 never advance an assignment automatically. Star is one vetted-Instructor-visible
 endorsement per Question ID; approved Instructors may see its count and the
 identities of vetted Instructors who starred. Students and anonymous callers
-see neither the identity list nor star state. Watch is a private notification
+see neither the identity list nor Star state. Watch is a private notification
 subscription for versions, forks, improvements, and impact events. Neither
-changes catalog visibility or grants course authority.
+changes Question Library visibility or grants course authority.
 
-The shared catalog is not a Student delivery path. A Student receives question
+The shared Question Library is not a Student delivery path. A Student receives question
 content only after the server grants an exact assignment entitlement for the
 authenticated Student, active Student membership, `CourseId`, `AssignmentId`,
 assignment audience, assignment lifecycle, and current policy. Anonymous
-requests have no catalog authority and cannot use Question IDs to obtain
+requests have no Question Library access authority and cannot use Question IDs to obtain
 published content.
 
 `CourseMembershipRole` represents only the student and instructor values that
 may be stored on a direct membership. There is no second effective-course-role
 enum.
 
-Every Question Catalog Entry is already published, with its immutable Question
+Every `QuestionCatalogEntry` is already published, with its immutable Question
 Publication Event retained separately from its current Question Version
 Availability. The ordinary new-assignment selector accepts only `Available`
 versions. `Archived` versions remain discoverable and resolvable for exact
 references, evidence, provenance, and retained assignments, with their stated
 reason.
 
-Catalog evidence is version-specific and excludes previews and the Instructor
+Question Statistics evidence is version-specific and excludes previews and the Instructor
 Student view. After the configured privacy threshold, the safe aggregate may
 expose accepted-attempt count, graded-attempt count, correct count, and
 eligible-choice selection counts for supported choice Question Types. Below the
 threshold it exposes availability only; it never exposes raw responses,
 small-cell counts, linkable cohorts, or Student identities. Course-local
 item-analysis metrics remain separately authorized and never become global
-catalog evidence.
+Question Statistics.
 
 ### ForcedQuestionCorrection
 
@@ -186,7 +189,7 @@ event is append-only audited.
 
 `Sysadmin` is a Product Role, never a Course Membership Role; it cannot
 replace direct Instructor membership for general FERPA access or view the
-Question ID star identity list or any private watch state. `CourseSummary`
+Question ID Star identity list or any private Watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser projections. Their item and
 selection-candidate summaries carry Question IDs and safe display metadata,
 never an opaque `QuestionVersionReference` or question payload.
@@ -448,7 +451,7 @@ together; WN1-B does not change their effective Serde spelling.
 authoring format for ordinary static questions. It is not another public
 question model. The native adapter compiles it into this crate's answer-free
 `DraftQuestionDefinition` plus separate grader-only material. Published browser
-and catalog projections therefore continue to use the shared question model
+and Question Library browser projections therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
 

@@ -36,7 +36,8 @@ from immutable Account State Events: Active, Suspended, or Closed.
 Active Account. A successful passkey or email-code authentication creates or
 continues an Authenticated Session; suspension or closure revokes its sessions.
 `Authenticated Session Reference` identifies that record. A session authenticates
-an Account; it grants no course, authoring, catalog, or FERPA authority itself.
+an Account; it grants no course, authoring, Question Library, or FERPA authority
+itself.
 
 Each role-distinct login is a separate Account and consequently follows its own
 authenticated-session path. For example, a person acting as both Sysadmin and
@@ -46,7 +47,7 @@ boundary while retaining ordinary passwordless authentication for each Account.
 
 **Instructor Approval** is the current result of immutable Instructor Approval
 Events. An Instructor Account requires current approval before it may use
-Instructor-only shared-catalog, authoring, or course-creation capabilities.
+Instructor-only Question Library, authoring, or course-creation capabilities.
 
 **Workspace Collaborator** is an Approved Instructor with a current relationship
 to one exact Authoring Workspace, derived from immutable start and end Workspace
@@ -109,23 +110,45 @@ relationship for a manual-grading workflow and has no present implementation.
 A **Draft Question Revision** is its complete immutable accepted state. Question
 Source and Question Grading Material bind to one exact Draft Question Revision.
 
-**Question Collection** is an Account-owned ordered organization of shared
-Question lineages. A **Question Collection Entry** records one lineage in that
-collection. A **Saved Question Search** is an Account-owned normalized Question
-Catalog filter rerun against the current catalog; its Edit Number only detects
-competing accepted edits.
+**Question Library** is the single shared, authoritative set of Published
+Questions available to every Approved Instructor. **My Questions** is the
+current Account's view of Published Questions for which it has the Question
+Owner relationship. **My Question Drafts** is its view of Draft Questions it
+may edit through an exact Authoring Workspace Owner or Workspace Collaborator
+relationship.
 
-**Draft Question** is private Instructor-authored material. A **Draft Question
-Revision** is its complete immutable revision. **Question Publication
-Readiness** is the calculated complete blocking-issue set for one exact Draft
-Question Revision; it is not a lifecycle state.
+**Question Owner** is the Approved Instructor relationship accountable for one
+Published Question lineage and its ordinary same-lineage revisions. Question
+Library visibility remains shared with every Approved Instructor.
 
-**Published Question** is a validated Question lineage in the shared Question
-Corpus, available to every Approved Instructor. **Question Version** is an
+**Starred Questions** is the current Account's view of Published Questions to
+which it added a **Question Star**. A Question Star is a visible endorsement;
+Approved Instructors may see its Account relationship. Use Question Star and
+Starred Questions consistently at UI, API, schema, and code boundaries.
+**Watched Questions** is the current Account's private view of Questions to
+which it added a **Question Watch**. A Question Watch subscribes that Account
+to permitted version, fork, improvement, and impact notices. Existing
+Question, workspace, course, and Student relationships continue to supply
+authority.
+
+**Question Folder** is an Account-owned named organization of references to
+Published Questions. A Question may appear in more than one Folder, and Folder
+membership supplies organization rather than Question access or ownership. A
+**Question Folder Share** is one owner-issued recipient relationship for
+answer-free Folder inspection and copying. A
+**Saved Question Search** stores normalized Question Search criteria rerun
+against the current Question Library; its Edit Number only detects competing
+accepted edits.
+
+**Question Publication Readiness** is the calculated complete blocking-issue
+set for one exact Draft Question Revision; it is not a lifecycle state.
+
+**Published Question** is a validated Question lineage in the Question Library,
+available to every Approved Instructor. **Question Version** is an
 immutable published version identified by the exact `(question_id,
 version_number)` pair. A Question Publication Event records entry into the
-Corpus; a separate Question Version Availability Event records whether a
-published version is Available or Archived for selection.
+Question Library; a separate Question Version Availability Event records
+whether a published version is Available or Archived for selection.
 
 **Question Change Proposal** is one Instructor-owned improvement thread against
 a Published Question. A **Question Change Proposal Revision** is one complete,
@@ -214,20 +237,40 @@ means the control's destination is the current route. **Loading** means a
 navigation to that destination is still in progress. **Active** remains a
 domain-state term for records such as Accounts and Course Memberships.
 
+Within one Ribbon Scope, slots available to every applicable Course Membership
+Role come first and role-narrowed slots form one suffix. Resolve availability
+for the complete role-narrowed suffix before rendering any of its controls,
+then render its Available slots together in their predefined order. This makes
+later availability append controls without moving an already visible control.
+
 **Content Layout** is the route-selected composition below the Ribbon.
 **Reading Layout** uses a bounded line length for prose. **Full-width Layout**
-uses the available content width for teaching workspaces, catalogs, and dense
-records. Content Layout never changes Ribbon geometry.
+uses the available content width for the Question Library, teaching workspaces,
+and dense records. Content Layout never changes Ribbon geometry.
 
-The Product Ribbon uses these visible surface names:
+Product Ribbon Scope has four ordered Ribbon Slots:
 
 - **Courses** for the current Account's Course Instances.
-- **Question Library** for Published Question discovery in the Question
-  Corpus.
+- **Question Library** for discovering every Published Question.
 - **Blueprint Courses** for reusable course definitions.
-- **Draft Questions** for private Draft Questions held in Authoring
-  Workspaces.
 - **Account** for personal authentication and presentation settings.
+
+Question Library has five ordered Ribbon Tasks in two Ribbon Task Areas:
+
+- **Library Views** contains **All Questions**, **My Questions**, and **My
+  Question Drafts**.
+- **Question Relationships** contains **Starred** and **Watched**.
+
+All Questions shows every Published Question available through the Question
+Library. My means ownership, Draft means publication state, Starred means a
+Question Star relationship, and Watched means a Question Watch relationship.
+Folders, tags, classifications, Saved Question Searches, and search facets are
+organizational mechanisms within these views.
+
+Course Instance Ribbon Scope has six ordered Ribbon Slots: **Assignments**,
+**Students**, **Gradebook**, **Teaching Operations**, **Blueprint Updates**,
+and **Course Setup**. Course Setup has **Grade Settings** and **Appearance** as
+Ribbon Tasks. **Create Assignment** is a Page Action on Assignments.
 
 Within one Course Instance, **Teaching Operations** names the teaching and
 course-lifecycle surface. **Blueprint Updates** names the surface for reviewed
@@ -242,7 +285,7 @@ ordinary sources of PLE authority:
 | Capability | Required path |
 | --- | --- |
 | Authenticate | Active Account -> Authenticated Session |
-| Shared Question Corpus | Authenticated Session -> Active Approved Instructor Account -> Published Question |
+| Question Library | Authenticated Session -> Active Approved Instructor Account -> Published Question |
 | Private authoring | Authenticated Session -> Active Approved Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship |
 | Draft Blueprint Revision contribution | Authenticated Session -> Active Approved Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision |
 | Teach a Course Instance | Authenticated Session -> Active Approved Instructor Account -> active Instructor Course Membership -> Course Instance |

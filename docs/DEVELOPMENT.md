@@ -200,7 +200,7 @@ explicit argument, with each reader validating the file's schema and private
 filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
-For the first teaching corpus, run `cargo tools pilot-content` for the tracked
+For the first teaching set, run `cargo tools pilot-content` for the tracked
 source/compiler contract. Fixed seed/manifest and Rust behavior tests own its
 publication semantics; the canonical live-demo lifecycle installs that baseline.
 Browser scenarios remain staged source until the fresh browser owner is present.
@@ -208,7 +208,7 @@ Browser scenarios remain staged source until the fresh browser owner is present.
 Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
 Question IDs and exact immutable internal references from the first publication; a replay resolves
 those Question IDs and verifies the same reviewed content before reuse. Keep the protected local
-manifest with a retained corpus: if it is missing, the local controller refuses to mint duplicates.
+manifest with a retained teaching set: if it is missing, the local controller refuses to mint duplicates.
 
 ## Run local services
 

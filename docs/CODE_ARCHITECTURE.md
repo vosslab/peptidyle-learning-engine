@@ -165,7 +165,7 @@ Blueprint projection.
 
 ## Assessment and delivery boundary
 
-Published questions remain shared catalog content. Course assignments, Student
+Published Questions remain shared Question Library content. Course assignments, Student
 records, runs, attempts, responses, grades, accommodations, and issued evidence
 are exact CourseInstance records. The normal assessment flow is:
 

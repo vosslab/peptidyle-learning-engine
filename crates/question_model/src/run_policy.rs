@@ -175,8 +175,8 @@ pub enum ContinuedPractice {
 pub enum VariationPolicy {
     /// Same questions, fresh seeds, so the numbers change.
     NewSeeds,
-    /// Instructor-selected problem variants are used for the next Assignment Attempt.
-    SelectedProblemVariants,
+    /// Instructor-selected Question Variants are used for the next Assignment Attempt.
+    SelectedQuestionVariants,
     /// Questions are redrawn from the pool as well as reseeded.
     FullRegeneration,
 }
@@ -229,14 +229,14 @@ impl PoolDrawPreviewNonce {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolDrawBasisError {
     /// A Question Pool has no instructor-selected variant source.
-    SelectedProblemVariantsRequireExplicitPoolSelection,
+    SelectedQuestionVariantsRequireExplicitPoolSelection,
 }
 
 impl std::fmt::Display for PoolDrawBasisError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SelectedProblemVariantsRequireExplicitPoolSelection => formatter.write_str(
-                "selected problem variants require an explicit pool-variant selection model",
+            Self::SelectedQuestionVariantsRequireExplicitPoolSelection => formatter.write_str(
+                "selected Question Variants require an explicit pool-variant selection model",
             ),
         }
     }
@@ -263,8 +263,8 @@ impl VariationPolicy {
                 assignment,
                 question_pool_entry,
             }),
-            Self::SelectedProblemVariants => {
-                Err(PoolDrawBasisError::SelectedProblemVariantsRequireExplicitPoolSelection)
+            Self::SelectedQuestionVariants => {
+                Err(PoolDrawBasisError::SelectedQuestionVariantsRequireExplicitPoolSelection)
             }
         }
     }

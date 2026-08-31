@@ -1,9 +1,9 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
-import type { CatalogQuestionDetail } from "../../../generated/api/CatalogQuestionDetail";
-import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
-import type { CatalogSearchPage } from "../../../generated/api/CatalogSearchPage";
-import type { CatalogSearchQuery } from "../../../generated/api/CatalogSearchQuery";
+import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
+import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
+import type { QuestionSearchRequest } from "../../../generated/api/QuestionSearchRequest";
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
 import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
@@ -22,7 +22,7 @@ import type {
   StudentQuestionAttempt,
   WorkspaceDraftDetail,
 } from "../contracts";
-import { catalogQuestionReferencePath, catalogSearchPath } from "../catalog_query";
+import { questionReferencePath, questionSearchPath } from "../question_search_query";
 import { assignmentRouteReference } from "../../navigation/public_route";
 import {
   decodeStudentAssignmentPage,
@@ -30,9 +30,9 @@ import {
   decodeStudentAssignmentDetail,
   decodeAttemptPage,
   decodeCatalogPage,
-  decodeCatalogQuestionDetail,
-  decodeCatalogQuestionSummary,
-  decodeCatalogSearchPage,
+  decodeQuestionDetails,
+  decodeQuestionSummary,
+  decodeQuestionSearchPage,
   decodeCourseAppearance,
   decodeCourseGradeSchemeView,
   decodeCourseGradebookTotalsView,
@@ -207,16 +207,16 @@ async function courseAppearance(
     throw new ApiProtocolError(`API response ${path} ETag does not match its appearance revision`);
   return appearance;
 }
-async function catalogQuestionDetail(
+async function questionDetails(
   fetchImplementation: ApiFetch,
   basePath: string,
   questionId: QuestionId,
-): Promise<CatalogQuestionDetail> {
+): Promise<QuestionDetails> {
   const path = `/api/problems/by-id/${encodedId(questionId)}/detail`;
-  const detail = await requestJson(fetchImplementation, basePath, path, decodeCatalogQuestionDetail);
+  const detail = await requestJson(fetchImplementation, basePath, path, decodeQuestionDetails);
   if (detail.summary.questionId !== questionId)
     throw new ApiProtocolError(
-      "Catalog detail identity does not match its requested immutable version",
+      "Question Details identity does not match its requested immutable version",
     );
   return detail;
 }
@@ -281,9 +281,9 @@ export function createResponseClient(
   | "getWorkspaceDraft"
   | "getWorkspacePublicationDiff"
   | "listProblems"
-  | "searchCatalog"
-  | "resolveCatalogQuestion"
-  | "getCatalogQuestionDetail"
+  | "searchQuestionLibrary"
+  | "resolveQuestion"
+  | "getQuestionDetails"
   | "listTaxonomy"
   | "listCourses"
   | "getCourse"
@@ -330,16 +330,16 @@ export function createResponseClient(
         cursorPath("/api/problems", cursor),
         decodeCatalogPage,
       ),
-    searchCatalog: (query: CatalogSearchQuery): Promise<CatalogSearchPage> =>
-      requestJson(fetchImplementation, basePath, catalogSearchPath(query), decodeCatalogSearchPage),
-    resolveCatalogQuestion: (displayReference: string): Promise<CatalogQuestionSummary> => {
-      const path = catalogQuestionReferencePath(displayReference);
+    searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> =>
+      requestJson(fetchImplementation, basePath, questionSearchPath(query), decodeQuestionSearchPage),
+    resolveQuestion: (displayReference: string): Promise<QuestionSummary> => {
+      const path = questionReferencePath(displayReference);
       return requestJson(fetchImplementation, basePath, path, (value, decoderPath) =>
-        decodeCatalogQuestionSummary(value, decoderPath, true),
+        decodeQuestionSummary(value, decoderPath, true),
       );
     },
-    getCatalogQuestionDetail: (questionId) =>
-      catalogQuestionDetail(fetchImplementation, basePath, questionId),
+    getQuestionDetails: (questionId) =>
+      questionDetails(fetchImplementation, basePath, questionId),
     listTaxonomy: (cursor) =>
       requestJson(
         fetchImplementation,

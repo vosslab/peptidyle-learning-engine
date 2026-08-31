@@ -34,7 +34,7 @@ protected asset delivery responses. It keeps a successfully decoded prefetched e
 in memory only, never in `localStorage` or `sessionStorage`.
 
 Public immutable asset delivery is the exception. `GET /api/assets/{id}` can
-resolve only a `Ready` catalog `ProblemAsset` in the physically separate
+resolve only a `Ready` Question Library `ProblemAsset` in the physically separate
 `PublicAssets` domain, then redirects to its CDN URL with
 `Cache-Control: public, max-age=31536000, immutable` and a checksum ETag. A
 `Pending` record, restricted asset, and nonexistent delivery ID are all
@@ -178,7 +178,7 @@ Native-flat and WeBWorK reservations additionally retain their typed,
 checksummed first-grade contracts. Flat carries its private definition;
 WeBWorK carries its private definition and replay mapping. Promotion refuses a
 missing or mismatched required contract, so submit never consults a current
-catalog, grader, or renderer to recreate it.
+published Question, grader, or renderer to recreate it.
 
 No `QuestionAttemptId`, response, grade, or timer exists for a reservation.
 Only successful submission of the predecessor promotes the exact reservation

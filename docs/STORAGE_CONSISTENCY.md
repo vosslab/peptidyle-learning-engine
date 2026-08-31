@@ -11,7 +11,7 @@ dependency is open.
 
 ## Authority and vocabulary
 
-An **object** is immutable bytes and its server-created `ObjectRecord`. A **reference** is durable database state that makes that object relevant to a catalog, course, or student record. A **delivery** is a separately authorized route mapping from an opaque ID to one exact record.
+An **object** is immutable bytes and its server-created `ObjectRecord`. A **reference** is durable database state that makes that object relevant to the Question Library, course, or student record. A **delivery** is a separately authorized route mapping from an opaque ID to one exact record.
 
 | State | Meaning | Required treatment |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ for whether the exact bytes exist. Neither a bucket listing nor a successfully f
 an authorization right. Physical domain selection comes from `ObjectKey`, not a caller's path string.
 Authorization is evaluated separately at the trusted Store/PostgreSQL boundary: a delivery needs the
 exact course/Student relationship, a current workspace owner/collaborator relationship, the approved
-Instructor catalog capability, or another registered typed capability/lease. An object ID, bucket,
+Instructor Question Library capability, or another registered typed capability/lease. An object ID, bucket,
 path, or checksum never grants permission.
 
 ## Standard bytes-first protocol
@@ -44,15 +44,15 @@ A write failure creates no intended reference. A database failure after a succes
 
 ## Public assets use a transactional outbox
 
-Public assets are the exception to the simple bytes-first protocol because a final public object must not exist before the catalog decision commits. For a public version, the catalog transaction commits all of the following together:
+Public assets are the exception to the simple bytes-first protocol because a final public object must not exist before the Question Library decision commits. For a public version, the Question Library transaction commits all of the following together:
 
-- immutable catalog publication state;
+- immutable Question Library publication state;
 - one `AssetPublication::Pending` registry record per public asset; and
 - a closed `PublishPublicAssets { problem, version }` job.
 
 The registry points at its final immutable `PublicAssets` key but the `Pending` state has no public delivery. The dedicated publisher re-resolves records from the database under the active job lease, validates that each source is an exact allowed private workspace asset, reads and re-hashes the source, and writes the final public object. It never trusts queue-provided object bytes or a browser-provided path.
 
-After all materialization succeeds, a lease-conditional database function performs the mechanical `Pending -> Ready` transitions and job completion in one database transaction. If the worker crashes after a public write but before activation, the retry accepts only an exactly matching immutable object then activates it. If it crashes before the write, the pending registry stays unavailable and the leased job is retried. Thus no pre-commit CDN orphan is created, and public visibility always follows a committed catalog decision.
+After all materialization succeeds, a lease-conditional database function performs the mechanical `Pending -> Ready` transitions and job completion in one database transaction. If the worker crashes after a public write but before activation, the retry accepts only an exactly matching immutable object then activates it. If it crashes before the write, the pending registry stays unavailable and the leased job is retried. Thus no pre-commit CDN orphan is created, and public visibility always follows a committed Question Library decision.
 
 The publisher's database capability can claim/read/fail only public-asset publication jobs and activate only the matching leased public version. Its production IAM role is separately constrained to the required private source read and public immutable write operations. Code-level capability tests do not substitute for a deployed IAM policy review.
 

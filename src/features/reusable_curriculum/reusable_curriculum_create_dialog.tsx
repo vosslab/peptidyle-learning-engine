@@ -7,18 +7,18 @@ import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/ap
 import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
 import type { ReusableCurriculumClient } from "../../api/reusable_curriculum";
 import {
-  ProblemPicker,
-  type ProblemPickerSelection,
-  type ProblemPickerSource,
-  type ProblemPickerSourceRepository,
-} from "../problem_picker";
+  QuestionPicker,
+  type QuestionPickerSelection,
+  type QuestionPickerSource,
+  type QuestionPickerSourceRepository,
+} from "../question_picker";
 import { createBlueprintCourseWhenReady } from "./reusable_curriculum_creation";
 import { appendPickedFixedEntries, emptyReusableDefinition } from "./reusable_curriculum_model";
 
 export interface CurriculumCreateDialogProps {
   readonly client: ReusableCurriculumClient;
-  readonly pickerRepository: ProblemPickerSourceRepository;
-  readonly pickerSources: ReadonlyArray<ProblemPickerSource>;
+  readonly pickerRepository: QuestionPickerSourceRepository;
+  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
   readonly onClose: () => void;
   readonly onFailure: (text: string) => void;
 }
@@ -63,7 +63,7 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
     };
   }
 
-  function chooseQuestions(selection: ProblemPickerSelection): void {
+  function chooseQuestions(selection: QuestionPickerSelection): void {
     setDefinition((current) => appendPickedFixedEntries(current, selection));
     setShowPicker(false);
     setMessage(
@@ -180,7 +180,7 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
         </button>
       </div>
       <Show when={showPicker()}>
-        <ProblemPicker
+        <QuestionPicker
           repository={props.pickerRepository}
           sources={props.pickerSources}
           mode="many"

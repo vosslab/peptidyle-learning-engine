@@ -25,7 +25,7 @@ function gradePolicy(value: string): AssignmentActivityRules["grade"] {
 }
 
 function variationPolicy(value: string): AssignmentActivityRules["variation"] {
-  if (value === "newSeeds" || value === "selectedProblemVariants" || value === "fullRegeneration") {
+  if (value === "newSeeds" || value === "selectedQuestionVariants" || value === "fullRegeneration") {
     return value;
   }
   throw new Error("Variation policy selection is invalid");
@@ -222,7 +222,7 @@ export function AssignmentWorkspacePolicyPanel(
             }
           >
             <option value="newSeeds">Use new seeds</option>
-            <option value="selectedProblemVariants">Use selected problem variants</option>
+            <option value="selectedQuestionVariants">Use selected Question Variants</option>
             <option value="fullRegeneration">Fully regenerate</option>
           </select>
           <Show when={props.variationPolicyError()}>

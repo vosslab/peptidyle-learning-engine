@@ -2,7 +2,7 @@
 
 ## Status
 
-**Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible published-question corpus, private drafts, equal approved Instructors, equal Teaching Team Members, and exact CourseInstance/Student authorization. Active questions are ordinarily selectable; deprecated and archived questions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
+**Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible Question Library of Published Questions, private drafts, equal approved Instructors, equal Teaching Team Members, and exact CourseInstance/Student authorization. Active Questions are ordinarily selectable; inactive and archived Questions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
 
 The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 and WP-FU1 through WP-FU6 stay open until their named gates and independent review pass.
 
@@ -66,7 +66,7 @@ No current product type, route, Store capability, PostgreSQL table/function/poli
 | Claim                                                                                                      | Evidence                                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Aggregate normalization, revision races, propagation, and private delivery state                           | Permanent focused Rust/Memory/Node behavior and contract tests                |
-| Global published-catalog visibility, CourseInstance isolation, broker authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance                                          |
+| Global Question Library visibility, CourseInstance isolation, broker authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance                                          |
 | Create, revise, publish, select, instantiate, update, and release workflows                                | Production HTTPS browser acceptance through `run_playwright_tests.sh --build` |
 | Hierarchy, release state, recovery, focus, contrast, and product vocabulary                                | Rendered screenshots plus independent visual review                           |
 | Complete material tree                                                                                     | `source source_me.sh && ./all_test.sh`, with every required lane passing      |
@@ -125,7 +125,7 @@ source source_me.sh && ./all_test.sh
 | Permanent offline       | `all_test.sh`                      | Stable Rust, TypeScript, Node, Python, generated-contract, security, and hygiene behavior |
 | Real service acceptance | `local_stack.py acceptance`        | PostgreSQL/RLS, objects, renderer, replica, and real-browser boundaries                   |
 | Production browser      | `run_playwright_tests.sh --build`  | Built bundle through HTTPS gateway and real UI-created state                              |
-| Screenshot publication  | `capture_screenshots.sh`           | Rendered production-origin states when UI, corpus, or viewport contracts change           |
+| Screenshot publication  | `capture_screenshots.sh`           | Rendered production-origin states when UI, Question Library, or viewport contracts change |
 | One-time evidence       | Graphify and direct probes         | Narrow decision/migration/config disposition, not permanent tests                         |
 | Human acceptance        | Independent review and walkthrough | Teaching workflow, accessibility, visual sense-making, legal/activation decisions         |
 

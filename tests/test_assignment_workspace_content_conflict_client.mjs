@@ -19,9 +19,8 @@ const input = {
   title: "Peptide bond mastery",
   entries: [
     {
-      kind: "fixed",
+      kind: "fixedQuestion",
       questionId: "7K3-M9QP",
-      position: 0,
       pointsPossible: "1",
       deliveryState: "active",
       scoringMode: "normal",

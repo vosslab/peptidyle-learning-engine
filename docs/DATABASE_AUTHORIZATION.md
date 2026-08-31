@@ -23,8 +23,8 @@ they establish only their exact membership, workspace, course, or worker authori
 ## Authority relationships
 
 `approved_instructor(account_id, now)` is the one current, manually approved Instructor predicate. It
-authorizes global Instructor capabilities: course creation, publication, shared-catalog discovery,
-Question Collections, Stars, saved searches, reuse, and improvement. Approval withdrawal closes each of
+authorizes global Instructor capabilities: course creation, publication, Question Library discovery,
+Question Folders, Question Stars, Question Watches, Saved Question Searches, reuse, and improvement. Approval withdrawal closes each of
 those capabilities in the protected transaction.
 
 The `sysadmin` platform role does not satisfy `approved_instructor`. A Sysadmin
@@ -41,7 +41,7 @@ decision for equivalent state; audit rows identify the authenticated account wit
 Student work requires the exact course relationship and Student ownership of the durable child
 record. A private authoring input requires its current Authoring Workspace owner or Workspace
 Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
-relationship. A published question has exactly one Instructor-visible shared-catalog
+relationship. A published question has exactly one Instructor-visible Question Library
 state: every approved Instructor can discover and reuse its safe projection while its visible
 lifecycle is `active`, `deprecated`, or `archived`. Selection eligibility is separate: only `active`
 questions are eligible for ordinary new selection; deprecated and archived questions remain available
@@ -54,14 +54,14 @@ only through a narrow, audited support capability or an ordinary current Instruc
 | Durable target                          | Database authority                             | Boundary that remains private                         |
 | --------------------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | Account, session, passkey               | Exact global account/session                   | Credentials and authentication evidence               |
-| Published catalog question              | `approved_instructor`                          | Answer keys, private grading, source, and credentials |
+| Published Question                     | `approved_instructor`                          | Answer keys, private grading, source, and credentials |
 | Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                    |
 | Draft Blueprint Revision contribution   | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
 | Course, roster, assignment              | `current_course_instructor`                    | Other courses and former memberships                  |
 | Run, attempt, response, grade, artifact | Student ownership or current course Instructor | Other Students, courses, and inactive records         |
 | Job, export, object, provider state     | Locked typed lease and durable target          | Caller-supplied scope and foreign targets             |
 
-Lifecycle does not narrow approved-Instructor discovery. The catalog safely
+Lifecycle does not narrow approved-Instructor discovery. The Question Library safely
 returns the lifecycle state on every published question. Assignment creation
 and other ordinary new-selection operations require `active`; exact historical
 resolution and retained assignment references may resolve `deprecated` or
@@ -111,13 +111,13 @@ grants.
 ## Typed operations and objects
 
 A worker first locks a current lease. The immutable job manifest and lease derive the job's typed
-course, workspace, catalog, object, export, retention, or system target. Job Kind Registration,
+course, workspace, Question Library, object, export, retention, or system target. Job Kind Registration,
 generation, broker grant, and target type must agree before a handler reads, writes, dispatches, or
 finalizes anything. Queue payloads, retry input, provider responses, and object references cannot
 widen that scope.
 
-Each object metadata and delivery record has one typed scope: catalog presentation asset, private
-workspace asset, or course-record asset. Public catalog presentation delivery is distinct from
+Each object metadata and delivery record has one typed scope: Question Library presentation asset, private
+workspace asset, or course-record asset. Public Question Library presentation delivery is distinct from
 private source delivery. Course-record delivery rechecks its course/Student authority and retention
 fence; opaque object identifiers and signed URLs do not bypass it.
 
@@ -149,7 +149,7 @@ not Student records unless joined to Student activity. The global published aggr
 identity-free; its Student-linked contribution receipt is radioactive, and course-local analysis is
 radioactive because small cohorts can be identifiable.
 
-Retention keeps shared published catalog content and private drafts outside course-record deletion.
+Retention keeps shared published Question Library content and private drafts outside course-record deletion.
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
 Student-facing records, exports, external-tool records, and course-record assets as archive or
 deletion starts. Authorized current Instructors may retain course and assignment definitions without
@@ -166,8 +166,8 @@ number in these ranges:
 | ------------------------- | --------------------------------------------------------------------- |
 | `2026082901`              | Principal baseline, schemas, capability roles, and default ACLs       |
 | `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation |
-| `2026082907`-`2026082909` | Global immutable catalog, publication, discovery, and stewardship     |
-| `2026082910`-`2026082912` | Private authoring, Blueprints, collections, and saved searches         |
+| `2026082907`-`2026082909` | Global immutable Question Library, publication, discovery, and stewardship     |
+| `2026082910`-`2026082912` | Private authoring, Blueprints, Question Folders, and Saved Question Searches   |
 | `2026082913`-`2026082916` | Courses, equal Teaching Team Members, Students, invitations, curricula       |
 | `2026082917`-`2026082920` | Assignment Attempts, schedules, Issued Questions, submissions, artifacts |
 | `2026082921`-`2026082924` | Automated grading, Gradebook, analysis, improvement threads           |
@@ -191,8 +191,8 @@ immediate membership revocation and approval-withdrawal denial; narrow audited S
 observer non-escalation; typed worker confused-deputy refusal; object delivery; external adapter;
 export; retention; cleanup; and migration idempotency/checksum status.
 
-Production-browser acceptance proves shared-catalog discovery/reuse, equal Teaching Team Member behavior,
-immediate revocation, Student submission-to-Gradebook convergence, answer-free catalog responses,
+Production-browser acceptance proves Question Library discovery/reuse, equal Teaching Team Member behavior,
+immediate revocation, Student submission-to-Gradebook convergence, answer-free Question Library responses,
 accessible interaction, and role-appropriate screenshots on the canonical real stack.
 
 Graphify maps, retired-identifier inventories, old-to-new schema allocation, clean-volume schema

@@ -10,7 +10,7 @@ SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.object_delivery_record (
     delivery_id uuid PRIMARY KEY,
     object_id uuid NOT NULL,
-    delivery_kind text NOT NULL CHECK (delivery_kind IN ('catalog_asset', 'course_banner', 'course_record')),
+    delivery_kind text NOT NULL CHECK (delivery_kind IN ('question_asset', 'course_banner', 'course_record')),
     course_id uuid,
     question_id text,
     version_number integer,
@@ -20,12 +20,12 @@ CREATE TABLE ple_data.object_delivery_record (
     byte_length bigint NOT NULL CHECK (byte_length >= 0),
     publication_state text NOT NULL CHECK (publication_state IN ('pending', 'active', 'retired')),
     registered_at timestamp with time zone NOT NULL,
-    CONSTRAINT object_delivery_catalog_parent_matches FOREIGN KEY (question_id, version_number)
+    CONSTRAINT object_delivery_question_parent_matches FOREIGN KEY (question_id, version_number)
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT object_delivery_course_parent_matches FOREIGN KEY (object_id, course_id)
         REFERENCES ple_private.course_object_metadata (object_id, course_id),
     CONSTRAINT object_delivery_parent_shape_is_exact CHECK (
-        (delivery_kind = 'catalog_asset' AND question_id IS NOT NULL AND version_number IS NOT NULL
+        (delivery_kind = 'question_asset' AND question_id IS NOT NULL AND version_number IS NOT NULL
             AND asset_id IS NOT NULL AND course_id IS NULL)
         OR (delivery_kind = 'course_banner' AND course_id IS NOT NULL AND question_id IS NULL
             AND version_number IS NULL AND asset_id IS NULL)

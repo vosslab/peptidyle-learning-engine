@@ -21,9 +21,9 @@ function replacementEditorDetail() {
     ...publishedProblemFixture.assignment,
     id: assignment,
     courseId: course,
-    items: [
+    entries: [
       {
-        ...publishedProblemFixture.assignment.items[0],
+        ...publishedProblemFixture.assignment.entries[0],
         questionId: "1A2-B3CD",
         title: "Replacement peptide bond question",
       },
@@ -109,8 +109,8 @@ test("fixed-item replacement decodes the revised editor detail and its new ETag"
 
   assert.equal(replaced.id, assignment);
   assert.equal(replaced.courseId, course);
-  assert.equal(replaced.items[0].id, publishedProblemFixture.assignment.items[0].id);
-  assert.equal(replaced.items[0].questionId, "1A2-B3CD");
+  assert.equal(replaced.entries[0].id, publishedProblemFixture.assignment.entries[0].id);
+  assert.equal(replaced.entries[0].questionId, "1A2-B3CD");
   assert.equal(replaced.revision, '"5"');
 });
 

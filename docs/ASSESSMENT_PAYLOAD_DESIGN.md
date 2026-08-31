@@ -409,7 +409,7 @@ must fail closed for operator investigation.
 For native flat questions, PLE owns both immutable content and grading. The normal path is:
 
 1. Load the authenticated active attempt.
-2. Load its checksummed issued flat grading contract, not a current catalog or grader view.
+2. Load its checksummed issued flat grading contract, not a current published Question or grader view.
 3. Verify the stored and submitted presentation digest.
 4. Decode the type-free `answer` using the issued public response schema.
 5. Map rendered IDs to durable internal IDs.
@@ -444,7 +444,7 @@ boundary. The historical RC3 compatibility grading path originally performed two
 The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
 server-only grading envelope, and frozen WeBWorK definition under the issued attempt. Normal grade
 validates those artifacts and performs only the private grade call; it never resolves a current
-catalog definition or rerenders to recover state. The official upstream endpoint is stateless, so
+published Question definition or rerenders to recover state. The official upstream endpoint is stateless, so
 PLE still sends immutable source provenance and signed server state on that private grade call. That
 repetition is an internal service cost, not student payload.
 

@@ -6,7 +6,7 @@ import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import { AssignmentEditorContentList } from "../assignment_editor_content_list";
-import { createAssignmentEditorCatalogController } from "../assignment_editor_catalog_controller";
+import { createAssignmentEditorQuestionLookupController } from "../assignment_editor_question_lookup_controller";
 import {
   appendFixedEntries,
   appendQuestionPool,
@@ -21,7 +21,7 @@ import {
   type AssignmentEditorDraft,
   type AssignmentEditorQuestionPoolEntry,
 } from "../assignment_editor_model";
-import { AssignmentEditorProblemPicker } from "../assignment_editor_problem_picker";
+import { AssignmentEditorQuestionPicker } from "../assignment_editor_question_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
 import { createAssignmentEditorReuseController } from "../assignment_editor_reuse_controller";
 import {
@@ -62,7 +62,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   let reloadLatestButton: HTMLButtonElement | undefined;
   let replaceSelectedQuestionButton: HTMLButtonElement | undefined;
 
-  const catalogController = createAssignmentEditorCatalogController(workspace.repository);
+  const questionLookupController = createAssignmentEditorQuestionLookupController(workspace.repository);
   const reuseController = createAssignmentEditorReuseController(
     workspace.repository,
     workspace.courseId,
@@ -132,7 +132,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setMessage(
         "Reload the latest assignment before replacing a question. Your selected replacement remains available after reload.",
       );
-    } else if (catalogController.selected() === undefined) {
+    } else if (questionLookupController.selected() === undefined) {
       setMessage(
         "Save questions and order before choosing a replacement. Replacement happens in a separate action after you select a question.",
       );
@@ -153,7 +153,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   function replacementActionLabel(): string {
     const currentTitle = replacementTargetTitle();
-    const selectedTitle = catalogController.selected()?.title;
+    const selectedTitle = questionLookupController.selected()?.title;
     return currentTitle !== undefined && selectedTitle !== undefined
       ? `Replace ${currentTitle} with ${selectedTitle}`
       : "Replace the selected question";
@@ -163,7 +163,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     if (replacementBlocked()) return;
     setTargetItemId(itemId);
     setDirectQuestionId("");
-    catalogController.setSelected(undefined);
+    questionLookupController.setSelected(undefined);
     queueMicrotask(() => questionIdInput?.focus());
   }
 
@@ -213,7 +213,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setIssuedWorkRecovery(false);
       setValidationMessage("");
       setTargetItemId(undefined);
-      catalogController.setSelected(undefined);
+    questionLookupController.setSelected(undefined);
       setDirectQuestionId("");
       setDirectMessage("");
       setMessage(
@@ -242,8 +242,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy(true);
     setMessage("Checking the supplied Question ID.");
     try {
-      const row = await catalogController.lookup(directQuestionId());
-      catalogController.setSelected(row);
+      const row = await questionLookupController.lookup(directQuestionId());
+      questionLookupController.setSelected(row);
       setMessage(
         targetItemId() === undefined
           ? `${row.questionId} is ready to add.`
@@ -383,7 +383,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     } finally {
       setBusy(false);
       if (reloaded) {
-        if (targetItemId() !== undefined && catalogController.selected() !== undefined) {
+        if (targetItemId() !== undefined && questionLookupController.selected() !== undefined) {
           queueMicrotask(() => replaceSelectedQuestionButton?.focus());
         } else {
           queueMicrotask(() => saveQuestionsButton?.focus());
@@ -434,7 +434,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     onDraftChange: (next) =>
       update(next, "Selected questions added. Save questions and order when ready."),
     onReplacementPrepared: (row, itemId) => {
-      catalogController.setSelected(row);
+      questionLookupController.setSelected(row);
       setTargetItemId(itemId);
       setMessage(`${row.questionId} is ready to replace the selected question.`);
       queueMicrotask(() => replaceSelectedQuestionButton?.focus());
@@ -632,7 +632,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onInput={(event) => {
                   setDirectQuestionId(event.currentTarget.value);
                   setDirectMessage("");
-                  catalogController.setSelected(undefined);
+                  questionLookupController.setSelected(undefined);
                 }}
               />
             </label>
@@ -656,14 +656,14 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                   replaceSelectedQuestionButton = element;
                 }}
                 disabled={
-                  (targetItemId() !== undefined && catalogController.selected() === undefined) ||
+                  (targetItemId() !== undefined && questionLookupController.selected() === undefined) ||
                   needsReload() ||
                   issuedWorkRecovery()
                 }
                 aria-label={targetItemId() === undefined ? undefined : replacementActionLabel()}
                 onClick={() => {
                   const itemId = targetItemId();
-                  const selected = catalogController.selected();
+                  const selected = questionLookupController.selected();
                   if (itemId !== undefined && selected !== undefined)
                     void replaceFixedQuestion(selected, itemId);
                   else void addQuestionIds();
@@ -689,7 +689,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 {targetItemId() === undefined ? "Search question library" : "Choose replacement"}
               </button>
             </div>
-            <Show when={catalogController.selected()}>
+            <Show when={questionLookupController.selected()}>
               {(row) => (
                 <p class="success-state">
                   {targetItemId() === undefined ? (
@@ -796,7 +796,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           </section>
         </div>
       </fieldset>
-      <AssignmentEditorProblemPicker
+      <AssignmentEditorQuestionPicker
         repository={workspace.repository}
         controller={pickerController}
       />

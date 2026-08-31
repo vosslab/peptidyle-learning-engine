@@ -102,7 +102,7 @@ Continued practice answers whether another run may begin after first completion:
 Variation answers what changes in a new run:
 
 - `NewSeeds` keeps the assignment's selected questions but changes generated values.
-- `SelectedProblemVariants` uses instructor-selected variants.
+- `SelectedQuestionVariants` uses Instructor-selected Question Variants.
 - `FullRegeneration` redraws questions as well as reseeding.
 
 The continued-practice check does not choose a grade, and the variation policy does not permit a

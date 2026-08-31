@@ -8,7 +8,7 @@ import { AssignmentOverviewPage } from "./pages/assignment_overview_page";
 import { NotFoundPage } from "./pages/contract_pages";
 import { AssignmentAttemptSummaryPage } from "./pages/assignment_attempt_summary_page";
 import { LibraryRoutePage } from "./pages/library_route_page";
-import { ProblemDetailPage } from "./pages/problem_detail_page";
+import { QuestionDetailPage } from "./pages/question_detail_page";
 import { CourseAssignmentsPage } from "./pages/course_assignments_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
@@ -39,7 +39,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   assignmentAttempt: AssignmentAttemptPage,
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,
   library: LibraryRoutePage,
-  problemDetail: ProblemDetailPage,
+  questionDetail: QuestionDetailPage,
   curriculum: CurriculumLivePage,
   curriculumDetail: CurriculumDetailLivePage,
   workspaceList: WorkspaceListLivePage,

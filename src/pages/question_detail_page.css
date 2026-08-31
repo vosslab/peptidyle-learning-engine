@@ -1,0 +1,16 @@
+/* question_detail_page.css - Question Library detail presentation-specific styles. */
+
+.catalog-generated-example {
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--ple-accent);
+  border-radius: 0 var(--ple-radius-control) var(--ple-radius-control) 0;
+  background: var(--ple-surface-soft);
+  color: var(--ple-accent-strong);
+  max-width: 72ch;
+  margin-block: var(--ple-space-4);
+}
+
+.catalog-generated-example p {
+  margin: var(--ple-space-1) 0 0;
+  color: var(--ple-muted);
+}

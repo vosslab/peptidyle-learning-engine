@@ -1,6 +1,6 @@
 # Chapter 1 pilot content
 
-The first teaching corpus contains two assignments and eight questions total. Genetics Chapter 1
+The first teaching set contains two assignments and eight questions total. Genetics Chapter 1
 and Biochemistry Chapter 1 each contain exactly:
 
 - one algorithmic WeBWorK multiple-choice question;
@@ -12,7 +12,7 @@ The authoritative human-readable inventory is
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
 question slugs, titles, subject and course display names, point values, Question Types, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
-second human-visible catalog. The instructor UI presents one canonical `AAA-BBBB` Crockford
+second human-visible question list. The instructor UI presents one canonical `AAA-BBBB` Crockford
 Question ID for each question. Server-side checksum validation and Account authorization
 resolve that exact assigned question subject to lifecycle policy; internal UUIDs and immutable
 snapshots remain hidden for grading and provenance.
@@ -36,7 +36,7 @@ provide four distinct descriptions without relying on color.
 
 ## Validation
 
-Run the tracked corpus validator from the repository root:
+Run the tracked teaching-set validator from the repository root:
 
 ```bash
 cargo tools pilot-content

@@ -25,8 +25,8 @@ legacy readers, or parallel authorization model.
 | Migration range | Physical owner | Principal records |
 | --- | --- | --- |
 | 2901–2906 | Global Account and Authenticated Session | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, Instructor Approval Events, and session-resolution brokers. |
-| 2907–2910 | Shared Question Corpus and private authoring | Published Questions and immutable Question Versions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, source, grading material, and private QTI import facts. |
-| 2911–2915 | Reusable and live course roots | Blueprint Courses and Revisions, Account-owned Question Collections and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records. |
+| 2907–2910 | Question Library and private authoring | Published Questions and immutable Question Versions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, source, grading material, and private QTI import facts. |
+| 2911–2915 | Reusable and live course roots | Blueprint Courses and Revisions, Account-owned Question Folders and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records. |
 | 2916–2918 | Assignment delivery and Student work | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release. |
 | 2919–2924 | Course objects, grading, analysis, and correction | Course Object Metadata, Automated Grading Operations and Receipts, Assignment Grades and Events, Course and Item Analysis, Forced Question Corrections, Question Change Events, and correction evidence. |
 | 2925–2931 | Jobs, retention, external tools, objects, and authorization closure | Typed Jobs and leases, exports and retention events, external-tool state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure. |
@@ -58,7 +58,7 @@ Published Question -> Question Version -> Question Version Availability Event
 Authoring Workspace -> Draft Question -> Draft Question Revision
 ```
 
-Question Collections organize shared Question lineages for an Account; they do
+Question Folders organize Question Library lineages for an Account; they do
 not grant visibility or Course authority. Course Invitations are target-bound
 Course Membership operations. An Instructor Course Invitation is the
 Instructor-only Teaching Team operation; pending account acceptance remains a

@@ -62,7 +62,7 @@ export function FlatMetadataFields(props: FlatMetadataFieldsProps): JSX.Element 
     props.onLicenseChange(kind === "other" ? { kind, spdx: "" } : { kind });
   return (
     <fieldset>
-      <legend>Catalog metadata</legend>
+      <legend>Question Library metadata</legend>
       <label class="flat-question-authoring__field">
         <span>Tags (comma-separated)</span>
         <input

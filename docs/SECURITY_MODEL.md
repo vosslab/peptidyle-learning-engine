@@ -3,7 +3,7 @@
 ## Binding single-installation model
 
 PLE uses global accounts, exact course membership and Student ownership for FERPA authority,
-Instructor-owned private workspaces, and one shared published-question catalog. The current
+Instructor-owned private workspaces, and one shared Question Library. The current
 [implementation status](active_plans/implementation_status.md) allocates account-and-relationship-scoped
 RLS and capability correction across the product stack; durable PostgreSQL
 authorization detail is owned solely by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
@@ -38,7 +38,7 @@ PostgreSQL forces RLS for every protected private-workspace and course-record
 table. A transaction sets only the authenticated `AuthenticatedSession`; policies and
 narrow broker functions derive exact current membership, Student ownership, or
 workspace collaboration from durable rows. A worker receives one typed lease:
-claims one durable, typed lease and derives its course, workspace, catalog, or
+claims one durable, typed lease and derives its course, workspace, Question Library, or
 system target from the locked job row. Leases, object keys, adapter handles,
 and provider state remain typed server-side values, not browser DTO fields.
 
@@ -359,20 +359,20 @@ view, rejects a mismatched response ETag, and keeps author-preview data out of
 browser persistence. Student routes deny the authoring surface before its
 repository or author-preview client is constructed.
 
-## Catalog publication boundary
+## Question Library publication boundary
 
-The published-question catalog has one installation-wide visibility rule:
+The Question Library has one installation-wide visibility rule:
 every published assignment question is visible to every approved Instructor.
 Private drafts remain inside their owner/collaborator workspace until the
-atomic publication transition commits. Catalog routes resolve `AuthenticatedSession`
+atomic publication transition commits. Question Library routes resolve `AuthenticatedSession`
 first; paths and bodies cannot select another account, workspace relationship,
 publication identity, or capability. Forced PostgreSQL RLS and account-and-relationship-scoped
-Store predicates protect private workspace material. Public catalog queries
-return only the reviewed Instructor-safe projection.
+Store predicates protect private workspace material. Question Library search and
+details return only the reviewed Instructor-safe projection.
 
-The catalog's public audience is the authenticated approved-Instructor set.
+The Question Library audience is the authenticated approved-Instructor set.
 Student access remains assignment-entitlement delivery, and anonymous web
-requests receive no catalog authority.
+requests receive no Question Library access.
 
 The browser supplies a workspace identifier, but never a new `QuestionId`, a
 publication scope, or a backend capability declaration. The server loads the
@@ -380,12 +380,12 @@ account-authorized draft, resolves capabilities from its trusted adapter
 registry, returns the complete capability-violation list, and generates fresh
 published identities for a new work, correction, or derivative. The Store
 compares and locks the same draft before committing metadata, immutable
-payload, global Instructor catalog state, and draft deletion in one
+payload, Question Library publication state, and draft deletion in one
 transaction.
 
 Publication requires the canonical `approved_instructor(account_id, now)`
 predicate and any installation-wide review gate. `Sysadmin` status alone does
-not publish or provide catalog access. Post-publication transitions require
+not publish or provide Question Library access. Post-publication transitions require
 both `approved_instructor` and the recorded author relationship. Database
 privileges permit only lifecycle fields to change; published identity, global
 visibility, payload, capabilities, metadata, authorship, and lineage cannot be
@@ -400,7 +400,7 @@ deliberate, revision-checked replacement. The server resolves only the version
 chosen by that controlled operation, and never silently changes issued or
 graded work.
 
-Catalog browse responses contain hot browser-safe metadata only. They expose a
+Question Library search results contain hot browser-safe metadata only. They expose a
 Question Backend but no Native Question Implementation name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, response definition, or answer-bearing value.
 Every published question remains discoverable to every approved Instructor while
@@ -432,7 +432,7 @@ Course and membership tables use forced account-and-relationship-scoped RLS. Non
 the same not-found response as absent courses, limiting identity disclosure.
 Students may list and resolve assignments in their courses but receive a
 forbidden response for assignment creation. Assignment writes validate each
-selected Question ID against global catalog lifecycle state; no question
+selected Question ID against Question Library lifecycle state; no question
 payload, answer key, or grading code is copied into the course row or returned
 by browse.
 
@@ -485,7 +485,7 @@ Assignment creation and focused replacement accept Question IDs, while ordinary
 update retains its assigned item identities and changes assignment-owned fields.
 Request JSON cannot supply an account, course, assignment ID, hidden
 publication pair, workspace draft, capability declaration, source, or question
-payload. The server resolves each Question ID through global catalog state,
+payload. The server resolves each Question ID through Question Library publication state,
 accepts only `active` questions for ordinary new selection. Deprecated and
 archived questions remain available for exact historical references and retained
 assignments, but ordinary new selection rejects both. It uses the persisted
@@ -580,7 +580,7 @@ Next-question prefetch stores a course-scoped, server-only reservation without
 an attempt ID, timer, response, grade, or public answer. Its browser projection
 is answer-free, while the reservation retains checksummed private grading
 authority for the exact issued question so first grade never reconstructs from
-current catalog or renderer state. The Store binds it to the owned active
+current Question Library definition or renderer state. The Store binds it to the owned active
 predecessor and first unattempted assignment position. Only submission
 promotion creates the successor attempt and records either its immutable
 `nextIssued` descriptor or durable `nextPending` state in the predecessor's
@@ -602,7 +602,7 @@ against the checksummed issued public snapshot, then translates those IDs and
 validates the result against the server-only grading envelope before calling
 the injected grader. Native and WeBWorK first grading additionally require
 their matching issued private grading contracts, so neither path reloads a
-current catalog definition or grader view. The idempotency table retains the
+current Question Library definition or grader view. The idempotency table retains the
 original public student response; the translated private response is grade-only. Submission persistence
 rejects malformed point values and atomically commits the response, grade
 event, run and enrollment transitions, and summary. The idempotency table is
@@ -651,7 +651,7 @@ An instructor preview or export must use a separate authorized projection that
 redacts or deliberately includes private material for that operation; it must
 not expose the source object URL.
 
-Globally public catalog assets redirect to the configured immutable CDN URL
+Published Question Library assets redirect to the configured immutable CDN URL
 without authentication or an object-store signing call. Private workspace
 content and Student records require the opaque HttpOnly session and their exact
 workspace relationship, course membership, or Student ownership predicate.

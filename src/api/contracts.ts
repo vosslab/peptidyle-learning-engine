@@ -28,7 +28,7 @@ import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
 import type { InstructorAssignmentTeachingSettingsLocal } from "../../generated/api/InstructorAssignmentTeachingSettingsLocal";
 import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
-import type { CatalogQuestionSummary } from "../../generated/api/CatalogQuestionSummary";
+import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
@@ -335,11 +335,11 @@ export type PublicationResponseKind =
   | "externalTool";
 
 export interface PublicationResult {
-  readonly summary: CatalogQuestionSummary;
+  readonly summary: QuestionSummary;
 }
 
 export interface PublicationRequest {
-  readonly byline: CatalogQuestionSummary["byline"];
+  readonly byline: QuestionSummary["byline"];
 }
 
 /**

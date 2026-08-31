@@ -104,18 +104,18 @@ the domain relationship that authorizes it:
 | --- | --- |
 | Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session. |
 | Private authoring | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it. |
-| Published catalog | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference. |
+| Question Library | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference. |
 | Teaching course | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
 | Student records | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`. |
 | Assignment | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent. |
 | Activity | `assignment_attempt_uuid`, `issued_question_uuid`, and `question_attempt_uuid` name the exact activity spine. |
 | Worker operations | `worker_job_uuid`, its lease, and a typed target scope name one bounded work unit; the stored scope bounds every worker action. |
-| Objects | `object_record_uuid` and a typed storage reference name stored bytes under Question Corpus, workspace, or Course Instance record scope. |
+| Objects | `object_record_uuid` and a typed storage reference name stored bytes under Question Library, Question authoring workspace, or Course Instance record scope. |
 
 Every assignment question resolves to an already published question in the one
-approved-Instructor shared catalog. Published means shared within that vetted
+approved-Instructor Question Library. Published means shared within that vetted
 Instructor audience, not anonymous internet access; a subject tag does not
-partition the catalog.
+partition the Question Library.
 
 ## Blueprint and instance courses
 

@@ -5,7 +5,7 @@
 //! instructor, but never chooses an answer or evaluates a response.
 
 use question_model::capability::Capability;
-use question_model::catalog::QuestionBackend;
+use question_model::question_library::QuestionBackend;
 use question_model::envelope::ContentBlock;
 use question_model::generation::{RandomizationDefinition, Seed};
 use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};

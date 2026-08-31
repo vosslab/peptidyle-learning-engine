@@ -4,25 +4,25 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ApiClient } from "../api/client";
-import { createCatalogRepository } from "../api/catalog_repository";
-import type { CatalogBrowsePage, CatalogBrowseQuery, CatalogBrowseRow } from "./library_page_model";
+import { createQuestionLibraryRepository } from "../api/question_library_repository";
+import type { QuestionSearchPage, QuestionSearchQuery, QuestionSearchResult } from "./library_page_model";
 import type {
-  ProblemPickerSearchRequest,
-  ProblemPickerSource,
-  ProblemPickerSourceRepository,
-} from "../features/problem_picker";
-import { reusableCurriculumProblemPickerRepository } from "../features/problem_picker/problem_picker_model";
-import { createProblemCurationRepository } from "../features/problem_curation/problem_curation_repository";
+  QuestionPickerSearchRequest,
+  QuestionPickerSource,
+  QuestionPickerSourceRepository,
+} from "../features/question_picker";
+import { reusableCurriculumQuestionPickerRepository } from "../features/question_picker/question_picker_model";
+import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
 import type { AssignmentCatalogRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
   readonly resolvePublished: (questionId: string) => Promise<AssignmentCatalogRow>;
   /** Sources and answer-free rows for the shared D2 picker. */
-  readonly listProblemPickerSources: (
+  readonly listQuestionPickerSources: (
     course: CourseId,
     exclude?: AssignmentId,
-  ) => Promise<ReadonlyArray<ProblemPickerSource>>;
-  readonly problemPickerRepository: ProblemPickerSourceRepository;
+  ) => Promise<ReadonlyArray<QuestionPickerSource>>;
+  readonly questionPickerRepository: QuestionPickerSourceRepository;
   readonly listReusableAssignments: (
     course: CourseId,
     exclude?: AssignmentId,
@@ -35,7 +35,7 @@ export interface ReusableAssignment {
   readonly questions: ReadonlyArray<AssignmentCatalogRow>;
 }
 
-function retainedQueryMatches(row: CatalogBrowseRow, query: CatalogBrowseQuery): boolean {
+function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
     const haystack = [row.title, row.displayId, row.summary, ...row.taxonomy, ...row.byline]
@@ -52,7 +52,7 @@ function retainedQueryMatches(row: CatalogBrowseRow, query: CatalogBrowseQuery):
   return true;
 }
 
-function page(rows: ReadonlyArray<CatalogBrowseRow>, nextCursor: string | null): CatalogBrowsePage {
+function page(rows: ReadonlyArray<QuestionSearchResult>, nextCursor: string | null): QuestionSearchPage {
   return { items: rows, nextCursor, aggregates: [] };
 }
 
@@ -66,11 +66,11 @@ function catalogRow(item: {
 
 /** Questions reads published metadata and reusable sources through this adapter. */
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
-  const catalog = createCatalogRepository(client);
-  const curation = createProblemCurationRepository(client, catalog);
-  const reusableCurriculum = reusableCurriculumProblemPickerRepository(client);
-  const problemPickerRepository: ProblemPickerSourceRepository = {
-    async search(request: ProblemPickerSearchRequest): Promise<unknown> {
+  const catalog = createQuestionLibraryRepository(client);
+  const curation = createQuestionCurationRepository(client, catalog);
+  const reusableCurriculum = reusableCurriculumQuestionPickerRepository(client);
+  const questionPickerRepository: QuestionPickerSourceRepository = {
+    async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       if (request.source.kind === "blueprintCourseAssignment") {
         return await reusableCurriculum.search(request);
       }
@@ -118,24 +118,24 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
   };
   return {
     resolvePublished: async (questionId) =>
-      catalogRow(await client.resolveCatalogQuestion(questionId)),
-    problemPickerRepository,
-    listProblemPickerSources: async (
+      catalogRow(await client.resolveQuestion(questionId)),
+    questionPickerRepository,
+    listQuestionPickerSources: async (
       course,
       exclude,
-    ): Promise<ReadonlyArray<ProblemPickerSource>> => {
-      const collections = await client.listQuestionCollections();
+    ): Promise<ReadonlyArray<QuestionPickerSource>> => {
+      const folders = await client.listQuestionFolders();
       const reusable = await listReusableAssignments(client, course, exclude);
       const blueprintCourses = await listAllBlueprintCourses(client);
       const blueprintAssignments = await listBlueprintAssignmentSources(client, blueprintCourses);
       return [
-        { kind: "catalog", label: "Library" },
-        { kind: "mine", label: "My published questions" },
-        ...collections.items
-          .map((collection) => ({
-            kind: "collection" as const,
-            label: collection.title,
-            collection: collection.reference,
+        { kind: "library", label: "Library" },
+        { kind: "mine", label: "My Questions" },
+        ...folders.items
+          .map((folder) => ({
+            kind: "folder" as const,
+            label: folder.title,
+            folder: folder.reference,
           })),
         ...reusable.map((assignment) => ({
           kind: "retainedAssignment" as const,
@@ -210,7 +210,7 @@ async function listBlueprintAssignmentSources(
   client: ApiClient,
   courses: Awaited<ReturnType<ApiClient["listBlueprintCourses"]>>["items"],
 ): Promise<
-  ReadonlyArray<Extract<ProblemPickerSource, { readonly kind: "blueprintCourseAssignment" }>>
+  ReadonlyArray<Extract<QuestionPickerSource, { readonly kind: "blueprintCourseAssignment" }>>
 > {
   const currentCourses = await Promise.all(
     courses.map(async (course) => await client.getBlueprintCourse(course.reference)),

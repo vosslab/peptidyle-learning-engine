@@ -59,7 +59,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 **Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
 `QuestionDefinition`/`QuestionEnvelope` and private grading material. The trusted server bridge
-resolves immutable catalog asset bindings before issue, replay, or grade. The browser receives prompt
+resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt
 blocks, public response definition, asset references, version, and seed. It returns only the PLE
 response shape; it does not return source bytes, a private key, asset-object binding, implementation
 version, or a scoring decision.
@@ -76,7 +76,7 @@ hotspot lifecycle, remains open.
 
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
 bindings before generic grading or isolated flat grading. First flat grade reads only the issued
-checksummed flat grading contract; ordinary catalog and browser paths cannot read that material or
+checksummed flat grading contract; ordinary published-Question and browser paths cannot read that material or
 replace it with a current grader view. Provenance names the native adapter and grader, optional
 generator, bound objects, and rendered output hash.
 
@@ -110,7 +110,7 @@ answer binding.
 ### Grade, provenance, and scope
 
 `QtiBackend` obtains answer-bearing material only through separately injected, least-privilege
-`QtiGradingStore`. The normal catalog/object store resolves public archive and asset evidence but
+`QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
 asset mapping, or private binding no longer reproduces. Provenance records private-profile adapter,
 source artifact, bound assets, QTI private grader, and rendered envelope hash.
@@ -144,7 +144,7 @@ field/value mapping, converts durable choice identities to presentation-scoped r
 persists that mapping with the exact public snapshot, private grading envelope, and frozen WeBWorK
 definition. Normal grade reloads those validated artifacts, maps the student's rendered ID through
 the private envelope, and makes one private grade request. It does not reconstruct an issuance
-render or resolve a current catalog definition. The mapping never
+render or resolve a current published Question definition. The mapping never
 appears in an envelope, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free

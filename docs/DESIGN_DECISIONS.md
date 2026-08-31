@@ -108,18 +108,18 @@ acceptance evidence.
 
 **Decision.** An Instructor's mutable draft belongs to a private authoring workspace owned by that
 Instructor and shared only through an explicit workspace relationship. Publication mints one
-immutable QuestionVersion in the installation-wide shared catalog under a stable QuestionId
+immutable QuestionVersion in the installation-wide Question Library under a stable QuestionId
 lineage. The Question stewardship decision below classifies whether a later change creates another
 version in that lineage or a fork with a new QuestionId. Every published Assignment pin remains
 exactly resolvable in both Available and Archived states, with availability visible in the
-Instructor-safe catalog projection. Publication has one shared-catalog visibility contract.
+Instructor-safe Question Library view. Publication has one Question Library visibility contract.
 Selection eligibility is separate: Available versions appear in ordinary discovery and selection;
 Archived versions remain available through exact historical references. Student access remains bound to an
-assignment entitlement, and anonymous web access receives no catalog authority.
+assignment entitlement, and anonymous web access receives no Question Library authority.
 
 **Why.** This prevents the classic LMS failure where a later edit changes what an earlier Student
-was assessed on, while giving every Instructor an equal path to discover, collect, reuse, and
-improve shared educational content. Course-record deletion leaves the shared catalog intact.
+was assessed on, while giving every Instructor an equal path to discover, organize, reuse, and
+improve shared educational content. Course-record deletion leaves the Question Library intact.
 Keeping drafts private prevents unfinished material from reducing discovery quality.
 
 **Consequence.** Existing Assignments and issued Assignment Attempts retain their exact references. An Instructor
@@ -130,7 +130,7 @@ only; publication atomically records the version payload, lineage, source histor
 assigned `AAA-BBBB` Question ID names the durable lineage. The Question Version UUID is the sole
 immutable content identity used by exact Assignment and evidence pins.
 **Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[SECURITY_MODEL.md](SECURITY_MODEL.md#catalog-publication-boundary), and the identity/catalog rows
+[SECURITY_MODEL.md](SECURITY_MODEL.md#question-library-publication-boundary), and the Question Library rows
 in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
 
 **Implementation boundary.** PLE directly applies the no-drift design while it remains
@@ -174,11 +174,11 @@ proposal, rationale, automated validation, and Question Owner review lifecycle. 
 documentation analogy; the product implements these four
 explicit stewardship paths and their own domain lifecycle.
 
-Stars and favorites are one canonical concept: a star is a visible endorsement. Vetted Instructors
-may see a question's star count and the vetted Instructor identities that starred it. Watches
+Question Star is a visible endorsement. Vetted Instructors may see a Question's Star count and the
+vetted Instructor identities that starred it. Question Watches
 subscribe the watching Instructor to private in-app version, fork, improvement, and impact notices
 for the watched lineage or version. A published fork is visible to other vetted Instructors through
-the shared catalog, while its draft remains private to its creator-owned workspace. Students and
+the Question Library, while its draft remains private to its creator-owned workspace. Students and
 anonymous users see neither the star identity list nor watch state.
 
 **Why.** Stable lineage gives Instructors a durable object to recognize and follow while immutable
@@ -189,13 +189,14 @@ authorship, credit, licensing, and history.
 
 **Consequence.** Global evidence stores counts per exact QuestionVersion: accepted graded attempts,
 correct outcomes, and eligible choice counts for supported Question Types.
-The catalog exposes only privacy-safe labeled rollups after applicable disclosure thresholds are
-met.
+The Question Library exposes only privacy-safe labeled rollups after applicable disclosure
+thresholds are met.
 Instructor Student view and previews create no evidence; published-question references stay global,
-while Student records, delivery state, and private CourseInstance identity stay outside the corpus.
+while Student records, delivery state, and private CourseInstance identity stay outside the
+Question Library.
 **Owner.** [QUESTION_MODEL.md](QUESTION_MODEL.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/catalog.rs`,
+[CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/question_library.rs`,
 `crates/domain/src/statistics.rs`, and
 [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md#lineage-and-versions).
 
@@ -230,11 +231,11 @@ and course counts plus manifest status, but no Student identities, responses, gr
 CourseInstance identity. Replacement validation, manifest creation, Sysadmin approval, atomic
 reference advancement, reissue or excuse, superseding receipt, course remediation, and
 recalculation each append an attributable immutable record containing the authenticated Account, reason, time, and
-exact QuestionVersion references. The catalog labels the flawed version as superseded while
+exact QuestionVersion references. The Question Library labels the flawed version as superseded while
 retaining its original evidence and controlled historical resolution.
 **Owner.** [SECURITY_MODEL.md](SECURITY_MODEL.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/catalog.rs`,
+[CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/question_library.rs`,
 and `crates/domain/src/statistics.rs`.
 
 ### Instructor-facing problem identities are operational
@@ -255,7 +256,7 @@ published version keeps its stable QuestionId lineage or starts a new fork accor
 change class; an explicit source-history link names the source, and an Instructor deliberately replaces
 or opts in to a newer version for any assignment that should use it.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-philosophy),
-[`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/catalog.rs`, and
+[`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/question_library.rs`, and
 MOD-API-CAT in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
@@ -303,7 +304,7 @@ The creating Instructor owns a private draft through its authoring workspace. Af
 validation succeeds, an explicit publication makes the answer-free BlueprintCourse projection
 visible and reusable to every vetted Instructor. The BlueprintCourse contains ordered modules and
 assignments, reusable definitions, exact published-question pins, and reusable relative schedule
-defaults. Published questions remain part of the global shared catalog.
+defaults. Published questions remain part of the Question Library.
 
 **Why.** Blueprint and Alpha represented one reusable-course concept with different cardinality and
 access rules. One canonical aggregate keeps revision, question selection, publication, and reuse
@@ -325,11 +326,10 @@ explicit publish, fork, or propose-update path. New Blueprint assignments reach 
 CourseInstances as unreleased definitions and require an explicit instance release; propagation
 never silently releases or overwrites delivery state.
 
-Privacy-safe catalog evidence may describe global usage and disclosed learning evidence, but it
-never
-names a private CourseInstance. CourseInstance records, Student activity, grades, and other FERPA
+Privacy-safe Question Statistics may describe global usage and disclosed learning evidence, but they
+never name a private CourseInstance. CourseInstance records, Student activity, grades, and other FERPA
 state remain under exact course authorization even when their published question references remain
-discoverable in the global corpus.
+discoverable in the Question Library.
 **Owner.**
 [implementation_status.md](active_plans/implementation_status.md),
 [CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses),
@@ -495,19 +495,19 @@ no current endpoint treats CRC16 as a bearer token.
 
 ### One installation uses exact domain ownership
 
-**Decision.** PLE is one installation with global accounts and one shared published-question
-catalog. Private drafts belong to an Instructor-owned workspace. Courses, memberships,
+**Decision.** PLE is one installation with global accounts and one Question Library. Private drafts
+belong to an Instructor-owned workspace. Courses, memberships,
 assignments, Student work, grades, and audit evidence belong to an exact course; Student records
 also bind the Student owner. Every approved Instructor has the same product capabilities, while
 current direct course membership determines which FERPA records that Instructor may use.
 
 **Why.** Educational records need exact authorization, retention, and deletion. A shared question
-library should improve through discovery, collections, reuse, and evidence-backed replacement
+library should improve through discovery, Question Folders, reuse, and evidence-backed replacement
 without carrying Student identity or introducing an institution hierarchy.
 
 **Consequence.** Authentication resolves the Account from the server session. PostgreSQL forced RLS
 evaluates current course membership, Student ownership, private-workspace relationships, or the
-specific audited Sysadmin capability in the same transaction. Published catalog content is global
+specific audited Sysadmin capability in the same transaction. Published Question Library content is global
 and immutable. Background work and object delivery carry the smallest real owner such as the
 Course Instance, Authoring Workspace, Assignment, Assignment Attempt, or Question Attempt UUID.
 **Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
@@ -796,11 +796,28 @@ editing; the complete current task and primary save action should fit comfortabl
 **Why.** Task-level hierarchy is easier to teach and operate than a grid of equally padded cards.
 Separating content from policy prevents unrelated fields from competing on one page.
 
+### Product navigation exposes Questions through one library surface
+
+**Decision.** The Product Ribbon has four ordered slots: Courses, Question Library, Blueprint
+Courses, and Account. Question Library contains All Questions, My Questions, My Question Drafts,
+Starred, and Watched as its five Ribbon Tasks. The first three are library views; Starred and
+Watched are exact Account relationships to Questions.
+
+**Why.** The Product Ribbon stays organized by primary object type. Ownership, publication state,
+endorsement, and notification subscription remain distinct views of Questions instead of becoming
+competing top-level repositories.
+
+**Consequence.** Question Folders, tags, classifications, Saved Question Searches, and search
+facets organize or find Questions within those views. Star means visible endorsement, and Watch
+means private notification subscription.
+
 ### Instructor course navigation has one spatial owner
 
 **Decision.** The authorized course-route scope owns one Instructor course frame: stable course
-identity, one eight-tab course-management ribbon, and one content origin below it. Individual route
-pages own their task heading and workflow content, not another ribbon or course header.
+identity, one six-slot Course Instance Ribbon, and one content origin below it. Its ordered slots are
+Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, and Course Setup. Course
+Setup contains Grade Settings and Appearance as Ribbon Tasks. Individual route pages own their task
+heading and workflow content.
 
 **Why.** A persistent navigation landmark preserves spatial memory and makes a tab change feel like
 changing tasks inside one course instead of opening an unrelated page. Central ownership also keeps
@@ -822,21 +839,21 @@ and accessibility needs.
 
 **Decision.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) are the binding
-single-installation authorization contracts for Account identity, catalog
+single-installation authorization contracts for Account identity, Question Library
 publication, course records, private authoring, workers, objects, exports,
 retention, observer relationships, and Sysadmin support. Each protected
 operation resolves its Account from the active session and checks the durable
 owner and exact predicate those contracts define.
 
 **Why.** Every authorization decision needs an object that names its real scope.
-That keeps global catalog access, course records, private work, and worker leases
+That keeps Question Library access, course records, private work, and worker leases
 independently reviewable without relying on an ambient installation boundary.
 
 **Consequence.** Baseline relations, Store contracts, brokers, and acceptance
 cases derive their parent identifiers and predicates from those contracts.
 Observer and support relations remain narrow recorded grants, workers keep
 immutable typed targets and leases, and object delivery verifies its actual
-catalog, workspace, Course Instance, Student Record, or lease parent.
+Question Library, workspace, Course Instance, Student Record, or lease parent.
 
 **Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) for
 PostgreSQL authorization and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md)
@@ -849,7 +866,7 @@ in addition to its closed handler kind, generation fence, and opaque current
 lease. Course work records its exact Course Instance UUID and Assignment or
 Assignment Attempt UUID;
 workspace work records its Authoring Workspace UUID and import when applicable;
-catalog work records its exact immutable Question Version UUID; exports record
+Question Library work records its exact immutable Question Version UUID; exports record
 their Assignment Export UUID, Course Instance, frozen Manifest, and expected
 Artifact UUIDs. A worker
 broker compares handler kind, typed target, generation, unexpired lease, and

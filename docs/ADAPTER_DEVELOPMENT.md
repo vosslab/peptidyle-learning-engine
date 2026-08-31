@@ -67,7 +67,7 @@ Use the following sequence for a question-agnostic adapter.
    public rendered IDs through the protected grading envelope, and use retained immutable source
    provenance where a private grader needs it. A family that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
-   current catalog definition, grader, or renderer. Never trust browser-provided score,
+   current published Question definition, grader, or renderer. Never trust browser-provided score,
    correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.

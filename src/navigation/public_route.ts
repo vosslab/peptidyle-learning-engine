@@ -17,7 +17,7 @@ export type AssignmentRouteReference = AssignmentReference & BrandedRouteReferen
 export type AssignmentAttemptRouteReference = AssignmentAttemptReference &
   BrandedRouteReference<"assignmentAttempt">;
 export type WorkspaceRouteReference = AuthoringWorkspaceReference & BrandedRouteReference<"workspace">;
-export type ProblemRouteReference = BrandedRouteReference<"question">;
+export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
   | CourseRouteReference
@@ -90,11 +90,11 @@ export function parsePublicRouteReference(value: string): PublicRouteReference |
     parseWorkspaceReference(value)
   );
 }
-export function problemRouteReference(questionId: QuestionId): ProblemRouteReference {
-  const result = parseProblemRouteReference(questionId);
+export function questionRouteReference(questionId: QuestionId): QuestionRouteReference {
+  const result = parseQuestionRouteReference(questionId);
   if (result === null) throw new Error("question ID must use Crockford Base32");
   return result;
 }
-export function parseProblemRouteReference(value: string): ProblemRouteReference | null {
-  return normalizeQuestionIdSyntax(value) as ProblemRouteReference | null;
+export function parseQuestionRouteReference(value: string): QuestionRouteReference | null {
+  return normalizeQuestionIdSyntax(value) as QuestionRouteReference | null;
 }

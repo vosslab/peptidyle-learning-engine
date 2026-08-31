@@ -108,7 +108,7 @@ impl std::error::Error for CurriculumPinPositionError {}
 pub struct CurriculumPinReplacement {
     /// Exact fixed-item or pool-candidate coordinate selected by the server preview.
     pub position: CurriculumPinPosition,
-    /// Public Question ID selected through the shared ProblemPicker.
+    /// Public Question ID selected through the shared Question Picker.
     pub question: QuestionId,
 }
 

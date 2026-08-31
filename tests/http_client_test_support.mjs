@@ -26,7 +26,7 @@ export function issuedQuestionWireFixture(attempt, publishedProblem) {
   if (response.kind !== "multipleChoice")
     throw new Error("fixture requires multiple-choice response");
   return {
-    version: publishedProblem.version,
+    questionVersion: { questionId: "7K3-M9QP", versionNumber: 1 },
     seed: attempt.seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
     title: publishedProblem.metadata.title,

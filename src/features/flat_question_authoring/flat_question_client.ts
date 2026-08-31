@@ -1,10 +1,10 @@
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
 import type { QuestionType } from "../../../generated/api/QuestionType";
-import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
-  decodeCatalogQuestionSummary,
+  decodeQuestionSummary,
   decodeDraftQuestionDefinition,
   isAvailableNativeCatalogQuestionSummary,
 } from "../../api/decoders";
@@ -66,7 +66,7 @@ export interface FlatQuestionClient {
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
     revision: string,
-  ): Promise<CatalogQuestionSummary>;
+  ): Promise<QuestionSummary>;
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -285,7 +285,7 @@ export function createFlatQuestionClient(
     workspace: WorkspaceId,
     request: { readonly byline: PublicByline },
     revision: string,
-  ): Promise<CatalogQuestionSummary> {
+  ): Promise<QuestionSummary> {
     if (!isPublicByline(request.byline)) {
       throw new FlatQuestionProtocolError(
         "Flat-question publication requires one to sixteen reviewed author names",
@@ -309,14 +309,14 @@ export function createFlatQuestionClient(
       throw new FlatQuestionConflictError(response.status, path);
     if (!response.ok) throw new FlatQuestionRequestError(response.status, path);
     requireJson(response, path);
-    const summary = decodeCatalogQuestionSummary(
+    const summary = decodeQuestionSummary(
       decodeJson(await boundedText(response, path), path),
       path,
       true,
     );
     if (!isAvailableNativeCatalogQuestionSummary(summary)) {
       throw new FlatQuestionProtocolError(
-        "Flat-question publication response must be an available native catalog summary",
+        "Flat-question publication response must be an available native Question Library summary",
       );
     }
     return summary;

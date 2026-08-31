@@ -14,7 +14,7 @@ scope, dependency order, contracts, validation, and acceptance:
 The current pre-production reset is the one 36-file SD1 baseline
 (`2026082901` through `2026082936`). A clean PostgreSQL 17 volume applies that exact
 domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
-catalog probes. Earlier migration epochs are historical evidence only; they are not part of
+Question Library probes. Earlier migration epochs are historical evidence only; they are not part of
 the material schema contract. The status registry is the authority for package allocation
 and its recorded evidence.
 
@@ -111,7 +111,7 @@ later forward migration owned by an active package, with fresh/no-op migration e
 RLS evidence, and behavior tests justified by [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
 Keep fast pytest deterministic, offline, and behavioral. Do not add brittle assertions over dates,
-collection sizes, required key lists, hardcoded defaults, migration filenames, or complete catalog
+collection sizes, required key lists, hardcoded defaults, migration filenames, or complete Question Library
 output. External-network, Podman, PostgreSQL, lifecycle, browser, and restore checks remain
 explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 

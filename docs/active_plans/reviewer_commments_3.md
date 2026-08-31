@@ -284,7 +284,7 @@ The product model should also distinguish:
 - completion requirement: first time all required questions are correct
 - grade policy: first, latest, highest, or instructor-defined result
 - continued practice: unlimited new runs after completion
-- variation policy: new seeds, selected problem variants, or full regeneration
+- variation policy: new seeds, selected Question Variants, or full regeneration
 
 The architecture remains suitable, but the earlier 30-million-row estimate was too low. Peptidyle should be
 designed as a high-volume attempt-event system, not merely an assignment submission system.

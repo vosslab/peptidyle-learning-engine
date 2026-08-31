@@ -1,21 +1,21 @@
-// library_page.tsx - injected catalog browse surface; route wiring follows the server contract.
+// library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
 import { A } from "@solidjs/router";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
-import { ProblemCurationPanel } from "../features/problem_curation/problem_curation_panel";
-import type { ProblemCurationRepository } from "../features/problem_curation/problem_curation_model";
-import type { ProblemPickerSourceRepository } from "../features/problem_picker";
+import { QuestionCurationPanel } from "../features/question_curation/question_curation_panel";
+import type { QuestionCurationRepository } from "../features/question_curation/question_curation_model";
+import type { QuestionPickerSourceRepository } from "../features/question_picker";
 import "./library_page.css";
 import {
-  EMPTY_CATALOG_QUERY,
-  CatalogBrowseSession,
-  catalogVirtualWindow,
-  type CatalogBrowseQuery,
-  type CatalogBrowseRepository,
-  type CatalogBrowseRow,
-  type CatalogBrowseState,
+  EMPTY_QUESTION_SEARCH_QUERY,
+  QuestionSearchSession,
+  questionSearchVirtualWindow,
+  type QuestionLibraryRepository,
+  type QuestionSearchQuery,
+  type QuestionSearchResult,
+  type QuestionSearchState,
 } from "./library_page_model";
 
 /* Each virtual row reserves room for a title, two-line summary, byline, and taxonomy.
@@ -26,7 +26,7 @@ const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFra
 const wholeNumber = new Intl.NumberFormat("en-US");
 const decimalNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
-function catalogLink(row: CatalogBrowseRow): string {
+function questionLink(row: QuestionSearchResult): string {
   return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
@@ -55,9 +55,9 @@ function backendLabel(value: string): string {
   return labels[value] ?? value;
 }
 
-function CatalogEvidencePreview(props: { readonly row: CatalogBrowseRow }): JSX.Element {
+function QuestionStatisticsPreview(props: { readonly row: QuestionSearchResult }): JSX.Element {
   const availableEvidence = ():
-    Extract<CatalogBrowseRow["evidence"], { readonly state: "available" }> | undefined =>
+    Extract<QuestionSearchResult["evidence"], { readonly state: "available" }> | undefined =>
     props.row.evidence.state === "available" ? props.row.evidence : undefined;
   return (
     <p class="catalog-row-evidence" aria-label="Learning evidence">
@@ -79,16 +79,16 @@ function CatalogEvidencePreview(props: { readonly row: CatalogBrowseRow }): JSX.
 }
 
 export interface LibraryPageProps {
-  readonly repository: CatalogBrowseRepository;
-  readonly curation: ProblemCurationRepository;
-  readonly pickerRepository: ProblemPickerSourceRepository;
+  readonly repository: QuestionLibraryRepository;
+  readonly curation: QuestionCurationRepository;
+  readonly pickerRepository: QuestionPickerSourceRepository;
   readonly mayMutatePersonalCuration: boolean;
 }
 
-/** Catalog UI with the production repository injected by the route composition. */
+/** Question Library UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
-  const [query, setQuery] = createSignal<CatalogBrowseQuery>(EMPTY_CATALOG_QUERY);
-  const [state, setState] = createSignal<CatalogBrowseState>({
+  const [query, setQuery] = createSignal<QuestionSearchQuery>(EMPTY_QUESTION_SEARCH_QUERY);
+  const [state, setState] = createSignal<QuestionSearchState>({
     kind: "loading",
     rows: [],
     aggregates: [],
@@ -97,9 +97,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
   const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
-  const session = new CatalogBrowseSession(props.repository, setState);
+  const session = new QuestionSearchSession(props.repository, setState);
 
-  const ready = (): Extract<CatalogBrowseState, { readonly kind: "ready" }> | undefined => {
+  const ready = (): Extract<QuestionSearchState, { readonly kind: "ready" }> | undefined => {
     const current = state();
     return current.kind === "ready" ? current : undefined;
   };
@@ -125,15 +125,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.facet === facet);
   };
-  const displayedRows = (): ReadonlyArray<CatalogBrowseRow> => {
+  const displayedRows = (): ReadonlyArray<QuestionSearchResult> => {
     const current = state();
     return current.kind === "empty" ? [] : current.rows;
   };
   const virtualWindow = (): Readonly<{
     readonly offset: number;
-    readonly rows: ReadonlyArray<CatalogBrowseRow>;
+    readonly rows: ReadonlyArray<QuestionSearchResult>;
   }> =>
-    catalogVirtualWindow(
+    questionSearchVirtualWindow(
       displayedRows(),
       scrollTop(),
       viewportHeight(),
@@ -141,7 +141,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       OVERSCAN_ROWS,
     );
 
-  function changeQuery(change: Partial<CatalogBrowseQuery>): void {
+  function changeQuery(change: Partial<QuestionSearchQuery>): void {
     const next = { ...query(), ...change };
     setQuery(next);
     setScrollTop(0);
@@ -190,7 +190,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         </A>
       </p>
       <p class="sr-only" role="status" aria-live="polite">
-        {state().kind === "loading" ? "Loading catalog results." : ""}
+        {state().kind === "loading" ? "Loading Question Library results." : ""}
       </p>
       <form class="catalog-controls" onSubmit={(event) => event.preventDefault()}>
         <label>
@@ -327,7 +327,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
       </form>
-      <ProblemCurationPanel
+      <QuestionCurationPanel
         repository={props.curation}
         pickerRepository={props.pickerRepository}
         query={query}
@@ -374,9 +374,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                       By {row.byline.join(", ")}
                     </p>
                     <p class="catalog-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
-                    <CatalogEvidencePreview row={row} />
+                    <QuestionStatisticsPreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />
-                    <A class="quiet-link" href={catalogLink(row)}>
+                    <A class="quiet-link" href={questionLink(row)}>
                       Open question
                     </A>
                   </article>

@@ -120,7 +120,7 @@ Blueprint reader access to a private CourseInstance.
 crates/server/src/
 +- auth/                     Account, session, passkey, and preflight behavior
 +- course/                   Course, membership, Student, assignment, and Gradebook routes
-+- catalog/                  Shared published-question discovery and publication
++- catalog/                  Question Library discovery and publication
 +- reusable_curriculum.rs    BlueprintCourse HTTP route family
 `- curriculum_adoption/     CourseInstance adoption, rollover, and update routes
 +- route_policy.rs           Method and route security policy

@@ -10,7 +10,7 @@ export interface RouteContract {
     | "assignmentAttempt"
     | "assignmentAttemptSummary"
     | "library"
-    | "problemDetail"
+    | "questionDetail"
     | "curriculum"
     | "curriculumDetail"
     | "workspaceList"
@@ -88,8 +88,8 @@ export const ROUTE_CONTRACT = [
     requiredRoles: ["instructor", "sysadmin"],
   },
   {
-    id: "problemDetail",
-    path: "/library/:problemRef",
+    id: "questionDetail",
+    path: "/library/:questionRef",
     surface: "Published question detail",
     requiredRoles: ["instructor", "sysadmin"],
   },

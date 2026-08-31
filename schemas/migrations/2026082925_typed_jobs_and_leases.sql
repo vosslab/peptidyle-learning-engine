@@ -15,7 +15,7 @@ CREATE TABLE ple_private.worker_job (
         'publish_public_assets'
     )),
     target_kind text NOT NULL CHECK (target_kind IN (
-        'course_assignment', 'course_attempt', 'course_retention', 'catalog_version',
+        'course_assignment', 'course_attempt', 'course_retention', 'question_version',
         'export', 'workspace_import', 'qti_import', 'public_asset_publication'
     )),
     course_id uuid REFERENCES ple_data.course_instance (course_id),
@@ -42,7 +42,7 @@ CREATE TABLE ple_private.worker_job (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT worker_job_assignment_parent_matches FOREIGN KEY (course_id, assignment_id)
         REFERENCES ple_data.assignment (course_id, assignment_id),
-    CONSTRAINT worker_job_catalog_version_matches FOREIGN KEY (question_id, version_number)
+    CONSTRAINT worker_job_question_version_matches FOREIGN KEY (question_id, version_number)
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT worker_job_target_shape_is_exact CHECK (
         (target_kind = 'course_assignment' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
@@ -57,7 +57,7 @@ CREATE TABLE ple_private.worker_job (
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
             AND question_id IS NULL AND version_number IS NULL AND export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
-        OR (target_kind IN ('catalog_version', 'public_asset_publication') AND question_id IS NOT NULL
+        OR (target_kind IN ('question_version', 'public_asset_publication') AND question_id IS NOT NULL
             AND version_number IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
             AND export_id IS NULL AND source_object_id IS NULL AND expected_object_id IS NULL)

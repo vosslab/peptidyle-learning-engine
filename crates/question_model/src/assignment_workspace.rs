@@ -108,7 +108,7 @@ pub enum AssignmentPoliciesValidationIssue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentPolicyConfigurationReason {
-    SelectedProblemVariantsWithQuestionPools,
+    SelectedQuestionVariantsWithQuestionPools,
 }
 
 /// Closed structural-content refusal for a question definition with issued
@@ -317,7 +317,7 @@ mod tests {
             issues: vec![
                 AssignmentPoliciesValidationIssue::Configuration {
                     reason:
-                        AssignmentPolicyConfigurationReason::SelectedProblemVariantsWithQuestionPools,
+                        AssignmentPolicyConfigurationReason::SelectedQuestionVariantsWithQuestionPools,
                 },
                 AssignmentPoliciesValidationIssue::PublicationReadiness {
                     blocking_issues: vec![AssignmentPublicationBlockingIssue::QuestionsRequired],
@@ -333,7 +333,7 @@ mod tests {
                 "issues": [
                     {
                         "kind": "configuration",
-                        "reason": "selectedProblemVariantsWithQuestionPools"
+                        "reason": "selectedQuestionVariantsWithQuestionPools"
                     },
                     {
                         "kind": "publicationReadiness",

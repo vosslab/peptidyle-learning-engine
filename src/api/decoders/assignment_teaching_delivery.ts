@@ -21,7 +21,7 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeStudentDisclosurePolicy } from "./assignment_policy";
-import { decodeAssignmentEntry, decodeAssignmentReference } from "./catalog_course";
+import { decodeAssignmentEntry, decodeAssignmentReference } from "./question_library";
 
 export function decodeStudentAssignmentLandingSummary(
   value: unknown,
@@ -341,7 +341,7 @@ export function decodeInstructorStudentView(
     ),
     variation: decodeStringEnum(field(record, "variation", path), `${path}.variation`, [
       "newSeeds",
-      "selectedProblemVariants",
+      "selectedQuestionVariants",
       "fullRegeneration",
     ] as const),
     disclosurePolicy: decodeStudentDisclosurePolicy(

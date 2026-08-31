@@ -1,14 +1,72 @@
 # Changelog
 
+## 2026-08-31
+
+### Changes
+
+- Expanded the visible-endorsement reassignment row to cover its singular and plural outgoing
+  labels. The Tier 1 audit counter uses the singular search form so one contextual review covers
+  both forms; Question Star remains the canonical visible-endorsement relationship.
+
 ## 2026-08-30
 
 ### Changes
 
-- Replaced Catalog Problem summary/detail contracts and client operations with Catalog Question
-  contracts. Rust, regenerated browser types, strict decoders, runtime cache, authoring consumers,
-  and assignment lookup now use Question-only names with no compatibility aliases.
+- Replaced the authored-Published-Question picker label with My Questions. It resolves through the
+  current Account's authored Question search instead of representing a separate Personal Question
+  Library.
 
-- Rebuilt the database structure map from the active `2026082901`–`2026082936`
+- Replaced the remaining active Question Corpus product labels with Question Library in published
+  Question statistics and authoring publication UI. The shared installation-wide library remains
+  the one authoritative Published Question surface.
+
+- Replaced the retired Question Collection boundary with Question Folder throughout the fresh
+  schema baseline, Rust model, generated browser contract, same-origin HTTP routes, curation UI,
+  Question Picker, and focused tests. A Folder remains an Account-owned organization of published
+  Question references; it grants neither Question authority nor editing authority.
+
+- Aligned the current documentation set with the owner-selected Question Library model. The Product
+  Ribbon has Courses, Question Library, Blueprint Courses, and Account; Question Library contains
+  All Questions, My Questions, My Question Drafts, Starred, and Watched; and the Course Instance
+  Ribbon contains Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, and
+  Course Setup. Star is the visible endorsement relationship, Watch is the private notification
+  subscription, and Question Folder is the Account-owned organizational structure. The terminology
+  checklist now tracks the remaining code and schema corrections separately from the canonical
+  contract.
+
+- Replaced the shared Problem Picker with the Question Picker across its source package, accessible
+  UI namespace, Assignment Editor integration, reusable-curriculum and Question Curation consumers,
+  and focused Node test ownership. The canonical picker selects published Questions rather than
+  introducing a separate PLE concept.
+
+- Replaced the Assignment policy's Selected Problem Variants contract with Selected Question
+  Variants. The Question Model, regenerated browser contract, strict decoders, policy UI, focused
+  summary test, and current design documentation now use the exact Question term.
+
+- Replaced the Saved Problem Search record contract with Saved Question Search. The Question Model,
+  regenerated browser types, strict decoders, API client operations, and Question Curation state
+  now use the exact owned record name and its edit number. The shared Question Collection,
+  Saved Question Search, and Blueprint Course title-validation contract now carries the same
+  Question Curation name. The Curation client, ETag, conflict error, state, panel, repository,
+  picker composition, focused tests, canonical source paths, Playwright scenario, artifact IDs,
+  scenario registration, and documented screenshots now use Question Curation names. The Saved
+  Question Search HTTP route is now `/api/saved-question-searches` in the same client and
+  real-stack wire-observation boundary.
+
+- Replaced the `CatalogProblemSummary` and `CatalogProblemDetail` contracts and client operations
+  with Catalog Question names. Rust, regenerated browser types, strict decoders, runtime cache,
+  authoring consumers, and assignment lookup now use `CatalogQuestionSummary` and
+  `CatalogQuestionDetail`. The answer-free search row is now `QuestionCatalogEntry`, combining
+  that exact summary with disclosed discovery evidence in Catalog search and reusable-curriculum
+  projections. Shared HTTP fixtures now construct the exact Question Version and issued-
+  presentation envelope contracts used by those strict decoders.
+
+- Replaced the Catalog detail route's PLE-owned Problem vocabulary with Question vocabulary.
+  `QuestionDetailPage`, `questionDetail`, `questionRef`, and `QuestionRouteReference` now carry
+  the `/library/:questionRef` boundary through route contracts, navigation validation, browser
+  surfaces, and focused tests.
+
+- Rebuilt the database structure map from the active `2026082901`-`2026082936`
   pre-production migration baseline. It now names current physical owners and removes the
   deleted-migration inventory that incorrectly claimed retired files and group policy tables existed.
 
@@ -127,7 +185,7 @@
 - Replaced the grading-operations list's generic grouping boundary with a closed Grading
   Operation Focus and exact Grading Operation Subject. The strict decoder, same-origin query,
   client contract, pagination state, controls, tests, and API contract now use `focus` and
-  `subject`; visible controls say “Show by Question” or “Show by Student.” The focused browser
+  `subject`; visible controls say `Show by Question` or `Show by Student`. The focused browser
   contracts, TypeScript check, and whitespace gate pass.
 
 - Replaced the browser catalog aggregate's generic `group` field with `facet`. Library and

@@ -113,7 +113,7 @@ Any approved (vetted) Instructor may use **Full Fork** on a published
 version. Full Fork creates a private Draft Question with the Instructor's own
 authorship, source attribution, and a source-compatible CC license. The draft
 remains private to its creator's workspace until validation succeeds. Its
-successful publication enters the one shared catalog with a new Question ID and
+successful publication enters the shared Question Library with a new Question ID and
 visible source/version ancestry. The fork author writes the independent fork.
 
 **Question Change Proposal** is a separate contribution path. Any approved (vetted)
@@ -145,12 +145,12 @@ same Question Version UUID rather than a mutable latest pointer. A Student
 receives content only through server-authorized Assignment Access for that
 exact pin.
 
-Catalog metrics are keyed to the exact QuestionVersion. The version-specific
+Question Statistics are keyed to the exact QuestionVersion. The version-specific
 evidence family may contain accepted graded-attempt count, correct count, and
 eligible choice-selection counts for supported Question Types. The
 formula version and disclosure threshold travel with the safe rollup. Below the
 threshold the projection reports insufficient evidence and contains only the
-safe aggregate. Catalog metrics count accepted Student work; preview traffic and
+safe aggregate. Question Statistics count accepted Student work; preview traffic and
 Instructor Student View remain separate.
 
 ## Question Star and Question Watch
@@ -160,7 +160,7 @@ Instructors may see the Star count and the identities of approved Instructors
 who starred. This is an Approved-Instructor projection.
 
 Watch is a private Account-scoped in-app subscription for version, fork,
-improvement, and impact notices. Each Account sees only its own watch list and watch
+improvement, and impact notices. Each Account sees only its own Watch list and Watch
 state. Exact stored relationships continue to supply course, Student,
 workspace, publication, and grading authority.
 
@@ -195,8 +195,8 @@ grades, private course-instance identity, or other FERPA-bearing records.
 ## Authorization boundary
 
 Question IDs are public references, not bearer credentials. A valid ID does not
-grant catalog access, reveal whether a question exists to an unauthorized
-caller, establish ownership, or grant course or Student authority. Catalog
+grant Question Library access, reveal whether a question exists to an unauthorized
+caller, establish ownership, or grant course or Student authority. Question Library
 resolution requires an authenticated approved Instructor. Student delivery
 requires the exact assignment entitlement. Anonymous callers cannot browse,
 search, resolve, or inspect a Question ID.
@@ -218,7 +218,7 @@ The implementation is complete when:
 - same-lineage and fork classes follow the semantic rules above;
 - assignments, attempts, and evidence retain exact version pins;
 - fork drafts remain private until validated publication and published forks are
-  visible in the approved-Instructor catalog;
+  visible in the Question Library for approved Instructors;
 - Star projections are approved-Instructor-only and Watch state is private;
 - version metrics are withheld until their formula-versioned threshold is met;
 - correction mappings are Sysadmin-approved, atomic, bounded, and audited;
@@ -231,7 +231,7 @@ The implementation is complete when:
 - [PROBLEM_IDENTITY.md](PROBLEM_IDENTITY.md) defines hidden identity domains,
   lifecycle, attempts, and presentation-scoped IDs.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines the answer-free question model,
-  catalog projections, semantic changes, and correction boundary.
+  Question Library browser projections, semantic changes, and correction boundary.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines Account,
   membership, projection, and Sysadmin support authority.
 - [API_CONTRACTS.md](API_CONTRACTS.md) maps these rules to routes and payloads.

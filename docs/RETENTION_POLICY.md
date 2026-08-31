@@ -1,6 +1,6 @@
 # Student-record retention policy
 
-Peptidyle is one installation with global accounts and a shared published-question corpus. It
+Peptidyle is one installation with global accounts and a shared Question Library. It
 separates reusable learning content from course-owned educational records. A `BlueprintCourse`
 is the reusable, answer-free course definition; it has no Students, enrollments, deadlines, or
 retention state. A `CourseInstance` is the exact teaching `CourseId` created from one immutable
@@ -8,8 +8,8 @@ BlueprintCourse parent and applied revision. It owns copied assignment definitio
 deadlines, releases, delivery settings, and the resulting educational records.
 
 Retention targets one exact `CourseInstance`. A published question, its immutable versions, the
-shared question corpus, and a `BlueprintCourse` remain outside that CourseInstance lifecycle. A
-published problem can remain in the shared catalog after every student record for a CourseInstance
+Question Library, and a `BlueprintCourse` remain outside that CourseInstance lifecycle. A
+Published Question can remain in the Question Library after every student record for a CourseInstance
 is gone. This is both the sharing model and the deletion boundary.
 
 This document defines the intended product retention boundary. The current SD1 baseline implements
@@ -144,9 +144,9 @@ The deleted student graph includes:
 
 The purge retains:
 
-- published problems, immutable versions, source artifacts, catalog metadata, taxonomy, and
+- Published Questions, immutable versions, source artifacts, Question Library metadata, taxonomy, and
   licensing;
-- the shared published-question corpus and every `BlueprintCourse`, including its reusable
+- the Question Library and every `BlueprintCourse`, including its reusable
   assignment definitions and immutable revisions;
 - instructor drafts and private workspaces;
 - backend capability metadata;

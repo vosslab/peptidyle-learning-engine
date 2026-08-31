@@ -2,7 +2,7 @@
 
 import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
-import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedPublicByline } from "../../api/public_byline";
 import { FlatFeedbackFields } from "./flat_feedback_fields";
 import { hotspotSourceFromAsset } from "./flat_hotspot_editor_model";
@@ -152,7 +152,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
   const [review, setReview] = createSignal<Review | null>(null);
   const [reviewLoading, setReviewLoading] = createSignal(false);
   const [bylineText, setBylineText] = createSignal("");
-  const [publishedSummary, setPublishedSummary] = createSignal<CatalogQuestionSummary>();
+  const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;
@@ -766,7 +766,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
             <Show when={publishedSummary()} keyed>
               {(summary) => (
                 <>
-                  {/* ASVS 1.2.1: server-validated catalog fields render as Solid text, not HTML. */}
+                  {/* ASVS 1.2.1: server-validated Question Library fields render as Solid text, not HTML. */}
                   <p>
                     <strong>Question:</strong> {summary.metadata.title}
                   </p>
@@ -774,7 +774,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>
                   </p>
                   <p>
-                    <strong>Published to:</strong> Question Corpus
+                    <strong>Published to:</strong> Question Library
                   </p>
                   <p>
                     <strong>By:</strong> {summary.byline.names.join(", ")}

@@ -190,7 +190,7 @@ browser or cache.
 Issued native-flat and WeBWorK attempts also retain checksummed, server-only
 first-grade contracts. A first grade validates its family-owned contract and
 fails unavailable if required material is absent or corrupt; it does not reread
-a current catalog definition, private flat grader, or renderer to repair an
+a current published Question definition, private flat grader, or renderer to repair an
 earlier issuance.
 
 The normal run route threads that private mapping from

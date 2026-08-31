@@ -4,7 +4,7 @@
 // - src/wasm/context.tsx:46 owns the WebAssembly runtime status label and data attribute.
 // - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns the editor fields,
 //   publication buttons, and published status.
-// - src/pages/library_page.tsx:117 and src/pages/problem_detail_page.tsx:24 own library search,
+// - src/pages/library_page.tsx:117 and src/pages/question_detail_page.tsx:24 own library search,
 //   question cards, and prompt regions.
 // - src/pages/course_list_page.tsx, src/pages/course_assignments_page.tsx, and
 //   src/pages/assignment_workspace/ own the visible course and assignment workflow.
@@ -130,9 +130,9 @@ test.describe("instructor authoring on the production PLE stack", () => {
       expect(questionId).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
       await questionCard.getByRole("link", { name: "Open question", exact: true }).click();
       await expect(elena.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
-      await expect(elena.getByRole("region", { name: "Problem prompt" })).toContainText(prompt);
+      await expect(elena.getByRole("region", { name: "Question prompt" })).toContainText(prompt);
 
-      await elena.getByRole("link", { name: "Return to problem library", exact: true }).click();
+      await elena.getByRole("link", { name: "Return to question library", exact: true }).click();
       await expect(
         elena.getByRole("heading", { name: "Question library", exact: true }),
       ).toBeVisible();

@@ -55,7 +55,7 @@ an account, membership, or database object key as an authorization input.
 
 | Scope | Authority | Normal concealed result |
 | --- | --- | --- |
-| Shared catalog | Authenticated approved-Instructor access plus visible lifecycle policy | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`. |
+| Question Library | Authenticated approved-Instructor access plus visible lifecycle policy | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`. |
 | Course | Persisted direct `course_member` relationship | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority. |
 | Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role | Student-facing Store reads and mutations require one active Student assignment entitlement in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
 | Workspace | Exact workspace owner/collaborator relationship | Student, foreign, and unshared workspaces share an absent projection. |
@@ -80,7 +80,7 @@ and HTTP status behavior remain in the linked owner.
 ## Deferred delivery routes
 
 The following product capabilities remain authoritative design targets, not
-mounted routes: shared Question Catalog and lifecycle; private authoring and
+mounted routes: Question Library and lifecycle; private authoring and
 QTI import; Blueprint Course and Course Instance creation; Course Roster and
 Course Enrollment; assignment authoring, direct Student Accommodations, and
 Student delivery; automated grading, Gradebook, Student-work inspection, and
@@ -89,9 +89,9 @@ future route composition must be Store-backed, relationship-authorized, and
 tested against the disposable PostgreSQL stack before this document can list
 their paths as available.
 
-### Shared catalog and Student entitlement
+### Question Library and Student entitlement
 
-The catalog is one installation-wide Instructor surface. Every authenticated
+The Question Library is one installation-wide Instructor surface. Every authenticated
 approved Instructor can browse, search, resolve, and inspect the safe published
 question content referenced by any course. `Published`, `Deprecated`, and
 `Archived` are all discoverable states; the response labels the state and any
@@ -127,7 +127,7 @@ replacement path below. The UI action is **Suggest an improvement**; any
 GitHub analogy is documentation-only and carries no API or authorization
 meaning.
 
-Catalog evidence is version-specific. After the configured disclosure
+Question Statistics are version-specific. After the configured disclosure
 threshold, a safe rollup may expose accepted-attempt, graded-attempt, and
 correct counts plus eligible-choice selection counts for supported choice
 Question Types. Below the threshold the counts remain unavailable. The rollup never
@@ -158,8 +158,8 @@ append-only audited.
 Student delivery is a separate authority path. A Student receives a question
 only when the server grants an exact assignment entitlement for that
 authenticated Student, active Student membership, exact course and assignment,
-assignment audience and lifecycle, and current policy. Catalog visibility never
-grants Student delivery. Anonymous requests receive no catalog authority and
+assignment audience and lifecycle, and current policy. Question Library visibility never
+grants Student delivery. Anonymous requests receive no Question Library authority and
 cannot browse, search, resolve, or inspect a Question ID.
 
 Shared question visibility does not weaken course privacy. An approved
@@ -343,7 +343,7 @@ question/version/seed tuple.
 
 | Browser may receive | Browser must not receive |
 | --- | --- |
-| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public catalog metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, authenticated-session context, database provenance, or raw provider results |
+| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public Question Library metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, authenticated-session context, database provenance, or raw provider results |
 
 An instructor's private author preview is a distinct, authorized exception for
 display-ready correct-response teaching material. It is not a Student route and

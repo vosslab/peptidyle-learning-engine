@@ -41,11 +41,11 @@ immutable Blueprint parent and applied revision are server-owned.
 | /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship          |
 | `/assignment-attempts/:assignmentAttemptId` (target)                   | Student Assignment Attempt                         | Issued Assignment Attempt and Student entitlement   |
 | `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                         |
-| /library                                                               | Shared question catalog                            | Vetted Instructor catalog authority                 |
+| /library                                                               | Question Library                                   | Vetted Instructor Question Library authority        |
 | /curriculum                                                            | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
 | /curriculum/:blueprintRef                                              | BlueprintCourse detail/editor                      | Blueprint reference plus active session             |
-| /workspace                                                             | Private question workspace                         | Workspace relationship                              |
-| /workspace/:workspaceRef                                               | Draft editor and preview                           | Workspace relationship                              |
+| /workspace                                                             | My Question Drafts                                 | Workspace relationship                              |
+| /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                              |
 | /instructor/courses/:courseRef/assignments/new                         | New assignment draft                               | Current course Instructor                           |
 | /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                       |
 | /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                 |
@@ -103,7 +103,7 @@ sends a complete definition with the observed revision, and preserves the local
 draft after a stale or invalid response.
 
 A published projection contains only answer-free definitions, reviewed byline,
-public Question IDs, safe catalog summaries, current publication state, and
+public Question IDs, safe Question Library summaries, current publication state, and
 disclosed evidence context. It contains no answer key, private source,
 response, grading payload, internal UUID, email, Student, or CourseInstance
 record.

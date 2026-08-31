@@ -5,9 +5,9 @@ import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CatalogQuestionDetail } from "../../generated/api/CatalogQuestionDetail";
-import type { CatalogSearchPage } from "../../generated/api/CatalogSearchPage";
-import type { CatalogSearchQuery } from "../../generated/api/CatalogSearchQuery";
+import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
+import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
@@ -33,8 +33,8 @@ export interface ApiRuntime<Client extends ApiClient = ApiClient> {
   readonly client: Client;
   readonly queries: {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
-    readonly catalogSearch: QueryFunction<[CatalogSearchQuery], CatalogSearchPage>;
-    readonly catalogDetail: QueryFunction<[QuestionId], CatalogQuestionDetail>;
+    readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
+    readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
     readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
@@ -57,13 +57,13 @@ export function createApiRuntime<Client extends ApiClient>(client: Client): ApiR
     client,
     queries: {
       courses: query(() => client.listCourses(), "course-list"),
-      catalogSearch: query(
-        (search: CatalogSearchQuery) => client.searchCatalog(search),
-        "catalog-search",
+      questionSearch: query(
+        (search: QuestionSearchRequest) => client.searchQuestionLibrary(search),
+        "question-search",
       ),
-      catalogDetail: query(
-        (questionId: QuestionId) => client.getCatalogQuestionDetail(questionId),
-        "catalog-detail",
+      questionDetails: query(
+        (questionId: QuestionId) => client.getQuestionDetails(questionId),
+        "question-details",
       ),
       gradebook: query(
         (courseId: CourseId) => client.getCalculatedGradebook(courseId),

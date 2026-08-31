@@ -10,9 +10,9 @@ const baseInput = {
     completion: { kind: "scoreAtLeast", fraction: 0.8 },
     grade: "instructorSelected",
     continuedPractice: { kind: "capped", maxAdditionalRuns: 3 },
-    variation: "selectedProblemVariants",
+    variation: "selectedQuestionVariants",
   },
-  runPolicyDraft: { completionFraction: "0.75", additionalRuns: "2" },
+  activityRuleDraft: { completionFraction: "0.75", additionalRuns: "2" },
   disclosurePolicy: {
     score: "after_submit",
     per_item_correctness: "after_submit",
@@ -42,8 +42,8 @@ test("current-draft summary covers every Policies-owned decision in readable cop
 
   assert.match(valueFor("completion"), /75%/);
   assert.match(valueFor("grade"), /Instructor-selected/);
-  assert.match(valueFor("continuedPractice"), /2 additional runs/);
-  assert.match(valueFor("variation"), /selected problem variants/);
+  assert.match(valueFor("continuedPractice"), /2 additional Assignment Attempts/);
+  assert.match(valueFor("variation"), /selected Question Variants/);
   assert.match(valueFor("savedDelivery"), /open now/);
   assert.match(valueFor("lifecycle"), /Published/);
   assert.match(valueFor("lifecycle"), /Student instructions included/);
@@ -62,7 +62,7 @@ test("current-draft summary covers every Policies-owned decision in readable cop
 test("current-draft summary surfaces invalid unsaved limits without stale values", () => {
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
-    runPolicyDraft: { completionFraction: "1.2", additionalRuns: "-1" },
+    activityRuleDraft: { completionFraction: "1.2", additionalRuns: "-1" },
     timeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
   });
@@ -73,7 +73,7 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
   assert.match(completion, /needs correction/);
   assert.doesNotMatch(completion, /75%/);
   assert.match(practice, /needs correction/);
-  assert.doesNotMatch(practice, /2 additional runs/);
+  assert.doesNotMatch(practice, /2 additional Assignment Attempts/);
   assert.match(schedule, /time limit needs correction/);
   assert.match(schedule, /attempt limit needs correction/);
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);

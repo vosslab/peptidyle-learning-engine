@@ -4,7 +4,7 @@ import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
-import { MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS";
+import { MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
@@ -23,7 +23,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeStudentDisclosurePolicy } from "./assignment_policy";
-import { decodeCatalogQuestionSummary } from "./catalog_course";
+import { decodeQuestionSummary } from "./question_library";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
 
 const MAX_PAGE_SIZE = 100;
@@ -35,7 +35,7 @@ function text(value: unknown, path: string): string {
   const decoded = decodeNonemptyString(value, path);
   if (
     decoded !== decoded.trim() ||
-    Array.from(decoded).length > MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS
+    Array.from(decoded).length > MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS
   ) {
     throw new DecodeError(path, "trimmed Blueprint Course text within its shared bound");
   }
@@ -197,7 +197,7 @@ function defaults(value: unknown, path: string): unknown {
       variation: decodeStringEnum(
         field(policies, "variation", `${path}.activity_rules`),
         `${path}.activity_rules.variation`,
-        ["newSeeds", "selectedProblemVariants", "fullRegeneration"],
+        ["newSeeds", "selectedQuestionVariants", "fullRegeneration"],
       ),
     },
     student_disclosure: decodeStudentDisclosurePolicy(
@@ -367,7 +367,7 @@ function questionView(value: unknown, path: string): void {
   requireOnlyFields(record, path, ["catalog", "selection_availability"]);
   const catalog = decodeRecord(field(record, "catalog", path), `${path}.catalog`);
   requireOnlyFields(catalog, `${path}.catalog`, ["summary", "evidence"]);
-  decodeCatalogQuestionSummary(
+  decodeQuestionSummary(
     field(catalog, "summary", `${path}.catalog`),
     `${path}.catalog.summary`,
     true,

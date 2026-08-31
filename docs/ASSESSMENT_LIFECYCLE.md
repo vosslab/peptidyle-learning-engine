@@ -46,7 +46,7 @@ PLE keeps four related but different things separate:
 | Thing | Owner and lifetime | Important identity |
 | --- | --- | --- |
 | Draft | Instructor workspace; private and mutable | `WorkspaceId` |
-| Published question | Shared immutable catalog content | `QuestionId` and `QuestionVersionNumber` |
+| Published question | Shared immutable Question Library content | `QuestionId` and `QuestionVersionNumber` |
 | Assignment activity | One course's teaching configuration | Course and assignment IDs |
 | Student activity | Course-owned educational record | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
@@ -77,7 +77,7 @@ draft and trusted adapter capability declaration.
 The draft editor uses a strong revision precondition. A stale save, review,
 conversion, deletion, or publication request conflicts instead of overwriting
 newer author work. A failure leaves the prior draft intact and creates neither
-a public catalog identity nor a partial publication.
+a public Question identity nor a partial publication.
 
 ### 2. Validate delivery capabilities
 
@@ -227,7 +227,7 @@ enrollment pointers, summary projection, successor receipt, and immutable
 idempotency receipt together. The completed receipt copies the issued,
 answer-free `PresentationEnvelopeV1` and exact public `AssetBindingV1` snapshot.
 Replay and status reads therefore use durable accepted or completed evidence,
-never a newer catalog/backend render, and never re-grade an answer.
+never a newer published Question/backend render, and never re-grade an answer.
 
 ### 11. Return a policy-projected receipt
 
@@ -242,7 +242,7 @@ time, and the submitted fact; the request cannot choose it. The historical S3
 receipt remains immutable attempt evidence, not a disclosure input.
 `nextPending` means the grade receipt succeeded but successor
 delivery has not; recovery may finish that single pending delivery, while a
-replay never resubmits or consults changed catalog/backend state. Withheld
+replay never resubmits or consults changed published Question/backend state. Withheld
 feedback remains withheld even though the result is persisted. An instructor or
 gradebook view reads the summary projection and lazily paged history rather
 than recomputing a grade by scanning all attempts. A separate scoring freshness
@@ -264,7 +264,7 @@ the same source format.
 
 | Family | Publication authority | Render authority | Grade authority | Important recovery rule |
 | --- | --- | --- | --- | --- |
-| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current catalog/grader view |
+| Native flat | PLE compiles author source into public definition and server-only key | PLE public renderer | PLE native grader | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
 | QTI | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled | Reparse the checksum-pinned archive; refuse unsupported profile features |
 | WeBWorK | PLE copies licensed PG/PGML source and provenance into immutable storage | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration | Provider launch/session is server-mediated | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score |

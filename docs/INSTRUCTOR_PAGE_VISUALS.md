@@ -29,7 +29,7 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | Blueprint detail        | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                |
 | Assignment overview     | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                            |
 | Student assignment page | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                              |
-| New assignment          | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and catalog entry points                               |
+| New assignment          | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and Question Library entry points                      |
 | Assignment Questions    | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                   |
 | Assignment Policies     | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                 |
 | Assignment Student view | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free Student landing with Instructor identity active            |
@@ -38,10 +38,10 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | Gradebook               | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                        |
 | Grade settings          | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                  |
 | Course appearance       | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context               |
-| Question library        | `/library`                                                   | Full-width search, filters, Question IDs, and published results                         |
-| Question detail         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, and Student-facing prompt                        |
-| Workspace               | `/workspace`                                                 | Private question drafts and the currently selected draft workspace                      |
-| Question editor         | `/workspace/W-1`                                             | QTI import entry and native flat-question authoring                                     |
+| Question Library        | `/library`                                                   | All Questions, My Questions, My Question Drafts, Starred, Watched, Question Search, filters, Question IDs, and published results |
+| Question Details        | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt   |
+| My Question Drafts      | `/workspace`                                                 | Private Question drafts and the selected Question draft                                  |
+| My Question Draft editor | `/workspace/W-1`                                            | QTI import entry and native flat-question authoring                                     |
 | Live Demo sign-in       | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                        |
 | Curriculum adoption     | `/instructor/courses/:courseRef/curriculum`                  | Blueprint source selection, update proposal, rollover, term shift, and receipt evidence |
 
@@ -81,7 +81,7 @@ passkey authentication adapters.
 ![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
 ![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
-![Instructor question curation workspace](screenshots/instructor/problem_curation/01_curation_workspace_laptop.png)
+![Instructor question curation workspace](screenshots/instructor/question_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable Blueprint workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
 <!-- screenshots:end -->

@@ -139,7 +139,7 @@ export function assignmentPolicyDraftSummary(
   } as const;
   const variation = {
     newSeeds: "Use new seeds",
-    selectedProblemVariants: "Use selected problem variants",
+    selectedQuestionVariants: "Use selected Question Variants",
     fullRegeneration: "Fully regenerate",
   } as const;
   const lifecycle = {

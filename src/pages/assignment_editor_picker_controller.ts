@@ -14,7 +14,7 @@ import {
   type AssignmentPickerIntent,
 } from "./assignment_editor_picker_model";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
-import type { ProblemPickerSelection, ProblemPickerSource } from "../features/problem_picker";
+import type { QuestionPickerSelection, QuestionPickerSource } from "../features/question_picker";
 
 export type AssignmentPickerMode =
   /** A persisted workspace assignment whose Questions draft saves as one focused replacement. */
@@ -39,13 +39,13 @@ export interface AssignmentEditorPickerControllerProps {
 }
 
 export interface AssignmentEditorPickerController {
-  readonly sources: Accessor<ReadonlyArray<ProblemPickerSource>>;
+  readonly sources: Accessor<ReadonlyArray<QuestionPickerSource>>;
   readonly intent: Accessor<AssignmentPickerIntent | undefined>;
   readonly pendingSelection: Accessor<PendingPickerSelection | undefined>;
   readonly trigger: () => HTMLButtonElement | undefined;
   readonly loadSources: () => Promise<void>;
   readonly open: (intent: AssignmentPickerIntent, trigger: HTMLButtonElement) => void;
-  readonly useSelection: (selection: ProblemPickerSelection) => Promise<void>;
+  readonly useSelection: (selection: QuestionPickerSelection) => Promise<void>;
   readonly retryPendingSelection: () => Promise<void>;
   readonly cancel: () => void;
   readonly maximum: (intent: AssignmentPickerIntent) => number;
@@ -63,7 +63,7 @@ async function resolveRows(
 export function createAssignmentEditorPickerController(
   props: AssignmentEditorPickerControllerProps,
 ): AssignmentEditorPickerController {
-  const [sources, setSources] = createSignal<ReadonlyArray<ProblemPickerSource>>([]);
+  const [sources, setSources] = createSignal<ReadonlyArray<QuestionPickerSource>>([]);
   const [intent, setIntent] = createSignal<AssignmentPickerIntent>();
   const [pendingSelection, setPendingSelection] = createSignal<PendingPickerSelection>();
   let pickerTrigger: HTMLButtonElement | undefined;
@@ -120,7 +120,7 @@ export function createAssignmentEditorPickerController(
     );
   }
 
-  async function useSelection(selection: ProblemPickerSelection): Promise<void> {
+  async function useSelection(selection: QuestionPickerSelection): Promise<void> {
     const currentIntent = intent();
     if (currentIntent === undefined || props.editorBusy()) return;
     props.setBusy(true);
@@ -160,10 +160,10 @@ export function createAssignmentEditorPickerController(
   async function loadSources(): Promise<void> {
     try {
       setSources(
-        await props.repository.listProblemPickerSources(props.courseId, props.mode.assignmentId),
+        await props.repository.listQuestionPickerSources(props.courseId, props.mode.assignmentId),
       );
     } catch {
-      setSources([{ kind: "catalog", label: "Library" }]);
+      setSources([{ kind: "library", label: "Library" }]);
       props.onMessage(
         "Collections could not load. The Library and direct Question ID entry are ready.",
       );

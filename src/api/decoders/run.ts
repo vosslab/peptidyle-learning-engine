@@ -19,7 +19,7 @@ import type { StudentAssignmentLandingSummary } from "../../../generated/api/Stu
 import type { AttemptProvenance } from "../../../generated/api/AttemptProvenance";
 import type { AttemptStatus } from "../../../generated/api/AttemptStatus";
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
-import type { CatalogQuestionSummary } from "../../../generated/api/CatalogQuestionSummary";
+import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
 import type { QuestionAttempt } from "../../../generated/api/QuestionAttempt";
@@ -74,7 +74,7 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
-import { decodeStudentAssignmentLandingSummary } from "./catalog_course";
+import { decodeStudentAssignmentLandingSummary } from "./question_library";
 import { decodeGeneratorReference, decodeSelectionCardinality } from "./question_model";
 import {
   decodeAttemptResult,
@@ -83,10 +83,10 @@ import {
 } from "./question_delivery";
 import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
 import {
-  decodeCatalogQuestionSummary,
+  decodeQuestionSummary,
   decodeCourseRouteData,
   decodeCourseSummary,
-} from "./catalog_course";
+} from "./question_library";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
   "presentationEnvelope",
@@ -329,7 +329,7 @@ export function decodeAssignmentAttempt(value: unknown, path = "response"): Assi
     score: decodeNullable(field(record, "score", path), `${path}.score`, decodeFiniteNumber),
     variation: decodeStringEnum(field(record, "variation", path), `${path}.variation`, [
       "newSeeds",
-      "selectedProblemVariants",
+      "selectedQuestionVariants",
       "fullRegeneration",
     ]),
   } satisfies AssignmentAttempt;
@@ -675,9 +675,9 @@ export function decodePrefetchedNextQuestion(
 export function decodeCatalogPage(
   value: unknown,
   path = "response",
-): CursorPage<CatalogQuestionSummary> {
+): CursorPage<QuestionSummary> {
   return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeCatalogQuestionSummary(item, itemPath, true),
+    decodeQuestionSummary(item, itemPath, true),
   );
 }
 

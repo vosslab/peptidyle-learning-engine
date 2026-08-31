@@ -3,49 +3,49 @@
 import { useParams } from "@solidjs/router";
 import { createSignal, onMount, type JSX } from "solid-js";
 
-import { createCatalogRepository } from "../api/catalog_repository";
+import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { useApiRuntime } from "../api/runtime";
 import { useSessionBootstrap } from "../auth/session_context";
 import {
-  problemCurationPickerSources,
+  questionCurationPickerSources,
   mayMutatePersonalCuration,
-} from "../features/problem_curation/problem_curation_model";
-import { createProblemCurationRepository } from "../features/problem_curation/problem_curation_repository";
+} from "../features/question_curation/question_curation_model";
+import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
 import { CurriculumDetailRoutePage } from "./curriculum_detail_route_page";
 import { CurriculumRoutePage } from "./curriculum_route_page";
 
 interface CurriculumRouteComposition {
   readonly client: ReturnType<typeof useApiRuntime>["client"];
-  readonly pickerRepository: ReturnType<typeof createProblemCurationRepository>["picker"];
-  readonly pickerSources: () => ReturnType<typeof problemCurationPickerSources>;
+  readonly pickerRepository: ReturnType<typeof createQuestionCurationRepository>["picker"];
+  readonly pickerSources: () => ReturnType<typeof questionCurationPickerSources>;
 }
 
 /** Connects the live curation sources shared by curriculum definition editors. */
 function useCurriculumRouteComposition(): CurriculumRouteComposition {
   const runtime = useApiRuntime();
   const session = useSessionBootstrap();
-  const catalog = createCatalogRepository(runtime.client);
-  const curation = createProblemCurationRepository(runtime.client, catalog);
-  const [collections, setCollections] = createSignal<
+  const catalog = createQuestionLibraryRepository(runtime.client);
+  const curation = createQuestionCurationRepository(runtime.client, catalog);
+  const [folders, setFolders] = createSignal<
     ReadonlyArray<
-      import("../../generated/api/QuestionCollectionSummaryView").QuestionCollectionSummaryView
+      import("../../generated/api/QuestionFolderSummaryView").QuestionFolderSummaryView
     >
   >([]);
 
-  async function loadCollections(): Promise<void> {
-    const page = await curation.curation.listCollections(null);
-    setCollections(page.items);
+  async function loadFolders(): Promise<void> {
+    const page = await curation.curation.listFolders(null);
+    setFolders(page.items);
   }
 
-  onMount(() => void loadCollections());
+  onMount(() => void loadFolders());
 
   return {
     client: runtime.client,
     pickerRepository: curation.picker,
-    pickerSources: (): ReturnType<typeof problemCurationPickerSources> => {
+    pickerSources: (): ReturnType<typeof questionCurationPickerSources> => {
       const sessionState = session.state();
-      return problemCurationPickerSources(
-        collections(),
+      return questionCurationPickerSources(
+        folders(),
         mayMutatePersonalCuration(
           sessionState.kind === "authenticated" ? sessionState.session : undefined,
         ),

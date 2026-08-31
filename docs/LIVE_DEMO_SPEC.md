@@ -5,7 +5,7 @@ baseline is seeded data. Any visitor may directly select one of five seeded Acco
 Instructor, or Sysadmin. The selection replaces only identity verification; the server resolves the configured
 global Account and issues the ordinary Authenticated Session. Visible course selection is
 limited by exact current course membership, Student records by Student ownership, and the shared tagged
-published-question catalog by approved-Instructor authority. All resulting data is ordinary live data. The data is
+Question Library by approved-Instructor authority. All resulting data is ordinary live data. The data is
 disposable because the entire installation can be regenerated, not because accounts, records, or roles behave
 differently.
 
@@ -82,36 +82,36 @@ viewport. Student captures use the maintained `laptop` (1280 by 800), `tablet` (
 `tests/e2e/browser_screenshot_corpus.json`, the durable visual-evidence authority. Review each applicable capture for
 semantic usability, accessibility, privacy, and task completion.
 
-### WebWork catalog baseline
+### WebWork Question Library baseline
 
-The frozen baseline contains one reviewed WebWork catalog item, **Biochemistry: Identify hydrophobic compounds
+The frozen baseline contains one reviewed WebWork Question Library item, **Biochemistry: Identify hydrophobic compounds
 from formulas**. The host-only baseline installer validates the tracked source provenance and digest, writes its
-immutable private source, and reconciles the catalog publication. It provides the browser-suite owner only the
-public Question ID and title needed to find the item through the Library.
+immutable private source, and publishes the Question. It provides the browser-suite owner only the
+public Question ID and title needed to find the item through the Question Library.
 
-This catalog publication is infrastructure bootstrap rather than teaching state. It creates no course,
+This Question Library publication is infrastructure bootstrap rather than teaching state. It creates no course,
 assignment, roster member, invitation, Student run, or submission. Instructor and Student journeys create those
 ordinary PLE records through the visible interface. The private source, object identity, renderer configuration,
 credentials, and answer material remain outside browser receipts and screenshots.
 
-The catalog-only installer accepts the publishing Instructor, migration/database, and private-storage coordinates
-required to reconcile that publication. It writes to the one shared catalog and does not accept or retain a Student
+The Question Library installer accepts the publishing Instructor, migration/database, and private-storage coordinates
+required to publish that Question. It writes to the one shared Question Library and does not accept or retain a Student
 identity because no Student record belongs to this bootstrap boundary.
 
 ### Question stewardship workflow
 
-The live stewardship journey uses one vetted Instructor and the shared catalog. Star is the canonical visible
+The live stewardship journey uses one vetted Instructor and the shared Question Library. Star is the canonical visible
 endorsement: the Instructor stars a published question, and vetted-Instructor question detail shows its star count
 and the identities of vetted Instructors who starred it. Watch is separate and private to the current Instructor's
 in-app subscription; changes appear in Watched activity because email delivery is not configured. Student and
-anonymous flows expose neither star identities nor watch state. Collections and saved searches remain separate
+anonymous flows expose neither star identities nor watch state. Question Folders and Saved Question Searches remain separate
 features. The question detail shows the immutable published version represented by its Question ID and its visible
 fork lineage. The hidden exact `(QuestionId, QuestionVersionNumber)` remains server evidence and never becomes browser authority.
 
 The Instructor forks that publication into a private draft, validates it, and publishes the fork as a new immutable
-Question ID. The catalog then shows the visible source/fork lineage and a controlled-update impact item. The Instructor
+Question ID. The Question Library then shows the visible source/fork lineage and a controlled-update impact item. The Instructor
 can inspect privacy-safe, version-specific aggregate evidence for attempts, correct outcomes, and eligible choices.
-Those aggregates apply the catalog disclosure threshold and contain no Student identity, raw response, answer key,
+Those aggregates apply the Question Statistics disclosure threshold and contain no Student identity, raw response, answer key,
 grading payload, or private source.
 
 Assignments in a Blueprint Course and Course Instance remain pinned to their exact published Question ID and hidden
@@ -125,9 +125,9 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create courses.
 - Create assignments.
 - Create problems.
-- Use the Library to browse the one global tagged published-question corpus available to approved Instructors,
-  inspect its safe evidence, save searches, organize collections, and select a question for an
-  assignment. Keep each unpublished question inside its private authoring workspace until publication succeeds.
+- Use the Question Library to browse All Questions available to approved Instructors,
+  inspect Question Details and safe Question Statistics, save Question Searches, organize Question Folders, and select a Question for an
+  assignment. Keep each unpublished Question in My Question Drafts until publication succeeds.
 - Star and watch a published question, confirm the vetted-Instructor star count and identities on its detail, and
   find watched changes in the private in-app Watched activity view. Inspect its immutable version and visible fork
   lineage, and review privacy-safe version-specific attempt, correct-outcome, and eligible-choice evidence. Student
@@ -202,7 +202,7 @@ The demo should allow a Student to use the normal student workflows, including:
 
 Student activity in the demo is normal live PLE data. Ordinary demo Student entry creates real graded work through
 the visible assignment flow, and the Instructor sees the resulting score and authorized evidence in the gradebook.
-Students cannot browse the shared published-question catalog; they receive only the exact questions entitled by their
+Students cannot browse the shared Question Library; they receive only the exact Questions entitled by their
 current course membership and assignment.
 
 ## Sysadmin perspective
@@ -250,7 +250,7 @@ PLE state. The selector does not supply or grant a
 browser-controlled role, course, membership, or account claim.
 
 The browser selects only a known demo persona. Account identity, Instructor approval, exact course membership,
-Student ownership, shared-catalog visibility, and authorization continue to be derived by the server from normal PLE
+Student ownership, Question Library visibility, and authorization continue to be derived by the server from normal PLE
 state.
 
 Bound selector traffic by caller network and by the live-demo deployment as a whole. Seeded personas are public
@@ -275,7 +275,7 @@ Conceptually:
 
 After authentication, there is no separate demo application path. The selector's fixed seed correlation value, if
 used by the disposable harness, remains private bootstrap metadata and never becomes account, session, course,
-catalog, or browser authority.
+Question Library, or browser authority.
 
 ## Passkey enrollment and sign-in
 

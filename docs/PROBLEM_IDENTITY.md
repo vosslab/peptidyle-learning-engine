@@ -12,7 +12,7 @@ version number. Presentation-scoped response IDs are a third, deliberately
 temporary contract.
 
 The model lives primarily in `crates/question_model/src/identity.rs`,
-`activity.rs`, `catalog.rs`, `definition.rs`, and `presentation/`. The exact
+`activity.rs`, `question_library.rs`, `definition.rs`, and `presentation/`. The exact
 Student wire contract is owned by
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md); this document
 does not turn an identifier into authorization or grading authority.
@@ -89,7 +89,7 @@ read or change the record.
 
 ### Human-facing Question ID
 
-`QuestionId` is the stable catalog identity presented to a person. Its
+`QuestionId` is the stable Question Library identity presented to a person. Its
 canonical form is `AAA-BBBB`: six random Crockford Base32 identity characters
 plus one server-validated HMAC-SHA256 character. It is non-sequential and
 copyable. One Question ID names one published question lineage; each immutable
@@ -124,7 +124,7 @@ deprecation explanations. The pure transition receives the publication pair;
 the server publication flow records the immutable payload, authorship, and
 provenance atomically. There is no restore transition. Every published state
 remains discoverable and exactly resolvable to an approved Instructor, and the
-catalog visibly labels Deprecated or Archived state and its reason.
+Question Library visibly labels Deprecated or Archived state and its reason.
 
 PLE controls question evolution through explicit semantic change classes.
 Transport-size limits protect request handling and do not define compatibility.
@@ -139,7 +139,7 @@ publishes the replacement only through that controlled workflow.
 Major objective, Question Type, task, or other incompatible changes require
 a fork. Any approved Instructor may start a fork from a published version, but
 the fork draft is private to its creator until validation succeeds. Publication
-then enters the global catalog with a new `QuestionId`, a new immutable
+then enters the Question Library with a new `QuestionId`, a new immutable
 `QuestionVersionNumber`, and exact `derivedFrom` ancestry to the source Question ID and
 version. The source author does not lose ownership or receive implicit write
 access to the fork. Improvement threads remain attached to the preserved
@@ -174,7 +174,7 @@ stewardship from assignment composition: a future assignment update changes
 only after its revision check, while issued snapshots continue to use their
 original exact pair.
 
-All successful publications enter one installation-wide shared catalog visible
+All successful publications enter one installation-wide Question Library visible
 to approved Instructors. Publication has no publication-scope field, selector,
 filter, or separate branch. Private editable work remains a workspace-owned
 draft until validation and publication succeed.
@@ -184,23 +184,23 @@ metadata for a question referenced by another course. That shared content
 visibility does not grant access to the other course's assignment composition,
 Student assignment entitlement, Student records, or course management data.
 Every assignment item references a Question ID already in this shared
-published catalog. Drafts remain private until they validate and publish; an
+Question Library. Drafts remain private until they validate and publish; an
 assignment cannot contain assignment-private question content.
 
 Star is one vetted-Instructor-visible endorsement per Question ID. Approved
-Instructors may see the star count and the identities of vetted Instructors who starred;
-Students and anonymous callers see neither the identity list nor star state. A
-watch is a private Account-scoped notification subscription for versions, forks,
+Instructors may see the Star count and the identities of vetted Instructors who starred;
+Students and anonymous callers see neither the identity list nor Star state. A
+Watch is a private Account-scoped notification subscription for versions, forks,
 improvements, and impact events; it never grants course or Student authority.
 Improvement threads are preserved as non-authoritative discussion records and
 retain their source, successor, and fork ancestry.
 
-Catalog evidence is version-specific. After the configured disclosure
+Question Statistics are version-specific. After the configured disclosure
 threshold, the safe rollup may expose accepted-attempt count, graded-attempt
 count, correct count, and eligible-choice selection counts for supported choice
 Question Types. Before the threshold, the values remain unavailable; raw responses,
 small cells, and linkable cohorts never appear. Preview traffic and the
-Instructor Student view contribute no catalog metrics.
+Instructor Student view contributes no Question Statistics.
 
 ### ForcedQuestionCorrection
 
@@ -245,7 +245,7 @@ A Student receives question content only through an exact server-authorized
 assignment entitlement: the authenticated Student, active Student membership,
 exact `CourseId`, exact `AssignmentId`, assignment audience and lifecycle, and
 current policy must agree in the protected transaction. A Student cannot use
-the shared Instructor catalog to obtain assignment content.
+the shared Question Library to obtain assignment content.
 
 The compact route
 `POST /api/courses/{courseId}/assignments/{assignmentId}/attempts/{attemptId}/submissions`
@@ -326,7 +326,7 @@ It must not silently issue a new seed or grade a stale answer.
 - `QuestionAttemptId` identifies the server-owned grading context; it is not a
   bearer capability.
 - A compact rendered ID is local to one presentation and never becomes a
-  durable database or catalog identity.
+  durable database or Question Library identity.
 - CRC16 and a presentation digest add consistency evidence only; they never
   replace authenticated server-side grading or Account-scoped forced RLS.
 

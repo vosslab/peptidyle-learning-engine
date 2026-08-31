@@ -337,7 +337,7 @@ pub struct WorkspaceDraftSummary {
     /// Human-facing draft title.
     pub title: String,
     /// Question Backend without its private source locator.
-    pub source_backend: crate::catalog::QuestionBackend,
+    pub source_backend: crate::question_library::QuestionBackend,
 }
 
 impl DraftQuestionDefinition {
@@ -347,7 +347,7 @@ impl DraftQuestionDefinition {
             workspace: self.workspace,
             reference,
             title: self.metadata.title.clone(),
-            source_backend: crate::catalog::QuestionBackend::from(&self.source),
+            source_backend: crate::question_library::QuestionBackend::from(&self.source),
         }
     }
 }

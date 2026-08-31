@@ -99,10 +99,10 @@ pub struct CourseMembershipReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
-/// An authorized locator for one private Question Collection.
+/// An authorized locator for one private Question Folder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct QuestionCollectionReference(NonZeroU32);
+pub struct QuestionFolderReference(NonZeroU32);
 /// An authorized locator for one personal saved Question Search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -136,9 +136,9 @@ impl_reference!(
     "Course Invitation reference"
 );
 impl_reference!(
-    QuestionCollectionReference,
+    QuestionFolderReference,
     "QC",
-    "question-collection reference"
+    "question-folder reference"
 );
 impl_reference!(
     SavedQuestionSearchReference,
@@ -261,7 +261,7 @@ mod tests {
             "CI-2147483648"
         );
         assert_reference_wire!(
-            QuestionCollectionReference,
+            QuestionFolderReference,
             "QC-131",
             "QS-131",
             "QC-0",

@@ -20,7 +20,7 @@ data use domain identifiers.
 
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
-  catalog, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,
+  Question Library, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,
   exact course/Student FERPA authorization, deterministic automated grading, Sysadmin-approved
   `ForcedQuestionCorrection` replacement evidence, the affected-owner register, and the fresh
   migration epoch. A1-A4 implementation and the A5 pre-acceptance documentation slice are
@@ -96,7 +96,7 @@ data use domain identifiers.
 - **SD1-B3 curation preparatory receipts:** `WP-SD1-B3-B1` is independently accepted for the
   server-only `QuestionStar` relation intent. Its private fields are only the global `AccountId`
   owner and lineage `QuestionId`; it has no installation scope, institution, session, role, Student, version,
-  collection, source, or answer data, has no Serde boundary, and is publicly reachable only as
+  Question Folder, source, or answer data, has no Serde boundary, and is publicly reachable only as
   `learning_data_access::QuestionStar` through the crate root. Construction and accessors express
   relation presence only; authenticated-session resolution, approved-Instructor authorization, and idempotent
   persistence remain protected service/Store work. `WP-SD1-B3-B2` is independently accepted for
@@ -105,11 +105,11 @@ data use domain identifiers.
   `QuestionWatchNoticeKind` has exactly `Version`, `Fork`, `ImprovementThread`, and `Impact`.
   Watch has no installation scope, institution, session, role, Student, delivery, notification-preference,
   browser, source, or answer data, has no Serde boundary, and remains non-authorizing; delivery
-  belongs to a later service layer. The Star and Watch receipts do not claim collections, saved
-  searches, sharing, selection, SD1-C/D persistence or services, or B5/browser work. `WP-SD1-B3`
+  belongs to a later service layer. The Star and Watch receipts do not claim Question Folders, Saved
+  Question Searches, sharing, selection, SD1-C/D persistence or services, or B5/browser work. `WP-SD1-B3`
   remains incomplete pending those boundaries; focused format/check, the existing 141-warning
   baseline, direct source-size checks, and independent `ACCEPT` cover only these value contracts.
-- **SD1-B3-B3 preparatory collection receipt:** `WP-SD1-B3-B3` is independently accepted after
+- **SD1-B3-B3 preparatory Question Folder receipt:** `WP-SD1-B3-B3` is independently accepted after
   the report 40 identity-opacity correction and report 43 final recheck, with reports 34 and 38
   recording the approved architecture and implementation evidence. `NamedQuestionCollection`
   owns a new opaque server identity, immutable global `AccountId` owner, canonical validated title,
@@ -118,9 +118,9 @@ data use domain identifiers.
   child module is private and the selected API is crate-rooted; no browser, installation scope, institution,
   sharing, route, Serde, or authorization path enters this value contract. Eight focused
   deterministic behavioral tests pass. `WP-SD1-B3` remains incomplete pending saved searches,
-  collection sharing, selection, SD1-C/D Store/PostgreSQL/RLS/service work, B5, and browser/live
+  Question Folder sharing, selection, SD1-C/D Store/PostgreSQL/RLS/service work, B5, and browser/live
   work; this receipt claims no runtime, persistence, or browser acceptance.
-- **SD1-B3-B5 preparatory collection-sharing receipt:** `WP-SD1-B3-B5` is independently accepted
+- **SD1-B3-B5 preparatory Question Folder-sharing receipt:** `WP-SD1-B3-B5` is independently accepted
   after report 46's `REVISE` and report 47's final `ACCEPT`, using report 42's architecture and
   report 45's implementation evidence. `NamedQuestionCollectionShare` is one server-only,
   non-Serde, non-authorizing, recipient-specific relation over an exact existing
@@ -149,7 +149,7 @@ data use domain identifiers.
   `response_families`, `taxonomy`, `capabilities`, `licenses`, `evidence`, `used_in_my_courses`,
   and `authorship`), and one positive storage-safe revision. The aggregate has no installation scope, course,
   saved-owner identity, cursor, page size, route, DTO, browser, or Serde boundary; reruns use a fresh
-  current-catalog query, with account-bound filters evaluated for the rerunning Account. Its revision-CAS
+  current-Question-Library query, with account-bound filters evaluated for the rerunning Account. Its revision-CAS
   boundary rejects stale expected revisions with explicit expected/actual evidence before candidate
   work, makes normalization-equivalent state an `Unchanged` no-op, increments changed state exactly
   once, and refuses checked exhaustion without mutation. Eight deterministic full-target behavior
@@ -189,16 +189,16 @@ data use domain identifiers.
   retained visible pin before updating, preserving the Published-only ordinary-new-selection rule.
   These focused acceptance and maintenance receipts keep `WP-SD1-B3` and SD1-C/D/browser/live/
   aggregate completion open.
-- **SD1-B3 catalog-scope query-retirement receipt:** `WP-SD1-B3-CATALOG-SCOPE-QUERY-RETIREMENT`
+- **SD1-B3 Question Library scope query-retirement receipt:** `WP-SD1-B3-CATALOG-SCOPE-QUERY-RETIREMENT`
   is independently reviewed `ACCEPT-PREPARATORY` under report 41 and implementation reports
-  49-54, with report 55's final review. One no-scope, direct `snake_case` catalog and saved-search
+  49-54, with report 55's final review. One no-scope, direct `snake_case` Question Library and Saved Question Search
   meaning now converges across the Rust query roots, Memory and PostgreSQL query code, server
   parsing and saved-search boundary, regenerated TypeScript contracts, and browser clients,
   feature models, and tests. The passing focused gates are `cargo fmt --all --check`, focused
-  `question_model` catalog-facet tests (3/3), Memory catalog search (13/13 plus the shared-corpus
-  test 1/1), the PostgreSQL cursor-fingerprint test (1/1), server catalog-query (2/2), server
-  catalog HTTP (4/4), saved-search HTTP (7/7), `cargo tools tsgen` (482 declarations), both
-  repository TypeScript configurations, the six-file catalog/curation/picker Node lane (33/33),
+  `question_model` Question Library-facet tests (3/3), Memory Question Library search (13/13 plus the shared-Question-Library
+  test 1/1), the PostgreSQL cursor-fingerprint test (1/1), server Question Library query (2/2), server
+  Question Library HTTP (4/4), Saved Question Search HTTP (7/7), `cargo tools tsgen` (482 declarations), both
+  repository TypeScript configurations, the six-file Question Library/curation/picker Node lane (33/33),
   and the source-line-limit check (1,856/1,856). `WP-SD1-B3` and this package remain incomplete
   pending the fresh SD1-C schema/broker rewrite and its connected live PostgreSQL oracle, followed
   by the required final material-tree gates. Record-level `PublicationScope` remains a separately
@@ -343,7 +343,7 @@ removed. They were not declared by the active data-access crate and referenced a
 Submission Receipt remains allocated only with its exact immutable evidence and active Store boundary.
 
 The SD1 baseline schema now stores every immutable Question Version as the canonical
-`(question_id, version_number)` pair. Composite foreign keys cover catalog lifecycle, stewardship,
+`(question_id, version_number)` pair. Composite foreign keys cover Question Library lifecycle, stewardship,
 private grading, Issued Questions, analysis, corrections, Jobs, external-tool state, and object
 delivery. The fresh/no-op staged PostgreSQL acceptance and restricted principal probes pass.
 
@@ -545,8 +545,8 @@ C4-IA1 retains the later direct route/browser contract.
 2026-08-29. Runtime composition now has one automated evaluation owner: deterministic completion,
 answer-free exception state, bounded retry/recalculation, immutable grading evidence, calculated
 Gradebook totals, and roster score export. Migration `2026081883` closes the parallel manual
-receipt, binder, policy, table, and catalog values while preserving mature invalidation function
-bodies through exact fail-closed catalog rewrites and unchanged identity, owner, ACL, configuration,
+receipt, binder, policy, table, and Question Library values while preserving mature invalidation function
+bodies through exact fail-closed Question Library rewrites and unchanged identity, owner, ACL, configuration,
 and security-mode assertions. The audit found no reachable manual-scoring mutation path; the
 assignment-level score-download surface is retired, and decoder plus route-policy checks keep its
 former inputs unavailable.
@@ -854,9 +854,9 @@ SD1-C records the exact replacement ledger.
 | `2026082904`              | `WP-SD1-C`             | WebAuthn ceremonies and passkeys                                                                                                                                                                    |
 | `2026082905`              | `WP-SD1-C`             | Instructor vetting, current approval predicates, and role predicates                                                                                                                                |
 | `2026082906`              | `WP-SD1-C`             | Authenticated-session resolver, installer, and session RLS broker                                                                                                                                   |
-| `2026082907`              | `WP-SD1-C`             | Shared catalog roots and immutable versions                                                                                                                                                         |
+| `2026082907`              | `WP-SD1-C`             | Question Library roots and immutable versions                                                                                                                                                       |
 | `2026082908`              | `WP-SD1-C`             | Question Publication and Question Version Availability evidence                                                                                                                                      |
-| `2026082909`              | `WP-SD1-C`             | Catalog lineage, proposals, Stars, Watches, and improvement audit                                                                                                                                   |
+| `2026082909`              | `WP-SD1-C`             | Question Library lineage, proposals, Stars, Watches, and improvement audit                                                                                                                          |
 | `2026082910`              | `WP-SD1-C`             | Workspaces, immutable Workspace Collaborator Events, and private authoring roots                                                                                                                  |
 | `2026082911`              | `WP-SD1-C`             | BlueprintCourse tree, immutable revisions, question-version pins, and minimal-Blueprint construction                                                                                                |
 | `2026082912`              | `WP-SD1-C`             | Collections, saved searches, and authoring projections                                                                                                                                              |

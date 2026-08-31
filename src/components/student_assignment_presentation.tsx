@@ -144,8 +144,8 @@ function formatLateStatus(value: StudentLateStatus): string {
 
 function formatVariation(variation: VariationPolicy | undefined): string {
   if (variation === "newSeeds") return "Each attempt uses new question seeds.";
-  if (variation === "selectedProblemVariants") {
-    return "Each attempt selects problem variants.";
+  if (variation === "selectedQuestionVariants") {
+    return "Each attempt selects Question Variants.";
   }
   if (variation === "fullRegeneration") return "Each attempt is fully regenerated.";
   return "Each attempt is a fresh variation.";

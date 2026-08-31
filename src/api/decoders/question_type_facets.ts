@@ -3,17 +3,17 @@
 import { MAX_CATALOG_TAXONOMY_FACETS } from "../../../generated/api/MAX_CATALOG_TAXONOMY_FACETS";
 import { MAX_CATALOG_BYLINE_FACETS } from "../../../generated/api/MAX_CATALOG_BYLINE_FACETS";
 import { MAX_CATALOG_TAG_FACETS } from "../../../generated/api/MAX_CATALOG_TAG_FACETS";
-import type { CatalogBackendFacet } from "../../../generated/api/CatalogBackendFacet";
-import type { CatalogBylineFacet } from "../../../generated/api/CatalogBylineFacet";
-import type { CatalogCapabilityFacet } from "../../../generated/api/CatalogCapabilityFacet";
-import type { CatalogEvidenceFacet } from "../../../generated/api/CatalogEvidenceFacet";
-import type { CatalogLicenseFacet } from "../../../generated/api/CatalogLicenseFacet";
-import type { CatalogLicenseValue } from "../../../generated/api/CatalogLicenseValue";
+import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
+import type { QuestionSearchBylineFacet } from "../../../generated/api/QuestionSearchBylineFacet";
+import type { QuestionSearchCapabilityFacet } from "../../../generated/api/QuestionSearchCapabilityFacet";
+import type { QuestionStatisticsAvailabilityFacet } from "../../../generated/api/QuestionStatisticsAvailabilityFacet";
+import type { QuestionSearchLicenseFacet } from "../../../generated/api/QuestionSearchLicenseFacet";
+import type { QuestionSearchLicense } from "../../../generated/api/QuestionSearchLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
-import type { CatalogSearchFacets } from "../../../generated/api/CatalogSearchFacets";
-import type { CatalogTagFacet } from "../../../generated/api/CatalogTagFacet";
-import type { CatalogTaxonomyFacet } from "../../../generated/api/CatalogTaxonomyFacet";
-import type { CatalogUsedInMyCoursesFacet } from "../../../generated/api/CatalogUsedInMyCoursesFacet";
+import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
+import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
+import type { QuestionSearchTaxonomyFacet } from "../../../generated/api/QuestionSearchTaxonomyFacet";
+import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
 import {
   DecodeError,
   decodeNonemptyString,
@@ -34,7 +34,7 @@ import {
 const MAX_CATALOG_BACKEND_FACETS = 5;
 const MAX_CATALOG_QUESTION_TYPE_FACETS = 8;
 
-function decodeCatalogTaxonomyFacet(value: unknown, path: string): CatalogTaxonomyFacet {
+function decodeCatalogTaxonomyFacet(value: unknown, path: string): QuestionSearchTaxonomyFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["term", "count"]);
   return {
@@ -55,7 +55,7 @@ function decodeCatalogFacetText(value: unknown, path: string, maximum: number): 
   return decoded;
 }
 
-function decodeCatalogBylineFacet(value: unknown, path: string): CatalogBylineFacet {
+function decodeCatalogBylineFacet(value: unknown, path: string): QuestionSearchBylineFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["byline", "count"]);
   return {
@@ -64,7 +64,7 @@ function decodeCatalogBylineFacet(value: unknown, path: string): CatalogBylineFa
   };
 }
 
-function decodeCatalogBackendFacet(value: unknown, path: string): CatalogBackendFacet {
+function decodeCatalogBackendFacet(value: unknown, path: string): QuestionSearchBackendFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["backend", "count"]);
   return {
@@ -79,7 +79,7 @@ function decodeCatalogBackendFacet(value: unknown, path: string): CatalogBackend
   };
 }
 
-function decodeCatalogTagFacet(value: unknown, path: string): CatalogTagFacet {
+function decodeCatalogTagFacet(value: unknown, path: string): QuestionSearchTagFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["tag", "count"]);
   return {
@@ -113,7 +113,7 @@ function decodeQuestionTypeFacet(
   };
 }
 
-function decodeCatalogCapabilityFacet(value: unknown, path: string): CatalogCapabilityFacet {
+function decodeCatalogCapabilityFacet(value: unknown, path: string): QuestionSearchCapabilityFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["capability", "count"]);
   return {
@@ -122,11 +122,11 @@ function decodeCatalogCapabilityFacet(value: unknown, path: string): CatalogCapa
   };
 }
 
-function decodeCatalogLicenseFacet(value: unknown, path: string): CatalogLicenseFacet {
+function decodeCatalogLicenseFacet(value: unknown, path: string): QuestionSearchLicenseFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["license", "count"]);
   return {
-    license: decodeStringEnum<CatalogLicenseValue>(
+    license: decodeStringEnum<QuestionSearchLicense>(
       field(record, "license", path),
       `${path}.license`,
       ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"],
@@ -135,7 +135,7 @@ function decodeCatalogLicenseFacet(value: unknown, path: string): CatalogLicense
   };
 }
 
-function decodeCatalogEvidenceFacet(value: unknown, path: string): CatalogEvidenceFacet {
+function decodeCatalogEvidenceFacet(value: unknown, path: string): QuestionStatisticsAvailabilityFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["available", "unavailable"]);
   return {
@@ -150,7 +150,7 @@ function decodeCatalogEvidenceFacet(value: unknown, path: string): CatalogEviden
 function decodeCatalogUsedInMyCoursesFacet(
   value: unknown,
   path: string,
-): CatalogUsedInMyCoursesFacet {
+): QuestionSearchCourseUseFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["used"]);
   return {
@@ -162,7 +162,7 @@ function decodeCatalogUsedInMyCoursesFacet(
  * ASVS 1.5.2 and 2.2.1: strictly decodes only the same-query, answer-free
  * catalog facet projection generated from the Rust contract.
  */
-export function decodeCatalogSearchFacets(value: unknown, path: string): CatalogSearchFacets {
+export function decodeQuestionSearchFacets(value: unknown, path: string): QuestionSearchFacets {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "bylines",

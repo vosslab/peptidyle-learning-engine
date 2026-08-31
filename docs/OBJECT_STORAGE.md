@@ -5,7 +5,7 @@ with naming conventions. `ObjectKey` is the only physical-key constructor;
 routes and browser payloads name logical delivery IDs, never buckets, paths, or
 client-selected filenames.
 
-PLE has one installation-wide published-question catalog. Storage classification
+PLE has one installation-wide Question Library. Storage classification
 does not create a second publication audience or a publication tier. The
 canonical live-demo path uses these same domains and delivery rules.
 
@@ -13,7 +13,7 @@ canonical live-demo path uses these same domains and delivery rules.
 
 | Domain | Typed bucket | Contents | Delivery rule |
 | --- | --- | --- | --- |
-| Published presentation assets | `PublicAssets` | Only immutable, answer-free renditions of published questions | CDN-backed delivery is available only after the catalog publication decision and durable registry are `Ready`, with the exact immutable-public tag and an approved delivery authority. |
+| Published presentation assets | `PublicAssets` | Only immutable, answer-free renditions of Published Questions | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or exact Student assignment entitlement. |
 | Private content | `PrivateContent` | Private workspace source and assets, generation and grader keys or payloads, provenance, renders, and course-record presentation assets | Never CDN-readable. A protected delivery uses its exact server-derived authority. |
 | Student records | `StudentRecords` | Student work and protected course-record artifacts, exports, and annotations | Never public; delivery requires the exact Student, course, or typed support authority for that record. |
 | Temporary processing | `TempProcessing` | Conversion workspaces and short-lived course-banner candidates | Never signable or browser-served. |
@@ -34,7 +34,7 @@ variant. Important mappings are:
 | Object class | Key family | Domain and delivery authority |
 | --- | --- | --- |
 | Private workspace source and authoring assets | `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority. |
-| Published answer-free presentation asset | `ProblemAsset` | `PublicAssets`; approved-Instructor catalog authority or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source or grading material. |
+| Published answer-free presentation asset | `ProblemAsset` | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source or grading material. |
 | Published source, provenance, and private render state | `ProblemSource`, `PublishedImportArchive`, `ProblemRender` | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it. |
 | Generation/grader keys and payloads | Server-only private records and any typed private object used by their owning worker | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it. |
 | Course-record presentation asset | `CourseBanner` | `PrivateContent`; delivery rechecks the exact current course record and its course relationship. |
@@ -70,8 +70,8 @@ paths support.
 Every delivery selects one server-derived authority. The bucket and an opaque
 object or delivery ID never supply authority by themselves:
 
-1. The approved-Instructor catalog authority delivers the safe catalog
-   projection and the published presentation assets that it references.
+1. Approved-Instructor Question Library access delivers safe Question Library
+   search and details results and the published presentation assets that they reference.
 2. The exact Student assignment entitlement delivers the answer-free
    presentation needed for that Student's assigned activity.
 3. The creating Instructor's exact workspace ownership delivers a private
@@ -83,7 +83,7 @@ object or delivery ID never supply authority by themselves:
    that typed check.
 
 `GET /api/assets/{id}` can return only an already-ready published presentation
-asset after the route proves approved-Instructor catalog authority or the exact
+asset after the route proves approved-Instructor Question Library access or the exact
 Student assignment entitlement. It resolves an opaque registry ID, verifies
 the complete trusted `ProblemAsset`/`PublicAssets` record shape, then
 redirects to a configured immutable CDN URL. It cannot authorize, audit, or
@@ -91,11 +91,11 @@ issue a protected bearer URL, and it returns the same not-found response for
 protected and absent IDs.
 
 Published presentation assets are not anonymous internet content. Delivering
-one through an approved authority does not grant catalog discovery or delivery
-of another asset. Catalog list, search, and detail require authenticated
-approved-Instructor authority. A Student receives an assigned presentation
-through the exact assignment entitlement and does not receive catalog
-authority.
+one through an approved authority does not grant Question Library search,
+details, or delivery of another asset. Question Library search and details
+require authenticated approved-Instructor access. A Student receives an
+assigned presentation through the exact assignment entitlement and does not
+receive Question Library access.
 
 `POST /api/assets/{id}/delivery` is the separate protected path. It requires a
 same-origin authenticated session, reauthorizes the exact Account, course,
@@ -114,10 +114,10 @@ must not place it in browser storage, analytics, a referrer chain, or logs.
 ## Public-asset publication
 
 Public publication is intentionally not a pre-commit object-store upload.
-PostgreSQL and object storage do not share a transaction, so catalog
+PostgreSQL and object storage do not share a transaction, so Question Library
 publication atomically:
 
-1. commits immutable catalog state, `Pending` asset-delivery records, and a
+1. commits immutable Question Library publication state, `Pending` asset-delivery records, and a
    closed `PublishPublicAssets` outbox job; and
 2. makes no final public object or CDN-visible registry transition in that
    transaction.

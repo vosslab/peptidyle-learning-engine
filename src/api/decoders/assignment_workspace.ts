@@ -8,7 +8,7 @@ import {
   decodeInstructorAssignmentCurrentState,
   decodeInstructorAssignmentTeachingSettingsLocal,
 } from "./assignment_teaching_delivery";
-import { decodeAssignmentSummary } from "./catalog_course";
+import { decodeAssignmentSummary } from "./question_library";
 import {
   decodeCapability,
   decodeEnvelopeTitle,

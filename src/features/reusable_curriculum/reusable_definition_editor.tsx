@@ -5,10 +5,10 @@ import { For, Show, createSignal, type JSX } from "solid-js";
 import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
 import type { RelativeScheduleMoment } from "../../../generated/api/RelativeScheduleMoment";
 import {
-  ProblemPicker,
-  type ProblemPickerSource,
-  type ProblemPickerSourceRepository,
-} from "../problem_picker";
+  QuestionPicker,
+  type QuestionPickerSource,
+  type QuestionPickerSourceRepository,
+} from "../question_picker";
 import {
   appendPickedFixedEntries,
   appendPickedPool,
@@ -25,8 +25,8 @@ import {
 export interface ReusableDefinitionEditorProps {
   readonly definition: ReusableAssignmentDefinitionInput;
   readonly editable: boolean;
-  readonly pickerRepository: ProblemPickerSourceRepository;
-  readonly pickerSources: ReadonlyArray<ProblemPickerSource>;
+  readonly pickerRepository: QuestionPickerSourceRepository;
+  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
   readonly onChange: (definition: ReusableAssignmentDefinitionInput, message: string) => void;
 }
 
@@ -362,7 +362,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
 
       <Show when={pickerIntent()} keyed>
         {(intent) => (
-          <ProblemPicker
+          <QuestionPicker
             repository={props.pickerRepository}
             sources={props.pickerSources}
             mode="many"

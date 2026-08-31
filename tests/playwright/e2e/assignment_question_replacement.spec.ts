@@ -7,8 +7,8 @@
 //   assignment_workspace_create_page.tsx:139 own course and assignment creation controls.
 // - src/pages/assignment_workspace/assignment_workspace_questions_page.tsx:517-675 owns
 //   Questions navigation content, picker launch, replacement guidance, and commit controls.
-// - src/pages/assignment_editor_problem_picker.tsx:15-60 owns the replacement dialog title,
-//   instruction, and Select replacement action; src/features/problem_picker/problem_picker.tsx:
+// - src/pages/assignment_editor_question_picker.tsx:15-60 owns the replacement dialog title,
+//   instruction, and Select replacement action; src/features/question_picker/question_picker.tsx:
 //   173-200 exposes them through the native dialog.
 // - src/pages/assignment_editor_content_list.tsx:54-84 owns each fixed-question row and its
 //   Replace action, including the post-success focus target.

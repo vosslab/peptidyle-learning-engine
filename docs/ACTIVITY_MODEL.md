@@ -240,7 +240,7 @@ forming a fixed menu of assignment modes.
 | Completion requirement | Answer all, all correct, or score threshold                |
 | Grade policy           | First, latest, highest, or instructor-selected Assignment Attempt |
 | Continued practice     | Unlimited, capped, or closed after completion              |
-| Variation policy       | New seeds, selected problem variants, or full regeneration |
+| Variation policy       | New seeds, selected Question Variants, or full regeneration |
 
 For example, an instructor can require mastery, keep the highest score, allow
 unlimited practice, and issue new seeds on every Assignment Attempt. Continued practice does

@@ -25,8 +25,8 @@ pub mod auth;
 pub mod byline;
 pub mod capability;
 /// Shared catalog metadata, visibility, lineage, and browse projections.
-pub mod catalog;
-mod catalog_facets;
+pub mod question_library;
+mod question_search;
 /// Course and assignment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
@@ -35,7 +35,7 @@ pub mod course_appearance;
 pub mod course_grade;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
 pub mod course_term;
-/// Browser-safe private Question Collection and saved-search contracts.
+/// Browser-safe private Question Folder and saved-search contracts.
 pub mod curation;
 /// Normalized B2 reusable meaning, semantic digests, and target-term schedule resolution.
 pub mod curriculum_adoption;
@@ -110,15 +110,16 @@ pub use crate::assignment_workspace::{
 pub use crate::auth::{AccountId, AccountRole};
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
 pub use crate::capability::{BackendCapabilities, Capability};
-pub use crate::catalog::{
-    CatalogAuthorship, CatalogBackendFacet, CatalogBylineFacet, CatalogCapabilityFacet,
-    CatalogDiscoveryEvidence, CatalogDiscoveryItem, CatalogEvidenceAvailability,
-    CatalogEvidenceFacet, CatalogLicenseFacet, CatalogLicenseValue,
-    CatalogOwnCourseUsage, CatalogQuestionDetail, CatalogQuestionSummary, CatalogPromptProjection,
-    QuestionTypeFacet, CatalogSearchFacets, CatalogSearchFilter,
-    CatalogSearchPage, CatalogSearchQuery, CatalogSearchQueryError, CatalogTagFacet,
-    CatalogTaxonomyFacet, CatalogTaxonomyFilter, CatalogUsageDetail, CatalogUsageSummary,
-    CatalogUsedInMyCourses, CatalogUsedInMyCoursesFacet, MAX_CATALOG_BACKEND_FACETS,
+pub use crate::question_library::{
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBylineFacet,
+    QuestionSearchCapabilityFacet, QuestionStatistics, QuestionStatisticsAvailability,
+    QuestionStatisticsAvailabilityFacet, QuestionSearchLicenseFacet, QuestionSearchLicense,
+    CourseQuestionUse, QuestionDetails, QuestionSummary, QuestionPromptProjection,
+    QuestionSearchResult,
+    QuestionTypeFacet, QuestionSearchFacets, QuestionSearchFilter,
+    QuestionSearchPage, QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
+    QuestionSearchTaxonomyFacet, QuestionSearchTaxonomyFilter, QuestionUseDetails, QuestionUseSummary,
+    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, MAX_CATALOG_BACKEND_FACETS,
     MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS, MAX_CATALOG_OWN_COURSE_USAGES,
     MAX_CATALOG_QUESTION_TYPE_FACETS, MAX_CATALOG_QUESTION_TYPE_FILTERS,
     MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS, MAX_CATALOG_TAXONOMY_FACETS,
@@ -150,12 +151,12 @@ pub use crate::course_term::{
     IanaTimeZoneError,
 };
 pub use crate::curation::{
-    MAX_NAMED_QUESTION_COLLECTIONS, MAX_QUESTION_COLLECTION_MEMBERS,
-    MAX_PROBLEM_CURATION_TITLE_UNICODE_SCALARS, MAX_SAVED_PROBLEM_SEARCHES,
-    QuestionCollectionMemberView,
-    QuestionCollectionEditNumber,
-    QuestionCollectionSummaryView, ProblemCurationTitleError,
-    SavedProblemSearchEditNumber, SavedProblemSearchView, validate_problem_curation_title,
+    MAX_NAMED_QUESTION_FOLDERS, MAX_QUESTION_FOLDER_MEMBERS,
+    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS, MAX_SAVED_QUESTION_SEARCHES,
+    QuestionFolderEntryView,
+    QuestionFolderEditNumber,
+    QuestionFolderSummaryView, QuestionCurationTitleError,
+    SavedQuestionSearchEditNumber, SavedQuestionSearchView, validate_question_curation_title,
 };
 pub use crate::curriculum_adoption::*;
 pub use crate::definition::{
@@ -202,7 +203,7 @@ pub use crate::public_route::{
     AccountReference, AssignmentAttemptReference, AssignmentReference, BlueprintCourseReference,
     CourseInvitationReference, CourseMembershipReference,
     CourseInstanceReference, InstructorGradingOperationReference, MAX_PUBLIC_ROUTE_NUMBER, NavigationResolution,
-    QuestionCollectionReference, RESERVED_REFERENCE_PREFIXES, SavedQuestionSearchReference,
+    QuestionFolderReference, RESERVED_REFERENCE_PREFIXES, SavedQuestionSearchReference,
     AuthoringWorkspaceReference,
 };
 pub use crate::response::{

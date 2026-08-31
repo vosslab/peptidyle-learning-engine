@@ -11,7 +11,7 @@ import type {
   ReusableCurriculumClient,
   ReusableCurriculumEtag,
 } from "../../api/reusable_curriculum";
-import type { ProblemPickerSource, ProblemPickerSourceRepository } from "../problem_picker";
+import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
 import { CurriculumCreateDialog } from "./reusable_curriculum_create_dialog";
 import {
   appendBlueprintCoursePage,
@@ -38,8 +38,8 @@ interface LoadedBlueprintCourse {
 
 export interface CurriculumWorkspaceProps {
   readonly client: ReusableCurriculumClient;
-  readonly pickerRepository: ProblemPickerSourceRepository;
-  readonly pickerSources: ReadonlyArray<ProblemPickerSource>;
+  readonly pickerRepository: QuestionPickerSourceRepository;
+  readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
 }
 
 export interface CurriculumDetailWorkspaceProps extends CurriculumWorkspaceProps {

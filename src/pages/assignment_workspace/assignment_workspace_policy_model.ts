@@ -154,7 +154,7 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
     case "configuration":
       return {
         kind: "error",
-        message: "Selected problem variants require fixed assignment questions.",
+        message: "Selected Question Variants require fixed Assignment Questions.",
         target: "variation",
         details: [
           "Choose a different next-practice Assignment Attempt rule or revise the Assignment Questions.",

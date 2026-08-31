@@ -12,7 +12,7 @@ import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assig
 import { accountRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
-  assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "problemDetail");
+  assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "questionDetail");
   assert.equal(routeContractForPathname("/library/7K3-M9QP/extra"), undefined);
   assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
   assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");

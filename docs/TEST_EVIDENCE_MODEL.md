@@ -157,8 +157,8 @@ Some claims need a browser-free oracle because visible UI behavior cannot
 identify the underlying boundary. These commands remain distinct from the one
 browser invocation in `local_stack.py acceptance`:
 
-- Catalog publication and replay use a named publication oracle for private
-  source and catalog installation, not a user journey.
+- Question Library publication and replay use a named publication oracle for private
+  source and Question Library installation, not a user journey.
 - PostgreSQL migrations, forced RLS, and disclosure semantics use a named
   database oracle or a declared ignored database test. This is a disposable
   database boundary, not deployment availability.
