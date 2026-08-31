@@ -32,9 +32,9 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 
 - **Blueprint Course**: A reusable course definition used to create **Course Instances**. It has no enrolled **Students** or deadlines.
 - **Course Instance**: A course created from a **Blueprint Course**. It contains enrolled **Students**, deadlines, releases, and other delivery-specific settings.
-- **Published Question**: A validated question that is part of the global question corpus and available to vetted **Instructors**.
-- **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass publication validation before joining the global question corpus.
-- **Question Corpus**: The global collection of **Published Questions** available to vetted **Instructors**. All questions used in assignments are part of the corpus.
+- **Published Question**: A validated question that is part of the global question library and available to vetted **Instructors**.
+- **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass publication validation before joining the global question library.
+- **Question Library**: The global collection of **Published Questions** available to vetted **Instructors**. All questions used in assignments are part of the library.
 - **Sysadmin**: A god-level PLE administrator responsible for system administration, **Instructor** vetting, account creation, and helping **Instructors** manage courses.
 - **Instructor**: A vetted user who teaches courses and can browse, reuse, create, fork, and publish question content.
 - **Student**: A user enrolled in a **Course Instance** who completes assigned questions and other course activities.
@@ -83,9 +83,9 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 
 ## Question philosophy
 
-- Questions are subject agnostic. Questions must be properly tagged, but all are part of the same corpus.
+- Questions are subject agnostic. Questions must be properly tagged, but all are part of the same library.
 - **Draft Questions** are kept private until publication so unfinished material does not reduce shared-catalog quality.
-- **Draft Questions** must go through a validation process before being added to the corpus.
+- **Draft Questions** must go through a validation process before being added to the library.
 - Questions are strictly and deterministically automated; do not add manual grading.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT flat-question families should be supported.
 - Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
@@ -96,15 +96,15 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Published Questions** have two editing paths: moderate edits by the question owner and full forks by any **Instructor**.
 - Moderate edits update the owner's **Published Question** while maintaining the original question authorship and CC licensing.
 - Full forks create a separate **Draft Question** with its own authorship while maintaining the source question's CC licensing and attribution.
-- Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the corpus as a **Published Question**.
+- Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the library as a **Published Question**.
 - Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
 
-## Question corpus philosophy
+## Question library philosophy
 
 - Problem sharing, discovery, and reuse are a high-priority **Instructor** workflow.
-- All **Published Questions** are public to vetted **Instructors**. By published, I mean part of the global question corpus.
-- All questions in assignments are part of the global question corpus.
-- **Students** cannot see the question corpus. They only see questions in their assignments.
+- All **Published Questions** are public to vetted **Instructors**. By published, I mean part of the global question library.
+- All questions in assignments are part of the global question library.
+- **Students** cannot see the question library. They only see questions in their assignments.
 - **Published Questions** are still discoverable even when used by a private **Course Instance**.
 - Question stewardship should use a GitHub-like model.
 - **Published Questions** can be forked and edited by any **Instructor**.
@@ -157,7 +157,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 
 - All vetted **Instructors** are equal.
 - **Instructor** accounts are created once the **Instructor's** real identity is vetted by a **Sysadmin**.
-- **Instructors** can browse and search the global question corpus.
+- **Instructors** can browse and search the global question library.
 - **Instructors** can browse the question content of all **Blueprint Courses**.
 - **Instructor** and **Sysadmin** workflows should be designed for a 1280 by 800 desktop 16:10 aspect browser viewport.
 - Pages should be composed around the teaching task, not a collection of individually padded components.
