@@ -6,7 +6,7 @@ import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
   decodeQuestionSummary,
   decodeDraftQuestionDefinition,
-  isAvailableNativeCatalogQuestionSummary,
+  isAvailableNativeQuestionSummary,
 } from "../../api/decoders";
 import { isPublicByline } from "../../api/public_byline";
 import { FLAT_QUESTION_MEDIA_TYPE, type FlatQuestionSourceV2 } from "./flat_question_source";
@@ -314,7 +314,7 @@ export function createFlatQuestionClient(
       path,
       true,
     );
-    if (!isAvailableNativeCatalogQuestionSummary(summary)) {
+    if (!isAvailableNativeQuestionSummary(summary)) {
       throw new FlatQuestionProtocolError(
         "Flat-question publication response must be an available native Question Library summary",
       );

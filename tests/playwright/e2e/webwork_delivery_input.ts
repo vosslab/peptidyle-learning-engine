@@ -1,13 +1,13 @@
-// Strict private hand-off for the catalog-only WebWork baseline.
+// Strict private hand-off for one Published Question WebWork fixture.
 import { lstatSync, readFileSync, writeFileSync } from "node:fs";
 
-export const webworkCatalogTitle = "Biochemistry: Identify hydrophobic compounds from formulas";
+export const webworkPublishedQuestionTitle = "Biochemistry: Identify hydrophobic compounds from formulas";
 
-export interface WebworkCatalogBaselineInput {
+export interface WebworkPublishedQuestionFixtureInput {
   readonly schemaVersion: 1;
   readonly scenarioId: "webwork_delivery";
   readonly questionId: string;
-  readonly title: typeof webworkCatalogTitle;
+  readonly title: typeof webworkPublishedQuestionTitle;
 }
 
 export interface VisibleIssuanceAcknowledgement {
@@ -23,27 +23,27 @@ const questionId = /^[A-Z0-9]{3}-[A-Z0-9]{4}$/u;
 const namespace = /^bs1-[0-9a-f]{12}-webwork_delivery$/u;
 const maximumBytes = 1_024;
 
-export function requireWebworkCatalogBaselineInput(
+export function requireWebworkPublishedQuestionFixtureInput(
   env: Readonly<Record<string, string | undefined>>,
-): WebworkCatalogBaselineInput {
-  const path = requiredPath(env, "PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE");
-  const contents = readPrivateAscii(path, "WebWork catalog baseline input");
+): WebworkPublishedQuestionFixtureInput {
+  const path = requiredPath(env, "PLE_WEBWORK_PUBLISHED_QUESTION_FIXTURE_INPUT_FILE");
+  const contents = readPrivateAscii(path, "WebWork Published Question fixture input");
   const value = parseRecord(contents);
   if (
     value.schemaVersion !== 1 ||
     value.scenarioId !== "webwork_delivery" ||
     typeof value.questionId !== "string" ||
     !questionId.test(value.questionId) ||
-    value.title !== webworkCatalogTitle ||
+    value.title !== webworkPublishedQuestionTitle ||
     keyList(value) !== "questionId,scenarioId,schemaVersion,title"
   ) {
-    throw new Error("WebWork catalog baseline input is invalid");
+    throw new Error("WebWork Published Question fixture input is invalid");
   }
-  const result: WebworkCatalogBaselineInput = {
+  const result: WebworkPublishedQuestionFixtureInput = {
     schemaVersion: 1,
     scenarioId: "webwork_delivery",
     questionId: value.questionId,
-    title: webworkCatalogTitle,
+    title: webworkPublishedQuestionTitle,
   };
   requireCanonical(contents, result);
   return result;
@@ -51,7 +51,7 @@ export function requireWebworkCatalogBaselineInput(
 
 export function writeVisibleIssuanceAcknowledgement(
   env: Readonly<Record<string, string | undefined>>,
-  value: WebworkCatalogBaselineInput,
+  value: WebworkPublishedQuestionFixtureInput,
   scenarioNamespace: string,
 ): void {
   if (value.scenarioId !== "webwork_delivery" || !namespace.test(scenarioNamespace)) {
@@ -95,10 +95,10 @@ function parseRecord(contents: string): RecordValue {
   try {
     value = JSON.parse(contents);
   } catch {
-    throw new Error("WebWork catalog baseline input is not valid JSON");
+    throw new Error("WebWork Published Question fixture input is not valid JSON");
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("WebWork catalog baseline input is invalid");
+    throw new Error("WebWork Published Question fixture input is invalid");
   }
   return value as RecordValue;
 }
@@ -111,7 +111,7 @@ function isAscii(value: string): boolean {
   return [...value].every((character) => (character.codePointAt(0) ?? 0x80) <= 0x7f);
 }
 
-function requireCanonical(contents: string, value: WebworkCatalogBaselineInput): void {
+function requireCanonical(contents: string, value: WebworkPublishedQuestionFixtureInput): void {
   const canonical = JSON.stringify({
     questionId: value.questionId,
     scenarioId: value.scenarioId,
@@ -119,6 +119,6 @@ function requireCanonical(contents: string, value: WebworkCatalogBaselineInput):
     title: value.title,
   });
   if (contents !== canonical) {
-    throw new Error("WebWork catalog baseline input must use canonical ASCII JSON");
+    throw new Error("WebWork Published Question fixture input must use canonical ASCII JSON");
   }
 }

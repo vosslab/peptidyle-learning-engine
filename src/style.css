@@ -45,8 +45,8 @@
   --ple-row-padding-block: 0.45rem;
   --ple-row-padding-inline: 0.62rem;
   --ple-dense-row-min-height: 3.6rem;
-  --ple-catalog-window-block-size: min(65vh, 33rem);
-  --ple-catalog-row-block-size: 164px;
+  --ple-question-library-window-block-size: min(65vh, 33rem);
+  --ple-question-library-row-block-size: 164px;
   --ple-assignment-field-gap: 0.25rem;
   --ple-assignment-field-margin-block: 0.45rem;
   --ple-assignment-field-font-size: 0.9rem;
@@ -54,7 +54,7 @@
   --ple-assignment-row-action-min-size: 2rem;
   --ple-assignment-disclosure-padding-block: 0.5rem;
   --ple-assignment-disclosure-padding-inline: 0.65rem;
-  --ple-assignment-catalog-block-size: 15rem;
+  --ple-assignment-question-results-block-size: 15rem;
   --ple-reuse-checklist-block-size: 12rem;
   --ple-assignment-actions-reserved-block-size: calc(
     var(--ple-control-min-height) + var(--ple-panel-padding) + var(--ple-space-2)
@@ -967,7 +967,7 @@ html[data-contrast="increased"] .course-theme-scope {
 
 @media (max-width: 40rem) {
   :root {
-    --ple-catalog-row-block-size: 216px;
+    --ple-question-library-row-block-size: 216px;
   }
 }
 

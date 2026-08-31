@@ -133,7 +133,10 @@ impl NativeAdapter {
     ///
     /// Releases of one implementation coexist so published content can
     /// regenerate with its pinned generator after a new release is added.
-    pub fn register_implementation<F>(&mut self, implementation: F) -> Result<(), NativeAdapterError>
+    pub fn register_implementation<F>(
+        &mut self,
+        implementation: F,
+    ) -> Result<(), NativeAdapterError>
     where
         F: NativeQuestionImplementation + 'static,
     {
@@ -149,7 +152,8 @@ impl NativeAdapter {
                 },
             });
         }
-        self.implementations.insert(key, std::sync::Arc::new(implementation));
+        self.implementations
+            .insert(key, std::sync::Arc::new(implementation));
         Ok(())
     }
 

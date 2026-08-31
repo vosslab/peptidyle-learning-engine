@@ -29,7 +29,7 @@ import {
   decodeAssignmentAttempt,
   decodeStudentAssignmentDetail,
   decodeAttemptPage,
-  decodeCatalogPage,
+  decodeQuestionPage,
   decodeQuestionDetails,
   decodeQuestionSummary,
   decodeQuestionSearchPage,
@@ -280,7 +280,7 @@ export function createResponseClient(
   | "resolveNavigation"
   | "getWorkspaceDraft"
   | "getWorkspacePublicationDiff"
-  | "listProblems"
+  | "listQuestions"
   | "searchQuestionLibrary"
   | "resolveQuestion"
   | "getQuestionDetails"
@@ -323,12 +323,12 @@ export function createResponseClient(
     getWorkspaceDraft: (workspace) => workspaceDraft(fetchImplementation, basePath, workspace),
     getWorkspacePublicationDiff: (workspace) =>
       publicationDiff(fetchImplementation, basePath, workspace),
-    listProblems: (cursor) =>
+    listQuestions: (cursor) =>
       requestJson(
         fetchImplementation,
         basePath,
         cursorPath("/api/problems", cursor),
-        decodeCatalogPage,
+        decodeQuestionPage,
       ),
     searchQuestionLibrary: (query: QuestionSearchRequest): Promise<QuestionSearchPage> =>
       requestJson(fetchImplementation, basePath, questionSearchPath(query), decodeQuestionSearchPage),

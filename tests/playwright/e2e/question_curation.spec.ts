@@ -316,13 +316,13 @@ test.describe("question curation on the production PLE stack", () => {
         await savedSearch.getByLabel("Search name").fill(savedSearchTitle);
         await savedSearch.getByRole("button", { name: "Save search", exact: true }).click();
         await expect(panel.getByRole("status")).toContainText(
-          `${savedSearchTitle} now reruns this search against the current catalog.`,
+          `${savedSearchTitle} now reruns this search against the current Question Library.`,
         );
         await savedSearchItem(panel, savedSearchTitle)
           .getByRole("button", { name: "Run search", exact: true })
           .click();
         await expect(panel.getByRole("status")).toContainText(
-          `${savedSearchTitle} is running against the current catalog.`,
+          `${savedSearchTitle} is running against the current Question Library.`,
         );
 
         const deleteSavedSearch = savedSearchItem(panel, savedSearchTitle).getByRole("button", {

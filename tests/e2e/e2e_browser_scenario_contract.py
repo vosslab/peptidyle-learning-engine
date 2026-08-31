@@ -1,4 +1,4 @@
-"""Closed, catalog-owned policy for disposable production browser scenarios."""
+"""Closed, scenario-registry policy for disposable production browser scenarios."""
 
 import dataclasses
 import re
@@ -81,8 +81,8 @@ class ScenarioContract:
 
 
 def scenario_contracts() -> tuple[ScenarioContract, ...]:
-	"""Return the deterministic explicit catalog without an import cycle."""
-	from e2e_browser_scenarios_catalog import contracts
+	"""Return the deterministic explicit scenario registry without an import cycle."""
+	from e2e_browser_scenario_registry import contracts
 
 	return contracts()
 
@@ -91,7 +91,7 @@ def require_contract(
 	scenario_id: str,
 	contracts: Sequence[ScenarioContract] | None = None,
 ) -> ScenarioContract:
-	"""Find one checked-in scenario after validating its complete catalog."""
+	"""Find one checked-in scenario after validating its complete registry."""
 	registry = _registry(contracts)
 	for contract in registry:
 		if contract.scenario_id == scenario_id:
@@ -138,7 +138,7 @@ def validate_contract(contract: ScenarioContract) -> None:
 def validate_registry(
 	contracts: Iterable[ScenarioContract] | None = None,
 ) -> None:
-	"""Validate the executable scenario catalog and its role-security journeys."""
+	"""Validate the executable scenario registry and its role-security journeys."""
 	registry = tuple(scenario_contracts() if contracts is None else contracts)
 	if not registry:
 		raise ScenarioContractError("browser scenario registry is empty")
@@ -192,7 +192,7 @@ def _validate_spec_path(spec_path: str) -> None:
 def _validate_required_role_security_scenarios(
 	registry: Sequence[ScenarioContract],
 ) -> None:
-	"""Keep both named live-demo passkey journeys in every executable catalog."""
+	"""Keep both named live-demo passkey journeys in every executable scenario registry."""
 	by_id = {contract.scenario_id: contract for contract in registry}
 	for scenario_id, requirement in REQUIRED_ROLE_SECURITY_SCENARIOS.items():
 		contract = by_id.get(scenario_id)

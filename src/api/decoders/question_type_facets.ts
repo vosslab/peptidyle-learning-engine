@@ -1,8 +1,8 @@
 // Strict runtime decoding for the answer-free catalog-search facet DTO.
 
-import { MAX_CATALOG_TAXONOMY_FACETS } from "../../../generated/api/MAX_CATALOG_TAXONOMY_FACETS";
-import { MAX_CATALOG_BYLINE_FACETS } from "../../../generated/api/MAX_CATALOG_BYLINE_FACETS";
-import { MAX_CATALOG_TAG_FACETS } from "../../../generated/api/MAX_CATALOG_TAG_FACETS";
+import { MAX_QUESTION_SEARCH_TAXONOMY_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAXONOMY_FACETS";
+import { MAX_QUESTION_SEARCH_BYLINE_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FACETS";
+import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
 import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
 import type { QuestionSearchBylineFacet } from "../../../generated/api/QuestionSearchBylineFacet";
 import type { QuestionSearchCapabilityFacet } from "../../../generated/api/QuestionSearchCapabilityFacet";
@@ -22,8 +22,8 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import {
-  MAX_CATALOG_CAPABILITY_FACETS,
-  MAX_CATALOG_LICENSE_FACETS,
+  MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
+  MAX_QUESTION_SEARCH_LICENSE_FACETS,
   decodeBoundedArray,
   decodeCapability,
   decodeTaxonomyTerm,
@@ -31,8 +31,8 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-const MAX_CATALOG_BACKEND_FACETS = 5;
-const MAX_CATALOG_QUESTION_TYPE_FACETS = 8;
+const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
+const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
 
 function decodeCatalogTaxonomyFacet(value: unknown, path: string): QuestionSearchTaxonomyFacet {
   const record = decodeRecord(value, path);
@@ -179,43 +179,43 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     bylines: decodeBoundedArray(
       field(record, "bylines", path),
       `${path}.bylines`,
-      MAX_CATALOG_BYLINE_FACETS,
+      MAX_QUESTION_SEARCH_BYLINE_FACETS,
       decodeCatalogBylineFacet,
     ),
     backends: decodeBoundedArray(
       field(record, "backends", path),
       `${path}.backends`,
-      MAX_CATALOG_BACKEND_FACETS,
+      MAX_QUESTION_SEARCH_BACKEND_FACETS,
       decodeCatalogBackendFacet,
     ),
     tags: decodeBoundedArray(
       field(record, "tags", path),
       `${path}.tags`,
-      MAX_CATALOG_TAG_FACETS,
+      MAX_QUESTION_SEARCH_TAG_FACETS,
       decodeCatalogTagFacet,
     ),
     questionTypes: decodeBoundedArray(
       field(record, "questionTypes", path),
       `${path}.questionTypes`,
-      MAX_CATALOG_QUESTION_TYPE_FACETS,
+      MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
       decodeQuestionTypeFacet,
     ),
     taxonomy: decodeBoundedArray(
       field(record, "taxonomy", path),
       `${path}.taxonomy`,
-      MAX_CATALOG_TAXONOMY_FACETS,
+      MAX_QUESTION_SEARCH_TAXONOMY_FACETS,
       decodeCatalogTaxonomyFacet,
     ),
     capabilities: decodeBoundedArray(
       field(record, "capabilities", path),
       `${path}.capabilities`,
-      MAX_CATALOG_CAPABILITY_FACETS,
+      MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
       decodeCatalogCapabilityFacet,
     ),
     licenses: decodeBoundedArray(
       field(record, "licenses", path),
       `${path}.licenses`,
-      MAX_CATALOG_LICENSE_FACETS,
+      MAX_QUESTION_SEARCH_LICENSE_FACETS,
       decodeCatalogLicenseFacet,
     ),
     evidence: decodeCatalogEvidenceFacet(field(record, "evidence", path), `${path}.evidence`),

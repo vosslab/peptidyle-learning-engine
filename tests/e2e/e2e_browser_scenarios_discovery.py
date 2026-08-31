@@ -7,8 +7,8 @@ def contracts() -> tuple[ScenarioContract, ...]:
 	"""Return the independent five-student discovery evidence journey."""
 	return (
 		ScenarioContract(
-			scenario_id="catalog_discovery_evidence",
-			spec_path="tests/playwright/e2e/catalog_discovery_evidence.spec.ts",
+			scenario_id="question_library_evidence",
+			spec_path="tests/playwright/e2e/question_library_discovery_evidence.spec.ts",
 			personas=(
 				"elena_instructor",
 				"mary_student",

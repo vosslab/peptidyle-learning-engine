@@ -13,10 +13,10 @@ import type {
 } from "../features/question_picker";
 import { reusableCurriculumQuestionPickerRepository } from "../features/question_picker/question_picker_model";
 import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
-import type { AssignmentCatalogRow } from "./assignment_editor_model";
+import type { AssignmentQuestionRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
-  readonly resolvePublished: (questionId: string) => Promise<AssignmentCatalogRow>;
+  readonly resolvePublished: (questionId: string) => Promise<AssignmentQuestionRow>;
   /** Sources and answer-free rows for the shared D2 picker. */
   readonly listQuestionPickerSources: (
     course: CourseId,
@@ -32,7 +32,7 @@ export interface AssignmentEditorRepository {
 export interface ReusableAssignment {
   readonly assignmentId: AssignmentId;
   readonly title: string;
-  readonly questions: ReadonlyArray<AssignmentCatalogRow>;
+  readonly questions: ReadonlyArray<AssignmentQuestionRow>;
 }
 
 function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
@@ -56,18 +56,18 @@ function page(rows: ReadonlyArray<QuestionSearchResult>, nextCursor: string | nu
   return { items: rows, nextCursor, aggregates: [] };
 }
 
-function catalogRow(item: {
+function questionRow(item: {
   readonly questionId: string;
   readonly metadata: { readonly title: string };
-  readonly backend: AssignmentCatalogRow["backend"];
-}): AssignmentCatalogRow {
+  readonly backend: AssignmentQuestionRow["backend"];
+}): AssignmentQuestionRow {
   return { questionId: item.questionId, title: item.metadata.title, backend: item.backend };
 }
 
 /** Questions reads published metadata and reusable sources through this adapter. */
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
-  const catalog = createQuestionLibraryRepository(client);
-  const curation = createQuestionCurationRepository(client, catalog);
+  const questionLibrary = createQuestionLibraryRepository(client);
+  const curation = createQuestionCurationRepository(client, questionLibrary);
   const reusableCurriculum = reusableCurriculumQuestionPickerRepository(client);
   const questionPickerRepository: QuestionPickerSourceRepository = {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
@@ -118,7 +118,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
   };
   return {
     resolvePublished: async (questionId) =>
-      catalogRow(await client.resolveQuestion(questionId)),
+      questionRow(await client.resolveQuestion(questionId)),
     questionPickerRepository,
     listQuestionPickerSources: async (
       course,

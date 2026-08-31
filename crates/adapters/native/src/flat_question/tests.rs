@@ -7,32 +7,10 @@ use question_model::{DraftQuestionSource, QuestionId, QuestionSource, QuestionVe
 use serde_json::Value;
 use uuid::Uuid;
 
-const FAVORITE_COLOR: &str = r#"{
-  "format": "pleFlatQuestion",
-  "version": 2,
-  "title": "Favorite color",
-  "prompt": "What is my favorite color?",
-  "response": {
-    "kind": "singleChoice",
-    "choices": [
-      {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
-      {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
-      {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
-    ],
-    "correctChoice": "blue"
-  },
-  "feedback": {
-    "correct": "Exactly right.",
-    "incorrect": "Try thinking of a cool color."
-  },
-  "points": 1.0,
-  "attemptPolicy": {"maxAttempts": null},
-  "timingPolicy": {"kind": "untimed"},
-  "tags": ["example"],
-  "taxonomy": [],
-  "license": {"kind": "ccBySa"},
-  "language": "en-US"
-}"#;
+use crate::test_support::{
+    flat_single_choice, flat_single_choice_bytes, flat_single_choice_source,
+    flat_single_choice_value,
+};
 
 fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
     if !matches!(draft.source, DraftQuestionSource::Native) {
@@ -47,22 +25,9 @@ fn published(draft: DraftQuestionDefinition) -> QuestionDefinition {
 }
 
 fn v2_source(response: Value) -> Vec<u8> {
-    serde_json::to_vec(&serde_json::json!({
-        "format": "pleFlatQuestion",
-        "version": 2,
-        "title": "Version 2 flat Question fixture",
-        "prompt": "Complete the response.",
-        "response": response,
-        "feedback": {"correct": "Correct.", "incorrect": "Try again."},
-        "points": 2.0,
-        "attemptPolicy": {"maxAttempts": null},
-        "timingPolicy": {"kind": "untimed"},
-        "tags": ["fixture"],
-        "taxonomy": [],
-        "license": {"kind": "ccBySa"},
-        "language": "en-US"
-    }))
-    .expect("version 2 fixture should encode")
+    let mut source = flat_single_choice_value();
+    source["response"] = response;
+    serde_json::to_vec(&source).expect("stored version 2 fixture should encode")
 }
 
 #[test]
@@ -240,6 +205,7 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
         ),
     ];
 
+    let expected_points = flat_single_choice().points;
     for (name, source, correct_response, wrong_response) in cases {
         let document = FlatQuestionDocument::parse(&v2_source(source))
             .unwrap_or_else(|error| panic!("{name} source should parse: {error}"));
@@ -257,7 +223,7 @@ fn version_two_compiles_and_grades_all_eight_flat_families() {
             .evaluate(&question, &correct_response)
             .unwrap_or_else(|error| panic!("{name} correct response should grade: {error}"));
         assert!(
-            matches!(correct.outcome, GradeOutcome::Graded(result) if result.correct && result.points_earned == 2.0),
+            matches!(correct.outcome, GradeOutcome::Graded(result) if result.correct && result.points_earned == expected_points),
             "{name}"
         );
         let wrong = private
@@ -396,15 +362,22 @@ fn text(blocks: Option<&Vec<ContentBlock>>) -> Vec<&str> {
 }
 
 #[test]
-fn favorite_color_splits_public_content_and_private_grading() {
-    let document =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");
+fn stored_flat_question_splits_public_content_and_private_grading() {
+    let stored = flat_single_choice();
+    let wrong_choice = stored
+        .response
+        .choices
+        .iter()
+        .find(|choice| choice.id != stored.response.correct_choice)
+        .expect("stored flat Question has a wrong choice");
+    let document = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("flat source should parse");
     let compiled = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(1)))
         .expect("flat source should compile");
     let public_json = serde_json::to_string(compiled.draft()).expect("public draft serializes");
     assert!(!public_json.contains("correctChoice"));
-    assert!(!public_json.contains("Exactly right"));
+    assert!(!public_json.contains(&stored.feedback.correct));
 
     let (draft, private) = compiled.into_parts();
     let question = published(draft);
@@ -412,7 +385,7 @@ fn favorite_color_splits_public_content_and_private_grading() {
         .evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("red")],
+                selected: vec![ChoiceId::new(&wrong_choice.id)],
             },
         )
         .expect("valid wrong choice should grade");
@@ -422,14 +395,20 @@ fn favorite_color_splits_public_content_and_private_grading() {
     ));
     assert_eq!(
         text(wrong.feedback.hint.as_ref()),
-        vec!["Red is not my favorite.", "Try thinking of a cool color."]
+        vec![
+            wrong_choice
+                .feedback
+                .as_deref()
+                .expect("stored wrong choice has feedback"),
+            stored.feedback.incorrect.as_str(),
+        ]
     );
 
     let correct = private
         .evaluate(
             &question,
             &StudentResponse::MultipleChoice {
-                selected: vec![ChoiceId::new("blue")],
+                selected: vec![ChoiceId::new(&stored.response.correct_choice)],
             },
         )
         .expect("valid correct choice should grade");
@@ -439,16 +418,24 @@ fn favorite_color_splits_public_content_and_private_grading() {
     ));
     assert_eq!(
         text(correct.feedback.hint.as_ref()),
-        vec!["Blue is a calm choice.", "Exactly right."]
+        vec![
+            stored
+                .response
+                .choices
+                .iter()
+                .find(|choice| choice.id == stored.response.correct_choice)
+                .and_then(|choice| choice.feedback.as_deref())
+                .expect("stored correct choice has feedback"),
+            stored.feedback.correct.as_str(),
+        ]
     );
 }
 
 #[test]
 fn canonical_bytes_ignore_input_whitespace_and_member_order() {
-    let first =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("first source should parse");
-    let mut reordered: Value =
-        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
+    let first = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("first source should parse");
+    let mut reordered: Value = flat_single_choice_value();
     let object = reordered.as_object_mut().expect("fixture is an object");
     let format = object.remove("format").expect("format exists");
     object.insert("format".to_string(), format);
@@ -463,16 +450,19 @@ fn canonical_bytes_ignore_input_whitespace_and_member_order() {
 
 #[test]
 fn malformed_or_ambiguous_sources_are_refused() {
-    let duplicate_member =
-        FAVORITE_COLOR.replacen("\"version\": 2,", "\"version\": 2, \"version\": 2,", 1);
+    let duplicate_member = flat_single_choice_source().replacen(
+        "\"version\": 2,",
+        "\"version\": 2, \"version\": 2,",
+        1,
+    );
     assert!(matches!(
         FlatQuestionDocument::parse(duplicate_member.as_bytes()),
         Err(FlatQuestionError::MalformedJson(_))
     ));
 
-    let mut duplicate_choice: Value =
-        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
-    duplicate_choice["response"]["choices"][1]["id"] = Value::String("blue".to_string());
+    let mut duplicate_choice: Value = flat_single_choice_value();
+    duplicate_choice["response"]["choices"][1]["id"] =
+        Value::String(flat_single_choice().response.correct_choice);
     assert!(matches!(
         FlatQuestionDocument::parse(
             &serde_json::to_vec(&duplicate_choice).expect("modified fixture encodes")
@@ -480,8 +470,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
         Err(FlatQuestionError::InvalidDocument(_))
     ));
 
-    let mut unknown: Value =
-        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
+    let mut unknown: Value = flat_single_choice_value();
     unknown["responseProcessing"] = Value::String("kitchen sink".to_string());
     assert!(matches!(
         FlatQuestionDocument::parse(
@@ -490,8 +479,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
         Err(FlatQuestionError::MalformedJson(_))
     ));
 
-    let mut nested_unknown: Value =
-        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
+    let mut nested_unknown: Value = flat_single_choice_value();
     nested_unknown["attemptPolicy"]["qtiExtension"] = Value::Bool(true);
     assert!(matches!(
         FlatQuestionDocument::parse(
@@ -500,8 +488,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
         Err(FlatQuestionError::MalformedJson(_))
     ));
 
-    let mut legacy_feedback: Value =
-        serde_json::from_str(FAVORITE_COLOR).expect("fixture JSON should parse");
+    let mut legacy_feedback: Value = flat_single_choice_value();
     legacy_feedback["attemptPolicy"]["feedback"] = Value::String("immediateFull".to_string());
     assert!(matches!(
         FlatQuestionDocument::parse(
@@ -513,7 +500,7 @@ fn malformed_or_ambiguous_sources_are_refused() {
 
 #[test]
 fn version_one_flat_source_is_refused_without_a_legacy_reader() {
-    let version_one = FAVORITE_COLOR.replacen("\"version\": 2", "\"version\": 1", 1);
+    let version_one = flat_single_choice_source().replacen("\"version\": 2", "\"version\": 1", 1);
 
     assert!(matches!(
         FlatQuestionDocument::parse(version_one.as_bytes()),
@@ -523,8 +510,8 @@ fn version_one_flat_source_is_refused_without_a_legacy_reader() {
 
 #[test]
 fn private_material_refuses_a_different_public_definition() {
-    let document =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");
+    let document = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("flat source should parse");
     let (draft, private) = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(1)))
         .expect("flat source should compile")
@@ -554,8 +541,8 @@ fn source_size_has_one_explicit_backstop() {
 
 #[test]
 fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only() {
-    let document =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");
+    let document = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("flat source should parse");
     let (draft, private) = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(1)))
         .expect("flat source should compile")
@@ -594,8 +581,8 @@ fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only()
 
 #[test]
 fn private_material_validates_canonical_shape_and_rejects_substitutions() {
-    let document =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");
+    let document = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("flat source should parse");
     let private = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(1)))
         .expect("flat source should compile")
@@ -635,8 +622,8 @@ fn private_material_validates_canonical_shape_and_rejects_substitutions() {
 
 #[test]
 fn private_material_validates_against_the_exact_draft_before_publication() {
-    let document =
-        FlatQuestionDocument::parse(FAVORITE_COLOR.as_bytes()).expect("flat source should parse");
+    let document = FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+        .expect("flat source should parse");
     let (draft, private) = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(1)))
         .expect("flat source should compile")
@@ -656,8 +643,12 @@ fn private_material_validates_against_the_exact_draft_before_publication() {
             .expect("private material should encode"),
     )
     .expect("canonical private material should be UTF-8");
+    let correct_binding = format!(
+        r#""choice":"{}""#,
+        flat_single_choice().response.correct_choice
+    );
     let substituted_canonical =
-        canonical.replacen(r#""choice":"blue""#, r#""choice":"not-a-choice""#, 1);
+        canonical.replacen(&correct_binding, r#""choice":"not-a-choice""#, 1);
     let substituted_private =
         FlatQuestionPrivate::from_canonical_bytes(substituted_canonical.as_bytes())
             .expect("private material shape alone cannot know the draft choices");

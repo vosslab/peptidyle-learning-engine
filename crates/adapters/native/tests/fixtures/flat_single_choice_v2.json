@@ -1,0 +1,44 @@
+{
+  "format": "pleFlatQuestion",
+  "version": 2,
+  "title": "Favorite color",
+  "prompt": "What is my favorite color?",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      {
+        "id": "blue",
+        "text": "Blue",
+        "feedback": "Blue is a calm choice."
+      },
+      {
+        "id": "red",
+        "text": "Red",
+        "feedback": "Red is not my favorite."
+      },
+      {
+        "id": "yellow",
+        "text": "Yellow",
+        "feedback": "Yellow is bright."
+      }
+    ],
+    "correctChoice": "blue"
+  },
+  "feedback": {
+    "correct": "Exactly right.",
+    "incorrect": "Try thinking of a cool color."
+  },
+  "points": 1.0,
+  "attemptPolicy": {
+    "maxAttempts": null
+  },
+  "timingPolicy": {
+    "kind": "untimed"
+  },
+  "tags": ["example"],
+  "taxonomy": [],
+  "license": {
+    "kind": "ccBySa"
+  },
+  "language": "en-US"
+}

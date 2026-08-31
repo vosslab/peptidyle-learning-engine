@@ -11,36 +11,14 @@ use question_model::generation::{GeneratorReference, ParameterSpec, Randomizatio
 use question_model::response::{ChoiceId, ChoiceOption, QuestionResponseFormat};
 use question_model::taxonomy::License;
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition, ImplementationVersion,
-    QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionType,
-    QuestionVersionNumber, StudentResponse, WorkspaceId,
+    AssetId, DraftQuestionDefinition, DraftQuestionSource, GradingDefinition,
+    ImplementationVersion, QuestionFormat, QuestionId, QuestionMetadata, QuestionSource,
+    QuestionType, QuestionVersionNumber, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
 use super::*;
-
-const FLAT_FAVORITE_COLOR: &str = r#"{
-  "format": "pleFlatQuestion",
-  "version": 2,
-  "title": "Favorite color",
-  "prompt": "What is my favorite color?",
-  "response": {"kind": "singleChoice", "choices": [
-    {"id": "blue", "text": "Blue", "feedback": "Blue is a calm choice."},
-    {"id": "red", "text": "Red", "feedback": "Red is not my favorite."},
-    {"id": "yellow", "text": "Yellow", "feedback": "Yellow is bright."}
-  ], "correctChoice": "blue"},
-  "feedback": {
-    "correct": "Exactly right.",
-    "incorrect": "Try thinking of a cool color."
-  },
-  "points": 1.0,
-  "attemptPolicy": {"maxAttempts": null},
-  "timingPolicy": {"kind": "untimed"},
-  "tags": ["example"],
-  "taxonomy": [],
-  "license": {"kind": "ccBySa"},
-  "language": "en-US"
-}"#;
+use crate::test_support::flat_single_choice_bytes;
 
 fn question_id() -> QuestionId {
     QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID")
@@ -53,8 +31,8 @@ fn version_number(value: u32) -> QuestionVersionNumber {
 fn flat_question() -> QuestionDefinition {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let document =
-        crate::flat_question::FlatQuestionDocument::parse(FLAT_FAVORITE_COLOR.as_bytes())
-            .expect("flat fixture should parse");
+        crate::flat_question::FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
+            .expect("stored flat fixture should parse");
     let draft = document
         .compile(workspace)
         .expect("flat fixture should compile")
@@ -638,7 +616,10 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
     }
 
     fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion { id: "numeric-reference".to_string(), version: "1".to_string() }
+        ImplementationVersion {
+            id: "numeric-reference".to_string(),
+            version: "1".to_string(),
+        }
     }
 
     fn generator(&self) -> Option<GeneratorReference> {
@@ -731,7 +712,10 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
     }
 
     fn implementation_release(&self) -> ImplementationVersion {
-        ImplementationVersion { id: "versioned-numeric".to_string(), version: self.version.to_string() }
+        ImplementationVersion {
+            id: "versioned-numeric".to_string(),
+            version: self.version.to_string(),
+        }
     }
 
     fn generator(&self) -> Option<GeneratorReference> {

@@ -48,7 +48,13 @@ impl NativeAdapter {
                     && key.generator.as_ref() == generator
             })
             .map(|(_, registered)| Arc::as_ref(registered))
-            .ok_or_else(|| self.unknown_implementation(question.question_format, question.question_type, generator))
+            .ok_or_else(|| {
+                self.unknown_implementation(
+                    question.question_format,
+                    question.question_type,
+                    generator,
+                )
+            })
     }
 
     pub(super) fn implementation_for_draft(
@@ -67,7 +73,13 @@ impl NativeAdapter {
                     && key.generator.as_ref() == generator
             })
             .map(|(_, registered)| Arc::as_ref(registered))
-            .ok_or_else(|| self.unknown_implementation(question.question_format, question.question_type, generator))
+            .ok_or_else(|| {
+                self.unknown_implementation(
+                    question.question_format,
+                    question.question_type,
+                    generator,
+                )
+            })
     }
 
     fn unknown_implementation(

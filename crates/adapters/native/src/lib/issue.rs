@@ -59,7 +59,8 @@ impl NativeAdapter {
             .map_err(NativeAdapterError::InvalidTitle)?;
         let generated =
             generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
-        let implementation = self.implementation_for_draft(question, generated.generator.as_ref())?;
+        let implementation =
+            self.implementation_for_draft(question, generated.generator.as_ref())?;
         let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
             .map_err(NativeAdapterError::Presentation)?;
         let Some(AuthorPresentationContent {
@@ -90,7 +91,8 @@ impl NativeAdapter {
             .map_err(NativeAdapterError::InvalidTitle)?;
         let generated =
             generate(seed, &question.randomization).map_err(NativeAdapterError::Generation)?;
-        let implementation = self.implementation_for_question(question, generated.generator.as_ref())?;
+        let implementation =
+            self.implementation_for_question(question, generated.generator.as_ref())?;
         let parameter_hash = generated.sha256().map_err(NativeAdapterError::Generation)?;
         let prompt = materialize_prompt(&question.prompt, seed, &question.randomization)
             .map_err(NativeAdapterError::Presentation)?;

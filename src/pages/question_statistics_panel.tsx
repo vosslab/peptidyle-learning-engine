@@ -43,7 +43,7 @@ export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JS
     <Show
       when={available()}
       fallback={
-        <section class="catalog-statistics-panel" aria-labelledby="insufficient-evidence-heading">
+        <section class="question-statistics-panel" aria-labelledby="insufficient-evidence-heading">
           <h2 id="insufficient-evidence-heading">Learning evidence</h2>
           <p>
             More evidence is needed before shared learning measures can be shown. This question
@@ -63,14 +63,14 @@ function AvailableEvidence(props: { readonly evidence: AvailableQuestionStatisti
     return value === undefined ? undefined : { value };
   };
   return (
-    <section class="catalog-statistics-panel" aria-labelledby="learning-evidence-heading">
+    <section class="question-statistics-panel" aria-labelledby="learning-evidence-heading">
       <h2 id="learning-evidence-heading">Learning evidence</h2>
-      <p class="catalog-statistics-introduction">
+      <p class="question-statistics-introduction">
         These anonymous measures use independent Student observations for this exact published
         question. They pool observations across courses and describe association, not a cause or a
         prediction for your class.
       </p>
-      <dl class="catalog-statistics-measures">
+      <dl class="question-statistics-measures">
         <div>
           <dt>Observed courses</dt>
           <dd>{wholeNumber.format(props.evidence.observedCourseCount)} courses</dd>
@@ -110,15 +110,15 @@ function AvailableEvidence(props: { readonly evidence: AvailableQuestionStatisti
 export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
   const summary = (): QuestionUseDetails["summary"] => props.usage.summary;
   return (
-    <section class="catalog-statistics-panel catalog-usage-panel" aria-labelledby="usage-heading">
+    <section class="question-statistics-panel question-usage-panel" aria-labelledby="usage-heading">
       <h2 id="usage-heading">Usage across PLE</h2>
-      <p class="catalog-statistics-introduction">
+      <p class="question-statistics-introduction">
         This exact published question appears in{" "}
         {formatCount(summary().globalCourseCount, "course")} and{" "}
         {formatCount(summary().globalAssignmentCount, "assignment")} across the Question Library.
         Course names below are limited to courses you can open.
       </p>
-      <dl class="catalog-usage-counts">
+      <dl class="question-usage-counts">
         <div>
           <dt>Your courses</dt>
           <dd>{formatCount(summary().ownCourseCount, "course")}</dd>
@@ -131,13 +131,13 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
       <Show
         when={props.usage.ownCourses.length > 0}
         fallback={
-          <p class="catalog-usage-next-step">
+          <p class="question-usage-next-step">
             <A href="/">Open your courses</A> to add this question to a future assignment.
           </p>
         }
       >
         <h3>Your courses using this question</h3>
-        <ul class="catalog-usage-courses">
+        <ul class="question-usage-courses">
           <For each={props.usage.ownCourses}>
             {(course) => (
               <li>
@@ -149,12 +149,12 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         </ul>
       </Show>
       <Show when={props.usage.ownCoursesTruncated}>
-        <p class="catalog-usage-next-step" role="status">
+        <p class="question-usage-next-step" role="status">
           More of your courses use this question. <A href="/">Open your courses</A> to continue the
           impact review.
         </p>
       </Show>
-      <p class="catalog-usage-next-step">
+      <p class="question-usage-next-step">
         Review these course uses before replacing the question. A future assignment can use a
         replacement; issued student work remains unchanged.
       </p>

@@ -6,7 +6,7 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
 import {
   appendFixedEntries,
-  type AssignmentCatalogRow,
+  type AssignmentQuestionRow,
   type AssignmentEditorDraft,
 } from "./assignment_editor_model";
 import {
@@ -33,7 +33,7 @@ export interface AssignmentEditorPickerControllerProps {
   readonly editorBusy: () => boolean;
   readonly setBusy: (value: boolean) => void;
   readonly onDraftChange: (draft: AssignmentEditorDraft) => void;
-  readonly onReplacementPrepared: (row: AssignmentCatalogRow, itemId: string) => void;
+  readonly onReplacementPrepared: (row: AssignmentQuestionRow, itemId: string) => void;
   readonly onMessage: (message: string) => void;
   readonly onError: (error: unknown, fallback: string) => void;
 }
@@ -54,7 +54,7 @@ export interface AssignmentEditorPickerController {
 async function resolveRows(
   repository: AssignmentEditorRepository,
   questionIds: ReadonlyArray<string>,
-): Promise<ReadonlyArray<AssignmentCatalogRow>> {
+): Promise<ReadonlyArray<AssignmentQuestionRow>> {
   return await Promise.all(
     questionIds.map(async (questionId) => await repository.resolvePublished(questionId)),
   );
@@ -87,7 +87,7 @@ export function createAssignmentEditorPickerController(
     setPendingSelection(undefined);
   }
 
-  function addCreateRows(rows: ReadonlyArray<AssignmentCatalogRow>): void {
+  function addCreateRows(rows: ReadonlyArray<AssignmentQuestionRow>): void {
     const draft = props.currentDraft();
     if (draft === undefined) return;
     const nextDraft = appendFixedEntries(draft, rows);
@@ -101,7 +101,7 @@ export function createAssignmentEditorPickerController(
     );
   }
 
-  function addPoolRows(entryIndex: number, rows: ReadonlyArray<AssignmentCatalogRow>): void {
+  function addPoolRows(entryIndex: number, rows: ReadonlyArray<AssignmentQuestionRow>): void {
     const draft = props.currentDraft();
     const entry = draft?.entries[entryIndex];
     if (draft === undefined || entry === undefined || entry.kind !== "questionPool") return;

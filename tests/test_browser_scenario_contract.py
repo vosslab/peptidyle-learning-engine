@@ -11,7 +11,7 @@ sys.path.insert(0, str(E2E_DIRECTORY))
 import e2e_browser_scenario_contract as browser_scenario_contract
 
 
-def test_catalog_preserves_direct_role_security_journeys() -> None:
+def test_scenario_registry_preserves_direct_role_security_journeys() -> None:
 	"""Morgan and Elena retain their independent live-demo passkey journeys."""
 	registry = browser_scenario_contract.scenario_contracts()
 	browser_scenario_contract.validate_registry(registry)
@@ -30,7 +30,7 @@ def test_catalog_preserves_direct_role_security_journeys() -> None:
 
 
 @pytest.mark.parametrize("scenario_id", ["direct_role_entry", "auth_authorization"])
-def test_catalog_requires_both_named_role_security_journeys(scenario_id: str) -> None:
+def test_scenario_registry_requires_both_named_role_security_journeys(scenario_id: str) -> None:
 	"""Elena and Morgan remain independent mandatory live-demo acceptance children."""
 	registry = tuple(
 		contract

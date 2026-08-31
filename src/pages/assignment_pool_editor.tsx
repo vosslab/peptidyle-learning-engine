@@ -6,7 +6,7 @@ import type { PoolDrawPreview } from "../api/contracts";
 import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 
 import type {
-  AssignmentCatalogRow,
+  AssignmentQuestionRow,
   AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
 import {
@@ -20,7 +20,7 @@ export interface AssignmentPoolEditorProps {
   readonly entryCount: number;
   readonly resolveCandidates: (
     questionIds: ReadonlyArray<string>,
-  ) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
+  ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onChange: (entry: AssignmentEditorQuestionPoolEntry) => void;
   readonly onMove: (direction: -1 | 1) => void;
   readonly onRemove: () => void;

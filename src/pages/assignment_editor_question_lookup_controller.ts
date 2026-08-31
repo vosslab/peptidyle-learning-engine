@@ -1,15 +1,15 @@
 import { createSignal, type Accessor } from "solid-js";
 
-import type { AssignmentCatalogRow } from "./assignment_editor_model";
+import type { AssignmentQuestionRow } from "./assignment_editor_model";
 import { parseExactProblemDisplayReferences } from "./assignment_editor_model";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
 
 export interface AssignmentEditorQuestionLookupController {
   readonly replacementText: Accessor<string>;
   readonly setReplacementText: (value: string) => void;
-  readonly selected: Accessor<AssignmentCatalogRow | undefined>;
-  readonly setSelected: (value: AssignmentCatalogRow | undefined) => void;
-  readonly lookup: (value: string) => Promise<AssignmentCatalogRow>;
+  readonly selected: Accessor<AssignmentQuestionRow | undefined>;
+  readonly setSelected: (value: AssignmentQuestionRow | undefined) => void;
+  readonly lookup: (value: string) => Promise<AssignmentQuestionRow>;
   readonly chooseReplacement: (onMessage: (message: string) => void) => Promise<void>;
 }
 
@@ -17,9 +17,9 @@ export function createAssignmentEditorQuestionLookupController(
   repository: AssignmentEditorRepository,
 ): AssignmentEditorQuestionLookupController {
   const [replacementText, setReplacementText] = createSignal("");
-  const [selected, setSelected] = createSignal<AssignmentCatalogRow>();
+  const [selected, setSelected] = createSignal<AssignmentQuestionRow>();
 
-  async function lookup(value: string): Promise<AssignmentCatalogRow> {
+  async function lookup(value: string): Promise<AssignmentQuestionRow> {
     const ids = parseExactProblemDisplayReferences(value);
     if (ids.length !== 1) throw new Error("Choose one Question ID for this action.");
     const id = ids[0];

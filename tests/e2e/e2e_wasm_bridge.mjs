@@ -29,7 +29,7 @@ if (!fs.existsSync(bridgePath)) {
 
 const bridge = await import(bridgePath);
 
-// One committed, answer-free corpus drives the native Rust, generated Node,
+// One committed, answer-free fixture set drives the native Rust, generated Node,
 // and real-browser Wasm checks. It belongs to the Wasm package instead of
 // `tests/fixtures/` because it is part of this boundary's durable contract.
 const { cases: flatV2ParityCases } = JSON.parse(
@@ -111,7 +111,7 @@ assert.equal(timerVerdict, "submittedWithinGrace");
 
 const fixture = JSON.parse(
   fs.readFileSync(
-    path.join(repoRoot, "tests", "fixtures", "published_problem", "corpus.json"),
+    path.join(repoRoot, "tests", "fixtures", "published_problem", "fixture_set.json"),
     "utf8",
   ),
 );

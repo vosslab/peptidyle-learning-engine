@@ -19,7 +19,7 @@ import type {
 } from "../api/contracts";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
-export interface AssignmentCatalogRow {
+export interface AssignmentQuestionRow {
   readonly questionId: QuestionId;
   readonly title: string;
   readonly backend: QuestionBackend;
@@ -36,7 +36,7 @@ export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySum
 export interface AssignmentEditorQuestionPoolEntry {
   readonly kind: "questionPool";
   readonly id?: string;
-  readonly candidates: ReadonlyArray<AssignmentCatalogRow>;
+  readonly candidates: ReadonlyArray<AssignmentQuestionRow>;
   readonly drawCount: number;
   readonly pointsPerItem: string;
   readonly ordering: "candidateOrder" | "randomized";
@@ -128,7 +128,7 @@ export function moveAssignmentEntry(
 
 export function appendFixedEntries(
   draft: AssignmentEditorDraft,
-  rows: ReadonlyArray<AssignmentCatalogRow>,
+  rows: ReadonlyArray<AssignmentQuestionRow>,
 ): AssignmentEditorDraft {
   const known = new Set(fixedEntries(draft).map((item) => item.questionId));
   const fresh = rows.filter((row) => !known.has(row.questionId));
@@ -244,7 +244,7 @@ export function parseExactProblemDisplayReferences(value: string): ReadonlyArray
 export function capabilityLabel(capability: Capability): string {
   return capability.replace(/([A-Z])/gu, " $1").toLowerCase();
 }
-export function assignmentProblemLabel(row: AssignmentCatalogRow | FixedQuestionAssignmentEntrySummary): string {
+export function assignmentProblemLabel(row: AssignmentQuestionRow | FixedQuestionAssignmentEntrySummary): string {
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {

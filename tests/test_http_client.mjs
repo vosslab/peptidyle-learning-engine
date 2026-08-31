@@ -6,7 +6,7 @@ import test from "node:test";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
-  decodeCatalogPage,
+  decodeQuestionPage,
   decodeDraftQuestionDefinition,
   decodeStudentSubmissionStatus,
   decodeQuestionEnvelope,
@@ -80,12 +80,12 @@ test("Student submission status decoder accepts only closed answer-free pending 
   );
 });
 
-test("catalog pages remain bounded and do not disclose answer material", () => {
-  const page = { items: [publishedProblemFixture.catalogProblem], nextCursor: null };
-  assert.deepEqual(decodeCatalogPage(page), page);
-  assert.throws(() => decodeCatalogPage({ ...page, answerKey: "secret" }), DecodeError);
+test("Question Library pages remain bounded and do not disclose answer material", () => {
+  const page = { items: [publishedProblemFixture.publishedQuestion], nextCursor: null };
+  assert.deepEqual(decodeQuestionPage(page), page);
+  assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
   assert.throws(
-    () => decodeCatalogPage({ ...page, items: Array.from({ length: 101 }, () => page.items[0]) }),
+    () => decodeQuestionPage({ ...page, items: Array.from({ length: 101 }, () => page.items[0]) }),
     DecodeError,
   );
 });

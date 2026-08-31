@@ -1,4 +1,4 @@
-"""Offline profile partitioning for the real-stack browser catalog."""
+"""Offline profile partitioning for the real-stack browser scenario registry."""
 
 import pathlib
 import sys
@@ -23,6 +23,6 @@ def test_selected_contracts_share_the_canonical_browser_profile() -> None:
 
 
 def test_empty_selection_is_rejected() -> None:
-	"""A browser run always names at least one catalog-owned scenario."""
+	"""A browser run always names at least one scenario-registry-owned journey."""
 	with pytest.raises(e2e_browser_scenario_partition.ScenarioPartitionError, match="empty"):
 		e2e_browser_scenario_partition.partition(())

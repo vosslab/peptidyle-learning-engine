@@ -179,9 +179,9 @@ test.describe("instructor authoring on the production PLE stack", () => {
       // assignment journey starts in the intended source without an extra source mutation.
       await picker.getByLabel("Search questions", { exact: true }).fill(questionTitle);
       await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-      const catalogQuestion = picker.getByRole("checkbox", { name: new RegExp(questionTitle) });
-      await expect(catalogQuestion).toBeVisible();
-      await catalogQuestion.check();
+      const libraryQuestion = picker.getByRole("checkbox", { name: new RegExp(questionTitle) });
+      await expect(libraryQuestion).toBeVisible();
+      await libraryQuestion.check();
       await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
       await expect(picker).toHaveCount(0);
       await expect(elena.locator(".assignment-editor-list")).toContainText(questionTitle);

@@ -1,4 +1,4 @@
-"""UI-first instructor-authoring scenarios in deterministic catalog order."""
+"""UI-first instructor-authoring scenarios in deterministic scenario-registry order."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

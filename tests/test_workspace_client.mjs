@@ -92,7 +92,7 @@ test("publication transport uses a bodyless validation request and an explicit r
           { headers: { etag: '"1"' } },
         );
       }
-      return jsonResponse(publishedProblemFixture.catalogProblem);
+      return jsonResponse(publishedProblemFixture.publishedQuestion);
     },
   });
   await client.validateWorkspacePublication(workspace);

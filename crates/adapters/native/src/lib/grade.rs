@@ -85,8 +85,8 @@ impl NativeAdapter {
         let GradeOutcome::Graded(result) = &outcome else {
             return Ok((outcome, FeedbackContent::default()));
         };
-        let implementation = self
-            .implementation_for_question(question, prepared.generated.generator.as_ref())?;
+        let implementation =
+            self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
         let feedback = implementation.derive_feedback(
             question,
             &prepared.generated,

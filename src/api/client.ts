@@ -326,7 +326,7 @@ export interface ApiClient
     request: PublicationRequest,
     revision: string,
   ) => Promise<PublicationResult>;
-  readonly listProblems: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
+  readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
   /** Searches Question Library metadata with server-computed facets. */
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
@@ -465,7 +465,7 @@ export interface ApiClient
   ) => Promise<AssignmentAttemptScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
-  /** Public immutable catalog-asset redirect path; it never issues a capability. */
+  /** Public immutable Question Library asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: AssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly timerVerdictOnServer: TimerEvaluator;

@@ -5,7 +5,7 @@ import { For, type JSX } from "solid-js";
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import {
   questionBackendLabel,
-  type AssignmentCatalogRow,
+  type AssignmentQuestionRow,
   type AssignmentEditorEntry,
   type AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
@@ -19,7 +19,7 @@ export interface AssignmentEditorContentListProps {
   readonly preview: PoolDrawPreview | undefined;
   readonly resolveCandidates: (
     questionIds: ReadonlyArray<string>,
-  ) => Promise<ReadonlyArray<AssignmentCatalogRow>>;
+  ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
   readonly onReplace: (itemId: string) => void;
   readonly onRemoveFixed: (itemId: string) => void;

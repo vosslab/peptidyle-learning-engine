@@ -16,20 +16,20 @@ pub use crate::question_search::{
     QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
     QuestionSearchTaxonomyFacet, QuestionSearchTaxonomyFilter, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet,
-    MAX_CATALOG_BACKEND_FACETS, MAX_CATALOG_BYLINE_FACETS, MAX_CATALOG_BYLINE_FILTERS,
-    MAX_CATALOG_QUESTION_TYPE_FACETS, MAX_CATALOG_QUESTION_TYPE_FILTERS,
-    MAX_CATALOG_TAG_FACETS, MAX_CATALOG_TAG_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_BYLINE_FACETS, MAX_QUESTION_SEARCH_BYLINE_FILTERS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
+    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS,
 };
 pub use crate::response::QuestionType;
 
 /// Maximum taxonomy facet values returned with one bounded catalog page.
-pub const MAX_CATALOG_TAXONOMY_FACETS: usize = 64;
+pub const MAX_QUESTION_SEARCH_TAXONOMY_FACETS: usize = 64;
 
 /// Maximum own-course rows included with one exact catalog usage detail.
 ///
 /// The aggregate summary remains complete while the named course list stays a
 /// compact, visible decision aid rather than an unbounded course inventory.
-pub const MAX_CATALOG_OWN_COURSE_USAGES: usize = 100;
+pub const MAX_QUESTION_SEARCH_OWN_COURSE_USAGES: usize = 100;
 
 /// Crockford Base32 alphabet used by the one human-facing Question ID.
 pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -391,7 +391,7 @@ pub struct CourseQuestionUse {
 pub struct QuestionUseDetails {
     /// Scope-explicit aggregate counts for this exact publication.
     pub summary: QuestionUseSummary,
-    /// At most [`MAX_CATALOG_OWN_COURSE_USAGES`] Account-visible course rows.
+    /// At most [`MAX_QUESTION_SEARCH_OWN_COURSE_USAGES`] Account-visible course rows.
     pub own_courses: Vec<CourseQuestionUse>,
     /// Whether additional Account-visible course rows remain beyond this bounded list.
     pub own_courses_truncated: bool,

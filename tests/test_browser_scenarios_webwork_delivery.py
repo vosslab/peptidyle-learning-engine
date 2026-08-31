@@ -15,32 +15,34 @@ import e2e_browser_scenario_webwork_delivery as webwork_delivery
 
 
 #============================================
-def test_catalog_baseline_receipt_accepts_only_public_question_location() -> None:
+def test_published_question_fixture_receipt_accepts_only_public_question_location() -> None:
 	"""The host hand-off contains only the reviewed Question ID and student title."""
-	baseline = webwork_delivery.decode_catalog_baseline_receipt(
+	fixture = webwork_delivery.decode_published_question_fixture_receipt(
 		'{"questionId":"ABC-1234","title":"Biochemistry: Identify hydrophobic compounds from formulas"}'
 	)
-	assert baseline.question_id == "ABC-1234"
-	assert baseline.title == webwork_delivery.CATALOG_TITLE
+	assert fixture.question_id == "ABC-1234"
+	assert fixture.title == webwork_delivery.PUBLISHED_QUESTION_TITLE
 	with pytest.raises(webwork_delivery.WebworkDeliveryEvidenceError, match="invalid"):
-		webwork_delivery.decode_catalog_baseline_receipt(
+		webwork_delivery.decode_published_question_fixture_receipt(
 			'{"questionId":"ABC-1234","source":"private","title":"Biochemistry: Identify hydrophobic compounds from formulas"}'
 		)
 
 
 #============================================
-def test_catalog_baseline_private_input_is_canonical_and_private(tmp_path: pathlib.Path) -> None:
+def test_published_question_fixture_private_input_is_canonical_and_private(tmp_path: pathlib.Path) -> None:
 	"""The browser gets a small validated input rather than provider configuration."""
-	path = tmp_path / "webwork-catalog-input.json"
-	baseline = webwork_delivery.CatalogBaseline("ABC-1234", webwork_delivery.CATALOG_TITLE)
-	webwork_delivery.write_catalog_baseline_input(path, baseline)
+	path = tmp_path / "webwork-published-question-fixture.json"
+	fixture = webwork_delivery.PublishedQuestionFixture(
+		"ABC-1234", webwork_delivery.PUBLISHED_QUESTION_TITLE
+	)
+	webwork_delivery.write_published_question_fixture_input(path, fixture)
 	assert path.stat().st_mode & 0o777 == 0o600
-	assert webwork_delivery.validate_catalog_baseline_input(path) == baseline
+	assert webwork_delivery.validate_published_question_fixture_input(path) == fixture
 	value = json.loads(path.read_text(encoding="ascii"))
 	assert value["questionId"] == "ABC-1234"
 	assert value["scenarioId"] == webwork_delivery.SCENARIO_ID
-	assert value["schemaVersion"] == webwork_delivery.CATALOG_INPUT_SCHEMA_VERSION
-	assert value["title"] == webwork_delivery.CATALOG_TITLE
+	assert value["schemaVersion"] == webwork_delivery.PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION
+	assert value["title"] == webwork_delivery.PUBLISHED_QUESTION_TITLE
 
 
 #============================================

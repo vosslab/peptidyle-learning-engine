@@ -1,14 +1,14 @@
 // question_search_query.ts - one strict Question Library search boundary for the production client and tests.
 
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
-import { MAX_CATALOG_BYLINE_FILTERS } from "../../generated/api/MAX_CATALOG_BYLINE_FILTERS";
-import { MAX_CATALOG_TAG_FILTERS } from "../../generated/api/MAX_CATALOG_TAG_FILTERS";
+import { MAX_QUESTION_SEARCH_BYLINE_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FILTERS";
+import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 
-const MAX_CATALOG_TEXT_UNICODE_SCALARS = 256;
-const MAX_CATALOG_TAXONOMY_FILTERS = 64;
-const MAX_CATALOG_PAGE_SIZE = 100;
+const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
+const MAX_QUESTION_SEARCH_TAXONOMY_FILTERS = 64;
+const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
 const MAX_PROBLEM_DISPLAY_REFERENCE_CHARACTERS = 44;
-const CATALOG_CAPABILITIES = [
+const QUESTION_SEARCH_CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
   "serverGrading",
@@ -18,9 +18,9 @@ const CATALOG_CAPABILITIES = [
   "printExport",
   "offlinePreview",
 ] as const;
-const CATALOG_LICENSES = ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"] as const;
-const CATALOG_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
-const CATALOG_QUESTION_TYPES = [
+const QUESTION_SEARCH_LICENSES = ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"] as const;
+const QUESTION_SEARCH_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
+const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",
   "fillInBlank",
@@ -30,7 +30,7 @@ const CATALOG_QUESTION_TYPES = [
   "ordering",
   "hotspot",
 ] as const;
-const CATALOG_QUERY_FIELDS = [
+const QUESTION_SEARCH_QUERY_FIELDS = [
   "text",
   "bylines",
   "backends",
@@ -95,7 +95,7 @@ function catalogCursor(value: string): string {
  */
 export function questionSearchPath(query: QuestionSearchRequest): string {
   for (const field of Object.keys(query)) {
-    if (!CATALOG_QUERY_FIELDS.includes(field as (typeof CATALOG_QUERY_FIELDS)[number])) {
+    if (!QUESTION_SEARCH_QUERY_FIELDS.includes(field as (typeof QUESTION_SEARCH_QUERY_FIELDS)[number])) {
       throw new Error(`Question Library search query contains unknown field: ${field}`);
     }
   }
@@ -103,35 +103,35 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   if (query.text !== null) {
     parameters.set(
       "text",
-      catalogFilterText(query.text, "Question Library text", MAX_CATALOG_TEXT_UNICODE_SCALARS),
+      catalogFilterText(query.text, "Question Library text", MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS),
     );
   }
-  boundedCatalogFilterValues(query.bylines, MAX_CATALOG_BYLINE_FILTERS, "Question Library bylines");
+  boundedCatalogFilterValues(query.bylines, MAX_QUESTION_SEARCH_BYLINE_FILTERS, "Question Library bylines");
   for (const byline of query.bylines) {
     parameters.append("bylines", normalizedCatalogFilterText(byline, "Question Library byline", 120));
   }
-  boundedCatalogFilterValues(query.backends, CATALOG_BACKENDS.length, "Question Library backends");
+  boundedCatalogFilterValues(query.backends, QUESTION_SEARCH_BACKENDS.length, "Question Library backends");
   for (const backend of query.backends) {
-    parameters.append("backends", catalogEnum(backend, CATALOG_BACKENDS, "Question Library backend"));
+    parameters.append("backends", catalogEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"));
   }
-  boundedCatalogFilterValues(query.tags, MAX_CATALOG_TAG_FILTERS, "Question Library tags");
+  boundedCatalogFilterValues(query.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, "Question Library tags");
   for (const tag of query.tags) {
     parameters.append("tags", normalizedCatalogFilterText(tag, "Question Library tag", 256));
   }
   boundedCatalogFilterValues(
     query.question_types,
-    CATALOG_QUESTION_TYPES.length,
+    QUESTION_SEARCH_QUESTION_TYPES.length,
     "Question Library question_types",
   );
   for (const questionType of query.question_types) {
     parameters.append(
       "question_types",
-      catalogEnum(questionType, CATALOG_QUESTION_TYPES, "Question Library Question Type"),
+      catalogEnum(questionType, QUESTION_SEARCH_QUESTION_TYPES, "Question Library Question Type"),
     );
   }
-  if (query.taxonomy.length > MAX_CATALOG_TAXONOMY_FILTERS) {
+  if (query.taxonomy.length > MAX_QUESTION_SEARCH_TAXONOMY_FILTERS) {
     throw new Error(
-      `Question Library taxonomy filters must contain at most ${MAX_CATALOG_TAXONOMY_FILTERS} entries`,
+      `Question Library taxonomy filters must contain at most ${MAX_QUESTION_SEARCH_TAXONOMY_FILTERS} entries`,
     );
   }
   for (const taxonomy of query.taxonomy) {
@@ -139,20 +139,20 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     const code = catalogFilterText(taxonomy.code, "Question Library taxonomy code", 128);
     parameters.append("taxonomy", `${scheme}:${code}`);
   }
-  if (query.capabilities.length > CATALOG_CAPABILITIES.length) {
+  if (query.capabilities.length > QUESTION_SEARCH_CAPABILITIES.length) {
     throw new Error("Question Library capabilities must contain at most the supported capability count");
   }
   for (const capability of query.capabilities) {
     parameters.append(
       "capabilities",
-      catalogEnum(capability, CATALOG_CAPABILITIES, "Question Library capability"),
+      catalogEnum(capability, QUESTION_SEARCH_CAPABILITIES, "Question Library capability"),
     );
   }
-  if (query.licenses.length > CATALOG_LICENSES.length) {
+  if (query.licenses.length > QUESTION_SEARCH_LICENSES.length) {
     throw new Error("Question Library licenses must contain at most the supported license count");
   }
   for (const license of query.licenses) {
-    parameters.append("licenses", catalogEnum(license, CATALOG_LICENSES, "Question Library license"));
+    parameters.append("licenses", catalogEnum(license, QUESTION_SEARCH_LICENSES, "Question Library license"));
   }
   const evidence = catalogEnum(
     query.evidence,
@@ -185,10 +185,10 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     if (
       !Number.isSafeInteger(query.page_size) ||
       query.page_size < 1 ||
-      query.page_size > MAX_CATALOG_PAGE_SIZE
+      query.page_size > MAX_QUESTION_SEARCH_PAGE_SIZE
     ) {
       throw new Error(
-        `Question Library page_size must be a safe integer between 1 and ${MAX_CATALOG_PAGE_SIZE}`,
+        `Question Library page_size must be a safe integer between 1 and ${MAX_QUESTION_SEARCH_PAGE_SIZE}`,
       );
     }
     parameters.set("page_size", String(query.page_size));

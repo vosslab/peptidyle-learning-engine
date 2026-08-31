@@ -4,12 +4,16 @@ import test from "node:test";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { reusableCurriculumQuestionPickerRepository } from "../src/features/question_picker/question_picker_model.ts";
 
-const { scope: _retiredPublicationScope, ...catalogProblem } =
-  publishedProblemFixture.catalogProblem;
+const { scope: _retiredPublicationScope, ...publishedQuestion } =
+  publishedProblemFixture.publishedQuestion;
 
-function catalog(questionId, title) {
+function questionLibraryEntry(questionId, title) {
   return {
-    summary: { ...catalogProblem, questionId, metadata: { ...catalogProblem.metadata, title } },
+    summary: {
+      ...publishedQuestion,
+      questionId,
+      metadata: { ...publishedQuestion.metadata, title },
+    },
     evidence: { state: "insufficientEvidence" },
   };
 }
@@ -17,15 +21,15 @@ function catalog(questionId, title) {
 function definition() {
   return {
     entries: [
-      { kind: "fixed", question: { catalog: catalog("7K3-M9QP", "First fixed") } },
+      { kind: "fixed", question: { catalog: questionLibraryEntry("7K3-M9QP", "First fixed") } },
       {
         kind: "pool",
         candidates: [
-          { catalog: catalog("2R5-X7YA", "Pool first") },
-          { catalog: catalog("3S8-B4DZ", "Pool second") },
+          { catalog: questionLibraryEntry("2R5-X7YA", "Pool first") },
+          { catalog: questionLibraryEntry("3S8-B4DZ", "Pool second") },
         ],
       },
-      { kind: "fixed", question: { catalog: catalog("4T9-C5EW", "Final fixed") } },
+      { kind: "fixed", question: { catalog: questionLibraryEntry("4T9-C5EW", "Final fixed") } },
     ],
   };
 }

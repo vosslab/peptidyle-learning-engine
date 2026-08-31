@@ -36,13 +36,13 @@ const nativeQuestionTitle = "Peptide bond resonance and planarity";
 const firstVisibleResponseIndex = 0;
 
 const evidenceArtifacts = [
-  { artifactId: "catalog_discovery_disclosed_evidence_laptop", viewport: "laptop" },
+  { artifactId: "question_library_discovery_disclosed_evidence_laptop", viewport: "laptop" },
 ] as const;
 const usageArtifacts = [
-  { artifactId: "catalog_discovery_authorized_usage_laptop", viewport: "laptop" },
+  { artifactId: "question_library_discovery_authorized_usage_laptop", viewport: "laptop" },
 ] as const;
 const libraryArtifacts = [
-  { artifactId: "catalog_discovery_filtered_library_laptop", viewport: "laptop" },
+  { artifactId: "question_library_discovery_filtered_library_laptop", viewport: "laptop" },
 ] as const;
 
 const emails = {
@@ -178,7 +178,7 @@ async function assertInitialInsufficientEvidence(page: Page): Promise<void> {
   await expect(evidence).toContainText("More evidence is needed");
 }
 
-async function assertGeneratedCatalogPrompt(page: Page): Promise<void> {
+async function assertGeneratedQuestionLibraryPrompt(page: Page): Promise<void> {
   const prompt = page.getByRole("region", { name: "Question prompt", exact: true });
   await expect(prompt).toBeVisible();
   await expect(prompt).toContainText(/(glycine|alanine|proline) peptide example/u);
@@ -286,7 +286,7 @@ async function verifyLaptopLibraryKeyboardPath(page: Page): Promise<void> {
   await expect(page.locator('[data-route-surface="questionDetail"]')).toBeVisible();
 }
 
-test.describe("catalog discovery evidence on the production PLE stack", () => {
+test.describe("Question Library discovery evidence on the production PLE stack", () => {
   test.skip(
     configuredLiveDemoInputs === undefined,
     "the disposable production browser-suite owner supplies this scenario input",
@@ -297,8 +297,10 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
   }) => {
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
-    expect(scenarioInput.scenarioId).toBe("catalog_discovery_evidence");
-    expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-catalog_discovery_evidence$/u);
+    expect(scenarioInput.scenarioId).toBe("question_library_evidence");
+    expect(scenarioInput.namespace).toMatch(
+      /^bs1-[0-9a-f]{12}-question_library_evidence$/u,
+    );
 
     const contexts: BrowserContext[] = [];
     const pageOrigins = new Set<string>();
@@ -332,7 +334,7 @@ test.describe("catalog discovery evidence on the production PLE stack", () => {
         await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await libraryQuestionId(elena);
         await openLibraryDetail(elena);
-        await assertGeneratedCatalogPrompt(elena);
+        await assertGeneratedQuestionLibraryPrompt(elena);
         await assertInitialInsufficientEvidence(elena);
         await expectUsageOnlyInCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       });

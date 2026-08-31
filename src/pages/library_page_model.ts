@@ -104,8 +104,8 @@ export type QuestionSearchState =
 const MAX_CURSOR_LENGTH = 512;
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
-export const MAX_CATALOG_PAGE_ITEMS = 100;
-const MAX_CATALOG_AGGREGATES = 100;
+export const MAX_QUESTION_SEARCH_PAGE_ITEMS = 100;
+const MAX_QUESTION_SEARCH_AGGREGATES = 100;
 const MAX_FACET_COUNT = 1_000_000_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -129,7 +129,7 @@ function boundedText(value: unknown, path: string, maxLength = MAX_TEXT_LENGTH):
 }
 
 function stringList(value: unknown, path: string): ReadonlyArray<string> {
-  if (!Array.isArray(value) || value.length > MAX_CATALOG_AGGREGATES) {
+  if (!Array.isArray(value) || value.length > MAX_QUESTION_SEARCH_AGGREGATES) {
     throw new Error(`${path} must be an array`);
   }
   return value.map((item, index) => boundedText(item, `${path}[${index}]`));
@@ -278,9 +278,9 @@ export function decodeQuestionSearchPage(value: unknown): QuestionSearchPage {
   }
   if (
     !Array.isArray(value["items"]) ||
-    value["items"].length > MAX_CATALOG_PAGE_ITEMS ||
+    value["items"].length > MAX_QUESTION_SEARCH_PAGE_ITEMS ||
     !Array.isArray(value["aggregates"]) ||
-    value["aggregates"].length > MAX_CATALOG_AGGREGATES
+    value["aggregates"].length > MAX_QUESTION_SEARCH_AGGREGATES
   ) {
     throw new Error("Question Library response arrays are invalid");
   }

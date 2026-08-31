@@ -676,7 +676,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
       { byline: { names: ["Fixture Instructor"] } },
       '"1"',
     ),
-    /available native catalog summary/u,
+    /available native Question Library summary/u,
   );
 
   const staleScope = createFlatQuestionClient({
@@ -697,7 +697,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
         { byline: { names: ["Fixture Instructor"] } },
         '"1"',
       ),
-      /available native catalog summary/u,
+      /available native Question Library summary/u,
     );
   }
 });

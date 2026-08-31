@@ -8,8 +8,8 @@ import re
 
 
 SCENARIO_ID = "webwork_delivery"
-CATALOG_TITLE = "Biochemistry: Identify hydrophobic compounds from formulas"
-CATALOG_INPUT_SCHEMA_VERSION = 1
+PUBLISHED_QUESTION_TITLE = "Biochemistry: Identify hydrophobic compounds from formulas"
+PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION = 1
 ISSUANCE_ACKNOWLEDGEMENT_SCHEMA_VERSION = 1
 ISSUANCE_ACKNOWLEDGEMENT_EVENT = "visible_question_issued"
 RENDERER_EVENT_TYPE = "renderer_call"
@@ -27,8 +27,8 @@ class WebworkDeliveryEvidenceError(ValueError):
 
 
 @dataclasses.dataclass(frozen=True)
-class CatalogBaseline:
-	"""The only catalog values a browser needs to locate reviewed material."""
+class PublishedQuestionFixture:
+	"""One public Published Question selected for this disposable browser scenario."""
 
 	question_id: str
 	title: str
@@ -54,47 +54,49 @@ class RendererCallWitness:
 
 
 #============================================
-def decode_catalog_baseline_receipt(contents: str) -> CatalogBaseline:
-	"""Decode Rust's public catalog receipt without accepting provider internals."""
+def decode_published_question_fixture_receipt(contents: str) -> PublishedQuestionFixture:
+	"""Decode one public Published Question receipt without provider internals."""
 	value = _decode_canonical_object(contents, {"questionId", "title"})
 	question_id = value["questionId"]
 	title = value["title"]
 	if (
 		not isinstance(question_id, str)
 		or QUESTION_ID_PATTERN.fullmatch(question_id) is None
-		or title != CATALOG_TITLE
+		or title != PUBLISHED_QUESTION_TITLE
 	):
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline receipt is invalid")
-	return CatalogBaseline(question_id, title)
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture receipt is invalid")
+	return PublishedQuestionFixture(question_id, title)
 
 
 #============================================
-def write_catalog_baseline_input(path: pathlib.Path, baseline: CatalogBaseline) -> None:
+def write_published_question_fixture_input(
+	path: pathlib.Path, fixture: PublishedQuestionFixture
+) -> None:
 	"""Write the closed browser hand-off from one already validated public receipt."""
-	if not isinstance(baseline, CatalogBaseline):
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline is invalid")
-	if QUESTION_ID_PATTERN.fullmatch(baseline.question_id) is None or baseline.title != CATALOG_TITLE:
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline is invalid")
+	if not isinstance(fixture, PublishedQuestionFixture):
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture is invalid")
+	if QUESTION_ID_PATTERN.fullmatch(fixture.question_id) is None or fixture.title != PUBLISHED_QUESTION_TITLE:
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture is invalid")
 	value = {
-		"questionId": baseline.question_id,
+		"questionId": fixture.question_id,
 		"scenarioId": SCENARIO_ID,
-		"schemaVersion": CATALOG_INPUT_SCHEMA_VERSION,
-		"title": baseline.title,
+		"schemaVersion": PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION,
+		"title": fixture.title,
 	}
 	contents = json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 	_write_private_file(path, contents)
 
 
 #============================================
-def validate_catalog_baseline_input(path: pathlib.Path) -> CatalogBaseline:
+def validate_published_question_fixture_input(path: pathlib.Path) -> PublishedQuestionFixture:
 	"""Require one canonical private browser input before Chromium can read it."""
-	contents = _read_private_file(path, "WebWork catalog baseline input")
+	contents = _read_private_file(path, "WebWork Published Question fixture input")
 	value = _decode_canonical_object(
 		contents, {"questionId", "scenarioId", "schemaVersion", "title"}
 	)
-	if value.get("schemaVersion") != CATALOG_INPUT_SCHEMA_VERSION or value.get("scenarioId") != SCENARIO_ID:
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline input is invalid")
-	baseline = decode_catalog_baseline_receipt(
+	if value.get("schemaVersion") != PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION or value.get("scenarioId") != SCENARIO_ID:
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture input is invalid")
+	fixture = decode_published_question_fixture_receipt(
 		json.dumps(
 			{"questionId": value.get("questionId"), "title": value.get("title")},
 			separators=(",", ":"),
@@ -102,8 +104,8 @@ def validate_catalog_baseline_input(path: pathlib.Path) -> CatalogBaseline:
 		)
 	)
 	if contents != json.dumps(value, separators=(",", ":"), ensure_ascii=True):
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline input must use canonical ASCII JSON")
-	return baseline
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture input must use canonical ASCII JSON")
+	return fixture
 
 
 #============================================
@@ -186,7 +188,7 @@ def _read_private_file(path: pathlib.Path, label: str) -> str:
 def _write_private_file(path: pathlib.Path, contents: str) -> None:
 	"""Create one private regular file without a permissive creation window."""
 	if path.exists() or path.is_symlink() or not path.parent.is_dir() or not contents.isascii():
-		raise WebworkDeliveryEvidenceError("WebWork catalog baseline input path is invalid")
+		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture input path is invalid")
 	file_descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 	with os.fdopen(file_descriptor, "w", encoding="ascii") as output:
 		output.write(contents)

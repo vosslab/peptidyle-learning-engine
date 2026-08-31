@@ -3,30 +3,30 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
-use crate::question_library::{MAX_CATALOG_TAXONOMY_FACETS, QuestionBackend, QuestionId};
+use crate::question_library::{MAX_QUESTION_SEARCH_TAXONOMY_FACETS, QuestionBackend, QuestionId};
 use crate::response::QuestionType;
 use crate::taxonomy::{License, TaxonomyTerm};
 
 /// Maximum public byline selections accepted in one catalog query.
-pub const MAX_CATALOG_BYLINE_FILTERS: usize = 16;
+pub const MAX_QUESTION_SEARCH_BYLINE_FILTERS: usize = 16;
 
 /// Maximum free-form tag selections accepted in one catalog query.
-pub const MAX_CATALOG_TAG_FILTERS: usize = 64;
+pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
 /// Maximum reviewed public bylines returned in one catalog facet snapshot.
-pub const MAX_CATALOG_BYLINE_FACETS: usize = 64;
+pub const MAX_QUESTION_SEARCH_BYLINE_FACETS: usize = 64;
 
 /// Maximum backend values returned in one catalog facet snapshot.
-pub const MAX_CATALOG_BACKEND_FACETS: usize = QuestionBackend::ALL.len();
+pub const MAX_QUESTION_SEARCH_BACKEND_FACETS: usize = QuestionBackend::ALL.len();
 
 /// Maximum free-form tags returned in one catalog facet snapshot.
-pub const MAX_CATALOG_TAG_FACETS: usize = 64;
+pub const MAX_QUESTION_SEARCH_TAG_FACETS: usize = 64;
 
 /// Maximum Question Type values accepted in one catalog query.
-pub const MAX_CATALOG_QUESTION_TYPE_FILTERS: usize = QuestionType::ALL.len();
+pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS: usize = QuestionType::ALL.len();
 
 /// Maximum Question Type values returned in one catalog facet snapshot.
-pub const MAX_CATALOG_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.len();
+pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.len();
 
 /// Account-bound course-use filter for catalog discovery.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -349,8 +349,8 @@ impl QuestionSearchRequest {
             .map(|text| normalize_text(text, 256))
             .transpose()?
             .filter(|text| !text.is_empty());
-        normalize_text_filters(&mut self.bylines, MAX_CATALOG_BYLINE_FILTERS, 120)?;
-        normalize_text_filters(&mut self.tags, MAX_CATALOG_TAG_FILTERS, 256)?;
+        normalize_text_filters(&mut self.bylines, MAX_QUESTION_SEARCH_BYLINE_FILTERS, 120)?;
+        normalize_text_filters(&mut self.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
         for term in &mut self.taxonomy {
             term.scheme = term.scheme.trim().to_string();
             term.code = term.code.trim().to_string();
@@ -361,11 +361,11 @@ impl QuestionSearchRequest {
                 return Err(QuestionSearchRequestError::TooLarge);
             }
         }
-        if self.taxonomy.len() > MAX_CATALOG_TAXONOMY_FACETS
+        if self.taxonomy.len() > MAX_QUESTION_SEARCH_TAXONOMY_FACETS
             || self.capabilities.len() > Capability::ALL.len()
             || self.licenses.len() > 6
             || self.backends.len() > QuestionBackend::ALL.len()
-            || self.question_types.len() > MAX_CATALOG_QUESTION_TYPE_FILTERS
+            || self.question_types.len() > MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS
         {
             return Err(QuestionSearchRequestError::TooLarge);
         }

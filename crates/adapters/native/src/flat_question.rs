@@ -11,16 +11,16 @@ use std::fmt::Write as _;
 use crate::generator::NativeQuestionImplementation;
 use grading::AnswerKey;
 pub use grading::flat_question::{
-    FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate, validate_flat_question_question,
-    validate_for_draft,
+    FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
+    validate_flat_question_question, validate_for_draft,
 };
-use question_model::envelope::ContentBlock;
 use question_model::assignment_activity_rules::{AttemptPolicy, TimingPolicy};
+use question_model::envelope::ContentBlock;
 use question_model::taxonomy::{License, TaxonomyTerm};
 use question_model::{
-    DraftQuestionDefinition, QuestionDefinition, WorkspaceId,
+    DraftQuestionDefinition, ImplementationVersion, QuestionDefinition, QuestionFormat,
+    QuestionType, WorkspaceId,
     capability::{BackendCapabilities, Capability},
-    ImplementationVersion, QuestionFormat, QuestionType,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

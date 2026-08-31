@@ -32,7 +32,9 @@ mod reproduction;
 #[path = "lib/source_implementation.rs"]
 mod source_implementation;
 
-use registry::{NativeQuestionImplementationRegistrationKey, ImplementationRegistrationKey, NativeExecution};
+use registry::{
+    ImplementationRegistrationKey, NativeExecution, NativeQuestionImplementationRegistrationKey,
+};
 
 #[cfg(test)]
 use grading::GradeOutcome;
@@ -42,6 +44,8 @@ use question_model::QuestionDefinition;
 use question_model::generation::Seed;
 #[cfg(test)]
 use registry::implementation_version;
+#[cfg(test)]
+mod test_support;
 
 /// Strict, versioned JSON source for first-party static flat questions.
 pub mod flat_question;
@@ -107,7 +111,10 @@ pub struct NativeDraftAuthorPresentation {
 
 /// Versioned native Question Implementation registry and orchestration boundary.
 pub struct NativeAdapter {
-    implementations: BTreeMap<NativeQuestionImplementationRegistrationKey, Arc<dyn NativeQuestionImplementation>>,
+    implementations: BTreeMap<
+        NativeQuestionImplementationRegistrationKey,
+        Arc<dyn NativeQuestionImplementation>,
+    >,
     adapter_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
     grading_implementations: BTreeMap<ImplementationRegistrationKey, NativeExecution>,
     current_adapter: ImplementationVersion,
@@ -176,11 +183,20 @@ impl std::fmt::Display for NativeAdapterError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedSource => formatter.write_str("question source is not native"),
-            Self::UnknownQuestionImplementation { question_format, question_type, generator } => write!(
+            Self::UnknownQuestionImplementation {
+                question_format,
+                question_type,
+                generator,
+            } => write!(
                 formatter,
                 "native Question Implementation is not installed for {question_format:?}/{question_type:?}/{generator:?}",
             ),
-            Self::DuplicateQuestionImplementation { question_format, question_type, generator, implementation } => write!(
+            Self::DuplicateQuestionImplementation {
+                question_format,
+                question_type,
+                generator,
+                implementation,
+            } => write!(
                 formatter,
                 "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}/{}@{}",
                 implementation.id, implementation.version
@@ -191,7 +207,10 @@ impl std::fmt::Display for NativeAdapterError {
                 version.id, version.version
             ),
             Self::IncompatibleQuestionImplementation { message } => {
-                write!(formatter, "native Question Implementation rejected the definition: {message}")
+                write!(
+                    formatter,
+                    "native Question Implementation rejected the definition: {message}"
+                )
             }
             Self::InvalidTitle(error) => {
                 write!(formatter, "invalid native question title: {error}")

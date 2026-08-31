@@ -10,8 +10,8 @@ import {
 } from "../src/api/http_client.ts";
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 
-const { scope: _retiredPublicationScope, ...catalogProblem } =
-  publishedProblemFixture.catalogProblem;
+const { scope: _retiredPublicationScope, ...publishedQuestion } =
+  publishedProblemFixture.publishedQuestion;
 
 function definitionInput() {
   return {
@@ -20,7 +20,7 @@ function definitionInput() {
     entries: [
       {
         kind: "fixed",
-        question_id: catalogProblem.questionId,
+        question_id: publishedQuestion.questionId,
         points_possible: "2",
         scoring_mode: "normal",
       },
@@ -68,7 +68,7 @@ function blueprint(revision = "7") {
                   kind: "fixed",
                   question: {
                     catalog: {
-                      summary: catalogProblem,
+                      summary: publishedQuestion,
                       evidence: { state: "insufficientEvidence" },
                     },
                     selection_availability: "available",

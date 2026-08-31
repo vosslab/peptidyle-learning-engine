@@ -26,7 +26,7 @@ import {
   writeOriginReceipt,
 } from "./real_stack_ui";
 import {
-  requireWebworkCatalogBaselineInput,
+  requireWebworkPublishedQuestionFixtureInput,
   writeVisibleIssuanceAcknowledgement,
 } from "./webwork_delivery_input";
 
@@ -35,11 +35,11 @@ const scenarioTimeoutMs = 360_000;
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
 
-async function findCatalogQuestion(page: Page, title: string, questionId: string): Promise<void> {
+async function findQuestionLibraryQuestion(page: Page, title: string, questionId: string): Promise<void> {
   await page.getByRole("link", { name: "Library", exact: true }).click();
   await page.getByLabel("Search published questions").fill(title);
-  const catalog = page.getByRole("region", { name: "Published questions" });
-  const card = catalog.getByText(title, { exact: true }).locator("..");
+  const questionLibrary = page.getByRole("region", { name: "Published questions" });
+  const card = questionLibrary.getByText(title, { exact: true }).locator("..");
   await expect(card).toBeVisible();
   await expect(card.locator("code")).toHaveText(questionId);
 }
@@ -117,7 +117,7 @@ async function completeVisibleWebworkRun(
   await expect(page.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
   writeVisibleIssuanceAcknowledgement(
     process.env,
-    requireWebworkCatalogBaselineInput(process.env),
+    requireWebworkPublishedQuestionFixtureInput(process.env),
     scenarioNamespace,
   );
   const choices = page.getByRole("radio");
@@ -160,14 +160,14 @@ async function observeCompletionInFreshSession(
 
 test.describe.configure({ mode: "serial" });
 
-test("WebWork delivery: Elena assigns reviewed catalog material and Mary completes it", async ({
+test("WebWork delivery: Elena assigns reviewed Question Library material and Mary completes it", async ({
   browser,
 }) => {
   test.setTimeout(scenarioTimeoutMs);
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
-  const baseline = requireWebworkCatalogBaselineInput(process.env);
+  const fixture = requireWebworkPublishedQuestionFixtureInput(process.env);
   expect(scenarioInput.scenarioId).toBe("webwork_delivery");
-  expect(baseline.scenarioId).toBe(scenarioInput.scenarioId);
+  expect(fixture.scenarioId).toBe(scenarioInput.scenarioId);
   const courseTitle = "Biochemistry: WebWork Practice";
   const assignmentTitle = "Peptide Bond WebWork Practice";
   const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
@@ -188,12 +188,12 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
 
     await chooseSeededIdentity(elena, /Elena Rivera/u);
     await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-    await findCatalogQuestion(elena, baseline.title, baseline.questionId);
+    await findQuestionLibraryQuestion(elena, fixture.title, fixture.questionId);
     const invitationUrl = await createCourseAssignmentAndInvitation(
       elena,
       courseTitle,
       assignmentTitle,
-      baseline.questionId,
+      fixture.questionId,
       scenarioInput.namespace,
     );
     await completeVisibleWebworkRun(
@@ -201,7 +201,7 @@ test("WebWork delivery: Elena assigns reviewed catalog material and Mary complet
       invitationUrl,
       courseTitle,
       assignmentTitle,
-      baseline.title,
+      fixture.title,
       scenarioInput.namespace,
     );
     await signOutVisible(mary);

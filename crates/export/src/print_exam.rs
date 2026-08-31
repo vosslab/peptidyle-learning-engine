@@ -484,7 +484,7 @@ mod tests {
     }
     fn fixture_question() -> QuestionDefinition {
         serde_json::from_str::<Fixture>(include_str!(
-            "../../../tests/fixtures/published_problem/corpus.json"
+            "../../../tests/fixtures/published_problem/fixture_set.json"
         ))
         .expect("fixture")
         .published_problem

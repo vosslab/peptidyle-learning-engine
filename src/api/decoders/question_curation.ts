@@ -1,7 +1,7 @@
 // Strict browser decoding for private Instructor Question Curation APIs.
 
-import { MAX_CATALOG_BYLINE_FILTERS } from "../../../generated/api/MAX_CATALOG_BYLINE_FILTERS";
-import { MAX_CATALOG_TAG_FILTERS } from "../../../generated/api/MAX_CATALOG_TAG_FILTERS";
+import { MAX_QUESTION_SEARCH_BYLINE_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FILTERS";
+import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { MAX_QUESTION_FOLDER_MEMBERS } from "../../../generated/api/MAX_QUESTION_FOLDER_MEMBERS";
 import { MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS";
 import type { QuestionSearchFilter } from "../../../generated/api/QuestionSearchFilter";
@@ -30,10 +30,10 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-const MAX_CATALOG_TEXT_UNICODE_SCALARS = 256;
-const MAX_CATALOG_TAXONOMY_FILTERS = 64;
-const MAX_CATALOG_FILTER_TEXT_UNICODE_SCALARS = 256;
-const MAX_CATALOG_TAXONOMY_PART_UNICODE_SCALARS = 128;
+const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
+const MAX_QUESTION_SEARCH_TAXONOMY_FILTERS = 64;
+const MAX_QUESTION_SEARCH_FILTER_TEXT_UNICODE_SCALARS = 256;
+const MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS = 128;
 const MAX_SAVED_QUESTION_SEARCHES_PAGE_ITEMS = 100;
 const MAX_NAMED_QUESTION_FOLDERS_PAGE_ITEMS = 100;
 const QUESTION_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
@@ -95,12 +95,12 @@ function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearch
   ]);
   const decoded = {
     text: decodeNullable(field(record, "text", path), `${path}.text`, (entry, entryPath) =>
-      decodeFilterText(entry, entryPath, MAX_CATALOG_TEXT_UNICODE_SCALARS),
+      decodeFilterText(entry, entryPath, MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS),
     ),
     bylines: decodeBoundedArray(
       field(record, "bylines", path),
       `${path}.bylines`,
-      MAX_CATALOG_BYLINE_FILTERS,
+      MAX_QUESTION_SEARCH_BYLINE_FILTERS,
       (entry, entryPath) => decodeFilterText(entry, entryPath, 120),
     ),
     backends: decodeBoundedArray(
@@ -113,9 +113,9 @@ function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearch
     tags: decodeBoundedArray(
       field(record, "tags", path),
       `${path}.tags`,
-      MAX_CATALOG_TAG_FILTERS,
+      MAX_QUESTION_SEARCH_TAG_FILTERS,
       (entry, entryPath) =>
-        decodeFilterText(entry, entryPath, MAX_CATALOG_FILTER_TEXT_UNICODE_SCALARS),
+        decodeFilterText(entry, entryPath, MAX_QUESTION_SEARCH_FILTER_TEXT_UNICODE_SCALARS),
     ),
     question_types: decodeBoundedArray(
       field(record, "question_types", path),
@@ -136,7 +136,7 @@ function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearch
     taxonomy: decodeBoundedArray(
       field(record, "taxonomy", path),
       `${path}.taxonomy`,
-      MAX_CATALOG_TAXONOMY_FILTERS,
+      MAX_QUESTION_SEARCH_TAXONOMY_FILTERS,
       (entry, entryPath) => {
         const taxonomy = decodeRecord(entry, entryPath);
         requireOnlyFields(taxonomy, entryPath, ["scheme", "code"]);
@@ -144,12 +144,12 @@ function decodeCatalogSearchFilter(value: unknown, path: string): QuestionSearch
           scheme: decodeFilterText(
             field(taxonomy, "scheme", entryPath),
             `${entryPath}.scheme`,
-            MAX_CATALOG_TAXONOMY_PART_UNICODE_SCALARS,
+            MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS,
           ),
           code: decodeFilterText(
             field(taxonomy, "code", entryPath),
             `${entryPath}.code`,
-            MAX_CATALOG_TAXONOMY_PART_UNICODE_SCALARS,
+            MAX_QUESTION_SEARCH_TAXONOMY_PART_UNICODE_SCALARS,
           ),
         };
       },

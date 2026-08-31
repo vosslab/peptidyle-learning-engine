@@ -672,7 +672,7 @@ export function decodePrefetchedNextQuestion(
   return decoded;
 }
 
-export function decodeCatalogPage(
+export function decodeQuestionPage(
   value: unknown,
   path = "response",
 ): CursorPage<QuestionSummary> {

@@ -4,7 +4,7 @@ from e2e_browser_scenario_contract import ScenarioContract
 
 
 def contracts() -> tuple[ScenarioContract, ...]:
-	"""Return student journeys in their stable catalog order."""
+	"""Return student journeys in their stable scenario-registry order."""
 	return (
 		ScenarioContract(
 			scenario_id="learner_delivery",

@@ -80,7 +80,7 @@ passkey authentication adapters.
 ![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
 ![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
-![Instructor catalog discovery evidence](screenshots/instructor/catalog_discovery/01_disclosed_evidence_laptop.png)
+![Instructor Question Library discovery evidence](screenshots/instructor/question_library_discovery/01_disclosed_evidence_laptop.png)
 ![Instructor question curation workspace](screenshots/instructor/question_curation/01_curation_workspace_laptop.png)
 ![Instructor reusable Blueprint workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)

@@ -10,13 +10,13 @@
 //!
 //! ```text
 //! cargo tools bindgen <input.wasm> <web|node> <out-dir> <out-name>
-//! cargo tools fixtures <--check|--write>
+//! cargo tools fixtures --check
 //! cargo tools tsgen [out-dir]
 //! ```
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use wasm_bindgen_cli_support::Bindgen;
 
 use crate::{database, fixtures, pilot_content, tsgen};
@@ -53,15 +53,14 @@ pub(crate) fn run() -> Result<()> {
     }
 }
 
-/// Checks or deliberately refreshes the WP-C7 fixture corpus.
+/// Checks the stored WP-C7 fixture data.
 fn run_fixtures(args: &[String]) -> Result<()> {
-    let mode = match args {
-        [flag] if flag == "--check" => fixtures::Mode::Check,
-        [flag] if flag == "--write" => fixtures::Mode::Write,
-        _ => bail!("usage: cargo tools fixtures <--check|--write>"),
+    let [flag] = args else {
+        bail!("usage: cargo tools fixtures --check");
     };
+    ensure!(flag == "--check", "usage: cargo tools fixtures --check");
 
-    let report = fixtures::run(Path::new(DEFAULT_FIXTURE_DIR), mode)?;
+    let report = fixtures::run(Path::new(DEFAULT_FIXTURE_DIR))?;
     println!(
         "fixtures: {} {} tracked file(s)",
         report.action, report.tracked_files

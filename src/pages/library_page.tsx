@@ -19,7 +19,7 @@ import {
 } from "./library_page_model";
 
 /* Each virtual row reserves room for a title, two-line summary, byline, and taxonomy.
- * Keep this fallback aligned with --ple-catalog-row-block-size in src/style.css. */
+ * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
 const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
@@ -60,7 +60,7 @@ function QuestionStatisticsPreview(props: { readonly row: QuestionSearchResult }
     Extract<QuestionSearchResult["evidence"], { readonly state: "available" }> | undefined =>
     props.row.evidence.state === "available" ? props.row.evidence : undefined;
   return (
-    <p class="catalog-row-evidence" aria-label="Learning evidence">
+    <p class="question-library-row-evidence" aria-label="Learning evidence">
       <Show
         when={availableEvidence()}
         fallback="More evidence is needed. This question remains ranked by relevance."
@@ -167,7 +167,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   onMount(() => {
     function refreshRowHeight(): void {
       const configured = Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue("--ple-catalog-row-block-size"),
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--ple-question-library-row-block-size",
+        ),
       );
       if (Number.isFinite(configured) && configured > 0) setRowHeightPx(configured);
     }
@@ -192,7 +194,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       <p class="sr-only" role="status" aria-live="polite">
         {state().kind === "loading" ? "Loading Question Library results." : ""}
       </p>
-      <form class="catalog-controls" onSubmit={(event) => event.preventDefault()}>
+      <form class="question-library-controls" onSubmit={(event) => event.preventDefault()}>
         <label>
           Search published questions
           <input
@@ -351,12 +353,12 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       </Show>
       <Show when={displayedRows().length > 0}>
         <div
-          class="catalog-window"
+          class="question-library-window"
           role="region"
           aria-label="Published questions"
           tabIndex={0}
           onScroll={handleScroll}
-          style={`--ple-catalog-loaded-block-size:${displayedRows().length * rowHeightPx()}px`}
+          style={`--ple-question-library-loaded-block-size:${displayedRows().length * rowHeightPx()}px`}
         >
           <div
             style={{
@@ -364,16 +366,16 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               position: "relative",
             }}
           >
-            <div class="catalog-window-slice" style={{ top: `${virtualWindow().offset}px` }}>
+            <div class="question-library-window-slice" style={{ top: `${virtualWindow().offset}px` }}>
               <For each={virtualWindow().rows}>
                 {(row) => (
-                  <article class="catalog-row" style={{ height: `${rowHeightPx()}px` }}>
+                  <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
                     <h2>{row.title}</h2>
-                    <p class="catalog-row-summary">{row.summary}</p>
-                    <p class="catalog-row-byline" aria-label="Published by">
+                    <p class="question-library-row-summary">{row.summary}</p>
+                    <p class="question-library-row-byline" aria-label="Published by">
                       By {row.byline.join(", ")}
                     </p>
-                    <p class="catalog-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
+                    <p class="question-library-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
                     <QuestionStatisticsPreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={questionLink(row)}>

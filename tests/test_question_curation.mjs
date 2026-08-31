@@ -28,8 +28,8 @@ test("Question Folder edits retain a unique ordered public Question ID list", ()
 
 test("Question Folder Entries carry the exact current Question Version Availability", () => {
   const member = {
-    questionId: publishedProblemFixture.catalogProblem.questionId,
-    summary: publishedProblemFixture.catalogProblem,
+    questionId: publishedProblemFixture.publishedQuestion.questionId,
+    summary: publishedProblemFixture.publishedQuestion,
     questionVersionAvailability: { availability: "archived", reason: "Replaced by a correction." },
   };
 
@@ -73,7 +73,7 @@ test("saved search filter keeps the current normalized Library meaning", () => {
   });
 });
 
-test("running a saved search starts with its current-catalog filters", () => {
+test("running a saved search starts with its current Question Library filters", () => {
   const query = libraryQueryFromSavedSearch({
     reference: "QS-7",
     title: "Molecular genetics",
@@ -130,7 +130,7 @@ test("private Question Folder editing follows the authenticated Instructor capab
   assert.equal(mayEditOpenedQuestionFolder(true), true);
 });
 
-test("picker maps named private Question Folders beside the current Library and authored catalog", () => {
+test("picker maps named private Question Folders beside the Question Library and My Questions", () => {
   const sources = questionCurationPickerSources(
     [
       {

@@ -5,33 +5,35 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
-  requireWebworkCatalogBaselineInput,
-  webworkCatalogTitle,
+  requireWebworkPublishedQuestionFixtureInput,
+  webworkPublishedQuestionTitle,
   writeVisibleIssuanceAcknowledgement,
 } from "./playwright/e2e/webwork_delivery_input.ts";
 
-test("WebWork catalog browser input accepts only the canonical public hand-off", () => {
+test("WebWork Published Question fixture input accepts only the canonical public hand-off", () => {
   const directory = mkdtempSync(join(tmpdir(), "ple-webwork-delivery-input-"));
   try {
-    const path = join(directory, "catalog.json");
+    const path = join(directory, "published-question-fixture.json");
     writeFileSync(
       path,
       JSON.stringify({
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkCatalogTitle,
+        title: webworkPublishedQuestionTitle,
       }),
       { encoding: "ascii", mode: 0o600 },
     );
     chmodSync(path, 0o600);
     assert.deepEqual(
-      requireWebworkCatalogBaselineInput({ PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE: path }),
+      requireWebworkPublishedQuestionFixtureInput({
+        PLE_WEBWORK_PUBLISHED_QUESTION_FIXTURE_INPUT_FILE: path,
+      }),
       {
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkCatalogTitle,
+        title: webworkPublishedQuestionTitle,
       },
     );
     writeFileSync(
@@ -41,12 +43,15 @@ test("WebWork catalog browser input accepts only the canonical public hand-off",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
         source: "private",
-        title: webworkCatalogTitle,
+        title: webworkPublishedQuestionTitle,
       }),
       { encoding: "ascii" },
     );
     assert.throws(
-      () => requireWebworkCatalogBaselineInput({ PLE_WEBWORK_CATALOG_BASELINE_INPUT_FILE: path }),
+      () =>
+        requireWebworkPublishedQuestionFixtureInput({
+          PLE_WEBWORK_PUBLISHED_QUESTION_FIXTURE_INPUT_FILE: path,
+        }),
       /invalid/u,
     );
   } finally {
@@ -64,7 +69,7 @@ test("WebWork visible issuance acknowledgement uses the owner canonical field or
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkCatalogTitle,
+        title: webworkPublishedQuestionTitle,
       },
       "bs1-0123456789ab-webwork_delivery",
     );

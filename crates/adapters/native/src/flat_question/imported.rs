@@ -212,30 +212,40 @@ fn parse_canonical_points(value: &str) -> Result<f64, ImportedFlatQuestionError>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{imported_single_choice, imported_single_choice_bytes};
     use question_model::WorkspaceId;
     use uuid::Uuid;
 
-    const HAND_AUTHORED: &str = r#"{"format":"pleFlatQuestion","version":2,"title":"Favorite color","prompt":"What is my favorite color?","response":{"kind":"singleChoice","choices":[{"id":"blue","text":"Blue"},{"id":"red","text":"Red"}],"correctChoice":"blue"},"feedback":{},"points":1.0,"attemptPolicy":{"maxAttempts":null},"timingPolicy":{"kind":"untimed"},"tags":[],"taxonomy":[],"license":{"kind":"allRightsReserved"},"language":"en-US"}"#;
+    fn stored_choices() -> Vec<ImportedChoice> {
+        imported_single_choice()
+            .response
+            .choices
+            .into_iter()
+            .map(|choice| ImportedChoice::new(choice.id, choice.text))
+            .collect()
+    }
+
+    fn stored_input(points: &str) -> ImportedSingleChoiceInput {
+        let stored = imported_single_choice();
+        ImportedSingleChoiceInput::new(
+            stored.title,
+            stored.prompt,
+            stored_choices(),
+            stored.response.correct_choice,
+            points.to_string(),
+        )
+    }
 
     fn imported(points: &str) -> ImportedFlatQuestion {
-        ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
-            "Favorite color".to_string(),
-            "What is my favorite color?".to_string(),
-            vec![
-                ImportedChoice::new("blue".to_string(), "Blue".to_string()),
-                ImportedChoice::new("red".to_string(), "Red".to_string()),
-            ],
-            "blue".to_string(),
-            points.to_string(),
-        ))
-        .expect("trusted fixture should construct")
+        ImportedFlatQuestion::from_imported(stored_input(points))
+            .expect("trusted fixture should construct")
     }
 
     #[test]
     fn imported_source_matches_hand_authored_canonical_and_compiled_parts() {
         let imported = imported("1.0");
-        let hand_authored =
-            FlatQuestionDocument::parse(HAND_AUTHORED.as_bytes()).expect("hand-authored source");
+        let hand_authored = FlatQuestionDocument::parse(&imported_single_choice_bytes())
+            .expect("stored authored source");
         assert_eq!(
             imported
                 .canonical_bytes()
@@ -258,68 +268,34 @@ mod tests {
     #[test]
     fn canonical_points_require_the_profile_normalized_form() {
         for value in ["1", "01.0", "1.00", "-0.0", "NaN", "inf", "-1.0"] {
-            let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
-                "Title".to_string(),
-                "Prompt".to_string(),
-                vec![
-                    ImportedChoice::new("one".to_string(), "One".to_string()),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "one".to_string(),
-                value.to_string(),
-            ));
+            let result = ImportedFlatQuestion::from_imported(stored_input(value));
             assert_eq!(
                 result.err(),
                 Some(ImportedFlatQuestionError::InvalidCanonicalPoints)
             );
         }
-        assert!(
-            ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
-                "Title".to_string(),
-                "Prompt".to_string(),
-                vec![
-                    ImportedChoice::new("one".to_string(), "One".to_string()),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "one".to_string(),
-                "0.0".to_string(),
-            ))
-            .is_ok()
-        );
+        assert!(ImportedFlatQuestion::from_imported(stored_input("0.0")).is_ok());
     }
 
     #[test]
     fn invalid_mapped_ids_choices_and_correct_binding_are_refused() {
+        let stored = imported_single_choice();
+        let base_choices = stored_choices();
+        let mut too_few = base_choices.clone();
+        too_few.truncate(1);
+        let mut duplicate = base_choices.clone();
+        duplicate[1].id = duplicate[0].id.clone();
+        let mut invalid_id = base_choices.clone();
+        invalid_id[0].id = "not valid".to_string();
         for (choices, correct_choice) in [
-            (
-                vec![ImportedChoice::new("one".to_string(), "One".to_string())],
-                "one".to_string(),
-            ),
-            (
-                vec![
-                    ImportedChoice::new("one".to_string(), "One".to_string()),
-                    ImportedChoice::new("one".to_string(), "Two".to_string()),
-                ],
-                "one".to_string(),
-            ),
-            (
-                vec![
-                    ImportedChoice::new("not valid".to_string(), "One".to_string()),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "two".to_string(),
-            ),
-            (
-                vec![
-                    ImportedChoice::new("one".to_string(), "One".to_string()),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "missing".to_string(),
-            ),
+            (too_few, stored.response.correct_choice.clone()),
+            (duplicate, stored.response.correct_choice.clone()),
+            (invalid_id, stored.response.correct_choice.clone()),
+            (base_choices, "missing".to_string()),
         ] {
             let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
-                "Title".to_string(),
-                "Prompt".to_string(),
+                stored.title.clone(),
+                stored.prompt.clone(),
                 choices,
                 correct_choice,
                 "1.0".to_string(),
@@ -333,21 +309,19 @@ mod tests {
 
     #[test]
     fn blank_or_overlong_mapped_text_is_refused() {
+        let stored = imported_single_choice();
         let overlong_prompt = "x".repeat(super::super::MAX_PROMPT_CHARS + 1);
         let overlong_title = "x".repeat(question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS + 1);
         for (title, prompt) in [
-            (" ".to_string(), "Prompt".to_string()),
-            ("Title".to_string(), " ".to_string()),
-            ("Title".to_string(), overlong_prompt),
+            (" ".to_string(), stored.prompt.clone()),
+            (stored.title.clone(), " ".to_string()),
+            (stored.title.clone(), overlong_prompt),
         ] {
             let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
                 title,
                 prompt,
-                vec![
-                    ImportedChoice::new("one".to_string(), "One".to_string()),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "one".to_string(),
+                stored_choices(),
+                stored.response.correct_choice.clone(),
                 "1.0".to_string(),
             ));
             assert_eq!(
@@ -356,21 +330,24 @@ mod tests {
             );
         }
         for (title, prompt, choice_text) in [
-            (overlong_title, "Prompt".to_string(), "One".to_string()),
             (
-                "Title".to_string(),
-                "Prompt".to_string(),
+                overlong_title,
+                stored.prompt.clone(),
+                stored.response.choices[0].text.clone(),
+            ),
+            (
+                stored.title.clone(),
+                stored.prompt.clone(),
                 "x".repeat(super::super::MAX_CHOICE_TEXT_CHARS + 1),
             ),
         ] {
+            let mut choices = stored_choices();
+            choices[0].text = choice_text;
             let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
                 title,
                 prompt,
-                vec![
-                    ImportedChoice::new("one".to_string(), choice_text),
-                    ImportedChoice::new("two".to_string(), "Two".to_string()),
-                ],
-                "one".to_string(),
+                choices,
+                stored.response.correct_choice.clone(),
                 "1.0".to_string(),
             ));
             assert_eq!(
@@ -382,6 +359,7 @@ mod tests {
 
     #[test]
     fn aggregate_canonical_source_limit_is_refused() {
+        let stored = imported_single_choice();
         let choices = (0..100)
             .map(|index| {
                 ImportedChoice::new(
@@ -391,8 +369,8 @@ mod tests {
             })
             .collect();
         let result = ImportedFlatQuestion::from_imported(ImportedSingleChoiceInput::new(
-            "Title".to_string(),
-            "Prompt".to_string(),
+            stored.title,
+            stored.prompt,
             choices,
             "choice_0".to_string(),
             "1.0".to_string(),

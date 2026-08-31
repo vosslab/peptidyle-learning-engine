@@ -17,7 +17,7 @@ import {
   parseExactProblemDisplayReferences,
   questionBackendLabel,
   validateAssignmentEditorDraft,
-  type AssignmentCatalogRow,
+  type AssignmentQuestionRow,
   type AssignmentEditorDraft,
   type AssignmentEditorQuestionPoolEntry,
 } from "../assignment_editor_model";
@@ -179,7 +179,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     });
   }
 
-  async function replaceFixedQuestion(row: AssignmentCatalogRow, itemId: string): Promise<void> {
+  async function replaceFixedQuestion(row: AssignmentQuestionRow, itemId: string): Promise<void> {
     if (busy() || replacementBlocked()) return;
     const current = fixedEntries(draft()).find((entry) => entry.id === itemId);
     if (current === undefined) {
@@ -229,7 +229,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  function addRows(rows: ReadonlyArray<AssignmentCatalogRow>, success: string): void {
+  function addRows(rows: ReadonlyArray<AssignmentQuestionRow>, success: string): void {
     const next = appendFixedEntries(draft(), rows);
     if (next === draft()) {
       setMessage("Every selected Question ID is already in this assignment.");

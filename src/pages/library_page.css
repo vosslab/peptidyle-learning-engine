@@ -1,6 +1,6 @@
-/* library_page.css - full-width instructor catalog scan and filter workspace. */
+/* library_page.css - full-width Instructor Question Library search workspace. */
 
-.library-page .catalog-controls {
+.library-page .question-library-controls {
   display: grid;
   grid-template-columns: repeat(
     auto-fit,
@@ -14,7 +14,7 @@
   box-shadow: var(--ple-shadow);
 }
 
-.library-page .catalog-controls label {
+.library-page .question-library-controls label {
   display: grid;
   gap: 0.2rem;
   color: var(--ple-muted);
@@ -22,23 +22,23 @@
   font-weight: 680;
 }
 
-.library-page .catalog-controls label:first-child {
+.library-page .question-library-controls label:first-child {
   grid-column: span 2;
 }
 
-.library-page .catalog-controls input,
-.library-page .catalog-controls select {
+.library-page .question-library-controls input,
+.library-page .question-library-controls select {
   width: 100%;
 }
 
-.library-page .catalog-window {
+.library-page .question-library-window {
   block-size: min(
-    var(--ple-catalog-window-block-size),
-    var(--ple-catalog-loaded-block-size, var(--ple-catalog-window-block-size))
+    var(--ple-question-library-window-block-size),
+    var(--ple-question-library-loaded-block-size, var(--ple-question-library-window-block-size))
   );
   min-block-size: min(
-    var(--ple-catalog-row-block-size),
-    var(--ple-catalog-loaded-block-size, var(--ple-catalog-row-block-size))
+    var(--ple-question-library-row-block-size),
+    var(--ple-question-library-loaded-block-size, var(--ple-question-library-row-block-size))
   );
   overflow: auto;
   overscroll-behavior: contain;
@@ -47,17 +47,17 @@
   box-shadow: var(--ple-shadow);
 }
 
-.library-page .catalog-window:focus-visible {
+.library-page .question-library-window:focus-visible {
   outline: 2px solid var(--ple-focus);
   outline-offset: 2px;
 }
 
-.library-page .catalog-window-slice {
+.library-page .question-library-window-slice {
   position: absolute;
   inset-inline: 0;
 }
 
-.library-page .catalog-row {
+.library-page .question-library-row {
   display: grid;
   grid-template-areas:
     "title action"
@@ -74,13 +74,13 @@
   border-bottom: 1px solid var(--ple-border);
 }
 
-.library-page .catalog-row h2 {
+.library-page .question-library-row h2 {
   grid-area: title;
   margin: 0;
   font-size: 1.05rem;
 }
 
-.library-page .catalog-row-summary {
+.library-page .question-library-row-summary {
   grid-area: summary;
   margin: 0;
   overflow: hidden;
@@ -90,7 +90,7 @@
   overflow-wrap: anywhere;
 }
 
-.library-page .catalog-row-byline {
+.library-page .question-library-row-byline {
   grid-area: byline;
   margin: 0;
   overflow: hidden;
@@ -100,7 +100,7 @@
   white-space: nowrap;
 }
 
-.library-page .catalog-row-evidence {
+.library-page .question-library-row-evidence {
   grid-area: evidence;
   margin: 0;
   color: var(--ple-muted);
@@ -109,7 +109,7 @@
   overflow-wrap: anywhere;
 }
 
-.library-page .catalog-row-taxonomy {
+.library-page .question-library-row-taxonomy {
   grid-area: taxonomy;
   margin: 0;
   overflow: hidden;
@@ -117,28 +117,28 @@
   white-space: nowrap;
 }
 
-.library-page .catalog-row .copyable-question-id {
+.library-page .question-library-row .copyable-question-id {
   grid-area: identity;
   justify-content: end;
 }
 
-.library-page .catalog-row > .quiet-link {
+.library-page .question-library-row > .quiet-link {
   grid-area: action;
   align-self: start;
 }
 
 @media (max-width: 68rem) {
-  .library-page .catalog-controls label:first-child {
+  .library-page .question-library-controls label:first-child {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 40rem) {
-  .library-page .catalog-controls label:first-child {
+  .library-page .question-library-controls label:first-child {
     grid-column: auto;
   }
 
-  .library-page .catalog-row {
+  .library-page .question-library-row {
     grid-template-areas:
       "title"
       "summary"
@@ -151,11 +151,11 @@
     align-content: start;
   }
 
-  .library-page .catalog-row .copyable-question-id {
+  .library-page .question-library-row .copyable-question-id {
     justify-content: start;
   }
 
-  .library-page .catalog-row > .quiet-link {
+  .library-page .question-library-row > .quiet-link {
     align-self: center;
   }
 }

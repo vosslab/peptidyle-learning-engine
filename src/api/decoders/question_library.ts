@@ -1,4 +1,4 @@
-// Catalog, course, and assignment browser-visible API DTOs.
+// Question Library, course, and assignment browser-visible API DTOs.
 
 import type { AssignmentDeliveryState } from "../../../generated/api/AssignmentDeliveryState";
 import type { FixedQuestionAssignmentEntrySummary as FixedQuestionAssignmentEntry } from "../../../generated/api/FixedQuestionAssignmentEntrySummary";
@@ -60,9 +60,9 @@ import {
 import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
-import { MAX_CATALOG_OWN_COURSE_USAGES } from "../../../generated/api/MAX_CATALOG_OWN_COURSE_USAGES";
+import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
-  MAX_CATALOG_PAGE_ITEMS,
+  MAX_QUESTION_SEARCH_PAGE_ITEMS,
   MINIMUM_STATISTICS_COHORT_SIZE,
   STATISTICS_DURATION_ESTIMATES_SECONDS,
   decodeAssignmentTitle,
@@ -85,7 +85,7 @@ import { decodeStudentDisclosurePolicy } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 
-// Retain the established catalog-course import surface while course-term owns its decoding rules.
+// Reuse the Question Library course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
 export { decodeStudentDisclosurePolicy } from "./assignment_policy";
 export {
@@ -157,7 +157,7 @@ export function decodeQuestionSummary(
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
  */
-export function isAvailableNativeCatalogQuestionSummary(
+export function isAvailableNativeQuestionSummary(
   summary: QuestionSummary,
 ): boolean {
   return (
@@ -343,7 +343,7 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
   const ownCourses = decodeBoundedArray(
     field(record, "ownCourses", path),
     `${path}.ownCourses`,
-    MAX_CATALOG_OWN_COURSE_USAGES,
+    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
     decodeCourseQuestionUse,
   );
   const seenCourses = new Set<string>();
@@ -365,12 +365,12 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
   }
   if (
     ownCoursesTruncated &&
-    (ownCourses.length !== MAX_CATALOG_OWN_COURSE_USAGES ||
-      summary.ownCourseCount <= MAX_CATALOG_OWN_COURSE_USAGES)
+    (ownCourses.length !== MAX_QUESTION_SEARCH_OWN_COURSE_USAGES ||
+      summary.ownCourseCount <= MAX_QUESTION_SEARCH_OWN_COURSE_USAGES)
   ) {
     throw new DecodeError(
       `${path}.ownCoursesTruncated`,
-      `true only for ${MAX_CATALOG_OWN_COURSE_USAGES} listed rows with additional own courses`,
+      `true only for ${MAX_QUESTION_SEARCH_OWN_COURSE_USAGES} listed rows with additional own courses`,
     );
   }
   return {
@@ -392,7 +392,7 @@ function decodeQuestionPromptProjection(value: unknown, path: string): QuestionP
     blocks: decodeBoundedArray(
       field(record, "blocks", path),
       `${path}.blocks`,
-      MAX_CATALOG_PAGE_ITEMS,
+      MAX_QUESTION_SEARCH_PAGE_ITEMS,
       (block, blockPath) => decodeContentBlock(block, blockPath, true),
     ),
   };
@@ -405,7 +405,7 @@ export function decodeQuestionSearchPage(value: unknown, path = "response"): Que
     items: decodeBoundedArray(
       field(record, "items", path),
       `${path}.items`,
-      MAX_CATALOG_PAGE_ITEMS,
+      MAX_QUESTION_SEARCH_PAGE_ITEMS,
       decodeQuestionSearchResult,
     ),
     nextCursor: decodeNullable(

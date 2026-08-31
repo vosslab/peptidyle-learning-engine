@@ -51,7 +51,7 @@ export function QuestionDetailPage(): JSX.Element {
               <p aria-label="Published by">By {record().summary.byline.names.join(", ")}</p>
               <p>{`Backend: ${record().summary.backend}`}</p>
               <Show when={record().prompt.kind === "generatedExample"}>
-                <aside class="catalog-generated-example" aria-label="Generated example">
+                <aside class="question-library-generated-example" aria-label="Generated example">
                   <strong>Generated example</strong>
                   <p>
                     This example uses resolved values for Question Library viewing. Assigned versions may use
