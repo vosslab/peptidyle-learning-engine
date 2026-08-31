@@ -2,7 +2,10 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { FlatQuestionAttemptLimit, FlatQuestionAttemptTimeLimit } from "./flat_question_source";
+import type {
+  FlatQuestionAttemptLimit,
+  FlatQuestionAttemptTimeLimit,
+} from "./flat_question_source";
 
 export interface FlatPolicyFieldsProps {
   readonly points: number;
@@ -36,11 +39,16 @@ function isTimingKind(value: string): value is FlatQuestionAttemptTimeLimit["kin
 
 /** Retry and timing edits use native controls and keep unlimited attempts reversible. */
 export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
-  const timingKind = (): FlatQuestionAttemptTimeLimit["kind"] => props.questionAttemptTimeLimit.kind;
+  const timingKind = (): FlatQuestionAttemptTimeLimit["kind"] =>
+    props.questionAttemptTimeLimit.kind;
   const timingSeconds = (): number =>
-    props.questionAttemptTimeLimit.kind === "unlimited" ? 60 : props.questionAttemptTimeLimit.seconds;
+    props.questionAttemptTimeLimit.kind === "unlimited"
+      ? 60
+      : props.questionAttemptTimeLimit.seconds;
   const graceSeconds = (): number =>
-    props.questionAttemptTimeLimit.kind === "unlimited" ? 0 : props.questionAttemptTimeLimit.graceSeconds;
+    props.questionAttemptTimeLimit.kind === "unlimited"
+      ? 0
+      : props.questionAttemptTimeLimit.graceSeconds;
   const error =
     (field: string): (() => string | undefined) =>
     (): string | undefined =>
@@ -50,7 +58,11 @@ export function FlatPolicyFields(props: FlatPolicyFieldsProps): JSX.Element {
       props.onQuestionAttemptTimeLimitChange({ kind });
       return;
     }
-    props.onQuestionAttemptTimeLimitChange({ kind, seconds: timingSeconds(), graceSeconds: graceSeconds() });
+    props.onQuestionAttemptTimeLimitChange({
+      kind,
+      seconds: timingSeconds(),
+      graceSeconds: graceSeconds(),
+    });
   };
   const setTimingValue = (field: "seconds" | "graceSeconds", value: string): void => {
     const next =

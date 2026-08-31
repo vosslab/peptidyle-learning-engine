@@ -24,7 +24,6 @@ export type FlatQuestionAttemptLimit = {
 
 export type FlatQuestionAttemptTimeLimit =
   | { readonly kind: "unlimited" }
-  | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number }
   | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number };
 
 export type FlatQuestionTaxonomyTerm = {

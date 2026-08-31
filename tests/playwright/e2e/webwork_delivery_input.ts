@@ -1,7 +1,8 @@
 // Strict private hand-off for one Published Question WebWork fixture.
 import { lstatSync, readFileSync, writeFileSync } from "node:fs";
 
-export const webworkPublishedQuestionTitle = "Biochemistry: Identify hydrophobic compounds from formulas";
+export const webworkPublishedQuestionTitle =
+  "Biochemistry: Identify hydrophobic compounds from formulas";
 
 export interface WebworkPublishedQuestionFixtureInput {
   readonly schemaVersion: 1;

@@ -18,10 +18,7 @@ import {
   decodeStringEnum,
   decodeTrue,
 } from "../decoder";
-import {
-  decodeIssuedQuestion,
-  decodeStudentQuestionAttemptView,
-} from "./assignment_attempt";
+import { decodeIssuedQuestion, decodeStudentQuestionAttemptView } from "./assignment_attempt";
 import { decodeStudentFeedback } from "./question_delivery";
 import { decodeIdentifier, decodeSha256, field, requireOnlyFields } from "./shared";
 

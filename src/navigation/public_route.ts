@@ -16,7 +16,8 @@ export type CourseMembershipRouteReference = CourseMembershipReference &
 export type AssignmentRouteReference = AssignmentReference & BrandedRouteReference<"assignment">;
 export type AssignmentAttemptRouteReference = AssignmentAttemptReference &
   BrandedRouteReference<"assignmentAttempt">;
-export type WorkspaceRouteReference = AuthoringWorkspaceReference & BrandedRouteReference<"workspace">;
+export type WorkspaceRouteReference = AuthoringWorkspaceReference &
+  BrandedRouteReference<"workspace">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
@@ -77,7 +78,9 @@ export function assignmentAttemptRouteReference(
   if (result === null) throw new Error("invalid Assignment Attempt reference");
   return result;
 }
-export function authoringWorkspaceRouteReference(value: AuthoringWorkspaceReference): WorkspaceRouteReference {
+export function authoringWorkspaceRouteReference(
+  value: AuthoringWorkspaceReference,
+): WorkspaceRouteReference {
   const result = parseWorkspaceReference(value);
   if (result === null) throw new Error("invalid workspace reference");
   return result;

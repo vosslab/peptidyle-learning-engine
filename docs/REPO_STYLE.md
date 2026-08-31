@@ -121,7 +121,7 @@ Preferred structure:
 
 - Rotate `docs/CHANGELOG.md` once it exceeds 800 physical lines (`wc -l docs/CHANGELOG.md`).
 - Keep complete day blocks together. Do not split entries from the same `## YYYY-MM-DD` heading across files.
-- Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` and move older day blocks to archive files.
+- Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` when their complete text fits below the source-file line limit. When the two newest complete day blocks exceed that limit, retain the newest complete day block and archive the older one.
 - Target 800-900 physical lines for each new archive. Keep every day block whole; when no
   day-block boundary fits the target, choose the closest grouping that remains strictly below
   1000 lines. Refuse a single day block at or above 1000 lines rather than writing an archive

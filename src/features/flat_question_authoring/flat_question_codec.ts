@@ -460,7 +460,10 @@ function decodeQuestionAttemptLimit(value: unknown, path: string): FlatQuestionA
   };
 }
 
-function decodeQuestionAttemptTimeLimit(value: unknown, path: string): FlatQuestionAttemptTimeLimit {
+function decodeQuestionAttemptTimeLimit(
+  value: unknown,
+  path: string,
+): FlatQuestionAttemptTimeLimit {
   const record = decodeRecord(value, path);
   const kind = string(field(record, "kind", path), `${path}.kind`);
   if (kind === "unlimited") {
@@ -665,7 +668,10 @@ export function decodeFlatQuestionSource(value: unknown, path = "source"): FlatQ
       field(record, "questionAttemptLimit", path),
       `${path}.questionAttemptLimit`,
     ),
-    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(field(record, "questionAttemptTimeLimit", path), `${path}.questionAttemptTimeLimit`),
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
+    ),
     tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
     taxonomy:
       record.taxonomy === undefined ? [] : decodeTaxonomy(record.taxonomy, `${path}.taxonomy`),

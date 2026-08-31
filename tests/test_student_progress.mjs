@@ -48,10 +48,7 @@ test("Student progress is exact, key-free, and never accepts withheld totals", (
 
 test("Student class statistics are an exact, optional safe union", () => {
   assert.deepEqual(decodeAssignmentProgress(insufficientEvidence), insufficientEvidence);
-  assert.deepEqual(
-    decodeAssignmentProgress(classStatisticsAvailable),
-    classStatisticsAvailable,
-  );
+  assert.deepEqual(decodeAssignmentProgress(classStatisticsAvailable), classStatisticsAvailable);
 
   for (const malformed of [
     { state: "insufficient_evidence", assignment_average_score: 0.75 },

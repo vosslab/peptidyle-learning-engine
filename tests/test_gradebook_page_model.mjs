@@ -22,9 +22,7 @@ function gradebookPage(membership, nextCursor = null) {
     mode: "totalPoints",
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     observationTime: 1,
-    assignmentScoringSnapshots: [
-      { assignment, generation: 1, assignmentScoringState: "current" },
-    ],
+    assignmentScoringSnapshots: [{ assignment, generation: 1, assignmentScoringState: "current" }],
     nextCursor,
     rows: [
       {

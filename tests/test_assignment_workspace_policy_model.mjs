@@ -48,7 +48,11 @@ const assignmentRevisionDefinition = {
 };
 
 test("focused policy input preserves direct delivery settings", () => {
-  const input = assignmentPoliciesInput(studentFeedbackReleaseRule, policies, assignmentRevisionDefinition);
+  const input = assignmentPoliciesInput(
+    studentFeedbackReleaseRule,
+    policies,
+    assignmentRevisionDefinition,
+  );
 
   assert.equal(input.assignmentRevisionDefinition.instructions, "Use a clear structural drawing.");
 });

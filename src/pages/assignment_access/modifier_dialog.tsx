@@ -55,18 +55,33 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
         class="assignment-access-dialog"
         aria-labelledby="assignment-access-dialog-heading"
         ref={(element) => queueMicrotask(() => element.showModal())}
-        onCancel={(event) => { event.preventDefault(); props.onClose(); }}
+        onCancel={(event) => {
+          event.preventDefault();
+          props.onClose();
+        }}
       >
-        <h2 ref={(element) => (heading = element)} id="assignment-access-dialog-heading" tabindex="-1">
+        <h2
+          ref={(element) => (heading = element)}
+          id="assignment-access-dialog-heading"
+          tabindex="-1"
+        >
           Student accommodation
         </h2>
         <form onSubmit={(event) => void save(event)}>
           <label class="assignment-access-field">
             Student Membership
-            <select disabled={props.busy} onChange={(event) =>
-              setSubject(props.subjects.find((item) => item.reference === event.currentTarget.value))
-            }>
-              <For each={props.subjects} fallback={<option value="">No authorized students are available</option>}>
+            <select
+              disabled={props.busy}
+              onChange={(event) =>
+                setSubject(
+                  props.subjects.find((item) => item.reference === event.currentTarget.value),
+                )
+              }
+            >
+              <For
+                each={props.subjects}
+                fallback={<option value="">No authorized students are available</option>}
+              >
                 {(item) => <option value={item.reference}>{item.display}</option>}
               </For>
             </select>
@@ -74,14 +89,35 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
           <fieldset class="assignment-access-mode">
             <legend>Accommodation semantics</legend>
             <For each={["extendOnly", "replace"] as const}>
-              {(choice) => <label><input type="radio" name="modifier-mode" checked={mode() === choice} onChange={() => setMode(choice)} /> {choice === "extendOnly" ? "Extend only" : "Replace"}</label>}
+              {(choice) => (
+                <label>
+                  <input
+                    type="radio"
+                    name="modifier-mode"
+                    checked={mode() === choice}
+                    onChange={() => setMode(choice)}
+                  />{" "}
+                  {choice === "extendOnly" ? "Extend only" : "Replace"}
+                </label>
+              )}
             </For>
           </fieldset>
-          <p class="assignment-access-help">The selected Student Membership receives this direct accommodation. Detailed field editing remains available through the Assignment policy form.</p>
-          <Show when={error()}><p class="assignment-access-error" role="alert">{error()}</p></Show>
+          <p class="assignment-access-help">
+            The selected Student Membership receives this direct accommodation. Detailed field
+            editing remains available through the Assignment policy form.
+          </p>
+          <Show when={error()}>
+            <p class="assignment-access-error" role="alert">
+              {error()}
+            </p>
+          </Show>
           <div class="assignment-access-actions">
-            <button type="button" disabled={props.busy} onClick={props.onClose}>Cancel</button>
-            <button type="submit" disabled={props.busy || subject() === undefined}>Save accommodation</button>
+            <button type="button" disabled={props.busy} onClick={props.onClose}>
+              Cancel
+            </button>
+            <button type="submit" disabled={props.busy || subject() === undefined}>
+              Save accommodation
+            </button>
           </div>
         </form>
       </dialog>

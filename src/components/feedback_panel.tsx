@@ -309,7 +309,10 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
         )}
       </Show>
       <Show
-        when={props.disclosure.kind === "released" && props.disclosure.assignmentScoringState !== "current"}
+        when={
+          props.disclosure.kind === "released" &&
+          props.disclosure.assignmentScoringState !== "current"
+        }
       >
         <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
       </Show>

@@ -36,7 +36,10 @@ test("synthetic accommodation requests keep dates inherited and accept both mode
   assert.deepEqual(extendOnly.adjustment.availableAt, { kind: "inherit" });
   assert.deepEqual(extendOnly.adjustment.dueAt, { kind: "inherit" });
   assert.deepEqual(extendOnly.adjustment.closesAt, { kind: "inherit" });
-  assert.deepEqual(extendOnly.adjustment.assignmentAttemptTimeLimitSeconds, { kind: "set", value: 180 });
+  assert.deepEqual(extendOnly.adjustment.assignmentAttemptTimeLimitSeconds, {
+    kind: "set",
+    value: 180,
+  });
   assert.deepEqual(extendOnly.adjustment.attemptLimit, { kind: "set", value: 2 });
 });
 
@@ -56,7 +59,7 @@ test("reloading a revision preserves the caller-owned modifier draft", () => {
 
 test("safe preview copy uses only display labels and closed verdict copy", () => {
   assert.equal(
-    sourceLabel({ kind: "membership", membership: "M-private", label: "Jordan Lee" }),
+    sourceLabel({ kind: "accommodation", membership: "M-private", label: "Jordan Lee" }),
     "Jordan Lee",
   );
   assert.equal(startLabel("lateWorkRefused"), "Due date prevents a new run");

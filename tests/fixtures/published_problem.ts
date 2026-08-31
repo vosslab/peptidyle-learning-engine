@@ -6,13 +6,22 @@
 
 import fixtureSet from "./published_problem/fixture_set.json" with { type: "json" };
 
-function browserQuestionAttempt({
-  questionPoolEntry,
-  parameterHash: _parameterHash,
-  reproductionDetails: _reproductionDetails,
-  ...attempt
-}) {
-  return { ...attempt, questionPoolSelection: questionPoolEntry ?? null };
+type BrowserQuestionAttempt = Omit<
+  (typeof fixtureSet.attempts)[number],
+  "parameterHash" | "reproductionDetails"
+> & {
+  readonly questionPoolSelection: null;
+};
+
+function browserQuestionAttempt(
+  attempt: (typeof fixtureSet.attempts)[number],
+): BrowserQuestionAttempt {
+  const {
+    parameterHash: _parameterHash,
+    reproductionDetails: _reproductionDetails,
+    ...browserSafeAttempt
+  } = attempt;
+  return { ...browserSafeAttempt, questionPoolSelection: null };
 }
 
 export const publishedProblemFixture = {

@@ -48,7 +48,10 @@ export function MatchingResponse(
     return pair?.choice ?? "";
   }
 
-  function choiceIsUsedByAnotherPrompt(prompt: ResponseItemReference, choice: ResponseItemReference): boolean {
+  function choiceIsUsedByAnotherPrompt(
+    prompt: ResponseItemReference,
+    choice: ResponseItemReference,
+  ): boolean {
     return matches().some((match) => match.prompt !== prompt && match.choice === choice);
   }
 

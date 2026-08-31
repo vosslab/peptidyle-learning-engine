@@ -28,7 +28,10 @@ export interface ExternalToolResponseProps {
   readonly attemptId: string;
   readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
-  readonly onResponseChange?: (response: StudentResponse, validation: StudentResponseFormatCheck) => void;
+  readonly onResponseChange?: (
+    response: StudentResponse,
+    validation: StudentResponseFormatCheck,
+  ) => void;
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
 }

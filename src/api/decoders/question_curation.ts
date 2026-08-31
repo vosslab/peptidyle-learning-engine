@@ -202,16 +202,9 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
   return decoded;
 }
 
-function decodeQuestionFolderSummary(
-  value: unknown,
-  path: string,
-): QuestionFolderSummaryView {
+function decodeQuestionFolderSummary(value: unknown, path: string): QuestionFolderSummaryView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "reference",
-    "title",
-    "editNumber",
-  ]);
+  requireOnlyFields(record, path, ["reference", "title", "editNumber"]);
   return {
     reference: decodeReference(field(record, "reference", path), `${path}.reference`, "QC"),
     title: decodeCurationTitle(field(record, "title", path), `${path}.title`),
@@ -222,11 +215,7 @@ function decodeQuestionFolderSummary(
 function decodeQuestionFolderEntry(value: unknown, path: string): QuestionFolderEntryView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionId", "summary", "questionVersionAvailability"]);
-  const summary = decodeQuestionSummary(
-    field(record, "summary", path),
-    `${path}.summary`,
-    true,
-  );
+  const summary = decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true);
   const questionId = decodeString(field(record, "questionId", path), `${path}.questionId`);
   if (!QUESTION_ID_PATTERN.test(questionId) || questionId !== summary.questionId) {
     throw new DecodeError(`${path}.questionId`, "the member summary's canonical Question ID");
@@ -318,10 +307,7 @@ export function decodeSavedQuestionSearchFilter(
   return decodeQuestionSearchFilter(value, path);
 }
 
-export function decodeQuestionFolderQuestionIds(
-  value: unknown,
-  path = "request",
-): Array<string> {
+export function decodeQuestionFolderQuestionIds(value: unknown, path = "request"): Array<string> {
   const questionIds = decodeBoundedArray(
     value,
     path,

@@ -208,7 +208,10 @@ export function decodeCapability(value: unknown, path: string): Capability {
   return decodeStringEnum(value, path, CAPABILITIES);
 }
 
-export function decodeQuestionBackendCapabilities(value: unknown, path: string): QuestionBackendCapabilities {
+export function decodeQuestionBackendCapabilities(
+  value: unknown,
+  path: string,
+): QuestionBackendCapabilities {
   return decodeArray(value, path, decodeCapability);
 }
 
@@ -296,7 +299,7 @@ export function decodeQuestionVersionAvailability(
   path: string,
   strict = false,
 ): QuestionVersionAvailability {
-    const record = decodeRecord(value, path);
+  const record = decodeRecord(value, path);
   const availability = decodeStringEnum(
     field(record, "availability", path),
     `${path}.availability`,

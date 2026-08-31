@@ -308,8 +308,7 @@ function isStudentResponse(value: unknown): value is StudentResponse {
       "selections" in value &&
       isRecordArray(value.selections) &&
       value.selections.every(
-        (selection) =>
-          Object.keys(selection).length === 1 && typeof selection.region === "string",
+        (selection) => Object.keys(selection).length === 1 && typeof selection.region === "string",
       )
     );
   }

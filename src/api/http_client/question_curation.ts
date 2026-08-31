@@ -245,11 +245,7 @@ export function createQuestionCurationClient(
       );
       return revisionedFolder(result, path);
     },
-    replaceQuestionFolder: async (
-      folder,
-      request,
-      etag,
-    ): Promise<RevisionedQuestionFolder> => {
+    replaceQuestionFolder: async (folder, request, etag): Promise<RevisionedQuestionFolder> => {
       const path = folderPath(folder);
       const result = await curationJson(
         fetchImplementation,

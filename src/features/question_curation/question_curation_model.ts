@@ -94,10 +94,7 @@ export interface QuestionCurationRepository {
   readonly replaceFolder: (
     replacement: QuestionFolderReplacement,
   ) => Promise<RevisionedCurationValue<QuestionFolderSummaryView>>;
-  readonly deleteFolder: (
-    reference: QuestionFolderReference,
-    editNumber: string,
-  ) => Promise<void>;
+  readonly deleteFolder: (reference: QuestionFolderReference, editNumber: string) => Promise<void>;
   readonly listSavedSearches: (
     cursor: string | null,
   ) => Promise<QuestionCurationPage<SavedQuestionSearchView>>;
@@ -150,12 +147,11 @@ export function questionCurationPickerSources(
   return [
     { kind: "library", label: "Current library" },
     ...(mayMutatePersonalCuration ? ([{ kind: "mine", label: "My Questions" }] as const) : []),
-    ...folders
-      .map((folder) => ({
-        kind: "folder" as const,
-        label: folder.title,
-        folder: folder.reference,
-      })),
+    ...folders.map((folder) => ({
+      kind: "folder" as const,
+      label: folder.title,
+      folder: folder.reference,
+    })),
   ];
 }
 
@@ -227,9 +223,7 @@ export function mayMutatePersonalCuration(session: AuthenticatedSession | undefi
   return session?.account.role === "instructor";
 }
 
-export function mayEditOpenedQuestionFolder(
-  mayMutatePersonalCuration: boolean,
-): boolean {
+export function mayEditOpenedQuestionFolder(mayMutatePersonalCuration: boolean): boolean {
   return mayMutatePersonalCuration;
 }
 

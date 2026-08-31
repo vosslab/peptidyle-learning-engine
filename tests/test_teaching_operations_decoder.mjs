@@ -99,11 +99,14 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
     nextCursor: null,
   };
   assert.deepEqual(decodeCourseInvitationTargetSearchPage(targetPage), targetPage);
-  assert.deepEqual(decodeCourseInvitationTargetSearchRequest({ query: "Ada", after: null, size: 20 }), {
-    query: "Ada",
-    after: null,
-    size: 20,
-  });
+  assert.deepEqual(
+    decodeCourseInvitationTargetSearchRequest({ query: "Ada", after: null, size: 20 }),
+    {
+      query: "Ada",
+      after: null,
+      size: 20,
+    },
+  );
   assert.deepEqual(decodeCourseStudentMembershipsPage(studentPage), studentPage);
   assert.throws(
     () =>
@@ -136,11 +139,16 @@ test("Instructor Course Invitation creation accepts only the Instructor-only ope
   const request = { target: "U-7" };
   assert.deepEqual(decodeInstructorCourseInvitationCreateRequest(request), request);
   assert.throws(
-    () => decodeInstructorCourseInvitationCreateRequest({ target: "U-7", membershipRole: "instructor" }),
+    () =>
+      decodeInstructorCourseInvitationCreateRequest({
+        target: "U-7",
+        membershipRole: "instructor",
+      }),
     DecodeError,
   );
   assert.throws(
-    () => decodeInstructorCourseInvitationCreateRequest({ target: "U-7", membershipRole: "student" }),
+    () =>
+      decodeInstructorCourseInvitationCreateRequest({ target: "U-7", membershipRole: "student" }),
     DecodeError,
   );
 });

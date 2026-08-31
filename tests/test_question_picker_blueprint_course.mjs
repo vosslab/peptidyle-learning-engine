@@ -21,7 +21,10 @@ function questionLibraryEntry(questionId, title) {
 function definition() {
   return {
     entries: [
-      { kind: "fixed", question: { question_library: questionLibraryEntry("7K3-M9QP", "First fixed") } },
+      {
+        kind: "fixed",
+        question: { question_library: questionLibraryEntry("7K3-M9QP", "First fixed") },
+      },
       {
         kind: "pool",
         candidates: [
@@ -29,7 +32,10 @@ function definition() {
           { question_library: questionLibraryEntry("3S8-B4DZ", "Pool second") },
         ],
       },
-      { kind: "fixed", question: { question_library: questionLibraryEntry("4T9-C5EW", "Final fixed") } },
+      {
+        kind: "fixed",
+        question: { question_library: questionLibraryEntry("4T9-C5EW", "Final fixed") },
+      },
     ],
   };
 }

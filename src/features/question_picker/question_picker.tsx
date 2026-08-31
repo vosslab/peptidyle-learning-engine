@@ -53,7 +53,10 @@ function rowIsSelected(selection: QuestionPickerSelection, row: QuestionSearchRe
   return selection.questionIds.includes(row.displayId);
 }
 
-function selectedCopy(selection: QuestionPickerSelection, mode: QuestionPickerSelectionMode): string {
+function selectedCopy(
+  selection: QuestionPickerSelection,
+  mode: QuestionPickerSelectionMode,
+): string {
   if (mode === "none") return "Browse questions and open a question for its full details.";
   if (selection.questionIds.length === 0)
     return "Select question results to prepare an ordered list.";
@@ -136,7 +139,13 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   function toggleRow(row: QuestionSearchResult, checked: boolean): void {
     try {
       updateSelection(
-        toggleQuestionPickerSelection(props.mode, props.maximumSelection, selection(), row, checked),
+        toggleQuestionPickerSelection(
+          props.mode,
+          props.maximumSelection,
+          selection(),
+          row,
+          checked,
+        ),
       );
     } catch (error: unknown) {
       setSelectionMessage(

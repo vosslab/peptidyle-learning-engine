@@ -107,9 +107,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [activityRuleDraft, setActivityRuleDraft] = createSignal<AssignmentActivityRuleDraft>(
     activityRuleDraftFromRules(policies()),
   );
-  const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] = createSignal(
-    numberDraft(assignmentRevisionDefinition().assignmentAttemptTimeLimitSeconds),
-  );
+  const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] =
+    createSignal(numberDraft(assignmentRevisionDefinition().assignmentAttemptTimeLimitSeconds));
   const [attemptLimitDraft, setAttemptLimitDraft] = createSignal(
     numberDraft(assignmentRevisionDefinition().attemptLimit),
   );
@@ -195,9 +194,13 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     if (matches && recovered !== undefined) clearRecoveredField(recovered);
   }
 
-  function updateNumberDraft(field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit", raw: string): void {
+  function updateNumberDraft(
+    field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
+    raw: string,
+  ): void {
     const parsed = optionalPositiveIntegerDraft(raw);
-    if (field === "assignmentAttemptTimeLimitSeconds") setAssignmentAttemptTimeLimitSecondsDraft(raw);
+    if (field === "assignmentAttemptTimeLimitSeconds")
+      setAssignmentAttemptTimeLimitSecondsDraft(raw);
     else setAttemptLimitDraft(raw);
     if (!parsed.valid) return;
     updateTeaching(
@@ -290,7 +293,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
   ): string | undefined {
     const parsed = optionalPositiveIntegerDraft(
-      field === "assignmentAttemptTimeLimitSeconds" ? assignmentAttemptTimeLimitSecondsDraft() : attemptLimitDraft(),
+      field === "assignmentAttemptTimeLimitSeconds"
+        ? assignmentAttemptTimeLimitSecondsDraft()
+        : attemptLimitDraft(),
     );
     if (!parsed.valid) {
       return `${field === "assignmentAttemptTimeLimitSeconds" ? "Whole Assignment Attempt seconds" : "Attempt limit"} must be a positive whole number or blank.`;
@@ -320,7 +325,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     ) {
       return "additionalRuns";
     }
-    if (!optionalPositiveIntegerDraft(assignmentAttemptTimeLimitSecondsDraft()).valid) return "assignmentAttemptTimeLimitSeconds";
+    if (!optionalPositiveIntegerDraft(assignmentAttemptTimeLimitSecondsDraft()).valid)
+      return "assignmentAttemptTimeLimitSeconds";
     if (!optionalPositiveIntegerDraft(attemptLimitDraft()).valid) return "attemptLimit";
     return undefined;
   }
@@ -371,7 +377,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies(saved.policies);
       setStudentFeedbackReleaseRule(saved.studentFeedbackReleaseRule);
       setAssignmentRevisionDefinition(saved.assignmentRevisionDefinition);
-      setAssignmentAttemptTimeLimitSecondsDraft(numberDraft(saved.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds));
+      setAssignmentAttemptTimeLimitSecondsDraft(
+        numberDraft(saved.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds),
+      );
       setAttemptLimitDraft(numberDraft(saved.assignmentRevisionDefinition.attemptLimit));
       setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
       setNeedsReload(false);
@@ -412,7 +420,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies(latest.policies);
       setStudentFeedbackReleaseRule(latest.studentFeedbackReleaseRule);
       setAssignmentRevisionDefinition(latest.assignmentRevisionDefinition);
-      setAssignmentAttemptTimeLimitSecondsDraft(numberDraft(latest.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds));
+      setAssignmentAttemptTimeLimitSecondsDraft(
+        numberDraft(latest.assignmentRevisionDefinition.assignmentAttemptTimeLimitSeconds),
+      );
       setAttemptLimitDraft(numberDraft(latest.assignmentRevisionDefinition.attemptLimit));
       setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
       setFailureField(undefined);
@@ -666,7 +676,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="number"
                   ref={(element) => controls.set("assignmentAttemptTimeLimitSeconds", element)}
                   min="1"
-                  aria-invalid={deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") !== undefined}
+                  aria-invalid={
+                    deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") !== undefined
+                  }
                   aria-describedby={
                     deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") === undefined
                       ? undefined
@@ -674,7 +686,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   }
                   value={assignmentAttemptTimeLimitSecondsDraft()}
                   onInput={(event) =>
-                    updateNumberDraft("assignmentAttemptTimeLimitSeconds", event.currentTarget.value)
+                    updateNumberDraft(
+                      "assignmentAttemptTimeLimitSeconds",
+                      event.currentTarget.value,
+                    )
                   }
                 />
                 <Show when={deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds")}>

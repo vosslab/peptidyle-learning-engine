@@ -9,7 +9,11 @@ import type { QuestionResponseFormat } from "../../../generated/api/QuestionResp
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch } from "../../api/contracts";
 import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
-import type { StudentResponseFormatCheck, StudentResponseFormatIssue, WasmFacade } from "../../wasm/index";
+import type {
+  StudentResponseFormatCheck,
+  StudentResponseFormatIssue,
+  WasmFacade,
+} from "../../wasm/index";
 
 export type MultipleChoiceDefinition = Extract<QuestionResponseFormat, { kind: "multipleChoice" }>;
 export type NumericDefinition = Extract<QuestionResponseFormat, { kind: "numeric" }>;
@@ -41,7 +45,10 @@ export interface QuestionResponseControlBaseProps {
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
   readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
-  readonly onResponseChange?: (response: StudentResponse, validation: StudentResponseFormatCheck) => void;
+  readonly onResponseChange?: (
+    response: StudentResponse,
+    validation: StudentResponseFormatCheck,
+  ) => void;
   /** Exact navigation scope required to activate an external-tool response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;

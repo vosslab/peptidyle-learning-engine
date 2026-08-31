@@ -7,10 +7,7 @@ import type { BlueprintCourseSummaryView } from "../../../generated/api/Blueprin
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
-import type {
-  BlueprintCourseClient,
-  BlueprintCourseEtag,
-} from "../../api/blueprint_course";
+import type { BlueprintCourseClient, BlueprintCourseEtag } from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
 import { CurriculumCreateDialog } from "./blueprint_course_create_dialog";
 import {

@@ -820,10 +820,16 @@ export function createRequestClient(
         { method: "POST", body: { definition, response } },
       ),
     questionAttemptTimingDecisionOnServer: (evaluation) =>
-      requestJson(fetchImplementation, basePath, "/api/validation/question-attempt-timing", decodeQuestionAttemptTimingDecision, {
-        method: "POST",
-        body: evaluation,
-      }),
+      requestJson(
+        fetchImplementation,
+        basePath,
+        "/api/validation/question-attempt-timing",
+        decodeQuestionAttemptTimingDecision,
+        {
+          method: "POST",
+          body: evaluation,
+        },
+      ),
     validateAssignmentConfigOnServer: (validationConfig) =>
       requestJson(
         fetchImplementation,

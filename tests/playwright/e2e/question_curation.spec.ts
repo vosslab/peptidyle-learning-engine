@@ -21,7 +21,6 @@ import {
   relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
-  signOutVisible,
   writeContextOriginReceipt,
   type ObservedOrigins,
 } from "./real_stack_ui";
@@ -106,8 +105,7 @@ async function captureLaptop(
 
 function curationPath(url: string): string | null {
   const path = new URL(url).pathname;
-  return path.startsWith("/api/question-folders") ||
-    path.startsWith("/api/saved-question-searches")
+  return path.startsWith("/api/question-folders") || path.startsWith("/api/saved-question-searches")
     ? path
     : null;
 }
@@ -187,10 +185,7 @@ async function stageCurrentLibraryQuestion(
   ).toBeVisible();
 }
 
-async function createQuestionFolder(
-  panel: Locator,
-  title: string,
-): Promise<void> {
+async function createQuestionFolder(panel: Locator, title: string): Promise<void> {
   await panel.getByRole("button", { name: "Create Question Folder", exact: true }).click();
   const editor = panel
     .getByRole("heading", { name: "Create Question Folder", exact: true })
@@ -353,7 +348,9 @@ test.describe("question curation on the production PLE stack", () => {
         const localEditor = panel
           .getByRole("heading", { name: "Update Question Folder", exact: true })
           .locator("..");
-        await localEditor.getByLabel("Question Folder name").fill(`${concurrentTitle} local revision`);
+        await localEditor
+          .getByLabel("Question Folder name")
+          .fill(`${concurrentTitle} local revision`);
         await expect(localEditor).toContainText("1 questions in this ordered Question Folder.");
 
         await chooseSeededIdentity(concurrentElena, /Elena Rivera/u);
@@ -366,12 +363,16 @@ test.describe("question curation on the production PLE stack", () => {
           .getByRole("heading", { name: "Update Question Folder", exact: true })
           .locator("..");
         await remoteEditor.getByLabel("Question Folder name").fill(remoteConcurrentTitle);
-        await remoteEditor.getByRole("button", { name: "Save Question Folder", exact: true }).click();
+        await remoteEditor
+          .getByRole("button", { name: "Save Question Folder", exact: true })
+          .click();
         await expect(concurrentPanel.getByRole("status")).toContainText(
           `${remoteConcurrentTitle} now contains 1 ordered questions.`,
         );
 
-        await localEditor.getByRole("button", { name: "Save Question Folder", exact: true }).click();
+        await localEditor
+          .getByRole("button", { name: "Save Question Folder", exact: true })
+          .click();
         await expect(panel.getByRole("status")).toContainText(
           "Someone saved a newer version first.",
         );
@@ -419,9 +420,7 @@ test.describe("question curation on the production PLE stack", () => {
           .nth(1);
         await secondPool.getByRole("button", { name: "Choose candidates", exact: true }).click();
         const myPublishedPicker = elena.getByRole("dialog");
-        await expect(myPublishedPicker.getByLabel("Question source")).toContainText(
-          "My Questions",
-        );
+        await expect(myPublishedPicker.getByLabel("Question source")).toContainText("My Questions");
         await selectQuestionInPicker(
           elena,
           "My Questions",

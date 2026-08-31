@@ -198,7 +198,10 @@ function AttemptExperience(props: {
     );
   }
 
-  function responseChanged(response: StudentResponse, validation: StudentResponseFormatCheck): void {
+  function responseChanged(
+    response: StudentResponse,
+    validation: StudentResponseFormatCheck,
+  ): void {
     machine.setResponse(response, {
       valid: validation.violations.length === 0,
       message: validation.violations.length === 0 ? null : "Response format needs attention.",

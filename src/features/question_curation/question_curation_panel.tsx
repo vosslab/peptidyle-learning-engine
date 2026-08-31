@@ -200,8 +200,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
       setShowCollectionForm(true);
       setNotice({
         kind: "success",
-        text:
-          `${current.value.title} is ready to edit.`,
+        text: `${current.value.title} is ready to edit.`,
       });
       return true;
     } catch (error: unknown) {
@@ -542,9 +541,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
           <p class="eyebrow">Private Question Folder</p>
           <h3 id="collection-detail-heading">{openedCollection()!.title}</h3>
           <p>Private Question Folder - edit number {openedCollection()!.editNumber}</p>
-          <p>
-            Browse these current published questions or reuse them through a question picker.
-          </p>
+          <p>Browse these current published questions or reuse them through a question picker.</p>
           <ol class="question-curation-members">
             <For each={openedMembers().items}>
               {(member) => (
@@ -620,9 +617,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
                 <li>
                   <div>
                     <strong>{collection.title}</strong>
-                    <span>
-                      Private Question Folder
-                    </span>
+                    <span>Private Question Folder</span>
                   </div>
                   <div class="question-curation-actions">
                     <button
@@ -637,10 +632,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
                       type="button"
                       aria-label={`Delete Question Folder ${collection.title}`}
                       onClick={(event) =>
-                        requestDeletion(
-                          folderDeletionFromObserved(collection),
-                          event.currentTarget,
-                        )
+                        requestDeletion(folderDeletionFromObserved(collection), event.currentTarget)
                       }
                     >
                       Delete

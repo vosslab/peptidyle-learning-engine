@@ -11,7 +11,11 @@ import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
 import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
-import { type ModifierMode, type ModifierPatchDraft, type SelectedStudent } from "./assignment_access/model";
+import {
+  type ModifierMode,
+  type ModifierPatchDraft,
+  type SelectedStudent,
+} from "./assignment_access/model";
 import { PolicyPreview } from "./assignment_access/policy_preview";
 import "./assignment_access/assignment_access.css";
 
@@ -63,7 +67,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
   let reloadStatus: HTMLParagraphElement | undefined;
   let dialogTrigger: HTMLButtonElement | undefined;
 
-  async function load(): Promise<void> {
+  function load(): void {
     setState("loading");
     setMessage("");
     try {
@@ -186,18 +190,10 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     );
   }
 
-  async function deleteModifier(
-    target: string,
-    name: string,
-  ): Promise<boolean> {
+  async function deleteModifier(target: string, name: string): Promise<boolean> {
     if (!window.confirm(namedDeleteCopy(name))) return false;
     return mutate(() =>
-      props.client.deleteAccommodation(
-        props.courseId,
-        props.assignmentId,
-        target,
-        revision(),
-      ),
+      props.client.deleteAccommodation(props.courseId, props.assignmentId, target, revision()),
     );
   }
 

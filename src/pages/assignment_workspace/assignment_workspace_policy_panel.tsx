@@ -305,7 +305,9 @@ export function AssignmentWorkspacePolicyPanel(
             onChange={(event) =>
               props.onPoliciesChange({
                 ...props.policies(),
-                assignmentQuestionDisplayRule: assignmentQuestionDisplayRule(event.currentTarget.value),
+                assignmentQuestionDisplayRule: assignmentQuestionDisplayRule(
+                  event.currentTarget.value,
+                ),
               })
             }
           >

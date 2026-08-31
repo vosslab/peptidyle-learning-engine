@@ -60,7 +60,11 @@ function studentMembership(value: unknown, path: string): StudentMembershipView 
   const record = closed(value, path, ["reference", "display", "role", "status"]);
   return {
     reference: reference(record.reference, `${path}.reference`, "M"),
-    display: boundedTrimmedText(record.display, `${path}.display`, MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS),
+    display: boundedTrimmedText(
+      record.display,
+      `${path}.display`,
+      MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
+    ),
     role: decodeStringEnum(record.role, `${path}.role`, ["instructor", "student"] as const),
     status: decodeStringEnum(record.status, `${path}.status`, MEMBERSHIP_STATUSES),
   };
@@ -200,7 +204,10 @@ function limitPatch(
   }
 }
 
-function accommodationAdjustment(value: unknown, path: string): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"] {
+function accommodationAdjustment(
+  value: unknown,
+  path: string,
+): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"] {
   const record = closed(value, path, [
     "availableAt",
     "dueAt",
@@ -225,7 +232,10 @@ function accommodationAdjustment(value: unknown, path: string): SyntheticPreview
   };
 }
 
-function decodeAccommodationAdjustmentWrite(value: unknown, path: string): SyntheticPreviewAccommodationAdjustmentRequest {
+function decodeAccommodationAdjustmentWrite(
+  value: unknown,
+  path: string,
+): SyntheticPreviewAccommodationAdjustmentRequest {
   const record = closed(value, path, ["mode", "adjustment"]);
   return {
     mode: decodeStringEnum(record.mode, `${path}.mode`, ["extendOnly", "replace"] as const),
@@ -325,7 +335,10 @@ function startVerdict(
 
 export function decodeTeachingPreviewView(value: unknown, path = "response"): TeachingPreviewView {
   const record = decodeRecord(value, path);
-  const active_student_course_membership = decodeString(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`);
+  const active_student_course_membership = decodeString(
+    field(record, "active_student_course_membership", path),
+    `${path}.active_student_course_membership`,
+  );
   if (active_student_course_membership === "denied") {
     requireOnlyFields(record, path, ["active_student_course_membership", "reason"]);
     return {
@@ -335,7 +348,8 @@ export function decodeTeachingPreviewView(value: unknown, path = "response"): Te
       ] as const),
     };
   }
-  if (active_student_course_membership !== "allowed") throw new DecodeError(`${path}.active_student_course_membership`, "allowed or denied");
+  if (active_student_course_membership !== "allowed")
+    throw new DecodeError(`${path}.active_student_course_membership`, "allowed or denied");
   requireOnlyFields(record, path, [
     "active_student_course_membership",
     "timeZone",
@@ -378,10 +392,15 @@ export function decodeTeachingPreviewView(value: unknown, path = "response"): Te
       source: assignmentPolicySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
     },
     assignmentDeadlineRule: {
-      value: decodeStringEnum(assignmentDeadlineRule.value, `${path}.assignmentDeadlineRule.value`, [
-        "autoSubmit",
-      ] as const),
-      source: assignmentPolicySource(assignmentDeadlineRule.source, `${path}.assignmentDeadlineRule.source`),
+      value: decodeStringEnum(
+        assignmentDeadlineRule.value,
+        `${path}.assignmentDeadlineRule.value`,
+        ["autoSubmit"] as const,
+      ),
+      source: assignmentPolicySource(
+        assignmentDeadlineRule.source,
+        `${path}.assignmentDeadlineRule.source`,
+      ),
     },
   };
 }

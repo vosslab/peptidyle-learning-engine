@@ -80,9 +80,21 @@ function scheduleRows(
   effective_assignment_policy: EffectiveAssignmentPolicyView,
 ): ReadonlyArray<readonly [string, string, string]> {
   return [
-    ["Opens", timeValue(effective_assignment_policy.availableAt.value), titleCase(effective_assignment_policy.availableAt.source)],
-    ["Due", timeValue(effective_assignment_policy.dueAt.value), titleCase(effective_assignment_policy.dueAt.source)],
-    ["Closes", timeValue(effective_assignment_policy.closesAt.value), titleCase(effective_assignment_policy.closesAt.source)],
+    [
+      "Opens",
+      timeValue(effective_assignment_policy.availableAt.value),
+      titleCase(effective_assignment_policy.availableAt.source),
+    ],
+    [
+      "Due",
+      timeValue(effective_assignment_policy.dueAt.value),
+      titleCase(effective_assignment_policy.dueAt.source),
+    ],
+    [
+      "Closes",
+      timeValue(effective_assignment_policy.closesAt.value),
+      titleCase(effective_assignment_policy.closesAt.source),
+    ],
     [
       "Time limit",
       effective_assignment_policy.assignmentAttemptTimeLimitSeconds.value === null
@@ -92,7 +104,9 @@ function scheduleRows(
     ],
     [
       "Attempt limit",
-      effective_assignment_policy.attemptLimit.value === null ? "No limit" : String(effective_assignment_policy.attemptLimit.value),
+      effective_assignment_policy.attemptLimit.value === null
+        ? "No limit"
+        : String(effective_assignment_policy.attemptLimit.value),
       titleCase(effective_assignment_policy.attemptLimit.source),
     ],
     [
@@ -141,7 +155,9 @@ function PreviewResult(props: {
         <h2 id="preview-result-heading" ref={props.headingRef} tabIndex={-1}>
           Delivery check
         </h2>
-        <p role="alert">This hypothetical subject does not currently have access to this assignment.</p>
+        <p role="alert">
+          This hypothetical subject does not currently have access to this assignment.
+        </p>
       </section>
     );
   }
@@ -154,7 +170,8 @@ function PreviewResult(props: {
         <section>
           <h3>Subject</h3>
           <p>
-            {titleCase(evaluation.student_view_scenario.kind)} subject; active_student_course_membership:{" "}
+            {titleCase(evaluation.student_view_scenario.kind)} subject;
+            active_student_course_membership:{" "}
             {titleCase(evaluation.active_student_course_membership)}.
           </p>
           <p>This preview resolves the direct Assignment policy without a roster partition.</p>
@@ -193,11 +210,17 @@ function PreviewResult(props: {
             <div class="preview-before-after">
               <section>
                 <h4>Before</h4>
-                <ScheduleTable label="Delivery before accommodation" effective_assignment_policy={comparison.before} />
+                <ScheduleTable
+                  label="Delivery before accommodation"
+                  effective_assignment_policy={comparison.before}
+                />
               </section>
               <section>
                 <h4>After</h4>
-                <ScheduleTable label="Delivery after accommodation" effective_assignment_policy={comparison.after} />
+                <ScheduleTable
+                  label="Delivery after accommodation"
+                  effective_assignment_policy={comparison.after}
+                />
               </section>
             </div>
           </section>
@@ -293,11 +316,15 @@ export function AssignmentPreviewPage(): JSX.Element {
     }
   }
 
-  function updateModifierLimit(field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit", value: string): void {
+  function updateModifierLimit(
+    field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
+    value: string,
+  ): void {
     if (field === "assignmentAttemptTimeLimitSeconds") {
       setModifierDraft((current) => ({
         ...current,
-        assignmentAttemptTimeLimitSeconds: value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
+        assignmentAttemptTimeLimitSeconds:
+          value.length === 0 ? { kind: "inherit", value } : { kind: "set", value },
       }));
       return;
     }
@@ -425,8 +452,13 @@ export function AssignmentPreviewPage(): JSX.Element {
         </Match>
         <Match when={state() === "ready"}>
           <div class="preview-workspace">
-            <section class="preview-panel" aria-labelledby="preview-effective_assignment_policy-heading">
-              <h2 id="preview-effective_assignment_policy-heading">Schedule and active_student_course_membership</h2>
+            <section
+              class="preview-panel"
+              aria-labelledby="preview-effective_assignment_policy-heading"
+            >
+              <h2 id="preview-effective_assignment_policy-heading">
+                Schedule and active_student_course_membership
+              </h2>
               <table class="preview-roster-table">
                 <thead>
                   <tr>
@@ -452,7 +484,9 @@ export function AssignmentPreviewPage(): JSX.Element {
                             : "Withheld"}
                         </td>
                         <td>
-                          {row.kind === "granted" ? titleCase(row.effective_assignment_policy.dueAt.source) : "-"}
+                          {row.kind === "granted"
+                            ? titleCase(row.effective_assignment_policy.dueAt.source)
+                            : "-"}
                         </td>
                       </tr>
                     )}
@@ -562,7 +596,10 @@ export function AssignmentPreviewPage(): JSX.Element {
                         aria-describedby="preview-modifier-help preview-modifier-error"
                         aria-invalid={modifierError().length > 0}
                         onInput={(event) =>
-                          updateModifierLimit("assignmentAttemptTimeLimitSeconds", event.currentTarget.value)
+                          updateModifierLimit(
+                            "assignmentAttemptTimeLimitSeconds",
+                            event.currentTarget.value,
+                          )
                         }
                       />
                     </label>

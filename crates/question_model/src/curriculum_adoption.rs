@@ -278,11 +278,6 @@ impl BlueprintContentDigest {
     pub fn as_bytes(self) -> [u8; 32] {
         self.0
     }
-
-    #[cfg(test)]
-    pub(crate) const fn test_value(bytes: [u8; 32]) -> Self {
-        Self(bytes)
-    }
 }
 
 /// Validated server-side canonical Blueprint Revision Content bytes and digest.

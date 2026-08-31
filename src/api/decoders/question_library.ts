@@ -702,7 +702,10 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
       "excluded",
     ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
     drawCount,
-    pointsPerItem: decodeAssignmentPointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    pointsPerItem: decodeAssignmentPointValue(
+      field(record, "pointsPerItem", path),
+      `${path}.pointsPerItem`,
+    ),
     selectionRule: decodeQuestionPoolSelectionRule(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,
@@ -818,7 +821,10 @@ function decodeQuestionPoolAssignmentEntry(
       "excluded",
     ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
     drawCount: decodePositiveInteger(field(record, "drawCount", path), `${path}.drawCount`),
-    pointsPerItem: decodeAssignmentPointValue(field(record, "pointsPerItem", path), `${path}.pointsPerItem`),
+    pointsPerItem: decodeAssignmentPointValue(
+      field(record, "pointsPerItem", path),
+      `${path}.pointsPerItem`,
+    ),
     selectionRule: decodeQuestionPoolSelectionRule(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,

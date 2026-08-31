@@ -10,9 +10,7 @@ current plan. Durable product decisions remain in
 [Human Guidance](../HUMAN_GUIDANCE.md); package history and detailed receipts remain in the
 [changelog](../CHANGELOG.md).
 
-Closed package receipts remain in the changelog and retained package reports.
-
-Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current
+Closed package receipts remain in the changelog and retained package reports. Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current
 handoff while the plan is active and retire with the planning layer; product contracts and durable
 data use domain identifiers.
 
@@ -34,13 +32,10 @@ data use domain identifiers.
   Deferred schema constraints require `SubmissionAccepted` to commit with one
   Question Submission and require `Open` or `ClosedAtDeadline` to commit
   without one; a forward-only state trigger preserves terminal history.
-  The connected disposable database verification remains unrun because the
-  configured acceptance-runtime manifest locator is invalid; source, model,
-  adapter, TypeScript, documentation, and SQL-style gates are current.
+  The canonical `python3 local_stack.py acceptance` path generated its private manifest and passed fresh apply, no-op, staged verification, catalog, ACL, and restricted-login database acceptance; direct tool invocation remains intentionally manifest-less.
   The Answer-versus-Solution model boundary and database split of generic
   grading-material records remain open owner-dependent work; this scoped
   package does not advance SD1-A acceptance.
-
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
   Question Library, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,

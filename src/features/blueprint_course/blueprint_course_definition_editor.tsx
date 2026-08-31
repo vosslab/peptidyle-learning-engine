@@ -101,7 +101,10 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
     );
   }
 
-  function changeNumber(field: "assignment_attempt_time_limit_seconds" | "attempt_limit", value: string): void {
+  function changeNumber(
+    field: "assignment_attempt_time_limit_seconds" | "attempt_limit",
+    value: string,
+  ): void {
     const parsed = value.trim() === "" ? null : Number(value);
     if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed < 1)) {
       props.onChange(
@@ -276,7 +279,9 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
               type="number"
               min="1"
               value={props.definition.defaults.assignment_attempt_time_limit_seconds ?? ""}
-              onInput={(event) => changeNumber("assignment_attempt_time_limit_seconds", event.currentTarget.value)}
+              onInput={(event) =>
+                changeNumber("assignment_attempt_time_limit_seconds", event.currentTarget.value)
+              }
             />
           </label>
           <label>

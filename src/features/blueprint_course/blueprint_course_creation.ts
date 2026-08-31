@@ -13,9 +13,7 @@ export async function createBlueprintCourseWhenReady(
   client: BlueprintCourseClient,
   definition: CreateBlueprintCourseDefinitionInput,
 ): Promise<
-  BlueprintCourseCreationResult<
-    Awaited<ReturnType<BlueprintCourseClient["createBlueprintCourse"]>>
-  >
+  BlueprintCourseCreationResult<Awaited<ReturnType<BlueprintCourseClient["createBlueprintCourse"]>>>
 > {
   const validation = validateBlueprintCourseDefinition(definition);
   if (!validation.valid) {

@@ -64,7 +64,9 @@ export interface QuestionAttemptTimingEvaluation {
 export type QuestionAttemptTimingDecision =
   "untimed" | "open" | "gracePeriod" | "submittedOnTime" | "submittedWithinGrace" | "timedOut";
 
-export type TimerEvaluator = (evaluation: QuestionAttemptTimingEvaluation) => Promise<QuestionAttemptTimingDecision>;
+export type TimerEvaluator = (
+  evaluation: QuestionAttemptTimingEvaluation,
+) => Promise<QuestionAttemptTimingDecision>;
 
 export interface AssignmentQuestionConfig {
   readonly question: QuestionVersion;
@@ -388,7 +390,11 @@ async function initializeWasmFacade(
       return Promise.resolve(parseStudentResponseFormatCheck(json));
     };
     const questionAttemptTimingDecision: TimerEvaluator = (evaluation) =>
-      Promise.resolve(parseQuestionAttemptTimingDecision(loaded.question_attempt_timing_decision(JSON.stringify(evaluation))));
+      Promise.resolve(
+        parseQuestionAttemptTimingDecision(
+          loaded.question_attempt_timing_decision(JSON.stringify(evaluation)),
+        ),
+      );
     const validateAssignmentConfig: CapabilityValidator = (config) =>
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),

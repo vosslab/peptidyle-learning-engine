@@ -314,7 +314,9 @@ function definitionRows(definition: {
   readonly entries: ReadonlyArray<
     | {
         readonly kind: "fixed";
-        readonly question: { readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0] };
+        readonly question: {
+          readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
+        };
       }
     | {
         readonly kind: "pool";
@@ -326,8 +328,11 @@ function definitionRows(definition: {
 }): ReadonlyArray<QuestionSearchResult> {
   const rows: QuestionSearchResult[] = [];
   for (const entry of definition.entries) {
-    if (entry.kind === "fixed") rows.push(reusableQuestionLibraryRow(entry.question.question_library));
-    else for (const candidate of entry.candidates) rows.push(reusableQuestionLibraryRow(candidate.question_library));
+    if (entry.kind === "fixed")
+      rows.push(reusableQuestionLibraryRow(entry.question.question_library));
+    else
+      for (const candidate of entry.candidates)
+        rows.push(reusableQuestionLibraryRow(candidate.question_library));
   }
   return rows;
 }

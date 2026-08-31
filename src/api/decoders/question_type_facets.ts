@@ -34,7 +34,10 @@ import {
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
 const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
 
-function decodeQuestionSearchTaxonomyFacet(value: unknown, path: string): QuestionSearchTaxonomyFacet {
+function decodeQuestionSearchTaxonomyFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchTaxonomyFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["term", "count"]);
   return {
@@ -64,7 +67,10 @@ function decodeQuestionSearchBylineFacet(value: unknown, path: string): Question
   };
 }
 
-function decodeQuestionSearchBackendFacet(value: unknown, path: string): QuestionSearchBackendFacet {
+function decodeQuestionSearchBackendFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchBackendFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["backend", "count"]);
   return {
@@ -88,32 +94,28 @@ function decodeQuestionSearchTagFacet(value: unknown, path: string): QuestionSea
   };
 }
 
-function decodeQuestionTypeFacet(
-  value: unknown,
-  path: string,
-): QuestionTypeFacet {
+function decodeQuestionTypeFacet(value: unknown, path: string): QuestionTypeFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionType", "count"]);
   return {
-    questionType: decodeStringEnum(
-      field(record, "questionType", path),
-      `${path}.questionType`,
-      [
-        "multipleChoice",
-        "multipleAnswer",
-        "fillInBlank",
-        "multipleFillInBlank",
-        "numeric",
-        "matching",
-        "ordering",
-        "hotspot",
-      ],
-    ),
+    questionType: decodeStringEnum(field(record, "questionType", path), `${path}.questionType`, [
+      "multipleChoice",
+      "multipleAnswer",
+      "fillInBlank",
+      "multipleFillInBlank",
+      "numeric",
+      "matching",
+      "ordering",
+      "hotspot",
+    ]),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
 
-function decodeQuestionSearchCapabilityFacet(value: unknown, path: string): QuestionSearchCapabilityFacet {
+function decodeQuestionSearchCapabilityFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchCapabilityFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["capability", "count"]);
   return {
@@ -122,7 +124,10 @@ function decodeQuestionSearchCapabilityFacet(value: unknown, path: string): Ques
   };
 }
 
-function decodeQuestionSearchLicenseFacet(value: unknown, path: string): QuestionSearchLicenseFacet {
+function decodeQuestionSearchLicenseFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchLicenseFacet {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["license", "count"]);
   return {

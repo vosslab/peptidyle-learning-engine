@@ -160,7 +160,10 @@ test("codec enforces Unicode title and Rust u32 numeric bounds", () => {
     questionAttemptLimit: { maxAttempts: maximum },
     questionAttemptTimeLimit: { kind: "limited", seconds: maximum, graceSeconds: maximum },
   };
-  assert.deepEqual(decodeFlatQuestionSource(timed).questionAttemptTimeLimit, timed.questionAttemptTimeLimit);
+  assert.deepEqual(
+    decodeFlatQuestionSource(timed).questionAttemptTimeLimit,
+    timed.questionAttemptTimeLimit,
+  );
   assert.throws(() =>
     decodeFlatQuestionSource({
       ...timed,

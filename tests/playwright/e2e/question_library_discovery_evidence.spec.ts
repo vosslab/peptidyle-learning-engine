@@ -74,9 +74,7 @@ async function openLibraryDetail(page: Page): Promise<void> {
 }
 
 async function expectUsageOnlyInCourse(page: Page, allowedCourse: string): Promise<void> {
-  const usage = page
-    .getByRole("heading", { name: "Usage across PLE", exact: true })
-    .locator("..");
+  const usage = page.getByRole("heading", { name: "Usage across PLE", exact: true }).locator("..");
   await expect(usage).toBeVisible();
   await expect(
     usage.getByText("Your courses", { exact: true }).locator("..").locator("dd"),
@@ -298,9 +296,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
     test.setTimeout(scenarioTimeoutMs);
     const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
     expect(scenarioInput.scenarioId).toBe("question_library_evidence");
-    expect(scenarioInput.namespace).toMatch(
-      /^bs1-[0-9a-f]{12}-question_library_evidence$/u,
-    );
+    expect(scenarioInput.namespace).toMatch(/^bs1-[0-9a-f]{12}-question_library_evidence$/u);
 
     const contexts: BrowserContext[] = [];
     const pageOrigins = new Set<string>();
@@ -427,9 +423,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await captureLaptopState(
           elena,
           scenarioInput,
-          elena
-            .getByRole("heading", { name: "Usage across PLE", exact: true })
-            .locator(".."),
+          elena.getByRole("heading", { name: "Usage across PLE", exact: true }).locator(".."),
           usageArtifacts,
         );
         await verifyLibraryFilters(elena);

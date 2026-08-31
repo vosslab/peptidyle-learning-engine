@@ -138,7 +138,10 @@ export function parseInspectedStudentWorkRouteSearch(
   if (params.getAll(key).length !== 1) return invalidSearch("duplicateKey", key);
   if (entries.length !== 1) return invalidSearch("multipleFilters");
   try {
-    return { kind: "valid", operation: decodeInstructorGradingOperationReference(operationReference) };
+    return {
+      kind: "valid",
+      operation: decodeInstructorGradingOperationReference(operationReference),
+    };
   } catch (_error: unknown) {
     return invalidSearch("invalidReference", key);
   }
@@ -178,7 +181,10 @@ export function gradebookCellFocusId(
   return `gradebook-cell-${membershipReference}-${assignmentReference}`;
 }
 
-function gradebookPath(course: CourseInstanceReference, filter: GradebookRouteFilter | undefined): string {
+function gradebookPath(
+  course: CourseInstanceReference,
+  filter: GradebookRouteFilter | undefined,
+): string {
   const checkedCourseReference = checkedCourse(course);
   const query = new URLSearchParams();
   if (filter?.kind === "assignment")
@@ -216,12 +222,17 @@ export function operationGradebookUrl(
 }
 
 /** Returns the stable DOM target for one operation control. */
-export function gradingOperationControlFocusId(operation: InstructorGradingOperationReference): string {
+export function gradingOperationControlFocusId(
+  operation: InstructorGradingOperationReference,
+): string {
   const checkedOperation = decodeInstructorGradingOperationReference(operation);
   return `grading-operation-control-${checkedOperation}`;
 }
 
-function gradingOperationsPath(course: CourseInstanceReference, assignment: AssignmentReference): string {
+function gradingOperationsPath(
+  course: CourseInstanceReference,
+  assignment: AssignmentReference,
+): string {
   const checkedCourseReference = checkedCourse(course);
   const checkedAssignmentReference = checkedAssignment(assignment);
   return `/instructor/courses/${checkedCourseReference}/assignments/${checkedAssignmentReference}/grading-operations`;

@@ -35,7 +35,11 @@ const scenarioTimeoutMs = 360_000;
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
 
-async function findQuestionLibraryQuestion(page: Page, title: string, questionId: string): Promise<void> {
+async function findQuestionLibraryQuestion(
+  page: Page,
+  title: string,
+  questionId: string,
+): Promise<void> {
   await page.getByRole("link", { name: "Library", exact: true }).click();
   await page.getByLabel("Search published questions").fill(title);
   const questionLibrary = page.getByRole("region", { name: "Published questions" });

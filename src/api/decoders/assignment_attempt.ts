@@ -724,7 +724,10 @@ export function decodeAttemptPage(
   return decodeCursorPage(value, path, decodeStudentQuestionAttempt);
 }
 
-function decodeStudentResponseFormatIssue(value: unknown, path: string): StudentResponseFormatIssue {
+function decodeStudentResponseFormatIssue(
+  value: unknown,
+  path: string,
+): StudentResponseFormatIssue {
   const record = decodeRecord(value, path);
   const violation = kind(record, path);
   switch (violation) {
@@ -780,7 +783,10 @@ export function decodeStudentResponseFormatCheck(
   return decoded;
 }
 
-export function decodeQuestionAttemptTimingDecision(value: unknown, path = "response"): QuestionAttemptTimingDecision {
+export function decodeQuestionAttemptTimingDecision(
+  value: unknown,
+  path = "response",
+): QuestionAttemptTimingDecision {
   return decodeStringEnum(value, path, [
     "untimed",
     "open",

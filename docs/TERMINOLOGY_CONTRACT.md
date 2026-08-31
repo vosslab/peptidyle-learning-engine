@@ -47,6 +47,15 @@ remains an implementation technique rather than a PLE-owned type name. Payload
 remains transport vocabulary rather than the name of a Question, Assignment,
 or Student Work domain object.
 
+A PLE-owned internal serialized format has one canonical current shape. Update
+its type, decoder, schema, fixtures, and stored development data together. A
+PLE-owned domain type, function, View, and interface use their complete
+canonical role name. Registered external standards
+retain their owner-defined version names. A **Software Version** records the
+exact independently deployed executable used for an operation; it is evidence
+in Question Attempt Reproduction Details. Each PLE boundary keeps one current
+implementation.
+
 These technical terms describe mechanics rather than PLE records, product
 surfaces, or authority. Name a PLE-owned component by the object or operation
 it owns.
@@ -265,8 +274,8 @@ independently declare a license.
 
 **Question Attempt Reproduction Details** are server-held facts used to
 reproduce and verify one exact Question Attempt. They record a Question Backend
-Version, optional Question Renderer Version and Question Generator
-Reference, Source Object Reference, Object References for its Question Assets,
+Version, optional Question Renderer Version, Source Object Reference, Object
+References for its Question Assets,
 Question Grader Version, and Question Presentation checksum. The owning
 Issued Question and Question Attempt separately supply the exact Question
 Revision Reference, Question Seed, and generated-parameter checksum.
@@ -300,7 +309,7 @@ Presentation binds its Question Asset Renditions into the presentation digest.
 Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
-Question. **PLE Flat Question JSON v2** is the canonical Question Format for
+Question. **PLE Question JSON** is the canonical Question Format for
 simple static Questions. Native algorithmic source, WeBWorK PG, QTI, H5P, and
 iMathAS source snapshots are other registered Question Formats at their exact
 adapter boundaries. Question Format remains independent of educational
@@ -312,12 +321,14 @@ MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. In MATCH, a
 possible matching response. In HOTSPOT, a **Hotspot Surface** contains authored
 **Hotspot Regions** and a **Student Hotspot Selection** identifies one selected
 region. Region geometry belongs to the Question Response Format, never the
-Student Response. **Question Generator** is the exact deterministic
-definition that derives parameters from a Question Seed. A **Question
-Variation** is the resulting parameterized Question state for one exact
-Question Revision and seed. It retains the exact Question Revision, seed, and,
-when seeded, the Generator Reference and ordered declared parameters that
-produced the presentation in server and cache evidence. The browser receives
+Student Response. **Question Generator** is the exact deterministic definition
+stored as Question Source under one Draft Question Revision or Question
+Revision. It derives parameters from a Question Seed. Repairing generator
+behavior creates a Question Revision with the corrected Question Source. A
+**Question Variation** is the resulting parameterized Question state for one
+exact Question Revision and seed. It retains the exact Question Revision,
+seed, and ordered declared parameters that produced the presentation in server
+and cache evidence. The browser receives
 only the answer-free Question Revision and Question Seed required to bind its
 presentation. A **Question Presentation** is the answer-free
 title, prompt, Question Assets, and Question Response Format derived from one
@@ -369,8 +380,10 @@ Answer Explanation.
 **Question Backend** is the server-side adapter selected by the published
 Question Source. It declares its capabilities and performs its exact validation,
 issue, reproduction, and automated-grading operations. A **Native Question
-Implementation** is one versioned first-party implementation registered for an
-exact Question Format, Question Type, and optional Question Generator. An
+Implementation** is the current first-party implementation registered for an
+exact Question Format and Question Type. It reads the generator definition from
+the exact Question Source instead of carrying a parallel implementation
+generation. An
 **External Question Provider** is a configured external system used through a
 Question Backend for its exact launch, exchange, render, or grade operations.
 

@@ -90,10 +90,7 @@ test("route resolution recovers protected API identities without weakening refer
     courseId: fixture.course.id,
     assignmentId: fixture.assignment.id,
   });
-  assert.equal(
-    await resolveAssignmentAttemptRoute(client, fixture.run.reference),
-    fixture.run.id,
-  );
+  assert.equal(await resolveAssignmentAttemptRoute(client, fixture.run.reference), fixture.run.id);
   assert.equal(
     await resolveWorkspaceRoute(client, fixture.workspace.reference),
     fixture.workspace.id,

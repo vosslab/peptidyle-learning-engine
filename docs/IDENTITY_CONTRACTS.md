@@ -253,6 +253,71 @@ When adding an identifier or protocol value, document:
 6. Whether possession conveys authority. If so, use a bounded opaque
    capability with expiry, redaction, and an explicit storage boundary.
 
++## Settled identity and Blueprint decisions
+
+## Identity, authentication, and compliance
+
+### Visible identifiers are human-readable locators
+
+**Decision.** Visible content, navigation URLs, documentation, and copyable links never expose
+UUIDs. Published questions use one non-sequential Crockford Base32 ID displayed as `AAA-BBBB`;
+internal UUIDs may remain in hidden server and transport boundaries.
+
+**Why.** People need identifiers they can recognize and communicate. A public reference is a
+locator, not authorization, and persistence identity should not leak into the interface.
+
+### Invitations and recovery use verified email
+
+**Decision.** PLE accounts are global within the installation and use passwordless verified email as
+the
+canonical registration, invitation, sign-in, and passkey-recovery path. SMTP delivery is optional;
+an Instructor may share a one-time invitation link through a trusted LMS.
+
+**Why.** Email provides one comprehensible account authority while keeping a configured mail
+provider optional for independent use.
+
+### Authentication storage is strictly necessary
+
+**Decision.** Production authentication uses one host-only `__Host-` HttpOnly, Secure,
+`SameSite=Lax`, `Path=/` browser-session cookie with bounded server expiration and immediate
+revocation. Persistent login, tracking, or embedded LTI requires separate review and consent.
+
+**Why.** The bearer credential must remain unreadable to JavaScript and limited to providing the
+requested signed-in service. Necessary-storage classification still requires clear disclosure and
+deployment-specific legal review.
+
+### Security controls preserve privacy and recovery guidance
+
+**Decision.** PostgreSQL, object storage, backups, and deployment volumes use scoped managed
+encryption at rest; application AEAD is reserved for stored secrets. Unauthorized users receive
+generic unavailable outcomes with accessible guidance that does not disclose protected details.
+
+**Why.** Concealment and humane teaching guidance are complementary. The regulatory basis includes
+the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
+strictly-necessary storage guidance.
+
+### Blueprint collaboration is revision-scoped and ends at publication
+
+**Decision.** A Blueprint Collaborator contributes only to one exact Draft
+Blueprint Revision through immutable grant and end events. An immutable Blueprint
+Publication Event makes that revision reusable and closes its collaboration path.
+
+**Why.** An Authoring Workspace and a Blueprint Course have different parents,
+privacy boundaries, and consequences. Revision-scoped collaboration prevents an
+unrelated private-workspace grant from becoming reusable-course or live-course
+authority, while publication preserves the exact review boundary.
+
+### Blueprint availability belongs to one published revision
+
+**Decision.** Available or Archived selection state is derived from immutable
+Blueprint Revision Availability Events. The Blueprint Course lineage has no
+aggregate archive timestamp.
+
+**Why.** Availability changes whether a particular published source revision is
+eligible for ordinary new selection. Historical Course Instance references must
+continue to resolve that exact source after it leaves ordinary selection.
+
+
 ## Related documents
 
 - [USER_ROLES.md](USER_ROLES.md) defines the closed current human personas.

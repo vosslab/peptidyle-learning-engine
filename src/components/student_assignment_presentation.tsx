@@ -310,7 +310,8 @@ export function StudentAssignmentPresentation(
               </div>
               <Show
                 when={
-                  progress().score_state === "available" && progress().assignment_scoring_state === "current"
+                  progress().score_state === "available" &&
+                  progress().assignment_scoring_state === "current"
                 }
               >
                 <div>

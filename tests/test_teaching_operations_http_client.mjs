@@ -6,7 +6,6 @@ import test from "node:test";
 import { ApiProtocolError, ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
 
 const course = "0198e000-0000-7000-8000-000000000001";
-const assignment = "0198e000-0000-7000-8000-000000000002";
 
 function jsonResponse(value, status = 200, headers = {}) {
   return new Response(JSON.stringify(value), {

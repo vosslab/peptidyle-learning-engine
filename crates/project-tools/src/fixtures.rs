@@ -121,7 +121,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     ensure!(
         matches!(
             &fixture_set.published_problem.source,
-            QuestionSource::Native { .. }
+            QuestionSource::Native
         ),
         "stored published Question must use the native backend"
     );
@@ -297,28 +297,25 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
             "reproduced fixture uses a different Question Version"
         );
 
-        match &attempt.submission {
-            Some(submission) => {
-                let outcome = adapter.grade(
-                    &fixture_set.published_problem,
-                    attempt.seed,
-                    &attempt.parameter_hash,
-                    &attempt.reproduction_details,
-                    &bindings,
-                    &submission.response,
-                )?;
-                match submission.grading_result {
-                    Some(recorded_result) => ensure!(
-                        outcome == QuestionGradingOutcome::Graded(recorded_result),
-                        "stored Grading Result does not reproduce"
-                    ),
-                    None => ensure!(
-                        outcome == QuestionGradingOutcome::Ungraded,
-                        "an accepted ungraded Question Submission must not fabricate a Grading Result"
-                    ),
-                }
+        if let Some(submission) = &attempt.submission {
+            let outcome = adapter.grade(
+                &fixture_set.published_problem,
+                attempt.seed,
+                &attempt.parameter_hash,
+                &attempt.reproduction_details,
+                &bindings,
+                &submission.response,
+            )?;
+            match submission.grading_result {
+                Some(recorded_result) => ensure!(
+                    outcome == QuestionGradingOutcome::Graded(recorded_result),
+                    "stored Grading Result does not reproduce"
+                ),
+                None => ensure!(
+                    outcome == QuestionGradingOutcome::Ungraded,
+                    "an accepted ungraded Question Submission must not fabricate a Grading Result"
+                ),
             }
-            None => {}
         }
     }
     Ok(())

@@ -334,7 +334,11 @@ export function createTeachingOperationsClient(
       teachingJson(
         fetchImplementation,
         basePath,
-        pagePath(`/api/courses/${encodedId(courseId)}/instructor-course-invitations`, cursor, pageSize),
+        pagePath(
+          `/api/courses/${encodedId(courseId)}/instructor-course-invitations`,
+          cursor,
+          pageSize,
+        ),
         decodeInstructorCourseInvitationsPage,
       ).then((result) => result.body),
     searchInstructorCourseInvitationTargets: async (

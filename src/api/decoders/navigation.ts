@@ -50,9 +50,6 @@ export function decodeNavigationResolution(
         workspaceId: decodeIdentifier(field(record, "workspaceId", path), `${path}.workspaceId`),
       };
     default:
-      throw new DecodeError(
-        `${path}.kind`,
-        "course, assignment, assignmentAttempt, or workspace",
-      );
+      throw new DecodeError(`${path}.kind`, "course, assignment, assignmentAttempt, or workspace");
   }
 }

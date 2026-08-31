@@ -238,14 +238,12 @@ function effective_assignment_policy(value: unknown, path: string): EffectiveAss
     "lateWorkRule",
     "assignmentDeadlineRule",
   ]);
-  const lateWorkRule = closed(record.lateWorkRule, `${path}.lateWorkRule`, [
-    "value",
-    "source",
-  ]);
-  const assignmentDeadlineRule = closed(record.assignmentDeadlineRule, `${path}.assignmentDeadlineRule`, [
-    "value",
-    "source",
-  ]);
+  const lateWorkRule = closed(record.lateWorkRule, `${path}.lateWorkRule`, ["value", "source"]);
+  const assignmentDeadlineRule = closed(
+    record.assignmentDeadlineRule,
+    `${path}.assignmentDeadlineRule`,
+    ["value", "source"],
+  );
   return {
     availableAt: timeField(record.availableAt, `${path}.availableAt`),
     dueAt: timeField(record.dueAt, `${path}.dueAt`),
@@ -264,9 +262,11 @@ function effective_assignment_policy(value: unknown, path: string): EffectiveAss
       source: policySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
     },
     assignmentDeadlineRule: {
-      value: decodeStringEnum(assignmentDeadlineRule.value, `${path}.assignmentDeadlineRule.value`, [
-        "autoSubmit",
-      ] as const),
+      value: decodeStringEnum(
+        assignmentDeadlineRule.value,
+        `${path}.assignmentDeadlineRule.value`,
+        ["autoSubmit"] as const,
+      ),
       source: policySource(assignmentDeadlineRule.source, `${path}.assignmentDeadlineRule.source`),
     },
   };
@@ -335,7 +335,12 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
 }
 
 function disclosures(value: unknown, path: string): Array<StudentFeedbackReleaseView> {
-  const decoded = decodeBoundedArray(value, path, DISCLOSURE_MOMENTS.length, student_feedback_release);
+  const decoded = decodeBoundedArray(
+    value,
+    path,
+    DISCLOSURE_MOMENTS.length,
+    student_feedback_release,
+  );
   const moments = decoded.map((projection) => projection.moment);
   if (
     moments.length !== DISCLOSURE_MOMENTS.length ||
@@ -350,15 +355,32 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "allowed") {
-    requireOnlyFields(record, path, ["kind", "student_view_scenario", "active_student_course_membership", "effective_assignment_policy", "student_feedback_release"]);
+    requireOnlyFields(record, path, [
+      "kind",
+      "student_view_scenario",
+      "active_student_course_membership",
+      "effective_assignment_policy",
+      "student_feedback_release",
+    ]);
     return {
       kind,
-      student_view_scenario: studentViewScenario(field(record, "student_view_scenario", path), `${path}.student_view_scenario`),
-      active_student_course_membership: decodeStringEnum(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`, [
-        "activeStudentCourseMembership",
-      ] as const),
-      effective_assignment_policy: effective_assignment_policy(field(record, "effective_assignment_policy", path), `${path}.effective_assignment_policy`),
-      student_feedback_release: disclosures(field(record, "student_feedback_release", path), `${path}.student_feedback_release`),
+      student_view_scenario: studentViewScenario(
+        field(record, "student_view_scenario", path),
+        `${path}.student_view_scenario`,
+      ),
+      active_student_course_membership: decodeStringEnum(
+        field(record, "active_student_course_membership", path),
+        `${path}.active_student_course_membership`,
+        ["activeStudentCourseMembership"] as const,
+      ),
+      effective_assignment_policy: effective_assignment_policy(
+        field(record, "effective_assignment_policy", path),
+        `${path}.effective_assignment_policy`,
+      ),
+      student_feedback_release: disclosures(
+        field(record, "student_feedback_release", path),
+        `${path}.student_feedback_release`,
+      ),
     };
   }
   if (kind === "denied") {
@@ -403,15 +425,26 @@ function scheduleRow(value: unknown, path: string): InstructorPreviewScheduleRow
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "granted") {
-    requireOnlyFields(record, path, ["kind", "membership", "display", "active_student_course_membership", "effective_assignment_policy"]);
+    requireOnlyFields(record, path, [
+      "kind",
+      "membership",
+      "display",
+      "active_student_course_membership",
+      "effective_assignment_policy",
+    ]);
     return {
       kind,
       membership: reference(field(record, "membership", path), `${path}.membership`, "M"),
       display: label(field(record, "display", path), `${path}.display`),
-      active_student_course_membership: decodeStringEnum(field(record, "active_student_course_membership", path), `${path}.active_student_course_membership`, [
-        "activeStudentCourseMembership",
-      ] as const),
-      effective_assignment_policy: effective_assignment_policy(field(record, "effective_assignment_policy", path), `${path}.effective_assignment_policy`),
+      active_student_course_membership: decodeStringEnum(
+        field(record, "active_student_course_membership", path),
+        `${path}.active_student_course_membership`,
+        ["activeStudentCourseMembership"] as const,
+      ),
+      effective_assignment_policy: effective_assignment_policy(
+        field(record, "effective_assignment_policy", path),
+        `${path}.effective_assignment_policy`,
+      ),
     };
   }
   if (kind === "denied") {
@@ -449,7 +482,10 @@ export function decodeStudentViewScenarioRequest(
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
     selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
-    modifiers: decodeSyntheticPreviewAccommodationAdjustmentRequest(record.modifiers, `${path}.modifiers`),
+    modifiers: decodeSyntheticPreviewAccommodationAdjustmentRequest(
+      record.modifiers,
+      `${path}.modifiers`,
+    ),
   };
 }
 

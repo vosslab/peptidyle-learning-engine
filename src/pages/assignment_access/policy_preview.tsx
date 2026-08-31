@@ -19,14 +19,17 @@ function displayLimit(value: number | null): string {
   return value === null ? "Unrestricted" : String(value);
 }
 
-function displayStart(preview: Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>): string {
+function displayStart(
+  preview: Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>,
+): string {
   const label = startLabel(preview.start.kind);
   const result = preview.start.kind === "mayStart" ? `${label} (${preview.start.late})` : label;
   return result;
 }
 
 export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
-  const allowed = (): Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }> | undefined => {
+  const allowed = ():
+    Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }> | undefined => {
     const preview = props.preview;
     return preview?.active_student_course_membership === "allowed" ? preview : undefined;
   };
@@ -83,7 +86,10 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                           ["Available", preview().availableAt.source],
                           ["Due", preview().dueAt.source],
                           ["Closes", preview().closesAt.source],
-                          ["Whole Assignment Attempt seconds", preview().assignmentAttemptTimeLimitSeconds.source],
+                          [
+                            "Whole Assignment Attempt seconds",
+                            preview().assignmentAttemptTimeLimitSeconds.source,
+                          ],
                           ["Attempt limit", preview().attemptLimit.source],
                           ["Late work", preview().lateWorkRule.source],
                           ["Deadline behavior", preview().assignmentDeadlineRule.source],

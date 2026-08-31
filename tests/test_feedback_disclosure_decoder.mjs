@@ -72,10 +72,7 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
     assignmentScoringState: "current",
     questionPoolSelection: null,
   };
-  assert.equal(
-    decodeStudentQuestionAttempt(deadlineClosed).state,
-    "closed_at_deadline",
-  );
+  assert.equal(decodeStudentQuestionAttempt(deadlineClosed).state, "closed_at_deadline");
   for (const retiredState of [
     "submitted",
     "automatically_submitted",
@@ -213,7 +210,8 @@ test("submission receipts require an exact feedback field and reject hostile nes
     pointLeak.feedback = { correctness: true, pointsEarned: 1, pointsPossible: 1 };
     assert.throws(() => decodeGradedQuestionSubmissionReceipt(pointLeak), DecodeError);
   }
-  const { assignmentScoringState: _assignmentScoringState, ...withoutAssignmentScoringState } = receipt;
+  const { assignmentScoringState: _assignmentScoringState, ...withoutAssignmentScoringState } =
+    receipt;
   assert.throws(
     () => decodeGradedQuestionSubmissionReceipt(withoutAssignmentScoringState),
     DecodeError,
@@ -312,9 +310,7 @@ test("disclosed feedback rejects private material and malformed blocks", () => {
   assert.throws(
     () =>
       decodeStudentFeedback({
-        choiceFeedback: [
-          { kind: "text", markdown: "Try again.", providerTranscript: "private" },
-        ],
+        choiceFeedback: [{ kind: "text", markdown: "Try again.", providerTranscript: "private" }],
       }),
     DecodeError,
     "Student Feedback must reject private nested provider data",

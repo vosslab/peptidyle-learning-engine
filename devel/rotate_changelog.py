@@ -28,9 +28,11 @@ ARCHIVE_NAME_RE = re.compile(r"^CHANGELOG-(\d{4}-\d{2})([a-z])\.md$")
 def split_active_archive(
 		blocks: list[changelog_lib.DayBlock],
 		) -> tuple[list[changelog_lib.DayBlock], list[changelog_lib.DayBlock]]:
-	"""Split blocks into active (first two) and archive (the rest)."""
+	"""Keep the two newest day blocks unless their complete text exceeds the hard limit."""
 	active = blocks[:2]
-	archive = blocks[2:]
+	if count_archive_lines(active) >= ARCHIVE_LINE_LIMIT:
+		active = blocks[:1]
+	archive = blocks[len(active):]
 	return active, archive
 
 #============================================
@@ -386,8 +388,8 @@ def main() -> None:
 	for warning in warnings:
 		changelog_lib.ERR_CONSOLE.print(warning, style="yellow")
 
-	if len(blocks) <= 2:
-		changelog_lib.CONSOLE.print("Only two day blocks; cannot rotate.", style="yellow")
+	if len(blocks) <= 1:
+		changelog_lib.CONSOLE.print("Only one day block; cannot rotate.", style="yellow")
 		return
 
 	active_blocks, archive_blocks = split_active_archive(blocks)

@@ -89,7 +89,10 @@ function allowedEvaluation() {
 function previewResponse() {
   return {
     evaluation: allowedEvaluation(),
-    accommodation: { before: effective_assignment_policy("base"), after: effective_assignment_policy("accommodation") },
+    accommodation: {
+      before: effective_assignment_policy("base"),
+      after: effective_assignment_policy("accommodation"),
+    },
   };
 }
 
@@ -154,7 +157,10 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
     () =>
       decodePreviewPlaneResponse({
         evaluation: { kind: "denied", reason: "activeStudentCourseMembershipRequired" },
-        accommodation: { before: effective_assignment_policy(), after: effective_assignment_policy() },
+        accommodation: {
+          before: effective_assignment_policy(),
+          after: effective_assignment_policy(),
+        },
       }),
     DecodeError,
   );
@@ -164,7 +170,10 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
         ...previewResponse(),
         evaluation: {
           ...allowedEvaluation(),
-          student_view_scenario: { ...allowedEvaluation().student_view_scenario, membership: "M-9" },
+          student_view_scenario: {
+            ...allowedEvaluation().student_view_scenario,
+            membership: "M-9",
+          },
         },
       }),
     DecodeError,

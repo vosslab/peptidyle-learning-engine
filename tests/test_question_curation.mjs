@@ -34,7 +34,10 @@ test("Question Folder Entries carry the exact current Question Version Availabil
   };
 
   const decoded = decodeQuestionFolderEntryPage({ items: [member], nextCursor: null });
-  assert.deepEqual(decoded.items[0]?.questionVersionAvailability, member.questionVersionAvailability);
+  assert.deepEqual(
+    decoded.items[0]?.questionVersionAvailability,
+    member.questionVersionAvailability,
+  );
   assert.throws(
     () =>
       decodeQuestionFolderEntryPage({

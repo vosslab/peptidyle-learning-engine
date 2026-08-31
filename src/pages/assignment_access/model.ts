@@ -80,7 +80,10 @@ export function policyRequest(
       availableAt: timePatch(draft.availableAt),
       dueAt: timePatch(draft.dueAt),
       closesAt: timePatch(draft.closesAt),
-      assignmentAttemptTimeLimitSeconds: limitPatch(draft.assignmentAttemptTimeLimitSeconds, "Whole Assignment Attempt seconds"),
+      assignmentAttemptTimeLimitSeconds: limitPatch(
+        draft.assignmentAttemptTimeLimitSeconds,
+        "Whole Assignment Attempt seconds",
+      ),
       attemptLimit: limitPatch(draft.attemptLimit, "Attempt limit"),
     },
   };

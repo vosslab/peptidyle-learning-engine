@@ -366,7 +366,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               position: "relative",
             }}
           >
-            <div class="question-library-window-slice" style={{ top: `${virtualWindow().offset}px` }}>
+            <div
+              class="question-library-window-slice"
+              style={{ top: `${virtualWindow().offset}px` }}
+            >
               <For each={virtualWindow().rows}>
                 {(row) => (
                   <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
@@ -375,7 +378,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <p class="question-library-row-byline" aria-label="Published by">
                       By {row.byline.join(", ")}
                     </p>
-                    <p class="question-library-row-taxonomy card-kicker">{row.taxonomy.join(" / ")}</p>
+                    <p class="question-library-row-taxonomy card-kicker">
+                      {row.taxonomy.join(" / ")}
+                    </p>
                     <QuestionStatisticsPreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />
                     <A class="quiet-link" href={questionLink(row)}>

@@ -148,9 +148,7 @@ function InspectedResponse(props: {
         <Match when={props.response.kind === "hotspot" ? props.response : undefined}>
           {(response) => (
             <ol>
-              <For each={response().selectedRegions}>
-                {() => <li>Selected image region</li>}
-              </For>
+              <For each={response().selectedRegions}>{() => <li>Selected image region</li>}</For>
             </ol>
           )}
         </Match>

@@ -31,7 +31,10 @@ function strongRevision(value: TeachingOperationRevision, path: string): string 
   return `"${value}"`;
 }
 
-function previewRoutePath(course: CourseInstanceReference, assignment: AssignmentReference): string {
+function previewRoutePath(
+  course: CourseInstanceReference,
+  assignment: AssignmentReference,
+): string {
   if (parseCourseReference(course) === null || parseAssignmentReference(assignment) === null) {
     throw new ApiProtocolError("Preview requests require exact C- and A- route references");
   }
@@ -96,10 +99,7 @@ function syntheticBody(
   revision: TeachingOperationRevision,
   request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
 ): Omit<StudentViewScenarioRequest, "assignment" | "revision"> {
-  const parsed = decodeStudentViewScenarioRequest(
-    { assignment, revision, ...request },
-    "request",
-  );
+  const parsed = decodeStudentViewScenarioRequest({ assignment, revision, ...request }, "request");
   return {
     selectedMoment: parsed.selectedMoment,
     modifiers: parsed.modifiers,

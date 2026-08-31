@@ -140,7 +140,9 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
             when={assignment().assignmentRevisionDefinition.instructions.length > 0}
             fallback={<p>No Student instructions have been added.</p>}
           >
-            <p class="plain-text-instructions">{assignment().assignmentRevisionDefinition.instructions}</p>
+            <p class="plain-text-instructions">
+              {assignment().assignmentRevisionDefinition.instructions}
+            </p>
           </Show>
           <dl class="assignment-facts">
             <div>

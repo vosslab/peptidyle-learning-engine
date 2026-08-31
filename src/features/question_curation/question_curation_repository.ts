@@ -3,7 +3,10 @@
 import type { QuestionFolderReference } from "../../../generated/api/QuestionFolderReference";
 import { createQuestionLibraryRepository } from "../../api/question_library_repository";
 import type { ApiClient } from "../../api/client";
-import type { QuestionLibraryRepository, QuestionSearchResult } from "../../pages/library_page_model";
+import type {
+  QuestionLibraryRepository,
+  QuestionSearchResult,
+} from "../../pages/library_page_model";
 import {
   type QuestionPickerSearchRequest,
   type QuestionPickerSourceRepository,
@@ -48,7 +51,10 @@ export function createQuestionCurationRepository(
   readonly curation: QuestionCurationRepository;
   readonly picker: QuestionPickerSourceRepository;
 } {
-  const authoredQuestionLibrary = createQuestionLibraryRepository(client, "authoredByCurrentAccount");
+  const authoredQuestionLibrary = createQuestionLibraryRepository(
+    client,
+    "authoredByCurrentAccount",
+  );
   const sharedQuestionLibrary = createQuestionLibraryRepository(client, "any");
   const curation: QuestionCurationRepository = {
     async getFolder(reference) {
@@ -128,16 +134,10 @@ export function createQuestionCurationRepository(
       const reference = sourceFolder(request.source);
       if (reference !== null) {
         return folderEntryPage(
-          await client.listQuestionFolderEntries(
-            reference,
-            request.cursor ?? undefined,
-            PAGE_SIZE,
-          ),
+          await client.listQuestionFolderEntries(reference, request.cursor ?? undefined, PAGE_SIZE),
         );
       }
-      throw new Error(
-        "Choose the current Question Library or a private Question Folder source.",
-      );
+      throw new Error("Choose the current Question Library or a private Question Folder source.");
     },
   };
   return { curation, picker };
