@@ -4,7 +4,7 @@ use super::super::*;
 
 #[test]
 fn accepted_grades_preserve_exact_correct_and_choice_counts() {
-    let mut statistics = QuestionVersionStatistics::empty();
+    let mut statistics = QuestionRevisionStatistics::empty();
     statistics
         .record(
             QuestionStatisticsObservation::new(
@@ -40,7 +40,7 @@ fn accepted_grades_preserve_exact_correct_and_choice_counts() {
 #[test]
 fn snapshot_refuses_counts_that_could_not_come_from_accepted_grades() {
     assert_eq!(
-        QuestionVersionStatistics::restore(QuestionVersionStatisticsSnapshot {
+        QuestionRevisionStatistics::restore(QuestionRevisionStatisticsSnapshot {
             accepted_graded_attempt_count: 2,
             correct_count: 3,
             eligible_choice_selection_counts: Default::default(),
@@ -48,7 +48,7 @@ fn snapshot_refuses_counts_that_could_not_come_from_accepted_grades() {
         Err(StatisticsError::SnapshotInvariant)
     );
     assert_eq!(
-        QuestionVersionStatistics::restore(QuestionVersionStatisticsSnapshot {
+        QuestionRevisionStatistics::restore(QuestionRevisionStatisticsSnapshot {
             accepted_graded_attempt_count: 1,
             correct_count: 1,
             eligible_choice_selection_counts: [(ResponseItemReference::new("a"), 2)]

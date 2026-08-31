@@ -237,7 +237,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         let mut fields = super::protocol::render_fields(RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
-            question_version: request.question_version,
+            question_revision: request.question_revision,
             seed: request.seed,
         });
         match (request.response, request.replay) {
@@ -289,7 +289,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
                 RenderRequest {
                     pg_source: request.pg_source,
                     pg_path: request.pg_path,
-                    question_version: request.question_version,
+                    question_revision: request.question_revision,
                     seed: request.seed,
                 },
             ),
@@ -421,7 +421,7 @@ fn project_single_radio(
     Ok(ParsedRender {
         envelope: QuestionPresentation {
             variation: question_model::QuestionVariation::static_variation(
-                request.question_version.clone(),
+                request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),
@@ -479,7 +479,7 @@ fn project_matching(
     Ok(ParsedRender {
         envelope: QuestionPresentation {
             variation: question_model::QuestionVariation::static_variation(
-                request.question_version.clone(),
+                request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),

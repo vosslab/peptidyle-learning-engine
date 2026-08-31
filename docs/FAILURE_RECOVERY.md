@@ -81,7 +81,7 @@ state, source archives, answer keys, or raw backend errors.
 
 ## Submission and attempt recovery
 
-The durable attempt is the authority for student, course, assignment, question version, seed,
+The durable attempt is the authority for student, course, assignment, question revision, seed,
 timing, and grading backend. A replica reconstructs that state from PostgreSQL; the browser cannot
 recover an uncertain submission by issuing a different attempt.
 

@@ -25,7 +25,7 @@ import { decodeQuestionSummary } from "./question_library";
 import {
   decodeBoundedArray,
   decodeCursor,
-  decodeQuestionVersionAvailability,
+  decodeQuestionRevisionAvailability,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -214,7 +214,7 @@ function decodeQuestionFolderSummary(value: unknown, path: string): QuestionFold
 
 function decodeQuestionFolderEntry(value: unknown, path: string): QuestionFolderEntryView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionId", "summary", "questionVersionAvailability"]);
+  requireOnlyFields(record, path, ["questionId", "summary", "questionRevisionAvailability"]);
   const summary = decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true);
   const questionId = decodeString(field(record, "questionId", path), `${path}.questionId`);
   if (!QUESTION_ID_PATTERN.test(questionId) || questionId !== summary.questionId) {
@@ -223,9 +223,9 @@ function decodeQuestionFolderEntry(value: unknown, path: string): QuestionFolder
   return {
     questionId,
     summary,
-    questionVersionAvailability: decodeQuestionVersionAvailability(
-      field(record, "questionVersionAvailability", path),
-      `${path}.questionVersionAvailability`,
+    questionRevisionAvailability: decodeQuestionRevisionAvailability(
+      field(record, "questionRevisionAvailability", path),
+      `${path}.questionRevisionAvailability`,
       true,
     ),
   };

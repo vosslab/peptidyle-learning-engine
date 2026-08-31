@@ -10,7 +10,7 @@ use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
 use question_model::{
-    QuestionFormat, QuestionId, QuestionSource, QuestionVersion, QuestionVersionNumber,
+    QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber, QuestionSource,
     WorkspaceId, classification::License,
 };
 use serde::Deserialize;
@@ -401,10 +401,10 @@ fn validate_correct_and_wrong_grading(
     if !matches!(draft.source, question_model::DraftQuestionSource::Native) {
         bail!("PLE flat payload compiled to a non-native source");
     }
-    let published = QuestionVersion::from_draft(
+    let published = QuestionRevision::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        QuestionVersionNumber::new(1).expect("positive version"),
+        QuestionRevisionNumber::new(1).expect("positive version"),
         QuestionSource::Native,
     );
     let correct_result = private.evaluate(&published, &correct)?;

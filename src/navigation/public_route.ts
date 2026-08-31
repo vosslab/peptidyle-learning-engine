@@ -10,7 +10,8 @@ import { normalizeQuestionIdSyntax } from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
 type BrandedRouteReference<Kind extends string> = string & { readonly [routeReferenceBrand]: Kind };
-export type CourseRouteReference = CourseInstanceReference & BrandedRouteReference<"course">;
+export type CourseInstanceRouteReference = CourseInstanceReference &
+  BrandedRouteReference<"courseInstance">;
 export type CourseMembershipRouteReference = CourseMembershipReference &
   BrandedRouteReference<"courseMembership">;
 export type AssignmentRouteReference = AssignmentReference & BrandedRouteReference<"assignment">;
@@ -21,7 +22,7 @@ export type WorkspaceRouteReference = AuthoringWorkspaceReference &
 export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
-  | CourseRouteReference
+  | CourseInstanceRouteReference
   | AssignmentRouteReference
   | WorkspaceRouteReference;
 
@@ -35,8 +36,8 @@ function parseExact<Kind extends string>(
     ? (value as BrandedRouteReference<Kind>)
     : null;
 }
-export function parseCourseReference(value: string): CourseRouteReference | null {
-  return parseExact<"course">(value, "C");
+export function parseCourseInstanceReference(value: string): CourseInstanceRouteReference | null {
+  return parseExact<"courseInstance">(value, "C");
 }
 export function parseCourseMembershipReference(
   value: string,
@@ -54,9 +55,11 @@ export function parseAssignmentAttemptReference(
 export function parseWorkspaceReference(value: string): WorkspaceRouteReference | null {
   return parseExact<"workspace">(value, "W");
 }
-export function courseRouteReference(value: CourseInstanceReference): CourseRouteReference {
-  const result = parseCourseReference(value);
-  if (result === null) throw new Error("invalid course reference");
+export function courseInstanceRouteReference(
+  value: CourseInstanceReference,
+): CourseInstanceRouteReference {
+  const result = parseCourseInstanceReference(value);
+  if (result === null) throw new Error("invalid Course Instance Reference");
   return result;
 }
 export function assignmentRouteReference(value: AssignmentReference): AssignmentRouteReference {
@@ -87,7 +90,7 @@ export function authoringWorkspaceRouteReference(
 }
 export function parsePublicRouteReference(value: string): PublicRouteReference | null {
   return (
-    parseCourseReference(value) ??
+    parseCourseInstanceReference(value) ??
     parseAssignmentReference(value) ??
     parseAssignmentAttemptReference(value) ??
     parseWorkspaceReference(value)

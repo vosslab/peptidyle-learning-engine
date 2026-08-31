@@ -14,7 +14,7 @@ The course model has one reusable source aggregate and one delivery aggregate:
 BlueprintCourse (reusable, revisioned, answer-free source)
   +- ordered BlueprintModule
      \`- ordered BlueprintAssignment
-        \`- exact published QuestionVersionReference pins
+        \`- exact published QuestionRevisionReference pins
 
 CourseInstance (private teaching aggregate)
   +- immutable BlueprintCourse parent and applied revision

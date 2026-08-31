@@ -35,7 +35,7 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
 test("issued external-tool envelopes accept only their public marker", () => {
   const envelope = {
     variation: {
-      questionVersion: { questionId: "7K3-M9QP", versionNumber: 1 },
+      questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
       seed: 2,
     },
     title: "External practice item",
@@ -178,9 +178,9 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
   assert.ok(predecessor);
   const envelope = {
     ...issuedQuestionWireFixture(predecessor, publishedProblemFixture.publishedProblem),
-    questionVersion: {
+    questionRevision: {
       questionId: "BCDEFGH",
-      versionNumber: "99",
+      revisionNumber: "99",
     },
   };
   const client = createHttpApiClient({

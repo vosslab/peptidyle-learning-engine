@@ -32,7 +32,7 @@ is only a lookup/input value; it cannot establish authority.
 | Data                          | Exact owner                                           | Local enforcement                         |
 | ----------------------------- | ----------------------------------------------------- | ----------------------------------------- |
 | Account, session, and passkey | Global `AccountId`                                    | Server session and PostgreSQL             |
-| Published question            | Global immutable `QuestionId`/`QuestionVersionNumber` | Approved-Instructor Question Library      |
+| Published question            | Global immutable `QuestionId`/`QuestionRevisionNumber` | Approved-Instructor Question Library      |
 | Draft or curriculum           | `WorkspaceId` plus owner/collaborators                | Workspace relationship                    |
 | Course and assignment         | `CourseId` and child records                          | Current direct Instructor membership      |
 | Student work and grades       | Exact course plus Student owner                       | Student self or current course Instructor |

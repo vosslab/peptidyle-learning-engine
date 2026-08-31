@@ -14,8 +14,8 @@ use question_model::envelope::ContentBlock;
 use question_model::envelope::QuestionPresentation;
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionType,
-    QuestionVersion, StudentResponse,
+    GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision,
+    QuestionType, StudentResponse,
 };
 
 use crate::NativeAdapterError;
@@ -75,7 +75,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// the authored Question does not satisfy this implementation's contract.
     fn derive_answer_key(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError>;
 
@@ -85,7 +85,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// not answer identifiers or key material.
     fn derive_post_grading_content(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
@@ -102,7 +102,7 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// disclosure policy. A hint is never merged into post-grade feedback.
     fn derive_hint(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,

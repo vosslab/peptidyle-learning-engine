@@ -2,17 +2,17 @@
 
 import type {
   AssignmentAttemptRouteReference,
-  CourseRouteReference,
+  CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import {
   parseAssignmentAttemptReference,
-  parseCourseReference,
+  parseCourseInstanceReference,
 } from "../../navigation/public_route";
 import { routeContractForPathname } from "../../route_contract";
 
 export type CourseThemeRouteRequest =
   | { readonly kind: "global" }
-  | { readonly kind: "course"; readonly courseReference: CourseRouteReference }
+  | { readonly kind: "course"; readonly courseReference: CourseInstanceRouteReference }
   | {
       readonly kind: "assignmentAttempt";
       readonly assignmentAttemptReference: AssignmentAttemptRouteReference;
@@ -38,11 +38,11 @@ export function courseThemeRouteRequest(pathname: string): CourseThemeRouteReque
       : { kind: "assignmentAttemptSummary", assignmentAttemptReference: reference };
   }
   if (route.path.startsWith("/courses/:courseRef") && segments[1] !== undefined) {
-    const reference = parseCourseReference(segments[1]);
+    const reference = parseCourseInstanceReference(segments[1]);
     return reference === null ? { kind: "global" } : { kind: "course", courseReference: reference };
   }
   if (route.path.startsWith("/instructor/courses/:courseRef") && segments[2] !== undefined) {
-    const reference = parseCourseReference(segments[2]);
+    const reference = parseCourseInstanceReference(segments[2]);
     return reference === null ? { kind: "global" } : { kind: "course", courseReference: reference };
   }
   return { kind: "global" };

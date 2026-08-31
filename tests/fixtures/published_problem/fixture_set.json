@@ -37,7 +37,7 @@
   },
   "publishedProblem": {
     "questionId": "7K3-M9QP",
-    "versionNumber": 1,
+    "revisionNumber": 1,
     "workspace": "0198e000-0000-7000-8000-000000000002",
     "source": {
       "backend": "native"
@@ -402,8 +402,10 @@
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
-        "versionNumber": 1
+        "revisionNumber": 1
       },
+      "pointValue": "1",
+      "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
       "questionPoolCandidate": null
@@ -416,8 +418,10 @@
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
-        "versionNumber": 1
+        "revisionNumber": 1
       },
+      "pointValue": "1",
+      "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
       "questionPoolCandidate": null
@@ -430,8 +434,10 @@
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
-        "versionNumber": 1
+        "revisionNumber": 1
       },
+      "pointValue": "1",
+      "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
       "questionPoolCandidate": null
@@ -444,8 +450,10 @@
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
-        "versionNumber": 1
+        "revisionNumber": 1
       },
+      "pointValue": "1",
+      "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
       "questionPoolCandidate": null
@@ -482,7 +490,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "7aaba0ea8b4270177ac57c865851adcb1993e0571402d39acb70c4f2a73895dc"
+        "renderedQuestionSha256": "3fdae665e1eeda96b3e4768742b602e250ef4be51645beb8f486e0b36fc6ca8e"
       },
       "issuedCapability": "flatPresentation",
       "submission": {
@@ -530,7 +538,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "8f8d4a36b25098c7378f18638fc542f390012f94272d486ebe1b9b876bdcef39"
+        "renderedQuestionSha256": "113f7aae79bb5d7fb54799fd50b09e977192e10b991769d8ffe98400cc81fcf4"
       },
       "issuedCapability": "flatPresentation",
       "submission": {
@@ -578,7 +586,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "a4ac454999e8c60ae901804d6c137a6538df041a8eb5105825af9effa92b0b9c"
+        "renderedQuestionSha256": "31c37f1795f23e5af996a399ec4ab8bc2f055ccc77d2c491363f4b873cedfbec"
       },
       "issuedCapability": "flatPresentation",
       "submission": {
@@ -626,7 +634,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "85bd4379baeba8cc65deb814c89635155db80786715f3f65fd1cdc33f3dc729d"
+        "renderedQuestionSha256": "7ea8ee640595eca6c8d43fabe44957c826d1571fa75c97f18c65771ffc890af8"
       },
       "issuedCapability": "flatPresentation",
       "submission": null

@@ -1,4 +1,4 @@
-use question_model::QuestionVersion;
+use question_model::QuestionRevision;
 use question_model::capability::QuestionBackendCapabilities;
 
 use crate::{NativeAdapter, NativeAdapterError};
@@ -7,7 +7,7 @@ impl NativeAdapter {
     /// Returns conservative capabilities for a native Question contract.
     pub fn capabilities(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
     ) -> Result<QuestionBackendCapabilities, NativeAdapterError> {
         let implementations = self.implementations_for_question(question)?;
         let mut capabilities = implementations

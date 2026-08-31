@@ -122,7 +122,7 @@ impl Default for StatisticsDisclosurePolicy {
     }
 }
 
-/// Browser-safe anonymous metrics for one immutable published question version.
+/// Browser-safe anonymous metrics for one immutable published question revision.
 ///
 /// This projection intentionally carries no deployment, Student, enrollment,
 /// course, assignment, run, attempt, response, source, or feedback identity.

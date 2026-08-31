@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::classification::{License, QuestionClassification, Tag};
 use crate::{
     ActivityTimestamp, CourseInstanceReference, DraftQuestionSource, QuestionBackendCapabilities,
-    QuestionMetadata, QuestionSource, QuestionVersionNumber,
+    QuestionMetadata, QuestionRevisionNumber, QuestionSource,
 };
 
 pub use crate::question_search::{
@@ -152,21 +152,21 @@ impl From<QuestionId> for String {
 /// replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionVersionReference {
+pub struct QuestionRevisionReference {
     /// Stable Question lineage.
     pub question_id: QuestionId,
     /// Exact immutable version within that Question lineage.
-    pub version_number: QuestionVersionNumber,
+    pub revision_number: QuestionRevisionNumber,
 }
 
-/// Current selection availability for an already published Question Version.
+/// Current selection availability for an already published Question Revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "availability",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum QuestionVersionAvailability {
+pub enum QuestionRevisionAvailability {
     /// Discoverable and eligible for ordinary new selection.
     Available,
     /// Discoverable historical content, ineligible for ordinary new selection,
@@ -177,7 +177,7 @@ pub enum QuestionVersionAvailability {
     },
 }
 
-impl QuestionVersionAvailability {
+impl QuestionRevisionAvailability {
     /// Whether Question Library browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
         matches!(self, Self::Available | Self::Archived { .. })
@@ -281,7 +281,7 @@ pub struct QuestionSummary {
     pub byline: crate::PublicByline,
     /// Current availability for ordinary new selection; publication itself is
     /// separate immutable history.
-    pub availability: QuestionVersionAvailability,
+    pub availability: QuestionRevisionAvailability,
     /// Database-authoritative publication time.
     pub published_at: ActivityTimestamp,
 }
@@ -534,10 +534,10 @@ mod tests {
 
     #[test]
     fn only_available_content_is_eligible_for_ordinary_new_selection() {
-        assert!(QuestionVersionAvailability::Available.is_discoverable());
-        assert!(QuestionVersionAvailability::Available.is_eligible_for_ordinary_new_selection());
-        assert!(QuestionVersionAvailability::Available.is_resolvable_by_stable_question_id());
-        let archived = QuestionVersionAvailability::Archived {
+        assert!(QuestionRevisionAvailability::Available.is_discoverable());
+        assert!(QuestionRevisionAvailability::Available.is_eligible_for_ordinary_new_selection());
+        assert!(QuestionRevisionAvailability::Available.is_resolvable_by_stable_question_id());
+        let archived = QuestionRevisionAvailability::Archived {
             reason: "Historical".to_string(),
         };
         assert!(archived.is_discoverable());
@@ -613,7 +613,7 @@ mod tests {
                         .expect("valid byline"),
                 ])
                 .expect("valid byline"),
-                availability: QuestionVersionAvailability::Available,
+                availability: QuestionRevisionAvailability::Available,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
             prompt: QuestionPromptProjection::Static { blocks: Vec::new() },

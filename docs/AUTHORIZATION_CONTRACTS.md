@@ -239,10 +239,10 @@ visibility of any published question they reference.
 ## Shared publication and Instructor DTO contract
 
 Every published question has one stable Question ID lineage and immutable
-QuestionVersions, visible to every approved Instructor through exactly one shared
+QuestionRevisions, visible to every approved Instructor through exactly one shared
 Question Library state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
-publishes a new immutable QuestionVersion under the existing Question ID. An
+publishes a new immutable QuestionRevision under the existing Question ID. An
 incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
 Question ID and visible source ancestry. Existing assignments and issued runs
@@ -277,7 +277,7 @@ student-content improvement that preserves the objective, task, and Question
 Type; and a grading-semantic correction with an impact and recalculation record.
 An incompatible objective, task, Question Type, or educational-purpose change
 is a fork. `ModerateEdit` is available only to the question owner or original
-lineage steward; it publishes a new immutable QuestionVersion in the same
+lineage steward; it publishes a new immutable QuestionRevision in the same
 Question ID lineage, preserves original authorship, and retains the existing CC
 license. `FullFork` is available to any approved (vetted)
 Instructor. It creates a creator-private Draft Question with that Instructor's
@@ -288,14 +288,14 @@ ancestry and no write access to the source.
 
 `QuestionChangeProposal` is a separate contribution path. Any approved
 (vetted) Instructor may submit a validated patch and rationale against one exact
-base QuestionVersion. The lineage owner accepts or rejects it. Acceptance
+base QuestionRevision. The lineage owner accepts or rejects it. Acceptance
 creates a new immutable version in the original Question ID lineage, preserves
 canonical authorship and the compatible CC license, and records contributor
 credit and proposal ancestry. It never moves assignment or evidence pins. A
 stale base requires rebase and resubmission.
 
 Each assignment item records its visible Question ID and hidden exact
-`QuestionVersionReference { question_id, version_number }` pin. Issued runs, attempts, grading
+`QuestionRevisionReference { question_id, revision_number }` pin. Issued runs, attempts, grading
 evidence, and audit records retain the same exact pair, seed, and required
 provenance. A publication, lifecycle transition, correction, or worker never
 advances an assignment implicitly; a future version requires an explicit,
@@ -390,7 +390,7 @@ privacy/disclosure rules, and denial tests before activation.
 ## Deterministic grading boundary
 
 An issued attempt is the sole student grading authority. It binds the exact
-Student owner, course assignment, immutable question version, seed, timing
+Student owner, course assignment, immutable question revision, seed, timing
 state, and grading backend. The server checks that binding, current Student
 authority, timing, idempotency, Question Type, presentation consistency, and
 lifecycle before it loads answer-bearing material through a separately injected

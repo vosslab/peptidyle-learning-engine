@@ -16,7 +16,7 @@ import {
   decodeUuid,
 } from "./decoder";
 import { decodeCursor, requireOnlyFields } from "./decoders/shared";
-import { parseCourseReference } from "../navigation/public_route";
+import { parseCourseInstanceReference } from "../navigation/public_route";
 
 export type CourseRosterRole = "student";
 export type CourseRosterMemberStatus = "active" | "revoked";
@@ -177,7 +177,7 @@ export function decodeClaimedCourseInvitation(
   const reference = field(record, "courseReference", path);
   if (typeof reference !== "string")
     throw new DecodeError(`${path}.courseReference`, "a C- reference");
-  const courseReference = parseCourseReference(reference);
+  const courseReference = parseCourseInstanceReference(reference);
   if (courseReference === null) throw new DecodeError(`${path}.courseReference`, "a C- reference");
   return {
     courseId: decodeUuid(field(record, "courseId", path), `${path}.courseId`),

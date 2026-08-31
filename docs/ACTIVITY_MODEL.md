@@ -21,7 +21,7 @@ evidence.
 | ------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
 | Student Record      | One Student Account's durable educational record in one Course Instance | One retained record per Student Account and Course Instance |
 | Assignment Attempt  | One pass through one Assignment                                         | Many per Student Record and Assignment                      |
-| Issued Question     | One selected Question Version delivered in one Assignment Attempt       | Ordered within one Assignment Attempt                       |
+| Issued Question     | One selected Question Revision delivered in one Assignment Attempt       | Ordered within one Assignment Attempt                       |
 | Question Attempt    | One server-issued try for one Issued Question                           | Many when retry policy permits                              |
 | Question Submission | One accepted Student Response for one Question Attempt                  | One immutable accepted event per Question Attempt           |
 
@@ -39,7 +39,7 @@ still contains legacy installation-scope fields; that source is migration
 input, not the target Student Work Records contract.
 
 `CourseId` is the exact educational-record boundary. An assignment belongs to
-one course and stores ordered `(QuestionId, QuestionVersionNumber)` references to shared
+one course and stores ordered `(QuestionId, QuestionRevisionNumber)` references to shared
 immutable published content; it never owns or copies the question payload. Each
 Student Work Record is resolved to one exact course, and student-owned records also
 name their exact `StudentRecordId` owner. Child identities must agree with the
@@ -57,7 +57,7 @@ operation.
 | ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Student Record      | Exact `CourseId` and Student Account          | That Student with a current Student Course Membership, or a current course Instructor |
 | Assignment Attempt  | Student Record and Assignment                 | That Student, or a current course Instructor                                          |
-| Issued Question     | Assignment Attempt and exact Question Version | That Student, or a current course Instructor                                          |
+| Issued Question     | Assignment Attempt and exact Question Revision | That Student, or a current course Instructor                                          |
 | Question Attempt    | Issued Question and its Student owner         | That Student, or a current course Instructor                                          |
 | Assignment Grade    | Student Record and Assignment                 | That Student projection, or a current course Instructor                               |
 
@@ -99,7 +99,7 @@ the server records the completion timestamp and score as a transition.
 
 ## Issued Question and Question Attempt
 
-An Issued Question freezes the selected Question Version, Assignment Entry,
+An Issued Question freezes the selected Question Revision, Assignment Entry,
 delivery order, applied point value, scoring rule, and Question Pool selection
 evidence for one Assignment Attempt. It is the immutable bridge between a live
 Assignment definition and a Student's individual tries.
@@ -107,7 +107,7 @@ Assignment definition and a Student's individual tries.
 `QuestionAttempt` belongs directly to one Issued Question and records:
 
 - its exact Issued Question and therefore its Student Record, Assignment, and
-  immutable Question Version scope;
+  immutable Question Revision scope;
 - one server-owned try sequence within that Issued Question;
 - the generation seed and parameter hash;
 - server-issued timing data;
@@ -255,7 +255,7 @@ unlimited practice, and issue new seeds on every Assignment Attempt. Continued p
 not decide which score counts; grade policy remains independent.
 
 Question-level policies remain separate from Assignment Activity policy. Every immutable
-published Question Version owns a `QuestionAttemptLimit` retry bound and a
+published Question Revision owns a `QuestionAttemptLimit` retry bound and a
 `QuestionAttemptTimeLimit`; an assignment cannot silently rewrite either one. Attempt
 policy does not disclose results, feedback, or answers. That lets the same Assignment Attempt
 model work for native, QTI, WeBWorK, and future Question Backends while keeping
@@ -305,14 +305,15 @@ each page can update its own slice without replacing a sibling page's changes.
 - Questions edits assignment content: title, ordered fixed questions, pools,
   reuse, and selection order. Its content save changes no delivery or
   lifecycle policy.
-- Policies edits delivery and lifecycle policy: audience, disclosure, Assignment Activity
-  policies, student instructions, schedule, limits, Late Work Rule, and
-  lifecycle. Its policy save changes no question content.
+- Policies edits disclosure, Assignment Activity policies, student instructions,
+  schedule, limits, Late Work Rule, and lifecycle. Active Student Course
+  Membership determines ordinary Student access; its policy save changes no
+  question content.
 - Teaching operations owns live operational actions around the assignment,
-  including group and access operations, policy previews, delivery checks,
-  and teaching-authority workflows. Those actions may resolve effective
-  delivery or entitlement, but they do not make the workspace's Questions or
-  Policies pages interchangeable.
+  including direct Student Accommodation updates, policy previews, delivery
+  checks, and teaching-authority workflows. Those actions may resolve effective
+  delivery, but they do not make the workspace's Questions or Policies pages
+  interchangeable.
 - Grading operations owns assignment-local automatic-grading recovery. It
   groups safe operation metadata by question or student, includes assignment-
   wide recalculation rows, and exposes guarded retry and recalculation commands;
@@ -357,7 +358,7 @@ does not consume its own attempt-limit slot: completed Assignment Attempts deter
 another Assignment Attempt may start, while the current active Assignment Attempt remains resumable.
 
 The separate Teaching operations surface performs live operational work such
-as access-modifier changes, group management, effective-policy previews, and
+as direct Student Accommodation updates, effective-policy previews, and
 teaching-authority actions. It is not a replacement for the Policies editor
 and does not change the ownership of the durable Student Work Records below.
 

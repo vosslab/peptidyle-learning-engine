@@ -2,8 +2,8 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, QuestionVersionReference,
-    WorkspaceId, WorkspaceImportId,
+    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
+    QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -48,7 +48,7 @@ impl ObjectStorageArea {
 pub enum ObjectDataClass {
     /// Private instructor-authoring sources and assets.
     AuthoringContent,
-    /// Immutable source bytes and import archives for a Question Version.
+    /// Immutable source bytes and import archives for a Question Revision.
     QuestionSource,
     /// One logical Question Asset, whether public or restricted.
     QuestionAsset,
@@ -125,8 +125,8 @@ pub enum ObjectAddress {
     },
     /// An original source package for a published version.
     QuestionSource {
-        /// Exact immutable Question Version that owns the source.
-        question_version: QuestionVersionReference,
+        /// Exact immutable Question Revision that owns the source.
+        question_revision: QuestionRevisionReference,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -136,8 +136,8 @@ pub enum ObjectAddress {
     /// part of the semantic key, and the object is never
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
-        /// Exact immutable Question Version that owns the archive.
-        question_version: QuestionVersionReference,
+        /// Exact immutable Question Revision that owns the archive.
+        question_revision: QuestionRevisionReference,
         /// Import identity which produced this published version.
         import: WorkspaceImportId,
         /// Physical object-record identity.
@@ -145,22 +145,22 @@ pub enum ObjectAddress {
     },
     /// A logical asset and its physical object for a published version.
     QuestionAsset {
-        /// Exact immutable Question Version that owns the asset.
-        question_version: QuestionVersionReference,
+        /// Exact immutable Question Revision that owns the asset.
+        question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
         asset: AssetId,
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// A student-facing asset belonging to a Published Question version.
+    /// A student-facing asset belonging to a Published Question Revision.
     ///
     /// Its identity is as immutable as [`Self::QuestionAsset`], but its bytes
     /// live in private-content and are delivered only after Question Library
     /// authorization.  A CDN-readable key must never represent restricted
     /// published content.
     RestrictedQuestionAsset {
-        /// Exact immutable Question Version that owns the asset.
-        question_version: QuestionVersionReference,
+        /// Exact immutable Question Revision that owns the asset.
+        question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
         asset: AssetId,
         /// Physical object-record identity.
@@ -168,8 +168,8 @@ pub enum ObjectAddress {
     },
     /// A deterministic rendered question cached by version and seed.
     QuestionRender {
-        /// Exact immutable Question Version that owns the rendered result.
-        question_version: QuestionVersionReference,
+        /// Exact immutable Question Revision that owns the rendered result.
+        question_revision: QuestionRevisionReference,
         /// Question Seed that fully determines the render.
         seed: QuestionSeed,
         /// Physical object-record identity.
@@ -278,46 +278,46 @@ impl ObjectAddress {
                 object,
             } => format!("workspaces/{workspace}/questions/assets/{asset}/{object}"),
             Self::QuestionSource {
-                question_version,
+                question_revision,
                 object,
             } => format!(
                 "questions/{}/versions/{}/source/{object}",
-                question_version.question_id, question_version.version_number
+                question_revision.question_id, question_revision.revision_number
             ),
             Self::PublishedImportArchive {
-                question_version,
+                question_revision,
                 import,
                 object,
             } => format!(
                 "questions/{}/versions/{}/imports/{import}/archive/{object}",
-                question_version.question_id, question_version.version_number
+                question_revision.question_id, question_revision.revision_number
             ),
             Self::QuestionAsset {
-                question_version,
+                question_revision,
                 asset,
                 object,
             } => format!(
                 "questions/{}/versions/{}/assets/{asset}/{object}",
-                question_version.question_id, question_version.version_number
+                question_revision.question_id, question_revision.revision_number
             ),
             Self::RestrictedQuestionAsset {
-                question_version,
+                question_revision,
                 asset,
                 object,
             } => {
                 format!(
                     "questions/{}/versions/{}/restricted-assets/{asset}/{object}",
-                    question_version.question_id, question_version.version_number
+                    question_revision.question_id, question_revision.revision_number
                 )
             }
             Self::QuestionRender {
-                question_version,
+                question_revision,
                 seed,
                 object,
             } => format!(
                 "questions/{}/versions/{}/renders/{}/{object}",
-                question_version.question_id,
-                question_version.version_number,
+                question_revision.question_id,
+                question_revision.revision_number,
                 seed.value()
             ),
             Self::CourseBannerCandidate { course, candidate } => format!(
@@ -355,24 +355,24 @@ impl ObjectAddress {
         }
     }
 
-    /// Exact Question Version associated with content, when one exists.
-    pub fn question_version(&self) -> Option<&QuestionVersionReference> {
+    /// Exact Question Revision associated with content, when one exists.
+    pub fn question_revision(&self) -> Option<&QuestionRevisionReference> {
         match self {
             Self::QuestionSource {
-                question_version, ..
+                question_revision, ..
             }
             | Self::PublishedImportArchive {
-                question_version, ..
+                question_revision, ..
             }
             | Self::QuestionAsset {
-                question_version, ..
+                question_revision, ..
             }
             | Self::RestrictedQuestionAsset {
-                question_version, ..
+                question_revision, ..
             }
             | Self::QuestionRender {
-                question_version, ..
-            } => Some(question_version),
+                question_revision, ..
+            } => Some(question_revision),
             Self::WorkspaceSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceAsset { .. }
@@ -406,12 +406,12 @@ impl ObjectAddress {
     /// immutable visibility.  Call this at publication time rather than
     /// reconstructing a key later from an untrusted route or browser value.
     pub fn published_question_asset(
-        question_version: QuestionVersionReference,
+        question_revision: QuestionRevisionReference,
         asset: AssetId,
         object: ObjectId,
     ) -> Self {
         Self::RestrictedQuestionAsset {
-            question_version,
+            question_revision,
             asset,
             object,
         }
@@ -476,18 +476,18 @@ pub fn workspace_qti_archive_object_id(
 ///
 /// The archive checksum is already a SHA-256 digest and is appended as its
 /// raw 32-byte value. The canonical Question ID spelling and big-endian
-/// Question Version Number bind the address to one exact Question Version.
+/// Question Revision Number bind the address to one exact Question Revision.
 /// Only the first 16 bytes of the final SHA-256 digest become the deterministic
 /// object UUID.
 pub fn published_import_archive_object_id(
-    question_version: &QuestionVersionReference,
+    question_revision: &QuestionRevisionReference,
     import: WorkspaceImportId,
     archive_sha256: Sha256Digest,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:published-import-archive:v1\0");
-    hasher.update(question_version.question_id.to_string().as_bytes());
-    hasher.update(question_version.version_number.get().to_be_bytes());
+    hasher.update(question_revision.question_id.to_string().as_bytes());
+    hasher.update(question_revision.revision_number.get().to_be_bytes());
     hasher.update(import.as_uuid().as_bytes());
     hasher.update(archive_sha256.as_bytes());
 
@@ -500,26 +500,26 @@ pub fn published_import_archive_object_id(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{QuestionId, QuestionVersionNumber};
+    use question_model::{QuestionId, QuestionRevisionNumber};
     use uuid::Uuid;
 
-    fn question_version(version_number: u32) -> QuestionVersionReference {
-        QuestionVersionReference {
+    fn question_revision(revision_number: u32) -> QuestionRevisionReference {
+        QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
                 .expect("canonical Question ID"),
-            version_number: QuestionVersionNumber::new(version_number)
-                .expect("positive Question Version Number"),
+            revision_number: QuestionRevisionNumber::new(revision_number)
+                .expect("positive Question Revision Number"),
         }
     }
 
     #[test]
     fn source_objects_are_never_direct_delivery_targets() {
         let source = ObjectAddress::QuestionSource {
-            question_version: question_version(2),
+            question_revision: question_revision(2),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         let asset = ObjectAddress::QuestionAsset {
-            question_version: question_version(2),
+            question_revision: question_revision(2),
             asset: AssetId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };
@@ -531,18 +531,18 @@ mod tests {
     #[test]
     fn only_immutable_question_assets_enter_the_public_delivery_domain() {
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-        let question_version = question_version(4);
+        let question_revision = question_revision(4);
         let object = ObjectId::from_uuid(Uuid::from_u128(5));
 
         let public_asset = ObjectAddress::QuestionAsset {
-            question_version: question_version.clone(),
+            question_revision: question_revision.clone(),
             asset: AssetId::from_uuid(Uuid::from_u128(6)),
             object,
         };
         assert_eq!(public_asset.storage_area(), ObjectStorageArea::PublicAssets);
         assert_eq!(
             ObjectAddress::published_question_asset(
-                question_version.clone(),
+                question_revision.clone(),
                 AssetId::from_uuid(Uuid::from_u128(60)),
                 object,
             )
@@ -563,21 +563,21 @@ mod tests {
                 object,
             },
             ObjectAddress::QuestionSource {
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 object,
             },
             ObjectAddress::RestrictedQuestionAsset {
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 asset: AssetId::from_uuid(Uuid::from_u128(61)),
                 object,
             },
             ObjectAddress::PublishedImportArchive {
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
                 object,
             },
             ObjectAddress::QuestionRender {
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 seed: QuestionSeed::new(1),
                 object,
             },
@@ -609,10 +609,10 @@ mod tests {
         };
 
         assert_eq!(candidate.storage_area(), ObjectStorageArea::TempProcessing);
-        assert_eq!(candidate.question_version(), None);
+        assert_eq!(candidate.question_revision(), None);
         assert!(!candidate.may_issue_signed_url());
         assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(banner.question_version(), None);
+        assert_eq!(banner.question_revision(), None);
         assert!(banner.may_issue_signed_url());
         assert!(candidate.path().contains(&course.to_string()));
         assert!(candidate.path().contains(&candidate_id.to_string()));
@@ -709,14 +709,14 @@ mod tests {
         );
         assert_eq!(key.object_id(), object);
         assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(key.question_version(), None);
+        assert_eq!(key.question_revision(), None);
         assert!(!key.may_issue_signed_url());
     }
 
     #[test]
     fn published_import_archive_object_id_matches_golden() {
         let actual = published_import_archive_object_id(
-            &question_version(3),
+            &question_revision(3),
             WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             Sha256Digest::compute(b"archive fixture"),
         );
@@ -724,7 +724,7 @@ mod tests {
         assert_eq!(
             actual,
             published_import_archive_object_id(
-                &question_version(3),
+                &question_revision(3),
                 WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
                 Sha256Digest::compute(b"archive fixture"),
             )
@@ -734,7 +734,7 @@ mod tests {
     #[test]
     fn published_import_archive_key_has_distinct_path_and_private_classification() {
         let key = ObjectAddress::PublishedImportArchive {
-            question_version: question_version(3),
+            question_revision: question_revision(3),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };
@@ -744,23 +744,23 @@ mod tests {
             "questions/ABC-DEFG/versions/3/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
         );
         assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(key.question_version(), Some(&question_version(3)));
+        assert_eq!(key.question_revision(), Some(&question_revision(3)));
         assert!(!key.may_issue_signed_url());
     }
 
     #[test]
     fn every_archive_identity_input_changes_the_object_id() {
-        let reference = question_version(3);
+        let reference = question_revision(3);
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
         let archive = Sha256Digest::compute(b"archive fixture");
         let base = published_import_archive_object_id(&reference, import, archive);
         assert_ne!(
             base,
             published_import_archive_object_id(
-                &QuestionVersionReference {
+                &QuestionRevisionReference {
                     question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
                         .expect("canonical Question ID"),
-                    version_number: reference.version_number,
+                    revision_number: reference.revision_number,
                 },
                 import,
                 archive
@@ -768,7 +768,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            published_import_archive_object_id(&question_version(13), import, archive)
+            published_import_archive_object_id(&question_revision(13), import, archive)
         );
         assert_ne!(
             base,
@@ -791,7 +791,7 @@ mod tests {
     #[test]
     fn published_import_archive_key_round_trips_through_serde() {
         let key = ObjectAddress::PublishedImportArchive {
-            question_version: question_version(3),
+            question_revision: question_revision(3),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };

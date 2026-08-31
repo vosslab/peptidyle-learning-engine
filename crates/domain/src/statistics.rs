@@ -15,7 +15,7 @@ pub use aggregation::{
     StatisticsError,
 };
 pub use version_counts::{
-    QuestionStatisticsObservation, QuestionVersionStatistics, QuestionVersionStatisticsSnapshot,
+    QuestionRevisionStatistics, QuestionRevisionStatisticsSnapshot, QuestionStatisticsObservation,
 };
 
 #[cfg(test)]

@@ -73,7 +73,7 @@ crates/learning-data-access/src/
 
 BlueprintCourse is one ordered module/assignment tree with one aggregate
 revision. Its exact public question members resolve to immutable
-QuestionVersionReference pins. CourseInstance is not another source tree: the
+QuestionRevisionReference pins. CourseInstance is not another source tree: the
 adoption boundary materializes it under an exact CourseId, records the
 immutable Blueprint parent and applied revision, and owns private delivery
 state. New upstream assignments appear in daughter instances as unreleased.

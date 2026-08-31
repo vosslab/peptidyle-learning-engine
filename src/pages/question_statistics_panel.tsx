@@ -5,7 +5,7 @@ import { For, Show, type JSX } from "solid-js";
 
 import type { QuestionStatistics } from "../../generated/api/QuestionStatistics";
 import type { QuestionUseDetails } from "../../generated/api/QuestionUseDetails";
-import { courseRouteReference } from "../navigation/public_route";
+import { courseInstanceRouteReference } from "../navigation/public_route";
 import "./question_statistics_panel.css";
 
 export interface QuestionStatisticsPanelProps {
@@ -141,7 +141,9 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
           <For each={props.usage.ownCourses}>
             {(course) => (
               <li>
-                <A href={`/courses/${courseRouteReference(course.course)}`}>{course.title}</A>
+                <A href={`/courses/${courseInstanceRouteReference(course.course)}`}>
+                  {course.title}
+                </A>
                 <span>{`${wholeNumber.format(course.assignmentCount)} assignment${course.assignmentCount === 1 ? "" : "s"}`}</span>
               </li>
             )}

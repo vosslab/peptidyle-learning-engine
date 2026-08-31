@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
-GRANT REFERENCES ON TABLE ple_data.published_question_version TO ple_private_owner;
+GRANT REFERENCES ON TABLE ple_data.question_revision TO ple_private_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
@@ -230,46 +230,46 @@ BEFORE UPDATE OR DELETE ON ple_private.draft_question_grading_input
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_private_record_change();
 CREATE TABLE ple_private.question_revision_answer_key (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     answer_key jsonb NOT NULL CHECK (jsonb_typeof(answer_key) = 'object'),
     answer_key_sha256 text NOT NULL CHECK (answer_key_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (question_id, version_number),
-    CONSTRAINT question_revision_answer_key_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_answer_key_version_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE TABLE ple_private.question_revision_feedback (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     question_feedback jsonb NOT NULL CHECK (jsonb_typeof(question_feedback) = 'object'),
     question_feedback_sha256 text NOT NULL CHECK (question_feedback_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (question_id, version_number),
-    CONSTRAINT question_revision_feedback_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_feedback_version_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE TABLE ple_private.question_revision_answer_explanation (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     answer_explanation jsonb NOT NULL CHECK (jsonb_typeof(answer_explanation) = 'array'),
     answer_explanation_sha256 text NOT NULL CHECK (answer_explanation_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (question_id, version_number),
-    CONSTRAINT question_revision_answer_explanation_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_answer_explanation_version_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE TABLE ple_private.question_revision_grading_input (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     question_format text NOT NULL CHECK (question_format IN (
         'pleFlatQuestionV2', 'nativeAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (question_id, version_number),
-    CONSTRAINT question_revision_grading_input_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_grading_input_version_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE TABLE ple_private.workspace_qti_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),

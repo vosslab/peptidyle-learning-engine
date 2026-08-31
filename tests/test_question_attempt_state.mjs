@@ -17,15 +17,15 @@ function createStorage() {
   };
 }
 
-function versionReference(versionNumber) {
-  return { questionId: "ABC-1234", versionNumber };
+function versionReference(revisionNumber) {
+  return { questionId: "ABC-1234", revisionNumber };
 }
 
 function createContext(overrides = {}) {
   return {
     assignmentAttemptId: "assignment-attempt-a",
     attemptId: "attempt-a",
-    questionVersion: versionReference(1),
+    questionRevision: versionReference(1),
     seed: 2,
     deadline: null,
     ...overrides,
@@ -41,7 +41,7 @@ function receipt() {
         id: "attempt-a",
         run: "run-a",
         problem: "problem-a",
-        questionVersion: versionReference(1),
+        questionRevision: versionReference(1),
         assignmentPosition: 0,
         seed: 2,
         response: { kind: "numeric", value: 7 },
@@ -610,11 +610,11 @@ test("advance retry reloads the retained envelope without resubmitting a committ
   const next = {
     context: createContext({
       attemptId: "attempt-b",
-      questionVersion: versionReference(2),
+      questionRevision: versionReference(2),
       seed: 3,
     }),
     envelope: {
-      variation: { questionVersion: versionReference(2), seed: 3 },
+      variation: { questionRevision: versionReference(2), seed: 3 },
       prompt: [],
       response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
     },
@@ -640,12 +640,12 @@ test("advance retry reloads the retained envelope without resubmitting a committ
 test("a mismatched next envelope preserves feedback and exposes a recoverable content error", async () => {
   for (const envelope of [
     {
-      variation: { questionVersion: versionReference(3), seed: 3 },
+      variation: { questionRevision: versionReference(3), seed: 3 },
       prompt: [],
       response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
     },
     {
-      variation: { questionVersion: versionReference(2), seed: 4 },
+      variation: { questionRevision: versionReference(2), seed: 4 },
       prompt: [],
       response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
     },
@@ -658,7 +658,7 @@ test("a mismatched next envelope preserves feedback and exposes a recoverable co
     const invalidNext = {
       context: createContext({
         attemptId: "attempt-b",
-        questionVersion: versionReference(2),
+        questionRevision: versionReference(2),
         seed: 3,
       }),
       envelope,

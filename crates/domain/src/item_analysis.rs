@@ -4,7 +4,7 @@
 //! retain Student identity, raw responses, answer choices, or object keys.
 
 use question_model::{
-    ActivityTimestamp, AssignmentEntryId, AssignmentId, CourseId, QuestionVersionReference,
+    ActivityTimestamp, AssignmentEntryId, AssignmentId, CourseId, QuestionRevisionReference,
     ScoringGeneration,
 };
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ pub struct AssignmentItemAnalysis {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub assignment_entry: AssignmentEntryId,
-    pub reference: QuestionVersionReference,
+    pub reference: QuestionRevisionReference,
     pub source_scoring_generation: ScoringGeneration,
     pub analyzed_at: ActivityTimestamp,
     pub graded_attempt_count: u32,

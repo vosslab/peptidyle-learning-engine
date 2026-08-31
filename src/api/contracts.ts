@@ -11,7 +11,7 @@ import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
-import type { QuestionVersionReference } from "../../generated/api/QuestionVersionReference";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
@@ -202,7 +202,7 @@ export interface StudentIssuedQuestion {
   readonly assignmentEntry: AssignmentEntryId;
   readonly definitionEntryIndex: number;
   readonly issuedPosition: number;
-  readonly reference: QuestionVersionReference;
+  readonly reference: QuestionRevisionReference;
   readonly statisticsEligible: boolean;
 }
 

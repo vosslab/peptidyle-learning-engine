@@ -21,7 +21,7 @@ VPC; do not run it from an ECS API or worker task.
    `ple_public_asset_publisher`. `ple_accepted_submission_fast_path_login` has only
    `SET`-only membership in `ple_accepted_submission_execution_fast_path`; this capability
    grants exact-target accepted-submission execution to the API fast path.
-   Every process login is `LOGIN`, `NOINHERIT`, non-administrative, and lacks `BYPASSRLS`, schema
+   Every service login is `LOGIN`, `NOINHERIT`, non-administrative, and lacks `BYPASSRLS`, schema
    creation, table ownership, and unrelated memberships. ECS uses IAM only for AWS APIs and
    PostgreSQL logins are separate credentials.
 3. Create five Secrets Manager JSON values: the API value holds only the names

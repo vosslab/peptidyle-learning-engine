@@ -18,7 +18,7 @@ use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAt
 use question_model::classification::{License, QuestionClassification};
 use question_model::envelope::ContentBlock;
 use question_model::{
-    DraftQuestionDefinition, QuestionFormat, QuestionType, QuestionVersion, WorkspaceId,
+    DraftQuestionDefinition, QuestionFormat, QuestionRevision, QuestionType, WorkspaceId,
     capability::{Capability, QuestionBackendCapabilities},
 };
 use serde::{Deserialize, Serialize};
@@ -222,7 +222,7 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         _generated: &domain::generator::QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
         if !matches!(question.source, question_model::QuestionSource::Native)

@@ -39,7 +39,7 @@ Everything in the right column decides correctness and remains server-only.
 
 `WorkspaceId`, `AssetId`, `CourseId`, and the activity identifiers are distinct
 newtypes over `Uuid`. `QuestionId` is a validated stable text identity and
-`QuestionVersionNumber` is a validated positive integer. They cannot substitute for one
+`QuestionRevisionNumber` is a validated positive integer. They cannot substitute for one
 another, so passing a draft identifier where published content is expected or
 an assignment identifier where a course is required fails to compile.
 
@@ -53,9 +53,10 @@ bridge leaves off, because identifiers are created server-side on the publish
 transition.
 
 `IssuedQuestionId` is the one idempotent exception: the server derives it as a
-UUIDv5 from an opaque Assignment Attempt identity and the frozen selection. A
-resume therefore resolves the same Issued Question without selecting again.
-The value remains a durable server record identity, not browser authority.
+UUIDv5 from the opaque Assignment Attempt, exact Assignment Entry, and the
+optional frozen Question Pool Candidate. A resume therefore resolves the same
+Issued Question without selecting again. The value remains a durable server
+record identity, not browser authority.
 
 Every Assignment Attempt also retains its exact Published Assignment Revision
 Reference. The stable Assignment groups later revisions; the retained revision
@@ -70,13 +71,13 @@ backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
 The draft rule is carried by separate types rather than a flag:
-`DraftQuestionDefinition` has no Question identity, while `QuestionVersion`
-requires both a Question ID and Question Version Number. There is no separate
+`DraftQuestionDefinition` has no Question identity, while `QuestionRevision`
+requires both a Question ID and Question Revision Number. There is no separate
 boolean to fall out of sync with that boundary.
 
 `QuestionId` is stable across one question lineage. Each publication in that
-lineage has a fresh immutable `QuestionVersionNumber`, and `QuestionVersionReference` keeps the
-exact `(QuestionId, QuestionVersionNumber)` evidence only in trusted delivery, grading,
+lineage has a fresh immutable `QuestionRevisionNumber`, and `QuestionRevisionReference` keeps the
+exact `(QuestionId, QuestionRevisionNumber)` evidence only in trusted delivery, grading,
 replay, audit, assignment pins, and optional non-operative Question Attempt Reproduction Details.
 An allowed original-lineage correction may retain the `QuestionId` while
 archiving the replaced version. A major objective, task, or Question Type
@@ -96,10 +97,10 @@ validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
 `QuestionSummary` is the current hot Question Search projection. It contains the Question
-ID, Question Backend, capabilities, metadata, Current Question Version Availability, and publication time,
+ID, Question Backend, capabilities, metadata, Current Question Revision Availability, and publication time,
 but not prompt, response, private source-locator fields, or the opaque internal
 pair. Trusted server work resolves the Question ID and loads the separate
-internal `QuestionVersion` payload. Question Details uses that safe
+internal `QuestionRevision` payload. Question Details uses that safe
 Question-ID projection and presents one selected immutable version within the
 stable lineage. Approved
 Instructors may inspect this published content even when another course
@@ -133,7 +134,7 @@ separate Sysadmin-only emergency replacement operation. The user-facing action
 is **Suggest an improvement**. A GitHub analogy is documentation-only and
 does not define the domain or authorization contract.
 
-Existing assignments pin their exact Question ID and `QuestionVersionReference`.
+Existing assignments pin their exact Question ID and `QuestionRevisionReference`.
 Future availability changes only through an explicit, revision-checked
 assignment update; publication, correction, lifecycle work, and recalculation
 never advance an assignment automatically. Star is one vetted-Instructor-visible
@@ -144,10 +145,9 @@ subscription for versions, forks, improvements, and impact events. Neither
 changes Question Library visibility or grants course authority.
 
 The shared Question Library is not a Student delivery path. A Student receives question
-content only after the server grants an exact assignment entitlement for the
-authenticated Student, active Student membership, `CourseId`, `AssignmentId`,
-assignment audience, assignment lifecycle, and current policy. Anonymous
-requests have no Question Library access authority and cannot use Question IDs to obtain
+content only after the server confirms the authenticated Student's Active Student
+Course Membership, exact `CourseId`, `AssignmentId`, Assignment Status, and
+current policy. Anonymous requests have no Question Library access authority and cannot use Question IDs to obtain
 published content.
 
 `CourseMembershipRole` represents only the student and instructor values that
@@ -155,7 +155,7 @@ may be stored on a direct membership. There is no second effective-course-role
 enum.
 
 Every `QuestionSearchResult` is already published, with its immutable Question
-Publication Event retained separately from its current Question Version
+Publication Event retained separately from its current Question Revision
 Availability. The ordinary new-assignment selector accepts only `Available`
 versions. `Archived` versions remain discoverable and resolvable for exact
 references, evidence, provenance, and retained assignments, with their stated
@@ -199,7 +199,7 @@ replace direct Instructor membership for general FERPA access or view the
 Question ID Star identity list or any private Watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser projections. Their item and
 selection-candidate summaries carry Question IDs and safe display metadata,
-never an opaque `QuestionVersionReference` or question payload.
+never an opaque `QuestionRevisionReference` or question payload.
 
 ### Capabilities
 
@@ -241,12 +241,12 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 ### Question definition
 
-`QuestionVersion` carries the fields the specification names:
+`QuestionRevision` carries the fields the specification names:
 
 | Field                         | Type                          | Purpose                                                                        |
 | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------ |
 | `questionId`                  | `QuestionId`                  | Stable Question lineage                                                        |
-| `versionNumber`               | `QuestionVersionNumber`       | Exact immutable version within the lineage                                     |
+| `revisionNumber`               | `QuestionRevisionNumber`       | Exact immutable version within the lineage                                     |
 | `workspace`                   | `WorkspaceId`                 | Authoring workspace                                                            |
 | `source`                      | `QuestionSource`              | Which engine, and where to find it there                                       |
 | `prompt`                      | `Vec<ContentBlock>`           | Renderable content, in order                                                   |
@@ -287,7 +287,7 @@ them in a different order therefore does not change answer meaning. A Hotspot
 selection submits an authored Hotspot Region Reference; its rectangle or ellipse
 geometry belongs to the Question Response Format rather than the Student Response.
 
-Server-side grading loads the attempt's exact published `QuestionVersion`
+Server-side grading loads the attempt's exact published `QuestionRevision`
 and calls `grading::grade(question, response, key)`. The definition supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
@@ -296,7 +296,7 @@ Grading is deterministic and automated for every supported Question Type.
 ### Attempt presentation
 
 `presentation` is a second, narrower contract for an issued Student screen.
-It does not replace `QuestionVersion`, `QuestionPresentation`, or
+It does not replace `QuestionRevision`, `QuestionPresentation`, or
 `StudentResponse`; it projects their public rendering portion for a specific
 attempt and provides a consistency binding for that presentation.
 

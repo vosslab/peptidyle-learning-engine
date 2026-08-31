@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use question_model::envelope::{ContentBlock, QuestionPresentation};
 use question_model::generation::QuestionSeed;
-use question_model::{AssetId, ObjectId, QuestionAttemptReproductionDetails, QuestionVersion};
+use question_model::{AssetId, ObjectId, QuestionAttemptReproductionDetails, QuestionRevision};
 
 use crate::{AssetObjectBinding, NativeAdapter, NativeAdapterError, PreparedNativeQuestion};
 
@@ -13,7 +13,7 @@ impl NativeAdapter {
     /// version. No answer key is returned.
     pub fn reproduce(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,

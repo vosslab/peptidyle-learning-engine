@@ -8,7 +8,7 @@
 
 use async_trait::async_trait;
 use question_model::generation::QuestionSeed;
-use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionSource, QuestionVersion};
+use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionRevision, QuestionSource};
 use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
@@ -215,7 +215,7 @@ impl<'a> SnapshotTransportRequest<'a> {
 pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) provider_key: &'a str,
-    pub(crate) question_version: question_model::QuestionVersionReference,
+    pub(crate) question_revision: question_model::QuestionRevisionReference,
     pub(crate) seed: QuestionSeed,
 }
 impl<'a> RenderTransportRequest<'a> {
@@ -225,8 +225,8 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn provider_key(&self) -> &'a str {
         self.provider_key
     }
-    pub fn question_version(&self) -> &question_model::QuestionVersionReference {
-        &self.question_version
+    pub fn question_revision(&self) -> &question_model::QuestionRevisionReference {
+        &self.question_revision
     }
     pub fn seed(&self) -> QuestionSeed {
         self.seed
@@ -438,7 +438,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
     #[allow(clippy::too_many_arguments)]
     pub async fn begin_launch(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
@@ -481,9 +481,9 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         }
         let binding = GradeBinding {
             attempt,
-            question_version: question_model::QuestionVersionReference {
+            question_revision: question_model::QuestionRevisionReference {
                 question_id: question.question_id.clone(),
-                version_number: question.version_number,
+                revision_number: question.revision_number,
             },
             seed,
         };
@@ -605,7 +605,7 @@ impl<T: ScoredEmbedTransport> ImathasProvider for ContractedScoredEmbedProvider<
             .render_safe(RenderTransportRequest {
                 snapshot: request.snapshot,
                 provider_key: self.config.profile.provider_key(),
-                question_version: request.question_version,
+                question_revision: request.question_revision,
                 seed: request.seed,
             })
             .await

@@ -23,7 +23,7 @@ import {
   type CourseThemeTokens,
 } from "./course_theme_registry";
 import { resolveAssignmentAttemptRoute, resolveCourseRoute } from "../../navigation/resolved_route";
-import { courseRouteReference } from "../../navigation/public_route";
+import { courseInstanceRouteReference } from "../../navigation/public_route";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import { routeContractForPathname, type RouteContract } from "../../route_contract";
@@ -128,7 +128,7 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
               <div
                 class="course-theme-scope"
                 data-course-theme={savedAppearance().theme}
-                data-course-reference={courseRouteReference(course().summary.reference)}
+                data-course-reference={courseInstanceRouteReference(course().summary.reference)}
                 style={courseThemeStyle(tokens())}
               >
                 <Show when={managementRoute()} keyed fallback={props.children}>

@@ -5,7 +5,7 @@ use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 use super::{
     AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken,
     BoundedResolvedScheduleSet, CourseInstanceCreationReservation, CourseInstanceOperationReceipt,
-    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, QuestionVersionSubstitutions,
+    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, QuestionRevisionSubstitutions,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -153,7 +153,7 @@ pub struct CreateSelectedBlueprintAssignmentCommand {
     destination: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
     schedule: ResolvedAssignmentSchedule,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: BlueprintOperationRetryToken,
@@ -185,7 +185,7 @@ impl CreateSelectedBlueprintAssignmentCommand {
     pub fn schedule(&self) -> &ResolvedAssignmentSchedule {
         &self.schedule
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {

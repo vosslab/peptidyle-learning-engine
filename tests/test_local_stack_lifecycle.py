@@ -358,7 +358,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(
 		local_stack_control.process_logins,
 		"setup_service_logins",
-		lambda target, runner, values, environment: mark("process-logins"),
+		lambda target, runner, values, environment: mark("service-login-setup"),
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda target, runner, options, identity: mark("renderer-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda target, runner, root, values, identity: mark("renderer-probed"))
@@ -384,7 +384,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
 	assert (
 		events.index("migrated")
-		< events.index("process-logins")
+		< events.index("service-login-setup")
 		< events.index("storage")
 	)
 	assert events.index("storage") < events.index("storage-ready")

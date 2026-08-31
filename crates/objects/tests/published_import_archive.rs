@@ -14,7 +14,7 @@ use objects::{
     Sha256Digest, published_import_archive_object_id,
 };
 use question_model::{
-    ActivityTimestamp, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+    ActivityTimestamp, ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
@@ -23,10 +23,10 @@ fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
 }
 
-fn question_version(version_number: u32) -> QuestionVersionReference {
-    QuestionVersionReference {
+fn question_revision(revision_number: u32) -> QuestionRevisionReference {
+    QuestionRevisionReference {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        version_number: QuestionVersionNumber::new(version_number).expect("positive version"),
+        revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
     }
 }
 
@@ -48,7 +48,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let store = MemoryObjectStore::default();
     let workspace = WorkspaceId::from_uuid(id(2));
     let import = WorkspaceImportId::from_uuid(id(3));
-    let question_version = question_version(5);
+    let question_revision = question_revision(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
     let workspace_key = ObjectAddress::WorkspaceSource {
         workspace,
@@ -77,13 +77,13 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     assert_eq!(verified_workspace_archive.bytes, archive_bytes);
 
     let archive_object = published_import_archive_object_id(
-        &question_version,
+        &question_revision,
         import,
         verified_workspace_archive.record.sha256,
     );
     let candidate = PutObject {
         address: ObjectAddress::PublishedImportArchive {
-            question_version: question_version.clone(),
+            question_revision: question_revision.clone(),
             import,
             object: archive_object,
         },
@@ -101,7 +101,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         .expect("first immutable archive candidate should be stored");
     assert_eq!(
         first_record.id,
-        published_import_archive_object_id(&question_version, import, first_record.sha256),
+        published_import_archive_object_id(&question_revision, import, first_record.sha256),
         "the candidate object identity must be derived from its complete typed identity"
     );
     assert_eq!(first_record.storage_area, ObjectStorageArea::PrivateContent);

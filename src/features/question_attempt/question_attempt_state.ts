@@ -9,7 +9,7 @@ import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { QuestionSeed } from "../../../generated/api/QuestionSeed";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { QuestionVersionReference } from "../../../generated/api/QuestionVersionReference";
+import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type {
   GradedQuestionSubmissionReceipt,
   QuestionSubmissionAcknowledgement,
@@ -23,8 +23,8 @@ export interface AttemptContext {
   readonly attemptId: QuestionAttemptId;
   /** Immutable selection identity issued with this attempt. */
   readonly issuedQuestionId: IssuedQuestionId;
-  /** Exact immutable Question Version selected for this attempt. */
-  readonly questionVersion: QuestionVersionReference;
+  /** Exact immutable Question Revision selected for this attempt. */
+  readonly questionRevision: QuestionRevisionReference;
   /** Question Seed that selects the exact issued Question Variation. */
   readonly seed: QuestionSeed;
   /** Unix milliseconds supplied by the server. A null deadline means untimed. */
@@ -400,8 +400,8 @@ function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
 function envelopeMatchesContext(envelope: QuestionPresentation, context: AttemptContext): boolean {
   return (
     envelope.variation.seed === context.seed &&
-    envelope.variation.questionVersion.questionId === context.questionVersion.questionId &&
-    envelope.variation.questionVersion.versionNumber === context.questionVersion.versionNumber
+    envelope.variation.questionRevision.questionId === context.questionRevision.questionId &&
+    envelope.variation.questionRevision.revisionNumber === context.questionRevision.revisionNumber
   );
 }
 

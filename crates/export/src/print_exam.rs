@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use objects::Sha256Digest;
 use question_model::envelope::{AssetRef, ContentBlock};
 use question_model::{
-    AssetId, Capability, QuestionBackendCapabilities, QuestionResponseFormat, QuestionVersion,
+    AssetId, Capability, QuestionBackendCapabilities, QuestionResponseFormat, QuestionRevision,
 };
 
 /// The rendition selected by an instructor or accessibility workflow.
@@ -52,7 +52,7 @@ pub struct ExportBundle {
 /// One question plus the capability declaration made by its adapter.
 #[derive(Debug, Clone)]
 pub struct ExportCandidate<'a> {
-    pub question: &'a QuestionVersion,
+    pub question: &'a QuestionRevision,
     pub capabilities: &'a QuestionBackendCapabilities,
 }
 
@@ -199,7 +199,7 @@ impl PrintExam {
 }
 
 fn resolve_question_assets(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     resolver: &dyn TrustedAssetResolver,
     target: &mut BTreeMap<AssetId, PrintableAsset>,
 ) -> Result<(), String> {
@@ -478,9 +478,9 @@ mod tests {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Fixture {
-        published_problem: QuestionVersion,
+        published_problem: QuestionRevision,
     }
-    fn fixture_question() -> QuestionVersion {
+    fn fixture_question() -> QuestionRevision {
         let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/fixtures/published_problem/fixture_set.json");
         let fixture = fs::read_to_string(&fixture_path)
@@ -509,7 +509,7 @@ mod tests {
                 .ok_or_else(|| "not found".to_string())
         }
     }
-    fn assets_for(question: &QuestionVersion) -> Assets {
+    fn assets_for(question: &QuestionRevision) -> Assets {
         let bytes = png();
         let mut map = BTreeMap::new();
         let mut all = assets_in_blocks(&question.prompt);
@@ -537,7 +537,7 @@ mod tests {
         }
         Assets(map)
     }
-    fn set_asset_checksums(question: &mut QuestionVersion) {
+    fn set_asset_checksums(question: &mut QuestionRevision) {
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let ContentBlock::Image { asset, .. } = block {

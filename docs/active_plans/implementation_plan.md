@@ -62,7 +62,7 @@ capability contracts and evidence boundaries.
 re-based for the SD1 cutover as one canonical reusable source model. `BlueprintCourse` is one
 answer-free, ordered, revisioned course-level aggregate: a vetted Instructor-visible published
 projection contains ordered modules and assignments, and every entry pins an exact published
-`QuestionVersionReference`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
+`QuestionRevisionReference`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
 the separate exact-`CourseId` teaching aggregate created from that source; it owns copied assignment
 definitions, Students, releases, live deadlines, accommodations, grades, and delivery settings.
 It has exactly one immutable Blueprint parent and applied source revision. A blank CourseInstance is
@@ -89,7 +89,7 @@ allocation remain solely in [implementation_status.md](implementation_status.md)
 account and its immutable role. Each protected operation receives the exact system, Question Library,
 workspace, course, course-membership, Student-ownership, or short-lived capability identity it
 authorizes. Published QuestionIds are
-stable lineages with immutable QuestionVersions: moderate steward edits preserve original authorship
+stable lineages with immutable QuestionRevisions: moderate steward edits preserve original authorship
 and license in the lineage, while full forks give their author a private draft and, after validation,
 a separately attributed and source-compatible licensed lineage. `QuestionChangeProposal` is the
 lightweight middle path: it pins an exact base version, carries a proposed patch and rationale,
@@ -335,7 +335,7 @@ Cited from [REPO_STYLE.md](../REPO_STYLE.md):
 - **Long-term over short-term.** Hidden immutable publication snapshots, random checked Question
   IDs, exact course/Student/workspace ownership, and cursor pagination are foundational because all
   four are painful to retrofit. The snapshots preserve grading; instructors still work with one
-  current Question rather than a Question Version list.
+  current Question rather than a Question Revision list.
 - **Perfect is the enemy of good.** No Kubernetes, Redis, Kafka, sharding, dedicated search index, or
   microservice fleet. M0 through M4 run on `podman compose` with MinIO.
 
@@ -466,10 +466,10 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                                | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                                                 |
 | Content storage              | Split by role with a size backstop (below)                                                                                                     | Answers the owner's direct question                                                                                                                                                                                     |
 | Flat question source         | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                                         | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                    |
-| Question Library table split | `published_question_version` metadata separate from hash-partitioned `published_question_version_payload`                                      | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                     |
+| Question Library table split | `question_revision` metadata separate from hash-partitioned `question_revision_payload`                                      | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                     |
 | Object storage               | S3 with four physical security domains; MinIO locally                                                                                          | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                    |
 | Asset delivery               | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records    | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                                 |
-| Rendered output              | Cached by `(question_id, version_number, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                        |
+| Rendered output              | Cached by `(question_id, revision_number, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                        |
 | Session storage              | Opaque session ID cookie, session row in the database                                                                                          | Works across replicas and stays revocable                                                                                                                                                                               |
 | Timer clock                  | Timestamps from PostgreSQL, never a process clock                                                                                              | Replica clock skew would otherwise change verdicts                                                                                                                                                                      |
 | Background work              | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                                          | Import, export, and renderer work leave the request path                                                                                                                                                                |
@@ -510,7 +510,7 @@ Pushing it to object storage adds a network hop to the hottest path for no benef
 with no threshold and no checksum, which is the bloat the owner is right to worry about.
 
 The rule that makes the split safe: **every source_object_reference carries identity metadata regardless of which
-side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `category`, `question_id`, `version_number`,
+side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `category`, `question_id`, `revision_number`,
 `license`, `provenance`. Text in PostgreSQL is checksummed exactly like a ZIP in S3.
 
 ### The modern LAMP equivalent
@@ -616,7 +616,7 @@ The reusable-course model has one canonical source aggregate and one delivery ag
 ```text
 BlueprintCourse (workspace-owned, revisioned, answer-free)
   -> ordered BlueprintModule -> ordered BlueprintAssignment
-  -> exact published QuestionVersionReference pins and relative schedule intent
+  -> exact published QuestionRevisionReference pins and relative schedule intent
 
 CourseInstance (exact CourseId, private teaching aggregate)
   -> copied definitions, resolved deadlines, releases, accommodations,
@@ -640,7 +640,7 @@ module/assignment projection of the same BlueprintCourse. Fork, assignment adopt
 instantiation are distinct operations selected by destination, with no live source tether.
 
 Question stewardship remains a shared dependency of both aggregates. Stable human-facing
-`QuestionId` lineage carries immutable `QuestionVersion` history; every BlueprintCourse and
+`QuestionId` lineage carries immutable `QuestionRevision` history; every BlueprintCourse and
 CourseInstance entry pins an exact version. Presentation/metadata, student-content, and grading-
 semantic changes use the closed semantic classes: the last class is a major change and mints a new
 QuestionId. Forks show lineage and remain creator-private drafts until complete publication
@@ -654,7 +654,7 @@ evidence. Attempts, correct counts, and eligible-choice counts are version-speci
 only under the existing privacy-threshold formula. Existing `WP-INST-D1`, `D2`, `G1`, `G2`, `G3`, and
 `G4` packages own these behaviors; SD1 introduces no package ID.
 
-The emergency QuestionVersion path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
+The emergency QuestionRevision path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
 replacement and closed, FERPA-safe impact manifest precede one atomic authoritative replacement
 mapping and generation. New selection and issuance resolve to the replacement immediately. Bounded
 idempotent generation-fenced workers materialize affected BlueprintCourse/CourseInstance/assignment/
@@ -723,7 +723,7 @@ Five ownership levels, per reviewer 3:
 | Entity                | Holds                                                                                                                            | Cardinality                                                  |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `assignment_attempt`  | Direct Student Record and Assignment parents, attempt number, started and completed times, score, activity, and variation policy | Many per Student Record and Assignment; 30 or more is normal |
-| `issued_question`     | Source Assignment Entry, exact Question Version, issued order, scoring treatment, and selection evidence                         | One per delivered Question within an Assignment Attempt      |
+| `issued_question`     | Source Assignment Entry, exact Question Revision, issued order, scoring treatment, and selection evidence                         | One per delivered Question within an Assignment Attempt      |
 | `question_attempt`    | Issued Question ID, seed, parameter hash, timing, operational state, and exact Question Attempt Reproduction Details             | Several per Issued Question                                  |
 | `question_submission` | One accepted Student Response for its exact Question Attempt                                                                     | At most one per Question Attempt                             |
 | `grading_result`      | One authoritative evaluation for its exact Question Submission and automated grading operation                                   | At most one per Question Submission                          |
@@ -811,7 +811,7 @@ records that taught it are gone. Aggregate statistics live in **shared content**
 Student identifiers, and survive record deletion:
 
 ```text
-Question 123 (Question Version Number ...)
+Question 123 (Question Revision Number ...)
   attempts_mean 2.7
   time_median_s 58
   difficulty_index 0.71
@@ -837,17 +837,17 @@ One human identity sits above three implementation identities with distinct jobs
 | ----------------------- | ---------------------------------------- | ------------------------------- | --------------------------------------- |
 | Question ID             | One published-question lineage           | Stable for its lineage          | Human-facing, discoverable, and citable |
 | `workspace_id`          | One Instructor's private authoring item  | Freely editable and deletable   | Private implementation identity         |
-| Question Version Number | One immutable published Question Version | Never changes after publication | Exact version evidence                  |
+| Question Revision Number | One immutable published Question Revision | Never changes after publication | Exact version evidence                  |
 
 Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
-- The first publish transition mints the stable `QuestionId` and immutable positive Question Version
+- The first publish transition mints the stable `QuestionId` and immutable positive Question Revision
   Number `1` only after validation passes. A later same-lineage publication advances that immutable
   version number after the same validation. Retired sequential display identifiers are not
   published-question identities.
-- Editing never mutates a historical QuestionVersion. A moderate lineage-steward edit publishes a
+- Editing never mutates a historical QuestionRevision. A moderate lineage-steward edit publishes a
   validated immutable successor under the same `QuestionId`, preserves original authorship and the
   existing Creative Commons license, and records its semantic class and impact. A full fork by any
   vetted Instructor creates a private draft with fork-author authorship plus source attribution and
@@ -860,7 +860,7 @@ Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
   threads through a focused accept/reject workflow.
 - Replacing an image creates a new asset object with a new checksum and key; the old object stays so
   historical attempts remain reproducible.
-- Assignments and Issued Questions retain hidden exact `(question_id, version_number)` snapshot evidence. No
+- Assignments and Issued Questions retain hidden exact `(question_id, revision_number)` snapshot evidence. No
   ordinary successor advances an Assignment, Issued Question, or grading evidence; an Instructor applies a
   controlled update under the assignment's strong revision contract. A
   `ForcedQuestionCorrection` follows its separately authorized, deterministic replacement and
@@ -913,9 +913,9 @@ entry is a bounded lookup tool, not a range or batch-selection language.
 Keys are immutable and derived from IDs and versions, never from user-supplied filenames:
 
 ```text
-questions/{question_id}/versions/{version_number}/source/{object_id}
-questions/{question_id}/versions/{version_number}/assets/{asset_id}/{object_id}
-questions/{question_id}/versions/{version_number}/restricted-assets/{asset_id}/{object_id}
+questions/{question_id}/versions/{revision_number}/source/{object_id}
+questions/{question_id}/versions/{revision_number}/assets/{asset_id}/{object_id}
+questions/{question_id}/versions/{revision_number}/restricted-assets/{asset_id}/{object_id}
 student-records/exports/{course_id}/{export_id}/exam.pdf
 temp-processing/imports/{import_id}/
 ```
@@ -931,7 +931,7 @@ authorizes the authenticated Account, logs the grant, and returns a bounded shor
 protected GET route whose browser navigation, history, or speculative fetch can mint authority.
 
 The `renders/{seed}` prefix is what makes the WeBWorK renderer affordable: rendering is deterministic
-given `(question_id, version_number, seed)`, so the first render fills the cache and every later Student with that seed
+given `(question_id, revision_number, seed)`, so the first render fills the cache and every later Student with that seed
 gets a CDN hit instead of a Perl fork.
 
 Authoritative-versus-derived roles, settled per backend:
@@ -1003,7 +1003,7 @@ chosen inside MOD-OBJ, so a later move to `objects/sha256/ab/cd/...` changes no 
 
 ## Reproducibility record
 
-Every Question Attempt persists its exact `QuestionVersionReference { question_id, version_number }`, source Object Reference `object_id` and `sha256`,
+Every Question Attempt persists its exact `QuestionRevisionReference { question_id, revision_number }`, source Object Reference `object_id` and `sha256`,
 Question Backend Version, Question Renderer Version where one applies, Question Generator,
 seed, **parameter hash**, asset `object_id` list, Question Grader Version, and rendered-question hash.
 
@@ -1032,7 +1032,7 @@ rendering and search, regenerable from the pinned generator at any time.
 
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
 intact.** Generator version remains part of hidden snapshot identity. A validated moderate generator
-or content edit publishes a new immutable QuestionVersion in the same QuestionId lineage; a full fork
+or content edit publishes a new immutable QuestionRevision in the same QuestionId lineage; a full fork
 publishes a new QuestionId with explicit provenance. Existing assignments and completed attempts keep
 resolving to their exact evidence until an Instructor explicitly applies a controlled assignment
 update. Generator implementations are therefore additive-only while referenced by historical grading
@@ -1159,7 +1159,7 @@ database budgets, with stateless replicas added when the measured workload requi
 
 Rendering and grading are CPU-heavy Perl in the observed provider configuration. A named load review
 records queue depth, CPU, timeout, and user-visible readiness behavior against configured budgets.
-Deterministic render caching by `(question_id, version_number, seed)`, Question prefetch, and worker scaling remain
+Deterministic render caching by `(question_id, revision_number, seed)`, Question prefetch, and worker scaling remain
 the first responses when the observations show pressure. Submitted answers are still graded
 server-side regardless of caching.
 
@@ -1459,7 +1459,7 @@ The preview shows the student view and the answer-key view side by side, since a
 
 **Publish flow.** Validation results identify whether an edit is a moderate same-lineage successor or
 a full fork, show the resulting authorship and license, and offer a content diff against the selected
-source. A moderate steward edit publishes a new immutable QuestionVersion under the same QuestionId;
+source. A moderate steward edit publishes a new immutable QuestionRevision under the same QuestionId;
 a validated full fork publishes a new QuestionId lineage with source attribution. The interface shows
 the stable QuestionId and version history without exposing a hidden snapshot ID, and records
 controlled-update impact separately from publication.
@@ -1489,7 +1489,7 @@ substitution for a required production path.
 | ID                         | Module                                                                   | Exposes                                                                             | Consumes                                                                   | Reference/test implementation        | Independent verification                                                                                                                                                                                                                    |
 | -------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, Question Classifications                             | none                                                                       | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
-| MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionVersionNumber`, lifecycle | MOD-QM                                                                     | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
+| MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionRevisionNumber`, lifecycle | MOD-QM                                                                     | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
 | MOD-ACTIVITY               | Assignment Activity model and policies                                   | Assignment Attempt lifecycle, four policy types                                     | MOD-QM                                                                     | n/a                                  | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
 | MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, within-Assignment-Attempt completion                         | MOD-QM, MOD-ACTIVITY                                                       | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
 | MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                        | MOD-QM                                                                     | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                          |
@@ -1509,7 +1509,7 @@ substitution for a required production path.
 | MOD-WASM                   | WASM bridge                                                              | Typed exports                                                                       | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                              | n/a                                  | Export allowlist; no `grading` in closure                                                                                                                                                                                                   |
 | MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                             | MOD-STO                                                                    | `MemoryStore`                        | Login on one replica, proceed on another                                                                                                                                                                                                    |
 | MOD-API-CAT                | Question Library routes                                                  | `/questions`, Question Classifications, publication                                 | MOD-STO, MOD-ID, MOD-CAP                                                   | `MemoryStore`                        | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
-| MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                          | MOD-STO                                                                    | `MemoryStore`                        | Assignments store exact `(question_id, version_number)` pins                                                                                                                                                                                |
+| MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                          | MOD-STO                                                                    | `MemoryStore`                        | Assignments store exact `(question_id, revision_number)` pins                                                                                                                                                                                |
 | MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`            | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                        | `MemoryStore`                        | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                                   |
 | MOD-API-ASSET              | Asset delivery                                                           | `POST /api/assets/{id}`                                                             | MOD-OBJ, MOD-STO                                                           | `MemoryObjectStore`                  | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                                |
 | MOD-WORKER                 | Jobs queue and worker pool                                               | Enqueue and drain                                                                   | MOD-STO                                                                    | `MemoryStore`                        | Two workers never claim one job; scales on queue depth                                                                                                                                                                                      |
@@ -1645,7 +1645,7 @@ widget exist to build against.
 - Entry criteria: M2 exit criteria met.
 - Exit criteria: the immutable licensed authored
   `content/pilot/webwork/which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades
-  through the shared model; a repeat `(question_id, version_number, seed)` is served from cache without touching the
+  through the shared model; a repeat `(question_id, revision_number, seed)` is served from cache without touching the
   renderer; the renderer has no public endpoint, no PLE database access, enforced CPU, memory, and
   request-time limits, no SQL database or persistent renderer volume; its timeout degrades only
   WeBWorK questions; PLE
@@ -1669,9 +1669,9 @@ draft-identity refactor. It is a prerequisite for every adapter, not an iMathAS-
 adapter may consume an intermediate form:
 
 - MOD-QM defines a private workspace-owned `DraftQuestionDefinition` with workspace-only identity and no
-  `QuestionId` or `QuestionVersionNumber`; published-only definitions and references require both IDs.
+  `QuestionId` or `QuestionRevisionNumber`; published-only definitions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
-  `QuestionVersionReference`, stable QuestionId lineage, and immutable QuestionVersion only after all
+  `QuestionRevisionReference`, stable QuestionId lineage, and immutable QuestionRevision only after all
   publication validation succeeds. A validated moderate steward edit mints a successor version in
   its existing lineage; a validated full fork mints a new lineage with fork authorship, source
   attribution, and a source-compatible license. A failed publication mints neither published
@@ -1834,7 +1834,7 @@ or implementer-authored specification is required.
 
 - Owner: `architect`. Module: MOD-QM. Depends on: WP-F1.
 - Touch points: `crates/question_model/src/`, `docs/QUESTION_MODEL.md`.
-- Acceptance criteria: covers the spec's `QuestionVersion` fields; `QuestionBackendCapabilities` carries all
+- Acceptance criteria: covers the spec's `QuestionRevision` fields; `QuestionBackendCapabilities` carries all
   eight flags; response and grading shapes are enums whose invalid combinations do not compile; tags,
   Question Classification, and licensing types included as shared-content data; **no answer-bearing type defined
   here**; every public item documented per `docs/RUST_STYLE.md` section 13; `ts-rs` derives on every
@@ -1850,11 +1850,11 @@ or implementer-authored specification is required.
 - Touch points: `crates/question_model/src/identity.rs`,
   `crates/question_model/src/question_library.rs`, `docs/QUESTION_ID_SPEC.md`,
   `docs/IDENTITY_CONTRACTS.md`, and `docs/QUESTION_MODEL.md`.
-- Acceptance criteria: `WorkspaceId`, `QuestionId`, and `QuestionVersionNumber` are distinct branded
+- Acceptance criteria: `WorkspaceId`, `QuestionId`, and `QuestionRevisionNumber` are distinct branded
   types that cannot substitute for one another; publication creates a stable Question ID and Version
   Number 1; each accepted same-lineage change advances the positive monotonic Version Number; a fork
-  creates a new Question ID; and `QuestionVersionReference` carries the exact pair. Question
-  Publication Readiness, Question Publication Event, and Question Version Availability remain
+  creates a new Question ID; and `QuestionRevisionReference` carries the exact pair. Question
+  Publication Readiness, Question Publication Event, and Question Revision Availability remain
   separate contracts.
 - Next dependency: WP-C3 and WP-C4 consume this accepted package.
 

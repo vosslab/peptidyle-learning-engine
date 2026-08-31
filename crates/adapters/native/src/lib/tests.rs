@@ -15,8 +15,8 @@ use question_model::generation::{
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     AssetId, DraftQuestionDefinition, DraftQuestionSource, QuestionFormat, QuestionGradingRule,
-    QuestionId, QuestionMetadata, QuestionSource, QuestionType, QuestionVersion,
-    QuestionVersionNumber, StudentResponse, WorkspaceId,
+    QuestionId, QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionSource,
+    QuestionType, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -27,11 +27,11 @@ fn question_id() -> QuestionId {
     QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID")
 }
 
-fn version_number(value: u32) -> QuestionVersionNumber {
-    QuestionVersionNumber::new(value).expect("positive Question Version Number")
+fn revision_number(value: u32) -> QuestionRevisionNumber {
+    QuestionRevisionNumber::new(value).expect("positive Question Revision Number")
 }
 
-fn flat_question() -> QuestionVersion {
+fn flat_question() -> QuestionRevision {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let document =
         crate::flat_question::FlatQuestionDocument::parse(flat_single_choice_bytes().as_slice())
@@ -41,10 +41,10 @@ fn flat_question() -> QuestionVersion {
         .expect("flat fixture should compile")
         .into_parts()
         .0;
-    QuestionVersion::from_draft(
+    QuestionRevision::from_draft(
         draft,
         question_id(),
-        version_number(1),
+        revision_number(1),
         QuestionSource::Native,
     )
 }
@@ -68,11 +68,11 @@ fn metadata(title: &str) -> QuestionMetadata {
     }
 }
 
-fn peptide_question() -> QuestionVersion {
+fn peptide_question() -> QuestionRevision {
     peptide_question_with_generator_version(peptide_bond_geometry::GENERATOR_VERSION)
 }
 
-fn peptide_question_with_generator_version(generator_version: &str) -> QuestionVersion {
+fn peptide_question_with_generator_version(generator_version: &str) -> QuestionRevision {
     let mut parameters = BTreeMap::new();
     parameters.insert(
         "residue".to_string(),
@@ -80,9 +80,9 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionV
             options: vec!["alanine".to_string(), "glycine".to_string()],
         },
     );
-    QuestionVersion {
+    QuestionRevision {
         question_id: question_id(),
-        version_number: version_number(1),
+        revision_number: revision_number(1),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
         source: QuestionSource::Native,
         question_format: QuestionFormat::NativeAlgorithmic,
@@ -585,7 +585,7 @@ fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
         .expect("fixed vector should issue");
     assert_eq!(
         issued.reproduction_details.rendered_question_sha256,
-        "d1174a00295e0bf9ab85f935ef6eadab8548dce254a315281f4a704f20afac22"
+        "96836584526d6fac9585dd32c77c579c681c49fc93b5d4be6085623d571e6e7d"
     );
 }
 
@@ -648,7 +648,7 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         _generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         if !matches!(question.response, QuestionResponseFormat::Numeric { .. }) {
@@ -666,9 +666,9 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
     adapter
         .register_implementation(NumericReferenceImplementation)
         .expect("new implementation identifier should register");
-    let question = QuestionVersion {
+    let question = QuestionRevision {
         question_id: question_id(),
-        version_number: version_number(3),
+        revision_number: revision_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
         source: QuestionSource::Native,
         question_format: QuestionFormat::NativeAlgorithmic,
@@ -752,7 +752,7 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         _generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         let _ = question;
@@ -762,10 +762,10 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
     }
 }
 
-fn versioned_numeric_question(version: &str) -> QuestionVersion {
-    QuestionVersion {
+fn versioned_numeric_question(version: &str) -> QuestionRevision {
+    QuestionRevision {
         question_id: question_id(),
-        version_number: version_number(if version == "1" { 5 } else { 6 }),
+        revision_number: revision_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
         source: QuestionSource::Native,
         question_format: QuestionFormat::NativeAlgorithmic,

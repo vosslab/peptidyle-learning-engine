@@ -3,7 +3,10 @@
 import { A } from "@solidjs/router";
 import type { JSX } from "solid-js";
 
-import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
+import type {
+  AssignmentRouteReference,
+  CourseInstanceRouteReference,
+} from "../../navigation/public_route";
 import {
   assignmentWorkspacePath,
   type AssignmentWorkspaceSection,
@@ -16,7 +19,7 @@ export {
 } from "./assignment_workspace_paths";
 
 export interface AssignmentWorkspaceNavProps {
-  readonly courseReference: CourseRouteReference;
+  readonly courseReference: CourseInstanceRouteReference;
   readonly assignmentReference: AssignmentRouteReference;
   readonly active: AssignmentWorkspaceSection;
 }

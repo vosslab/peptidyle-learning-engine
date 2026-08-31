@@ -1,4 +1,4 @@
-//! [`QuestionVersion`], the backend-neutral representation every engine
+//! [`QuestionRevision`], the backend-neutral representation every engine
 //! maps into (WP-C1).
 //!
 //! One shared shape is what lets a WeBWorK question, a QTI item, an H5P
@@ -19,7 +19,7 @@ use crate::envelope::ContentBlock;
 use crate::generation::QuestionVariationDefinition;
 use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
 use crate::response::{QuestionResponseFormat, QuestionType};
-use crate::{QuestionId, QuestionVersionNumber};
+use crate::{QuestionId, QuestionRevisionNumber};
 
 /// Maximum Unicode scalar values permitted in a student-facing question title.
 ///
@@ -294,7 +294,7 @@ impl QuestionMetadata {
 
 /// Editable workspace content before publication.
 ///
-/// A draft deliberately has neither a [`QuestionId`] nor a [`QuestionVersionNumber`].
+/// A draft deliberately has neither a [`QuestionId`] nor a [`QuestionRevisionNumber`].
 /// Publication is the one boundary that mints both durable identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -327,7 +327,7 @@ pub struct DraftQuestionDefinition {
 ///
 /// The full source locator, prompt, Question Response Format, grading policy, and
 /// asset references remain on the detail record.  In particular, this list
-/// projection deliberately has no published Question ID or Question Version Number.
+/// projection deliberately has no published Question ID or Question Revision Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceDraftSummary {
@@ -362,11 +362,11 @@ impl DraftQuestionDefinition {
 /// this type, so a draft can never enter a published-only path by omission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionVersion {
+pub struct QuestionRevision {
     /// Stable Question lineage established at publication.
     pub question_id: QuestionId,
     /// Exact immutable version within the Question lineage.
-    pub version_number: QuestionVersionNumber,
+    pub revision_number: QuestionRevisionNumber,
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
     /// Which engine it came from.
@@ -391,17 +391,17 @@ pub struct QuestionVersion {
     pub metadata: QuestionMetadata,
 }
 
-impl QuestionVersion {
+impl QuestionRevision {
     /// Attaches the IDs minted at successful publication to draft content.
     pub fn from_draft(
         draft: DraftQuestionDefinition,
         question_id: QuestionId,
-        version_number: QuestionVersionNumber,
+        revision_number: QuestionRevisionNumber,
         source: QuestionSource,
     ) -> Self {
         Self {
             question_id,
-            version_number,
+            revision_number,
             workspace: draft.workspace,
             source,
             question_format: draft.question_format,
@@ -455,15 +455,15 @@ mod tests {
     fn a_draft_serializes_without_published_identifiers() {
         let json = serde_json::to_value(sample_draft()).expect("draft serializes");
         assert!(json.get("questionId").is_none());
-        assert!(json.get("versionNumber").is_none());
+        assert!(json.get("revisionNumber").is_none());
     }
 
     #[test]
-    fn a_published_question_carries_its_question_version_reference() {
-        let published = QuestionVersion::from_draft(
+    fn a_published_question_carries_its_question_revision_reference() {
+        let published = QuestionRevision::from_draft(
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
-            QuestionVersionNumber::new(1).expect("positive version"),
+            QuestionRevisionNumber::new(1).expect("positive version"),
             QuestionSource::Native,
         );
         assert_eq!(published.question_id.to_string(), "123-4567");

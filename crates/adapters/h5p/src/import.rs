@@ -187,7 +187,7 @@ pub struct H5pImportRequest {
 
 /// A converted, unpublished H5P sandbox draft.
 ///
-/// This intentionally is not [`QuestionVersion`]: an H5P import has no
+/// This intentionally is not [`QuestionRevision`]: an H5P import has no
 /// published Question or version identity. The Question Library's publication transition
 /// owns that identity assignment, preserving the invariant that sandbox
 /// imports cannot masquerade as immutable published content.

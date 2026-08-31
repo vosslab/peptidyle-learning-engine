@@ -2,7 +2,7 @@
 
 use objects::{ObjectAddress, ObjectStore};
 use question_model::{
-    QuestionSource, QuestionVersion, QuestionVersionReference, SourceObjectReference,
+    QuestionRevision, QuestionRevisionReference, QuestionSource, SourceObjectReference,
 };
 
 use super::WebworkAdapterError;
@@ -10,7 +10,7 @@ use super::WebworkAdapterError;
 /// Immutable PG source resolved from trusted object storage before adapter use.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebworkSource {
-    pub(super) question_version: QuestionVersionReference,
+    pub(super) question_revision: QuestionRevisionReference,
     pub(super) source_object_reference: SourceObjectReference,
     pub(super) pg_source: Vec<u8>,
 }
@@ -19,11 +19,11 @@ impl WebworkSource {
     /// Resolves PG source only from its exact immutable published object key.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question_version: QuestionVersionReference,
+        question_revision: QuestionRevisionReference,
         source_object_reference: SourceObjectReference,
     ) -> Result<Self, WebworkAdapterError> {
         let expected_key = ObjectAddress::QuestionSource {
-            question_version: question_version.clone(),
+            question_revision: question_revision.clone(),
             object: source_object_reference.object,
         };
         let stored = store
@@ -32,13 +32,13 @@ impl WebworkSource {
             .map_err(WebworkAdapterError::ObjectStore)?;
         if stored.record.address != expected_key
             || stored.record.id != source_object_reference.object
-            || stored.record.question_version != Some(question_version.clone())
+            || stored.record.question_revision != Some(question_revision.clone())
             || stored.record.sha256.to_string() != source_object_reference.sha256
         {
             return Err(WebworkAdapterError::UntrustedSource);
         }
         Ok(Self {
-            question_version,
+            question_revision,
             source_object_reference,
             pg_source: stored.bytes,
         })
@@ -51,13 +51,13 @@ impl WebworkSource {
 }
 
 pub(super) fn webwork_identity(
-    question: &QuestionVersion,
-) -> Result<(QuestionVersionReference, &str), WebworkAdapterError> {
+    question: &QuestionRevision,
+) -> Result<(QuestionRevisionReference, &str), WebworkAdapterError> {
     match &question.source {
         QuestionSource::Webwork { pg_path } => Ok((
-            QuestionVersionReference {
+            QuestionRevisionReference {
                 question_id: question.question_id.clone(),
-                version_number: question.version_number,
+                revision_number: question.revision_number,
             },
             pg_path,
         )),
@@ -76,9 +76,9 @@ pub(super) fn verify_source(source: &WebworkSource) -> Result<(), WebworkAdapter
 
 pub(super) fn verify_source_binding(
     source: &WebworkSource,
-    question_version: &QuestionVersionReference,
+    question_revision: &QuestionRevisionReference,
 ) -> Result<(), WebworkAdapterError> {
-    if &source.question_version == question_version {
+    if &source.question_revision == question_revision {
         Ok(())
     } else {
         Err(WebworkAdapterError::SourceDoesNotMatchQuestion)

@@ -1,18 +1,18 @@
-//! Bounded Question Version substitutions for Blueprint-operation previews.
+//! Bounded Question Revision substitutions for Blueprint-operation previews.
 
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Deserializer, Serialize, de};
 
 use super::bounded::{
-    deserialize_question_version_substitutions, deserialize_replacement_question_versions,
+    deserialize_question_revision_substitutions, deserialize_replacement_question_revisions,
 };
 use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionVersionReference,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionRevisionReference,
 };
 
-/// Exact bounded position of one Question Version in Blueprint Revision Content.
+/// Exact bounded position of one Question Revision in Blueprint Revision Content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", try_from = "BlueprintQuestionPositionParts")]
 pub struct BlueprintQuestionPosition {
@@ -104,165 +104,165 @@ impl std::fmt::Display for BlueprintQuestionPositionError {
 
 impl std::error::Error for BlueprintQuestionPositionError {}
 
-/// One explicit Question Version substitution for an exact Blueprint Question position.
+/// One explicit Question Revision substitution for an exact Blueprint Question position.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct QuestionVersionSubstitution {
+pub struct QuestionRevisionSubstitution {
     /// Exact Blueprint Revision Content coordinate selected by the server preview.
     pub position: BlueprintQuestionPosition,
-    /// Exact immutable Question Version selected through the shared Question Picker.
-    pub question_version: QuestionVersionReference,
+    /// Exact immutable Question Revision selected through the shared Question Picker.
+    pub question_revision: QuestionRevisionReference,
 }
 
-/// Bounded unique Question Version substitutions for one Blueprint-operation preview.
+/// Bounded unique Question Revision substitutions for one Blueprint-operation preview.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[serde(into = "Vec<QuestionVersionSubstitution>")]
-pub struct QuestionVersionSubstitutions(Vec<QuestionVersionSubstitution>);
+#[serde(into = "Vec<QuestionRevisionSubstitution>")]
+pub struct QuestionRevisionSubstitutions(Vec<QuestionRevisionSubstitution>);
 
-impl<'de> Deserialize<'de> for QuestionVersionSubstitutions {
+impl<'de> Deserialize<'de> for QuestionRevisionSubstitutions {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let values = deserialize_question_version_substitutions(deserializer)?;
+        let values = deserialize_question_revision_substitutions(deserializer)?;
         Self::new(values).map_err(de::Error::custom)
     }
 }
 
-impl QuestionVersionSubstitutions {
+impl QuestionRevisionSubstitutions {
     /// Validates unique Blueprint Question positions within the source-selection bound.
     pub fn new(
-        mut values: Vec<QuestionVersionSubstitution>,
-    ) -> Result<Self, QuestionVersionSubstitutionsError> {
+        mut values: Vec<QuestionRevisionSubstitution>,
+    ) -> Result<Self, QuestionRevisionSubstitutionsError> {
         if values.len() > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES {
-            return Err(QuestionVersionSubstitutionsError);
+            return Err(QuestionRevisionSubstitutionsError);
         }
         values.sort_unstable_by_key(|value| value.position);
         if values
             .windows(2)
             .any(|pair| pair[0].position == pair[1].position)
         {
-            return Err(QuestionVersionSubstitutionsError);
+            return Err(QuestionRevisionSubstitutionsError);
         }
         Ok(Self(values))
     }
 
     /// Returns substitutions in the Instructor-confirmed order echoed by preview.
-    pub fn as_slice(&self) -> &[QuestionVersionSubstitution] {
+    pub fn as_slice(&self) -> &[QuestionRevisionSubstitution] {
         &self.0
     }
 }
 
-impl TryFrom<Vec<QuestionVersionSubstitution>> for QuestionVersionSubstitutions {
-    type Error = QuestionVersionSubstitutionsError;
+impl TryFrom<Vec<QuestionRevisionSubstitution>> for QuestionRevisionSubstitutions {
+    type Error = QuestionRevisionSubstitutionsError;
 
-    fn try_from(value: Vec<QuestionVersionSubstitution>) -> Result<Self, Self::Error> {
+    fn try_from(value: Vec<QuestionRevisionSubstitution>) -> Result<Self, Self::Error> {
         Self::new(value)
     }
 }
 
-impl From<QuestionVersionSubstitutions> for Vec<QuestionVersionSubstitution> {
-    fn from(value: QuestionVersionSubstitutions) -> Self {
+impl From<QuestionRevisionSubstitutions> for Vec<QuestionRevisionSubstitution> {
+    fn from(value: QuestionRevisionSubstitutions) -> Self {
         value.0
     }
 }
 
-/// Question Version substitutions exceeded the bound or repeated one Blueprint Question position.
+/// Question Revision substitutions exceeded the bound or repeated one Blueprint Question position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct QuestionVersionSubstitutionsError;
+pub struct QuestionRevisionSubstitutionsError;
 
-impl std::fmt::Display for QuestionVersionSubstitutionsError {
+impl std::fmt::Display for QuestionRevisionSubstitutionsError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Question Version substitutions are invalid")
+        formatter.write_str("Question Revision substitutions are invalid")
     }
 }
 
-impl std::error::Error for QuestionVersionSubstitutionsError {}
+impl std::error::Error for QuestionRevisionSubstitutionsError {}
 
-/// Validated answer-free candidate Question Versions for one replacement action.
+/// Validated answer-free candidate Question Revisions for one replacement action.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(into = "Vec<QuestionVersionReference>")]
-pub struct ReplacementQuestionVersionChoices(Vec<QuestionVersionReference>);
+#[serde(into = "Vec<QuestionRevisionReference>")]
+pub struct ReplacementQuestionRevisionChoices(Vec<QuestionRevisionReference>);
 
-impl<'de> Deserialize<'de> for ReplacementQuestionVersionChoices {
+impl<'de> Deserialize<'de> for ReplacementQuestionRevisionChoices {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let values = deserialize_replacement_question_versions(deserializer)?;
+        let values = deserialize_replacement_question_revisions(deserializer)?;
         Self::new(values).map_err(de::Error::custom)
     }
 }
 
-impl ReplacementQuestionVersionChoices {
-    /// Validates nonempty unique candidate Question Versions within the pool bound.
+impl ReplacementQuestionRevisionChoices {
+    /// Validates nonempty unique candidate Question Revisions within the pool bound.
     pub fn new(
-        values: Vec<QuestionVersionReference>,
-    ) -> Result<Self, ReplacementQuestionVersionChoicesError> {
+        values: Vec<QuestionRevisionReference>,
+    ) -> Result<Self, ReplacementQuestionRevisionChoicesError> {
         if values.is_empty() || values.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL {
-            return Err(ReplacementQuestionVersionChoicesError);
+            return Err(ReplacementQuestionRevisionChoicesError);
         }
         if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
-            return Err(ReplacementQuestionVersionChoicesError);
+            return Err(ReplacementQuestionRevisionChoicesError);
         }
         Ok(Self(values))
     }
 
-    /// Returns candidate Question Versions in server-selected recovery order.
-    pub fn as_slice(&self) -> &[QuestionVersionReference] {
+    /// Returns candidate Question Revisions in server-selected recovery order.
+    pub fn as_slice(&self) -> &[QuestionRevisionReference] {
         &self.0
     }
 }
 
-impl TryFrom<Vec<QuestionVersionReference>> for ReplacementQuestionVersionChoices {
-    type Error = ReplacementQuestionVersionChoicesError;
+impl TryFrom<Vec<QuestionRevisionReference>> for ReplacementQuestionRevisionChoices {
+    type Error = ReplacementQuestionRevisionChoicesError;
 
-    fn try_from(value: Vec<QuestionVersionReference>) -> Result<Self, Self::Error> {
+    fn try_from(value: Vec<QuestionRevisionReference>) -> Result<Self, Self::Error> {
         Self::new(value)
     }
 }
 
-impl From<ReplacementQuestionVersionChoices> for Vec<QuestionVersionReference> {
-    fn from(value: ReplacementQuestionVersionChoices) -> Self {
+impl From<ReplacementQuestionRevisionChoices> for Vec<QuestionRevisionReference> {
+    fn from(value: ReplacementQuestionRevisionChoices) -> Self {
         value.0
     }
 }
 
 /// Replacement candidates were empty, duplicated, or above the pool bound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ReplacementQuestionVersionChoicesError;
+pub struct ReplacementQuestionRevisionChoicesError;
 
-impl std::fmt::Display for ReplacementQuestionVersionChoicesError {
+impl std::fmt::Display for ReplacementQuestionRevisionChoicesError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("replacement question choices are invalid")
     }
 }
 
-impl std::error::Error for ReplacementQuestionVersionChoicesError {}
+impl std::error::Error for ReplacementQuestionRevisionChoicesError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{QuestionId, QuestionVersionNumber};
+    use crate::{QuestionId, QuestionRevisionNumber};
 
     #[test]
     fn pin_replacements_use_snake_case_and_refuse_unknown_fields() {
-        let question_version = QuestionVersionReference {
+        let question_revision = QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("7K3M9Q", 'X').expect("Question ID"),
-            version_number: QuestionVersionNumber::new(2).expect("version"),
+            revision_number: QuestionRevisionNumber::new(2).expect("version"),
         };
-        let replacement = QuestionVersionSubstitution {
+        let replacement = QuestionRevisionSubstitution {
             position: BlueprintQuestionPosition::new(Some(1), 2, 3, Some(4)).expect("position"),
-            question_version,
+            question_revision,
         };
         let wire = serde_json::to_value(&replacement).expect("replacement serializes");
         assert_eq!(wire["position"]["module_index"], 1);
         assert_eq!(wire["position"]["assignment_index"], 2);
         assert_eq!(wire["position"]["candidate_index"], 4);
         assert!(wire["position"].get("moduleIndex").is_none());
-        assert!(serde_json::from_value::<QuestionVersionSubstitution>(wire.clone()).is_ok());
+        assert!(serde_json::from_value::<QuestionRevisionSubstitution>(wire.clone()).is_ok());
         let mut forged = wire;
         forged["position"]["authority"] = serde_json::json!("instructor");
-        assert!(serde_json::from_value::<QuestionVersionSubstitution>(forged).is_err());
+        assert!(serde_json::from_value::<QuestionRevisionSubstitution>(forged).is_err());
     }
 }

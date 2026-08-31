@@ -33,7 +33,7 @@ export const LibraryPage = contractPage(
 );
 export const QuestionDetailPage = contractPage(
   "questionDetail",
-  "Question version",
+  "Question Revision",
   "the Question Library browser lane",
 );
 export const WorkspaceListPage = contractPage(

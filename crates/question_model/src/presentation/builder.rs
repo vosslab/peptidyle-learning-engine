@@ -322,7 +322,7 @@ fn rendered_id_input(
         &mut bytes,
         envelope
             .variation
-            .question_version
+            .question_revision
             .question_id
             .to_string()
             .as_bytes(),
@@ -330,8 +330,8 @@ fn rendered_id_input(
     bytes.extend_from_slice(
         &envelope
             .variation
-            .question_version
-            .version_number
+            .question_revision
+            .revision_number
             .get()
             .to_be_bytes(),
     );
@@ -657,7 +657,7 @@ fn public_envelope(
         }
     };
     Ok(PresentationEnvelopeV1 {
-        question_version: source.variation.question_version.clone(),
+        question_revision: source.variation.question_revision.clone(),
         seed: source.variation.seed,
         presentation_nonce: nonce,
         title: source.title.clone(),

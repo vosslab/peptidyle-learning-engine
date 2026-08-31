@@ -16,13 +16,13 @@ import { studentProgressSummary } from "../student_progress";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
 import {
   assignmentRouteReference,
-  courseRouteReference,
-  type CourseRouteReference,
+  courseInstanceRouteReference,
+  type CourseInstanceRouteReference,
 } from "../navigation/public_route";
 
 export interface AssignmentListProps {
   readonly courseId: CourseId;
-  readonly courseReference: CourseRouteReference;
+  readonly courseReference: CourseInstanceRouteReference;
   readonly initialPage: CursorPage<StudentAssignmentLandingSummary>;
   readonly reloadAssignments: () => Promise<void>;
   readonly canCreateAssignment: boolean;
@@ -39,7 +39,7 @@ function pluralize(count: number, singular: string, plural: string): string {
 
 interface AssignmentCardProps {
   readonly assignment: StudentAssignmentLandingSummary;
-  readonly courseReference: CourseRouteReference;
+  readonly courseReference: CourseInstanceRouteReference;
   readonly canManageAssignment: boolean;
   readonly registerLink: (
     assignment: StudentAssignmentLandingSummary,
@@ -312,7 +312,8 @@ export function CourseAssignmentsPage(): JSX.Element {
   const courseScope = useCourseThemeRouteData();
   const course = courseScope?.kind === "course" ? courseRouteData(courseScope).summary : undefined;
   const courseId = course?.id;
-  const courseReference = course === undefined ? undefined : courseRouteReference(course.reference);
+  const courseReference =
+    course === undefined ? undefined : courseInstanceRouteReference(course.reference);
   const assignments = createAsync(() => {
     if (courseId === undefined) {
       return Promise.reject(new Error("Course route is unavailable"));

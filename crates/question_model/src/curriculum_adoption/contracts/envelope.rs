@@ -130,7 +130,7 @@ mod tests {
                     reference: BlueprintCourseReference::new(7).expect("blueprint"),
                     revision: BlueprintRevision::new(2).expect("revision"),
                 },
-                replacements: super::super::QuestionVersionSubstitutions::default(),
+                replacements: super::super::QuestionRevisionSubstitutions::default(),
             },
         }
     }

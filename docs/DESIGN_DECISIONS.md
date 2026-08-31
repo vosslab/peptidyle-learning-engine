@@ -118,13 +118,13 @@ Question Submissions own the Responses.
 **Why.** An Instructor can clearly distinguish an attempt at a whole Assignment
 from an attempt at one Question and can distinguish per-question answer
 acceptance from whole-Assignment finalization. Issued Question is
-necessary immutable evidence for pool selection, exact Question Version,
+necessary immutable evidence for pool selection, exact Question Revision,
 source entry, order, and scoring treatment. Assignment remains the sole live
 teaching definition.
 
 **Consequence.** Assignment Attempt links directly to one Student Record and
 Assignment; Issued Question links that pass to its source Assignment Entry and
-exact Question Version; Question Attempt links to one Issued Question; Question
+exact Question Revision; Question Attempt links to one Issued Question; Question
 Submission links to one Question Attempt; and Assignment
 Submission, when required, links directly to the Assignment Attempt. New
 PLE-owned documentation, UI, routes, types, and schema use this full hierarchy.
@@ -137,7 +137,7 @@ acceptance evidence.
 
 **Decision.** An Instructor's mutable draft belongs to a private authoring workspace owned by that
 Instructor and shared only through an explicit workspace relationship. Publication mints one
-immutable QuestionVersion in the installation-wide Question Library under a stable QuestionId
+immutable QuestionRevision in the installation-wide Question Library under a stable QuestionId
 lineage. The Question stewardship decision below classifies whether a later change creates another
 version in that lineage or a fork with a new QuestionId. Every published Assignment pin remains
 exactly resolvable in both Available and Archived states, with availability visible in the
@@ -154,16 +154,16 @@ Keeping drafts private prevents unfinished material from reducing discovery qual
 **Consequence.** Existing Assignments and issued Assignment Attempts retain their exact references. An Instructor
 must deliberately replace or opt in to a newer version; no publication, correction, or background
 action may advance an assignment. Browser requests never choose a hidden version. Internal
-Question Version UUID evidence supports replay, grading, audit, source history, and authorized transport
+Question Revision UUID evidence supports replay, grading, audit, source history, and authorized transport
 only; publication atomically records the version payload, lineage, source history, and visibility. The
-assigned `AAA-BBBB` Question ID names the durable lineage. The Question Version UUID is the sole
+assigned `AAA-BBBB` Question ID names the durable lineage. The Question Revision UUID is the sole
 immutable content identity used by exact Assignment and evidence pins.
 **Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [SECURITY_MODEL.md](SECURITY_MODEL.md#question-library-publication-boundary), and the Question Library rows
 in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
 
 **Implementation boundary.** PLE directly applies the no-drift design while it remains
-pre-production. Real native and WeBWorK host-seed publishers mint fresh opaque QuestionVersion
+pre-production. Real native and WeBWorK host-seed publishers mint fresh opaque QuestionRevision
 evidence under the stewarded QuestionId lineage, or a new QuestionId for a major semantic fork,
 and converge only through a protected manifest or verified existing record. Isolated unit fixtures,
 derived render/cache identities, and non-question seed records may remain deterministic. Later
@@ -175,7 +175,7 @@ returned ACCEPT with no P0-P3 finding.
 
 ### Published Questions have four stewardship paths
 
-**Decision.** A stable `QuestionId` names one question lineage and each `QuestionVersion` is
+**Decision.** A stable `QuestionId` names one question lineage and each `QuestionRevision` is
 immutable. Published-question stewardship has four paths:
 
 1. A Question Owner may publish a validated moderate edit as an immutable
@@ -216,7 +216,7 @@ paths distinguish a Question Owner's edit, a lightweight contribution, a separat
 emergency. Meaning-based stewardship and explicit opt-in propagation preserve Instructor control,
 authorship, credit, licensing, and history.
 
-**Consequence.** Global evidence stores counts per exact QuestionVersion: accepted graded attempts,
+**Consequence.** Global evidence stores counts per exact QuestionRevision: accepted graded attempts,
 correct outcomes, and eligible choice counts for supported Question Types.
 The Question Library exposes only privacy-safe labeled rollups after applicable disclosure
 thresholds are met.
@@ -231,8 +231,8 @@ Question Library.
 
 ### Forced Question Correction is Sysadmin-approved
 
-**Decision.** Every `QuestionVersion` remains immutable, including during an emergency. A validated
-corrected QuestionVersion exists before a closed, immutable, privacy-safe
+**Decision.** Every `QuestionRevision` remains immutable, including during an emergency. A validated
+corrected QuestionRevision exists before a closed, immutable, privacy-safe
 **Forced Question Correction** Manifest is created. The Manifest binds the flawed version, replacement
 version, reason (`security_flaw` or `critical_correctness_flaw`), affected bindings and evidence,
 and deterministic remediation. A Sysadmin alone approves the correction. Approval immediately
@@ -260,7 +260,7 @@ and course counts plus manifest status, but no Student identities, responses, gr
 CourseInstance identity. Replacement validation, manifest creation, Sysadmin approval, atomic
 reference advancement, reissue or excuse, superseding receipt, course remediation, and
 recalculation each append an attributable immutable record containing the authenticated Account, reason, time, and
-exact QuestionVersion references. The Question Library labels the flawed version as superseded while
+exact QuestionRevision references. The Question Library labels the flawed version as superseded while
 retaining its original evidence and controlled historical resolution.
 **Owner.** [SECURITY_MODEL.md](SECURITY_MODEL.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
@@ -293,9 +293,10 @@ MOD-API-CAT in
 
 **Decision.** WP-INST-T6 gives each assignment one exact course-scoped Instructor workspace. Its
 Overview, Questions, Policies, and Student view are separate tasks over the same assignment record.
-Questions owns title and ordered fixed-or-pool content. Policies owns audience, disclosure, run
-policies, instructions, schedule, limits, late behavior, and lifecycle. Student view is a read-only
-answer-free presentation of the current assignment, not an alternate student or preview record.
+Questions owns title and ordered fixed-or-pool content. Policies owns disclosure, Assignment
+Activity policies, instructions, schedule, limits, late behavior, and lifecycle. Active Student
+Course Membership determines ordinary access. Student view is a read-only answer-free
+presentation of the current assignment, not an alternate student or preview record.
 
 **Why.** Instructors choose a named teaching object before choosing a task. A single aggregate
 revision keeps separate pages from silently overwriting each other while focused ownership prevents
@@ -409,7 +410,7 @@ the server loads the complete attempt relationship and durably accepts one immut
 response before grading.
 
 **Why.** An issued Question Attempt already binds Student Record, Course Instance, Assignment,
-Assignment Attempt, Issued Question, immutable Question Version, seed, timing, policy,
+Assignment Attempt, Issued Question, immutable Question Revision, seed, timing, policy,
 Question Response Format, and grading backend. Repeating those values expands traffic and creates conflicting
 sources of truth.
 
@@ -431,7 +432,7 @@ buffer and exposes **Check grading status**; the worker owns later progress.
 synchronous exact-claim path and the background recovery worker. `AcceptedSubmissionExecutionWorker`
 owns the worker-only claim, private load, grading call, and tuple-fenced completion or failure.
 The ordinary worker retains the existing Job Kinds; automated execution uses a dedicated
-store capability and process login, while Instructor operations receive metadata-only recovery
+store capability and service login, while Instructor operations receive metadata-only recovery
 commands.
 
 **Why.** A student acknowledgement must remain recoverable when the request ends before grading,
@@ -552,7 +553,8 @@ Student Course Membership episode bound to that stable Student Record; re-enroll
 new membership episode bound to the existing record.
 An Assignment Attempt directly binds that Student Record to one Assignment. An Assignment Grade
 binds the same pair and selects its contributing Assignment Attempt. Assignment lists and empty
-activity states are derived from the Course Membership, Assignment audience, and access rules.
+activity states are derived from Active Student Course Membership, Assignment Status, and
+effective access rules.
 
 **Why.** A Student should retain one PLE account across courses. Course-scoped authorization,
 Student ownership, and RLS control disclosure more reliably than pretending the same
@@ -895,7 +897,7 @@ in addition to its closed handler kind, generation fence, and opaque current
 lease. Course work records its exact Course Instance UUID and Assignment or
 Assignment Attempt UUID;
 workspace work records its Authoring Workspace UUID and import when applicable;
-Question Library work records its exact immutable Question Version UUID; exports record
+Question Library work records its exact immutable Question Revision UUID; exports record
 their Assignment Export UUID, Course Instance, frozen Manifest, and expected
 Artifact UUIDs. A worker
 broker compares handler kind, typed target, generation, unexpired lease, and

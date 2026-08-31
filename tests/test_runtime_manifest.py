@@ -188,7 +188,7 @@ def test_revalidation_refuses_a_replaced_admin_password_without_disclosing_it(
 	assert replacement not in str(raised.value)
 	with pytest.raises(SystemExit, match="2"):
 		local_stack_control.runtime_manifest.main(
-			["--emit-automated-grading-login-provisioning", str(tmp_path)]
+			["--unknown-runtime-manifest-command", str(tmp_path)]
 		)
 	captured = capsys.readouterr()
 	assert captured.out == ""

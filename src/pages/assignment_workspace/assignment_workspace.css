@@ -73,8 +73,7 @@
 
 .assignment-workspace-policies .assignment-editor-policy-set--disclosure,
 .assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
-.assignment-workspace-policies .assignment-editor-policy-set--schedule,
-.assignment-workspace-policies .assignment-editor-policy-set--audience {
+.assignment-workspace-policies .assignment-editor-policy-set--schedule {
   grid-column: 1 / -1;
 }
 
@@ -101,13 +100,6 @@
 .assignment-workspace-policies .assignment-editor-field textarea {
   min-width: 0;
   max-width: 100%;
-}
-
-.assignment-workspace-audience-choices {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-column: 1 / -1;
-  gap: var(--ple-assignment-field-gap);
 }
 
 .assignment-workspace-save-message {
@@ -332,7 +324,6 @@
   .assignment-workspace-policies .assignment-editor-policy-set--disclosure,
   .assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
   .assignment-workspace-policies .assignment-editor-policy-set--schedule,
-  .assignment-workspace-audience-choices,
   .assignment-workspace-policy-summary dl {
     grid-template-columns: minmax(0, 1fr);
   }

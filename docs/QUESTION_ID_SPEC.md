@@ -7,7 +7,7 @@ communicate, and enter. The Question ID is the visible identity of one stable
 published question lineage. It is not a UUID, a sequence number, a credential,
 or an authorization decision.
 
-Each published `QuestionVersion` is immutable. A stable Question ID may therefore
+Each published `QuestionRevision` is immutable. A stable Question ID may therefore
 have multiple exact versions without changing the identity that instructors use.
 Assignments, issued work, and evidence retain their exact version pins; no
 operation resolves an assignment through an implicit latest version.
@@ -90,15 +90,15 @@ enforced independently of the larger encoded namespace.
 
 ## Lineage and versions
 
-One Question ID names one stable published lineage. A **Question Version** names
+One Question ID names one stable published lineage. A **Question Revision** names
 one immutable published meaning within that lineage and is identified by the
-exact `QuestionVersionReference { question_id, version_number }` pair. Its
-Question Version Number is a positive monotonic integer assigned within that
+exact `QuestionRevisionReference { question_id, revision_number }` pair. Its
+Question Revision Number is a positive monotonic integer assigned within that
 Question lineage. A draft has a private workspace identity, but no published
-Question ID or Question Version Number.
+Question ID or Question Revision Number.
 
 An accepted same-lineage publication keeps the Question ID and assigns the next
-Question Version Number. Publication of a separate lineage mints a new Question
+Question Revision Number. Publication of a separate lineage mints a new Question
 ID and starts that lineage at Version Number 1. The
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the change-operation
 meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
@@ -106,13 +106,13 @@ meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
 ## Exact pins and evidence
 
 Every fixed Assignment Entry and Question Pool candidate pins one exact
-`QuestionVersionReference`. A browser-safe projection may include the Question
+`QuestionRevisionReference`. A browser-safe projection may include the Question
 ID without exposing the server-owned exact-version reference. An explicit,
 revision-checked Assignment update may choose a new Available version.
 Publication, availability changes, correction processing, and background work
 preserve the Assignment's selected reference.
 
-Every Issued Question retains that exact Question Version Reference and
+Every Issued Question retains that exact Question Revision Reference and
 selection evidence. Every Question Attempt retains its server-generated seed
 and reproduction evidence. Grading evidence and audit records resolve the
 same exact pair. A Student receives content only through server-authorized
@@ -123,10 +123,10 @@ Assignment Access for that reference.
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the canonical lifecycle
 meanings. Question Publication Readiness is the calculated blocking-issue set
 for one Draft Question Revision. A Question Publication Event creates the first
-Question Version in a new lineage. A Question Version Availability Event records
+Question Revision in a new lineage. A Question Revision Availability Event records
 whether an immutable version is Available or Archived for ordinary selection.
 Both availability values preserve exact historical resolution through the same
-Question Version Reference.
+Question Revision Reference.
 
 ## Authorization boundary
 
@@ -149,8 +149,8 @@ canonical display form.
 The implementation is complete when:
 
 - one visible `AAA-BBBB` ID names each stable published lineage;
-- each publication has an immutable Question Version identified by one exact
-  Question Version Reference;
+- each publication has an immutable Question Revision identified by one exact
+  Question Revision Reference;
 - same-lineage publication advances the Version Number and a separate lineage
   receives a new Question ID;
 - assignments, attempts, and evidence retain exact version pins;

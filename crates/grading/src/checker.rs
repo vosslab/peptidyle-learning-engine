@@ -10,7 +10,7 @@ use domain::statistics::QuestionStatisticsObservation;
 use domain::validation::{StudentResponseFormatIssue, validate_response_format};
 use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
-use question_model::{GradingResult, QuestionGradingRule, QuestionVersion};
+use question_model::{GradingResult, QuestionGradingRule, QuestionRevision};
 
 use crate::AnswerKey;
 
@@ -84,7 +84,7 @@ impl std::error::Error for GradingError {}
 /// or other backend-owned grading behavior. This checker never fabricates a
 /// numeric grade.
 pub fn grade(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     response: &StudentResponse,
     key: Option<&AnswerKey>,
 ) -> Result<QuestionGradingOutcome, GradingError> {
@@ -122,7 +122,7 @@ pub fn grade(
 /// selections. Other supported response formats still contribute one accepted
 /// grade and its correctness without inventing a choice-count interpretation.
 pub fn question_statistics_observation(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     response: &StudentResponse,
     outcome: &QuestionGradingOutcome,
 ) -> Result<Option<QuestionStatisticsObservation>, GradingError> {
@@ -350,7 +350,7 @@ mod tests {
     use question_model::generation::QuestionVariationDefinition;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
-        QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionVersionNumber,
+        QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber, QuestionSource,
         WorkspaceId,
     };
     use uuid::Uuid;
@@ -369,10 +369,13 @@ mod tests {
         }
     }
 
-    fn question(response: QuestionResponseFormat, grading: QuestionGradingRule) -> QuestionVersion {
-        QuestionVersion {
+    fn question(
+        response: QuestionResponseFormat,
+        grading: QuestionGradingRule,
+    ) -> QuestionRevision {
+        QuestionRevision {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-            version_number: QuestionVersionNumber::new(2).expect("positive version"),
+            revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
             source: QuestionSource::Native,
             question_format: QuestionFormat::NativeAlgorithmic,
@@ -395,7 +398,7 @@ mod tests {
         }
     }
 
-    fn all_or_nothing(response: QuestionResponseFormat) -> QuestionVersion {
+    fn all_or_nothing(response: QuestionResponseFormat) -> QuestionRevision {
         question(response, QuestionGradingRule::AllOrNothing { points: 2.0 })
     }
 

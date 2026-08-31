@@ -97,7 +97,7 @@ def values() -> dict[str, str]:
 
 
 #============================================
-def test_process_login_profiles_have_exact_set_only_memberships() -> None:
+def test_service_login_profiles_have_exact_set_only_memberships() -> None:
 	"""Role reset grants each service its one intended capability profile."""
 	expected_roles = {
 		local_stack_control.process_logins.API_LOGIN: ("ple_app", "ple_auth"),
@@ -115,7 +115,7 @@ def test_process_login_profiles_have_exact_set_only_memberships() -> None:
 
 
 #============================================
-def test_process_login_profiles_reject_unallowlisted_capability() -> None:
+def test_service_login_profiles_reject_unallowlisted_capability() -> None:
 	"""Callers cannot assemble an arbitrary database authority profile."""
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.process_logins.login_sql(

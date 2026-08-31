@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use objects::ObjectStoreError;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    GradingResult, QuestionAttemptId, QuestionTitleError, QuestionVersionReference,
+    GradingResult, QuestionAttemptId, QuestionRevisionReference, QuestionTitleError,
 };
 
 use crate::cache::{binding_payload, constant_time_eq, hex};
@@ -67,7 +67,7 @@ impl CorrelationIssuer {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GradeBinding {
     pub attempt: QuestionAttemptId,
-    pub question_version: QuestionVersionReference,
+    pub question_revision: QuestionRevisionReference,
     pub seed: QuestionSeed,
 }
 
@@ -129,7 +129,7 @@ impl std::fmt::Debug for ServerCorrelation {
 pub struct VerifiedProviderGrade {
     pub(crate) result: GradingResult,
     pub(crate) attempt: QuestionAttemptId,
-    pub(crate) question_version: QuestionVersionReference,
+    pub(crate) question_revision: QuestionRevisionReference,
     pub(crate) seed: QuestionSeed,
     pub(crate) correlation: String,
 }
@@ -139,7 +139,7 @@ impl std::fmt::Debug for VerifiedProviderGrade {
         f.debug_struct("VerifiedProviderGrade")
             .field("result", &self.result)
             .field("attempt", &self.attempt)
-            .field("question_version", &self.question_version)
+            .field("question_revision", &self.question_revision)
             .field("seed", &self.seed)
             .field("correlation", &"REDACTED")
             .finish()
@@ -157,7 +157,7 @@ impl VerifiedProviderGrade {
     pub fn binding(&self) -> GradeBinding {
         GradeBinding {
             attempt: self.attempt,
-            question_version: self.question_version.clone(),
+            question_revision: self.question_revision.clone(),
             seed: self.seed,
         }
     }
@@ -168,14 +168,14 @@ impl VerifiedProviderGrade {
     pub(crate) fn verified(
         result: GradingResult,
         attempt: QuestionAttemptId,
-        question_version: QuestionVersionReference,
+        question_revision: QuestionRevisionReference,
         seed: QuestionSeed,
         correlation: &ServerCorrelation,
     ) -> Self {
         Self {
             result,
             attempt,
-            question_version,
+            question_revision,
             seed,
             correlation: correlation.0.clone(),
         }
@@ -192,7 +192,7 @@ impl VerifiedProviderGrade {
         Self {
             result,
             attempt: binding.attempt,
-            question_version: binding.question_version,
+            question_revision: binding.question_revision,
             seed: binding.seed,
             correlation: correlation.0.clone(),
         }

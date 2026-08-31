@@ -9,7 +9,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
 ## Non-negotiable boundaries
 
 - Map engine-specific input into `crates/question_model`. Downstream code reads the shared
-  `QuestionVersion`, `QuestionPresentation`, and `StudentResponse` contracts rather than adapter
+  `QuestionRevision`, `QuestionPresentation`, and `StudentResponse` contracts rather than adapter
   types.
 - Put answer keys, correct-choice bindings, and correctness logic in `crates/grading` or a
   server-only injected grading capability. The browser and WebAssembly dependency closure must not
@@ -59,7 +59,7 @@ Use the following sequence for a question-agnostic adapter.
    media type, license, provenance, immutable problem/version binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.
-3. Compile the source to a key-free `QuestionVersion`. Keep an answer-bearing compilation product
+3. Compile the source to a key-free `QuestionRevision`. Keep an answer-bearing compilation product
    in private grading storage, or retain an immutable source that only server-side grading can read.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.

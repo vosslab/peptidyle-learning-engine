@@ -43,7 +43,7 @@ legacy controller or retained local data.
   `sudo`, a Podman pod, Quadlet, host systemd, direct volume mounting, global prune, or a broad
   resource-removal command.
 - Focused Python modules now own build order, local-secret bootstrap, migrations, grading-role
-  provisioning, seed publication, renderer identity/probe, polling, and semantic service readiness.
+  Service Login Setup, seed publication, renderer identity/probe, polling, and semantic service readiness.
   WP-PY-L1 replaces `launch.sh`, `_restart.sh`, and `containers/local_identity_bootstrap.sh` together;
   no Python wrapper or dual launcher is permitted. WP-PY-L1 final material-tree Validation and its
   independent reviews are accepted.

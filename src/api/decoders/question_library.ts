@@ -20,13 +20,19 @@ import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSumma
 import type { AssignmentCompletionRule } from "../../../generated/api/AssignmentCompletionRule";
 import type { AssignmentAttemptContinuationRule } from "../../../generated/api/AssignmentAttemptContinuationRule";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
-import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
+import type {
+  AssignmentRouteReference,
+  CourseInstanceRouteReference,
+} from "../../navigation/public_route";
 import { decodePublicByline } from "../public_byline";
-import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
+import {
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+} from "../../navigation/public_route";
 
-function decodeCourseInstanceReference(value: unknown, path: string): CourseRouteReference {
+function decodeCourseInstanceReference(value: unknown, path: string): CourseInstanceRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
-  const reference = parseCourseReference(value);
+  const reference = parseCourseInstanceReference(value);
   if (reference === null) throw new DecodeError(path, "a C- reference");
   return reference;
 }
@@ -70,7 +76,7 @@ import {
   decodeAssignmentTitle,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
-  decodeQuestionVersionAvailability,
+  decodeQuestionRevisionAvailability,
   decodeCursor,
   decodeEnvelopeTitle,
   decodeIdentifier,
@@ -139,7 +145,7 @@ export function decodeQuestionSummary(
     ),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, strict),
     byline: decodePublicByline(field(record, "byline", path), `${path}.byline`),
-    availability: decodeQuestionVersionAvailability(
+    availability: decodeQuestionRevisionAvailability(
       field(record, "availability", path),
       `${path}.availability`,
       strict,

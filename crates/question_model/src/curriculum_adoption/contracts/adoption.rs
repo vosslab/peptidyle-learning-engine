@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken, BlueprintRevisionReference,
     CourseInstanceCreationReservation, CourseInstanceScheduleCorrection, CourseInstanceSnapshot,
-    CourseOrigin, QuestionVersionSubstitutions, UnavailableQuestionVersionRecovery,
+    CourseOrigin, QuestionRevisionSubstitutions, UnavailableQuestionRevisionRecovery,
 };
 use crate::{
     AccountId, ActivityTimestamp, AssignmentReference, BlueprintCourseReference, BlueprintRevision,
@@ -85,8 +85,8 @@ pub enum BlueprintOperationBlocker {
         #[serde(deserialize_with = "deserialize_schedule_corrections")]
         corrections: Vec<CourseInstanceScheduleCorrection>,
     },
-    UnavailableQuestionVersion {
-        recovery: UnavailableQuestionVersionRecovery,
+    UnavailableQuestionRevision {
+        recovery: UnavailableQuestionRevisionRecovery,
     },
     SourceRevisionDrift {
         observed: BlueprintRevisionReference,
@@ -103,8 +103,8 @@ pub enum BlueprintOperationBlocker {
 pub struct ForkBlueprintCoursePreviewRequest {
     /// The exact readable source revision selected by the browser.
     pub source: BlueprintRevisionReference,
-    /// Explicit Question Version substitutions selected during preview correction.
-    pub replacements: QuestionVersionSubstitutions,
+    /// Explicit Question Revision substitutions selected during preview correction.
+    pub replacements: QuestionRevisionSubstitutions,
 }
 
 /// Browser preview request for one bounded BlueprintCourse assignment adoption.
@@ -115,8 +115,8 @@ pub struct AdoptBlueprintAssignmentPreviewRequest {
     pub source: BlueprintAssignmentRevisionReference,
     /// Existing CourseInstance destination.
     pub course: CourseInstanceReference,
-    /// Explicit Question Version substitutions selected during preview correction.
-    pub replacements: QuestionVersionSubstitutions,
+    /// Explicit Question Revision substitutions selected during preview correction.
+    pub replacements: QuestionRevisionSubstitutions,
 }
 
 /// Browser preview request for a whole BlueprintCourse instantiation.
@@ -128,7 +128,7 @@ pub struct InstantiateBlueprintCoursePreviewRequest {
     /// Destination term whose local calendar resolves source schedule intent.
     pub target_term: CourseTerm,
     /// Explicit QuestionId substitutions selected during preview correction.
-    pub replacements: QuestionVersionSubstitutions,
+    pub replacements: QuestionRevisionSubstitutions,
 }
 
 /// Answer-free result used to create a fork command.
@@ -138,7 +138,7 @@ pub struct ForkBlueprintCoursePreviewView {
     /// Exact source observed by the authorized server read.
     pub source: BlueprintRevisionReference,
     /// Server-validated substitutions.
-    pub replacements: QuestionVersionSubstitutions,
+    pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the fork command.
     pub readiness: BlueprintOperationReadiness,
 }
@@ -152,7 +152,7 @@ pub struct AdoptBlueprintAssignmentPreviewView {
     /// Exact existing CourseInstance state observed by the authorized server read.
     pub destination: CourseInstanceSnapshot,
     /// Server-validated substitutions.
-    pub replacements: QuestionVersionSubstitutions,
+    pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the ordinary adoption command.
     pub readiness: BlueprintOperationReadiness,
 }
@@ -166,7 +166,7 @@ pub struct InstantiateBlueprintCoursePreviewView {
     /// Destination term returned by preview.
     pub target_term: CourseTerm,
     /// Server-validated substitutions.
-    pub replacements: QuestionVersionSubstitutions,
+    pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the instantiation command.
     pub readiness: BlueprintOperationReadiness,
 }
@@ -175,7 +175,7 @@ pub struct InstantiateBlueprintCoursePreviewView {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseCommand {
     source: BlueprintRevisionReference,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     creation: BlueprintForkReservation,
     idempotency_key: BlueprintOperationRetryToken,
 }
@@ -186,7 +186,7 @@ pub struct AdoptBlueprintAssignmentCommand {
     source: BlueprintAssignmentRevisionReference,
     destination: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     authorized_account: AccountId,
     request_digest: [u8; 32],
     idempotency_key: BlueprintOperationRetryToken,
@@ -197,7 +197,7 @@ pub struct AdoptBlueprintAssignmentCommand {
 pub struct InstantiateBlueprintCourseCommand {
     source: BlueprintRevisionReference,
     target_term: CourseTerm,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     creation: CourseInstanceCreationReservation,
     idempotency_key: BlueprintOperationRetryToken,
 }
@@ -225,7 +225,7 @@ impl AdoptBlueprintAssignmentCommand {
     pub fn course_origin(&self) -> CourseOrigin {
         self.course_origin
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -260,7 +260,7 @@ impl ForkBlueprintCourseCommand {
         &self.source
     }
 
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
 
@@ -294,7 +294,7 @@ impl InstantiateBlueprintCourseCommand {
         &self.target_term
     }
 
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
 
@@ -440,8 +440,8 @@ mod tests {
     use crate::{
         AccountId, BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision,
         CourseScheduleRevisionNumber, CourseScheduleRevisionReference,
-        CurriculumAdoptionRequestBinding, QuestionId, QuestionVersionNumber,
-        QuestionVersionReference,
+        CurriculumAdoptionRequestBinding, QuestionId, QuestionRevisionNumber,
+        QuestionRevisionReference,
     };
     use uuid::Uuid;
 
@@ -503,19 +503,19 @@ mod tests {
             .expect("bounded witness")
     }
 
-    fn unavailable_recovery() -> UnavailableQuestionVersionRecovery {
-        UnavailableQuestionVersionRecovery {
+    fn unavailable_recovery() -> UnavailableQuestionRevisionRecovery {
+        UnavailableQuestionRevisionRecovery {
             source: BlueprintAssignmentRevisionReference::new(source(), assignment_id()),
             position: super::super::BlueprintQuestionPosition::new(None, 0, 0, None)
                 .expect("position"),
-            unavailable: QuestionVersionReference {
+            unavailable: QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
-                version_number: QuestionVersionNumber::new(1).expect("positive version"),
+                revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
-            choices: super::super::ReplacementQuestionVersionChoices::new(vec![
-                QuestionVersionReference {
+            choices: super::super::ReplacementQuestionRevisionChoices::new(vec![
+                QuestionRevisionReference {
                     question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question"),
-                    version_number: QuestionVersionNumber::new(2).expect("positive version"),
+                    revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
                 },
             ])
             .expect("choices"),
@@ -528,7 +528,7 @@ mod tests {
         let source = source();
         let fork = ForkBlueprintCoursePreviewView {
             source,
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let command = ForkBlueprintCourseCommand::from_server_record(
@@ -556,7 +556,7 @@ mod tests {
         let adopt = AdoptBlueprintAssignmentPreviewView {
             source: location,
             destination: destination(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Blocked {
                 blocker: BlueprintOperationBlocker::ScheduleCorrectionsRequired {
                     corrections: vec![],
@@ -588,7 +588,7 @@ mod tests {
         let adoption = AdoptBlueprintAssignmentPreviewView {
             source: location,
             destination: destination(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let command = AdoptBlueprintAssignmentCommand::from_server_record(
@@ -616,7 +616,7 @@ mod tests {
         let instantiation = InstantiateBlueprintCoursePreviewView {
             source,
             target_term: term.clone(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let command = InstantiateBlueprintCourseCommand::from_server_record(
@@ -649,7 +649,7 @@ mod tests {
         let source = source();
         let preview = ForkBlueprintCoursePreviewView {
             source,
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let wire = serde_json::to_value(preview).expect("preview serializes");
@@ -688,7 +688,7 @@ mod tests {
                     reason: super::super::CourseInstanceScheduleReason::AmbiguousLocalTime,
                 }],
             },
-            BlueprintOperationBlocker::UnavailableQuestionVersion {
+            BlueprintOperationBlocker::UnavailableQuestionRevision {
                 recovery: unavailable_recovery(),
             },
             BlueprintOperationBlocker::SourceRevisionDrift { observed: source() },
@@ -713,7 +713,7 @@ mod tests {
             assert_eq!(
                 super::super::ForkBlueprintCourseApplyRecord::new(
                     source(),
-                    QuestionVersionSubstitutions::default(),
+                    QuestionRevisionSubstitutions::default(),
                     creation,
                     BlueprintOperationReadiness::Blocked {
                         blocker: blocker.clone(),
@@ -729,7 +729,7 @@ mod tests {
         let key = BlueprintOperationRetryToken::parse("creation-binding").expect("key");
         let fork = ForkBlueprintCoursePreviewView {
             source: source(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let creation = BlueprintForkReservation::new(
@@ -776,7 +776,7 @@ mod tests {
         let instantiate = InstantiateBlueprintCoursePreviewView {
             source: source(),
             target_term: term.clone(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         let instance_key = BlueprintOperationRetryToken::parse("instance-binding").expect("key");
@@ -813,14 +813,14 @@ mod tests {
         );
         let record = super::super::ForkBlueprintCourseApplyRecord::new(
             source(),
-            QuestionVersionSubstitutions::default(),
+            QuestionRevisionSubstitutions::default(),
             creation.clone(),
             BlueprintOperationReadiness::Ready,
         )
         .expect("server record");
         let mut browser_preview = ForkBlueprintCoursePreviewView {
             source: source(),
-            replacements: QuestionVersionSubstitutions::default(),
+            replacements: QuestionRevisionSubstitutions::default(),
             readiness: BlueprintOperationReadiness::Ready,
         };
         browser_preview.source = BlueprintRevisionReference {

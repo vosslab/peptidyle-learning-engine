@@ -66,7 +66,7 @@ import {
   decodeCursor,
   decodeCursorPage,
   decodeIdentifier,
-  decodeQuestionVersionReference,
+  decodeQuestionRevisionReference,
   decodeSha256,
   decodeQuestionClassification,
   decodeTimestamp,
@@ -142,7 +142,7 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "statisticsEligible",
   ]);
   const reference = decodeRecord(field(record, "reference", path), `${path}.reference`);
-  requireOnlyFields(reference, `${path}.reference`, ["questionId", "versionNumber"]);
+  requireOnlyFields(reference, `${path}.reference`, ["questionId", "revisionNumber"]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     assignmentAttempt: decodeIdentifier(
@@ -161,7 +161,7 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
-    reference: decodeQuestionVersionReference(reference, `${path}.reference`, true),
+    reference: decodeQuestionRevisionReference(reference, `${path}.reference`, true),
     statisticsEligible: decodeBoolean(
       field(record, "statisticsEligible", path),
       `${path}.statisticsEligible`,
@@ -671,9 +671,9 @@ export function decodePrefetchedNextQuestion(
     envelope: decodeIssuedPresentationEnvelope(field(record, "envelope", path), `${path}.envelope`),
   } satisfies PrefetchedNextQuestion;
   if (
-    decoded.envelope.variation.questionVersion.versionNumber !==
-      decoded.issuedQuestion.reference.versionNumber ||
-    decoded.envelope.variation.questionVersion.questionId !==
+    decoded.envelope.variation.questionRevision.revisionNumber !==
+      decoded.issuedQuestion.reference.revisionNumber ||
+    decoded.envelope.variation.questionRevision.questionId !==
       decoded.issuedQuestion.reference.questionId ||
     decoded.envelope.variation.seed !== decoded.seed
   ) {
@@ -800,7 +800,7 @@ export function decodeQuestionAttemptTimingDecision(
 function decodeCapabilityViolation(value: unknown, path: string): CapabilityViolation {
   const record = decodeRecord(value, path);
   const decoded = {
-    question: decodeQuestionVersionReference(
+    question: decodeQuestionRevisionReference(
       field(record, "question", path),
       `${path}.question`,
       true,

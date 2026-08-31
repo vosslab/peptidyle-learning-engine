@@ -2,7 +2,7 @@
 
 use grading::QuestionGradingOutcome;
 use question_model::generation::QuestionSeed;
-use question_model::{Capability, QuestionVersion, StudentResponse};
+use question_model::{Capability, QuestionRevision, StudentResponse};
 
 use super::{WebworkAdapterError, WebworkSource};
 use crate::renderer_contract::{GradeRequest, WebworkRenderer, WebworkReplayMappingV1};
@@ -10,15 +10,15 @@ use crate::renderer_contract::{GradeRequest, WebworkRenderer, WebworkReplayMappi
 /// Delegates a student response under the exact source's accepted grading policy.
 pub(super) async fn grade<R: WebworkRenderer>(
     renderer: &R,
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     seed: QuestionSeed,
     source: &WebworkSource,
     response: &StudentResponse,
     replay: &WebworkReplayMappingV1,
 ) -> Result<QuestionGradingOutcome, WebworkAdapterError> {
-    let (question_version, pg_path) = crate::source_object_reference::webwork_identity(question)?;
+    let (question_revision, pg_path) = crate::source_object_reference::webwork_identity(question)?;
     crate::source_object_reference::verify_source(source)?;
-    crate::source_object_reference::verify_source_binding(source, &question_version)?;
+    crate::source_object_reference::verify_source_binding(source, &question_revision)?;
     let (points_possible, partial_credit) = match question.grading {
         question_model::QuestionGradingRule::AllOrNothing { points }
             if points.is_finite() && points >= 0.0 =>
@@ -54,7 +54,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
         .grade(GradeRequest {
             pg_source: &source.pg_source,
             pg_path,
-            question_version: &question_version,
+            question_revision: &question_revision,
             seed: seed.value(),
             response,
             replay,

@@ -12,10 +12,10 @@ use std::path::{Component, Path, PathBuf};
 use adapter_native::{AssetObjectBinding, NativeAdapter};
 use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
-use question_model::definition::{DraftQuestionDefinition, QuestionSource, QuestionVersion};
+use question_model::definition::{DraftQuestionDefinition, QuestionRevision, QuestionSource};
 use question_model::{
     AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
-    IssuedQuestion, QuestionAttempt, QuestionSummary, QuestionVersionReference, StudentRecordId,
+    IssuedQuestion, QuestionAttempt, QuestionRevisionReference, QuestionSummary, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -51,7 +51,7 @@ struct StoredFixtureSet {
     fixture_schema_version: u32,
     model_schema_version: u32,
     catalog_question: QuestionSummary,
-    published_problem: QuestionVersion,
+    published_problem: QuestionRevision,
     draft: DraftQuestionDefinition,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
@@ -289,12 +289,12 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
             &bindings,
         )?;
         ensure!(
-            envelope.variation.question_version
-                == QuestionVersionReference {
+            envelope.variation.question_revision
+                == QuestionRevisionReference {
                     question_id: fixture_set.published_problem.question_id.clone(),
-                    version_number: fixture_set.published_problem.version_number,
+                    revision_number: fixture_set.published_problem.revision_number,
                 },
-            "reproduced fixture uses a different Question Version"
+            "reproduced fixture uses a different Question Revision"
         );
 
         if let Some(submission) = &attempt.submission {

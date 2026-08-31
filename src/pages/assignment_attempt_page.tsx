@@ -28,7 +28,7 @@ import { useApplicationApi } from "../api/application_api";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import {
   assignmentRouteReference,
-  courseRouteReference,
+  courseInstanceRouteReference,
   assignmentAttemptRouteReference,
 } from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
@@ -62,7 +62,7 @@ function attemptContext(
     assignmentAttemptId,
     attemptId: attempt.id,
     issuedQuestionId: attempt.issuedQuestion,
-    questionVersion: envelope.variation.questionVersion,
+    questionRevision: envelope.variation.questionRevision,
     seed: attempt.seed,
     deadline: attempt.timing.deadline,
   };
@@ -196,7 +196,7 @@ function AttemptExperience(props: {
 
   function escapeToAssignment(): void {
     navigate(
-      `/courses/${courseRouteReference(screen().course.summary.reference)}/assignments/${assignmentRouteReference(screen().assignment.reference)}`,
+      `/courses/${courseInstanceRouteReference(screen().course.summary.reference)}/assignments/${assignmentRouteReference(screen().assignment.reference)}`,
     );
   }
 
@@ -239,7 +239,7 @@ function AttemptExperience(props: {
             attemptId: receiptNext.id,
             assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
             issuedQuestionId: receiptNext.issuedQuestion.id,
-            questionVersion: cached.envelope.variation.questionVersion,
+            questionRevision: cached.envelope.variation.questionRevision,
             seed: receiptNext.seed,
             deadline: receiptNext.deadline,
           },

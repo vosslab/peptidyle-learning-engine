@@ -108,7 +108,7 @@ and the identities of vetted Instructors who starred it. Watch is separate and p
 in-app subscription; changes appear in Watched activity because email delivery is not configured. Student and
 anonymous flows expose neither star identities nor watch state. Question Folders and Saved Question Searches remain separate
 features. The question detail shows the immutable published version represented by its Question ID and its visible
-fork lineage. The hidden exact `(QuestionId, QuestionVersionNumber)` remains server evidence and never becomes browser authority.
+fork lineage. The hidden exact `(QuestionId, QuestionRevisionNumber)` remains server evidence and never becomes browser authority.
 
 The Instructor forks that publication into a private draft, validates it, and publishes the fork as a new immutable
 Question ID. The Question Library then shows the visible source/fork lineage and a controlled-update impact item. The Instructor

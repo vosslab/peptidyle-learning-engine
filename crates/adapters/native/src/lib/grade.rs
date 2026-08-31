@@ -1,7 +1,7 @@
 use grading::QuestionGradingOutcome;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionHint, QuestionPostGradingContent, QuestionVersion,
+    QuestionAttemptReproductionDetails, QuestionHint, QuestionPostGradingContent, QuestionRevision,
     StudentResponse,
 };
 
@@ -16,7 +16,7 @@ impl NativeAdapter {
     /// grading outcome or Student feedback release decision.
     pub fn hint_for_issued_question(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
@@ -47,7 +47,7 @@ impl NativeAdapter {
     /// serialized or returned.
     pub fn grade(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
@@ -79,7 +79,7 @@ impl NativeAdapter {
     /// recreated against a different instance or source record.
     pub fn grade_with_feedback(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,

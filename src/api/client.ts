@@ -390,7 +390,7 @@ export interface ApiClient
     questionId: QuestionId,
     assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
-  /** Replaces only Policies-owned audience, disclosure, run, and teaching settings. */
+  /** Replaces only Policies-owned disclosure, Assignment Activity, and teaching settings. */
   readonly saveAssignmentPolicies: (
     courseId: CourseId,
     assignmentId: AssignmentId,

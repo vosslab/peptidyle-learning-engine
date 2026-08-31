@@ -17,7 +17,7 @@ use question_model::generation::QuestionGeneratorReference;
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     DraftQuestionDefinition, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
-    QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionType, QuestionVersion,
+    QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision, QuestionType,
     StudentResponse,
 };
 
@@ -34,7 +34,7 @@ pub const IMPLEMENTATION_RELEASE: &str = "1";
 pub const GENERATOR_ID: &str = "peptide-bond-choice";
 /// Initial generator implementation version for [`GENERATOR_ID`].
 ///
-/// This is not the repository CalVer release or a question version.
+/// This is not the repository CalVer release or a question revision.
 pub const GENERATOR_VERSION: &str = "1";
 
 const RESIDUE_PARAMETER: &str = "residue";
@@ -79,7 +79,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
 
     fn derive_answer_key(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, NativeAdapterError> {
         validate_question_shape(question)?;
@@ -99,7 +99,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
 
     fn derive_post_grading_content(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
@@ -167,7 +167,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
 
     fn derive_hint(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
         envelope: &QuestionPresentation,
         answer_key: Option<&AnswerKey>,
@@ -212,7 +212,7 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
     }
 }
 
-fn validate_question_shape(question: &QuestionVersion) -> Result<(), NativeAdapterError> {
+fn validate_question_shape(question: &QuestionRevision) -> Result<(), NativeAdapterError> {
     validate_response_and_grading(&question.response, &question.grading)
 }
 

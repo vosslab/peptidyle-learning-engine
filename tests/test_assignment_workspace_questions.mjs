@@ -10,7 +10,10 @@ import {
   createdAssignmentQuestionsPath,
 } from "../src/pages/assignment_workspace/assignment_workspace_create_model.ts";
 import { assignmentWorkspaceCreatePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
-import { parseAssignmentReference, parseCourseReference } from "../src/navigation/public_route.ts";
+import {
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+} from "../src/navigation/public_route.ts";
 
 test("Questions save owns only the title and ordered public definition", () => {
   const draft = {
@@ -46,7 +49,7 @@ test("Questions save owns only the title and ordered public definition", () => {
 });
 
 test("persisted draft creation enters the canonical Questions route", () => {
-  const course = parseCourseReference("C-8");
+  const course = parseCourseInstanceReference("C-8");
   const assignment = parseAssignmentReference("A-15");
   assert.ok(course);
   assert.ok(assignment);

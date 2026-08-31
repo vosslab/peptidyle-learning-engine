@@ -244,7 +244,7 @@ score
 mode
 question_attempt
 issued_question_id
-question_version_id
+question_revision_id
 seed
 response
 result

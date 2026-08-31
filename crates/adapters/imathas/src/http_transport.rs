@@ -280,7 +280,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
                 provider: request.provider_key(),
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
-                version: request.question_version().version_number.to_string(),
+                version: request.question_revision().revision_number.to_string(),
                 seed: request.seed().value(),
             })
             .send()
@@ -568,12 +568,12 @@ mod tests {
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
                     provider_key: "self-hosted-imathas",
-                    question_version: question_model::QuestionVersionReference {
+                    question_revision: question_model::QuestionRevisionReference {
                         question_id: question_model::QuestionId::from_canonical_parts(
                             "ABCDEF", 'G'
                         )
                         .expect("Question ID"),
-                        version_number: question_model::QuestionVersionNumber::new(1)
+                        revision_number: question_model::QuestionRevisionNumber::new(1)
                             .expect("positive version"),
                     },
                     seed: question_model::generation::QuestionSeed::new(7)
@@ -595,10 +595,10 @@ mod tests {
             .unwrap();
         let binding = crate::GradeBinding {
             attempt: question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
-            question_version: question_model::QuestionVersionReference {
+            question_revision: question_model::QuestionRevisionReference {
                 question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
                     .expect("Question ID"),
-                version_number: question_model::QuestionVersionNumber::new(4)
+                revision_number: question_model::QuestionRevisionNumber::new(4)
                     .expect("positive version"),
             },
             seed: question_model::generation::QuestionSeed::new(7),

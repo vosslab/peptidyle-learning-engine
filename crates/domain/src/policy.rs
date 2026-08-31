@@ -1,7 +1,7 @@
 //! Assignment/backend capability validation (MOD-CAP).
 //!
 //! The editor and publish route call the same pure function. Each violation
-//! names the immutable question version and one missing capability, and the
+//! names the immutable question revision and one missing capability, and the
 //! complete list is returned in question order and capability declaration
 //! order so an instructor can repair everything in one pass.
 
@@ -11,7 +11,7 @@ use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::{
     Capability, DraftQuestionDefinition, QuestionBackendCapabilities, QuestionGradingRule,
-    QuestionVersion, QuestionVersionReference,
+    QuestionRevision, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentQuestionConfig {
     /// Browser-safe immutable question definition selected by the assignment.
-    pub question: QuestionVersion,
+    pub question: QuestionRevision,
     /// Capabilities declared by the adapter that owns this question.
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
@@ -43,8 +43,8 @@ pub struct AssignmentConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Violation {
-    /// Immutable question version whose backend lacks support.
-    pub question: QuestionVersionReference,
+    /// Immutable question revision whose backend lacks support.
+    pub question: QuestionRevisionReference,
     /// Capability required by the assignment but absent from the backend.
     pub capability: Capability,
 }
@@ -81,9 +81,9 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
                 && !selected.question_backend_capabilities.supports(capability)
             {
                 violations.push(Violation {
-                    question: QuestionVersionReference {
+                    question: QuestionRevisionReference {
                         question_id: selected.question.question_id.clone(),
-                        version_number: selected.question.version_number,
+                        revision_number: selected.question.revision_number,
                     },
                     capability,
                 });
@@ -110,7 +110,7 @@ pub fn validate_draft_for_publication(
         .collect()
 }
 
-fn required_by_question(question: &QuestionVersion) -> BTreeSet<Capability> {
+fn required_by_question(question: &QuestionRevision) -> BTreeSet<Capability> {
     required_by_content(question)
 }
 
@@ -122,7 +122,7 @@ trait QuestionContentView {
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
-impl QuestionContentView for QuestionVersion {
+impl QuestionContentView for QuestionRevision {
     fn question_variation_definition(
         &self,
     ) -> &question_model::generation::QuestionVariationDefinition {
@@ -191,8 +191,8 @@ mod tests {
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::{
-        QuestionFormat, QuestionId, QuestionMetadata, QuestionSource, QuestionType,
-        QuestionVersionNumber, QuestionVersionReference, WorkspaceId,
+        QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
+        QuestionRevisionReference, QuestionSource, QuestionType, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -215,18 +215,18 @@ mod tests {
         QuestionAttemptTimeLimit,
     }
 
-    fn question_version(version_number: u32) -> QuestionVersionReference {
-        QuestionVersionReference {
+    fn question_revision(revision_number: u32) -> QuestionRevisionReference {
+        QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-            version_number: QuestionVersionNumber::new(version_number)
+            revision_number: QuestionRevisionNumber::new(revision_number)
                 .expect("positive version number"),
         }
     }
 
-    fn base_question(question_version: QuestionVersionReference) -> QuestionVersion {
-        QuestionVersion {
-            question_id: question_version.question_id,
-            version_number: question_version.version_number,
+    fn base_question(question_revision: QuestionRevisionReference) -> QuestionRevision {
+        QuestionRevision {
+            question_id: question_revision.question_id,
+            revision_number: question_revision.revision_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
             source: QuestionSource::Native,
             question_format: QuestionFormat::NativeAlgorithmic,
@@ -254,7 +254,7 @@ mod tests {
         }
     }
 
-    fn apply_feature(question: &mut QuestionVersion, feature: CaseFeature) {
+    fn apply_feature(question: &mut QuestionRevision, feature: CaseFeature) {
         match feature {
             CaseFeature::Seeded => {
                 question.question_variation_definition = QuestionVariationDefinition::Seeded {
@@ -295,9 +295,9 @@ mod tests {
         let mut covered = BTreeSet::new();
 
         for (index, case) in cases.into_iter().enumerate() {
-            let question_version =
-                question_version(u32::try_from(index + 1).expect("fixture index fits u32"));
-            let mut question = base_question(question_version.clone());
+            let question_revision =
+                question_revision(u32::try_from(index + 1).expect("fixture index fits u32"));
+            let mut question = base_question(question_revision.clone());
             for feature in case.features {
                 apply_feature(&mut question, feature);
             }
@@ -317,7 +317,7 @@ mod tests {
                 .iter()
                 .copied()
                 .map(|capability| Violation {
-                    question: question_version.clone(),
+                    question: question_revision.clone(),
                     capability,
                 })
                 .collect();
@@ -331,12 +331,12 @@ mod tests {
 
     #[test]
     fn violations_preserve_question_order_and_deduplicate_requirements() {
-        let question_versions = [question_version(1), question_version(2)];
-        let questions = question_versions
+        let question_revisions = [question_revision(1), question_revision(2)];
+        let questions = question_revisions
             .iter()
             .cloned()
-            .map(|question_version| AssignmentQuestionConfig {
-                question: base_question(question_version),
+            .map(|question_revision| AssignmentQuestionConfig {
+                question: base_question(question_revision),
                 question_backend_capabilities: QuestionBackendCapabilities::none(),
             })
             .collect();
@@ -349,11 +349,11 @@ mod tests {
             validate_assignment_config(&config),
             vec![
                 Violation {
-                    question: question_versions[0].clone(),
+                    question: question_revisions[0].clone(),
                     capability: Capability::PrintExport,
                 },
                 Violation {
-                    question: question_versions[1].clone(),
+                    question: question_revisions[1].clone(),
                     capability: Capability::PrintExport,
                 },
             ]
@@ -363,14 +363,14 @@ mod tests {
     #[test]
     fn violation_json_uses_the_lower_camel_wire_contract() {
         let violation = Violation {
-            question: question_version(1),
+            question: question_revision(1),
             capability: Capability::QuestionAttemptTimeLimit,
         };
         let json = serde_json::to_string(&violation).expect("violation should serialize");
 
         assert_eq!(
             json,
-            r#"{"question":{"questionId":"ABC-DEFG","versionNumber":1},"capability":"questionAttemptTimeLimit"}"#
+            r#"{"question":{"questionId":"ABC-DEFG","revisionNumber":1},"capability":"questionAttemptTimeLimit"}"#
         );
         assert!(json.contains(r#""capability":"questionAttemptTimeLimit""#));
     }

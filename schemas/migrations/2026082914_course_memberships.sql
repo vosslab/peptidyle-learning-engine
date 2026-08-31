@@ -113,8 +113,25 @@ CREATE FUNCTION ple_data.assert_assigned_instructor_membership()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 DECLARE
     checked_course_id uuid;
+    checked_membership_id uuid;
 BEGIN
-    checked_course_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.course_id ELSE NEW.course_id END;
+    IF TG_TABLE_NAME = 'course_instance' THEN
+        IF TG_OP = 'DELETE' THEN
+            checked_course_id := OLD.course_id;
+        ELSE
+            checked_course_id := NEW.course_id;
+        END IF;
+    ELSE
+        IF TG_OP = 'DELETE' THEN
+            checked_membership_id := OLD.membership_id;
+        ELSE
+            checked_membership_id := NEW.membership_id;
+        END IF;
+        SELECT membership.course_id
+          INTO checked_course_id
+          FROM ple_data.course_membership AS membership
+         WHERE membership.membership_id = checked_membership_id;
+    END IF;
     IF NOT EXISTS (
         SELECT 1
         FROM ple_data.course_instance AS course

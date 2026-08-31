@@ -3,12 +3,16 @@
 //! Feature adapters return only after their exact clean-schema contracts exist.
 
 #[cfg(feature = "postgres")]
+mod assignment_attempt;
+#[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
 mod sessions;
 
+#[cfg(feature = "postgres")]
+pub use assignment_attempt::PostgresAssignmentAttemptStore;
 #[cfg(feature = "postgres")]
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
 #[cfg(feature = "postgres")]

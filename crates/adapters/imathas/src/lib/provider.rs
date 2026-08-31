@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::envelope::ContentBlock;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionAttemptId, QuestionVersionReference};
+use question_model::{QuestionAttemptId, QuestionRevisionReference};
 
 use crate::{
     ImathasAdapterError, ProviderFailure, ServerCorrelation, VerifiedProviderGrade,
@@ -110,7 +110,7 @@ impl std::fmt::Debug for ImathasDraftQuestionSource {
 }
 
 /// Server-private immutable bytes prepared before publication. It has no
-/// Question ID or Question Version Number; publication alone owns identity.
+/// Question ID or Question Revision Number; publication alone owns identity.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PreparedSnapshot {
     pub(crate) bytes: Vec<u8>,
@@ -190,8 +190,8 @@ pub struct ProviderRenderRequest<'a> {
     pub snapshot: &'a [u8],
     /// Pinned source profile.
     pub profile: &'a str,
-    /// Exact immutable Question Version.
-    pub question_version: QuestionVersionReference,
+    /// Exact immutable Question Revision.
+    pub question_revision: QuestionRevisionReference,
     /// Deterministic Question Seed.
     pub seed: QuestionSeed,
 }
@@ -202,7 +202,7 @@ pub struct ProviderGradeRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) profile: &'a str,
     pub(crate) attempt: QuestionAttemptId,
-    pub(crate) question_version: QuestionVersionReference,
+    pub(crate) question_revision: QuestionRevisionReference,
     pub(crate) seed: QuestionSeed,
     pub(crate) correlation: &'a ServerCorrelation,
 }
@@ -217,8 +217,8 @@ impl<'a> ProviderGradeRequest<'a> {
     pub fn attempt(&self) -> QuestionAttemptId {
         self.attempt
     }
-    pub fn question_version(&self) -> &QuestionVersionReference {
-        &self.question_version
+    pub fn question_revision(&self) -> &QuestionRevisionReference {
+        &self.question_revision
     }
     pub fn seed(&self) -> QuestionSeed {
         self.seed

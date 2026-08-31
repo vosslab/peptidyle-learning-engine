@@ -26,9 +26,9 @@ pub use envelope::{
     CurriculumAdoptionPreviewRequest,
 };
 pub use pins::{
-    BlueprintQuestionPosition, BlueprintQuestionPositionError, QuestionVersionSubstitution,
-    QuestionVersionSubstitutions, QuestionVersionSubstitutionsError,
-    ReplacementQuestionVersionChoices, ReplacementQuestionVersionChoicesError,
+    BlueprintQuestionPosition, BlueprintQuestionPositionError, QuestionRevisionSubstitution,
+    QuestionRevisionSubstitutions, QuestionRevisionSubstitutionsError,
+    ReplacementQuestionRevisionChoices, ReplacementQuestionRevisionChoicesError,
 };
 pub use scalars::{
     BlueprintOperationRetryToken, BlueprintOperationRetryTokenError, CurriculumImportRevision,

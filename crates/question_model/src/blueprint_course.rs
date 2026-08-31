@@ -558,8 +558,8 @@ mod tests {
     use crate::classification::License;
     use crate::{
         ActivityTimestamp, PublicAuthorName, PublicByline, QuestionBackend,
-        QuestionBackendCapabilities, QuestionMetadata, QuestionStatistics, QuestionSummary,
-        QuestionType, QuestionVersionAvailability,
+        QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionAvailability,
+        QuestionStatistics, QuestionSummary, QuestionType,
     };
     use uuid::Uuid;
 
@@ -642,7 +642,7 @@ mod tests {
                     PublicAuthorName::new("Ada Lovelace".to_string()).expect("valid byline"),
                 ])
                 .expect("valid byline"),
-                availability: QuestionVersionAvailability::Available,
+                availability: QuestionRevisionAvailability::Available,
                 published_at: ActivityTimestamp::from_unix_millis(0),
             },
             evidence: QuestionStatistics::InsufficientEvidence,
@@ -847,7 +847,7 @@ mod blueprint_course_tests {
         let wire = serde_json::to_value(&input).expect("serializes");
         assert!(wire.get("modules").is_some());
         assert!(wire.to_string().contains("question_id"));
-        assert!(!wire.to_string().contains("QuestionVersionReference"));
+        assert!(!wire.to_string().contains("QuestionRevisionReference"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
         assert!(serde_json::from_value::<CreateBlueprintCourseDefinitionInput>(forged).is_err());

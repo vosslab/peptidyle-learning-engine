@@ -37,7 +37,7 @@ import {
 import { createCourseAppearanceRepository } from "./course_appearance_repository";
 import { COURSE_APPEARANCE_STYLES } from "./course_appearance_styles";
 import { COURSE_THEME_OPTIONS, courseThemeStyle, courseThemeTokens } from "./course_theme_registry";
-import { courseRouteReference } from "../../navigation/public_route";
+import { courseInstanceRouteReference } from "../../navigation/public_route";
 
 type SavePhase = "ready" | "uploading" | "saving" | "reloading";
 
@@ -131,7 +131,10 @@ export function CourseAppearancePage(): JSX.Element {
         <p class="eyebrow">Course settings</p>
         <h1>Course appearance is not available for this account</h1>
         <p class="page-lede">Only a course instructor can change its appearance.</p>
-        <A class="quiet-link" href={`/courses/${courseRouteReference(course.summary.reference)}`}>
+        <A
+          class="quiet-link"
+          href={`/courses/${courseInstanceRouteReference(course.summary.reference)}`}
+        >
           Return to course
         </A>
       </section>

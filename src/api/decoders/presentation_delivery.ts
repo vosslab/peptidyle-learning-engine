@@ -28,7 +28,7 @@ import {
   decodeBoundedArray,
   decodeEnvelopeTitle,
   decodeIdentifier,
-  decodeQuestionVersionReference,
+  decodeQuestionRevisionReference,
   decodeSha256,
   field,
   kind,
@@ -336,7 +336,7 @@ export function decodeIssuedPresentationEnvelope(
 ): QuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "questionVersion",
+    "questionRevision",
     "seed",
     "presentationNonce",
     "title",
@@ -348,9 +348,9 @@ export function decodeIssuedPresentationEnvelope(
     throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
   }
   const presentation = {
-    questionVersion: decodeQuestionVersionReference(
-      field(record, "questionVersion", path),
-      `${path}.questionVersion`,
+    questionRevision: decodeQuestionRevisionReference(
+      field(record, "questionRevision", path),
+      `${path}.questionRevision`,
       true,
     ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
@@ -366,7 +366,7 @@ export function decodeIssuedPresentationEnvelope(
   } satisfies PresentationEnvelopeV1;
   return {
     variation: {
-      questionVersion: presentation.questionVersion,
+      questionRevision: presentation.questionRevision,
       seed: presentation.seed,
     },
     title: presentation.title,

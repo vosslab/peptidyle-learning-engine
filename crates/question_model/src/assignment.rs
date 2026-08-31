@@ -23,7 +23,7 @@ pub use teaching_settings_local::{
 
 use crate::{
     ActivityTimestamp, AssignmentActivityRules, AssignmentEntryId, QuestionPoolCandidateId,
-    QuestionVersionReference,
+    QuestionRevisionReference,
 };
 
 /// Maximum Unicode scalar values in one human-facing Assignment Title.
@@ -349,7 +349,7 @@ pub struct FixedQuestionAssignmentEntry {
     /// Stable identity preserved across point and order changes.
     pub id: AssignmentEntryId,
     /// Exact immutable Question Library content pinned by this item.
-    pub reference: QuestionVersionReference,
+    pub reference: QuestionRevisionReference,
     /// Current assignment-authored points.
     pub points_possible: AssignmentPointValue,
     /// Whether future Assignment Attempts may receive this Assignment Entry.
@@ -383,7 +383,7 @@ pub struct QuestionPoolCandidate {
     /// Stable candidate identity used for retirement and audit actions.
     pub id: QuestionPoolCandidateId,
     /// Exact immutable Question Library version eligible for selection.
-    pub reference: QuestionVersionReference,
+    pub reference: QuestionRevisionReference,
     /// Whether future Question Pool Selections may select this candidate.
     pub availability: QuestionPoolCandidateAvailability,
 }

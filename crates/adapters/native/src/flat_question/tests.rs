@@ -3,7 +3,7 @@ use grading::QuestionGradingOutcome;
 use question_model::response::{
     ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentResponse, StudentTextEntry,
 };
-use question_model::{DraftQuestionSource, QuestionId, QuestionSource, QuestionVersionNumber};
+use question_model::{DraftQuestionSource, QuestionId, QuestionRevisionNumber, QuestionSource};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -12,14 +12,14 @@ use crate::test_support::{
     flat_single_choice_value,
 };
 
-fn published(draft: DraftQuestionDefinition) -> QuestionVersion {
+fn published(draft: DraftQuestionDefinition) -> QuestionRevision {
     if !matches!(draft.source, DraftQuestionSource::Native) {
         panic!("flat fixture must use the native Question Backend");
     }
-    QuestionVersion::from_draft(
+    QuestionRevision::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        QuestionVersionNumber::new(1).expect("positive version"),
+        QuestionRevisionNumber::new(1).expect("positive version"),
         QuestionSource::Native,
     )
 }

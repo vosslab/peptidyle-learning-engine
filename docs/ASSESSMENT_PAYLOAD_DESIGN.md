@@ -44,7 +44,7 @@ Browser                                      PLE
 
 The authenticated `QuestionAttemptId` in the route is the primary student-response binding. The
 server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
-`QuestionVersionReference` plus seed before reading or mutating anything. A presentation digest checks that
+`QuestionRevisionReference` plus seed before reading or mutating anything. A presentation digest checks that
 the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
 and Hotspot Regions within that presentation. Neither the digest nor CRC16 authenticates the student or proves
@@ -56,12 +56,12 @@ An issued attempt is an educational record with one closed server-side identity 
 
 ```text
 (CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
- QuestionVersionReference { question_id, version_number }, seed)
+ QuestionRevisionReference { question_id, revision_number }, seed)
 ```
 
 `CourseId` and `StudentRecordId` are checked against the authenticated Account's exact Course Membership
 and Student ownership. `AssignmentAttemptId` and `QuestionAttemptId` must resolve through that same relationship;
-the immutable `QuestionVersionReference` and seed must match the Issued Question. A route parameter,
+the immutable `QuestionRevisionReference` and seed must match the Issued Question. A route parameter,
 browser field, cache key, provider identifier, or queue payload cannot widen or replace this tuple.
 The protected read or write performs the relationship check and data operation in one forced-RLS
 transaction.
@@ -81,7 +81,7 @@ authorization selector.
 
 The implemented [QuestionPresentation](../crates/question_model/src/envelope.rs) is deliberately
 answer-free. Its nested [QuestionVariation](../crates/question_model/src/envelope.rs) retains the
-exact Question Version, seed, and declared generator recipe in server/cache evidence; its browser
+exact Question Revision, seed, and declared generator recipe in server/cache evidence; its browser
 serialization carries only the version-and-seed binding. The presentation contains:
 
 - student-facing `title`;
@@ -108,7 +108,7 @@ routes. This keeps a large image from being retransmitted with every question or
 The current browser Assignment Attempt screen receives a complete
 [QuestionAttempt](../crates/question_model/src/lib.rs). That persistence record contains:
 
-- course, Student Record, Assignment Attempt, immutable Question Version reference, Assignment Entry, and seed;
+- course, Student Record, Assignment Attempt, immutable Question Revision reference, Assignment Entry, and seed;
 - parameter hash, response, status, result, and timer state; and
 - Question Backend Version, Question Renderer Version, generator, source-object,
   asset-object, Question Grader Version, and rendered-hash provenance.
@@ -179,7 +179,7 @@ An issued attempt already binds the facts required to grade safely:
 
 - authenticated student through exact CourseId and Student ownership;
 - course and assignment context;
-- exact immutable QuestionVersionReference and assignment position;
+- exact immutable QuestionRevisionReference and assignment position;
 - generated seed and immutable provenance;
 - expected Question Type and grading backend;
 - issue time, effective deadline, and submission state; and
@@ -586,7 +586,7 @@ counts or arbitrary latency thresholds into permanent tests.
 
 ### Safe caching
 
-PLE may cache public render data by immutable `QuestionVersionReference`, seed, and the presentation binding.
+PLE may cache public render data by immutable `QuestionRevisionReference`, seed, and the presentation binding.
 Cache entries may contain only the answer-free envelope, sanitized markup, public asset references, and
 renderer identity needed for provenance. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
@@ -718,7 +718,7 @@ Permanent tests protect stable behavior:
 - a missing authenticated session, another AccountId, another course, and a foreign attempt are concealed before protected
   payload access;
 - every issued and replayed record matches its exact CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
-  QuestionVersionReference, and seed;
+  QuestionRevisionReference, and seed;
 - rendered-ID membership, role, collision retry, and fail-closed issuance;
 - presentation mismatch causes no grade or mutation;
 - exact idempotent replay and changed-replay conflict;

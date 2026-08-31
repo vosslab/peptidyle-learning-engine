@@ -201,7 +201,7 @@ session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS
 ## Why does a submission identify an attempt?
 
 A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
-question version, seed, timing state, and grading backend. The browser therefore sends only that
+question revision, seed, timing state, and grading backend. The browser therefore sends only that
 attempt's route identity, an idempotency key, and the student's answer. Presentation digests and
 compact rendered-item IDs detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).

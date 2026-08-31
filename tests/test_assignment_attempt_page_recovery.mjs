@@ -28,7 +28,7 @@ function gradedAcknowledgement(response, attemptId) {
         id: attemptId,
         run: "run-a",
         problem: "problem-a",
-        questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
+        questionRevision: { questionId: "ABC-1234", revisionNumber: 1 },
         assignmentPosition: 0,
         seed: 2,
         response,
@@ -51,7 +51,7 @@ test("session expiry, reauthentication, and page retry submit one saved response
     context: {
       assignmentAttemptId: "assignment-attempt-a",
       attemptId: "attempt-a",
-      questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
+      questionRevision: { questionId: "ABC-1234", revisionNumber: 1 },
       seed: 2,
       deadline: null,
     },
@@ -115,7 +115,7 @@ test("the response controller exposes 422 and receipt failures for correction be
       context: {
         assignmentAttemptId: "assignment-attempt-a",
         attemptId: "attempt-a",
-        questionVersion: { questionId: "ABC-1234", versionNumber: 1 },
+        questionRevision: { questionId: "ABC-1234", revisionNumber: 1 },
         seed: 2,
         deadline: null,
       },

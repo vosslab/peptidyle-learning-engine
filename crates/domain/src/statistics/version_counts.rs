@@ -1,4 +1,4 @@
-//! Exact accepted-grade counts for one immutable Question Version.
+//! Exact accepted-grade counts for one immutable Question Revision.
 //!
 //! This aggregate is deliberately separate from the cohort-based difficulty,
 //! timing, and discrimination rollup. It records one accepted graded Question
@@ -22,7 +22,7 @@ impl QuestionStatisticsObservation {
     /// Builds one correctness result and its distinct selected eligible choices.
     ///
     /// The grading boundary supplies only choices that were eligible for this
-    /// exact Question Version. Deduplication here makes the aggregate robust
+    /// exact Question Revision. Deduplication here makes the aggregate robust
     /// against a malformed repeated selection at a storage boundary.
     pub fn new(
         correct: bool,
@@ -51,9 +51,9 @@ impl QuestionStatisticsObservation {
     }
 }
 
-/// Retention-safe persisted state for exact Question Version counts.
+/// Retention-safe persisted state for exact Question Revision counts.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuestionVersionStatisticsSnapshot {
+pub struct QuestionRevisionStatisticsSnapshot {
     /// Number of accepted graded Question Attempts for this exact version.
     pub accepted_graded_attempt_count: u64,
     /// Number of those accepted grades whose result was correct.
@@ -62,15 +62,15 @@ pub struct QuestionVersionStatisticsSnapshot {
     pub eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
 }
 
-/// Exact global counts for one immutable Question Version.
+/// Exact global counts for one immutable Question Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuestionVersionStatistics {
+pub struct QuestionRevisionStatistics {
     accepted_graded_attempt_count: u64,
     correct_count: u64,
     eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
 }
 
-impl QuestionVersionStatistics {
+impl QuestionRevisionStatistics {
     /// Creates an aggregate with no accepted grades.
     pub const fn empty() -> Self {
         Self {
@@ -111,8 +111,8 @@ impl QuestionVersionStatistics {
     }
 
     /// Captures the retention-safe persistence representation.
-    pub fn snapshot(&self) -> QuestionVersionStatisticsSnapshot {
-        QuestionVersionStatisticsSnapshot {
+    pub fn snapshot(&self) -> QuestionRevisionStatisticsSnapshot {
+        QuestionRevisionStatisticsSnapshot {
             accepted_graded_attempt_count: self.accepted_graded_attempt_count,
             correct_count: self.correct_count,
             eligible_choice_selection_counts: self.eligible_choice_selection_counts.clone(),
@@ -120,7 +120,7 @@ impl QuestionVersionStatistics {
     }
 
     /// Restores only a count snapshot whose invariants hold for individual accepted grades.
-    pub fn restore(snapshot: QuestionVersionStatisticsSnapshot) -> Result<Self, StatisticsError> {
+    pub fn restore(snapshot: QuestionRevisionStatisticsSnapshot) -> Result<Self, StatisticsError> {
         if snapshot.correct_count > snapshot.accepted_graded_attempt_count
             || snapshot
                 .eligible_choice_selection_counts
@@ -154,7 +154,7 @@ impl QuestionVersionStatistics {
     }
 }
 
-impl Default for QuestionVersionStatistics {
+impl Default for QuestionRevisionStatistics {
     fn default() -> Self {
         Self::empty()
     }

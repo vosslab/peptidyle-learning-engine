@@ -11,7 +11,7 @@ use super::{
     BlueprintRevisionReference, BoundedResolvedScheduleSet, CopyAssignmentFromBlueprintReadiness,
     CopyCourseForNewTermReadiness, CourseInstanceCommandError, CourseInstanceCreationReservation,
     CourseInstanceOperationReceipt, CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest,
-    QuestionVersionSubstitutions, ShiftCourseDatesReadiness,
+    QuestionRevisionSubstitutions, ShiftCourseDatesReadiness,
 };
 use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
@@ -63,7 +63,7 @@ pub struct AdoptBlueprintAssignmentApplyRecord {
     source: BlueprintAssignmentRevisionReference,
     destination: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     request: CurriculumAdoptionRequestBinding,
 }
 
@@ -73,7 +73,7 @@ impl AdoptBlueprintAssignmentApplyRecord {
         source: BlueprintAssignmentRevisionReference,
         destination: CourseInstanceSnapshot,
         course_origin: CourseOrigin,
-        replacements: QuestionVersionSubstitutions,
+        replacements: QuestionRevisionSubstitutions,
         request: CurriculumAdoptionRequestBinding,
         readiness: BlueprintOperationReadiness,
     ) -> Result<Self, BlueprintOperationCommandError> {
@@ -96,7 +96,7 @@ impl AdoptBlueprintAssignmentApplyRecord {
     pub fn course_origin(&self) -> CourseOrigin {
         self.course_origin
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -114,7 +114,7 @@ impl AdoptBlueprintAssignmentApplyRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkBlueprintCourseApplyRecord {
     source: BlueprintRevisionReference,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     creation: BlueprintForkReservation,
 }
 
@@ -122,7 +122,7 @@ impl ForkBlueprintCourseApplyRecord {
     /// Binds a validated fork intent to its non-Serde creation reservation.
     pub fn new(
         source: BlueprintRevisionReference,
-        replacements: QuestionVersionSubstitutions,
+        replacements: QuestionRevisionSubstitutions,
         creation: BlueprintForkReservation,
         readiness: BlueprintOperationReadiness,
     ) -> Result<Self, BlueprintOperationCommandError> {
@@ -140,7 +140,7 @@ impl ForkBlueprintCourseApplyRecord {
     pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn creation(&self) -> &BlueprintForkReservation {
@@ -153,7 +153,7 @@ impl ForkBlueprintCourseApplyRecord {
 pub struct InstantiateBlueprintCourseApplyRecord {
     source: BlueprintRevisionReference,
     target_term: CourseTerm,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     creation: CourseInstanceCreationReservation,
 }
 
@@ -162,7 +162,7 @@ impl InstantiateBlueprintCourseApplyRecord {
     pub fn new(
         source: BlueprintRevisionReference,
         target_term: CourseTerm,
-        replacements: QuestionVersionSubstitutions,
+        replacements: QuestionRevisionSubstitutions,
         creation: CourseInstanceCreationReservation,
         readiness: BlueprintOperationReadiness,
     ) -> Result<Self, BlueprintOperationCommandError> {
@@ -184,7 +184,7 @@ impl InstantiateBlueprintCourseApplyRecord {
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn creation(&self) -> &CourseInstanceCreationReservation {
@@ -433,7 +433,7 @@ pub struct CopyAssignmentFromBlueprintApplyRecord {
     destination: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
     schedule: ResolvedAssignmentSchedule,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     request: CurriculumAdoptionRequestBinding,
 }
 
@@ -444,7 +444,7 @@ impl CopyAssignmentFromBlueprintApplyRecord {
         destination: CourseInstanceSnapshot,
         course_origin: CourseOrigin,
         schedule: ResolvedAssignmentSchedule,
-        replacements: QuestionVersionSubstitutions,
+        replacements: QuestionRevisionSubstitutions,
         request: CurriculumAdoptionRequestBinding,
         readiness: CopyAssignmentFromBlueprintReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
@@ -471,7 +471,7 @@ impl CopyAssignmentFromBlueprintApplyRecord {
     pub fn schedule(&self) -> &ResolvedAssignmentSchedule {
         &self.schedule
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn authorized_account(&self) -> AccountId {
@@ -491,7 +491,7 @@ impl CopyAssignmentFromBlueprintApplyRecord {
         CourseInstanceSnapshot,
         CourseOrigin,
         ResolvedAssignmentSchedule,
-        QuestionVersionSubstitutions,
+        QuestionRevisionSubstitutions,
         AccountId,
         [u8; 32],
         BlueprintOperationRetryToken,

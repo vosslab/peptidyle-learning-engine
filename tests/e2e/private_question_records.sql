@@ -70,7 +70,7 @@ BEGIN
             SELECT 1 FROM pg_constraint AS table_constraint
             WHERE table_constraint.conrelid = format('ple_private.%I', table_name)::regclass
               AND table_constraint.contype = 'f'
-              AND table_constraint.confrelid = 'ple_data.published_question_version'::regclass
+              AND table_constraint.confrelid = 'ple_data.question_revision'::regclass
         ) THEN
             RAISE EXCEPTION 'Question Revision record % is not revision-bound', table_name;
         END IF;

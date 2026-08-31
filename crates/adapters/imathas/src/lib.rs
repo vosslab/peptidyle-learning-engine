@@ -58,8 +58,8 @@ use question_model::envelope::ContentBlock;
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionId, QuestionSource,
-    QuestionVersionNumber, QuestionVersionReference, SourceObjectReference,
+    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionSource, SourceObjectReference,
 };
 #[cfg(test)]
 use sha2::{Digest, Sha256};

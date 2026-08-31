@@ -13,11 +13,11 @@ import { decodeInstructorGradingOperationReference } from "../api/decoders/gradi
 import {
   parseAssignmentReference,
   parseCourseMembershipReference,
-  parseCourseReference,
+  parseCourseInstanceReference,
   parseAssignmentAttemptReference,
   type AssignmentRouteReference,
   type CourseMembershipRouteReference,
-  type CourseRouteReference,
+  type CourseInstanceRouteReference,
   type AssignmentAttemptRouteReference,
 } from "../navigation/public_route";
 
@@ -147,8 +147,8 @@ export function parseInspectedStudentWorkRouteSearch(
   }
 }
 
-function checkedCourse(value: CourseInstanceReference): CourseRouteReference {
-  const result = parseCourseReference(value);
+function checkedCourse(value: CourseInstanceReference): CourseInstanceRouteReference {
+  const result = parseCourseInstanceReference(value);
   if (result === null) throw new Error("invalid public course reference");
   return result;
 }
@@ -185,7 +185,7 @@ function gradebookPath(
   course: CourseInstanceReference,
   filter: GradebookRouteFilter | undefined,
 ): string {
-  const checkedCourseReference = checkedCourse(course);
+  const checkedCourseInstanceReference = checkedCourse(course);
   const query = new URLSearchParams();
   if (filter?.kind === "assignment")
     query.set("assignmentRef", checkedAssignment(filter.assignment));
@@ -194,7 +194,7 @@ function gradebookPath(
     query.set("operationRef", decodeInstructorGradingOperationReference(filter.operation));
   }
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
-  return `/instructor/courses/${checkedCourseReference}/gradebook${suffix}`;
+  return `/instructor/courses/${checkedCourseInstanceReference}/gradebook${suffix}`;
 }
 
 /** Returns to Gradebook with the Student filter and the invoking cell ready for focus. */
@@ -233,9 +233,9 @@ function gradingOperationsPath(
   course: CourseInstanceReference,
   assignment: AssignmentReference,
 ): string {
-  const checkedCourseReference = checkedCourse(course);
+  const checkedCourseInstanceReference = checkedCourse(course);
   const checkedAssignmentReference = checkedAssignment(assignment);
-  return `/instructor/courses/${checkedCourseReference}/assignments/${checkedAssignmentReference}/grading-operations`;
+  return `/instructor/courses/${checkedCourseInstanceReference}/assignments/${checkedAssignmentReference}/grading-operations`;
 }
 
 /** Returns to assignment Grading operations and restores the initiating operation control. */
@@ -266,11 +266,11 @@ export function inspectedStudentWorkUrl(
   run: AssignmentAttemptReference,
   operation?: InstructorGradingOperationReference,
 ): string {
-  const checkedCourseReference = checkedCourse(course);
+  const checkedCourseInstanceReference = checkedCourse(course);
   const checkedMembershipReference = checkedMembership(membership);
   const checkedAssignmentReference = checkedAssignment(assignment);
   const checkedRunReference = checkedRun(run);
-  const path = `/instructor/courses/${checkedCourseReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedRunReference}`;
+  const path = `/instructor/courses/${checkedCourseInstanceReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedRunReference}`;
   if (operation === undefined) return path;
   const operationReference = decodeInstructorGradingOperationReference(operation);
   return `${path}?${new URLSearchParams({ operationRef: operationReference }).toString()}`;

@@ -15,7 +15,7 @@ use crate::{
     BlueprintCourseValidationError, CourseInstanceReference, CourseLocalDateAndTime, CourseTerm,
     CourseTimeZone, LocalTimeOfDay, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
-    QuestionVersionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
+    QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
     ReusableAssignmentDefaults, validate_blueprint_course_title,
 };
 
@@ -206,10 +206,10 @@ impl BlueprintCourseContent {
 /// One ordered Blueprint Assignment entry containing only trusted exact pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlueprintAssignmentEntryContent {
-    /// One fixed immutable Question Version and its scoring rule.
+    /// One fixed immutable Question Revision and its scoring rule.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
-        reference: QuestionVersionReference,
+        reference: QuestionRevisionReference,
         /// Exact points copied into the destination assignment.
         points_possible: AssignmentPointValue,
         /// Scoring treatment copied into the destination assignment.
@@ -221,7 +221,7 @@ pub enum BlueprintAssignmentEntryContent {
 /// One validated ordered pool of exact immutable publication pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    candidates: Vec<QuestionVersionReference>,
+    candidates: Vec<QuestionRevisionReference>,
     selection_count: u32,
     points_per_item: AssignmentPointValue,
     scoring_rule: AssignmentEntryScoringRule,
@@ -230,7 +230,7 @@ pub struct BlueprintQuestionPoolContent {
 impl BlueprintQuestionPoolContent {
     /// Validates pool cardinality, uniqueness, and selection bounds.
     pub fn new(
-        candidates: Vec<QuestionVersionReference>,
+        candidates: Vec<QuestionRevisionReference>,
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
@@ -254,7 +254,7 @@ impl BlueprintQuestionPoolContent {
         })
     }
     /// Returns candidate pins in meaningful authored order.
-    pub fn candidates(&self) -> &[QuestionVersionReference] {
+    pub fn candidates(&self) -> &[QuestionRevisionReference] {
         &self.candidates
     }
     /// Returns the number of candidates selected for one run.
@@ -364,12 +364,12 @@ struct CanonicalAssignment<'a> {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum CanonicalEntry<'a> {
     Fixed {
-        reference: &'a QuestionVersionReference,
+        reference: &'a QuestionRevisionReference,
         points_possible: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
     },
     Pool {
-        candidates: &'a [QuestionVersionReference],
+        candidates: &'a [QuestionRevisionReference],
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,

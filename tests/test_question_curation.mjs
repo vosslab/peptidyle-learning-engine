@@ -26,17 +26,17 @@ test("Question Folder edits retain a unique ordered public Question ID list", ()
   assert.deepEqual(removeFolderQuestionId(moved, "DEF-5678"), ["ABC-1234", "GHJ-9KMP"]);
 });
 
-test("Question Folder Entries carry the exact current Question Version Availability", () => {
+test("Question Folder Entries carry the exact current Question Revision Availability", () => {
   const member = {
     questionId: publishedProblemFixture.publishedQuestion.questionId,
     summary: publishedProblemFixture.publishedQuestion,
-    questionVersionAvailability: { availability: "archived", reason: "Replaced by a correction." },
+    questionRevisionAvailability: { availability: "archived", reason: "Replaced by a correction." },
   };
 
   const decoded = decodeQuestionFolderEntryPage({ items: [member], nextCursor: null });
   assert.deepEqual(
-    decoded.items[0]?.questionVersionAvailability,
-    member.questionVersionAvailability,
+    decoded.items[0]?.questionRevisionAvailability,
+    member.questionRevisionAvailability,
   );
   assert.throws(
     () =>

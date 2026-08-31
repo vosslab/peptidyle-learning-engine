@@ -192,7 +192,7 @@ one direct contract rather than leaving serialization in a shared routing module
   server report once; add a strict decoder, same-origin/no-store client, API capability, and
   `tests/test_item_analysis_client.mjs`.
 - Boundary: existing report production, worker, Store, SQL, publication generation, and private
-  `QuestionVersionReference` remain with their current owners.
+  `QuestionRevisionReference` remain with their current owners.
 - Visible successor: `WP-INST-G3-IA1`, after WN1-F, accepted G2, and D1, adds the Instructor-only
   assignment workspace Analysis task. It joins aggregate item IDs to existing assignment titles
   and public Question IDs and links to audited Gradebook inspection, Library/source context, and

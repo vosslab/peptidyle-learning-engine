@@ -5,7 +5,7 @@ use domain::generator::generate;
 use question_model::envelope::QuestionPresentation;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    DraftQuestionDefinition, QuestionAttemptReproductionDetails, QuestionVersion,
+    DraftQuestionDefinition, QuestionAttemptReproductionDetails, QuestionRevision,
 };
 use sha2::{Digest, Sha256};
 
@@ -24,7 +24,7 @@ impl NativeAdapter {
     /// then canonical immutable object IDs are persisted in the reproduction details.
     pub fn issue(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         asset_bindings: &[AssetObjectBinding],
     ) -> Result<NativeIssuedAttempt, NativeAdapterError> {
@@ -87,7 +87,7 @@ impl NativeAdapter {
 
     pub(super) fn prepare_with_execution(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         execution: &NativeExecution,
     ) -> Result<PreparedNativeQuestion, NativeAdapterError> {
@@ -112,9 +112,9 @@ impl NativeAdapter {
         };
         let envelope = QuestionPresentation {
             variation: question_model::QuestionVariation::from_question_variation_definition(
-                question_model::QuestionVersionReference {
+                question_model::QuestionRevisionReference {
                     question_id: question.question_id.clone(),
-                    version_number: question.version_number,
+                    revision_number: question.revision_number,
                 },
                 &question.question_variation_definition,
                 seed,
@@ -135,7 +135,7 @@ impl NativeAdapter {
 
     pub(super) fn prepare(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
     ) -> Result<PreparedNativeQuestion, NativeAdapterError> {
         let execution = self.backend_execution_for(&self.current_backend)?;

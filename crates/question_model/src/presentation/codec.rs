@@ -85,11 +85,17 @@ pub fn descriptor_bytes_v1(
     encoder.string(
         &presentation
             .envelope
-            .question_version
+            .question_revision
             .question_id
             .to_string(),
     )?;
-    encoder.u32(presentation.envelope.question_version.version_number.get());
+    encoder.u32(
+        presentation
+            .envelope
+            .question_revision
+            .revision_number
+            .get(),
+    );
     encoder.u64(presentation.envelope.seed.value());
     encoder.raw(&presentation.envelope.presentation_nonce.as_bytes());
     encoder.string(&presentation.envelope.title)?;

@@ -4,10 +4,10 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Deserializer, de};
 
-use super::QuestionVersionSubstitution;
+use super::QuestionRevisionSubstitution;
 use crate::{
     MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionVersionReference,
+    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionRevisionReference,
 };
 
 pub(super) fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(
@@ -50,18 +50,18 @@ where
     deserializer.deserialize_seq(BoundedVecVisitor::<T, MAX>(PhantomData))
 }
 
-pub(super) fn deserialize_replacement_question_versions<'de, D>(
+pub(super) fn deserialize_replacement_question_revisions<'de, D>(
     deserializer: D,
-) -> Result<Vec<QuestionVersionReference>, D::Error>
+) -> Result<Vec<QuestionRevisionReference>, D::Error>
 where
     D: Deserializer<'de>,
 {
     deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL>(deserializer)
 }
 
-pub(super) fn deserialize_question_version_substitutions<'de, D>(
+pub(super) fn deserialize_question_revision_substitutions<'de, D>(
     deserializer: D,
-) -> Result<Vec<QuestionVersionSubstitution>, D::Error>
+) -> Result<Vec<QuestionRevisionSubstitution>, D::Error>
 where
     D: Deserializer<'de>,
 {

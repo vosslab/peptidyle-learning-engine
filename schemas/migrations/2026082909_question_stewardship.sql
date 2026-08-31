@@ -15,7 +15,7 @@ CREATE TABLE ple_data.question_change_proposal_revision (
     proposal_id uuid NOT NULL REFERENCES ple_data.question_change_proposal (proposal_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     base_question_id text NOT NULL,
-    base_version_number integer NOT NULL CHECK (base_version_number > 0),
+    base_revision_number integer NOT NULL CHECK (base_revision_number > 0),
     patch jsonb NOT NULL CHECK (jsonb_typeof(patch) = 'object'),
     publication_validation jsonb NOT NULL CHECK (jsonb_typeof(publication_validation) = 'object'),
     semantic_impact jsonb NOT NULL CHECK (jsonb_typeof(semantic_impact) = 'object'),
@@ -23,8 +23,8 @@ CREATE TABLE ple_data.question_change_proposal_revision (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT question_change_proposal_revision_number_is_unique UNIQUE (proposal_id, revision_number),
     CONSTRAINT question_change_proposal_revision_reference_is_unique UNIQUE (proposal_id, proposal_revision_id),
-    CONSTRAINT question_change_proposal_revision_base_version_matches FOREIGN KEY (base_question_id, base_version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    CONSTRAINT question_change_proposal_revision_base_version_matches FOREIGN KEY (base_question_id, base_revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE FUNCTION ple_data.reject_question_stewardship_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$

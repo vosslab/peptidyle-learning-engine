@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use question_model::classification::License;
-use question_model::{ActivityTimestamp, ObjectId, QuestionVersionReference};
+use question_model::{ActivityTimestamp, ObjectId, QuestionRevisionReference};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
@@ -135,8 +135,8 @@ pub struct ObjectRecord {
     pub size_bytes: u64,
     /// Media type verified by the owning import or render path.
     pub media_type: String,
-    /// Exact Question Version associated with content, when one exists.
-    pub question_version: Option<QuestionVersionReference>,
+    /// Exact Question Revision associated with content, when one exists.
+    pub question_revision: Option<QuestionRevisionReference>,
     /// Optional content-reuse terms. Data sensitivity belongs to `data_class`.
     pub license: Option<License>,
     /// Human-readable source or derivation record.
@@ -235,7 +235,7 @@ pub trait ObjectStore: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{QuestionId, QuestionVersionNumber, QuestionVersionReference};
+    use question_model::{QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
     use uuid::Uuid;
 
     const DIGEST_BYTES: [u8; 32] = [
@@ -280,11 +280,11 @@ mod tests {
 
     #[test]
     fn object_record_json_shape_uses_canonical_hex_digest() {
-        let question_version = QuestionVersionReference {
+        let question_revision = QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
                 .expect("canonical Question ID"),
-            version_number: QuestionVersionNumber::new(2)
-                .expect("positive Question Version Number"),
+            revision_number: QuestionRevisionNumber::new(2)
+                .expect("positive Question Revision Number"),
         };
         let object = ObjectId::from_uuid(Uuid::from_u128(3));
         let record = ObjectRecord {
@@ -292,13 +292,13 @@ mod tests {
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::QuestionSource,
             address: ObjectAddress::QuestionSource {
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 object,
             },
             sha256: Sha256Digest::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
-            question_version: Some(question_version),
+            question_revision: Some(question_revision),
             license: None,
             provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
@@ -312,13 +312,13 @@ mod tests {
                 "\"storageArea\":\"private-content\",",
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
-                "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
+                "\"questionRevision\":{\"questionId\":\"ABC-DEFG\",\"revisionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
-                "\"questionVersion\":{\"questionId\":\"ABC-DEFG\",\"versionNumber\":2},",
+                "\"questionRevision\":{\"questionId\":\"ABC-DEFG\",\"revisionNumber\":2},",
                 "\"license\":null,",
                 "\"provenance\":\"fixture\",",
                 "\"createdAt\":1000}"

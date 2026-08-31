@@ -15,10 +15,10 @@ import {
 } from "../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
 import {
-  courseRouteReference,
+  courseInstanceRouteReference,
   parseAssignmentReference,
   type AssignmentRouteReference,
-  type CourseRouteReference,
+  type CourseInstanceRouteReference,
 } from "../navigation/public_route";
 import { AssignmentAccessPage } from "./assignment_access_page";
 
@@ -29,7 +29,7 @@ type Gate =
       readonly courseId: CourseId;
       readonly assignmentId: AssignmentId;
       readonly revision: TeachingOperationRevision;
-      readonly courseReference: CourseRouteReference;
+      readonly courseReference: CourseInstanceRouteReference;
       readonly assignmentReference: AssignmentRouteReference;
     }
   | { readonly kind: "denied" }
@@ -105,7 +105,7 @@ export function AssignmentAccessLivePage(): JSX.Element {
         courseId: course.id,
         assignmentId: assignment.assignmentId,
         revision: editor.revision,
-        courseReference: courseRouteReference(course.reference),
+        courseReference: courseInstanceRouteReference(course.reference),
         assignmentReference,
       });
     } catch {

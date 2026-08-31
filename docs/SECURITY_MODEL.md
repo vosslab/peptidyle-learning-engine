@@ -161,7 +161,7 @@ whether to accept a submission; browser time remains display-only.
 
 `validate_assignment_config` receives only question definitions and backend
 capability declarations already shown to an instructor. Its violations name a
-question version and a missing capability, never an answer or grading key. The
+question revision and a missing capability, never an answer or grading key. The
 server independently calls the same domain function before publication.
 
 `preview_native_draft` receives an unversioned draft workspace projection and
@@ -394,7 +394,7 @@ visibility, payload, capabilities, metadata, authorship, and lineage cannot be
 updated or deleted by the application role.
 
 The no-drift contract pins every assignment and grading record to an exact
-Question Version. Editorial or accessibility corrections may continue a
+Question Revision. Editorial or accessibility corrections may continue a
 Question ID under its immutable version history; a changed objective, Question Type,
 or substantially different task becomes a fork with a new Question ID.
 Existing assignments retain their exact references until an Instructor makes a

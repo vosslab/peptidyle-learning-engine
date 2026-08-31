@@ -15,8 +15,8 @@ use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
-    QuestionRendererVersion, QuestionType, QuestionVariation, QuestionVersionNumber,
-    QuestionVersionReference, SourceObjectReference, WorkspaceId,
+    QuestionRendererVersion, QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
+    QuestionVariation, SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -37,10 +37,10 @@ const OPL_FIXTURE: &str = concat!(
     "ENDDOCUMENT();\n",
 );
 
-fn question_version(number: u32) -> QuestionVersionReference {
-    QuestionVersionReference {
+fn question_revision(number: u32) -> QuestionRevisionReference {
+    QuestionRevisionReference {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        version_number: QuestionVersionNumber::new(number).expect("positive version"),
+        revision_number: QuestionRevisionNumber::new(number).expect("positive version"),
     }
 }
 
@@ -76,7 +76,7 @@ impl WebworkRenderer for RecordedRenderer {
         Ok(RenderedWebworkQuestion {
             envelope: QuestionPresentation {
                 variation: QuestionVariation::static_variation(
-                    request.question_version.clone(),
+                    request.question_revision.clone(),
                     QuestionSeed::new(request.seed),
                 ),
                 title: "Untrusted renderer title".to_string(),
@@ -166,10 +166,10 @@ fn recorded_renderer(calls: Arc<AtomicUsize>) -> RecordedRenderer {
     }
 }
 
-fn question_with_response(response: QuestionResponseFormat) -> QuestionVersion {
-    QuestionVersion {
+fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision {
+    QuestionRevision {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        version_number: QuestionVersionNumber::new(2).expect("positive version"),
+        revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
         source: QuestionSource::Webwork {
             pg_path: "Library/OPL/select-one.pg".to_string(),
@@ -194,7 +194,7 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionVersion {
     }
 }
 
-async fn source(store: &MemoryObjectStore, question: &QuestionVersion) -> WebworkSource {
+async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> WebworkSource {
     let source_object_reference = SourceObjectReference {
         object: ObjectId::from_uuid(Uuid::from_u128(4)),
         sha256: Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string(),
@@ -202,9 +202,9 @@ async fn source(store: &MemoryObjectStore, question: &QuestionVersion) -> Webwor
     store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_version: QuestionVersionReference {
+                question_revision: QuestionRevisionReference {
                     question_id: question.question_id.clone(),
-                    version_number: question.version_number,
+                    revision_number: question.revision_number,
                 },
                 object: source_object_reference.object,
             },
@@ -218,9 +218,9 @@ async fn source(store: &MemoryObjectStore, question: &QuestionVersion) -> Webwor
         .expect("fixture source should be stored under its immutable key");
     WebworkSource::resolve(
         store,
-        QuestionVersionReference {
+        QuestionRevisionReference {
             question_id: question.question_id.clone(),
-            version_number: question.version_number,
+            revision_number: question.revision_number,
         },
         source_object_reference,
     )
@@ -475,15 +475,15 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
         sha256: "00".repeat(32),
     };
     assert_eq!(
-        WebworkSource::resolve(&store, question_version(2), wrong_digest,).await,
+        WebworkSource::resolve(&store, question_revision(2), wrong_digest,).await,
         Err(WebworkAdapterError::UntrustedSource)
     );
     assert_eq!(
         WebworkSource::resolve(
             &store,
-            QuestionVersionReference {
+            QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
-                version_number: question.version_number,
+                revision_number: question.revision_number,
             },
             trusted.source_object_reference().clone(),
         )
@@ -496,9 +496,9 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
 async fn source_from_another_published_question_is_refused_before_renderer_or_cache() {
     let store = MemoryObjectStore::default();
     let question = question_with_response(fixture_response());
-    let foreign_question = QuestionVersion {
+    let foreign_question = QuestionRevision {
         question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
-        version_number: QuestionVersionNumber::new(3).expect("positive version"),
+        revision_number: QuestionRevisionNumber::new(3).expect("positive version"),
         ..question.clone()
     };
     let foreign_source = source(&store, &foreign_question).await;

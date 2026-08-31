@@ -136,7 +136,7 @@ explicit composition of those existing values, not a hidden special case:
 
 The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the five independent
 Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
-published question version. The Questions and Policies workspace pages expose these assignment controls
+published question revision. The Questions and Policies workspace pages expose these assignment controls
 separately; they do not override question policies. See
 [src/pages/assignment_workspace/assignment_workspace_questions_page.tsx](../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx),
 [src/pages/assignment_workspace/assignment_workspace_policies_page.tsx](../src/pages/assignment_workspace/assignment_workspace_policies_page.tsx), and
@@ -206,7 +206,7 @@ Those are current user-interface facts, not evidence that a formal assignment-ty
 The following is a planned instructor-facing layer over the existing orthogonal model. It should be
 implemented as recognizable activity types with safe defaults, not as a new persisted combined enum.
 The stored Assignment remains `AssignmentActivityRules`, five independent Student Feedback Release timings, selected
-published question versions, and access policy. The examples below are proposed defaults, not a
+published question revisions, and access policy. The examples below are proposed defaults, not a
 claim that an older coarse feedback bundle is directly representable.
 
 | Activity type              | Default intent                                              | Proposed policy bundle                                                                                                                                       | Status                                                                                                  |
@@ -258,8 +258,8 @@ server rejection gracefully.
 
 The Instructor assignment workspace keeps mastery configuration in the same assignment aggregate
 while separating the teaching tasks. Questions owns the title and ordered fixed-or-pool content;
-Policies owns audience, Student Feedback Release Rules, Assignment activity rules, instructions, schedule, limits, late behavior,
-and lifecycle. Each focused save uses the assignment's shared revision and returns the complete
+Policies owns Student Feedback Release Rules, Assignment Activity Rules, instructions, schedule, limits, late behavior,
+and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete
 authoritative projection, so a Policies save cannot silently replace Questions content.
 
 An empty persisted Draft is valid while the Instructor builds the assignment across pages. Derived

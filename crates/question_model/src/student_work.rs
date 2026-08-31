@@ -11,110 +11,24 @@
 //! an installation-wide Account is the global product identity.
 
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use uuid::Uuid;
 
-use crate::QuestionVersionReference;
+use crate::QuestionRevisionReference;
+use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
 use crate::assignment_activity_rules::{QuestionPoolReuseRule, QuestionVariationRule};
 use crate::generation::{QuestionGeneratorReference, QuestionSeed};
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
 use crate::{AssignmentAttemptReference, AssignmentRevisionReference};
 
-/// A course-owned assignment offered to students.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentId(Uuid);
+mod identifiers;
 
-/// One stable current-state item within an assignment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentEntryId(Uuid);
-
-/// One stable candidate inside its owning Question Pool Assignment Entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionPoolCandidateId(Uuid);
-
-/// One immutable Question Pool result for one Assignment Attempt and one Assignment Entry.
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionPoolSelectionId(Uuid);
-
-/// A course or section containing assignments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseId(Uuid);
-
-/// One durable course-local membership record.
-///
-/// This identity is historical evidence as well as the single current
-/// membership lock target.  It is intentionally distinct from a user and a
-/// student record: revocation and a later reinvitation must not rewrite a
-/// receipt minted under an earlier membership.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseMembershipId(Uuid);
-
-/// One durable Student Record in a Course Instance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct StudentRecordId(Uuid);
-
-/// One direct Student Accommodation attached to an Assignment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AccommodationId(Uuid);
-
-/// One pass through an assignment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentAttemptId(Uuid);
-
-/// One issued question inside a run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct IssuedQuestionId(Uuid);
-
-/// One server-issued try for one Issued Question.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionAttemptId(Uuid);
-
-/// One immutable accepted Student Response for one Question Attempt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionSubmissionId(Uuid);
-
-/// Gives a Student Work identifier its shared storage and display behavior.
-macro_rules! impl_student_work_identifier {
-    ($name:ident) => {
-        impl $name {
-            /// Wraps a UUID read from storage or an authenticated boundary.
-            pub fn from_uuid(value: Uuid) -> Self {
-                Self(value)
-            }
-
-            /// Returns the UUID used by storage and logging.
-            pub fn as_uuid(&self) -> Uuid {
-                self.0
-            }
-
-            /// Mints a fresh server-owned identifier.
-            #[cfg(feature = "generate")]
-            pub fn generate() -> Self {
-                Self(Uuid::now_v7())
-            }
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(formatter, "{}", self.0)
-            }
-        }
-    };
-}
-
-impl_student_work_identifier!(AssignmentId);
-impl_student_work_identifier!(AssignmentEntryId);
-impl_student_work_identifier!(QuestionPoolCandidateId);
-impl_student_work_identifier!(QuestionPoolSelectionId);
-impl_student_work_identifier!(CourseId);
-impl_student_work_identifier!(CourseMembershipId);
-impl_student_work_identifier!(StudentRecordId);
-impl_student_work_identifier!(AccommodationId);
-impl_student_work_identifier!(AssignmentAttemptId);
-impl_student_work_identifier!(IssuedQuestionId);
-impl_student_work_identifier!(QuestionAttemptId);
-impl_student_work_identifier!(QuestionSubmissionId);
+pub use identifiers::{
+    AccommodationId, AssignmentAttemptId, AssignmentEntryId, AssignmentId, CourseId,
+    CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolCandidateId,
+    QuestionPoolSelectionId, QuestionSubmissionId, StudentRecordId,
+};
 
 /// A timestamp supplied by the server as Unix milliseconds.
 ///
@@ -224,7 +138,7 @@ pub struct QuestionPoolSelectedCandidate {
     /// Stable identity of the candidate in its source Question Pool Assignment Entry.
     pub candidate: QuestionPoolCandidateId,
     /// Exact immutable Question Revision selected for delivery.
-    pub reference: QuestionVersionReference,
+    pub reference: QuestionRevisionReference,
 }
 
 /// Immutable Question Pool result for one Assignment Attempt and one Question Pool Assignment Entry.
@@ -240,8 +154,75 @@ pub struct QuestionPoolSelection {
     pub question_pool_entry: AssignmentEntryId,
     /// Database-authoritative time at which the server selected these candidates.
     pub created_at: ActivityTimestamp,
+    /// Number of exact candidates selected for this Assignment Attempt.
+    ///
+    /// This repeats the candidate-row cardinality so storage can reject an
+    /// incomplete Selection at transaction commit without consulting mutable
+    /// Assignment Working Copy content.
+    pub selected_question_count: u32,
+    /// Earlier Selection whose exact candidates this later Assignment Attempt retained.
+    ///
+    /// A reused Selection is still an immutable result owned by this Assignment
+    /// Attempt. This link preserves the reason its candidate membership repeats
+    /// without treating the earlier Attempt's record as mutable shared state.
+    pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Exact selected candidates in their frozen delivery order.
     pub selected_candidates: Vec<QuestionPoolSelectedCandidate>,
+}
+
+/// A requested later-Attempt Selection does not match its earlier source.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuestionPoolSelectionReuseError {
+    /// A Question Pool Selection can only be retained for the same Assignment Entry.
+    DifferentQuestionPoolEntry,
+    /// A Selection cannot use itself as an earlier Assignment Attempt's source.
+    SameAssignmentAttempt,
+}
+
+impl std::fmt::Display for QuestionPoolSelectionReuseError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DifferentQuestionPoolEntry => formatter
+                .write_str("Question Pool Selection reuse requires the same Assignment Entry"),
+            Self::SameAssignmentAttempt => formatter
+                .write_str("Question Pool Selection reuse requires a later Assignment Attempt"),
+        }
+    }
+}
+
+impl std::error::Error for QuestionPoolSelectionReuseError {}
+
+impl QuestionPoolSelection {
+    /// Copies this immutable candidate result into a later Assignment Attempt.
+    ///
+    /// Storage additionally verifies that both attempts belong to the same
+    /// Student and Assignment, and that the target attempt number is later.
+    /// Keeping those relational checks in storage prevents a caller from
+    /// supplying an unrelated Student Work identifier.
+    pub fn reused_for_later_attempt(
+        &self,
+        id: QuestionPoolSelectionId,
+        assignment_attempt: AssignmentAttemptId,
+        question_pool_entry: AssignmentEntryId,
+        created_at: ActivityTimestamp,
+    ) -> Result<Self, QuestionPoolSelectionReuseError> {
+        if question_pool_entry != self.question_pool_entry {
+            return Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolEntry);
+        }
+        if assignment_attempt == self.assignment_attempt {
+            return Err(QuestionPoolSelectionReuseError::SameAssignmentAttempt);
+        }
+        Ok(Self {
+            id,
+            assignment_attempt,
+            question_pool_entry,
+            created_at,
+            selected_question_count: self.selected_question_count,
+            reused_from_question_pool_selection: Some(self.id),
+            selected_candidates: self.selected_candidates.clone(),
+        })
+    }
 }
 
 /// Immutable question selection and issued order for one Assignment Attempt.
@@ -260,7 +241,11 @@ pub struct IssuedQuestion {
     /// Expanded zero-based delivery order inside this run.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
-    pub reference: QuestionVersionReference,
+    pub reference: QuestionRevisionReference,
+    /// Exact Assignment-owned point value frozen when this Question was issued.
+    pub point_value: AssignmentPointValue,
+    /// Exact Assignment scoring treatment frozen when this Question was issued.
+    pub scoring_rule: AssignmentEntryScoringRule,
     /// Whether this issued item may contribute to cross-course learning evidence.
     ///
     /// The value is frozen when the run begins so later assignment scoring
@@ -660,15 +645,17 @@ mod tests {
     fn question_pool_selection_retains_exact_candidates_and_issued_question_link() {
         let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
         let candidate_id = QuestionPoolCandidateId::from_uuid(Uuid::from_u128(11));
-        let reference = QuestionVersionReference {
+        let reference = QuestionRevisionReference {
             question_id: "123-4567".parse().expect("valid Question ID"),
-            version_number: crate::QuestionVersionNumber::new(1).expect("positive version"),
+            revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
         };
         let selection = QuestionPoolSelection {
             id: selection_id,
             assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(12)),
             question_pool_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(13)),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
+            selected_question_count: 1,
+            reused_from_question_pool_selection: None,
             selected_candidates: vec![QuestionPoolSelectedCandidate {
                 candidate: candidate_id,
                 reference: reference.clone(),
@@ -681,6 +668,8 @@ mod tests {
             definition_entry_index: 0,
             issued_position: 0,
             reference,
+            point_value: crate::AssignmentPointValue::from_whole(1),
+            scoring_rule: crate::AssignmentEntryScoringRule::Normal,
             statistics_eligible: true,
             question_pool_selection: Some(selection_id),
             question_pool_candidate: Some(candidate_id),
@@ -689,6 +678,52 @@ mod tests {
         assert_eq!(selection.selected_candidates.len(), 1);
         assert_eq!(issued_question.question_pool_selection, Some(selection.id));
         assert_eq!(issued_question.question_pool_candidate, Some(candidate_id));
+
+        let reused = selection
+            .reused_for_later_attempt(
+                QuestionPoolSelectionId::from_uuid(Uuid::from_u128(15)),
+                AssignmentAttemptId::from_uuid(Uuid::from_u128(16)),
+                selection.question_pool_entry,
+                ActivityTimestamp::from_unix_millis(2_000),
+            )
+            .expect("same Question Pool may retain its exact candidates");
+        assert_eq!(
+            reused.reused_from_question_pool_selection,
+            Some(selection.id)
+        );
+        assert_eq!(reused.selected_candidates, selection.selected_candidates);
+    }
+
+    #[test]
+    fn question_pool_selection_refuses_reuse_for_a_different_entry_or_same_attempt() {
+        let selection = QuestionPoolSelection {
+            id: QuestionPoolSelectionId::from_uuid(Uuid::from_u128(1)),
+            assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(2)),
+            question_pool_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(3)),
+            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            selected_question_count: 1,
+            reused_from_question_pool_selection: None,
+            selected_candidates: Vec::new(),
+        };
+
+        assert_eq!(
+            selection.reused_for_later_attempt(
+                QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
+                selection.assignment_attempt,
+                selection.question_pool_entry,
+                ActivityTimestamp::from_unix_millis(2_000),
+            ),
+            Err(QuestionPoolSelectionReuseError::SameAssignmentAttempt),
+        );
+        assert_eq!(
+            selection.reused_for_later_attempt(
+                QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
+                AssignmentAttemptId::from_uuid(Uuid::from_u128(5)),
+                AssignmentEntryId::from_uuid(Uuid::from_u128(6)),
+                ActivityTimestamp::from_unix_millis(2_000),
+            ),
+            Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolEntry),
+        );
     }
 
     #[test]

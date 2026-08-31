@@ -30,7 +30,7 @@ show the recoverable next-question action.
 ## Exact-successor repair review
 
 - `matchesIssuedSuccessor` compares the exact public receipt binding: attempt
-  ID, run, assignment position, question version, seed, deadline, and rendered
+  ID, run, assignment position, question revision, seed, deadline, and rendered
   question hash. A fresh screen must pass that predicate before it can become a
   machine successor.
 - The client reads the fresh screen inside `machine.advance`; a mismatch throws

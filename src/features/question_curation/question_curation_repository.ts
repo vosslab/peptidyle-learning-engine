@@ -152,7 +152,7 @@ function folderEntryPage(value: {
 }): unknown {
   return {
     items: value.page.items
-      .filter((member) => member.questionVersionAvailability.availability === "available")
+      .filter((member) => member.questionRevisionAvailability.availability === "available")
       .map(rowFromFolderEntry),
     nextCursor: value.page.nextCursor,
     aggregates: [],

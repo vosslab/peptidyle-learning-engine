@@ -17,7 +17,10 @@ import {
   decodePreviewPlaneResponse,
   decodeStudentViewScenarioRequest,
 } from "../decoders";
-import { parseAssignmentReference, parseCourseReference } from "../../navigation/public_route";
+import {
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+} from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError, PreviewPlaneConflictError } from "./error";
 import { encodedId, requestPath, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -35,7 +38,10 @@ function previewRoutePath(
   course: CourseInstanceReference,
   assignment: AssignmentReference,
 ): string {
-  if (parseCourseReference(course) === null || parseAssignmentReference(assignment) === null) {
+  if (
+    parseCourseInstanceReference(course) === null ||
+    parseAssignmentReference(assignment) === null
+  ) {
     throw new ApiProtocolError("Preview requests require exact C- and A- route references");
   }
   return `/api/courses/${encodedId(course)}/assignments/${encodedId(assignment)}`;

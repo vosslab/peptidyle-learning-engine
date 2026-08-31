@@ -9,7 +9,10 @@ import type { TeachingOperationRevision } from "../../generated/api/TeachingOper
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
 import type { ApiClient } from "../api/client";
 import { ApiRequestError } from "../api/http_client/error";
-import type { AssignmentRouteReference, CourseRouteReference } from "../navigation/public_route";
+import type {
+  AssignmentRouteReference,
+  CourseInstanceRouteReference,
+} from "../navigation/public_route";
 import { ModifierDialog } from "./assignment_access/modifier_dialog";
 import {
   type ModifierMode,
@@ -24,7 +27,7 @@ export interface AssignmentAccessPageProps {
   readonly courseId: CourseId;
   readonly assignmentId: AssignmentId;
   readonly initialRevision: TeachingOperationRevision;
-  readonly courseReference: CourseRouteReference;
+  readonly courseReference: CourseInstanceRouteReference;
   readonly assignmentReference: AssignmentRouteReference;
   /** Fetches the current strong revision after a compare-and-swap conflict. */
   readonly reloadAssignmentRevision: () => Promise<TeachingOperationRevision>;

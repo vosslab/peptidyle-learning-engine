@@ -116,10 +116,10 @@ Instructor submits one patch and rationale against one exact immutable base
 version. The server completes publication validation and semantic/grading-
 impact analysis before accepting the submission for the lineage owner's
 accept/reject decision. A stale base returns a rebase-and-resubmit conflict.
-Acceptance of a compatible `ModerateEdit` publishes a new immutable `QuestionVersionNumber`
+Acceptance of a compatible `ModerateEdit` publishes a new immutable `QuestionRevisionNumber`
 under the original stable `QuestionId`, preserves canonical authorship and the
 compatible CC license, records contributor credit and proposal ancestry, and
-leaves every assignment and evidence `QuestionVersionReference` unchanged.
+leaves every assignment and evidence `QuestionRevisionReference` unchanged.
 `FullFork` remains the distinct major-change path: its creator-private draft
 validates before global publication with a new Question ID and exact ancestry.
 `ForcedQuestionCorrection` remains the distinct Sysadmin-only emergency
@@ -157,8 +157,8 @@ append-only audited.
 
 Student delivery is a separate authority path. A Student receives a question
 only when the server grants an exact assignment entitlement for that
-authenticated Student, active Student membership, exact course and assignment,
-assignment audience and lifecycle, and current policy. Question Library visibility never
+authenticated Student, Active Student Course Membership, exact course and assignment,
+Assignment Status, and current policy. Question Library visibility never
 grants Student delivery. Anonymous requests receive no Question Library authority and
 cannot browse, search, resolve, or inspect a Question ID.
 
@@ -177,8 +177,8 @@ assignment belongs to that exact course. A mismatched or unavailable pair has
 the same concealed not-found result and returns no assignment facts. The
 response carries the complete Draft Assignment Revision editor projection: title, ordered
 fixed or pool content, Student Feedback Release Rules, Assignment activity rules, course-local teaching
-settings, server-derived current state, audience, and Assignment Publication
-Readiness for that exact Draft Assignment Revision.
+settings, server-derived current state, Active Student Course Membership, and
+Assignment Publication Readiness for that exact Draft Assignment Revision.
 
 `POST /api/courses/{course}/assignments/drafts` accepts only a title and
 persists an ordinary incomplete Draft with server-owned defaults. An empty
@@ -190,15 +190,17 @@ Questions owns `PUT
 and ordered public Question-ID entries, resolves each publication under the
 exact course authority, accepts only active `Published` questions for ordinary
 new selection, and records the selected Question ID with its exact immutable
-`QuestionVersionReference` pin. The Instructor may choose a shared question without
+`QuestionRevisionReference` pin. The Instructor may choose a shared question without
 importing its content into the course row. A future version becomes available
 only through this explicit, revision-checked update; publication and lifecycle
 work never advance an assignment automatically. Policies
 owns `PUT
 /api/courses/{course}/assignments/{assignment}/policies`. It accepts one closed
-aggregate of audience, Student Feedback Release Rules, Assignment activity rules, and course-local teaching
-settings, resolves local times and group references on the server, validates
-the candidate, and commits all policy-owned fields together. Both writes
+aggregate of Student Feedback Release Rules, Assignment Activity Rules, and course-local teaching
+settings, resolves local times on the server, validates the candidate, and
+commits all policy-owned fields together. Active Student Course Membership
+determines ordinary access; direct Student Accommodations are separate exact
+Student operations. Both writes
 require the current assignment revision in `If-Match`, advance one shared
 aggregate revision, and return the complete authoritative editor projection
 with its new `ETag`.

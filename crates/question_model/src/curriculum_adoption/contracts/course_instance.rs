@@ -9,11 +9,11 @@ use serde::{Deserialize, Serialize};
 use super::{
     BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken, BlueprintQuestionPosition,
     BlueprintRevisionReference, CourseInstanceOperationReceipt, CurriculumImportRevision,
-    QuestionVersionSubstitutions, ReplacementQuestionVersionChoices,
+    QuestionRevisionSubstitutions, ReplacementQuestionRevisionChoices,
 };
 use crate::{
     AccountId, AssignmentReference, AssignmentRevisionNumber, CourseInstanceReference,
-    CourseScheduleRevisionReference, CourseTerm, QuestionVersionReference,
+    CourseScheduleRevisionReference, CourseTerm, QuestionRevisionReference,
     ResolvedAssignmentSchedule,
 };
 
@@ -204,7 +204,7 @@ pub struct AssignmentSourceSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentSourceRecord {
     source: BlueprintAssignmentRevisionReference,
-    replacements: QuestionVersionSubstitutions,
+    replacements: QuestionRevisionSubstitutions,
     blueprint_content_digest: super::super::BlueprintContentDigest,
     assignment: AssignmentRevisionReference,
     import_revision: CurriculumImportRevision,
@@ -213,7 +213,7 @@ pub struct AssignmentSourceRecord {
 impl AssignmentSourceRecord {
     pub fn new(
         source: BlueprintAssignmentRevisionReference,
-        replacements: QuestionVersionSubstitutions,
+        replacements: QuestionRevisionSubstitutions,
         blueprint_content_digest: super::super::BlueprintContentDigest,
         assignment: AssignmentRevisionReference,
         import_revision: CurriculumImportRevision,
@@ -229,7 +229,7 @@ impl AssignmentSourceRecord {
     pub fn source(&self) -> BlueprintAssignmentRevisionReference {
         self.source
     }
-    pub fn replacements(&self) -> &QuestionVersionSubstitutions {
+    pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
     pub fn blueprint_content_digest(&self) -> super::super::BlueprintContentDigest {
@@ -322,11 +322,11 @@ pub struct CourseInstanceScheduleCorrection {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct UnavailableQuestionVersionRecovery {
+pub struct UnavailableQuestionRevisionRecovery {
     pub source: BlueprintAssignmentRevisionReference,
     pub position: BlueprintQuestionPosition,
-    pub unavailable: QuestionVersionReference,
-    pub choices: ReplacementQuestionVersionChoices,
+    pub unavailable: QuestionRevisionReference,
+    pub choices: ReplacementQuestionRevisionChoices,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -361,8 +361,8 @@ pub enum CourseInstanceOperationBlocker {
         #[serde(deserialize_with = "deserialize_course_instance_corrections")]
         corrections: Vec<CourseInstanceScheduleCorrection>,
     },
-    UnavailableQuestionVersion {
-        recovery: UnavailableQuestionVersionRecovery,
+    UnavailableQuestionRevision {
+        recovery: UnavailableQuestionRevisionRecovery,
     },
     ReceiptUnavailable,
 }
@@ -438,7 +438,7 @@ pub struct ControlledUpdateBlueprintAssignmentPreviewRequest {
 pub struct CreateSelectedBlueprintAssignmentPreviewRequest {
     pub course: CourseInstanceReference,
     pub source: BlueprintAssignmentRevisionReference,
-    pub replacements: QuestionVersionSubstitutions,
+    pub replacements: QuestionRevisionSubstitutions,
 }
 
 /// Server-only repair intent for one retained CourseInstance receipt.

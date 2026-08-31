@@ -123,7 +123,7 @@ mod tests {
     use question_model::{
         AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule,
         AssignmentPointValue, QuestionPoolCandidate, QuestionPoolCandidateId,
-        QuestionPoolSelectionRule, QuestionVersionNumber, QuestionVersionReference,
+        QuestionPoolSelectionRule, QuestionRevisionNumber, QuestionRevisionReference,
     };
     use uuid::Uuid;
 
@@ -135,11 +135,11 @@ mod tests {
     ) -> QuestionPoolCandidate {
         QuestionPoolCandidate {
             id: QuestionPoolCandidateId::from_uuid(Uuid::from_u128(number)),
-            reference: QuestionVersionReference {
+            reference: QuestionRevisionReference {
                 question_id: format!("123-456{number}")
                     .parse()
                     .expect("valid Question ID"),
-                version_number: QuestionVersionNumber::new(1).expect("positive version"),
+                revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
             availability,
         }

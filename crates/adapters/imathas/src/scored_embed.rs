@@ -8,7 +8,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{ActivityTimestamp, GradingResult, QuestionVersionReference};
+use question_model::{ActivityTimestamp, GradingResult, QuestionRevisionReference};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -241,12 +241,12 @@ impl ScoredEmbedLaunchLedger {
     }
     /// The complete server-held cache entry identity for this provider render.
     ///
-    /// It omits the attempt binding so identical published Question Versions may
+    /// It omits the attempt binding so identical published Question Revisions may
     /// reuse rendered content, while binding the exact provider payload and its
     /// validity window.
     pub fn external_question_provider_cache_entry(&self) -> ExternalQuestionProviderCacheEntry {
         ExternalQuestionProviderCacheEntry {
-            question_version: self.binding.question_version.clone(),
+            question_revision: self.binding.question_revision.clone(),
             provider_seed: self.provider_seed,
             profile: self.profile.clone(),
             payload_digest: self.source_digest.clone(),
@@ -412,7 +412,7 @@ impl std::fmt::Debug for ScoredEmbedLaunchClaims {
 /// absent from this application record.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ExternalQuestionProviderCacheEntry {
-    question_version: QuestionVersionReference,
+    question_revision: QuestionRevisionReference,
     provider_seed: u16,
     profile: String,
     payload_digest: String,
@@ -423,7 +423,7 @@ impl std::fmt::Debug for ExternalQuestionProviderCacheEntry {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ExternalQuestionProviderCacheEntry")
-            .field("question_version", &self.question_version)
+            .field("question_revision", &self.question_revision)
             .field("provider_seed", &self.provider_seed)
             .field("profile", &self.profile)
             .field("payload_digest", &"REDACTED")
@@ -688,8 +688,14 @@ fn launch_binding_digest(
     let mut digest = Sha256::new();
     digest.update(b"ple:imathas:scored-embed-binding:v1");
     digest.update(binding.attempt.as_uuid().as_bytes());
-    digest.update(binding.question_version.question_id.to_string().as_bytes());
-    digest.update(binding.question_version.version_number.get().to_be_bytes());
+    digest.update(binding.question_revision.question_id.to_string().as_bytes());
+    digest.update(
+        binding
+            .question_revision
+            .revision_number
+            .get()
+            .to_be_bytes(),
+    );
     digest.update(binding.seed.value().to_be_bytes());
     digest.update(provider_seed.to_be_bytes());
     digest.update(SCORED_EMBED_BROKER_PROFILE_ID.as_bytes());
@@ -703,7 +709,7 @@ fn launch_binding_digest(
 mod tests {
     use hmac::{Hmac, KeyInit, Mac};
     use question_model::{
-        QuestionAttemptId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+        QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
         generation::QuestionSeed,
     };
     use uuid::Uuid;
@@ -718,9 +724,9 @@ mod tests {
     fn binding() -> GradeBinding {
         GradeBinding {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(2)),
-            question_version: QuestionVersionReference {
+            question_revision: QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-                version_number: QuestionVersionNumber::new(4).expect("positive version"),
+                revision_number: QuestionRevisionNumber::new(4).expect("positive version"),
             },
             seed: QuestionSeed::new(10_001),
         }
@@ -910,9 +916,9 @@ mod tests {
         let base = binding();
         for changed in [
             GradeBinding {
-                question_version: QuestionVersionReference {
-                    question_id: base.question_version.question_id.clone(),
-                    version_number: QuestionVersionNumber::new(44).expect("positive version"),
+                question_revision: QuestionRevisionReference {
+                    question_id: base.question_revision.question_id.clone(),
+                    revision_number: QuestionRevisionNumber::new(44).expect("positive version"),
                 },
                 ..base.clone()
             },

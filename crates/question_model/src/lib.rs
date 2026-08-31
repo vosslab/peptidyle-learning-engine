@@ -156,7 +156,7 @@ pub use crate::curriculum_adoption::*;
 pub use crate::definition::{
     DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionFormat, QuestionGradingRule, QuestionMetadata,
-    QuestionSource, QuestionSourceValidationError, QuestionTitleError, QuestionVersion,
+    QuestionRevision, QuestionSource, QuestionSourceValidationError, QuestionTitleError,
     WorkspaceDraftSummary, validate_question_title,
 };
 pub use crate::envelope::{QuestionPresentation, QuestionVariation};
@@ -171,7 +171,7 @@ pub use crate::grading_operations::{
     StudentQuestionSubmissionGradingState,
 };
 pub use crate::identity::{
-    AssetId, ObjectId, QuestionVersionNumber, WorkspaceId, WorkspaceImportId,
+    AssetId, ObjectId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::pool_preview::{
     QuestionPoolPreview, QuestionPoolPreviewQuestion, QuestionPoolPreviewRequest,
@@ -210,14 +210,15 @@ pub use crate::question_library::{
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
     MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionDetails,
-    QuestionId, QuestionPromptProjection, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchBylineFacet, QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
+    QuestionId, QuestionPromptProjection, QuestionRevisionAvailability, QuestionRevisionReference,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBylineFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
     QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
     QuestionSearchFacets, QuestionSearchFilter, QuestionSearchLicense, QuestionSearchLicenseFacet,
     QuestionSearchPage, QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchResult,
     QuestionSearchTagFacet, QuestionStatistics, QuestionStatisticsAvailability,
     QuestionStatisticsAvailabilityFacet, QuestionSummary, QuestionTypeFacet, QuestionUseDetails,
-    QuestionUseSummary, QuestionVersionAvailability, QuestionVersionReference,
+    QuestionUseSummary,
 };
 pub use crate::response::{
     QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
@@ -234,8 +235,8 @@ pub use crate::student_work::{
     QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionAttemptState,
     QuestionAttemptTiming, QuestionBackendVersion, QuestionGraderVersion, QuestionPoolCandidateId,
     QuestionPoolSelectedCandidate, QuestionPoolSelection, QuestionPoolSelectionId,
-    QuestionRendererVersion, QuestionSubmission, QuestionSubmissionId, SourceObjectReference,
-    StudentQuestionAttemptView, StudentRecordId,
+    QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
+    QuestionSubmissionId, SourceObjectReference, StudentQuestionAttemptView, StudentRecordId,
 };
 pub use crate::teaching_authority::{
     CourseInvitation, CourseInvitationEvent, CourseInvitationEventKind, CourseInvitationId,

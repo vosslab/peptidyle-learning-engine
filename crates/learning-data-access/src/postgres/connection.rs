@@ -59,7 +59,7 @@ pub fn production_pool(
     ))
 }
 
-/// Builds a local-development pool while preserving the exact process-login
+/// Builds a local-development pool while preserving the exact service-login
 /// and effective-capability attestation. The caller chooses this only for the
 /// disposable plaintext stack; production always uses [`production_pool`].
 pub fn local_development_pool(

@@ -11,8 +11,8 @@ import {
 } from "../../features/course_appearance/course_theme_context";
 import {
   assignmentRouteReference,
-  parseCourseReference,
-  type CourseRouteReference,
+  parseCourseInstanceReference,
+  type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 
 import {
@@ -35,8 +35,8 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
   let titleInput: HTMLInputElement | undefined;
   const course = (): ReturnType<typeof courseRouteData>["summary"] | undefined =>
     route?.kind === "course" ? courseRouteData(route).summary : undefined;
-  const courseReference = (): CourseRouteReference | null =>
-    parseCourseReference(params["courseRef"] ?? "");
+  const courseReference = (): CourseInstanceRouteReference | null =>
+    parseCourseInstanceReference(params["courseRef"] ?? "");
   const mayCreate = (): boolean => {
     const currentSession = session.state();
     const currentCourse = course();

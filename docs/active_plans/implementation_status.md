@@ -17,7 +17,7 @@ data use domain identifiers.
 
 - **Current scoped correction package:** `WP-SD1-A-TERM-01` aligns terminology with Human Guidance
   and the terminology contract. Completed slices cover installation/authorization labels;
-  Question Version, Variation, Seed, Feedback, Attempt Limit, Presentation, Reproduction Details,
+  Question Revision, Variation, Seed, Feedback, Attempt Limit, Presentation, Reproduction Details,
   and Backend/Renderer/Grader Version; Response Item Reference; Object Address, Storage Area,
   Category removal, License, and Data Class; Assignment Scoring State/Snapshot; External Question
   Provider Cache Entry; and iMathAS Draft Question Source across code, contracts, tests, and docs.
@@ -30,13 +30,12 @@ data use domain identifiers.
   Trusted grading producers, Student Feedback Release, generated browser contracts, strict
   decoders, policy controls, and UI now separate Question Feedback, Question Answer, and
   Question Answer Explanation. Store-backed grading-record persistence, publication, and delivery;
-  stored Question Pool Selection evidence; and Question Bloom Classification remain open. The fresh schema now names
+  Question Pool Selection replay; and Question Bloom Classification remain open. The fresh schema now names
   exact Answer Key, Question Feedback, Question Answer Explanation, and Question Grading Input
-  records; their data-access, publication, and route closure remains open. Pool schema describes exact
-  selection outcomes, and `domain::select_question_pool_candidates` creates them from transient server
-  entropy; `2026082937` snapshots independent Question Pool Reuse and Question Variation Rules on each
-  Assignment Attempt, while
-  durable Question Pool Selection persistence and replay remain open. Bloom work requires
+  records; their data-access, publication, and route closure remains open. Pool schema preserves immutable
+  released Assignment Entry and Question Pool Candidate snapshots, exact selection outcomes, UUIDv5-backed Issued Question identity from frozen attempt content, issued scoring facts, and same-Student reuse provenance; `domain::select_question_pool_candidates`
+  creates new candidates from transient server entropy; `2026082937` snapshots independent Question Pool Reuse
+  and Question Variation Rules on each Assignment Attempt. The unmounted authenticated Assignment Attempt Start Store resolves one active Student session in its transaction, rechecks direct Student ownership, locks the released Assignment Revision, and starts or resumes the exact released definition atomically; mounted delivery and replay remain open. The fresh PostgreSQL oracle proves its session-broker RLS, Course Instance and Course Membership Event trigger paths, and derived Issued Question scoring facts. Bloom work requires
   publication to leave the exact new Question Revision classification unassigned. AI
   work searches for unassigned Published Question Revisions and supplies each initial
   two-enum pair; an Instructor may edit either value later without creating a Question
@@ -50,7 +49,7 @@ data use domain identifiers.
   Its opaque schema metadata awaits publication/data-access closure; this cutover adds no detached relation.
 - **Current package:** `WP-SD1-A-decisions-and-impact-contract` - establish the single-installation
   ownership model, equal Teaching Team Member authority, open Instructor-visible published-question
-  Question Library, stable `QuestionId` lineage with immutable `QuestionVersion`s and explicit forks,
+  Question Library, stable `QuestionId` lineage with immutable `QuestionRevision`s and explicit forks,
   exact course/Student FERPA authorization, deterministic automated grading, Sysadmin-approved
   `ForcedQuestionCorrection` replacement evidence, the affected-owner register, and the fresh
   migration epoch. A1-A4 implementation and the A5 pre-acceptance documentation slice are
@@ -66,9 +65,9 @@ data use domain identifiers.
   contract admits a Sysadmin only to platform Instructor approval, while Instructor course and
   Question Library surfaces require an Instructor account. Aggregate service, PostgreSQL/RLS, and
   release acceptance remains open.
-  **Question Version identity cutover:** the Question Model now owns one exact
-  `QuestionVersionReference { question_id, version_number }`; the Question ID
-  is its stable lineage and the positive Question Version Number is its
+  **Question Revision identity cutover:** the Question Model now owns one exact
+  `QuestionRevisionReference { question_id, revision_number }`; the Question ID
+  is its stable lineage and the positive Question Revision Number is its
   immutable version within that lineage. The baseline schema and Question Model
   tests are aligned. Object Storage and the Native and WeBWorK adapters now
   carry the same exact pair; object keys, deterministic object addresses,
@@ -134,7 +133,7 @@ data use domain identifiers.
   relation presence only; authenticated-session resolution, approved-Instructor authorization, and idempotent
   persistence remain protected service/Store work. `WP-SD1-B3-B2` is independently accepted for
   the private-owner server-only `QuestionWatch` aggregate. Its closed `QuestionWatchTarget` is
-  exactly a published `QuestionId` lineage or an exact `QuestionVersionReference`, and its closed
+  exactly a published `QuestionId` lineage or an exact `QuestionRevisionReference`, and its closed
   `QuestionWatchNoticeKind` has exactly `Version`, `Fork`, `ImprovementThread`, and `Impact`.
   Watch has no installation scope, institution, session, role, Student, delivery, notification-preference,
   browser, source, or answer data, has no Serde boundary, and remains non-authorizing; delivery
@@ -147,7 +146,7 @@ data use domain identifiers.
   recording the approved architecture and implementation evidence. `NamedQuestionCollection`
   owns a new opaque server identity, immutable global `AccountId` owner, canonical validated title,
   storage-safe strong revision/CAS behavior (explicit stale expected/actual conflict, equal-state
-  no-op, and checked exhaustion), and bounded ordered unique exact `QuestionVersionReference` pins. The
+  no-op, and checked exhaustion), and bounded ordered unique exact `QuestionRevisionReference` pins. The
   child module is private and the selected API is crate-rooted; no browser, installation scope, institution,
   sharing, route, Serde, or authorization path enters this value contract. Eight focused
   deterministic behavioral tests pass. `WP-SD1-B3` remains incomplete pending saved searches,
@@ -196,7 +195,7 @@ data use domain identifiers.
   acceptance.
 - **SD1-B3-B6 preparatory selection receipt:** `WP-SD1-B3-B6` is a child execution package under
   existing `WP-SD1-B3`, not a new top-level roadmap package or migration allocation. Its durable
-  selected result remains `QuestionVersionReference`; exactly one `is_eligible_for_ordinary_new_selection`
+  selected result remains `QuestionRevisionReference`; exactly one `is_eligible_for_ordinary_new_selection`
   predicate admits only Published versions for new references. Deprecated and Archived versions remain
   authorized exact-pin history. Current server and Memory consumers re-resolve at the destination;
   no selection aggregate or browser-trusted exact version exists. The manager repair requires a retained
@@ -285,7 +284,7 @@ in the SD1 scope register. The graph and inventories are one-time evidence; curr
 the authority.
 
 `SD1-A3` implementation is complete. The PostgreSQL table, key, policy, grant, broker, and typed
-scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082937`. Historical
+scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082939`. Historical
 `2026081881` and `2026081882` WN1-D work is retained as evidence/input absorbed by that fresh epoch,
 not as an active SD1 schema dependency.
 
@@ -383,8 +382,8 @@ removed. They were not declared by the active data-access crate and referenced a
 `SubmissionRecord`, so they could not provide an executable persistence contract. A future Question
 Submission Receipt remains allocated only with its exact immutable evidence and active Store boundary.
 
-The SD1 baseline schema now stores every immutable Question Version as the canonical
-`(question_id, version_number)` pair. Composite foreign keys cover Question Library lifecycle, stewardship,
+The SD1 baseline schema now stores every immutable Question Revision as the canonical
+`(question_id, revision_number)` pair. Composite foreign keys cover Question Library lifecycle, stewardship,
 private grading, Issued Questions, analysis, corrections, Jobs, external-tool state, and object
 delivery. The fresh/no-op staged PostgreSQL acceptance and restricted principal probes pass.
 
@@ -763,7 +762,7 @@ CSV projection.
 - Preserve exact course and Student authorization isolation, immutable published content, draft-versus-publication identity,
   immutable evidence, and stateless API replicas.
 - Keep one `BlueprintCourse`/`CourseInstance` model, with ADAPT Alpha retained as comparison
-  vocabulary only. Pin assignments and evidence to immutable question versions, and use explicit
+  vocabulary only. Pin assignments and evidence to immutable question revisions, and use explicit
   forks and controlled updates for change.
 - Let a question owner commit moderate immutable versions within one `QuestionId` lineage. Let
   any vetted Instructor turn a full fork into a private draft and publish it as a separately
@@ -897,7 +896,7 @@ SD1-C records the exact replacement ledger.
 | `2026082905`              | `WP-SD1-C`             | Instructor vetting, current approval predicates, and role predicates                                                                                                                                |
 | `2026082906`              | `WP-SD1-C`             | Authenticated Session resolution, installer, and session RLS authorization check                                                                                                                    |
 | `2026082907`              | `WP-SD1-C`             | Question Library roots and immutable versions                                                                                                                                                       |
-| `2026082908`              | `WP-SD1-C`             | Question Publication and Question Version Availability evidence                                                                                                                                     |
+| `2026082908`              | `WP-SD1-C`             | Question Publication and Question Revision Availability evidence                                                                                                                                     |
 | `2026082909`              | `WP-SD1-C`             | Question Library lineage, proposals, Stars, Watches, and improvement audit                                                                                                                          |
 | `2026082910`              | `WP-SD1-C`             | Workspaces, immutable Workspace Collaborator Events, and private authoring roots                                                                                                                    |
 | `2026082911`              | `WP-SD1-C`             | BlueprintCourse tree, immutable revisions, question-version pins, and minimal-Blueprint construction                                                                                                |
@@ -925,7 +924,7 @@ SD1-C records the exact replacement ledger.
 | `2026082933`              | `WP-SD1-C`             | Atomic email-challenge and validated-passkey completion operations for existing Accounts                                                                                                            |
 | `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                            |
 | `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                                |
-| `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Version Statistics and idempotent accepted-grade observation evidence                                                                                                  |
+| `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Revision Statistics and idempotent accepted-grade observation evidence                                                                                                  |
 | `2026082937`              | `WP-SD1-C`             | Assignment policy split: independent Question Pool Reuse Rule and Question Variation Rule                                                                                                          |
 This registry is the current number-to-capability ledger for `WP-SD1-C`; historical
 `2026081881` and `2026081882` remain immutable evidence/input.

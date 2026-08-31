@@ -9,24 +9,24 @@ SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.forced_question_correction (
     correction_id uuid PRIMARY KEY,
     flawed_question_id text NOT NULL,
-    flawed_version_number integer NOT NULL CHECK (flawed_version_number > 0),
+    flawed_revision_number integer NOT NULL CHECK (flawed_revision_number > 0),
     replacement_question_id text NOT NULL,
-    replacement_version_number integer NOT NULL CHECK (replacement_version_number > 0),
+    replacement_revision_number integer NOT NULL CHECK (replacement_revision_number > 0),
     approved_by_account_id uuid NOT NULL,
     approver_role text NOT NULL DEFAULT 'sysadmin' CHECK (approver_role = 'sysadmin'),
     approved_at timestamp with time zone NOT NULL,
     generation integer NOT NULL CHECK (generation > 0),
     reason text NOT NULL CHECK (reason IN ('security_flaw', 'critical_correctness_flaw')),
     CONSTRAINT forced_question_correction_versions_differ CHECK (
-        (flawed_question_id, flawed_version_number) <> (replacement_question_id, replacement_version_number)
+        (flawed_question_id, flawed_revision_number) <> (replacement_question_id, replacement_revision_number)
     ),
     CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
         REFERENCES ple_private.account (account_id, role),
-    CONSTRAINT forced_question_correction_flawed_generation_is_unique UNIQUE (flawed_question_id, flawed_version_number, generation),
-    CONSTRAINT forced_question_correction_flawed_version_matches FOREIGN KEY (flawed_question_id, flawed_version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number),
-    CONSTRAINT forced_question_correction_replacement_version_matches FOREIGN KEY (replacement_question_id, replacement_version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    CONSTRAINT forced_question_correction_flawed_generation_is_unique UNIQUE (flawed_question_id, flawed_revision_number, generation),
+    CONSTRAINT forced_question_correction_flawed_version_matches FOREIGN KEY (flawed_question_id, flawed_revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number),
+    CONSTRAINT forced_question_correction_replacement_version_matches FOREIGN KEY (replacement_question_id, replacement_revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE FUNCTION ple_data.reject_forced_question_correction_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
@@ -46,7 +46,7 @@ CREATE TABLE ple_data.question_change_event (
     recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     occurred_at timestamp with time zone NOT NULL,
     merged_question_id text,
-    merged_version_number integer CHECK (merged_version_number > 0),
+    merged_revision_number integer CHECK (merged_revision_number > 0),
     evidence jsonb NOT NULL CHECK (jsonb_typeof(evidence) = 'object'),
     CONSTRAINT question_change_event_proposal_revision_matches FOREIGN KEY (proposal_id, proposal_revision_id)
         REFERENCES ple_data.question_change_proposal_revision (proposal_id, proposal_revision_id),
@@ -63,13 +63,13 @@ CREATE TABLE ple_data.question_change_event (
     CONSTRAINT question_change_event_merge_result_matches_kind CHECK (
         (event_kind = 'merged'
             AND merged_question_id IS NOT NULL
-            AND merged_version_number IS NOT NULL)
+            AND merged_revision_number IS NOT NULL)
         OR (event_kind <> 'merged'
             AND merged_question_id IS NULL
-            AND merged_version_number IS NULL)
+            AND merged_revision_number IS NULL)
     ),
-    CONSTRAINT question_change_event_merged_version_matches FOREIGN KEY (merged_question_id, merged_version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    CONSTRAINT question_change_event_merged_version_matches FOREIGN KEY (merged_question_id, merged_revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE UNIQUE INDEX question_change_proposal_has_one_open_event
     ON ple_data.question_change_event (proposal_id) WHERE event_kind = 'opened';
@@ -81,14 +81,14 @@ CREATE FUNCTION ple_data.validate_question_change_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 DECLARE
     base_question_id text;
-    base_version_number integer;
+    base_revision_number integer;
 BEGIN
     IF NEW.proposal_id IS NULL THEN
         RETURN NEW;
     END IF;
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(NEW.proposal_id::text, 0));
-    SELECT revision.base_question_id, revision.base_version_number
-    INTO base_question_id, base_version_number
+    SELECT revision.base_question_id, revision.base_revision_number
+    INTO base_question_id, base_revision_number
     FROM ple_data.question_change_proposal_revision AS revision
     WHERE revision.proposal_id = NEW.proposal_id
       AND revision.proposal_revision_id = NEW.proposal_revision_id;
@@ -100,15 +100,15 @@ BEGIN
     END IF;
     IF NEW.event_kind = 'merged' AND (
         NEW.merged_question_id <> base_question_id
-        OR NEW.merged_version_number <= base_version_number
+        OR NEW.merged_revision_number <= base_revision_number
         OR EXISTS (
-            SELECT 1 FROM ple_data.published_question_version AS later_version
+            SELECT 1 FROM ple_data.question_revision AS later_version
             WHERE later_version.question_id = base_question_id
-              AND later_version.version_number > base_version_number
-              AND later_version.version_number <> NEW.merged_version_number
+              AND later_version.revision_number > base_revision_number
+              AND later_version.revision_number <> NEW.merged_revision_number
         )
     ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a merged Question Change Proposal Revision requires its current exact base and a later same-lineage Question Version';
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a merged Question Change Proposal Revision requires its current exact base and a later same-lineage Question Revision';
     END IF;
     RETURN NEW;
 END
@@ -146,7 +146,7 @@ CREATE TABLE ple_audit.forced_question_correction_attempt_target (
 );
 CREATE TABLE ple_audit.forced_question_correction_issued_question_target (
     correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
-    issued_question_id text NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
+    issued_question_id uuid NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
     PRIMARY KEY (correction_id, issued_question_id)
 );
 CREATE TABLE ple_audit.forced_question_correction_grade_target (

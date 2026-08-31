@@ -132,7 +132,7 @@ impl ImathasProvider for RecordedImathasProvider {
             },
             crate::GradeBinding {
                 attempt: request.attempt(),
-                question_version: request.question_version().clone(),
+                question_revision: request.question_revision().clone(),
                 seed: request.seed(),
             },
             request.correlation(),

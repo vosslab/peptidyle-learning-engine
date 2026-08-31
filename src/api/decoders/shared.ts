@@ -3,9 +3,9 @@
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
 import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
-import type { QuestionVersionAvailability } from "../../../generated/api/QuestionVersionAvailability";
+import type { QuestionRevisionAvailability } from "../../../generated/api/QuestionRevisionAvailability";
 import type { License } from "../../../generated/api/License";
-import type { QuestionVersionReference } from "../../../generated/api/QuestionVersionReference";
+import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
@@ -179,12 +179,12 @@ export function decodeQuestionId(value: unknown, path: string): QuestionId {
 }
 
 /** Decodes the positive version number within one published Question lineage. */
-export function decodePositiveQuestionVersionNumber(value: unknown, path: string): number {
-  const versionNumber = decodeSafeInteger(value, path);
-  if (versionNumber < 1) {
-    throw new DecodeError(path, "a positive Question Version Number");
+export function decodePositiveQuestionRevisionNumber(value: unknown, path: string): number {
+  const revisionNumber = decodeSafeInteger(value, path);
+  if (revisionNumber < 1) {
+    throw new DecodeError(path, "a positive Question Revision Number");
   }
-  return versionNumber;
+  return revisionNumber;
 }
 
 /** Decodes a compact positive database identity that is safe to show to people. */
@@ -215,20 +215,20 @@ export function decodeQuestionBackendCapabilities(
   return decodeArray(value, path, decodeCapability);
 }
 
-export function decodeQuestionVersionReference(
+export function decodeQuestionRevisionReference(
   value: unknown,
   path: string,
   strict = false,
-): QuestionVersionReference {
+): QuestionRevisionReference {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["questionId", "versionNumber"]);
+  if (strict) requireOnlyFields(record, path, ["questionId", "revisionNumber"]);
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    versionNumber: decodePositiveQuestionVersionNumber(
-      field(record, "versionNumber", path),
-      `${path}.versionNumber`,
+    revisionNumber: decodePositiveQuestionRevisionNumber(
+      field(record, "revisionNumber", path),
+      `${path}.revisionNumber`,
     ),
-  } satisfies QuestionVersionReference;
+  } satisfies QuestionRevisionReference;
   return decoded;
 }
 
@@ -301,11 +301,11 @@ export function decodeQuestionMetadata(
   return decoded;
 }
 
-export function decodeQuestionVersionAvailability(
+export function decodeQuestionRevisionAvailability(
   value: unknown,
   path: string,
   strict = false,
-): QuestionVersionAvailability {
+): QuestionRevisionAvailability {
   const record = decodeRecord(value, path);
   const availability = decodeStringEnum(
     field(record, "availability", path),
@@ -325,10 +325,10 @@ export function decodeQuestionVersionAvailability(
       const decoded = {
         availability,
         reason: decodeNonemptyString(field(record, "reason", path), `${path}.reason`),
-      } satisfies QuestionVersionAvailability;
+      } satisfies QuestionRevisionAvailability;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.availability`, "a known Question Version Availability");
+      throw new DecodeError(`${path}.availability`, "a known Question Revision Availability");
   }
 }

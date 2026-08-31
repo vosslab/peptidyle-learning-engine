@@ -8,7 +8,7 @@ use crate::response::{
     QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
     StudentResponse, StudentTextEntry, TextEntrySlot,
 };
-use crate::{QuestionVersionNumber, QuestionVersionReference};
+use crate::{QuestionRevisionNumber, QuestionRevisionReference};
 
 use super::builder::{
     NonceSourceV1, PresentationBuildError, build_presentation_v1_with_hasher,
@@ -60,9 +60,9 @@ fn response_item_body(text: &str) -> Vec<ContentBlock> {
 fn fixture() -> QuestionPresentation {
     QuestionPresentation {
         variation: crate::QuestionVariation::static_variation(
-            QuestionVersionReference {
+            QuestionRevisionReference {
                 question_id: "123-4567".parse().expect("valid Question ID"),
-                version_number: QuestionVersionNumber::new(1).expect("positive version"),
+                revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
             QuestionSeed::new(42),
         ),

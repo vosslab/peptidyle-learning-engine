@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
 GRANT REFERENCES ON TABLE ple_data.student_record, ple_data.assignment,
-    ple_data.assignment_revision, ple_data.published_question_version TO ple_private_owner;
+    ple_data.assignment_revision, ple_data.question_revision TO ple_private_owner;
 RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.assignment_attempt (
@@ -19,17 +19,17 @@ CREATE TABLE ple_private.assignment_attempt (
         REFERENCES ple_data.assignment_revision (assignment_id, assignment_revision_id)
 );
 CREATE TABLE ple_private.issued_question (
-    issued_question_id text PRIMARY KEY,
+    issued_question_id uuid PRIMARY KEY,
     assignment_attempt_id uuid NOT NULL REFERENCES ple_private.assignment_attempt (assignment_attempt_id),
     assignment_entry_id uuid NOT NULL,
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     issued_position integer NOT NULL CHECK (issued_position >= 0),
     point_value numeric NOT NULL CHECK (point_value >= 0),
     scoring_rule text NOT NULL CHECK (scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')),
     statistics_eligible boolean NOT NULL,
-    CONSTRAINT issued_question_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number),
+    CONSTRAINT issued_question_revision_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT issued_question_delivery_order_is_unique UNIQUE (assignment_attempt_id, issued_position)
 );
 CREATE TRIGGER assignment_attempt_requires_released_revision
@@ -37,7 +37,7 @@ BEFORE INSERT OR UPDATE OF assignment_id, assignment_revision_id ON ple_private.
 FOR EACH ROW EXECUTE FUNCTION ple_data.require_released_assignment_revision();
 CREATE TABLE ple_private.question_attempt (
     question_attempt_id uuid PRIMARY KEY,
-    issued_question_id text NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
+    issued_question_id uuid NOT NULL REFERENCES ple_private.issued_question (issued_question_id),
     question_seed numeric(20, 0) NOT NULL CONSTRAINT question_attempt_seed_is_u64 CHECK (
         question_seed >= 0 AND question_seed <= 18446744073709551615
     ),
@@ -76,7 +76,7 @@ ALTER TABLE ple_private.question_attempt FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.assignment_attempt, ple_private.issued_question, ple_private.question_attempt FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.enforce_question_attempt_state_transition() FROM PUBLIC;
 GRANT REFERENCES ON TABLE ple_private.assignment_attempt, ple_private.issued_question TO ple_audit_owner;
-COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Version and Assignment Entry evidence for one Assignment Attempt, including its issue-time Question Statistics Eligibility.';
+COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Revision and Assignment Entry evidence for one Assignment Attempt, including its issue-time Question Statistics Eligibility.';
 COMMENT ON COLUMN ple_private.question_attempt.reproduction_details IS
     'Exact private Question Attempt Reproduction Details used for reproduction and grading.';
 COMMENT ON COLUMN ple_private.question_attempt.question_seed IS

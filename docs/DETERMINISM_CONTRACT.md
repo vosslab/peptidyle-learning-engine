@@ -16,7 +16,7 @@ attempt uses the stored values.
 | Layer                         | Authoritative inputs                                                       | Exact result                                              | Owner                              |
 | ----------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
 | Question Variation Parameters | generator reference, definition, seed                                      | `QuestionVariationParameters` and SHA-256                 | `domain` and Wasm                  |
-| Native issued question        | immutable question version, seed                                           | envelope and Question Attempt Reproduction Details        | trusted server backend             |
+| Native issued question        | immutable question revision, seed                                           | envelope and Question Attempt Reproduction Details        | trusted server backend             |
 | WeBWorK safe render           | problem, immutable version, source source_object_reference, seed, renderer | safe cached envelope and sanitized markup                 | private adapter/renderer           |
 | Student presentation          | answer-free envelope, asset bindings, stored nonce                         | Question Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
 | Submission                    | authenticated attempt, idempotency key, student response                   | one stored receipt or conflict                            | trusted server/store               |
@@ -31,7 +31,7 @@ Published question identity is the pair of durable problem and immutable
 version IDs. A seeded `QuestionVariationDefinition` additionally carries a
 `QuestionGeneratorReference` with a stable generator ID and additive generator
 version. A changed generator implementation therefore requires a new generator
-version and a new published question version; historical definitions remain
+version and a new published question revision; historical definitions remain
 resolvable.
 
 An issued `QuestionAttempt` records its immutable problem version, server-owned
@@ -113,7 +113,7 @@ permanent compatibility baseline, not generated scratch output.
 An issued presentation is answer-free and presentation-specific. Its v1
 descriptor includes:
 
-- descriptor version, immutable question version, and stored seed;
+- descriptor version, immutable question revision, and stored seed;
 - a server-minted 16-byte presentation nonce;
 - title, prompt blocks, public Question Response Format, item order, and response
   constraints;

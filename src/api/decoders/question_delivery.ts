@@ -3,7 +3,7 @@
 import type { GradingResult } from "../../../generated/api/GradingResult";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
 import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
-import type { QuestionVersion } from "../../../generated/api/QuestionVersion";
+import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch, PublicationResult } from "../contracts";
@@ -21,10 +21,10 @@ import {
 import {
   decodeEnvelopeTitle,
   decodeIdentifier,
-  decodePositiveQuestionVersionNumber,
+  decodePositiveQuestionRevisionNumber,
   decodeQuestionId,
   decodeQuestionMetadata,
-  decodeQuestionVersionReference,
+  decodeQuestionRevisionReference,
   field,
   kind,
   requireOnlyFields,
@@ -47,7 +47,7 @@ import {
 function decodeQuestionContent(
   record: Record<string, unknown>,
   path: string,
-): Omit<QuestionVersion, "questionId" | "versionNumber"> {
+): Omit<QuestionRevision, "questionId" | "revisionNumber"> {
   const response = decodeQuestionResponseFormat(
     field(record, "response", path),
     `${path}.response`,
@@ -92,7 +92,7 @@ function decodeQuestionContent(
     ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
-  } satisfies Omit<QuestionVersion, "questionId" | "versionNumber">;
+  } satisfies Omit<QuestionRevision, "questionId" | "revisionNumber">;
 }
 
 function decodeDraftQuestionContent(
@@ -146,11 +146,11 @@ function decodeDraftQuestionContent(
   } satisfies DraftQuestionDefinition;
 }
 
-export function decodeQuestionVersion(value: unknown, path = "response"): QuestionVersion {
+export function decodeQuestionRevision(value: unknown, path = "response"): QuestionRevision {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionId",
-    "versionNumber",
+    "revisionNumber",
     "workspace",
     "source",
     "questionFormat",
@@ -165,12 +165,12 @@ export function decodeQuestionVersion(value: unknown, path = "response"): Questi
   ]);
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    versionNumber: decodePositiveQuestionVersionNumber(
-      field(record, "versionNumber", path),
-      `${path}.versionNumber`,
+    revisionNumber: decodePositiveQuestionRevisionNumber(
+      field(record, "revisionNumber", path),
+      `${path}.revisionNumber`,
     ),
     ...decodeQuestionContent(record, path),
-  } satisfies QuestionVersion;
+  } satisfies QuestionRevision;
   return decoded;
 }
 
@@ -208,12 +208,12 @@ export function decodeQuestionPresentation(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["variation", "title", "prompt", "response"]);
   const variation = decodeRecord(field(record, "variation", path), `${path}.variation`);
-  requireOnlyFields(variation, `${path}.variation`, ["questionVersion", "seed"]);
+  requireOnlyFields(variation, `${path}.variation`, ["questionRevision", "seed"]);
   const decoded = {
     variation: {
-      questionVersion: decodeQuestionVersionReference(
-        field(variation, "questionVersion", `${path}.variation`),
-        `${path}.variation.questionVersion`,
+      questionRevision: decodeQuestionRevisionReference(
+        field(variation, "questionRevision", `${path}.variation`),
+        `${path}.variation.questionRevision`,
         true,
       ),
       seed: decodeNonnegativeInteger(

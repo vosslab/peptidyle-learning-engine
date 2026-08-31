@@ -1,6 +1,9 @@
 // assignment_workspace_paths.ts - pure public paths for Instructor assignment-local tasks.
 
-import type { AssignmentRouteReference, CourseRouteReference } from "../../navigation/public_route";
+import type {
+  AssignmentRouteReference,
+  CourseInstanceRouteReference,
+} from "../../navigation/public_route";
 
 export type AssignmentWorkspaceSection =
   "overview" | "questions" | "policies" | "studentView" | "gradingOperations";
@@ -14,12 +17,14 @@ const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
 } as const satisfies Readonly<Record<AssignmentWorkspaceSection, string>>;
 
 /** The one route owner for starting a persisted Instructor assignment draft. */
-export function assignmentWorkspaceCreatePath(courseReference: CourseRouteReference): string {
+export function assignmentWorkspaceCreatePath(
+  courseReference: CourseInstanceRouteReference,
+): string {
   return `/instructor/courses/${courseReference}/assignments/new`;
 }
 
 export function assignmentWorkspacePath(
-  courseReference: CourseRouteReference,
+  courseReference: CourseInstanceRouteReference,
   assignmentReference: AssignmentRouteReference,
   section?: AssignmentWorkspaceSection,
 ): string {

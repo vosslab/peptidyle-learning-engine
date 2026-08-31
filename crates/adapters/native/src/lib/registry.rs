@@ -4,7 +4,7 @@ use domain::generator::QuestionVariationParameters;
 use grading::{GradingError, QuestionGradingOutcome, grade};
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    QuestionBackendVersion, QuestionFormat, QuestionGraderVersion, QuestionType, QuestionVersion,
+    QuestionBackendVersion, QuestionFormat, QuestionGraderVersion, QuestionRevision, QuestionType,
     StudentResponse,
 };
 
@@ -23,7 +23,7 @@ impl NativeExecution {
     pub(super) fn derive_answer_key(
         self,
         implementation: &dyn NativeQuestionImplementation,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generated: &QuestionVariationParameters,
     ) -> Result<Option<grading::AnswerKey>, NativeAdapterError> {
         match self {
@@ -33,7 +33,7 @@ impl NativeExecution {
 
     pub(super) fn grade(
         self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         response: &StudentResponse,
         answer_key: Option<&grading::AnswerKey>,
     ) -> Result<QuestionGradingOutcome, GradingError> {

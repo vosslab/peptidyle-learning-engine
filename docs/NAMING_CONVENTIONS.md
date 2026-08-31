@@ -105,7 +105,7 @@ the domain relationship that authorizes it:
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session.                                                                              |
 | Private authoring   | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it.                                                      |
-| Question Library    | `question_id` is the copyable lineage identifier; `question_version_uuid` is the one hidden immutable version reference.                                                            |
+| Question Library    | `question_id` is the copyable lineage identifier; `question_revision_uuid` is the one hidden immutable version reference.                                                            |
 | Teaching course     | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
 | Student records     | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`.                                                                                             |
 | Assignment          | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent.                                                               |

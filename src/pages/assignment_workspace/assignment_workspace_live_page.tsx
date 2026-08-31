@@ -23,11 +23,11 @@ import {
 } from "../../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../../navigation/resolved_route";
 import {
-  courseRouteReference,
+  courseInstanceRouteReference,
   parseAssignmentReference,
-  parseCourseReference,
+  parseCourseInstanceReference,
   type AssignmentRouteReference,
-  type CourseRouteReference,
+  type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import { createAssignmentEditorRepository } from "../assignment_editor_repository";
 import "./assignment_workspace_authoring.css";
@@ -49,7 +49,7 @@ import "./assignment_workspace.css";
 export interface AssignmentWorkspaceContextValue {
   readonly course: CourseSummary;
   readonly courseId: CourseId;
-  readonly courseReference: CourseRouteReference;
+  readonly courseReference: CourseInstanceRouteReference;
   /** Shared live detail; focused saves replace this value for every child page. */
   readonly assignment: Accessor<AssignmentEditorDetail>;
   readonly assignmentId: AssignmentId;
@@ -176,7 +176,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
     setState("loading");
     const course =
       scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
-    const courseReference = parseCourseReference(params["courseRef"] ?? "");
+    const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
     const assignmentReference = parseAssignmentReference(params["assignmentRef"] ?? "");
     if (course === undefined || courseReference === null || assignmentReference === null) {
       setState("unavailable");
@@ -192,7 +192,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
     }
     if (
       course.role !== "instructor" ||
-      courseRouteReference(course.reference) !== courseReference
+      courseInstanceRouteReference(course.reference) !== courseReference
     ) {
       setState("denied");
       return;

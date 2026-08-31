@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionVersionReference;
+use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseThemeId;
 use crate::envelope::{AssetRef, ContentBlock};
 use crate::generation::QuestionSeed;
@@ -269,7 +269,7 @@ pub enum IssuedQuestionResponseFormatV1 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentationEnvelopeV1 {
-    pub question_version: QuestionVersionReference,
+    pub question_revision: QuestionRevisionReference,
     pub seed: QuestionSeed,
     pub presentation_nonce: QuestionPresentationNonce,
     pub title: String,

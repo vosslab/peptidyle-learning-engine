@@ -134,7 +134,7 @@ assert.deepEqual(
 );
 
 const presentation = {
-  questionVersion: { questionId: "ABC-DEFG", versionNumber: 1 },
+  questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
   seed: 42,
   presentationNonce: "11111111111111111111111111111111",
   title: "Peptide bond",

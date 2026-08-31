@@ -567,8 +567,14 @@ pub(super) fn opaque_item_id(
 ) -> Result<ResponseItemReference, RendererFailure> {
     let mut hash = Sha256::new();
     hash.update(b"ple:webwork:choice:v1\0");
-    hash.update(request.question_version.question_id.to_string().as_bytes());
-    hash.update(request.question_version.version_number.get().to_be_bytes());
+    hash.update(request.question_revision.question_id.to_string().as_bytes());
+    hash.update(
+        request
+            .question_revision
+            .revision_number
+            .get()
+            .to_be_bytes(),
+    );
     hash.update(request.seed.to_be_bytes());
     hash.update(role.to_be_bytes());
     hash.update((ordinal as u32).to_be_bytes());

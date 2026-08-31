@@ -55,7 +55,7 @@ pub enum QuestionVariationParameterValue {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariationParameters {
-    /// Generator identifier and version pinned by the published Question Version.
+    /// Generator identifier and version pinned by the published Question Revision.
     pub generator: Option<QuestionGeneratorReference>,
     /// Generated values in stable parameter-name order.
     pub parameters: BTreeMap<String, QuestionVariationParameterValue>,

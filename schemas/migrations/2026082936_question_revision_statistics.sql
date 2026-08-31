@@ -1,4 +1,4 @@
--- SD1 exact global Question Version Statistics from accepted automated grades.
+-- SD1 exact global Question Revision Statistics from accepted automated grades.
 
 SET LOCAL ROLE ple_audit_owner;
 GRANT USAGE ON SCHEMA ple_audit TO ple_private_owner, ple_api_owner;
@@ -6,51 +6,51 @@ GRANT REFERENCES ON TABLE ple_audit.automated_grading_receipt TO ple_private_own
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
-CREATE TABLE ple_data.question_version_statistics (
+CREATE TABLE ple_data.question_revision_statistics (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     accepted_graded_attempt_count bigint NOT NULL DEFAULT 0
         CHECK (accepted_graded_attempt_count >= 0),
     correct_count bigint NOT NULL DEFAULT 0
         CHECK (correct_count >= 0 AND correct_count <= accepted_graded_attempt_count),
     updated_at timestamp with time zone NOT NULL,
-    PRIMARY KEY (question_id, version_number),
-    CONSTRAINT question_version_statistics_version_matches
-        FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_statistics_version_matches
+        FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
-CREATE TABLE ple_data.question_version_choice_statistics (
+CREATE TABLE ple_data.question_revision_choice_statistics (
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     choice_id text NOT NULL CHECK (choice_id <> ''),
     selected_count bigint NOT NULL CHECK (selected_count >= 0),
-    PRIMARY KEY (question_id, version_number, choice_id),
-    CONSTRAINT question_version_choice_statistics_version_matches
-        FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number),
-    CONSTRAINT question_version_choice_statistics_summary_matches
-        FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.question_version_statistics (question_id, version_number)
+    PRIMARY KEY (question_id, revision_number, choice_id),
+    CONSTRAINT question_revision_choice_statistics_version_matches
+        FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number),
+    CONSTRAINT question_revision_choice_statistics_summary_matches
+        FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision_statistics (question_id, revision_number)
 );
-ALTER TABLE ple_data.question_version_statistics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.question_version_statistics FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.question_version_choice_statistics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.question_version_choice_statistics FORCE ROW LEVEL SECURITY;
-CREATE POLICY question_version_statistics_api_owner_access
-    ON ple_data.question_version_statistics
+ALTER TABLE ple_data.question_revision_statistics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.question_revision_statistics FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.question_revision_choice_statistics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.question_revision_choice_statistics FORCE ROW LEVEL SECURITY;
+CREATE POLICY question_revision_statistics_api_owner_access
+    ON ple_data.question_revision_statistics
     FOR ALL TO ple_api_owner USING (true) WITH CHECK (true);
-CREATE POLICY question_version_choice_statistics_api_owner_access
-    ON ple_data.question_version_choice_statistics
+CREATE POLICY question_revision_choice_statistics_api_owner_access
+    ON ple_data.question_revision_choice_statistics
     FOR ALL TO ple_api_owner USING (true) WITH CHECK (true);
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
-GRANT SELECT, INSERT, UPDATE ON TABLE ple_data.question_version_statistics,
-    ple_data.question_version_choice_statistics TO ple_api_owner;
-REVOKE ALL PRIVILEGES ON TABLE ple_data.question_version_statistics,
-    ple_data.question_version_choice_statistics FROM PUBLIC;
-COMMENT ON TABLE ple_data.question_version_statistics IS
-    'Identity-free accepted graded-attempt and correct counts for one immutable Question Version.';
-COMMENT ON TABLE ple_data.question_version_choice_statistics IS
-    'Identity-free eligible-choice selection counts for one immutable Question Version.';
+GRANT SELECT, INSERT, UPDATE ON TABLE ple_data.question_revision_statistics,
+    ple_data.question_revision_choice_statistics TO ple_api_owner;
+REVOKE ALL PRIVILEGES ON TABLE ple_data.question_revision_statistics,
+    ple_data.question_revision_choice_statistics FROM PUBLIC;
+COMMENT ON TABLE ple_data.question_revision_statistics IS
+    'Identity-free accepted graded-attempt and correct counts for one immutable Question Revision.';
+COMMENT ON TABLE ple_data.question_revision_choice_statistics IS
+    'Identity-free eligible-choice selection counts for one immutable Question Revision.';
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
@@ -58,12 +58,12 @@ CREATE TABLE ple_private.question_statistics_observation_receipt (
     receipt_id uuid PRIMARY KEY REFERENCES ple_audit.automated_grading_receipt (receipt_id),
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt (question_attempt_id),
     question_id text NOT NULL,
-    version_number integer NOT NULL,
+    revision_number integer NOT NULL,
     correct boolean NOT NULL,
     observed_at timestamp with time zone NOT NULL,
     CONSTRAINT question_statistics_observation_receipt_version_matches
-        FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number)
+        FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 ALTER TABLE ple_private.question_statistics_observation_receipt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_statistics_observation_receipt FORCE ROW LEVEL SECURITY;
@@ -111,7 +111,7 @@ AS $$
 DECLARE
     v_question_attempt_id uuid;
     v_question_id text;
-    v_version_number integer;
+    v_revision_number integer;
     v_observed_at timestamp with time zone;
     v_inserted boolean;
 BEGIN
@@ -127,9 +127,9 @@ BEGIN
             MESSAGE = 'Question Statistics Observation choices must be distinct nonempty eligible IDs';
     END IF;
 
-    SELECT question_attempt.question_attempt_id, issued.question_id, issued.version_number,
+    SELECT question_attempt.question_attempt_id, issued.question_id, issued.revision_number,
            receipt.committed_at
-      INTO v_question_attempt_id, v_question_id, v_version_number, v_observed_at
+      INTO v_question_attempt_id, v_question_id, v_revision_number, v_observed_at
       FROM ple_audit.automated_grading_receipt AS receipt
       JOIN ple_private.automated_grading_operation AS operation
         ON operation.operation_id = receipt.operation_id
@@ -147,32 +147,32 @@ BEGIN
     END IF;
 
     INSERT INTO ple_private.question_statistics_observation_receipt (
-        receipt_id, question_attempt_id, question_id, version_number, correct, observed_at
+        receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at
     ) VALUES (
-        p_receipt_id, v_question_attempt_id, v_question_id, v_version_number, p_correct, v_observed_at
+        p_receipt_id, v_question_attempt_id, v_question_id, v_revision_number, p_correct, v_observed_at
     ) ON CONFLICT (receipt_id) DO NOTHING
     RETURNING true INTO v_inserted;
     IF COALESCE(v_inserted, false) IS NOT TRUE THEN
         RETURN;
     END IF;
 
-    INSERT INTO ple_data.question_version_statistics (
-        question_id, version_number, accepted_graded_attempt_count, correct_count, updated_at
+    INSERT INTO ple_data.question_revision_statistics (
+        question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
     ) VALUES (
-        v_question_id, v_version_number, 1, CASE WHEN p_correct THEN 1 ELSE 0 END, v_observed_at
-    ) ON CONFLICT (question_id, version_number) DO UPDATE
+        v_question_id, v_revision_number, 1, CASE WHEN p_correct THEN 1 ELSE 0 END, v_observed_at
+    ) ON CONFLICT (question_id, revision_number) DO UPDATE
         SET accepted_graded_attempt_count =
-                ple_data.question_version_statistics.accepted_graded_attempt_count + 1,
-            correct_count = ple_data.question_version_statistics.correct_count
+                ple_data.question_revision_statistics.accepted_graded_attempt_count + 1,
+            correct_count = ple_data.question_revision_statistics.correct_count
                 + CASE WHEN p_correct THEN 1 ELSE 0 END,
             updated_at = EXCLUDED.updated_at;
 
-    INSERT INTO ple_data.question_version_choice_statistics (
-        question_id, version_number, choice_id, selected_count
-    ) SELECT v_question_id, v_version_number, choice.choice_id, 1
+    INSERT INTO ple_data.question_revision_choice_statistics (
+        question_id, revision_number, choice_id, selected_count
+    ) SELECT v_question_id, v_revision_number, choice.choice_id, 1
         FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
-    ON CONFLICT (question_id, version_number, choice_id) DO UPDATE
-        SET selected_count = ple_data.question_version_choice_statistics.selected_count + 1;
+    ON CONFLICT (question_id, revision_number, choice_id) DO UPDATE
+        SET selected_count = ple_data.question_revision_choice_statistics.selected_count + 1;
 END
 $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.record_question_statistics_observation(

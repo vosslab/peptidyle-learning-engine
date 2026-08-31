@@ -18,7 +18,7 @@ import {
   courseRouteData,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
-import { assignmentRouteReference, courseRouteReference } from "../navigation/public_route";
+import { assignmentRouteReference, courseInstanceRouteReference } from "../navigation/public_route";
 import { formatPercentScore } from "../score_format";
 import { assignmentWorkspacePath } from "./assignment_workspace/assignment_workspace_paths";
 import {
@@ -177,7 +177,7 @@ function AssignmentCell(props: {
 }): JSX.Element {
   const operationsHref = createMemo(() =>
     assignmentWorkspacePath(
-      courseRouteReference(props.course),
+      courseInstanceRouteReference(props.course),
       assignmentRouteReference(props.cell.assignment),
       "gradingOperations",
     ),

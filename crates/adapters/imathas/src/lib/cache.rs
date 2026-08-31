@@ -5,8 +5,8 @@ use std::fmt::Write as _;
 use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ObjectId, QuestionBackendVersion, QuestionGraderVersion, QuestionPresentation, QuestionSource,
-    QuestionVersion, QuestionVersionReference, SourceObjectReference,
+    ObjectId, QuestionBackendVersion, QuestionGraderVersion, QuestionPresentation,
+    QuestionRevision, QuestionRevisionReference, QuestionSource, SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -30,7 +30,7 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 
 pub(super) fn validate_cache(
     cached: &CachedRender,
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     seed: QuestionSeed,
     source: &ImathasSource,
 ) -> Result<(), ImathasAdapterError> {
@@ -38,10 +38,10 @@ pub(super) fn validate_cache(
         || cached.source != source.artifact
         || cached.provider != source.provider
         || cached.profile != source.profile
-        || cached.envelope.variation.question_version
-            != (QuestionVersionReference {
+        || cached.envelope.variation.question_revision
+            != (QuestionRevisionReference {
                 question_id: question.question_id.clone(),
-                version_number: question.version_number,
+                revision_number: question.revision_number,
             })
         || cached.envelope.variation.seed != seed
         || question_model::validate_question_title(&cached.envelope.title).is_err()
@@ -56,13 +56,13 @@ pub(super) fn validate_cache(
 }
 
 pub(super) fn verify_binding(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
     source: &ImathasSource,
 ) -> Result<(), ImathasAdapterError> {
-    if source.question_version
-        != (QuestionVersionReference {
+    if source.question_revision
+        != (QuestionRevisionReference {
             question_id: question.question_id.clone(),
-            version_number: question.version_number,
+            revision_number: question.revision_number,
         })
     {
         return Err(ImathasAdapterError::SourceDoesNotMatchQuestion);
@@ -87,21 +87,21 @@ pub(super) fn verify_binding(
 }
 
 pub(super) fn render_key(
-    question_version: &QuestionVersionReference,
+    question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
 ) -> ObjectAddress {
     ObjectAddress::QuestionRender {
-        question_version: question_version.clone(),
+        question_revision: question_revision.clone(),
         seed,
-        object: deterministic_id(question_version, seed),
+        object: deterministic_id(question_revision, seed),
     }
 }
 
-fn deterministic_id(question_version: &QuestionVersionReference, seed: QuestionSeed) -> ObjectId {
+fn deterministic_id(question_revision: &QuestionRevisionReference, seed: QuestionSeed) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:render-cache:v1");
-    hash.update(question_version.question_id.to_string().as_bytes());
-    hash.update(question_version.version_number.get().to_be_bytes());
+    hash.update(question_revision.question_id.to_string().as_bytes());
+    hash.update(question_revision.revision_number.get().to_be_bytes());
     hash.update(seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0; 16];
@@ -153,8 +153,14 @@ pub(super) fn valid_item_ref(value: &str) -> bool {
 pub(super) fn binding_payload(binding: &GradeBinding) -> Vec<u8> {
     let mut value = Vec::with_capacity(16 + 8 + 4 + 8);
     value.extend_from_slice(binding.attempt.as_uuid().as_bytes());
-    value.extend_from_slice(binding.question_version.question_id.to_string().as_bytes());
-    value.extend_from_slice(&binding.question_version.version_number.get().to_be_bytes());
+    value.extend_from_slice(binding.question_revision.question_id.to_string().as_bytes());
+    value.extend_from_slice(
+        &binding
+            .question_revision
+            .revision_number
+            .get()
+            .to_be_bytes(),
+    );
     value.extend_from_slice(&binding.seed.value().to_be_bytes());
     value
 }

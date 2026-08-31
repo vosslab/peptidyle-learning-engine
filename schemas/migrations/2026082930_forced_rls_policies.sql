@@ -6,6 +6,14 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 CREATE POLICY private_lookup_api_owner ON ple_private.account FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY private_account_session_broker_lookup ON ple_private.account
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY authenticated_session_broker_read ON ple_private.authenticated_session
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY authenticated_session_broker_create ON ple_private.authenticated_session
+    FOR INSERT TO ple_private_owner WITH CHECK (true);
+CREATE POLICY authenticated_session_broker_revoke ON ple_private.authenticated_session
+    FOR UPDATE TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY instructor_approval_event_lookup_api_owner ON ple_private.instructor_approval_event
     FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY course_invitation_event_lookup_api_owner ON ple_private.course_invitation_event

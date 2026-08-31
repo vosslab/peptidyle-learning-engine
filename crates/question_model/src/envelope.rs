@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionVersionReference;
+use crate::QuestionRevisionReference;
 use crate::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
     QuestionVariationDefinition,
@@ -86,7 +86,7 @@ pub enum ContentBlock {
     },
 }
 
-/// The reproducible generated state for one exact Question Version and seed.
+/// The reproducible generated state for one exact Question Revision and seed.
 ///
 /// The same pair produces the same Question Presentation on every machine,
 /// allowing the render cache to serve a repeat request and grading to be
@@ -94,8 +94,8 @@ pub enum ContentBlock {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariation {
-    /// Exact immutable Question Version that produced this presentation.
-    pub question_version: QuestionVersionReference,
+    /// Exact immutable Question Revision that produced this presentation.
+    pub question_revision: QuestionRevisionReference,
     /// Exact generator used for this variation, when the Question is seeded.
     #[serde(skip)]
     pub generator: Option<QuestionGeneratorReference>,
@@ -109,11 +109,11 @@ pub struct QuestionVariation {
 impl QuestionVariation {
     /// Records an exact static variation with no generator or parameters.
     pub fn static_variation(
-        question_version: QuestionVersionReference,
+        question_revision: QuestionRevisionReference,
         seed: QuestionSeed,
     ) -> Self {
         Self {
-            question_version,
+            question_revision,
             generator: None,
             parameters: BTreeMap::new(),
             seed,
@@ -122,17 +122,17 @@ impl QuestionVariation {
 
     /// Records the exact declared variation recipe for an issued Question.
     pub fn from_question_variation_definition(
-        question_version: QuestionVersionReference,
+        question_revision: QuestionRevisionReference,
         question_variation_definition: &QuestionVariationDefinition,
         seed: QuestionSeed,
     ) -> Self {
         match question_variation_definition {
-            QuestionVariationDefinition::Static => Self::static_variation(question_version, seed),
+            QuestionVariationDefinition::Static => Self::static_variation(question_revision, seed),
             QuestionVariationDefinition::Seeded {
                 generator,
                 parameters,
             } => Self {
-                question_version,
+                question_revision,
                 generator: Some(generator.clone()),
                 parameters: parameters.clone(),
                 seed,
@@ -161,10 +161,10 @@ pub struct QuestionPresentation {
 mod tests {
     use super::*;
 
-    fn reference() -> QuestionVersionReference {
-        QuestionVersionReference {
+    fn reference() -> QuestionRevisionReference {
+        QuestionRevisionReference {
             question_id: "123-4567".parse().expect("valid Question ID"),
-            version_number: crate::QuestionVersionNumber::new(1).expect("positive version"),
+            revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
         }
     }
 

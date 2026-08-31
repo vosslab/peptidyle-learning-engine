@@ -3,7 +3,7 @@
 //! These values are sufficient statistics only: they carry no deployment or
 //! Student identity, answer material, feedback, source reference, or raw time
 //! series. Store implementations derive one observation per exact published
-//! question version before course-owned Student Work Records are deleted.
+//! question revision before course-owned Student Work Records are deleted.
 
 use std::fmt;
 
@@ -75,7 +75,7 @@ impl fmt::Display for StatisticsError {
 
 impl std::error::Error for StatisticsError {}
 
-/// One identity-free cohort measure for one exact Question Version.
+/// One identity-free cohort measure for one exact Question Revision.
 ///
 /// Store code derives this from one enrollment's first completed assigned run.
 /// Repeated assignment positions of the same version have already been
@@ -404,7 +404,7 @@ pub struct QuestionCohortRollupSnapshot {
     pub discrimination: PearsonMomentSnapshot,
 }
 
-/// Incremental Question Cohort Rollup for one immutable Question Version.
+/// Incremental Question Cohort Rollup for one immutable Question Revision.
 #[derive(Debug, Clone, PartialEq)]
 pub struct QuestionCohortRollup {
     cohort_size: u64,

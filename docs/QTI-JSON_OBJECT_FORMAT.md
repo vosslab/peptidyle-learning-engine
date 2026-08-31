@@ -75,7 +75,7 @@ PLE maps those meanings to narrower contracts:
 | Feedback selected by an incorrect outcome          | Incorrect Feedback               | Post-grading Question Feedback                               |
 | Correct-response declaration                       | Answer Key, then Question Answer | Private grading facts, then separately released display form |
 | Model solution                                     | Question Answer Explanation      | Explanatory content with independent release timing          |
-| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Version       |
+| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Revision       |
 
 A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
 its display container. A correct-response declaration supplies private Answer

@@ -16,7 +16,7 @@ use question_model::response::{
 use question_model::{
     DraftQuestionDefinition, DraftQuestionSource, GradingResult, QuestionAnswer, QuestionFeedback,
     QuestionFormat, QuestionGradingRule, QuestionMetadata, QuestionPostGradingContent,
-    QuestionSource, QuestionTitleError, QuestionVersion,
+    QuestionRevision, QuestionSource, QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -185,7 +185,7 @@ impl FlatQuestionPrivate {
     ///
     /// Publication uses this seam before durable identifiers exist. It proves
     /// that the key and feedback describe this exact public payload without
-    /// fabricating a published [`QuestionVersion`].
+    /// fabricating a published [`QuestionRevision`].
     pub fn validate_for_draft(
         &self,
         draft: &DraftQuestionDefinition,
@@ -220,7 +220,7 @@ impl FlatQuestionPrivate {
 
     pub fn evaluate(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         response: &StudentResponse,
     ) -> Result<FlatQuestionEvaluation, FlatQuestionError> {
         validate_flat_question_question(question)?;
@@ -245,7 +245,7 @@ impl FlatQuestionPrivate {
     /// definition before an issuance capability retains it for later grade.
     pub fn validate_for_question(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
     ) -> Result<(), FlatQuestionError> {
         validate_flat_question_question(question)?;
         if public_binding_sha256_for_question(question)? != self.public_sha256 {
@@ -276,7 +276,7 @@ impl FlatQuestionPrivate {
 
     fn validate_against_question(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
     ) -> Result<(), FlatQuestionError> {
         self.validate_private_shape()?;
         validate_key_against_response(&question.response, &self.answer_key)?;
@@ -300,7 +300,7 @@ impl FlatQuestionPrivate {
 
     fn post_grading_content_for(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         response: &StudentResponse,
         result: GradingResult,
     ) -> Result<QuestionPostGradingContent, FlatQuestionError> {
@@ -355,7 +355,7 @@ pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQue
 
 /// Validates a closed flat Question Type after publication.
 pub fn validate_flat_question_question(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
 ) -> Result<(), FlatQuestionError> {
     if !matches!(question.source, QuestionSource::Native)
         || question.question_format != QuestionFormat::PleFlatQuestionV2
@@ -773,7 +773,7 @@ pub fn public_binding_sha256_for_draft(
     })
 }
 fn public_binding_sha256_for_question(
-    question: &QuestionVersion,
+    question: &QuestionRevision,
 ) -> Result<String, FlatQuestionError> {
     if !matches!(question.source, QuestionSource::Native)
         || question.question_format != QuestionFormat::PleFlatQuestionV2

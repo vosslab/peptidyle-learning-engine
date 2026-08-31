@@ -46,13 +46,13 @@ PLE keeps four related but different things separate:
 | Thing               | Owner and lifetime                        | Important identity                                       |
 | ------------------- | ----------------------------------------- | -------------------------------------------------------- |
 | Draft               | Instructor workspace; private and mutable | `WorkspaceId`                                            |
-| Published question  | Shared immutable Question Library content | `QuestionId` and `QuestionVersionNumber`                 |
+| Published question  | Shared immutable Question Library content | `QuestionId` and `QuestionRevisionNumber`                 |
 | Assignment activity | One course's teaching configuration       | Course and assignment IDs                                |
 | Student activity    | Course-owned educational record           | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
-`(QuestionId, QuestionVersionNumber)` pair; optional one-way provenance may identify its
+`(QuestionId, QuestionRevisionNumber)` pair; optional one-way provenance may identify its
 source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
 pinned pair and does not copy prompt, assets, source, or answer material into the
 course. An Assignment Attempt is one pass through an Assignment, and a Question
@@ -90,7 +90,7 @@ repeats it before writing a durable transition.
 ### 3. Commit an immutable publication
 
 The server resolves the workspace-owned draft, validates it, mints a fresh Question
-ID and hidden `(QuestionId, QuestionVersionNumber)` pair only after success, and commits
+ID and hidden `(QuestionId, QuestionRevisionNumber)` pair only after success, and commits
 immutable metadata, public payload, private grader material or source binding,
 visibility grant, and draft removal as one transaction. A publication never
 mutates an existing published question. Every content change publishes a new
@@ -198,7 +198,7 @@ advance a run.
 At the secure-payload target boundary, the route identifies the attempt once.
 The request supplies only the presentation digest and a family-minimal answer;
 a bounded idempotency key is in the request header. The server loads the
-authoritative attempt and therefore derives response shape, question version,
+authoritative attempt and therefore derives response shape, question revision,
 seed, assignment, backend, deadline, and student ownership rather than
 accepting browser copies.
 
@@ -270,7 +270,7 @@ the same source format.
 | WeBWorK       | PLE copies licensed PG/PGML source and provenance into immutable storage  | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender            |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration     | Provider launch/session is server-mediated                      | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score                                                                           |
 
-Native flat questions use PLE's public `QuestionVersion` plus separate
+Native flat questions use PLE's public `QuestionRevision` plus separate
 grader-only material. The exact flat authoring format is
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
 runtime model.

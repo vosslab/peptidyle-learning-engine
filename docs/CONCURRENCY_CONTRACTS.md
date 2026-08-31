@@ -53,7 +53,7 @@ operation final.
 | Student submission outcome             | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
 | Background work ownership              | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
 | Current analytic projection            | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
-| Published Question Version             | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
+| Published Question Revision             | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                        | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
 
 ## Account-scoped transactions and retries
@@ -140,7 +140,7 @@ immutable publication, never as changed historical question content.
 ### Attempt identity
 
 An issued `QuestionAttemptId` binds the authenticated Student Account, exact course,
-assignment/run item, immutable question version, seed, timing state, and
+assignment/run item, immutable question revision, seed, timing state, and
 grading backend. It is the primary response authority. The browser sends the
 minimal Student response plus an `Idempotency-Key`; it does not choose an
 Account, course, key, seed, grading backend, or question kind. The exact browser

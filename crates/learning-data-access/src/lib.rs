@@ -5,6 +5,7 @@
 
 use domain::assignment_activity::AssignmentActivityError;
 
+mod assignment_attempt;
 mod authentication_ceremony;
 mod authentication_email;
 mod pagination;
@@ -14,6 +15,10 @@ pub mod session;
 #[path = "contracts/store_error.rs"]
 mod store_error;
 
+pub use assignment_attempt::{
+    AssignmentAttemptStart, AssignmentAttemptStartResult, AssignmentAttemptStore,
+    PreparedIssuedQuestion, PreparedQuestionPoolSelection,
+};
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
     AuthenticationSecretHash, EmailAuthenticationChallenge, EmailAuthenticationChallengeId,

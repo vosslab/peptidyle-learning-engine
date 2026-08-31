@@ -7,7 +7,7 @@ import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptT
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { QuestionVersion } from "../../generated/api/QuestionVersion";
+import type { QuestionRevision } from "../../generated/api/QuestionRevision";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
 import type { PresentationEnvelopeV1 } from "../../generated/api/PresentationEnvelopeV1";
@@ -17,8 +17,8 @@ import type { QuestionVariationDefinition } from "../../generated/api/QuestionVa
 import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
-import type { QuestionVersionReference } from "../../generated/api/QuestionVersionReference";
-import { decodeQuestionVersionReference } from "../api/decoders/shared";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import { decodeQuestionRevisionReference } from "../api/decoders/shared";
 import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
 
 export type StudentResponseFormatIssue =
@@ -69,7 +69,7 @@ export type TimerEvaluator = (
 ) => Promise<QuestionAttemptTimingDecision>;
 
 export interface AssignmentQuestionConfig {
-  readonly question: QuestionVersion;
+  readonly question: QuestionRevision;
   readonly backendCapabilities: QuestionBackendCapabilities;
 }
 
@@ -79,7 +79,7 @@ export interface AssignmentConfig {
 }
 
 export interface CapabilityViolation {
-  readonly question: QuestionVersionReference;
+  readonly question: QuestionRevisionReference;
   readonly capability: Capability;
 }
 
@@ -351,7 +351,7 @@ function parseCapabilityViolations(json: string): ReadonlyArray<CapabilityViolat
       throw new Error("WASM capability violation must be an object");
     }
     return {
-      question: decodeQuestionVersionReference(
+      question: decodeQuestionRevisionReference(
         entry["question"],
         "capabilityViolation.question",
         true,

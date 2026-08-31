@@ -96,7 +96,7 @@ for SD1, not a second session or Account contract and not a global replacement i
 | `AssignmentId`        | One course assignment                                          | Has one exact `CourseId` parent and owns its current policy and ordered Assignment Entries.                                                    |
 | `AssignmentEntryId`   | One current Assignment Entry                                   | Names one Fixed Question or Question Pool in its Assignment's ordered definition.                                                              |
 | `AssignmentAttemptId` | One Assignment Attempt                                         | Target identity for one pass through one exact Student Record and Assignment; later practice creates another Assignment Attempt.               |
-| `IssuedQuestionId`    | One selected Question Version                                  | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment.                               |
+| `IssuedQuestionId`    | One selected Question Revision                                  | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment.                               |
 | `QuestionAttemptId`   | One server-issued try                                          | Binds an Issued Question to its seed, timing, status, provenance, and grading backend.                                                         |
 
 Under the binding pending SD1 product contract, the closed Sysadmin
@@ -123,15 +123,15 @@ reads; neither another course nor a visible record ID extends that authority.
 | Workspace relationship     | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                        |
 | `WorkspaceImportId`        | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                                  |
 | `QuestionId`               | Global immutable published question identity | Human-facing Question Library locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared Question Library. |
-| `QuestionVersionReference` | Server-only immutable Question Version       | Pairs one Question ID with its positive Question Version Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                       |
+| `QuestionRevisionReference` | Server-only immutable Question Revision       | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                       |
 | `AssetId`                  | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                |
 | `ObjectId`                 | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                            |
 
 Validated publication either starts a new immutable Question Library identity for a new
-question or records a new immutable `QuestionVersion` under an existing stable
+question or records a new immutable `QuestionRevision` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
-`QuestionId`/`QuestionVersionNumber` evidence. A full fork for an incompatible objective,
+`QuestionId`/`QuestionRevisionNumber` evidence. A full fork for an incompatible objective,
 task, Question Type, or educational purpose creates a private draft and,
 after validation, a new `QuestionId` with source attribution and visible
 ancestry.
@@ -150,7 +150,7 @@ Published-question stewardship has four distinct paths:
   attribution, and preserved ancestry.
 - A `ForcedQuestionCorrection` is a separately audited Sysadmin operation for
   a critical security or correctness flaw. It maps one flawed immutable
-  version to a validated replacement `QuestionVersion` in the stable lineage
+  version to a validated replacement `QuestionRevision` in the stable lineage
   and records deterministic remediation; it is not ordinary editing or a
   change proposal.
 
@@ -323,7 +323,7 @@ continue to resolve that exact source after it leaves ordinary selection.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines operation
   authorization and its migration target.
 - [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) defines the human-facing Question
-  ID, Question Version Number, and exact Question Version Reference.
+  ID, Question Revision Number, and exact Question Revision Reference.
 - [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines Question
   publication, availability, and stewardship vocabulary.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines public question data and

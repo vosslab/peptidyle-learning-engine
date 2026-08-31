@@ -3,7 +3,7 @@
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
 GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.assignment,
-    ple_data.published_question_version TO ple_private_owner;
+    ple_data.question_revision TO ple_private_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
@@ -15,7 +15,7 @@ CREATE TABLE ple_private.worker_job (
         'publish_public_assets'
     )),
     target_kind text NOT NULL CHECK (target_kind IN (
-        'course_assignment', 'course_attempt', 'course_retention', 'question_version',
+        'course_assignment', 'course_attempt', 'course_retention', 'question_revision',
         'export', 'workspace_import', 'qti_import', 'public_asset_publication'
     )),
     course_id uuid REFERENCES ple_data.course_instance (course_id),
@@ -24,7 +24,7 @@ CREATE TABLE ple_private.worker_job (
     workspace_id uuid REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid,
     question_id text,
-    version_number integer,
+    revision_number integer,
     export_id uuid,
     source_object_id uuid,
     expected_object_id uuid,
@@ -42,35 +42,35 @@ CREATE TABLE ple_private.worker_job (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT worker_job_assignment_parent_matches FOREIGN KEY (course_id, assignment_id)
         REFERENCES ple_data.assignment (course_id, assignment_id),
-    CONSTRAINT worker_job_question_version_matches FOREIGN KEY (question_id, version_number)
-        REFERENCES ple_data.published_question_version (question_id, version_number),
+    CONSTRAINT worker_job_question_revision_matches FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT worker_job_target_shape_is_exact CHECK (
         (target_kind = 'course_assignment' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND version_number IS NULL AND export_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
         OR (target_kind = 'course_attempt' AND course_id IS NOT NULL AND attempt_id IS NOT NULL
             AND assignment_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND version_number IS NULL AND export_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
         OR (target_kind = 'course_retention' AND course_id IS NOT NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND version_number IS NULL AND export_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
-        OR (target_kind IN ('question_version', 'public_asset_publication') AND question_id IS NOT NULL
-            AND version_number IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
+        OR (target_kind IN ('question_revision', 'public_asset_publication') AND question_id IS NOT NULL
+            AND revision_number IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
             AND export_id IS NULL AND source_object_id IS NULL AND expected_object_id IS NULL)
         OR (target_kind = 'export' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
             AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND version_number IS NULL AND export_id IS NOT NULL
+            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NOT NULL
             AND source_object_id IS NULL AND expected_object_id IS NOT NULL)
         OR (target_kind = 'workspace_import' AND workspace_id IS NOT NULL AND source_object_id IS NOT NULL
             AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND version_number IS NULL AND export_id IS NULL AND expected_object_id IS NULL)
+            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL AND expected_object_id IS NULL)
         OR (target_kind = 'qti_import' AND workspace_id IS NOT NULL AND import_id IS NOT NULL
             AND source_object_id IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
-            AND attempt_id IS NULL AND question_id IS NULL AND version_number IS NULL
+            AND attempt_id IS NULL AND question_id IS NULL AND revision_number IS NULL
             AND export_id IS NULL AND expected_object_id IS NULL)
     ),
     CONSTRAINT worker_job_lease_state_matches CHECK (
@@ -90,7 +90,7 @@ BEGIN
         OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
         OR NEW.import_id IS DISTINCT FROM OLD.import_id
         OR NEW.question_id IS DISTINCT FROM OLD.question_id
-        OR NEW.version_number IS DISTINCT FROM OLD.version_number
+        OR NEW.revision_number IS DISTINCT FROM OLD.revision_number
         OR NEW.export_id IS DISTINCT FROM OLD.export_id
         OR NEW.source_object_id IS DISTINCT FROM OLD.source_object_id
         OR NEW.expected_object_id IS DISTINCT FROM OLD.expected_object_id

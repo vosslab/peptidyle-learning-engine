@@ -267,7 +267,7 @@ impl ObjectStore for S3ObjectStore {
             sha256: Sha256Digest::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            question_version: request.address.question_version().cloned(),
+            question_revision: request.address.question_revision().cloned(),
             license: request.license,
             provenance: request.provenance,
             created_at: request.created_at,
@@ -424,7 +424,7 @@ fn decode_record(
         || record.id != key.object_id()
         || record.storage_area != key.storage_area()
         || record.data_class != key.data_class()
-        || record.question_version != key.question_version().cloned()
+        || record.question_revision != key.question_revision().cloned()
     {
         return Err(unavailable_metadata("semantic key does not match record"));
     }
@@ -516,20 +516,20 @@ mod tests {
     use crate::ObjectDataClass;
     use question_model::classification::License;
     use question_model::{
-        AssetId, ObjectId, QuestionId, QuestionVersionNumber, QuestionVersionReference,
+        AssetId, ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     };
     use uuid::Uuid;
 
-    fn question_version() -> QuestionVersionReference {
-        QuestionVersionReference {
+    fn question_revision() -> QuestionRevisionReference {
+        QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-            version_number: QuestionVersionNumber::new(2).expect("positive version"),
+            revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         }
     }
 
     fn record() -> ObjectRecord {
         let key = ObjectAddress::QuestionSource {
-            question_version: question_version(),
+            question_revision: question_revision(),
             object: ObjectId::from_uuid(Uuid::from_u128(3)),
         };
         ObjectRecord {
@@ -540,7 +540,7 @@ mod tests {
             sha256: Sha256Digest::compute(b"source"),
             size_bytes: 6,
             media_type: "application/zip".to_string(),
-            question_version: Some(question_version()),
+            question_revision: Some(question_revision()),
             license: Some(License::CcBySa),
             provenance: "faculty source with an accented name: Jos\u{e9}".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
@@ -549,7 +549,7 @@ mod tests {
 
     fn public_asset_key() -> ObjectAddress {
         ObjectAddress::QuestionAsset {
-            question_version: question_version(),
+            question_revision: question_revision(),
             asset: AssetId::from_uuid(Uuid::from_u128(3)),
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
         }

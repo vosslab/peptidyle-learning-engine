@@ -20,7 +20,7 @@ not a new authorization claim.
 | Record or capability                                   | Exact owner or scope                                        | Authorization                                                   |
 | ------------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | Account, email, passkey, session                       | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
-| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionVersionNumber`   | Every approved Instructor                                       |
+| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionRevisionNumber`   | Every approved Instructor                                       |
 | Draft Question or private curriculum workspace         | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                               | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
 | Course, roster, assignment, schedule                   | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |

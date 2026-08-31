@@ -70,9 +70,9 @@ def login_sql(login: str, roles: tuple[str, ...], password: str) -> str:
 		for profile_login, profile_roles, _ in LOGIN_PROFILES
 	)
 	if (login, roles) not in valid_profiles:
-		raise local_stack_control.models.ControllerError("process login profile is invalid")
+		raise local_stack_control.models.ControllerError("service login profile is invalid")
 	if len(password) != 64 or not password.isascii() or not password.isalnum():
-		raise local_stack_control.models.ControllerError("process login password is invalid")
+		raise local_stack_control.models.ControllerError("service login password is invalid")
 	grants = "".join(
 		f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n"
 		for role in roles
@@ -128,7 +128,7 @@ def database_url(values: dict[str, str], login: str, password: str) -> str:
 		or not password.isascii()
 		or not password.isalnum()
 	):
-		raise local_stack_control.models.ControllerError("process login database settings are invalid")
+		raise local_stack_control.models.ControllerError("service login database settings are invalid")
 	result = f"postgres://{login}:{password}@postgres:5432/{database_name}"
 	return result
 
@@ -141,10 +141,10 @@ def write_runtime_urls(
 	"""Replace the API database URL inside the selected mode-0600 Compose input."""
 	local_stack_control.env_file.require_mutation_env_file(env_file)
 	if len(urls) != len(LOGIN_PROFILES) or len(set(urls)) != len(LOGIN_PROFILES):
-		raise local_stack_control.models.ControllerError("process login URLs are invalid")
+		raise local_stack_control.models.ControllerError("service login URLs are invalid")
 	for url, (login, _, _) in zip(urls, LOGIN_PROFILES, strict=True):
 		if not url.startswith(f"postgres://{login}:"):
-			raise local_stack_control.models.ControllerError("process login URLs are invalid")
+			raise local_stack_control.models.ControllerError("service login URLs are invalid")
 	settings = local_stack_control.env_file.env_settings(env_file)
 	for url, (_, _, setting_name) in zip(urls, LOGIN_PROFILES, strict=True):
 		settings[setting_name] = url
@@ -164,6 +164,6 @@ def require_service_login_setup_success(
 		result, private_values
 	)
 	raise local_stack_control.models.ControllerError(
-		"service login setup failed "
+		"Service Login Setup failed "
 		f"({detail}); retained stack resources are available for diagnostics"
 	)

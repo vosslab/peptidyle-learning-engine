@@ -5,8 +5,8 @@ use std::num::NonZeroU64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    QuestionFolderReference, QuestionId, QuestionSearchFilter, QuestionSummary,
-    QuestionVersionAvailability, SavedQuestionSearchReference,
+    QuestionFolderReference, QuestionId, QuestionRevisionAvailability, QuestionSearchFilter,
+    QuestionSummary, SavedQuestionSearchReference,
 };
 
 /// Maximum ordered Question IDs accepted in one atomic Question Folder replacement.
@@ -112,8 +112,8 @@ pub fn validate_question_curation_title(value: &str) -> Result<(), QuestionCurat
 pub struct QuestionFolderEntryView {
     pub question_id: QuestionId,
     pub summary: QuestionSummary,
-    /// Current availability of the entry's exact Question Version.
-    pub question_version_availability: QuestionVersionAvailability,
+    /// Current availability of the entry's exact Question Revision.
+    pub question_revision_availability: QuestionRevisionAvailability,
 }
 
 /// Browser-safe private Question Folder projection.

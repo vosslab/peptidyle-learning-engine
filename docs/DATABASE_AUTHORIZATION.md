@@ -173,7 +173,7 @@ number in these ranges:
 | `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                |
 | `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                             |
 | `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, external-tool state                                                                                            |
-| `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Version Statistics evidence |
+| `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,

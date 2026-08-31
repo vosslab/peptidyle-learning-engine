@@ -53,7 +53,7 @@ pub mod peptide_bond_geometry;
 pub const ADAPTER_ID: &str = "native-adapter";
 /// Current Question Backend Version for issuance and replay.
 ///
-/// This is distinct from the repository CalVer release and from a Question Version.
+/// This is distinct from the repository CalVer release and from a Question Revision.
 pub const ADAPTER_VERSION: &str = "1";
 /// Stable Question Grader identifier persisted with every native attempt.
 pub const GRADING_ID: &str = "generic-grader";
@@ -64,7 +64,7 @@ pub const GRADING_VERSION: &str = "1";
 /// immutable object-store record.
 ///
 /// The browser never constructs this input. A server storage adapter resolves
-/// immutable asset records for the published question version before calling
+/// immutable asset records for the published question revision before calling
 /// native issue, replay, or grading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AssetObjectBinding {

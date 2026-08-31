@@ -189,8 +189,14 @@ impl LaunchSessionCodec {
 
 fn write_binding(data: &mut Vec<u8>, binding: &GradeBinding) -> Result<(), ImathasAdapterError> {
     data.extend_from_slice(binding.attempt.as_uuid().as_bytes());
-    write_text(data, &binding.question_version.question_id.to_string())?;
-    data.extend_from_slice(&binding.question_version.version_number.get().to_be_bytes());
+    write_text(data, &binding.question_revision.question_id.to_string())?;
+    data.extend_from_slice(
+        &binding
+            .question_revision
+            .revision_number
+            .get()
+            .to_be_bytes(),
+    );
     data.extend_from_slice(&binding.seed.value().to_be_bytes());
     Ok(())
 }
@@ -206,13 +212,13 @@ fn read_binding(cursor: &mut Cursor<'_>) -> Result<GradeBinding, ImathasAdapterE
         .text()?
         .parse()
         .map_err(|_| ImathasAdapterError::InvalidCorrelation)?;
-    let version_number = question_model::QuestionVersionNumber::new(cursor.u32()?)
+    let revision_number = question_model::QuestionRevisionNumber::new(cursor.u32()?)
         .map_err(|_| ImathasAdapterError::InvalidCorrelation)?;
     Ok(GradeBinding {
         attempt,
-        question_version: question_model::QuestionVersionReference {
+        question_revision: question_model::QuestionRevisionReference {
             question_id,
-            version_number,
+            revision_number,
         },
         seed: QuestionSeed::new(cursor.u64()?),
     })

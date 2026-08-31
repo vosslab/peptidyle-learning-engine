@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let envelope = r#"{
-            "questionVersion":{"questionId":"ABC-DEFG","versionNumber":1},
+            "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
             "seed":42,
             "presentationNonce":"11111111111111111111111111111111",
             "title":"Peptide bond",

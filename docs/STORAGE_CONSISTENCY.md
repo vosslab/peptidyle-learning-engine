@@ -79,7 +79,7 @@ The corresponding confidentiality and history controls are:
 | Parser safety for images        | Strict still-image type/container/dimension/full-decode validation                                                        |
 
 Published-content immutability remains intentional. Every content change, including a correction,
-publishes a new immutable question with a fresh Question ID and fresh hidden `(QuestionId, QuestionVersionNumber)`
+publishes a new immutable question with a fresh Question ID and fresh hidden `(QuestionId, QuestionRevisionNumber)`
 evidence instead of changing object bytes referenced by an existing assignment, run, or attempt.
 Optional one-way provenance may identify the source publication without changing it.
 

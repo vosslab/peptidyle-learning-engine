@@ -5,7 +5,7 @@ reader's map of the implemented system, not a replacement for the active impleme
 The plan and its active release plan remain authoritative for dependency order and acceptance.
 
 PLE is question agnostic at the learning-engine boundary. An Issued Question preserves one exact
-published Question Version, and a Question Attempt binds one exact Question Backend adapter. Each
+published Question Revision, and a Question Attempt binds one exact Question Backend adapter. Each
 adapter safely issues, reproduces, and grades its own material; PLE owns Account and exact
 course/Student authorization, assignment policy, attempt identity, timing, idempotency,
 gradebook persistence, retention, and the
@@ -32,7 +32,7 @@ them without creating a second product vocabulary.
 
 | Concern                               | Common PLE rule                                                                                                                                                                                                                                              |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Source authority                      | A published `QuestionVersion` and immutable `QuestionVersionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                                      |
+| Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                                      |
 | Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
 | Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                        |
 | Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                                                            |
@@ -61,7 +61,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 ### Source and render
 
 **Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
-`QuestionVersion`/`QuestionPresentation` and private Answer Key, Question
+`QuestionRevision`/`QuestionPresentation` and private Answer Key, Question
 Feedback, Question Answer Explanation, and format-specific Question Grading
 Input. The trusted server bridge
 resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt

@@ -7,8 +7,8 @@ use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
     ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails,
-    QuestionPresentation, QuestionRendererVersion, QuestionSource, QuestionVersion,
-    QuestionVersionReference, SourceObjectReference,
+    QuestionPresentation, QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
+    QuestionSource, SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 
@@ -27,7 +27,7 @@ use crate::{
 /// Exact immutable source loaded through trusted storage.
 #[derive(Clone)]
 pub struct ImathasSource {
-    pub(crate) question_version: QuestionVersionReference,
+    pub(crate) question_revision: QuestionRevisionReference,
     pub(crate) artifact: SourceObjectReference,
     pub(crate) provider: String,
     pub(crate) item_ref: String,
@@ -154,7 +154,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// version/seed requests are served from immutable cache storage.
     pub async fn issue(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         seed: QuestionSeed,
         source: &ImathasSource,
         created_at: ActivityTimestamp,
@@ -167,11 +167,11 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         if !self.profiles.contains(&source.profile) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let question_version = QuestionVersionReference {
+        let question_revision = QuestionRevisionReference {
             question_id: question.question_id.clone(),
-            version_number: question.version_number,
+            revision_number: question.revision_number,
         };
-        let key = render_key(&question_version, seed);
+        let key = render_key(&question_revision, seed);
         match self.store.get(&key).await {
             Ok(stored) => {
                 let cached = decode_cache(&stored.bytes)?;
@@ -186,7 +186,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             .render(ProviderRenderRequest {
                 snapshot: &source.bytes,
                 profile: &source.profile,
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 seed,
             })
             .await
@@ -201,7 +201,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             profile: source.profile.clone(),
             envelope: QuestionPresentation {
                 variation: question_model::QuestionVariation::static_variation(
-                    question_version.clone(),
+                    question_revision.clone(),
                     seed,
                 ),
                 title: safe.title,
@@ -270,16 +270,16 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// Accepts only a provider-verifier result matching every server-held binding.
     pub async fn grade(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
         correlation: &ServerCorrelation,
     ) -> Result<VerifiedGradeReceipt, ImathasAdapterError> {
         verify_binding(question, source)?;
-        let question_version = QuestionVersionReference {
+        let question_revision = QuestionRevisionReference {
             question_id: question.question_id.clone(),
-            version_number: question.version_number,
+            revision_number: question.revision_number,
         };
         let verdict = self
             .provider
@@ -287,14 +287,14 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 snapshot: &source.bytes,
                 profile: &source.profile,
                 attempt,
-                question_version: question_version.clone(),
+                question_revision: question_revision.clone(),
                 seed,
                 correlation,
             })
             .await
             .map_err(ImathasAdapterError::Provider)?;
         if verdict.attempt != attempt
-            || verdict.question_version != question_version
+            || verdict.question_revision != question_revision
             || verdict.seed != seed
             || verdict.correlation != correlation.0
         {
@@ -304,7 +304,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             result: verdict.result,
             binding: GradeBinding {
                 attempt,
-                question_version,
+                question_revision,
                 seed,
             },
         })
@@ -328,7 +328,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub async fn begin_contracted_launch(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         source: &ImathasSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,

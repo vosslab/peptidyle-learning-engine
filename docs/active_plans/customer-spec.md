@@ -123,7 +123,7 @@ All question engines should map into a shared internal representation.
 For example:
 
 ```ts
-interface QuestionVersion {
+interface QuestionRevision {
   id: string;
   source: QuestionSource;
   version: string;
@@ -164,13 +164,13 @@ Each question system should implement a common adapter boundary.
 interface QuestionBackendAdapter {
   getCapabilities(): QuestionBackendCapabilities;
 
-  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionVersion>;
+  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionRevision>;
 
-  createAttempt(question: QuestionVersion, context: AttemptContext): Promise<QuestionAttempt>;
+  createAttempt(question: QuestionRevision, context: AttemptContext): Promise<QuestionAttempt>;
 
   gradeAttempt(attempt: QuestionAttempt, response: StudentResponse): Promise<GradeResult>;
 
-  exportQuestion?(question: QuestionVersion, format: ExportFormat): Promise<ExportedQuestion>;
+  exportQuestion?(question: QuestionRevision, format: ExportFormat): Promise<ExportedQuestion>;
 }
 ```
 
@@ -317,7 +317,7 @@ The database will likely need entities for:
 - assignments
 - question references
 - backend configurations
-- question versions
+- question revisions
 - assignment attempts
 - question attempts
 - submissions

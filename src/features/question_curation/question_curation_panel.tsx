@@ -550,7 +550,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
                     <strong>{member.summary.metadata.title}</strong> - {member.questionId}
                   </span>
                   <span>
-                    {member.questionVersionAvailability.availability === "available"
+                    {member.questionRevisionAvailability.availability === "available"
                       ? "Ready to reuse"
                       : "Archived version"}
                   </span>

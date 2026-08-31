@@ -8,7 +8,7 @@ import { useApplicationApi } from "../api/application_api";
 import { CourseTermValidationError } from "../api/http_client/error";
 import { useSessionBootstrap } from "../auth/session_context";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
-import { courseRouteReference } from "../navigation/public_route";
+import { courseInstanceRouteReference } from "../navigation/public_route";
 import type { CourseTermField } from "../../generated/api/CourseTermField";
 
 type CourseCreateField = "title" | CourseTermField;
@@ -33,8 +33,8 @@ function CourseCard(props: CourseCardProps): JSX.Element {
       <p>Review the current assignment or resume an in-progress practice run.</p>
       <A
         class="primary-link"
-        href={`/courses/${courseRouteReference(props.course.reference)}`}
-        id={`course-open-${courseRouteReference(props.course.reference)}`}
+        href={`/courses/${courseInstanceRouteReference(props.course.reference)}`}
+        id={`course-open-${courseInstanceRouteReference(props.course.reference)}`}
         ref={(element: HTMLAnchorElement) => props.registerLink(props.course, element)}
       >
         Open course
@@ -83,7 +83,9 @@ export function CourseList(props: CourseListProps): JSX.Element {
     const first = appended[0];
     if (first === undefined) return;
     requestAnimationFrame(() =>
-      document.getElementById(`course-open-${courseRouteReference(first.reference)}`)?.focus(),
+      document
+        .getElementById(`course-open-${courseInstanceRouteReference(first.reference)}`)
+        ?.focus(),
     );
   }
 

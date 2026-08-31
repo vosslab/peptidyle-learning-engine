@@ -1,7 +1,7 @@
 //! Identity types (WP-C1, WP-C2, MOD-ID).
 //!
 //! Published Question identity is the stable human-facing Question ID plus a
-//! positive Question Version Number. A draft carries neither value;
+//! positive Question Revision Number. A draft carries neither value;
 //! publication establishes the first version and each accepted same-lineage
 //! change advances the version number.
 //!
@@ -36,13 +36,13 @@ pub struct WorkspaceImportId(Uuid);
 /// Positive, monotonic version number within one Question lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
-pub struct QuestionVersionNumber(u32);
+pub struct QuestionRevisionNumber(u32);
 
-impl QuestionVersionNumber {
+impl QuestionRevisionNumber {
     /// Creates a positive version number.
     pub fn new(value: u32) -> Result<Self, &'static str> {
         if value == 0 {
-            return Err("question version number must be positive");
+            return Err("question revision number must be positive");
         }
         Ok(Self(value))
     }
@@ -53,7 +53,7 @@ impl QuestionVersionNumber {
     }
 }
 
-impl TryFrom<u32> for QuestionVersionNumber {
+impl TryFrom<u32> for QuestionRevisionNumber {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -61,13 +61,13 @@ impl TryFrom<u32> for QuestionVersionNumber {
     }
 }
 
-impl From<QuestionVersionNumber> for u32 {
-    fn from(value: QuestionVersionNumber) -> Self {
+impl From<QuestionRevisionNumber> for u32 {
+    fn from(value: QuestionRevisionNumber) -> Self {
         value.0
     }
 }
 
-impl std::fmt::Display for QuestionVersionNumber {
+impl std::fmt::Display for QuestionRevisionNumber {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.0)
     }
@@ -130,15 +130,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_question_version_number_is_positive() {
-        let version = QuestionVersionNumber::new(1).expect("positive version");
+    fn a_question_revision_number_is_positive() {
+        let version = QuestionRevisionNumber::new(1).expect("positive version");
         assert_eq!(version.get(), 1);
     }
 
     #[test]
-    fn question_version_numbers_display_as_integers() {
+    fn question_revision_numbers_display_as_integers() {
         assert_eq!(
-            QuestionVersionNumber::new(1)
+            QuestionRevisionNumber::new(1)
                 .expect("positive version")
                 .to_string(),
             "1"

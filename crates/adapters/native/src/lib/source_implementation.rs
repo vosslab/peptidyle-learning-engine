@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, QuestionSource, QuestionVersion,
+    DraftQuestionDefinition, DraftQuestionSource, QuestionRevision, QuestionSource,
 };
 
 use crate::generator::NativeQuestionImplementation;
@@ -11,7 +11,7 @@ use crate::{NativeAdapter, NativeAdapterError};
 impl NativeAdapter {
     pub(super) fn implementations_for_question(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
     ) -> Result<Vec<&dyn NativeQuestionImplementation>, NativeAdapterError> {
         if !matches!(question.source, QuestionSource::Native) {
             return Err(NativeAdapterError::UnsupportedSource);
@@ -34,7 +34,7 @@ impl NativeAdapter {
 
     pub(super) fn implementation_for_question(
         &self,
-        question: &QuestionVersion,
+        question: &QuestionRevision,
         generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn NativeQuestionImplementation, NativeAdapterError> {
         if !matches!(question.source, QuestionSource::Native) {
