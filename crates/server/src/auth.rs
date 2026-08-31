@@ -20,8 +20,6 @@ use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
 mod browser_boundary;
-#[path = "auth/client_address.rs"]
-mod client_address;
 #[path = "auth/live_demo.rs"]
 mod live_demo;
 #[path = "auth/session_cookie.rs"]
@@ -223,15 +221,6 @@ pub async fn resolve_session(
     })
 }
 
-/// Resolves the authentication cookie carried by an HTTP request.
-pub(crate) async fn resolve_request_session(
-    sessions: &dyn SessionStore,
-    headers: &HeaderMap,
-) -> Result<AuthenticatedSession, AuthError> {
-    let cookie_header = joined_cookie_header(headers);
-    resolve_session(sessions, cookie_header.as_deref()).await
-}
-
 /// Revokes the presented session. Missing or malformed cookies are idempotent.
 pub async fn revoke_session(
     sessions: &dyn SessionStore,
@@ -305,10 +294,8 @@ where
         ),
         Err(error) => (auth_error_response(error), false),
     };
-    if revoked {
-        if let Ok(value) = HeaderValue::from_str(&clear_session_cookie(state.config)) {
-            response.headers_mut().append(SET_COOKIE, value);
-        }
+    if revoked && let Ok(value) = HeaderValue::from_str(&clear_session_cookie(state.config)) {
+        response.headers_mut().append(SET_COOKIE, value);
     }
     no_store(response)
 }
@@ -321,34 +308,6 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
             role: record.role,
         },
     }
-}
-
-fn response_with_cookie<T: Serialize>(status: StatusCode, set_cookie: String, body: T) -> Response {
-    response_with_cookies(status, [set_cookie], body)
-}
-
-fn response_with_cookies<T, I>(status: StatusCode, set_cookies: I, body: T) -> Response
-where
-    T: Serialize,
-    I: IntoIterator<Item = String>,
-{
-    let set_cookies = match set_cookies
-        .into_iter()
-        .map(|cookie| HeaderValue::from_str(&cookie))
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(set_cookies) => set_cookies,
-        Err(_) => {
-            return auth_error_response(AuthError::Unavailable(
-                "generated cookie was not a valid HTTP header".to_string(),
-            ));
-        }
-    };
-    let mut response = (status, Json(body)).into_response();
-    for set_cookie in set_cookies {
-        response.headers_mut().append(SET_COOKIE, set_cookie);
-    }
-    no_store(response)
 }
 
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {

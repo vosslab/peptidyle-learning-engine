@@ -3,7 +3,7 @@
 use domain::run::continued_practice_allows_assignment_attempt;
 use domain::scoring::{AssignmentActivityTransition, project_summary};
 use question_model::{
-    ActivityTimestamp, AssignmentProgressRecord, AssignmentId, ContinuedPractice, GradePolicy,
+    ActivityTimestamp, AssignmentId, AssignmentProgressRecord, ContinuedPractice, GradePolicy,
     StudentRecordId,
 };
 use uuid::Uuid;
@@ -25,9 +25,7 @@ fn thirty_first_run_updates_the_transactional_summary() {
             summary = project_summary(
                 &summary,
                 AssignmentActivityTransition::QuestionAttemptRecorded {
-                    at: ActivityTimestamp::from_unix_millis(
-                        i64::from(attempt_number) * 100 + attempt_number,
-                    ),
+                    at: ActivityTimestamp::from_unix_millis(attempt_number * 100 + attempt_number),
                 },
                 GradePolicy::Highest,
             )

@@ -131,7 +131,7 @@ function submittedRunChoicesPath(
     query.set("operationRef", decodeGradingOperationReference(request.operationRef));
   }
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
-  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/runs${suffix}`;
+  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts${suffix}`;
 }
 
 function inspectionPath(
@@ -155,7 +155,7 @@ function inspectionPath(
       : `?${new URLSearchParams({
           operationRef: decodeGradingOperationReference(operationRef),
         }).toString()}`;
-  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/runs/${encodedId(checkedRun)}${query}`;
+  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts/${encodedId(checkedRun)}${query}`;
 }
 
 async function noStoreJson<T>(

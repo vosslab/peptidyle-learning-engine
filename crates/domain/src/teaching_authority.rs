@@ -6,9 +6,9 @@
 //! a direct membership.
 
 use question_model::{
-    AccountId, ActivityTimestamp, CourseInvitation, CourseInvitationEventKind,
-    CourseInvitationState, CourseId, CourseMembershipId, CourseMembershipRole,
-    InstructorApprovalEvent, InstructorApprovalEventKind, StudentRecordId,
+    AccountId, ActivityTimestamp, CourseId, CourseInvitation, CourseInvitationEventKind,
+    CourseInvitationState, CourseMembershipId, CourseMembershipRole, InstructorApprovalEvent,
+    InstructorApprovalEventKind, StudentRecordId,
 };
 
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
@@ -265,28 +265,24 @@ fn validate_invitation_record(
     if invitation.expires_at.as_unix_millis() != expected_expiry {
         return Err(CourseInvitationError::ExpiryDoesNotMatchThirtyDays);
     }
-    if let Some(event) = invitation.terminal_event {
-        if event.invitation != invitation.id
+    if let Some(event) = invitation.terminal_event
+        && (event.invitation != invitation.id
             || event.occurred_at < invitation.created_at
             || event.occurred_at >= invitation.expires_at
             || event.occurred_at > now
             || (matches!(
                 event.kind,
-                CourseInvitationEventKind::Accepted
-                    | CourseInvitationEventKind::Declined
-            ) && event.performed_by != invitation.target)
-        {
-            return Err(CourseInvitationError::InvalidTerminalTimestamps);
-        }
+                CourseInvitationEventKind::Accepted | CourseInvitationEventKind::Declined
+            ) && event.performed_by != invitation.target))
+    {
+        return Err(CourseInvitationError::InvalidTerminalTimestamps);
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use question_model::{
-        CourseInvitationEvent, CourseInvitationId, CourseMembershipId,
-    };
+    use question_model::{CourseInvitationEvent, CourseInvitationId, CourseMembershipId};
     use uuid::Uuid;
 
     use super::*;
@@ -643,15 +639,14 @@ mod tests {
         };
         assert_eq!(validate_instructor_approval(&revoked, now), Ok(()));
 
-        for invalid in [InstructorApprovalEvent {
+        let invalid = InstructorApprovalEvent {
             occurred_at: stamp(1_002),
             ..active
-        }] {
-            assert_eq!(
-                validate_instructor_approval(&invalid, now),
-                Err(CourseInvitationError::InvalidApprovalRecord)
-            );
-        }
+        };
+        assert_eq!(
+            validate_instructor_approval(&invalid, now),
+            Err(CourseInvitationError::InvalidApprovalRecord)
+        );
     }
 
     #[test]
@@ -690,12 +685,7 @@ mod tests {
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_course_invitation(
-                &invitation,
-                invitation.target,
-                Some(revoked_approval),
-                now,
-            ),
+            accept_course_invitation(&invitation, invitation.target, Some(revoked_approval), now,),
             Err(CourseInvitationError::TargetApprovalRequired)
         );
         let future_approval = InstructorApprovalEvent {
@@ -703,12 +693,7 @@ mod tests {
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_course_invitation(
-                &invitation,
-                invitation.target,
-                Some(future_approval),
-                now,
-            ),
+            accept_course_invitation(&invitation, invitation.target, Some(future_approval), now,),
             Err(CourseInvitationError::InvalidApprovalRecord)
         );
         let future_revocation = InstructorApprovalEvent {
@@ -717,12 +702,7 @@ mod tests {
             ..approval(invitation.target)
         };
         assert_eq!(
-            accept_course_invitation(
-                &invitation,
-                invitation.target,
-                Some(future_revocation),
-                now,
-            ),
+            accept_course_invitation(&invitation, invitation.target, Some(future_revocation), now,),
             Err(CourseInvitationError::InvalidApprovalRecord)
         );
     }

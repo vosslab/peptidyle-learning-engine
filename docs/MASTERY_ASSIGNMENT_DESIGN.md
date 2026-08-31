@@ -68,7 +68,7 @@ The route begins an Assignment Attempt only after authenticating the session.
 The canonical path validates its policy, timing, sequence, and one-active-attempt
 rules before it commits activity. See
 [crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs),
-and [crates/learning-data-access/src/activity_policy.rs](../crates/learning-data-access/src/activity_policy.rs).
+and [crates/domain/src/effective_assignment_policy.rs](../crates/domain/src/effective_assignment_policy.rs).
 
 ### Retries preserve evidence
 
@@ -76,8 +76,8 @@ An incorrect response enters `RetryAvailable` only when policy permits another r
 the retry issues a new `QuestionAttempt`; it never overwrites the prior response, grade, seed, or
 provenance. An unlimited question attempt policy is represented by `max_attempts: None`. This is the
 implemented mastery retry behavior in
-[crates/domain/src/attempt.rs](../crates/domain/src/attempt.rs) and
-[crates/question_model/src/run_policy.rs](../crates/question_model/src/run_policy.rs).
+[crates/question_model/src/activity.rs](../crates/question_model/src/activity.rs) and
+[crates/domain/src/run.rs](../crates/domain/src/run.rs).
 
 ### Completion and gradebook score differ
 

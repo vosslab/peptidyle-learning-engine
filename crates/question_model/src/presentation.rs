@@ -23,8 +23,8 @@ pub use codec::{
 pub use model::{
     AssetBindingV1, PresentationDigestTokenV1, PresentationEnvelopeV1, PresentationNonceV1,
     PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    RenderedItemIdV1, ResponseSchemaV1, StudentAttemptDescriptorV1, StudentRunScreenRunV1,
-    StudentRunScreenScopeV1, StudentRunScreenV1,
+    RenderedItemIdV1, ResponseSchemaV1, StudentAssignmentAttemptScreenAttemptV1,
+    StudentAssignmentAttemptScreenScopeV1, StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
 };
 pub use response_translation::{
     InspectedExternalToolStateV1, InspectedMatchPairV1, InspectedStudentArtifactStateV1,

@@ -13,6 +13,14 @@ The local stack is a disposable development environment. It is not a
 production security boundary, a highly available database, or deployment
 acceptance evidence.
 
+The **Local Stack Controller** is the tracked `local_stack_control/` package.
+It creates and owns **Local Stack State** under the ignored repository-root
+`local_stack_state/` directory. The browser suite keeps its controller-owned
+lease, private control receipts, and resettable workspace below that state
+directory. Controller code is reviewable repository content; Local Stack State
+is disposable host state and is never an application contract or source of
+authority.
+
 ## Authority model
 
 PLE is one installation with global accounts. The authenticated server session

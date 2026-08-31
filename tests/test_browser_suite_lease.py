@@ -10,6 +10,18 @@ import local_stack_control.browser_suite_lease
 
 
 #============================================
+def test_lease_uses_the_canonical_local_stack_state_directories() -> None:
+	"""The controller separates its root state directory from browser-suite state."""
+	assert (
+		local_stack_control.browser_suite_lease.LOCAL_STACK_STATE_DIRECTORY
+		== pathlib.Path("local_stack_state")
+	)
+	assert local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY == pathlib.Path(
+		"local_stack_state/live_demo_browser"
+	)
+
+
+#============================================
 def test_lease_is_nonblocking_noninheritable_and_reusable(tmp_path: pathlib.Path) -> None:
 	"""A second suite stops immediately and release permits the next suite."""
 	first = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path)

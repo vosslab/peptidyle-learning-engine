@@ -73,7 +73,7 @@ global account and session, while the operation's exact relationship supplies
 course, workspace, Student, or other authority. It has no browser serialization shape.
 Neither type belongs in `question_model` or generated browser contracts.
 
-[`learning_data_access::rls`](../crates/learning-data-access/src/rls.rs) owns
+[`learning_data_access::postgres::sessions`](../crates/learning-data-access/src/postgres/sessions.rs) owns
 only the transaction adapter that installs already-resolved account and session facts
 in a protected database transaction. It does not mint, define, re-export, or
 authorize `SessionId`, `AccountId`, course membership, workspace

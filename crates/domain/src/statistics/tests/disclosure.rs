@@ -9,14 +9,14 @@ fn observation(
     attempts: u64,
     duration_seconds: u64,
     rest_score: Option<f64>,
-) -> CollapsedQuestionObservation {
-    CollapsedQuestionObservation::new(score, attempts, duration_seconds, rest_score)
+) -> QuestionCohortRollupObservation {
+    QuestionCohortRollupObservation::new(score, attempts, duration_seconds, rest_score)
         .expect("test observation should be valid")
 }
 
 #[test]
 fn hand_computed_fixture_discloses_exact_aggregate_metrics() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for (score, attempts, duration) in [
         (0.0, 1, 1),
         (0.25, 2, 5),
@@ -44,7 +44,7 @@ fn hand_computed_fixture_discloses_exact_aggregate_metrics() {
 
 #[test]
 fn disclosure_omits_unavailable_discrimination_without_losing_general_metrics() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for duration in [1, 5, 15, 30, 60] {
         aggregate
             .record(observation(0.8, 1, duration, None))
@@ -62,7 +62,7 @@ fn disclosure_omits_unavailable_discrimination_without_losing_general_metrics() 
 
 #[test]
 fn default_k_suppresses_four_and_releases_five() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for score in [0.0, 0.25, 0.5, 0.75] {
         aggregate
             .record(observation(score, 1, 5, Some(score)))
@@ -91,7 +91,7 @@ fn default_k_suppresses_four_and_releases_five() {
 
 #[test]
 fn sub_k_scored_cohort_cannot_leak_correlation_through_a_releasable_view() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for (score, rest_score) in [
         (0.0, Some(0.0)),
         (1.0, Some(1.0)),
@@ -116,7 +116,7 @@ fn sub_k_scored_cohort_cannot_leak_correlation_through_a_releasable_view() {
 #[test]
 fn disclosure_never_returns_partial_metrics_for_an_empty_aggregate() {
     assert_eq!(
-        QuestionStatisticsAggregate::empty().disclose(StatisticsDisclosurePolicy::default()),
+        QuestionCohortRollup::empty().disclose(StatisticsDisclosurePolicy::default()),
         QuestionStatisticsDisclosure::Suppressed
     );
 }

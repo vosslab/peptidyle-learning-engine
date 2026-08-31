@@ -27,6 +27,7 @@ CREATE TABLE ple_private.issued_question (
     issued_position integer NOT NULL CHECK (issued_position >= 0),
     point_value numeric NOT NULL CHECK (point_value >= 0),
     scoring_rule text NOT NULL CHECK (scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')),
+    statistics_eligible boolean NOT NULL,
     CONSTRAINT issued_question_version_matches FOREIGN KEY (question_id, version_number)
         REFERENCES ple_data.published_question_version (question_id, version_number),
     CONSTRAINT issued_question_delivery_order_is_unique UNIQUE (assignment_attempt_id, issued_position)
@@ -45,5 +46,5 @@ ALTER TABLE ple_private.issued_question FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.assignment_attempt, ple_private.issued_question, ple_private.question_attempt FROM PUBLIC;
-COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Version and Assignment Entry evidence for one Student Assignment Attempt.';
+COMMENT ON TABLE ple_private.issued_question IS 'Immutable selected Question Version and Assignment Entry evidence for one Student Assignment Attempt, including its issue-time Question Statistics Eligibility.';
 RESET ROLE;

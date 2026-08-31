@@ -6,12 +6,16 @@
 
 mod aggregation;
 mod disclosure;
+mod version_counts;
 
 pub use aggregation::{
-    CollapsedQuestionObservation, DURATION_HISTOGRAM_UPPER_BOUNDS_SECONDS,
-    DURATION_HISTOGRAM_VERSION, DurationHistogram, DurationHistogramSnapshot, MAX_DURATION_SECONDS,
-    PearsonMomentSnapshot, PearsonSufficientSums, QuestionStatisticsAggregate,
-    QuestionStatisticsSnapshot, StatisticsError,
+    DURATION_HISTOGRAM_UPPER_BOUNDS_SECONDS, DURATION_HISTOGRAM_VERSION, DurationHistogram,
+    DurationHistogramSnapshot, MAX_DURATION_SECONDS, PearsonMomentSnapshot, PearsonSufficientSums,
+    QuestionCohortRollup, QuestionCohortRollupObservation, QuestionCohortRollupSnapshot,
+    StatisticsError,
+};
+pub use version_counts::{
+    QuestionStatisticsObservation, QuestionVersionStatistics, QuestionVersionStatisticsSnapshot,
 };
 
 #[cfg(test)]

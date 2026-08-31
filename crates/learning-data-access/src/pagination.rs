@@ -24,11 +24,6 @@ impl Cursor {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-
-    /// Builds a token from a backend-owned stable key.
-    pub(crate) fn from_stable_key(key: String) -> Self {
-        Self(key)
-    }
 }
 
 /// Validated maximum number of rows returned by one list operation.

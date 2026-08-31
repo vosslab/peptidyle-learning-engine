@@ -7,8 +7,8 @@ export interface RouteContract {
     | "courses"
     | "courseAssignments"
     | "assignmentOverview"
-    | "runAttempt"
-    | "runSummary"
+    | "assignmentAttempt"
+    | "assignmentAttemptSummary"
     | "library"
     | "problemDetail"
     | "curriculum"
@@ -60,25 +60,25 @@ export const ROUTE_CONTRACT = [
   {
     id: "courseAssignments",
     path: "/courses/:courseRef",
-    surface: "Assignment list with progress and run counts",
+    surface: "Assignment list with progress and Assignment Attempt counts",
     requiredRoles: [],
   },
   {
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
-    surface: "Assignment overview, run history, and practice entry",
+    surface: "Assignment overview, Assignment Attempt history, and practice entry",
     requiredRoles: ["student"],
   },
   {
-    id: "runAttempt",
-    path: "/runs/:runRef",
+    id: "assignmentAttempt",
+    path: "/assignment-attempts/:assignmentAttemptRef",
     surface: "One-question-at-a-time attempt loop",
     requiredRoles: [],
   },
   {
-    id: "runSummary",
-    path: "/runs/:runRef/summary",
-    surface: "Run result and practice re-entry",
+    id: "assignmentAttemptSummary",
+    path: "/assignment-attempts/:assignmentAttemptRef/summary",
+    surface: "Assignment Attempt result and practice re-entry",
     requiredRoles: [],
   },
   {
@@ -174,7 +174,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "studentWorkInspection",
-    path: "/instructor/courses/:courseRef/gradebook/students/:membershipRef/assignments/:assignmentRef/runs/:runRef",
+    path: "/instructor/courses/:courseRef/gradebook/students/:membershipRef/assignments/:assignmentRef/assignment-attempts/:assignmentAttemptRef",
     surface: "Audited Student-work inspection",
     requiredRoles: ["instructor"],
   },

@@ -20,8 +20,7 @@ instructor and student enrollment journeys. The release plan remains in
 ## Status and authority
 
 This document is the durable enrollment contract. Current route truth remains in
-[API_CONTRACTS.md](API_CONTRACTS.md) and
-[crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs).
+[API_CONTRACTS.md](API_CONTRACTS.md).
 Current delivery status and implementation evidence for those routes remain in
 [implementation status](active_plans/implementation_status.md).
 
@@ -111,9 +110,8 @@ never becomes an answer, score, completion flag, or attempt authority.
 
 The original missing seam was visible at three boundaries:
 
-- [crates/server/src/course/routing.rs](../crates/server/src/course/routing.rs)
-  previously mounted course reads, course creation, gradebook reads, and
-  assignment creation/update without roster mutation.
+- The earlier course-route surface mounted course reads, course creation,
+  gradebook reads, and assignment creation/update without roster mutation.
 - The deferred course-delivery route family will expose Student-owned
   Assignment Attempt history. Course Enrollment occurs through course-level
   invitation claim rather than a public assignment-enrollment mutation.

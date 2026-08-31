@@ -11,5 +11,5 @@ pub mod flat_question;
 /// Gated access to grading materials and answer keys.
 pub mod key;
 
-pub use crate::checker::{GradeOutcome, GradingError, grade};
+pub use crate::checker::{GradeOutcome, GradingError, grade, question_statistics_observation};
 pub use crate::key::AnswerKey;

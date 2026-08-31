@@ -10,8 +10,8 @@ import stat
 import local_stack_control.models
 
 
-PRIVATE_PARENT = pathlib.Path("local_runtime")
-PRIVATE_ROOT = PRIVATE_PARENT / "live_demo_browser"
+LOCAL_STACK_STATE_DIRECTORY = pathlib.Path("local_stack_state")
+LIVE_DEMO_BROWSER_STATE_DIRECTORY = LOCAL_STACK_STATE_DIRECTORY / "live_demo_browser"
 LOCK_NAME = "browser-suite.lock"
 WORKSPACE_NAME = "workspace"
 
@@ -122,7 +122,7 @@ class BrowserSuiteLease:
 	) -> None:
 		"""Store descriptors that remain authoritative for the held lifetime."""
 		self.repository_root = repository_root
-		self.root = repository_root / PRIVATE_ROOT
+		self.root = repository_root / LIVE_DEMO_BROWSER_STATE_DIRECTORY
 		self.workspace = self.root / WORKSPACE_NAME
 		self._repository_descriptor = repository_descriptor
 		self._repository_identity = repository_identity
@@ -141,7 +141,7 @@ class BrowserSuiteLease:
 			os.close(repository_descriptor)
 			raise BrowserSuiteError("the live-demo browser suite is already running in this checkout") from error
 		try:
-			os.mkdir(PRIVATE_PARENT.name, 0o700, dir_fd=repository_descriptor)
+			os.mkdir(LOCAL_STACK_STATE_DIRECTORY.name, 0o700, dir_fd=repository_descriptor)
 		except FileExistsError:
 			pass
 		except OSError as error:
@@ -152,15 +152,15 @@ class BrowserSuiteLease:
 		lock_descriptor = -1
 		try:
 			parent_descriptor, _parent_identity = _open_checked_directory(
-				repository_root / PRIVATE_PARENT,
+				repository_root / LOCAL_STACK_STATE_DIRECTORY,
 				0o700,
 			)
 			try:
 				try:
-					os.mkdir(PRIVATE_ROOT.name, 0o700, dir_fd=parent_descriptor)
+					os.mkdir(LIVE_DEMO_BROWSER_STATE_DIRECTORY.name, 0o700, dir_fd=parent_descriptor)
 				except FileExistsError:
 					pass
-				root_descriptor, root_identity = _open_checked_directory(repository_root / PRIVATE_ROOT, 0o700)
+				root_descriptor, root_identity = _open_checked_directory(repository_root / LIVE_DEMO_BROWSER_STATE_DIRECTORY, 0o700)
 			finally:
 				os.close(parent_descriptor)
 			lock_descriptor = os.open(LOCK_NAME, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=root_descriptor)
@@ -271,7 +271,7 @@ class BrowserSuiteLease:
 		"""Adopt the launcher's already-held descriptor locks in its supervisor child."""
 		try:
 			repository_metadata = repository_root.lstat()
-			root_metadata = (repository_root / PRIVATE_ROOT).lstat()
+			root_metadata = (repository_root / LIVE_DEMO_BROWSER_STATE_DIRECTORY).lstat()
 			repository_opened = os.fstat(repository_descriptor)
 			root_opened = os.fstat(root_descriptor)
 			lock_metadata = os.fstat(lock_descriptor)

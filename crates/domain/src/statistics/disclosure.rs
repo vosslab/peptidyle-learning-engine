@@ -7,9 +7,9 @@ use question_model::{
     QuestionStatisticsDisclosure, QuestionStatisticsView, StatisticsDisclosurePolicy,
 };
 
-use super::QuestionStatisticsAggregate;
+use super::QuestionCohortRollup;
 
-impl QuestionStatisticsAggregate {
+impl QuestionCohortRollup {
     /// Applies k-anonymity disclosure to construct the only browser-safe view.
     pub fn disclose(&self, policy: StatisticsDisclosurePolicy) -> QuestionStatisticsDisclosure {
         let minimum_cohort_size = u64::from(policy.minimum_cohort_size());

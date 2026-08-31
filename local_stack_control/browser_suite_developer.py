@@ -93,7 +93,7 @@ def _checked_root_descriptor(repository_root: pathlib.Path) -> int:
 	"""Open the immutable private root through the shared checked-lease authority."""
 	try:
 		descriptor, _identity = local_stack_control.browser_suite_lease._open_checked_directory(
-			repository_root / local_stack_control.browser_suite_lease.PRIVATE_ROOT, 0o700
+			repository_root / local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY, 0o700
 		)
 	except local_stack_control.browser_suite_lease.BrowserSuiteError as error:
 		raise DeveloperBrowserSuiteError("developer browser control state is unavailable") from error

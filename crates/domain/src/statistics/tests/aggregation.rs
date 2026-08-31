@@ -5,14 +5,14 @@ fn observation(
     attempts: u64,
     duration_seconds: u64,
     rest_score: Option<f64>,
-) -> CollapsedQuestionObservation {
-    CollapsedQuestionObservation::new(score, attempts, duration_seconds, rest_score)
+) -> QuestionCohortRollupObservation {
+    QuestionCohortRollupObservation::new(score, attempts, duration_seconds, rest_score)
         .expect("test observation should be valid")
 }
 
 #[test]
 fn zero_variance_omits_discrimination() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for (score, rest) in [(0.5, 0.0), (0.5, 0.25), (0.5, 0.75), (0.5, 1.0), (0.5, 0.5)] {
         aggregate
             .record(observation(score, 1, 5, Some(rest)))
@@ -25,19 +25,19 @@ fn zero_variance_omits_discrimination() {
 #[test]
 fn invalid_scalars_and_attempt_bounds_are_refused() {
     assert_eq!(
-        CollapsedQuestionObservation::new(f64::NAN, 1, 1, None),
+        QuestionCohortRollupObservation::new(f64::NAN, 1, 1, None),
         Err(StatisticsError::NonFiniteScalar)
     );
     assert_eq!(
-        CollapsedQuestionObservation::new(1.1, 1, 1, None),
+        QuestionCohortRollupObservation::new(1.1, 1, 1, None),
         Err(StatisticsError::ScoreOutOfRange)
     );
     assert_eq!(
-        CollapsedQuestionObservation::new(0.5, 0, 1, None),
+        QuestionCohortRollupObservation::new(0.5, 0, 1, None),
         Err(StatisticsError::ZeroAttempts)
     );
     assert_eq!(
-        CollapsedQuestionObservation::new(0.5, 1, 1, Some(f64::INFINITY)),
+        QuestionCohortRollupObservation::new(0.5, 1, 1, Some(f64::INFINITY)),
         Err(StatisticsError::NonFiniteScalar)
     );
 }
@@ -71,9 +71,9 @@ fn snapshot_restore_and_atomic_merge_match_direct_recording() {
         observation(0.75, 4, 30, Some(0.25)),
         observation(1.0, 5, 60, Some(0.0)),
     ];
-    let mut left = QuestionStatisticsAggregate::empty();
-    let mut right = QuestionStatisticsAggregate::empty();
-    let mut direct = QuestionStatisticsAggregate::empty();
+    let mut left = QuestionCohortRollup::empty();
+    let mut right = QuestionCohortRollup::empty();
+    let mut direct = QuestionCohortRollup::empty();
     for value in left_observations {
         left.record(value).expect("left observation merges");
         direct.record(value).expect("direct observation merges");
@@ -84,8 +84,7 @@ fn snapshot_restore_and_atomic_merge_match_direct_recording() {
     }
 
     let right_snapshot = right.snapshot();
-    let restored =
-        QuestionStatisticsAggregate::restore(&right_snapshot).expect("valid snapshot restores");
+    let restored = QuestionCohortRollup::restore(&right_snapshot).expect("valid snapshot restores");
     assert_eq!(restored.snapshot(), right_snapshot);
     left.merge_snapshot(&right_snapshot)
         .expect("valid snapshot merges atomically");
@@ -95,7 +94,7 @@ fn snapshot_restore_and_atomic_merge_match_direct_recording() {
 
 #[test]
 fn partial_negative_correlation_is_preserved_by_stable_moments() {
-    let mut aggregate = QuestionStatisticsAggregate::empty();
+    let mut aggregate = QuestionCohortRollup::empty();
     for (score, rest) in [(0.0, 1.0), (0.25, 0.6), (0.5, 0.7), (0.75, 0.1), (1.0, 0.0)] {
         aggregate
             .record(observation(score, 1, 5, Some(rest)))
@@ -109,8 +108,8 @@ fn partial_negative_correlation_is_preserved_by_stable_moments() {
 
 #[test]
 fn invalid_snapshots_are_refused_without_mutating_the_target() {
-    let valid = QuestionStatisticsAggregate::empty().snapshot();
-    let bad_version = QuestionStatisticsSnapshot {
+    let valid = QuestionCohortRollup::empty().snapshot();
+    let bad_version = QuestionCohortRollupSnapshot {
         durations: DurationHistogramSnapshot {
             version: DURATION_HISTOGRAM_VERSION + 1,
             bins: vec![0; DURATION_HISTOGRAM_UPPER_BOUNDS_SECONDS.len()],
@@ -118,10 +117,10 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
         ..valid.clone()
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&bad_version),
+        QuestionCohortRollup::restore(&bad_version),
         Err(StatisticsError::HistogramVersionMismatch)
     );
-    let bad_bins = QuestionStatisticsSnapshot {
+    let bad_bins = QuestionCohortRollupSnapshot {
         durations: DurationHistogramSnapshot {
             version: DURATION_HISTOGRAM_VERSION,
             bins: vec![0; DURATION_HISTOGRAM_UPPER_BOUNDS_SECONDS.len() - 1],
@@ -129,10 +128,10 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
         ..valid.clone()
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&bad_bins),
+        QuestionCohortRollup::restore(&bad_bins),
         Err(StatisticsError::HistogramBinCountMismatch)
     );
-    let bad_terms = QuestionStatisticsSnapshot {
+    let bad_terms = QuestionCohortRollupSnapshot {
         cohort_size: 1,
         score_sum: 0.5,
         attempts_sum: 1,
@@ -149,7 +148,7 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
             co_moment: 0.25,
         },
     };
-    let mut target = QuestionStatisticsAggregate::empty();
+    let mut target = QuestionCohortRollup::empty();
     let before = target.clone();
     assert_eq!(
         target.merge_snapshot(&bad_terms),
@@ -157,7 +156,7 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
     );
     assert_eq!(target, before);
 
-    let incompatible_paired_score_sum = QuestionStatisticsSnapshot {
+    let incompatible_paired_score_sum = QuestionCohortRollupSnapshot {
         cohort_size: 5,
         score_sum: 0.0,
         attempts_sum: 5,
@@ -175,11 +174,11 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
         },
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&incompatible_paired_score_sum),
+        QuestionCohortRollup::restore(&incompatible_paired_score_sum),
         Err(StatisticsError::SnapshotInvariant)
     );
 
-    let impossible_singleton = QuestionStatisticsSnapshot {
+    let impossible_singleton = QuestionCohortRollupSnapshot {
         cohort_size: 1,
         score_sum: 0.5,
         attempts_sum: 1,
@@ -197,11 +196,11 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
         },
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&impossible_singleton),
+        QuestionCohortRollup::restore(&impossible_singleton),
         Err(StatisticsError::SnapshotInvariant)
     );
 
-    let impossible_bounded_variance = QuestionStatisticsSnapshot {
+    let impossible_bounded_variance = QuestionCohortRollupSnapshot {
         cohort_size: 2,
         score_sum: 1.0,
         attempts_sum: 2,
@@ -219,16 +218,16 @@ fn invalid_snapshots_are_refused_without_mutating_the_target() {
         },
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&impossible_bounded_variance),
+        QuestionCohortRollup::restore(&impossible_bounded_variance),
         Err(StatisticsError::SnapshotInvariant)
     );
 
-    let negative_zero = QuestionStatisticsSnapshot {
+    let negative_zero = QuestionCohortRollupSnapshot {
         score_sum: -0.0,
         ..valid
     };
     assert_eq!(
-        QuestionStatisticsAggregate::restore(&negative_zero),
+        QuestionCohortRollup::restore(&negative_zero),
         Err(StatisticsError::SnapshotInvariant)
     );
 }

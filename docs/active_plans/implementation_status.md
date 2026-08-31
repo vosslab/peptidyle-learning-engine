@@ -252,7 +252,7 @@ in the SD1 scope register. The graph and inventories are one-time evidence; curr
 the authority.
 
 `SD1-A3` implementation is complete. The PostgreSQL table, key, policy, grant, broker, and typed
-scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082935`. Historical
+scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082936`. Historical
 `2026081881` and `2026081882` WN1-D work is retained as evidence/input absorbed by that fresh epoch,
 not as an active SD1 schema dependency.
 
@@ -737,7 +737,7 @@ explicit clean-cluster baseline decision. After v1 ships, accepted files are imm
 an allocation before implementation. Non-schema packages do not receive an implicit allocation.
 
 The owner-confirmed single-installation correction keeps PLE in its pre-production clean-cluster
-state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082935`, split by focused
+state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082936`, split by focused
 capability as registered in its plan. Earlier allocations remain package-history evidence until
 SD1-C records the exact replacement ledger.
 
@@ -875,6 +875,7 @@ SD1-C records the exact replacement ledger.
 | `2026082933`              | `WP-SD1-C`             | Atomic email-challenge and validated-passkey completion brokers for existing Accounts                                                                                                               |
 | `2026082934`              | `WP-SD1-C`             | Sysadmin-only global Account Creation broker with immutable Product Role                                                                                                                           |
 | `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                             |
+| `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Version Statistics and idempotent accepted-grade observation evidence                                                                                               |
 
 This registry is the complete, current number-to-capability ledger for `WP-SD1-C`; historical
 `2026081881` and `2026081882` remain immutable evidence/input.
@@ -926,7 +927,7 @@ The current handoff is:
    contracts.
 2. `SD1-B1-P0` is accepted preparatory identity-only work. Complete `SD1-B2` through `SD1-B4` as
    exact-scope contract roots, without claiming route conversion.
-3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082935`, then
+3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082936`, then
    implement SD1-D Store/RLS and direct protected-service support with its connected proof. The
    historical `2026081881` and `2026081882` work is evidence/input to C, not an active WN1 queue
    item.

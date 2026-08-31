@@ -12,9 +12,10 @@ shared question corpus, and a `BlueprintCourse` remain outside that CourseInstan
 published problem can remain in the shared catalog after every student record for a CourseInstance
 is gone. This is both the sharing model and the deletion boundary.
 
-This is the implemented application and database contract. It distinguishes completed code and
-one-time acceptance evidence from recovery, backup, and object-reconciliation work that remains
-deployment work.
+This document defines the intended product retention boundary. The current SD1 baseline implements
+Course Retention Plans and immutable lifecycle evidence; Store/worker execution, object cleanup,
+Student-access fencing, browser routes, and connected acceptance remain incomplete work. The later
+sections specify that required completion path without claiming it is mounted today.
 
 The canonical live-demo baseline uses fictional people and course records as ordinary PLE data.
 They are disposable because the complete database and storage can be regenerated, not because

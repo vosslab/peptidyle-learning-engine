@@ -24,7 +24,7 @@ containers/local-webwork-demo.json
 containers/local-chapter-one-pilot.json
 containers/.runtime/
 containers/.secrets/
-/local_runtime/
+/local_stack_state/
 .venv/
 .env
 # === PYTHON === [PROPAGATED - LOCAL EDITS OVERWRITTEN]

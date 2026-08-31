@@ -259,7 +259,7 @@ export function inspectedStudentWorkUrl(
   const checkedMembershipReference = checkedMembership(membership);
   const checkedAssignmentReference = checkedAssignment(assignment);
   const checkedRunReference = checkedRun(run);
-  const path = `/instructor/courses/${checkedCourseReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/runs/${checkedRunReference}`;
+  const path = `/instructor/courses/${checkedCourseReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedRunReference}`;
   if (operation === undefined) return path;
   const operationReference = decodeGradingOperationReference(operation);
   return `${path}?${new URLSearchParams({ operationRef: operationReference }).toString()}`;

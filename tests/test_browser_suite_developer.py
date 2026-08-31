@@ -47,7 +47,7 @@ def test_control_receipt_requires_checked_private_mode(tmp_path: pathlib.Path) -
 	_write_receipt(tmp_path)
 	path = (
 		tmp_path
-		/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
 		/ local_stack_control.browser_suite_developer.CONTROL_NAME
 	)
 	path.chmod(0o644)
@@ -121,7 +121,7 @@ def test_stale_private_control_receipt_never_owns_the_suite_lease(tmp_path: path
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert lease.workspace == (
 			tmp_path
-			/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+			/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
 			/ local_stack_control.browser_suite_lease.WORKSPACE_NAME
 		)
 
@@ -156,7 +156,7 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 	assert events == ["engine", "reset"]
 	workspace = (
 		tmp_path
-		/ local_stack_control.browser_suite_lease.PRIVATE_ROOT
+		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
 		/ local_stack_control.browser_suite_lease.WORKSPACE_NAME
 	)
 	assert tuple(workspace.iterdir()) == ()

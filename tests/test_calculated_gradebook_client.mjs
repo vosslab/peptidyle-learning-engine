@@ -190,10 +190,10 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
     const path = String(input);
     calls.push({ path, init });
     if (path.includes("/selection?")) return jsonResponse(selectedStudent());
-    if (path.endsWith("/runs/R-3?operationRef=GO-7")) {
+    if (path.endsWith("/assignment-attempts/R-3?operationRef=GO-7")) {
       return jsonResponse(inspectedDetail());
     }
-    if (path.includes("/runs?")) {
+    if (path.includes("/assignment-attempts?")) {
       return jsonResponse({
         rosterRevision: 4,
         rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
@@ -234,9 +234,12 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
   assert.equal(calls[3].path, `${root}/selection?pageSize=25&operationRef=GO-7`);
   assert.equal(
     calls[4].path,
-    `${root}/students/M-1/assignments/A-2/runs?cursor=next-page&pageSize=10&operationRef=GO-7`,
+    `${root}/students/M-1/assignments/A-2/assignment-attempts?cursor=next-page&pageSize=10&operationRef=GO-7`,
   );
-  assert.equal(calls[5].path, `${root}/students/M-1/assignments/A-2/runs/R-3?operationRef=GO-7`);
+  assert.equal(
+    calls[5].path,
+    `${root}/students/M-1/assignments/A-2/assignment-attempts/R-3?operationRef=GO-7`,
+  );
   for (const call of calls) {
     assert.equal(call.init.credentials, "same-origin");
     assert.equal(call.init.cache, "no-store");

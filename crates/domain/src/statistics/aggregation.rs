@@ -25,6 +25,8 @@ pub const DURATION_HISTOGRAM_UPPER_BOUNDS_SECONDS: [u64; 10] =
 /// A rejected statistics scalar or aggregate operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatisticsError {
+    /// An eligible choice ID cannot identify a selection count.
+    InvalidChoiceIdentifier,
     /// A score or sufficient-statistic value was NaN or infinite.
     NonFiniteScalar,
     /// A normalized score was outside the inclusive unit interval.
@@ -46,6 +48,9 @@ pub enum StatisticsError {
 impl fmt::Display for StatisticsError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidChoiceIdentifier => {
+                formatter.write_str("statistics choice identifier must be nonempty")
+            }
             Self::NonFiniteScalar => formatter.write_str("statistics scalar must be finite"),
             Self::ScoreOutOfRange => {
                 formatter.write_str("normalized statistics score must be between zero and one")
@@ -70,21 +75,21 @@ impl fmt::Display for StatisticsError {
 
 impl std::error::Error for StatisticsError {}
 
-/// One identity-free contribution already collapsed for one question version.
+/// One identity-free cohort measure for one exact Question Version.
 ///
 /// Store code derives this from one enrollment's first completed assigned run.
 /// Repeated assignment positions of the same version have already been
 /// collapsed before constructing this type.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CollapsedQuestionObservation {
+pub struct QuestionCohortRollupObservation {
     normalized_score: f64,
     attempts: u64,
     duration_seconds: u64,
     rest_score: Option<f64>,
 }
 
-impl CollapsedQuestionObservation {
-    /// Validates one collapsed observation.
+impl QuestionCohortRollupObservation {
+    /// Validates one cohort-rollup observation.
     pub fn new(
         normalized_score: f64,
         attempts: u64,
@@ -384,9 +389,9 @@ impl Default for PearsonSufficientSums {
     }
 }
 
-/// Non-wire, identity-free persistence snapshot of one shared aggregate.
+/// Non-wire, identity-free persistence snapshot of one Question Cohort Rollup.
 #[derive(Debug, Clone, PartialEq)]
-pub struct QuestionStatisticsSnapshot {
+pub struct QuestionCohortRollupSnapshot {
     /// Number of first-completed-run cohort contributions.
     pub cohort_size: u64,
     /// Sum of normalized question scores.
@@ -399,9 +404,9 @@ pub struct QuestionStatisticsSnapshot {
     pub discrimination: PearsonMomentSnapshot,
 }
 
-/// Incremental aggregate for one immutable question version.
+/// Incremental Question Cohort Rollup for one immutable Question Version.
 #[derive(Debug, Clone, PartialEq)]
-pub struct QuestionStatisticsAggregate {
+pub struct QuestionCohortRollup {
     cohort_size: u64,
     score_sum: f64,
     attempts_sum: u64,
@@ -409,8 +414,8 @@ pub struct QuestionStatisticsAggregate {
     discrimination: PearsonSufficientSums,
 }
 
-impl QuestionStatisticsAggregate {
-    /// Creates an empty aggregate in the current format.
+impl QuestionCohortRollup {
+    /// Creates an empty cohort rollup in the current format.
     pub const fn empty() -> Self {
         Self {
             cohort_size: 0,
@@ -421,10 +426,10 @@ impl QuestionStatisticsAggregate {
         }
     }
 
-    /// Merges one collapsed observation.
+    /// Records one cohort-rollup observation.
     pub fn record(
         &mut self,
-        observation: CollapsedQuestionObservation,
+        observation: QuestionCohortRollupObservation,
     ) -> Result<(), StatisticsError> {
         let cohort_size = self
             .cohort_size
@@ -452,8 +457,8 @@ impl QuestionStatisticsAggregate {
     }
 
     /// Returns an identity-free snapshot suitable for server-only persistence.
-    pub fn snapshot(&self) -> QuestionStatisticsSnapshot {
-        QuestionStatisticsSnapshot {
+    pub fn snapshot(&self) -> QuestionCohortRollupSnapshot {
+        QuestionCohortRollupSnapshot {
             cohort_size: self.cohort_size,
             score_sum: self.score_sum,
             attempts_sum: self.attempts_sum,
@@ -462,8 +467,8 @@ impl QuestionStatisticsAggregate {
         }
     }
 
-    /// Restores a fully validated aggregate from server-only persistence.
-    pub fn restore(snapshot: &QuestionStatisticsSnapshot) -> Result<Self, StatisticsError> {
+    /// Restores a fully validated cohort rollup from server-only persistence.
+    pub fn restore(snapshot: &QuestionCohortRollupSnapshot) -> Result<Self, StatisticsError> {
         validate_aggregate_snapshot(snapshot)?;
         Ok(Self {
             cohort_size: snapshot.cohort_size,
@@ -474,10 +479,10 @@ impl QuestionStatisticsAggregate {
         })
     }
 
-    /// Atomically merges another validated server snapshot into this aggregate.
+    /// Atomically merges another validated server snapshot into this cohort rollup.
     pub fn merge_snapshot(
         &mut self,
-        snapshot: &QuestionStatisticsSnapshot,
+        snapshot: &QuestionCohortRollupSnapshot,
     ) -> Result<(), StatisticsError> {
         let other = Self::restore(snapshot)?;
         let cohort_size = self
@@ -531,7 +536,7 @@ impl QuestionStatisticsAggregate {
         self.discrimination.count()
     }
 
-    /// Returns the aggregate's fixed duration histogram.
+    /// Returns the cohort rollup's fixed duration histogram.
     pub const fn durations(&self) -> &DurationHistogram {
         &self.durations
     }
@@ -545,7 +550,7 @@ impl QuestionStatisticsAggregate {
     }
 }
 
-impl Default for QuestionStatisticsAggregate {
+impl Default for QuestionCohortRollup {
     fn default() -> Self {
         Self::empty()
     }
@@ -581,7 +586,7 @@ fn checked_sum(left: f64, right: f64) -> Result<f64, StatisticsError> {
 }
 
 fn validate_aggregate_snapshot(
-    snapshot: &QuestionStatisticsSnapshot,
+    snapshot: &QuestionCohortRollupSnapshot,
 ) -> Result<(), StatisticsError> {
     let durations = DurationHistogram::restore(&snapshot.durations)?;
     let duration_count = durations
@@ -677,7 +682,7 @@ mod tests {
 
     #[test]
     fn failed_merge_does_not_leave_a_partial_aggregate() {
-        let mut aggregate = QuestionStatisticsAggregate {
+        let mut aggregate = QuestionCohortRollup {
             cohort_size: u64::MAX,
             score_sum: 1.0,
             attempts_sum: 1,
@@ -685,7 +690,7 @@ mod tests {
             discrimination: PearsonSufficientSums::empty(),
         };
         let before = aggregate.clone();
-        let observation = CollapsedQuestionObservation::new(0.5, 1, 5, Some(0.5))
+        let observation = QuestionCohortRollupObservation::new(0.5, 1, 5, Some(0.5))
             .expect("test observation should be valid");
 
         assert_eq!(

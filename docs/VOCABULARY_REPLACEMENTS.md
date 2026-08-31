@@ -20,6 +20,12 @@ semantic target is clear.
 5. Record the completed correction in [CHANGELOG.md](CHANGELOG.md), then remove
    its row from this active map.
 
+## Local Stack Controller
+
+| Current wording | Context | Canonical target | Structural instruction |
+| --------------- | ------- | ---------------- | ---------------------- |
+| `local_runtime/` | Ignored repository-root files written by the Local Stack Controller | `local_stack_state/` | Keep the tracked `local_stack_control/` package as the Local Stack Controller. Store only its disposable private host files beneath the canonical Local Stack State directory. |
+
 ## Assignment and Student activity
 
 | Current wording | Context | Canonical target | Structural instruction |
@@ -107,7 +113,6 @@ semantic target is clear.
 | `PresentationDigestTokenV1` | Public digest prefix returned with one issued presentation | Question Presentation Token | Check it against the server-held Question Presentation Binding without treating it as access authority. |
 | `PresentationEnvelopeV1` or `PresentationV1` | Complete answer-free state issued for one Question Attempt | Question Presentation | Carry the Question Prompt, public assets, Question Response Format, Response Item References, and control description. |
 | `SanitizedMarkupProjection` | Allowlisted rendered markup supplied for one prompt position | Question Prompt Block | Represent the content through the normalized Text, Math, Image, Code, or Table block and its presented Assets. |
-| `StudentRunScreenV1` | Consolidated learner view for current Assignment work | Assignment Attempt Screen | Present the active Assignment Attempt, Question Attempt timing, Question Presentation, and navigation context. |
 | `InspectedStudentResponseV1` | Authorized solution-free rendering of an immutable Student Response | Student Response Inspection | Render submitted values through the exact issued Response Item Bindings and keep grading material and provider state server-held. |
 | Assignment response | Ambiguous whole-Assignment action | Assignment Submission | Use Assignment Submission for explicit whole-attempt finalization. |
 | `question_attempt.response` | Mutable learner data stored on the current try | Browser draft or Student Response | Keep the current draft in browser state. Store the accepted Student Response in its immutable Question Submission. |
@@ -287,14 +292,13 @@ semantic target is clear.
 | mutable Course Grade Scheme plus `CourseGradeSchemeRevision` counter | Course Grade configuration and its edit sequence | Course Grade Scheme plus Course Grade Scheme Revision | Store every complete scheme and Assignment setting set as an immutable revision. Bind calculations and Gradebook reads to the exact revision. |
 | `LetterBand` | Final-score threshold mapped to an Instructor label | Letter Grade Band | Apply its inclusive threshold after the Course Grade Rounding Rule. |
 | `CourseGradeRoundingRule` | Final Course Grade rounding | Course Grade Rounding Rule | Apply it once before Letter Grade Bands. |
-| `StatisticsContribution` | One independent collapsed Student observation for an exact Question Version | Question Statistics Observation | Use the first eligible occurrence in the first completed Assignment Attempt and the first scored Question Attempt at that occurrence. |
-| `CollapsedQuestionObservation` | Identity-free per-Student measures already reduced to one contribution | Question Statistics Observation | Preserve one independent contribution for the exact Question Version and keep retries as measures inside that observation. |
-| `QuestionStatisticsAggregate` | Internal accumulated identity-free measures for one exact Question Version | Question Statistics | Publish only the measures permitted by the Question Statistics Release Rule. |
-| `QuestionStatisticsSnapshot` | Immutable persisted state of accumulated exact-version measures | Question Statistics Snapshot | Bind it to the exact Question Version and calculation time; determine Catalog visibility separately from the release rule. |
+| `StatisticsContribution` | Legacy name that conflates one accepted grade with a cohort rollup | Question Statistics Observation | Record one accepted graded Question Attempt exactly once at its receipt boundary, with correctness and eligible-choice selections when the Question format supports them. |
+| `QuestionVersionStatistics` | Exact accepted-grade counts for one immutable Question Version | Question Version Statistics | Retain accepted graded-attempt count, correct count, and eligible-choice selection counts without Account, Course, Student Record, response, or receipt identity. |
+| `QuestionVersionStatisticsSnapshot` | Retention-safe persisted exact-count state | Question Version Statistics Snapshot | Validate that correct and any one choice-selection count cannot exceed accepted graded-attempt count. |
 | `QuestionStatisticsDisclosure` | Result of applying the minimum-cohort rule to one statistics read | Question Statistics Availability plus released Question Statistics | Return Unavailable without counts or partial measures, or return the complete permitted Question Statistics. |
 | `StudentClassStatistics` | Student-visible course-local aggregate after policy evaluation | Class Statistics | Return only the current course-local measures allowed by the Student Feedback Release Rule. |
 | `statistics_eligible` | Issue-time eligibility for global aggregation | Question Statistics Eligibility | Derive it from Assignment Entry scoring facts and freeze it on Issued Question. |
-| statistics contribution receipt | Idempotent aggregation witness | Question Statistics Observation Receipt | Bind the source attempt, collapsed observation, and digest so the observation contributes once. |
+| statistics contribution receipt | Idempotent aggregation witness | Question Statistics Observation Receipt | Bind the source accepted grade and exact observation so it contributes once before its private evidence is deleted. |
 | `difficulty_index` or item-analysis `difficulty` | Mean normalized Question score in a stated cohort | Question Difficulty | State the cohort and remember that a larger value means the Question was easier for that cohort. |
 | `discrimination_index` or item-analysis `discrimination` | Correlation of Question credit with rest-of-Assignment credit | Question Discrimination | Calculate it only for a cohort with sufficient variation and label its scope. |
 | `StatisticsDisclosurePolicy` | Minimum cohort for safe global statistics visibility | Question Statistics Release Rule | Release only identity-free metrics after the independent cohort reaches the configured floor. |

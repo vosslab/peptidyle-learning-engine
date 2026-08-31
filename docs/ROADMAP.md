@@ -11,8 +11,8 @@ scope, dependency order, contracts, validation, and acceptance:
 
 ## Evidence boundary
 
-The current pre-production reset is the one 35-file SD1 baseline
-(`2026082901` through `2026082935`). A clean PostgreSQL 17 volume applies that exact
+The current pre-production reset is the one 36-file SD1 baseline
+(`2026082901` through `2026082936`). A clean PostgreSQL 17 volume applies that exact
 domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
 catalog probes. Earlier migration epochs are historical evidence only; they are not part of
 the material schema contract. The status registry is the authority for package allocation

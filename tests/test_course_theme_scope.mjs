@@ -183,12 +183,12 @@ test("only course-owned executable routes request a theme scope", () => {
     kind: "course",
     courseReference: course,
   });
-  assert.deepEqual(courseThemeRouteRequest(`/runs/${run}`), {
-    kind: "runAttempt",
+  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${run}`), {
+    kind: "assignmentAttempt",
     runReference: run,
   });
-  assert.deepEqual(courseThemeRouteRequest(`/runs/${run}/summary`), {
-    kind: "runSummary",
+  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${run}/summary`), {
+    kind: "assignmentAttemptSummary",
     runReference: run,
   });
   for (const path of ["/", "/library", "/workspace", `/library/${course}/versions/${assignment}`]) {

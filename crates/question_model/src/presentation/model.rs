@@ -284,28 +284,28 @@ pub struct StudentAttemptDescriptorV1 {
     pub presentation_digest: PresentationDigestTokenV1,
 }
 
-/// Course and assignment shell needed for authorized navigation.
+/// Course and Assignment shell needed for authorized Student navigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentRunScreenScopeV1 {
+pub struct StudentAssignmentAttemptScreenScopeV1 {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub theme: CourseThemeId,
 }
 
-/// Student-visible run context, without storage or policy internals.
+/// Student-visible Assignment Attempt context, without storage or policy internals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentRunScreenRunV1 {
+pub struct StudentAssignmentAttemptScreenAttemptV1 {
     pub number: u32,
 }
 
 /// One consolidated active student screen response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentRunScreenV1 {
-    pub scope: StudentRunScreenScopeV1,
-    pub run: StudentRunScreenRunV1,
+pub struct StudentAssignmentAttemptScreenV1 {
+    pub scope: StudentAssignmentAttemptScreenScopeV1,
+    pub assignment_attempt: StudentAssignmentAttemptScreenAttemptV1,
     pub attempt: StudentAttemptDescriptorV1,
     pub envelope: PresentationEnvelopeV1,
 }

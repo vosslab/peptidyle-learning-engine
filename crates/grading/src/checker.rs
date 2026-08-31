@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 
+use domain::statistics::QuestionStatisticsObservation;
 use domain::validation::{ResponseFormatViolation, validate_response_format};
 use question_model::answer::{NumericTolerance, TextMatchMode};
 use question_model::response::{ChoiceId, HotspotRegion, ResponseDefinition, StudentResponse};
@@ -127,6 +128,35 @@ pub fn grade(
         points_earned: if correct { points } else { 0.0 },
         points_possible: points,
     }))
+}
+
+/// Reduces one accepted server grade to the exact global-statistics observation.
+///
+/// Only a validated `MultipleChoice` response contributes eligible choice
+/// selections. Other supported response formats still contribute one accepted
+/// grade and its correctness without inventing a choice-count interpretation.
+pub fn question_statistics_observation(
+    question: &QuestionDefinition,
+    response: &StudentResponse,
+    outcome: &GradeOutcome,
+) -> Result<Option<QuestionStatisticsObservation>, GradingError> {
+    let report = validate_response_format(&question.response, response);
+    if !report.is_valid() {
+        return Err(GradingError::InvalidResponse(report.violations));
+    }
+    let GradeOutcome::Graded(result) = outcome else {
+        return Ok(None);
+    };
+    let selections = match (&question.response, response) {
+        (
+            ResponseDefinition::MultipleChoice { .. },
+            StudentResponse::MultipleChoice { selected },
+        ) => selected.clone(),
+        _ => Vec::new(),
+    };
+    QuestionStatisticsObservation::new(result.correct, selections)
+        .map(Some)
+        .map_err(|error| GradingError::InvalidDefinition(error.to_string()))
 }
 
 fn validated_points(points: f64) -> Result<f64, GradingError> {
@@ -490,6 +520,37 @@ mod tests {
             ),
             Ok(GradeOutcome::Graded(AttemptResult { correct: true, .. }))
         ));
+    }
+
+    #[test]
+    fn accepted_multiple_choice_grade_yields_only_its_eligible_choice_counts() {
+        let question = all_or_nothing(ResponseDefinition::MultipleChoice {
+            choices: vec![choice("a"), choice("b"), choice("c")],
+            selection: SelectionCardinality::Exactly { count: 2 },
+        });
+        let response = StudentResponse::MultipleChoice {
+            selected: vec![ChoiceId::new("a"), ChoiceId::new("c")],
+        };
+        let outcome = grade(
+            &question,
+            &response,
+            Some(&AnswerKey::MultipleChoice {
+                correct: BTreeSet::from([ChoiceId::new("a")]),
+            }),
+        )
+        .expect("validated selection grades");
+
+        let observation = question_statistics_observation(&question, &response, &outcome)
+            .expect("accepted grade yields statistics evidence")
+            .expect("graded outcome contributes evidence");
+        assert!(!observation.correct());
+        assert_eq!(
+            observation
+                .eligible_choice_selections()
+                .map(ChoiceId::as_str)
+                .collect::<Vec<_>>(),
+            vec!["a", "c"]
+        );
     }
 
     #[test]

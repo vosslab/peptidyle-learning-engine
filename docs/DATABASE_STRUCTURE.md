@@ -63,6 +63,7 @@ migration run does not itself accept an unfinished package.
 | 2026082933 | `authentication_ceremony_brokers.sql` | Atomic email-challenge and validated-passkey completion for existing Accounts. |
 | 2026082934 | `sysadmin_account_creation.sql` | Sysadmin-only Account Creation for a global Account and immutable Product Role. |
 | 2026082935 | `blueprint_revision_collaboration.sql` | Immutable Blueprint Publication, Blueprint Collaborator, and Blueprint Revision Availability Events. |
+| 2026082936 | `question_version_statistics.sql` | Identity-free exact Question Version Statistics and idempotent accepted-grade evidence. |
 
 Later `20260829xx` files build the shared catalog, authoring workspaces,
 BlueprintCourses, CourseInstances, Student records, delivery, grading, capability brokers,
@@ -293,7 +294,7 @@ SD1-C builds this shape on a fresh database using the status-owned allocations
 `2026082913`-`2026082916` for courses, memberships, Students, invitations, and curricula and
 `2026082929`-`2026082932` for Course Observer relationships, exact authorization brokers,
 forced RLS, and acceptance helpers, plus `2026082935` for exact Draft Blueprint Revision
-publication and collaboration evidence.
+publication and collaboration evidence and `2026082936` for exact Question Version Statistics.
 The exact migration allocation remains owned by
 [implementation_status.md](active_plans/implementation_status.md).
 
@@ -352,7 +353,7 @@ select those facts.
 | Relation                                                 | Durable responsibility                                                                                                                                                                      |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `assignment_attempt`                                    | One complete Student pass through one Assignment; it owns pass-level variation, timing, and derived completion.                                                                             |
-| `issued_question`                                       | One selected Question Version for an Assignment Attempt, with frozen delivery order, Assignment Entry scoring treatment, and selection evidence.                                            |
+| `issued_question`                                       | One selected Question Version for an Assignment Attempt, with frozen delivery order, Assignment Entry scoring treatment, Question Statistics Eligibility, and selection evidence.               |
 | `question_attempt`                                      | One server-issued try for an Issued Question, including seed, provenance, timing, and controlled state.                                                                                     |
 | `question_prefetch`                                      | One bounded, server-only reservation; it has no started timer, response, or score, but may contain private issue-time grading authority and must never enter a student DTO or public cache. |
 | `question_submission`                                    | Immutable accepted Student Response evidence for one Question Attempt.                                                                                                                      |
@@ -493,12 +494,14 @@ names, raw responses, grades, answer keys, or storage credentials.
 
 Retention is a database-backed lifecycle, not an ad hoc delete:
 
-- `institution_retention_policy` is the current pre-SD1 source name for deployment retention policy
-  metadata. Conceptually this metadata contains notify/archive/delete intervals; it is not an
-  account, institution selector, installation identity, installation boundary, or authorization partition.
-  SD1-C owns the source/schema rename and direct cutover; no compatibility relation is added here.
-- `course_retention`, notification, stage, dispatch, and API-receipt relations persist exact
-  course-scoped policy and revision-fenced actions.
+- Deployment retention policy is trusted installation configuration for notify/archive/delete
+  intervals. It is not an Account attribute, institution selector, request field, or authorization
+  partition. The current SD1 baseline records the resulting exact course plan rather than a
+  global retention-policy relation.
+- `course_retention_plan` records one exact Course Instance, action stage, generation, schedule,
+  and current execution state. `retention_lifecycle_event` records immutable scheduled, claimed,
+  completed, cancelled, or failed evidence for that plan. Worker dispatch, cleanup manifests, and
+  browser/API receipts remain separately incomplete work rather than implied current relations.
 - Cleanup manifest relations freeze the exact typed object set for one course, stage, and generation
   before a worker removes student records, so a retry cannot discover a newly written or unrelated
   object.
@@ -506,9 +509,14 @@ Retention is a database-backed lifecycle, not an ad hoc delete:
 - Shared published content, private drafts, and identity-free question statistics remain
   outside a student-record purge.
 
-`question_statistics_aggregate` is shared, identity-free statistical state.
-`question_statistics_contribution_receipt` makes first-completed-run contribution
-idempotent and supports deletion of the student-owned receipt without deleting the aggregate.
+`question_version_statistics` is shared, identity-free accepted-grade and correct-count
+state for one immutable Question Version. `question_version_choice_statistics` retains
+eligible-choice selection counts only where the Question Response Format supplies that
+meaning. `question_statistics_observation_receipt` binds one accepted automated-grading
+receipt to one Question Attempt, so exactly one accepted grade updates those counts. Its
+observation time derives from the immutable automated-grading receipt rather than a
+caller-selected timestamp. The private receipt can be deleted with Student evidence
+without deleting the identity-free Question Version Statistics.
 Course item analysis remains a separate radioactive course-owned current projection. Its
 student-safe class-statistics read uses the latest completed run for each
 enrollment and releases only a metric-free `insufficientEvidence` state or an

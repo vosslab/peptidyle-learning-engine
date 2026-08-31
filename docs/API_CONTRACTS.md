@@ -259,8 +259,8 @@ historical answer or an assignment's pinned version.
 
 ### Identity composition and activation
 
-The route table describes the shared application router assembled by
-[router.rs](../crates/server/src/composition/router.rs).
+The current route table is assembled by
+[composition.rs](../crates/server/src/composition.rs).
 It injects account and session Stores, the invitation issuer, passwordless
 email delivery and rate-limit issuer, and optional WebAuthn configuration.
 The browser uses this same production-shaped graph through the disposable HTTPS

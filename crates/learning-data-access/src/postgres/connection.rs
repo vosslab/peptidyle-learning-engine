@@ -416,12 +416,10 @@ mod tests {
             ProductionLoginProfile::Api,
         )
         .unwrap();
-        for pool in [production] {
-            assert_eq!(
-                pool.options().get_max_connections(),
-                STANDARD_POOL_MAX_CONNECTIONS
-            );
-        }
+        assert_eq!(
+            production.options().get_max_connections(),
+            STANDARD_POOL_MAX_CONNECTIONS
+        );
     }
 
     fn authority(contract: LoginContract) -> LoginAuthority {
@@ -486,76 +484,70 @@ mod tests {
 
     #[test]
     fn process_authority_contract_rejects_each_privilege_widening() {
-        for contract in [
-            LoginContract::Production(ProductionLoginProfile::Api),
-        ] {
-            assert!(login_authority_matches(&authority(contract), contract));
+        let contract = LoginContract::Production(ProductionLoginProfile::Api);
+        assert!(login_authority_matches(&authority(contract), contract));
 
-            let mut widened = authority(contract);
-            widened.bypass_rls = true;
-            assert!(!login_authority_matches(&widened, contract));
+        let mut widened = authority(contract);
+        widened.bypass_rls = true;
+        assert!(!login_authority_matches(&widened, contract));
 
-            let mut widened = authority(contract);
-            widened.superuser = true;
-            assert!(!login_authority_matches(&widened, contract));
+        let mut widened = authority(contract);
+        widened.superuser = true;
+        assert!(!login_authority_matches(&widened, contract));
 
-            let mut widened = authority(contract);
-            widened.inherit = true;
-            assert!(!login_authority_matches(&widened, contract));
+        let mut widened = authority(contract);
+        widened.inherit = true;
+        assert!(!login_authority_matches(&widened, contract));
 
-            let mut widened = authority(contract);
-            widened.direct_memberships.push(DirectMembership {
-				role_name: "ple_unexpected_capability".to_string(),
-                admin_option: false,
-                inherit_option: false,
-                set_option: true,
-            });
-            assert!(!login_authority_matches(&widened, contract));
-        }
+        let mut widened = authority(contract);
+        widened.direct_memberships.push(DirectMembership {
+            role_name: "ple_unexpected_capability".to_string(),
+            admin_option: false,
+            inherit_option: false,
+            set_option: true,
+        });
+        assert!(!login_authority_matches(&widened, contract));
     }
 
     #[test]
     fn process_authority_contract_rejects_delegable_or_unscoped_memberships() {
-        for contract in [
-            LoginContract::Production(ProductionLoginProfile::Api),
-        ] {
-            let mut missing = authority(contract);
-            missing.direct_memberships.clear();
-            assert!(
-                !login_authority_matches(&missing, contract),
-                "{contract:?} must retain its exact capability membership"
-            );
+        let contract = LoginContract::Production(ProductionLoginProfile::Api);
+        let mut missing = authority(contract);
+        missing.direct_memberships.clear();
+        assert!(
+            !login_authority_matches(&missing, contract),
+            "{contract:?} must retain its exact capability membership"
+        );
 
-            let mut delegable = authority(contract);
-            delegable.direct_memberships[0].admin_option = true;
-            assert!(
-                !login_authority_matches(&delegable, contract),
-                "{contract:?} must not delegate a capability role"
-            );
+        let mut delegable = authority(contract);
+        delegable.direct_memberships[0].admin_option = true;
+        assert!(
+            !login_authority_matches(&delegable, contract),
+            "{contract:?} must not delegate a capability role"
+        );
 
-            let mut inherited = authority(contract);
-            inherited.direct_memberships[0].inherit_option = true;
-            assert!(
-                !login_authority_matches(&inherited, contract),
-                "{contract:?} must not gain a capability outside SET LOCAL ROLE"
-            );
+        let mut inherited = authority(contract);
+        inherited.direct_memberships[0].inherit_option = true;
+        assert!(
+            !login_authority_matches(&inherited, contract),
+            "{contract:?} must not gain a capability outside SET LOCAL ROLE"
+        );
 
-            let mut cannot_enter_expected_role = authority(contract);
-            cannot_enter_expected_role.direct_memberships[0].set_option = false;
-            assert!(
-                !login_authority_matches(&cannot_enter_expected_role, contract),
-                "{contract:?} must retain only its attested SET LOCAL ROLE path"
-            );
+        let mut cannot_enter_expected_role = authority(contract);
+        cannot_enter_expected_role.direct_memberships[0].set_option = false;
+        assert!(
+            !login_authority_matches(&cannot_enter_expected_role, contract),
+            "{contract:?} must retain only its attested SET LOCAL ROLE path"
+        );
 
-            let mut unscoped = authority(contract);
-            unscoped.direct_memberships[0]
-                .role_name
-                .push_str("_unscoped");
-            assert!(
-                !login_authority_matches(&unscoped, contract),
-                "{contract:?} must not accept an unscoped capability role"
-            );
-        }
+        let mut unscoped = authority(contract);
+        unscoped.direct_memberships[0]
+            .role_name
+            .push_str("_unscoped");
+        assert!(
+            !login_authority_matches(&unscoped, contract),
+            "{contract:?} must not accept an unscoped capability role"
+        );
     }
 
     #[test]
@@ -584,9 +576,7 @@ mod tests {
 
     #[test]
     fn effective_capability_roles_have_closed_exact_authority() {
-        for contract in [
-            LoginContract::Production(ProductionLoginProfile::Api),
-        ] {
+        for contract in [LoginContract::Production(ProductionLoginProfile::Api)] {
             for expected in contract.expected_capabilities() {
                 assert!(capability_authority_matches(
                     &capability_authority(expected.role_name),
@@ -598,9 +588,7 @@ mod tests {
 
     #[test]
     fn effective_capability_roles_reject_privilege_and_nested_role_widening() {
-        for contract in [
-            LoginContract::Production(ProductionLoginProfile::Api),
-        ] {
+        for contract in [LoginContract::Production(ProductionLoginProfile::Api)] {
             for expected in contract.expected_capabilities() {
                 let mut widened = capability_authority(expected.role_name);
                 widened.bypass_rls = true;
@@ -635,5 +623,4 @@ mod tests {
             }
         }
     }
-
 }

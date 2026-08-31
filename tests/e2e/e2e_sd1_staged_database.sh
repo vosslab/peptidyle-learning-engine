@@ -355,6 +355,10 @@ BEGIN
 		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
 		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
 	) OR NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_private' AND table_name = 'issued_question'
+		AND column_name = 'statistics_eligible' AND is_nullable = 'NO'
+	) OR NOT EXISTS (
 		SELECT 1 FROM pg_trigger
 		WHERE tgrelid = 'ple_data.assignment_revision'::regclass
 		AND tgname = 'assignment_revision_is_immutable' AND NOT tgisinternal
@@ -367,7 +371,7 @@ BEGIN
 		WHERE tgrelid = 'ple_private.assignment_submission'::regclass
 		AND tgname = 'assignment_submission_is_immutable' AND NOT tgisinternal
 	) THEN
-		RAISE EXCEPTION 'issued-work and accepted-submission evidence is not immutable and exactly pinned';
+		RAISE EXCEPTION 'issued work does not retain its exact pin and Question Statistics Eligibility, or accepted submission evidence is not immutable';
 	END IF;
 	IF NOT EXISTS (
 		SELECT 1 FROM pg_trigger

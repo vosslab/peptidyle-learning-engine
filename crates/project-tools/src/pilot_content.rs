@@ -125,17 +125,6 @@ fn validate(manifest_path: &Path) -> Result<ValidationReport> {
     validate_loaded_manifest(&manifest, root)
 }
 
-pub(crate) fn validated_tracked_manifest() -> Result<PilotManifest> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../content/pilot/chapter_1_assignments.yaml");
-    let manifest = read_manifest(&path)?;
-    let root = path
-        .parent()
-        .expect("the tracked pilot manifest path has a parent");
-    validate_loaded_manifest(&manifest, root)?;
-    Ok(manifest)
-}
-
 fn read_manifest(manifest_path: &Path) -> Result<PilotManifest> {
     let manifest_bytes = std::fs::read(manifest_path)
         .with_context(|| format!("reading pilot manifest {}", manifest_path.display()))?;
@@ -371,7 +360,7 @@ fn validate_flat(
         bail!("PLE flat payload family differs from its manifest entry");
     }
     validate_answer_separation(compiled.draft())?;
-    validate_correct_and_wrong_grading(compiled, &bytes, question.family, identity)
+    validate_correct_and_wrong_grading(compiled, &bytes, question.family)
 }
 
 fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -> Result<()> {
@@ -395,7 +384,6 @@ fn validate_correct_and_wrong_grading(
     compiled: adapter_native::flat_question::CompiledFlatQuestion,
     source: &[u8],
     family: Family,
-    identity: u128,
 ) -> Result<()> {
     let value: Value = serde_json::from_slice(source)?;
     let response = value

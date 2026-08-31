@@ -182,7 +182,8 @@ pub use crate::presentation::{
     AssetBindingV1, PresentationBindingV1, PresentationDigestTokenV1, PresentationDigestV1,
     PresentationEnvelopeV1, PresentationNonceV1, PresentedBlankV1, PresentedChoiceV1,
     PresentedHotspotRegionV1, PresentedHotspotSurfaceV1, RenderedItemIdV1, ResponseSchemaV1,
-    StudentAttemptDescriptorV1, StudentRunScreenRunV1, StudentRunScreenScopeV1, StudentRunScreenV1,
+    StudentAssignmentAttemptScreenAttemptV1, StudentAssignmentAttemptScreenScopeV1,
+    StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
 };
 pub use crate::preview_plane::{
     DerivedPreviewSubjectRequest, InstructorPreviewSchedulePage, InstructorPreviewScheduleRow,

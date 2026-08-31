@@ -49,11 +49,11 @@ test("operation and detail URLs retain only canonical public references", () => 
   );
   assert.equal(
     inspectedStudentWorkUrl("C-1", "M-3", "A-2", "R-4"),
-    "/instructor/courses/C-1/gradebook/students/M-3/assignments/A-2/runs/R-4",
+    "/instructor/courses/C-1/gradebook/students/M-3/assignments/A-2/assignment-attempts/R-4",
   );
   assert.equal(
     inspectedStudentWorkUrl("C-1", "M-3", "A-2", "R-4", "GO-7"),
-    "/instructor/courses/C-1/gradebook/students/M-3/assignments/A-2/runs/R-4?operationRef=GO-7",
+    "/instructor/courses/C-1/gradebook/students/M-3/assignments/A-2/assignment-attempts/R-4?operationRef=GO-7",
   );
 });
 

@@ -27,10 +27,13 @@ export function courseThemeRouteRequest(pathname: string): CourseThemeRouteReque
   const route = routeContractForPathname(pathname);
   if (route === undefined) return { kind: "global" };
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if ((route.id === "runAttempt" || route.id === "runSummary") && segments[1] !== undefined) {
+  if (
+    (route.id === "assignmentAttempt" || route.id === "assignmentAttemptSummary") &&
+    segments[1] !== undefined
+  ) {
     const reference = parseAssignmentAttemptReference(segments[1]);
     if (reference === null) return { kind: "global" };
-    return route.id === "runAttempt"
+    return route.id === "assignmentAttempt"
       ? { kind: "assignmentAttempt", assignmentAttemptReference: reference }
       : { kind: "assignmentAttemptSummary", assignmentAttemptReference: reference };
   }
