@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decodeCourseAppearance } from "../src/api/decoders.ts";
+import { decodeCourseAppearanceView } from "../src/api/decoders.ts";
+import { courseBannerImageAlternativeText } from "../src/features/course_appearance/course_banner_alternative_text.ts";
 import { courseThemeRouteRequest } from "../src/features/course_appearance/course_theme_route.ts";
 import {
   COURSE_THEME_REGISTRY,
@@ -143,8 +144,53 @@ test("Grass uses the Roosevelt-inspired anchors and accessible derived actions",
 
 test("unknown theme IDs fail closed instead of selecting a default", () => {
   assert.throws(() => courseThemeTokens("woodland"), /Unknown course theme/u);
-  assert.throws(() => decodeCourseAppearance({ theme: "woodland", revision: "1", banner: null }));
-  assert.throws(() => decodeCourseAppearance({ theme: "grass", revision: "01", banner: null }));
+  assert.throws(() =>
+    decodeCourseAppearanceView({ theme: "woodland", revision: "1", banner: null }),
+  );
+  assert.throws(() => decodeCourseAppearanceView({ theme: "grass", revision: "01", banner: null }));
+});
+
+test("course banners preserve their closed decorative or informative treatment", () => {
+  const bannerReference = "00000000-0000-0000-0000-000000000007";
+  const decorative = decodeCourseAppearanceView({
+    theme: "grass",
+    revision: "1",
+    banner: { reference: bannerReference, alternativeText: { kind: "decorative" } },
+  });
+  const informative = decodeCourseAppearanceView({
+    theme: "grass",
+    revision: "1",
+    banner: {
+      reference: bannerReference,
+      alternativeText: { kind: "informative", text: "Forest canopy" },
+    },
+  });
+
+  assert.equal(courseBannerImageAlternativeText(decorative.banner.alternativeText), "");
+  assert.equal(
+    courseBannerImageAlternativeText(informative.banner.alternativeText),
+    "Forest canopy",
+  );
+  for (const alternativeText of [
+    { kind: "decorative", text: "must not be accepted" },
+    { kind: "informative", text: "   " },
+    { kind: "informative", text: "\u03b2".repeat(161) },
+  ]) {
+    assert.throws(() =>
+      decodeCourseAppearanceView({
+        theme: "grass",
+        revision: "1",
+        banner: { reference: bannerReference, alternativeText },
+      }),
+    );
+  }
+  assert.throws(() =>
+    decodeCourseAppearanceView({
+      theme: "grass",
+      revision: "1",
+      banner: { id: bannerReference, alternativeText: { kind: "decorative" } },
+    }),
+  );
 });
 
 test("only course-owned executable routes request a theme scope", () => {

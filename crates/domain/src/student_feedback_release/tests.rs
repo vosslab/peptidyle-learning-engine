@@ -3,8 +3,8 @@ use std::num::NonZeroU32;
 use question_model::envelope::QuestionContentBlock;
 use question_model::{
     AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer,
-    QuestionAnswerExplanation, QuestionFeedback, QuestionPostGradingContent,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
+    QuestionAnswerExplanation, QuestionFeedback, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming, Timestamp,
 };
 
 use super::{
@@ -156,31 +156,32 @@ fn denied_s3_verdict_has_no_student_feedback_release_decision() {
     );
 }
 
-fn post_grading_content() -> QuestionPostGradingContent {
-    let question_answer = QuestionAnswer::new(vec![QuestionContentBlock::Text {
+fn question_feedback() -> QuestionFeedback {
+    QuestionFeedback {
+        choice_feedback: Some(vec![QuestionContentBlock::Text {
+            markdown: "Choice feedback".to_string(),
+        }]),
+        correct_feedback: Some(vec![QuestionContentBlock::Text {
+            markdown: "Correct feedback".to_string(),
+        }]),
+        incorrect_feedback: Some(vec![QuestionContentBlock::Text {
+            markdown: "Incorrect feedback".to_string(),
+        }]),
+    }
+}
+
+fn question_answer() -> QuestionAnswer {
+    QuestionAnswer::new(vec![QuestionContentBlock::Text {
         markdown: "Correct response".to_string(),
     }])
-    .expect("one answer block is non-empty");
-    let question_answer_explanation =
-        QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
-            markdown: "Answer explanation".to_string(),
-        }])
-        .expect("one explanation block is non-empty");
-    QuestionPostGradingContent {
-        question_feedback: QuestionFeedback {
-            choice_feedback: Some(vec![QuestionContentBlock::Text {
-                markdown: "Choice feedback".to_string(),
-            }]),
-            correct_feedback: Some(vec![QuestionContentBlock::Text {
-                markdown: "Correct feedback".to_string(),
-            }]),
-            incorrect_feedback: Some(vec![QuestionContentBlock::Text {
-                markdown: "Incorrect feedback".to_string(),
-            }]),
-        },
-        question_answer: Some(question_answer),
-        question_answer_explanation: Some(question_answer_explanation),
-    }
+    .expect("one answer block is non-empty")
+}
+
+fn question_answer_explanation() -> QuestionAnswerExplanation {
+    QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
+        markdown: "Answer explanation".to_string(),
+    }])
+    .expect("one explanation block is non-empty")
 }
 
 fn result() -> GradingResult {
@@ -201,8 +202,16 @@ fn feedback_projection_allowlists_each_released_field() {
         question_answer_explanation: true,
         class_statistics: false,
     };
-    let disclosed = project_student_feedback(decision, Some(result()), &post_grading_content())
-        .expect("released fields produce feedback");
+    let answer = question_answer();
+    let explanation = question_answer_explanation();
+    let disclosed = project_student_feedback(
+        decision,
+        Some(result()),
+        &question_feedback(),
+        Some(&answer),
+        Some(&explanation),
+    )
+    .expect("released fields produce feedback");
     assert_eq!(disclosed.correctness, Some(true));
     assert_eq!(disclosed.points_earned, Some(2.0));
     assert!(disclosed.choice_feedback.is_some());
@@ -210,6 +219,67 @@ fn feedback_projection_allowlists_each_released_field() {
     assert!(disclosed.incorrect_feedback.is_some());
     assert!(disclosed.question_answer.is_some());
     assert!(disclosed.question_answer_explanation.is_some());
+}
+
+#[test]
+fn withheld_question_answer_is_absent_while_authorized_feedback_still_releases() {
+    let decision = StudentFeedbackReleaseDecision {
+        score: false,
+        per_item_correctness: false,
+        feedback_text: true,
+        question_answer: false,
+        question_answer_explanation: false,
+        class_statistics: false,
+    };
+    let answer = question_answer();
+    let explanation = question_answer_explanation();
+    let disclosed = project_student_feedback(
+        decision,
+        Some(result()),
+        &question_feedback(),
+        Some(&answer),
+        Some(&explanation),
+    )
+    .expect("feedback disclosure produces a Student Feedback view");
+
+    assert!(disclosed.choice_feedback.is_some());
+    assert!(disclosed.correct_feedback.is_some());
+    assert!(disclosed.incorrect_feedback.is_some());
+    assert!(disclosed.question_answer.is_none());
+    assert!(disclosed.question_answer_explanation.is_none());
+    let public = serde_json::to_value(disclosed).expect("Student Feedback serializes");
+    assert!(public.get("questionAnswer").is_none());
+    assert!(public.get("questionAnswerExplanation").is_none());
+}
+
+#[test]
+fn independently_derived_answer_explanation_releases_without_an_answer_wrapper() {
+    let decision = StudentFeedbackReleaseDecision {
+        score: false,
+        per_item_correctness: false,
+        feedback_text: false,
+        question_answer: false,
+        question_answer_explanation: true,
+        class_statistics: false,
+    };
+    let explanation = question_answer_explanation();
+
+    let disclosed = project_student_feedback(
+        decision,
+        Some(result()),
+        &QuestionFeedback::default(),
+        None,
+        Some(&explanation),
+    )
+    .expect("an authorized Answer Explanation produces Student Feedback");
+
+    assert!(disclosed.question_answer.is_none());
+    assert_eq!(
+        disclosed.question_answer_explanation,
+        Some(vec![QuestionContentBlock::Text {
+            markdown: "Answer explanation".to_string(),
+        }])
+    );
 }
 
 #[test]

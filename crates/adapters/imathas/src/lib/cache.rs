@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{GradeBinding, ImathasAdapterError, ResolvedImathasQuestionSource};
+use crate::{ExternalToolGradingContext, ImathasAdapterError, ResolvedImathasQuestionSource};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -149,7 +149,9 @@ pub(super) fn valid_item_ref(value: &str) -> bool {
         && !value.contains("..")
 }
 
-pub(super) fn binding_payload(binding: &GradeBinding) -> Vec<u8> {
+pub(super) fn external_tool_grading_context_payload(
+    binding: &ExternalToolGradingContext,
+) -> Vec<u8> {
     let mut value = Vec::with_capacity(16 + 8 + 4 + 8);
     value.extend_from_slice(binding.attempt.as_uuid().as_bytes());
     value.extend_from_slice(binding.question_revision.question_id.to_string().as_bytes());

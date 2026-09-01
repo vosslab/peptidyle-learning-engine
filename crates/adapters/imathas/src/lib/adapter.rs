@@ -18,10 +18,10 @@ use crate::cache::{
 };
 use crate::external_question_provider;
 use crate::{
-    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, GradeBinding, ImathasAdapterError,
+    ADAPTER_ID, ADAPTER_VERSION, ExternalToolGradingContext,
+    ExternalToolLaunchSessionAuthentication, GRADING_ID, GRADING_VERSION, ImathasAdapterError,
     ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,
-    ProviderRenderRequest, ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex,
-    verify_binding,
+    ProviderRenderRequest, SupportedProfile, VerifiedProviderGrade, hex, verify_binding,
 };
 
 /// Exact immutable source loaded through trusted storage.
@@ -113,7 +113,7 @@ pub struct ImathasIssuedAttempt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedGradeReceipt {
     result: GradingResult,
-    binding: GradeBinding,
+    binding: ExternalToolGradingContext,
 }
 
 impl VerifiedGradeReceipt {
@@ -123,7 +123,7 @@ impl VerifiedGradeReceipt {
     }
 
     /// Exact identity the API/store must use when persisting the first receipt.
-    pub fn binding(&self) -> GradeBinding {
+    pub fn binding(&self) -> ExternalToolGradingContext {
         self.binding.clone()
     }
 }
@@ -322,7 +322,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
-        correlation: &ServerCorrelation,
+        launch_session_authentication: &ExternalToolLaunchSessionAuthentication,
     ) -> Result<VerifiedGradeReceipt, ImathasAdapterError> {
         verify_binding(question, source)?;
         let question_revision = QuestionRevisionReference {
@@ -337,20 +337,20 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 attempt,
                 question_revision: question_revision.clone(),
                 seed,
-                correlation,
+                launch_session_authentication,
             })
             .await
             .map_err(ImathasAdapterError::Provider)?;
         if verdict.attempt != attempt
             || verdict.question_revision != question_revision
             || verdict.seed != seed
-            || verdict.correlation != correlation.0
+            || verdict.launch_session_authentication != launch_session_authentication.0
         {
             return Err(ImathasAdapterError::VerificationRefused);
         }
         Ok(VerifiedGradeReceipt {
             result: verdict.result,
-            binding: GradeBinding {
+            binding: ExternalToolGradingContext {
                 attempt,
                 question_revision,
                 seed,
@@ -380,12 +380,20 @@ where
         source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
-        correlation: ServerCorrelation,
-        nonce: crate::scored_embed::ScoredEmbedNonce,
+        launch_session_authentication: ExternalToolLaunchSessionAuthentication,
+        challenge: crate::ExternalToolLaunchChallenge,
         now: Timestamp,
     ) -> Result<external_question_provider::ContractedLaunchSession, ImathasAdapterError> {
         self.provider
-            .begin_launch(question, source, attempt, seed, correlation, nonce, now)
+            .begin_launch(
+                question,
+                source,
+                attempt,
+                seed,
+                launch_session_authentication,
+                challenge,
+                now,
+            )
             .await
     }
 

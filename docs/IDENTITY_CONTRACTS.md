@@ -218,12 +218,12 @@ session account and the appropriate parent relationship before returning a recor
 | `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt        | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                     |
 | `SubmissionIdempotencyKey` header                                                                             | Bounded ASCII key for one retry                 | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                                 |
 | `PresentationResponseItemReference`                                                                           | Presentation-scoped Response Item Reference     | Maps only through server-held attempt presentation state to a semantic item identity.                                                                         |
-| `QuestionPresentationNonce` and `QuestionPresentationToken`                                                   | Presentation binding values                     | Bind a response to the intended server-generated presentation; neither authorizes a request.                                                                  |
+| `QuestionPresentationNonce` and `QuestionPresentationToken`                                                   | Presentation binding values                     | The nonce participates in the complete server-held Question Presentation Checksum; the public token is its compact comparison value. Neither authorizes a request. |
 | Student Hotspot Selection                                                                                     | One selected presentation-scoped Hotspot Region | Resolves through the exact issued presentation to a durable Hotspot Region; authored geometry remains in Question Response Format.                            |
 
 Response Item Reference remains a server-side semantic identity for a Question Choice, slot, match
 endpoint, order item, or hotspot region. `QuestionSeed` plus generator version and the
-full stored presentation checksum reproduce an issued variant. They are not
+full stored Question Presentation Checksum reproduce an issued variant. They are not
 student authority to select another variant or browser input to define grading.
 
 ## Credentials, capabilities, and answer boundaries

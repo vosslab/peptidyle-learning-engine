@@ -66,20 +66,6 @@ impl QuestionAnswerExplanation {
     }
 }
 
-/// Complete trusted post-grading teaching output for one exact Question Variation.
-///
-/// Named fields keep outcome-selected Question Feedback, the accepted Question
-/// Answer, and its optional Question Answer Explanation independently owned.
-#[derive(Clone, PartialEq, Eq, Default)]
-pub struct QuestionPostGradingContent {
-    /// Teaching content selected by the Student's graded response.
-    pub question_feedback: QuestionFeedback,
-    /// Display-ready accepted response derived from the Answer Key.
-    pub question_answer: Option<QuestionAnswer>,
-    /// Optional explanation of the Question Answer.
-    pub question_answer_explanation: Option<QuestionAnswerExplanation>,
-}
-
 /// Trusted Question-attached instructional support requested before a response.
 ///
 /// A Question Hint is separate from [`QuestionFeedback`]: it is selected before

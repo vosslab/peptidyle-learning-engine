@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "solid-js";
 
-import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
+import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type {
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
@@ -19,7 +19,7 @@ export type CourseThemeRouteData =
 
 export const CourseThemeRouteContext = createContext<CourseThemeRouteData>();
 export const CourseThemePresentationContext =
-  createContext<(appearance: CourseAppearance) => void>();
+  createContext<(appearance: CourseAppearanceView) => void>();
 
 /** Resolves the authorized Course Route View already owned by the route. */
 export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
@@ -39,6 +39,7 @@ export function useCourseThemeRouteData(): CourseThemeRouteData | undefined {
 }
 
 /** Lets a successful appearance mutation update its route-local palette immediately. */
-export function useCourseThemePresentation(): ((appearance: CourseAppearance) => void) | undefined {
+export function useCourseThemePresentation():
+  ((appearance: CourseAppearanceView) => void) | undefined {
   return useContext(CourseThemePresentationContext);
 }

@@ -601,7 +601,7 @@ support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only Answer Key and Question Feedback.
 
 The distinction matters when evolving either contract: the source format owns
-author ergonomics, stable choice IDs, answers, and private feedback; this crate
+author ergonomics, durable Question Choice References, Question Answers, and private Question Feedback; this crate
 owns the engine-neutral public runtime shape. Neither layer grows a vendor QTI
 extension container.
 

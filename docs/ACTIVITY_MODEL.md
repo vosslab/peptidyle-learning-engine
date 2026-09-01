@@ -135,13 +135,18 @@ Issued Question Progress and Question Attempt state remain separate. The
 server derives Issued Question Progress from its retained Question Attempts,
 Question Submissions, and Grading Results. `QuestionAttempt.state` records the
 operational state of one issued evidence record: `Open`, `SubmissionAccepted`, or
-server-owned `ClosedAtDeadline`. Question Attempt Exclusion and Issued
-Question Exemption remain separate records. The separate
-`QuestionSubmissionGradingState` records `pending`, `instructor_attention`,
-`graded`, or `exempt`; `StudentQuestionSubmissionGradingState` projects only
-the answer-free Pending, Instructor Attention, or Graded state. Neither
-representation gives the browser authority to change a score, bypass a timer,
-or erase earlier evidence.
+server-owned `ClosedAtDeadline`. The retired Question Attempt State variants
+do not model Question Attempt Exclusion or Issued Question Exemption. When an
+authorized product capability is specified, each requires its own immutable
+record; the current release contains neither capability.
+`AssignmentEntryScoringRule::Excluded` is instead author-time scoring treatment
+for an Assignment Entry. `QuestionSubmissionGradingState` records `pending`,
+`instructor_attention`, `graded`, or `exempt` for an accepted Question
+Submission; its `exempt` value is a technical accepted-submission state, not
+an Issued Question Exemption. `StudentQuestionSubmissionGradingState` projects
+only the answer-free Pending, Instructor Attention, or Graded state. Neither
+technical state is the deferred Instructor exception capability or gives the
+browser authority to change a score, bypass a timer, or erase earlier evidence.
 
 Seed replay is secondary to fresh practice. The server gives every newly issued
 parameterized Generated Question a fresh seed. Resuming or re-rendering that
@@ -200,8 +205,9 @@ selected content, each Question Attempt owns one server-issued try and its
 operational state, each accepted Question Submission owns one Student Response,
 and each Grading Result owns one authoritative evaluation. **Issued Question
 Progress** is derived from those retained records. This keeps retries,
-timeouts, submission, grading, and Instructor exclusions independently
-auditable instead of compressing them into one mutable lifecycle state.
+timeouts, submission, and grading independently auditable instead of
+compressing them into one mutable lifecycle state. An authorized future
+Instructor exception capability must retain its own immutable record.
 
 The server supplies every event. Grading cannot skip `SubmissionAccepted`, policy must
 turn `Incorrect` into either `RetryAvailable` or `Exhausted`, and terminal

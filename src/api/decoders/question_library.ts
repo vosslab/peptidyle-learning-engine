@@ -90,14 +90,14 @@ import {
 import { decodeCourseTerm } from "./course_term";
 import { decodeQuestionContentBlock } from "./question_model";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
-import { decodeCourseAppearance } from "./course_appearance";
+import { decodeCourseAppearanceView } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
 export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
 export { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 export {
-  decodeCourseAppearance,
+  decodeCourseAppearanceView,
   decodeCourseAppearanceUpdate,
   decodeCourseBannerUploadReceipt,
 } from "./course_appearance";
@@ -582,7 +582,7 @@ export function decodeCourseRouteView(value: unknown, path: string): CourseRoute
   requireOnlyFields(record, path, ["summary", "appearance"]);
   return {
     summary: decodeCourseSummary(field(record, "summary", path), `${path}.summary`),
-    appearance: decodeCourseAppearance(field(record, "appearance", path), `${path}.appearance`),
+    appearance: decodeCourseAppearanceView(field(record, "appearance", path), `${path}.appearance`),
   };
 }
 

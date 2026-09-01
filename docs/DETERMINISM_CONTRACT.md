@@ -6,7 +6,7 @@ questions, WeBWorK renders, issued student presentations, cache entries, and
 prefetch reservations.
 
 The central rule is deliberately narrow: **the same immutable inputs must
-reproduce the same authoritative source_object_reference.** It does not mean that every new
+reproduce the same authoritative Source Object Reference.** It does not mean that every new
 attempt receives the same presentation. A newly issued student attempt gets a
 fresh seed and a fresh presentation nonce; resuming or reproducing that same
 attempt uses the stored values.
@@ -97,7 +97,7 @@ byte count or timing is not yet an acceptance threshold.
 The reviewed compatibility baseline is
 [`crates/domain/tests/seed_vectors.json`](../crates/domain/tests/seed_vectors.json).
 It currently covers `parameter-map@1` with seeds 0 through 63 and `u64::MAX`.
-The same assertion implementation is used by the native test and the
+The same assertion implementation is used by the Rust host test and the
 headless-browser Wasm test. Regenerate the fixture only for a deliberate new
 generator version or reviewed correction:
 
@@ -243,13 +243,13 @@ only a matching, server-owned reservation can become one.
 Run the narrow gates that prove the implemented layers:
 
 ```bash
-# Native generated-parameter compatibility baseline.
+# Rust generated-parameter compatibility baseline.
 cargo test -p domain --test test_determinism -- --nocapture
 
 # Presentation descriptor, nonce, collision, and public-rebuild rules.
 cargo test -p question_model presentation
 
-# Native and generated-Node execution of the shared answer-free ple-question-json-v2 response corpus.
+# Rust and generated-Node execution of the shared answer-free PLE Question JSON v2 response corpus.
 cargo test -p wasm_bridge --test ple_question_json_response_format_native
 ./pipeline/build_wasm.sh
 node tests/e2e/e2e_wasm_bridge.mjs
@@ -259,7 +259,7 @@ node tests/e2e/e2e_wasm_bridge.mjs
 ./run_playwright_tests.sh --scenario instructor_authoring
 ```
 
-The fixed corpus is `crates/wasm/ple_question_json_response_format_corpus.json`; native Rust,
+The fixed corpus is `crates/wasm/ple_question_json_response_format_corpus.json`; Rust,
 generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
 prove generated-parameter and key-free public-response parity; the canonical instructor scenario
 proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.

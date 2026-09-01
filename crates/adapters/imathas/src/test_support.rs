@@ -130,12 +130,12 @@ impl ImathasProvider for RecordedImathasProvider {
                 points_earned: 1.0,
                 points_possible: 1.0,
             },
-            crate::GradeBinding {
+            crate::ExternalToolGradingContext {
                 attempt: request.attempt(),
                 question_revision: request.question_revision().clone(),
                 seed: request.seed(),
             },
-            request.correlation(),
+            request.launch_session_authentication(),
         ))
     }
 }
@@ -224,7 +224,7 @@ pub struct RecordedContractedTransport {
 
 #[derive(Clone)]
 struct RecordedLaunchClaims {
-    nonce: String,
+    challenge: String,
     binding: String,
 }
 
@@ -346,8 +346,8 @@ fn recorded_launch_claims(
         .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
     let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
-    let nonce = value
-        .get("ple_nonce")
+    let challenge = value
+        .get("ple_launch_challenge")
         .and_then(serde_json::Value::as_str)
         .filter(|value| !value.is_empty() && value.len() <= 256)
         .ok_or(ScoredEmbedTransportFailure::InvalidResponse)?;
@@ -357,7 +357,7 @@ fn recorded_launch_claims(
         .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .ok_or(ScoredEmbedTransportFailure::InvalidResponse)?;
     Ok(RecordedLaunchClaims {
-        nonce: nonce.to_owned(),
+        challenge: challenge.to_owned(),
         binding: binding.to_owned(),
     })
 }
@@ -366,8 +366,8 @@ fn recorded_result_token(claims: &RecordedLaunchClaims) -> String {
     let codec = base64::engine::general_purpose::URL_SAFE_NO_PAD;
     let header = codec.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
     let payload = codec.encode(format!(
-        r#"{{"id":17,"score":1.0,"ple_nonce":"{}","ple_binding":"{}"}}"#,
-        claims.nonce, claims.binding
+        r#"{{"id":17,"score":1.0,"ple_launch_challenge":"{}","ple_binding":"{}"}}"#,
+        claims.challenge, claims.binding
     ));
     let signed = format!("{header}.{payload}");
     let mut mac = Hmac::<Sha256>::new_from_slice(b"recorded-result-secret")

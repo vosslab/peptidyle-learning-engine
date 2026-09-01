@@ -16,7 +16,6 @@ use question_model::{
 use uuid::Uuid;
 
 use super::*;
-use crate::CorrelationIssuer;
 
 #[derive(Clone)]
 struct RecordedTransport {
@@ -74,7 +73,7 @@ impl ScoredEmbedTransport for RecordedTransport {
     ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {
         self.result_calls.fetch_add(1, Ordering::SeqCst);
         assert_eq!(request.handle().protected_value(), "recorded-proxy-session");
-        assert!(format!("{:?}", request.correlation()).contains("REDACTED"));
+        assert!(format!("{:?}", request.launch_session_authentication()).contains("REDACTED"));
         self.result.lock().unwrap().clone()
     }
     async fn proxy_activity(
@@ -163,8 +162,12 @@ async fn question_and_source() -> (QuestionRevision, ResolvedImathasQuestionSour
     (question, source)
 }
 
-fn correlation(question: &QuestionRevision, seed: QuestionSeed) -> ServerCorrelation {
-    let binding = GradeBinding {
+fn launch_session_authentication(
+    question: &QuestionRevision,
+    seed: QuestionSeed,
+    challenge: &ExternalToolLaunchChallenge,
+) -> ExternalToolLaunchSessionAuthentication {
+    let binding = ExternalToolGradingContext {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         question_revision: QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -172,10 +175,9 @@ fn correlation(question: &QuestionRevision, seed: QuestionSeed) -> ServerCorrela
         },
         seed,
     };
-    let issuer = CorrelationIssuer::from_server_secret([3; 32]);
-    issuer
-        .restore(binding.clone(), &issuer.begin(binding))
+    ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([3; 32])
         .unwrap()
+        .authenticate(&binding, challenge)
 }
 
 fn result_token(session: &ContractedLaunchSession, score: f64) -> Vec<u8> {
@@ -183,8 +185,8 @@ fn result_token(session: &ContractedLaunchSession, score: f64) -> Vec<u8> {
     let header =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
     let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(format!(
-        r#"{{"id":17,"score":{score},"ple_nonce":"{}","ple_binding":"{}"}}"#,
-        claims.nonce(),
+        r#"{{"id":17,"score":{score},"ple_launch_challenge":"{}","ple_binding":"{}"}}"#,
+        claims.challenge(),
         claims.binding_digest(),
     ));
     let signed = format!("{header}.{payload}");
@@ -201,16 +203,18 @@ async fn launch(
     provider: &ContractedScoredEmbedProvider<RecordedTransport>,
     question: &QuestionRevision,
     source: &ResolvedImathasQuestionSource,
-    nonce: u8,
+    challenge: u8,
 ) -> ContractedLaunchSession {
+    let launch_challenge =
+        ExternalToolLaunchChallenge::from_server_random([challenge; 32]).unwrap();
     provider
         .begin_launch(
             question,
             source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             QuestionSeed::new(10_001),
-            correlation(question, QuestionSeed::new(10_001)),
-            ScoredEmbedNonce::from_server_random([nonce; 32]).unwrap(),
+            launch_session_authentication(question, QuestionSeed::new(10_001), &launch_challenge),
+            launch_challenge,
             Timestamp::from_unix_millis(1_000),
         )
         .await
@@ -244,6 +248,8 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
     *transport.snapshot.lock().unwrap() = Ok(b"changed".to_vec());
+    let changed_source_challenge =
+        ExternalToolLaunchChallenge::from_server_random([7; 32]).unwrap();
     assert_eq!(
         provider
             .begin_launch(
@@ -251,8 +257,12 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 QuestionSeed::new(10_001),
-                correlation(&question, QuestionSeed::new(10_001)),
-                ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
+                launch_session_authentication(
+                    &question,
+                    QuestionSeed::new(10_001),
+                    &changed_source_challenge,
+                ),
+                changed_source_challenge,
                 Timestamp::from_unix_millis(1_000),
             )
             .await
@@ -260,6 +270,8 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
         ImathasAdapterError::SourceChecksumMismatch
     );
     *transport.snapshot.lock().unwrap() = Err(ScoredEmbedTransportFailure::Unavailable);
+    let unavailable_provider_challenge =
+        ExternalToolLaunchChallenge::from_server_random([7; 32]).unwrap();
     assert!(matches!(
         provider
             .begin_launch(
@@ -267,8 +279,12 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 QuestionSeed::new(10_001),
-                correlation(&question, QuestionSeed::new(10_001)),
-                ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
+                launch_session_authentication(
+                    &question,
+                    QuestionSeed::new(10_001),
+                    &unavailable_provider_challenge,
+                ),
+                unavailable_provider_challenge,
                 Timestamp::from_unix_millis(1_000),
             )
             .await,
@@ -324,6 +340,8 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
     if let QuestionBackendLocator::Imathas { provider, .. } = &mut question.backend_locator {
         *provider = "foreign-imathas".into();
     }
+    let foreign_provider_challenge =
+        ExternalToolLaunchChallenge::from_server_random([7; 32]).unwrap();
     assert!(matches!(
         provider
             .begin_launch(
@@ -331,8 +349,12 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 QuestionSeed::new(10_001),
-                correlation(&question, QuestionSeed::new(10_001)),
-                ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
+                launch_session_authentication(
+                    &question,
+                    QuestionSeed::new(10_001),
+                    &foreign_provider_challenge,
+                ),
+                foreign_provider_challenge,
                 Timestamp::from_unix_millis(1_000),
             )
             .await,
@@ -347,9 +369,9 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
     let (question, source) = question_and_source().await;
     let session = launch(&provider, &question, &source, 7).await;
-    let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();
+    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([11; 32]).unwrap();
     let expected = ContractedLaunchExpectation::new(
-        GradeBinding {
+        ExternalToolGradingContext {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             question_revision: QuestionRevisionReference {
                 question_id: question.question_id.clone(),
@@ -387,21 +409,21 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     .unwrap();
     assert!(codec.restore(&mutated, &expected).is_err());
     assert!(
-        LaunchSessionCodec::from_server_secret([12; 32])
+        ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([12; 32])
             .unwrap()
             .restore(&persisted, &expected)
             .is_err()
     );
-    assert!(
+    let truncated =
         PersistedContractedLaunchSession::from_storage_value(&storage[..storage.len() - 1])
-            .is_err()
-    );
+            .unwrap();
+    assert!(codec.restore(&truncated, &expected).is_err());
     assert!(
         PersistedContractedLaunchSession::from_storage_value(&(storage.clone() + "=")).is_err()
     );
     assert!(PersistedContractedLaunchSession::from_storage_value(&"a".repeat(8_193)).is_err());
     let wrong_version = ContractedLaunchExpectation::new(
-        GradeBinding {
+        ExternalToolGradingContext {
             question_revision: QuestionRevisionReference {
                 question_id: expected.binding.question_revision.question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(99).expect("positive version"),
@@ -421,7 +443,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
     let (question, source) = question_and_source().await;
     let expected = ContractedLaunchExpectation::new(
-        GradeBinding {
+        ExternalToolGradingContext {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             question_revision: QuestionRevisionReference {
                 question_id: question.question_id.clone(),
@@ -433,7 +455,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
         source.source_object_checksum().to_string(),
     )
     .unwrap();
-    let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();
+    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([11; 32]).unwrap();
 
     let mut expired = launch(&provider, &question, &source, 7).await;
     let mut parts = expired.ledger.storage_parts();
@@ -447,7 +469,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
         provider
             .retrieve_and_verify(&mut expired, Timestamp::from_unix_millis(1_000))
             .await,
-        Err(ImathasAdapterError::InvalidCorrelation)
+        Err(ImathasAdapterError::InvalidExternalToolLaunchSessionAuthentication)
     );
     assert_eq!(transport.result_calls.load(Ordering::SeqCst), before);
     assert_eq!(
@@ -469,7 +491,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
         provider
             .retrieve_and_verify(&mut consumed, Timestamp::from_unix_millis(2_000))
             .await,
-        Err(ImathasAdapterError::InvalidCorrelation)
+        Err(ImathasAdapterError::InvalidExternalToolLaunchSessionAuthentication)
     );
     assert_eq!(transport.result_calls.load(Ordering::SeqCst), before);
     assert_eq!(

@@ -2,8 +2,8 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import { useApplicationApi } from "../../api/application_api";
+import { courseBannerImageAlternativeText } from "./course_banner_alternative_text";
 import { createCourseBannerUrl } from "./course_banner_delivery";
 import { courseRouteView, useCourseThemeRouteData } from "./course_theme_context";
 
@@ -30,16 +30,12 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
 }
 `;
 
-function alternativeText(value: CourseBannerAlternativeText): string {
-  return value.kind === "informative" ? value.text : "";
-}
-
 /** Renders the authorized course projection already loaded by the route scope. */
 export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApplicationApi();
   const routeData = useCourseThemeRouteData();
   const banner = routeData === undefined ? null : courseRouteView(routeData).appearance.banner;
-  const deliveryUrl = createCourseBannerUrl(() => banner?.id ?? null, runtime.client);
+  const deliveryUrl = createCourseBannerUrl(() => banner?.reference ?? null, runtime.client);
   if (routeData === undefined) return <></>;
   const course = courseRouteView(routeData);
   return (
@@ -51,7 +47,7 @@ export function CourseEntryIdentity(): JSX.Element {
         <img
           class="course-entry-banner"
           src={deliveryUrl()}
-          alt={banner === null ? "" : alternativeText(banner.alternativeText)}
+          alt={banner === null ? "" : courseBannerImageAlternativeText(banner.alternativeText)}
           width="1200"
           height="328"
         />

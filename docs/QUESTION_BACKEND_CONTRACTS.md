@@ -35,7 +35,7 @@ them without creating a second product vocabulary.
 | Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                                      |
 | Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
 | Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                        |
-| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, provider correlation, source identity, renderer field, or answer key.                                                            |
+| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, External Tool Launch Session authentication state, source identity, renderer field, or answer key.                            |
 | Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                                                   |
 | Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                           |
 | Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a student incorrect response.                                                                                                        |
@@ -89,14 +89,14 @@ replace it with a current Question Grader view. Provenance names the PLE Questio
 Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
 
-Native generation is deterministic for published version and seed. A shared cache may contain only
+PLE Question JSON generation is deterministic for a published version and Question Seed. A shared cache may contain only
 answer-free generated output keyed by that identity. Course/Student state, keys, submissions, and feedback
 never enter it. Static questions still use the uniform seed and parameter-hash record so swapped
 provenance is detectable.
 
 ### Capabilities and extension
 
-Native capabilities are the intersection declared by selected registered implementations. A new Question Implementation must
+PLE Question JSON capabilities are the intersection declared by selected registered PLE Question Implementations. A new PLE Question Implementation must
 add a closed source/parser/compiler contract, browser-safe Question Response Format, server-only key or
 rubric, deterministic issue/reproduction, capability declaration, strict response validation, and
 conformance coverage. It must not add a parallel run loop or browser grader.
@@ -139,7 +139,7 @@ not enable them.
 **Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
 private external standalone `/render-api` service. The browser receives only a PLE envelope,
-sanitized prompt markup, and opaque PLE choice IDs. It never receives PG source, file path, renderer
+sanitized prompt markup, and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
 
 The accepted projection covers the exact reviewed Chapter 1 `RadioButtons` and matching shapes. PLE
@@ -149,7 +149,7 @@ side. A student submits PLE IDs to PLE, not upstream form fields.
 ### Grade, replay, cache, and failure
 
 For a newly issued attempt, PLE resolves immutable source, captures and validates the private
-field/value mapping, converts durable choice identities to presentation-scoped rendered IDs, and
+field/value mapping, converts durable Question Choice References to presentation-scoped Response Item References, and
 persists that mapping with the exact public snapshot, private grading envelope, and frozen WeBWorK
 definition. Normal grade reloads those validated artifacts, maps the student's rendered ID through
 the private envelope, and makes one private grade request. It does not reconstruct an issuance
@@ -214,9 +214,10 @@ binding and atomically clears the marker while persisting the first verified res
 idempotency key. Replay returns the committed record, not another provider call. Grade retrieval is
 structurally GET-only and side-effect free; it cannot be substituted for an effectful provider POST.
 
-Provider results are intentionally non-serializable. Correlation, provider state, launch proof, and
-lease token redact debug output. Timeout, authentication failure, malformed provider response, bad
-correlation, or verification mismatch is unavailable/invalid, never an incorrect student result.
+Provider results are intentionally non-serializable. External Tool Launch Session authentication
+state, provider state, launch proof, and lease token redact debug output. Timeout, authentication
+failure, malformed provider response, invalid launch-session authentication state, or verification
+mismatch is unavailable/invalid, never an incorrect student result.
 
 ### Capability and scope
 
@@ -240,7 +241,7 @@ iMathAS. It allows an external activity UI without handing it PLE grading author
 | Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit.                                                                                              |
 | Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
 | Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading.           |
-| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, problem, version, seed, and correlation.                                                                                       |
+| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, Question Revision, Question Seed, and External Tool Launch Session authentication state.                                           |
 | Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                                                                                                                       |
 
 The marker does not mean "trust the external tool." It means the current attempt requires the
@@ -252,7 +253,7 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
 2. Pin source bytes, checksum, license, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
-3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, correlation, and raw results server-only.
+3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, External Tool Launch Session authentication state, and raw results server-only.
 4. At issue, capture the exact version/seed render, compare the complete Question Attempt Reproduction Details, and persist its
    answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.

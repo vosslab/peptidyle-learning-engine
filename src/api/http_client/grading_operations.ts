@@ -4,12 +4,12 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { ApiClient } from "../client";
 import {
-  decodeGradingOperationActionId,
+  decodeInstructorGradingOperationRetryToken,
   decodeGradingOperationActionReceipt,
   decodeInstructorGradingOperationReference,
   decodeGradingOperationStrongEtag,
   decodeInstructorGradingOperationsPage,
-  type GradingOperationActionId,
+  type InstructorGradingOperationRetryToken,
   type GradingOperationActionReceipt,
   type GradingOperationFocus,
   type GradingOperationStrongEtag,
@@ -93,11 +93,11 @@ function verifyReceipt(
   response: Response,
   path: string,
   operation: string | undefined,
-  action: GradingOperationActionId,
+  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationActionReceipt {
-  if (receipt.action !== action) {
+  if (receipt.retry_token !== instructorGradingOperationRetryToken) {
     throw new ApiProtocolError(
-      `API response ${path} action must match the request idempotency key`,
+      `API response ${path} Retry Token must match the request Instructor Grading Operation Retry Token`,
     );
   }
   if (operation !== undefined && receipt.operation !== operation) {
@@ -108,8 +108,8 @@ function verifyReceipt(
   const checkedEtag = decodeGradingOperationStrongEtag(etag, `API response ${path} ETag`);
   const expectedEtag =
     receipt.kind === "retry"
-      ? strongEtagForRevision(receipt.resultingOperationRevision)
-      : strongEtagForRevision(receipt.assignmentRevision);
+      ? strongEtagForRevision(receipt.resulting_operation_revision)
+      : strongEtagForRevision(receipt.assignment_revision);
   if (checkedEtag !== expectedEtag) {
     throw new ApiProtocolError(`API response ${path} ETag must match the returned revision`);
   }
@@ -148,37 +148,43 @@ export function createGradingOperationsClient(
       assignmentId,
       operation,
       expectedRevision: GradingOperationStrongEtag,
-      idempotencyKey: GradingOperationActionId,
+      instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
     ): Promise<GradingOperationActionReceipt> => {
       const path = retryPath(courseId, assignmentId, operation);
-      const action = decodeGradingOperationActionId(idempotencyKey, "idempotencyKey");
+      const retry_token = decodeInstructorGradingOperationRetryToken(
+        instructorGradingOperationRetryToken,
+        "instructorGradingOperationRetryToken",
+      );
       const revision = decodeGradingOperationStrongEtag(expectedRevision, "expectedRevision");
       const result = await operationJson(
         fetchImplementation,
         basePath,
         path,
         decodeGradingOperationActionReceipt,
-        { method: "POST", headers: { "if-match": revision, "idempotency-key": action } },
+        { method: "POST", headers: { "if-match": revision, "idempotency-key": retry_token } },
       );
-      return verifyReceipt(result.body, result.response, path, operation, action);
+      return verifyReceipt(result.body, result.response, path, operation, retry_token);
     },
     recalculateInstructorAssignment: async (
       courseId,
       assignmentId,
       expectedRevision: GradingOperationStrongEtag,
-      idempotencyKey: GradingOperationActionId,
+      instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
     ): Promise<GradingOperationActionReceipt> => {
       const path = recalculatePath(courseId, assignmentId);
-      const action = decodeGradingOperationActionId(idempotencyKey, "idempotencyKey");
+      const retry_token = decodeInstructorGradingOperationRetryToken(
+        instructorGradingOperationRetryToken,
+        "instructorGradingOperationRetryToken",
+      );
       const revision = decodeGradingOperationStrongEtag(expectedRevision, "expectedRevision");
       const result = await operationJson(
         fetchImplementation,
         basePath,
         path,
         decodeGradingOperationActionReceipt,
-        { method: "POST", headers: { "if-match": revision, "idempotency-key": action } },
+        { method: "POST", headers: { "if-match": revision, "idempotency-key": retry_token } },
       );
-      return verifyReceipt(result.body, result.response, path, undefined, action);
+      return verifyReceipt(result.body, result.response, path, undefined, retry_token);
     },
   };
 }

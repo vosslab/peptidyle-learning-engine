@@ -593,7 +593,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let binding = crate::GradeBinding {
+        let binding = crate::ExternalToolGradingContext {
             attempt: question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
             question_revision: question_model::QuestionRevisionReference {
                 question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
@@ -603,15 +603,16 @@ mod tests {
             },
             seed: question_model::generation::QuestionSeed::new(7),
         };
-        let issuer = crate::CorrelationIssuer::from_server_secret([1; 32]);
-        let correlation = issuer
-            .restore(binding.clone(), &issuer.begin(binding.clone()))
-            .unwrap();
+        let codec =
+            crate::ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([1; 32])
+                .unwrap();
+        let challenge = crate::ExternalToolLaunchChallenge::from_server_random([2; 32]).unwrap();
+        let launch_session_authentication = codec.authenticate(&binding, &challenge);
         assert_eq!(
             transport
                 .fetch_signed_grade_get(ResultTransportRequest {
                     handle: &handle,
-                    correlation: &correlation,
+                    launch_session_authentication: &launch_session_authentication,
                     provider_key: "self-hosted-imathas"
                 })
                 .await

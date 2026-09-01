@@ -128,13 +128,13 @@ pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, Js
 pub fn verify_presentation_descriptor(
     envelope_json: &str,
     question_asset_renditions_json: &str,
-    token: &str,
+    presentation_token: &str,
 ) -> Result<bool, JsValue> {
     let envelope: QuestionPresentation = serde_json::from_str(envelope_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
     let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
-    let expected = QuestionPresentationToken::parse(token).map_err(|error| {
+    let expected = QuestionPresentationToken::parse(presentation_token).map_err(|error| {
         JsValue::from_str(&format!("invalid Question Presentation Token: {error}"))
     })?;
     let presentation = rebuild_public_question_presentation(&envelope, &assets)

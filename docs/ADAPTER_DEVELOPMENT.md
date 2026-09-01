@@ -24,8 +24,8 @@ adapter, not for defining a new student Question Type. The shared public contrac
   hash, rendered-envelope hash, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
   attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
   mismatched state makes grade unavailable rather than reissuing.
-- Keep provider configuration, credentials, network policy, correlation state, and upstream
-  verification inside the server composition and adapter boundary. The browser speaks only to the
+- Keep provider configuration, credentials, network policy, External Tool Launch Session
+  authentication state, and upstream verification inside the server composition and adapter boundary. The browser speaks only to the
   same-origin PLE API.
 
 ## Declare capabilities first
@@ -69,7 +69,7 @@ Use the following sequence for a question-agnostic adapter.
    provenance where a private grader needs it. A Question Backend that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
-   correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
+   External Tool Launch Session authentication state, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
@@ -117,7 +117,7 @@ is needed, correlate and verify it with server-held attempt state before it beco
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                    | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
 | QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, PLE conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
-| H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
+| H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | The PLE H5P adapter declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |
 | WeBWorK     | External standalone `/render-api` client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container  | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                             |
 

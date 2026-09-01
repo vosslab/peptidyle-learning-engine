@@ -2,7 +2,7 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerId, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
+    CourseBannerReference, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
     QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
@@ -193,7 +193,7 @@ pub enum ObjectAddress {
         /// Course whose appearance may reference the banner.
         course: CourseId,
         /// Stable browser-safe banner delivery identity.
-        banner: CourseBannerId,
+        banner: CourseBannerReference,
     },
     /// A course-owned Student Record Object.
     StudentRecord {
@@ -430,7 +430,7 @@ pub fn course_banner_upload_object_id(
 }
 
 /// Derives the immutable physical identity for one promoted course banner.
-pub fn course_banner_object_id(course: CourseId, banner: CourseBannerId) -> ObjectId {
+pub fn course_banner_object_id(course: CourseId, banner: CourseBannerReference) -> ObjectId {
     domain_separated_object_id(
         b"ple:course-banner:v1\0",
         [course.as_uuid(), banner.as_uuid(), uuid::Uuid::nil()],
@@ -583,7 +583,7 @@ mod tests {
             },
             ObjectAddress::CourseBanner {
                 course: CourseId::from_uuid(Uuid::from_u128(10)),
-                banner: CourseBannerId::from_uuid(Uuid::from_u128(11)),
+                banner: CourseBannerReference::from_uuid(Uuid::from_u128(11)),
             },
         ] {
             assert_eq!(
@@ -598,14 +598,14 @@ mod tests {
     fn course_banner_keys_bind_scope_classification_and_signing() {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
         let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
-        let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
+        let banner_reference = CourseBannerReference::from_uuid(Uuid::from_u128(4));
         let upload = ObjectAddress::CourseBannerUpload {
             course,
             upload: upload_reference,
         };
         let banner = ObjectAddress::CourseBanner {
             course,
-            banner: banner_id,
+            banner: banner_reference,
         };
 
         assert_eq!(upload.storage_area(), ObjectStorageArea::TempProcessing);
@@ -617,14 +617,14 @@ mod tests {
         assert!(upload.path().contains(&course.to_string()));
         assert!(upload.path().contains(&upload_reference.to_string()));
         assert!(banner.path().contains(&course.to_string()));
-        assert!(banner.path().contains(&banner_id.to_string()));
+        assert!(banner.path().contains(&banner_reference.to_string()));
         assert_ne!(upload.object_id(), banner.object_id());
     }
 
     #[test]
     fn banner_object_identity_changes_with_course_and_route_id() {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
-        let banner = CourseBannerId::from_uuid(Uuid::from_u128(3));
+        let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
         let base = course_banner_object_id(course, banner);
         assert_ne!(
             base,
@@ -632,7 +632,10 @@ mod tests {
         );
         assert_ne!(
             base,
-            course_banner_object_id(course, CourseBannerId::from_uuid(Uuid::from_u128(13)))
+            course_banner_object_id(
+                course,
+                CourseBannerReference::from_uuid(Uuid::from_u128(13))
+            )
         );
     }
 
@@ -640,7 +643,7 @@ mod tests {
     fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
         let key = ObjectAddress::CourseBanner {
             course: CourseId::from_uuid(Uuid::from_u128(2)),
-            banner: CourseBannerId::from_uuid(Uuid::from_u128(3)),
+            banner: CourseBannerReference::from_uuid(Uuid::from_u128(3)),
         };
         let encoded = serde_json::to_string(&key).expect("banner key should serialize");
         let decoded: ObjectAddress =

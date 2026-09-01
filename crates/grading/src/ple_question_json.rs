@@ -15,8 +15,8 @@ use question_model::response::{
 };
 use question_model::{
     DraftQuestionBackendLocator, DraftQuestionContent, GradingResult, QuestionAnswer,
-    QuestionBackendLocator, QuestionFeedback, QuestionFormat, QuestionGradingRule,
-    QuestionMetadata, QuestionPostGradingContent, QuestionRevision, QuestionTitleError,
+    QuestionAnswerExplanation, QuestionBackendLocator, QuestionFeedback, QuestionFormat,
+    QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -108,7 +108,9 @@ struct PleQuestionJsonOutcomeFeedback {
 /// Result and private teaching content from one trusted evaluation.
 pub struct PleQuestionJsonEvaluation {
     pub outcome: QuestionGradingOutcome,
-    pub post_grading_content: QuestionPostGradingContent,
+    pub question_feedback: QuestionFeedback,
+    pub question_answer: Option<QuestionAnswer>,
+    pub question_answer_explanation: Option<QuestionAnswerExplanation>,
 }
 
 impl PleQuestionJsonPrivateGrading {
@@ -240,7 +242,9 @@ impl PleQuestionJsonPrivateGrading {
         };
         Ok(PleQuestionJsonEvaluation {
             outcome: QuestionGradingOutcome::Graded(result),
-            post_grading_content: self.post_grading_content_for(question, response, result)?,
+            question_feedback: self.question_feedback_for(response, result)?,
+            question_answer: Some(self.question_answer_for(question)?),
+            question_answer_explanation: None,
         })
     }
 
@@ -303,12 +307,11 @@ impl PleQuestionJsonPrivateGrading {
         Ok(())
     }
 
-    fn post_grading_content_for(
+    fn question_feedback_for(
         &self,
-        question: &QuestionRevision,
         response: &StudentResponse,
         result: GradingResult,
-    ) -> Result<QuestionPostGradingContent, PleQuestionJsonError> {
+    ) -> Result<QuestionFeedback, PleQuestionJsonError> {
         let mut choice_feedback = Vec::new();
         if let StudentResponse::MultipleChoice { selected } = response {
             for selected_choice in selected {
@@ -326,20 +329,23 @@ impl PleQuestionJsonPrivateGrading {
         } else {
             (None, self.outcome_feedback.incorrect.as_deref())
         };
+        Ok(QuestionFeedback {
+            choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
+            correct_feedback: correct_feedback.map(markdown_blocks),
+            incorrect_feedback: incorrect_feedback.map(markdown_blocks),
+        })
+    }
+
+    fn question_answer_for(
+        &self,
+        question: &QuestionRevision,
+    ) -> Result<QuestionAnswer, PleQuestionJsonError> {
         let question_answer = QuestionAnswer::new(correct_response_blocks(
             &question.response,
             &self.answer_key,
         )?)
         .ok_or(PleQuestionJsonError::PublicBindingMismatch)?;
-        Ok(QuestionPostGradingContent {
-            question_feedback: QuestionFeedback {
-                choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
-                correct_feedback: correct_feedback.map(markdown_blocks),
-                incorrect_feedback: incorrect_feedback.map(markdown_blocks),
-            },
-            question_answer: Some(question_answer),
-            question_answer_explanation: None,
-        })
+        Ok(question_answer)
     }
 }
 

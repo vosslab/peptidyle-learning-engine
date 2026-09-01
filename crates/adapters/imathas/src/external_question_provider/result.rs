@@ -22,7 +22,7 @@ pub(super) async fn retrieve_and_verify<T: ScoredEmbedTransport>(
     let bytes = transport
         .fetch_signed_grade_get(ResultTransportRequest {
             handle: &session.handle,
-            correlation: session.ledger.correlation(),
+            launch_session_authentication: session.ledger.launch_session_authentication(),
             provider_key: config.profile.provider_key(),
         })
         .await

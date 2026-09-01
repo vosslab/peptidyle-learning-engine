@@ -165,17 +165,43 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
   together. Each migrated PLE boundary accepts snake and rejects retired camel/unknown input.
 - Fixed package scope:
 
-| Package | Atomic child families                                                                                                                                                                                       |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                     |
-| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                               |
-| C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                                                                  |
+| Package | Atomic child families                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
+| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
+| C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                                                                               |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
-| C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                       |
-| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                            |
+| C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
+| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                                         |
 
 The [implementation status registry](../implementation_status.md) is the current route-by-route
 authority. No C7 is created.
+
+### WN1-C6-GO1: Instructor Grading Operation Retry Token
+
+- Owner: one expert coder for the atomic grading-operations route/Store/receipt closure.
+- Depends on: accepted `WN1-B5`, accepted `WN1-MG`, and the applicable
+  `WN1-QM-GRADING-OPS` source-type closure; it precedes `WN1-F`.
+- Outcome: make the server own one durable binding of an Instructor Grading Operation Retry Token
+  to the exact Instructor Grading Operation, `retry` or `recalculate` action, Request Checksum, and
+  accepted Receipt. Project it once through a route-only `browser-api-contract` DTO with effective
+  Serde `retry_token`, regenerate the direct TypeScript contract, and change the strict decoder,
+  same-origin client, and assignment-workspace intent together. A new Instructor decision creates
+  one opaque token; ambiguous retry preserves it. The registered `idempotency-key` HTTP header
+  remains protocol framing rather than a PLE value name.
+- Boundaries: this child owns no manual grading, generic cross-operation retry abstraction,
+  enrollment or Student-submission idempotency terms, compatibility camel alias, or browser-grading
+  authority. It adds any required forward persistence shape only with its Store producer/reader;
+  accepted migrations and immutable historical receipts remain unchanged.
+- Permanent gate: focused Rust/Store behavior proves same-token same-request replay returns one
+  equal accepted Receipt and no second side effect, while changed operation/action/checksum refuses
+  the old binding; the named strict Node decoder/client and assignment-workspace model suites prove
+  `retry_token` decoding, request/receipt equality, malformed/retired-field refusal, and ambiguous
+  retry reuse. Run TypeScript compilation and the applicable generated-contract gate.
+- Service gate: disposable PostgreSQL route/transaction evidence proves the unique durable binding,
+  receipt replay, and authorization boundary. Browser mocks do not accept this service or
+  persistence claim. Record `git diff --check`, direct generated/wire-shape inspection, and the
+  package receipt before completing vocabulary rows 459-460.
 
 For C6, `course/routing.rs` retains shared nonserializing topology, state, and body-limit support.
 `C6-CR1` owns `course/pagination.rs` with direct `CoursePageQuery`, plus
@@ -212,9 +238,58 @@ one direct contract rather than leaving serialization in a shared routing module
   ledger. Public-Serde inventory, Graphify, generated import review, and fixture counts are
   one-time evidence.
 
+### WN1-QM-PRESENTATION-COURSE-BANNER-INFORMATIVE-TEXT: Course Banner Informative Text
+
+- Owner: one expert coder for the complete Course Appearance terminology closure.
+- Depends on: accepted `WN1-B5`; it is independent of deferred Course Appearance persistence,
+  service, and mounted-editor capability work, and precedes `WN1-F`.
+- Outcome: replace the abbreviated validated-string type `CourseBannerAltText` with
+  `CourseBannerInformativeText` across the Question Model, public facade, regenerated TypeScript,
+  strict decoder, Course Banner renderer, focused fixtures/tests, and current documentation. Keep
+  `CourseBannerAlternativeText` as the one closed Decorative-or-Informative accessibility-treatment
+  type and retain JSON `alternativeText` as its existing canonical property name. Remove the old
+  Rust export and generated `CourseBannerAltText.ts` directly; add no aliases, duplicate fields, or
+  legacy decoder branch.
+- Boundaries: this child changes no Course Banner object-address/storage ownership, schema,
+  PostgreSQL migration, Store, route, authorization, or mounted editor. The absent Course Appearance
+  revision/current-pointer capability remains separately allocated future work. The checklist row
+  is completed only after this child's evidence is recorded.
+- Permanent gate: `cargo test -p question_model course_appearance`; regenerate with `cargo tools
+tsgen`; run `npx tsc --noEmit`; and run `node --import tsx --test
+tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative decoding and rendered
+  `alt=""`/exact informative-text assertions. Run `cargo fmt --all --check` and `git diff --check`.
+  A targeted active-owner search confirms that `CourseBannerAltText` is retired while
+  `CourseBannerAlternativeText`, `CourseBannerInformativeText`, and `alternativeText` each retain
+  their distinct canonical meanings. Generated-import inspection and the no-schema/no-route
+  inventory are one-time evidence, not substitute service claims.
+
+### WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW: Course Appearance View
+
+- Owner: one expert coder for the complete existing reader-boundary closure.
+- Depends on: accepted `WN1-B5`, completed
+  `WN1-QM-PRESENTATION-COURSE-BANNER-INFORMATIVE-TEXT`, and completed
+  `WN1-QM-PRESENTATION-COURSE-BANNER-REFERENCE`; it precedes `WN1-F`.
+- Outcome: replace the PLE-owned Course Appearance projection meaning with the direct reader
+  object `CourseAppearanceView`: exactly `{ theme, revision, banner }`, where `theme` is
+  `CourseThemeId`, `revision` is `CourseAppearanceRevision`, and `banner` is absent or the
+  independently closed `CourseBanner`. Complete that direct name through the existing Question
+  Model/public facade, generated TypeScript declaration, strict browser decoder, route-reader/client
+  contracts and consumers, focused fixtures/tests, and directly affected documentation. Retire the
+  prior PLE-owned projection name directly; add no alias, dual DTO, or legacy decoder branch.
+- Deferred boundary: this reader-only child creates no Course Appearance Store or retained record,
+  schema/current-pointer relation, PostgreSQL migration, server route, authorization oracle, Course
+  Banner Upload promotion/cleanup, or mounted editor. Low-level database/query projection remains
+  distinct technical vocabulary. Those persistence and editor capabilities are deferred feature work,
+  not evidence for this terminology closure.
+- Permanent gate: `cargo test -p question_model course_appearance`; `cargo tools tsgen`; `npx tsc
+--noEmit`; `node --import tsx --test tests/test_course_theme_scope.mjs`; `cargo fmt --all --check`;
+  and `git diff --check`. Targeted active-owner and generated-import inspection are one-time
+  evidence. Focused evidence and independent review are required before accepting the child and
+  checking vocabulary row 469.
+
 ### WN1-WA: Wasm and adapter-local PLE JSON
 
-- Owner: one expert coder for each `WASM`, `NATIVE`, `QTI`, `H5P`, and `PROVIDER-CACHE` child.
+- Owner: one expert coder for each `WASM`, `PLE-QUESTION-JSON`, `QTI`, `H5P`, and `PROVIDER-CACHE` child.
 - Depends on: affected QM and route closures.
 - Outcome: parse and stringify direct snake PLE values while retaining raw wasm-bindgen ABI and
   registered provider/package spelling.

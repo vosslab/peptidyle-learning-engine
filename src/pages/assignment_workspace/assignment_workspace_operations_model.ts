@@ -1,7 +1,7 @@
 // assignment_workspace_operations_model.ts - pure Instructor recovery-page state and safe wording.
 
 import type {
-  GradingOperationActionId,
+  InstructorGradingOperationRetryToken,
   GradingOperationFocus,
   GradingOperationStrongEtag,
   InstructorGradingOperationRow,
@@ -14,12 +14,12 @@ export type GradingOperationsActionIntent =
       readonly kind: "retry";
       readonly operation: InstructorGradingOperationReference;
       readonly expectedRevision: GradingOperationStrongEtag;
-      readonly idempotencyKey: GradingOperationActionId;
+      readonly instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken;
     }
   | {
       readonly kind: "recalculate";
       readonly expectedRevision: GradingOperationStrongEtag;
-      readonly idempotencyKey: GradingOperationActionId;
+      readonly instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken;
     };
 
 export type GradingOperationsActionFailure =
@@ -48,21 +48,21 @@ export function retryGradingOperationsAction(
 export function retryOperationIntent(
   operation: InstructorGradingOperationReference,
   revision: number,
-  idempotencyKey: GradingOperationActionId,
+  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationsActionIntent {
   return {
     kind: "retry",
     operation,
     expectedRevision: `"${revision}"`,
-    idempotencyKey,
+    instructorGradingOperationRetryToken,
   };
 }
 
 export function recalculationIntent(
   expectedRevision: GradingOperationStrongEtag,
-  idempotencyKey: GradingOperationActionId,
+  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationsActionIntent {
-  return { kind: "recalculate", expectedRevision, idempotencyKey };
+  return { kind: "recalculate", expectedRevision, instructorGradingOperationRetryToken };
 }
 
 /** Conflict responses require an explicit fresh assignment read before another request. */

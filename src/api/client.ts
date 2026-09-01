@@ -9,11 +9,11 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseId } from "../../generated/api/CourseId";
-import type { CourseAppearance } from "../../generated/api/CourseAppearance";
+import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
-import type { CourseBannerId } from "../../generated/api/CourseBannerId";
+import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
@@ -85,7 +85,7 @@ import type { QuestionCurationClient } from "./question_curation";
 import type { BlueprintCourseClient } from "./blueprint_course";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
-  GradingOperationActionId,
+  InstructorGradingOperationRetryToken,
   GradingOperationActionReceipt,
   GradingOperationFocus,
   GradingOperationStrongEtag,
@@ -119,13 +119,13 @@ export interface GradingOperationsClient {
     assignmentId: AssignmentId,
     operation: InstructorGradingOperationReference,
     expectedRevision: GradingOperationStrongEtag,
-    idempotencyKey: GradingOperationActionId,
+    instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
   ) => Promise<GradingOperationActionReceipt>;
   readonly recalculateInstructorAssignment: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     expectedRevision: GradingOperationStrongEtag,
-    idempotencyKey: GradingOperationActionId,
+    instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
   ) => Promise<GradingOperationActionReceipt>;
 }
 
@@ -321,8 +321,8 @@ export interface ApiClient
   /** Creates one course for an authenticated instructor or sysadmin. */
   readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
-  /** Gets only the current authorized, browser-safe course appearance. */
-  readonly getCourseAppearance: (courseId: CourseId) => Promise<CourseAppearance>;
+  /** Gets only the authorized current Course Appearance View. */
+  readonly getCourseAppearanceView: (courseId: CourseId) => Promise<CourseAppearanceView>;
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
@@ -439,7 +439,7 @@ export interface ApiClient
     assignmentAttemptId: AssignmentAttemptId,
   ) => Promise<AssignmentAttemptScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
-  readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
+  readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
   /** Public immutable Question Library asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: QuestionAssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;

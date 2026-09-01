@@ -125,7 +125,7 @@ export type PresentationVerification =
 export type PresentationVerifier = (
   envelope: QuestionPresentation,
   assets: ReadonlyArray<QuestionAssetRendition>,
-  token: QuestionPresentationToken,
+  presentationToken: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
 
 export interface WasmFacade {
@@ -147,7 +147,7 @@ interface WasmBindgenModule {
   readonly verify_presentation_descriptor: (
     envelopeJson: string,
     questionAssetRenditionsJson: string,
-    token: string,
+    presentationToken: string,
   ) => boolean;
 }
 
@@ -405,12 +405,16 @@ async function initializeWasmFacade(
           loaded.preview_ple_draft(JSON.stringify(request), JSON.stringify(seed)),
         ),
       );
-    const verifyPresentationDescriptor: PresentationVerifier = (envelope, assets, token) =>
+    const verifyPresentationDescriptor: PresentationVerifier = (
+      envelope,
+      assets,
+      presentationToken,
+    ) =>
       Promise.resolve({
         kind: loaded.verify_presentation_descriptor(
           JSON.stringify(envelope),
           JSON.stringify(assets),
-          token,
+          presentationToken,
         )
           ? "match"
           : "mismatch",

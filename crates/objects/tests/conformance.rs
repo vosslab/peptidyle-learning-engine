@@ -6,8 +6,9 @@ use objects::{
     Sha256Checksum,
 };
 use question_model::{
-    CourseBannerId, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, Timestamp, WorkspaceId, WorkspaceImportId,
+    CourseBannerReference, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
+    QuestionId, QuestionRevisionNumber, QuestionRevisionReference, Timestamp, WorkspaceId,
+    WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -169,7 +170,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
     let course_banner_key = ObjectAddress::CourseBanner {
         course: CourseId::from_uuid(id(51)),
-        banner: CourseBannerId::from_uuid(id(53)),
+        banner: CourseBannerReference::from_uuid(id(53)),
     };
     let course_banner_record = store
         .put(PutObject {

@@ -91,11 +91,21 @@ must arrive with its exact Workspace Import Store and service route.
 `crates/question_model/src/course_appearance.rs` owns the frozen browser-safe appearance vocabulary.
 It defines the 15 closed theme IDs, with `grass`
 as the only default; exact decimal-string appearance revisions; explicit decorative or validated
-informative banner text; opaque current-banner and Course Banner Upload identities; the safe current projection;
+informative banner text; the opaque `CourseBannerReference` and Course Banner Upload identities; the
+safe current `CourseAppearanceView`;
 and one strict theme plus keep/remove/replace update body. The generated TypeScript union is derived
 from this Rust owner, including `coral-reef`, `salt-marsh`, and `sea-floor`. Unknown IDs refuse.
 
-The projection and Course Banner Upload receipt contain no Object Address, bucket, checksum, filename, source bytes,
+When present, the browser-safe current Course Banner has exactly `{ reference, alternativeText }`.
+Its `reference` resolves only through the same-origin delivery route; the direct Course Banner
+contract does not use a generic `id` property or a separate presentation wrapper.
+
+`CourseAppearanceView` is exactly `{ theme, revision, banner }` for an authorized route reader.
+`CourseAppearanceRevision` remains its distinct canonical positive-decimal scalar. The View is not
+a durable `CourseAppearance` record: the future revisioned Course Appearance Store owns retained
+appearance records and the Course Instance current-revision relation.
+
+The View and Course Banner Upload receipt contain no Object Address, bucket, checksum, filename, source bytes,
 upload metadata, signed URL, Answer Key, Question Feedback, Question Answer
 Explanation, Question Grading Input, or answer-bearing type. Course identity is route-owned,
 and compare-and-swap authority will use the strong `If-Match` header rather than a body field.

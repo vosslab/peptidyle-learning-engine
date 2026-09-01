@@ -1,10 +1,10 @@
 // Strict decoders for the course appearance API surface.
 
-import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
+import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
-import type { CourseBannerPresentation } from "../../../generated/api/CourseBannerPresentation";
+import type { CourseBanner } from "../../../generated/api/CourseBanner";
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import {
   DecodeError,
@@ -56,11 +56,11 @@ function decodeCourseBannerAlternativeText(
   return { kind, text };
 }
 
-function decodeCourseBannerPresentation(value: unknown, path: string): CourseBannerPresentation {
+function decodeCourseBanner(value: unknown, path: string): CourseBanner {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "alternativeText"]);
+  requireOnlyFields(record, path, ["reference", "alternativeText"]);
   return {
-    id: decodeUuid(field(record, "id", path), `${path}.id`),
+    reference: decodeUuid(field(record, "reference", path), `${path}.reference`),
     alternativeText: decodeCourseBannerAlternativeText(
       field(record, "alternativeText", path),
       `${path}.alternativeText`,
@@ -68,8 +68,11 @@ function decodeCourseBannerPresentation(value: unknown, path: string): CourseBan
   };
 }
 
-/** Strict decoder for the safe course-appearance projection. */
-export function decodeCourseAppearance(value: unknown, path = "response"): CourseAppearance {
+/** Strict decoder for the browser-safe current Course Appearance View. */
+export function decodeCourseAppearanceView(
+  value: unknown,
+  path = "response",
+): CourseAppearanceView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["theme", "revision", "banner"]);
   const revision = decodeString(field(record, "revision", path), `${path}.revision`);
@@ -79,11 +82,7 @@ export function decodeCourseAppearance(value: unknown, path = "response"): Cours
   return {
     theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_IDS),
     revision,
-    banner: decodeNullable(
-      field(record, "banner", path),
-      `${path}.banner`,
-      decodeCourseBannerPresentation,
-    ),
+    banner: decodeNullable(field(record, "banner", path), `${path}.banner`, decodeCourseBanner),
   };
 }
 

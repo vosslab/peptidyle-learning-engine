@@ -86,7 +86,7 @@ export function createApplicationApi<Client extends ApiClient>(
       courseScope: query(async (courseId: CourseId) => {
         const [summary, appearance] = await Promise.all([
           client.getCourse(courseId),
-          client.getCourseAppearance(courseId),
+          client.getCourseAppearanceView(courseId),
         ]);
         if (summary.id !== courseId) {
           throw new Error("Course scope response does not match the requested course");

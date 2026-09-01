@@ -6,9 +6,9 @@
 //! reconstructs access decisions nor records a feedback-release receipt.
 
 use question_model::{
-    AssignmentScoringState, GradingResult, QuestionPostGradingContent, StudentFeedback,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
-    Timestamp,
+    AssignmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    StudentResponseInspectionFeedback, Timestamp,
 };
 
 use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
@@ -49,7 +49,9 @@ pub fn score_current_student_feedback_release(
 pub fn project_student_feedback(
     decision: StudentFeedbackReleaseDecision,
     result: Option<GradingResult>,
-    content: &QuestionPostGradingContent,
+    question_feedback: &QuestionFeedback,
+    question_answer: Option<&QuestionAnswer>,
+    question_answer_explanation: Option<&QuestionAnswerExplanation>,
 ) -> Option<StudentFeedback> {
     let mut disclosed = StudentFeedback::empty();
     if let Some(result) = result {
@@ -62,21 +64,16 @@ pub fn project_student_feedback(
         }
     }
     if decision.feedback_text {
-        disclosed.choice_feedback = content.question_feedback.choice_feedback.clone();
-        disclosed.correct_feedback = content.question_feedback.correct_feedback.clone();
-        disclosed.incorrect_feedback = content.question_feedback.incorrect_feedback.clone();
+        disclosed.choice_feedback = question_feedback.choice_feedback.clone();
+        disclosed.correct_feedback = question_feedback.correct_feedback.clone();
+        disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
     }
     if decision.question_answer {
-        disclosed.question_answer = content
-            .question_answer
-            .as_ref()
-            .map(|question_answer| question_answer.content().to_vec());
+        disclosed.question_answer = question_answer.map(|answer| answer.content().to_vec());
     }
     if decision.question_answer_explanation {
-        disclosed.question_answer_explanation = content
-            .question_answer_explanation
-            .as_ref()
-            .map(|explanation| explanation.content().to_vec());
+        disclosed.question_answer_explanation =
+            question_answer_explanation.map(|explanation| explanation.content().to_vec());
     }
     (decision.per_item_correctness
         || decision.score

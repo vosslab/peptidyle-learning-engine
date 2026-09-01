@@ -14,7 +14,7 @@ import {
 } from "solid-js";
 
 import type {
-  GradingOperationActionId,
+  InstructorGradingOperationRetryToken,
   GradingOperationFocus,
   InstructorGradingOperationRow,
 } from "../../api/decoders/grading_operations";
@@ -150,14 +150,14 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
           workspace.assignmentId,
           intent.operation,
           intent.expectedRevision,
-          intent.idempotencyKey,
+          intent.instructorGradingOperationRetryToken,
         );
       } else {
         await workspace.client.recalculateInstructorAssignment(
           workspace.courseId,
           workspace.assignmentId,
           intent.expectedRevision,
-          intent.idempotencyKey,
+          intent.instructorGradingOperationRetryToken,
         );
       }
       setActionIntent(undefined);
@@ -177,15 +177,23 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   }
 
   function startRetry(row: InstructorGradingOperationRow): void {
-    const idempotencyKey: GradingOperationActionId = globalThis.crypto.randomUUID();
+    const instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken =
+      globalThis.crypto.randomUUID();
     void executeAction(
-      retryOperationIntent(row.operation.reference, row.operation.revision, idempotencyKey),
+      retryOperationIntent(
+        row.operation.reference,
+        row.operation.revision,
+        instructorGradingOperationRetryToken,
+      ),
     );
   }
 
   function startRecalculation(): void {
-    const idempotencyKey: GradingOperationActionId = globalThis.crypto.randomUUID();
-    void executeAction(recalculationIntent(workspace.assignment().revision, idempotencyKey));
+    const instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken =
+      globalThis.crypto.randomUUID();
+    void executeAction(
+      recalculationIntent(workspace.assignment().revision, instructorGradingOperationRetryToken),
+    );
   }
 
   function retryAction(): void {

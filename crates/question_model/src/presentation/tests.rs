@@ -8,7 +8,7 @@ use crate::response::{
     QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
     StudentResponse, StudentTextEntry, TextEntrySlot,
 };
-use crate::{QuestionRevisionNumber, QuestionRevisionReference};
+use crate::{QuestionAttemptId, QuestionRevisionNumber, QuestionRevisionReference};
 
 use super::builder::{
     PresentationBuildError, QuestionPresentationNonceSource,
@@ -17,7 +17,8 @@ use super::builder::{
 use super::codec::{crc16_ccitt_false, descriptor_bytes};
 use super::{
     InspectedExternalToolState, QuestionPresentationBinding, QuestionPresentationNonce,
-    QuestionPresentationResponseFormat, RenderedResponseTranslationError, ResponseItemRole,
+    QuestionPresentationResponseFormat, QuestionPresentationToken,
+    RenderedResponseTranslationError, ResponseItemRole, StudentAttemptDescriptor,
     StudentResponseInspection, project_durable_response_to_rendered,
     project_rendered_response_for_inspection, rebuild_public_question_presentation,
     reproduce_question_presentation, translate_rendered_response, verify_question_presentation,
@@ -165,6 +166,35 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     let changed = build_question_presentation_with_nonce_source(&changed, &[], &mut changed_source)
         .expect("changed presentation");
     assert_ne!(presentation.checksum, changed.checksum);
+}
+
+#[test]
+fn student_attempt_descriptor_serializes_the_browser_safe_presentation_token() {
+    let descriptor = StudentAttemptDescriptor {
+        id: QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(1)),
+        deadline: None,
+        presentation_token: QuestionPresentationToken::parse("pd1_q2fE1ezXCkT6_yd7zeqkCQ")
+            .expect("canonical presentation token"),
+    };
+
+    let value = serde_json::to_value(&descriptor).expect("student screen JSON");
+    assert_eq!(
+        value,
+        serde_json::json!({
+            "id": "00000000-0000-0000-0000-000000000001",
+            "deadline": null,
+            "presentationToken": "pd1_q2fE1ezXCkT6_yd7zeqkCQ",
+        })
+    );
+    assert!(
+        serde_json::from_value::<StudentAttemptDescriptor>(serde_json::json!({
+            "id": "00000000-0000-0000-0000-000000000001",
+            "deadline": null,
+            "presentationDigest": "pd1_q2fE1ezXCkT6_yd7zeqkCQ",
+        }))
+        .is_err(),
+        "the retired public field is not a compatibility alias"
+    );
 }
 
 #[test]

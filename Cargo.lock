@@ -771,6 +771,7 @@ name = "browser-api-contract"
 version = "26.9.0"
 dependencies = [
  "serde",
+ "serde_json",
 ]
 
 [[package]]

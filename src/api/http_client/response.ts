@@ -4,11 +4,11 @@ import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../../generated/api/QuestionSearchRequest";
-import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
+import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
 import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
+import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
@@ -33,7 +33,7 @@ import {
   decodeQuestionDetails,
   decodeQuestionSummary,
   decodeQuestionSearchPage,
-  decodeCourseAppearance,
+  decodeCourseAppearanceView,
   decodeCourseGradeSchemeView,
   decodeCourseGradebookTotalsView,
   decodeCoursePage,
@@ -68,9 +68,9 @@ const MAX_COURSE_BANNER_DELIVERY_BYTES = 2 * 1_024 * 1_024;
 async function fetchCourseBanner(
   fetchImplementation: ApiFetch,
   basePath: string,
-  bannerId: CourseBannerId,
+  bannerReference: CourseBannerReference,
 ): Promise<Blob> {
-  const path = `/api/course-banners/${encodedId(bannerId)}/delivery`;
+  const path = `/api/course-banners/${encodedId(bannerReference)}/delivery`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
     headers: { accept: "image/webp" },
@@ -163,7 +163,7 @@ function workspaceRevision(response: Response, path: string): string {
     throw new ApiProtocolError(`API response ${path} must include one strong numeric ETag`);
   return revision;
 }
-function courseAppearancePath(courseId: CourseId): string {
+function courseAppearanceViewPath(courseId: CourseId): string {
   return `/api/courses/${encodedId(courseId)}/appearance`;
 }
 function strongAppearanceRevision(value: string): string {
@@ -189,12 +189,12 @@ async function workspaceDraft(
     revision: workspaceRevision(response, path),
   };
 }
-async function courseAppearance(
+async function courseAppearanceView(
   fetchImplementation: ApiFetch,
   basePath: string,
   courseId: CourseId,
-): Promise<CourseAppearance> {
-  const path = courseAppearancePath(courseId);
+): Promise<CourseAppearanceView> {
+  const path = courseAppearanceViewPath(courseId);
   const response = await fetchImplementation(requestPath(basePath, path), {
     headers: { accept: "application/json" },
     credentials: "same-origin",
@@ -202,7 +202,7 @@ async function courseAppearance(
   });
   requireNoStore(response, path);
   if (!response.ok) throw new ApiRequestError(response.status, path);
-  const appearance = decodeCourseAppearance(await boundedResponseJson(response, path));
+  const appearance = decodeCourseAppearanceView(await boundedResponseJson(response, path));
   if (response.headers.get("etag") !== strongAppearanceRevision(appearance.revision))
     throw new ApiProtocolError(`API response ${path} ETag does not match its appearance revision`);
   return appearance;
@@ -292,7 +292,7 @@ export function createResponseClient(
   | "listQuestionClassifications"
   | "listCourses"
   | "getCourse"
-  | "getCourseAppearance"
+  | "getCourseAppearanceView"
   | "getCourseGradeScheme"
   | "getCourseGradebookTotals"
   | "listAssignments"
@@ -370,7 +370,8 @@ export function createResponseClient(
         `/api/courses/${encodedId(courseId)}`,
         decodeCourseSummary,
       ),
-    getCourseAppearance: (courseId) => courseAppearance(fetchImplementation, basePath, courseId),
+    getCourseAppearanceView: (courseId) =>
+      courseAppearanceView(fetchImplementation, basePath, courseId),
     getCourseGradeScheme: async (
       courseId,
     ): Promise<CourseGradeSchemeView & { readonly revision: string }> => {
@@ -539,7 +540,7 @@ export function createResponseClient(
         );
       const [summary, appearance, issuedQuestion] = await Promise.all([
         client.getCourse(assignmentRoute.courseId),
-        client.getCourseAppearance(assignmentRoute.courseId),
+        client.getCourseAppearanceView(assignmentRoute.courseId),
         issuedQuestionForAttempt(
           fetchImplementation,
           basePath,
@@ -558,7 +559,8 @@ export function createResponseClient(
       verifyAssignmentAttemptScreen(screen);
       return screen;
     },
-    fetchCourseBanner: (bannerId) => fetchCourseBanner(fetchImplementation, basePath, bannerId),
+    fetchCourseBanner: (bannerReference) =>
+      fetchCourseBanner(fetchImplementation, basePath, bannerReference),
     assetUrl: (assetId) => requestPath(basePath, `/api/assets/${encodedId(assetId)}`),
   };
 }

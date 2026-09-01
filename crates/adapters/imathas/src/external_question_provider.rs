@@ -13,12 +13,14 @@ use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
     LaunchLedgerStorageParts, SCORED_EMBED_BROKER_PROFILE_ID, ScoredEmbedFailure,
-    ScoredEmbedLaunchLedger, ScoredEmbedNonce, ScoredEmbedProfileConfig, ScoredEmbedResultVerifier,
+    ScoredEmbedLaunchLedger, ScoredEmbedProfileConfig, ScoredEmbedResultVerifier,
 };
 use crate::{
-    GradeBinding, ImathasAdapterError, ImathasProvider, ImathasQuestionLocation, ProviderFailure,
-    ProviderGradeRequest, ProviderRenderRequest, ResolvedImathasQuestionSource, SafeProviderRender,
-    ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex, sealed, verify_binding,
+    ExternalToolGradingContext, ExternalToolLaunchChallenge,
+    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ImathasProvider,
+    ImathasQuestionLocation, ProviderFailure, ProviderGradeRequest, ProviderRenderRequest,
+    ResolvedImathasQuestionSource, SafeProviderRender, SupportedProfile, VerifiedProviderGrade,
+    hex, sealed, verify_binding,
 };
 
 const MAX_SNAPSHOT_BYTES: usize = 1_048_576;
@@ -31,7 +33,8 @@ mod protocol;
 mod result;
 
 pub use launch::{
-    ContractedLaunchExpectation, LaunchSessionCodec, PersistedContractedLaunchSession,
+    ContractedLaunchExpectation, ExternalToolLaunchSessionAuthenticationCodec,
+    PersistedContractedLaunchSession,
 };
 
 /// Protected deployment settings for one contracted/self-hosted provider.
@@ -278,7 +281,7 @@ impl ProtectedLaunchRequest {
 /// Server-only request for an already-created provider proxy session.
 pub struct ResultTransportRequest<'a> {
     pub(crate) handle: &'a ExternalToolLaunchReference,
-    pub(crate) correlation: &'a ServerCorrelation,
+    pub(crate) launch_session_authentication: &'a ExternalToolLaunchSessionAuthentication,
     pub(crate) provider_key: &'a str,
 }
 
@@ -366,8 +369,8 @@ impl<'a> ResultTransportRequest<'a> {
         self.handle
     }
     #[allow(dead_code)]
-    pub(crate) fn correlation(&self) -> &ServerCorrelation {
-        self.correlation
+    pub(crate) fn launch_session_authentication(&self) -> &ExternalToolLaunchSessionAuthentication {
+        self.launch_session_authentication
     }
 }
 
@@ -442,8 +445,8 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
-        correlation: ServerCorrelation,
-        nonce: ScoredEmbedNonce,
+        launch_session_authentication: ExternalToolLaunchSessionAuthentication,
+        challenge: ExternalToolLaunchChallenge,
         now: Timestamp,
     ) -> Result<ContractedLaunchSession, ImathasAdapterError> {
         verify_binding(question, source)?;
@@ -480,7 +483,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         {
             return Err(ImathasAdapterError::SourceChecksumMismatch);
         }
-        let binding = GradeBinding {
+        let binding = ExternalToolGradingContext {
             attempt,
             question_revision: question_model::QuestionRevisionReference {
                 question_id: question.question_id.clone(),
@@ -491,15 +494,15 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         let expiry = now
             .as_unix_millis()
             .checked_add(self.config.launch_ttl_millis as i64)
-            .ok_or(ImathasAdapterError::InvalidCorrelation)?;
+            .ok_or(ImathasAdapterError::InvalidExternalToolLaunchSessionAuthentication)?;
         let ledger = ScoredEmbedLaunchLedger::begin(
             &self.config.profile,
             binding,
             &source.item_ref,
             source.source_object_checksum().as_str(),
             Timestamp::from_unix_millis(expiry),
-            correlation,
-            nonce,
+            launch_session_authentication,
+            challenge,
         )
         .map_err(ScoredEmbedFailure::into_adapter_error)?;
         let claims = ledger.signed_launch_claims();
@@ -513,7 +516,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
                 &source.item_ref,
                 ledger.provider_seed(),
                 expiry,
-                claims.nonce(),
+                claims.challenge(),
                 claims.binding_digest(),
             )?,
         };

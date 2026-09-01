@@ -44,7 +44,8 @@ Browser                                      PLE
 
 The authenticated `QuestionAttemptId` in the route is the primary student-response binding. The
 server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
-`QuestionRevisionReference` plus seed before reading or mutating anything. A presentation checksum checks that
+`QuestionRevisionReference` plus seed before reading or mutating anything. The submitted Question
+Presentation Token is compared with the complete server-held Question Presentation Checksum to check that
 the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
 and Hotspot Regions within that presentation. Neither the Question Presentation Checksum nor CRC16 authenticates the student or proves
@@ -359,7 +360,7 @@ it is compact and easy to inspect, not because it is collision-resistant or secr
 
 ## Presentation consistency
 
-### Whole-presentation checksum
+### Question Presentation Checksum
 
 Fine-grained IDs say which rendered objects the student selected. A separate Question Presentation Checksum binds the
 complete public presentation:
@@ -381,7 +382,7 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 | Mechanism                         | Detects                                                                                                   | Does not prove                                                 |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
-| Presentation checksum             | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
+| Question Presentation Checksum    | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
 | Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                  | That the browser rendered every asset                          |
 | Idempotency record                | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
 
@@ -414,7 +415,8 @@ For PLE Question JSON Questions, PLE owns both immutable content and grading. Th
 
 1. Load the authenticated active attempt.
 2. Load its checksummed issued PLE Question JSON grading contract, not a current published Question or grader view.
-3. Verify the stored and submitted presentation checksum.
+3. Verify the submitted Question Presentation Token against the stored complete
+   Question Presentation Checksum.
 4. Decode the type-free `answer` using the issued public Question Response Format.
 5. Map rendered IDs to durable internal IDs.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
@@ -505,7 +507,7 @@ need to submit the PLE Question Type. It computes partial credit server-side.
 
 ADAPT's simple multiple-choice answer can be one choice identifier, but some Question Types are more
 verbose than necessary. Matching submits complete mutated `termsToMatch` objects even though grading
-needs relationships between identifiers. No attempt ID, presentation checksum, version token, or ETag
+needs relationships between identifiers. No attempt ID, Question Presentation Token, version token, or ETag
 was found on the inspected ADAPT submission boundary.
 
 ### ADAPT WeBWorK flow
@@ -529,7 +531,7 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | Partial credit      | Server computes it                                   | Preserve server-only scoring                             |
 | External context    | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE       |
 | Renderer result     | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt               |
-| Presentation check  | No ADAPT digest found                                | Bind the answer to a canonical PLE presentation checksum |
+| Presentation check  | No ADAPT digest found                                | Bind the answer to a Question Presentation Token verified against its complete Question Presentation Checksum |
 
 PLE should not copy ADAPT merely because ADAPT has more features. It should adopt the mature ideas
 that match PLE's goals and intentionally differ where an attempt-bound, server-mediated architecture
@@ -627,7 +629,7 @@ The security boundary is:
 - idempotency and atomic commit; and
 - server-only grading data and provider credentials.
 
-CRC16 and the presentation checksum add useful consistency evidence. They do not replace any item in
+CRC16 and the Question Presentation Token/Checksum pair add useful consistency evidence. They do not replace any item in
 that list. A malicious authenticated student can see every public choice and can submit any valid
 rendered ID; secrecy of distractor IDs is neither expected nor required. Correctness remains known
 only to the server-side grader.

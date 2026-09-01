@@ -26,7 +26,7 @@ enum Mismatch {
     Problem,
     Version,
     QuestionSeed,
-    Correlation,
+    LaunchSessionAuthentication,
 }
 
 impl sealed::ProviderSealed for RecordedProvider {}
@@ -78,7 +78,7 @@ impl ImathasProvider for RecordedProvider {
             request.attempt(),
             request.question_revision().clone(),
             request.seed(),
-            request.correlation(),
+            request.launch_session_authentication(),
         );
         match self.mismatch {
             Some(Mismatch::Attempt) => {
@@ -96,7 +96,10 @@ impl ImathasProvider for RecordedProvider {
                     QuestionRevisionNumber::new(99).expect("positive version")
             }
             Some(Mismatch::QuestionSeed) => verdict.seed = QuestionSeed::new(99),
-            Some(Mismatch::Correlation) => verdict.correlation = "wrong-server-correlation".into(),
+            Some(Mismatch::LaunchSessionAuthentication) => {
+                verdict.launch_session_authentication =
+                    "wrong-server-launch_session_authentication".into()
+            }
             None => {}
         }
         Ok(verdict)
@@ -283,7 +286,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
             &source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             QuestionSeed::new(17),
-            &correlation(&question, QuestionSeed::new(17)),
+            &launch_session_authentication(&question, QuestionSeed::new(17)),
         )
         .await
         .unwrap();
@@ -336,7 +339,7 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
             &source,
             QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
             QuestionSeed::new(17),
-            &correlation(&question, QuestionSeed::new(17)),
+            &launch_session_authentication(&question, QuestionSeed::new(17)),
         )
         .await
         .unwrap_err();
@@ -371,7 +374,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         Mismatch::Problem,
         Mismatch::Version,
         Mismatch::QuestionSeed,
-        Mismatch::Correlation,
+        Mismatch::LaunchSessionAuthentication,
     ] {
         let adapter = ImathasAdapter::new(
             store.clone(),
@@ -388,15 +391,15 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
                     &source,
                     QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                     QuestionSeed::new(17),
-                    &correlation(&question, QuestionSeed::new(17)),
+                    &launch_session_authentication(&question, QuestionSeed::new(17)),
                 )
                 .await
                 .unwrap_err(),
             ImathasAdapterError::VerificationRefused
         );
     }
-    let issuer = CorrelationIssuer::from_server_secret([8; 32]);
-    let binding = GradeBinding {
+    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
+    let binding = ExternalToolGradingContext {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         question_revision: QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -404,10 +407,8 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         },
         seed: QuestionSeed::new(17),
     };
-    let persisted = issuer.begin(binding.clone());
-    let stored_value = persisted.to_storage_value();
-    let after_restart = PersistedCorrelation::from_storage_value(&stored_value).unwrap();
-    let restored = issuer.restore(binding.clone(), &after_restart).unwrap();
+    let challenge = ExternalToolLaunchChallenge::from_server_random([8; 32]).unwrap();
+    let restored = codec.authenticate(&binding, &challenge);
     let adapter = ImathasAdapter::new(store.clone(), provider(), [profile()]);
     assert!(
         adapter
@@ -417,31 +418,23 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
             .result()
             .correct
     );
-    let mut altered = stored_value.clone().into_bytes();
-    altered[0] = if altered[0] == b'f' { b'e' } else { b'f' };
-    let altered = String::from_utf8(altered).unwrap();
-    let altered = PersistedCorrelation::from_storage_value(&altered).unwrap();
-    assert!(issuer.restore(binding.clone(), &altered).is_err());
-    let wrong_issuer = CorrelationIssuer::from_server_secret([9; 32]);
-    assert!(
-        wrong_issuer
-            .restore(binding.clone(), &after_restart)
-            .is_err()
+    let altered_challenge = ExternalToolLaunchChallenge::from_server_random([9; 32]).unwrap();
+    assert_ne!(restored, codec.authenticate(&binding, &altered_challenge));
+    assert_ne!(
+        restored,
+        ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+            .unwrap()
+            .authenticate(&binding, &challenge)
     );
-    assert!(
-        PersistedCorrelation::from_storage_value(&stored_value[..stored_value.len() - 1]).is_err()
-    );
-    assert!(PersistedCorrelation::from_storage_value(&"a".repeat(1024)).is_err());
-    assert!(
-        issuer
-            .restore(
-                GradeBinding {
-                    seed: QuestionSeed::new(18),
-                    ..binding
-                },
-                &persisted
-            )
-            .is_err()
+    assert_ne!(
+        restored,
+        codec.authenticate(
+            &ExternalToolGradingContext {
+                seed: QuestionSeed::new(18),
+                ..binding
+            },
+            &challenge
+        )
     );
 }
 
@@ -493,7 +486,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
                 &source,
                 QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
                 QuestionSeed::new(17),
-                &correlation(&question, QuestionSeed::new(17)),
+                &launch_session_authentication(&question, QuestionSeed::new(17)),
             )
             .await,
         Err(ImathasAdapterError::Provider(ProviderFailure::Timeout))
@@ -528,9 +521,12 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     assert_eq!(first.envelope, second.envelope);
 }
 
-fn correlation(question: &QuestionRevision, seed: QuestionSeed) -> ServerCorrelation {
-    let issuer = CorrelationIssuer::from_server_secret([7; 32]);
-    let binding = GradeBinding {
+fn launch_session_authentication(
+    question: &QuestionRevision,
+    seed: QuestionSeed,
+) -> ExternalToolLaunchSessionAuthentication {
+    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([7; 32]).unwrap();
+    let binding = ExternalToolGradingContext {
         attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         question_revision: QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -538,6 +534,6 @@ fn correlation(question: &QuestionRevision, seed: QuestionSeed) -> ServerCorrela
         },
         seed,
     };
-    let persisted = issuer.begin(binding.clone());
-    issuer.restore(binding, &persisted).unwrap()
+    let challenge = ExternalToolLaunchChallenge::from_server_random([7; 32]).unwrap();
+    codec.authenticate(&binding, &challenge)
 }

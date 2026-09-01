@@ -398,8 +398,9 @@ Versioning is therefore explicit at the boundary that evolves:
   Transport-size limits protect request handling; semantic classification
   determines compatibility;
 - strong numeric resource revisions protect concurrent workspace, assignment,
-  QTI-review, and conversion updates; a future Course Appearance Store will
-  apply the same boundary to Course Banner Upload promotion;
+  QTI-review, and conversion updates; `CourseAppearanceView` carries its distinct
+  `CourseAppearanceRevision` scalar, while a future Course Appearance Store will apply the same
+  boundary to Course Banner Upload promotion;
 - closed Rust/TypeScript discriminants version a DTO by adding a reviewed,
   decoder-supported variant rather than silently accepting unknown values;
 - content media types, payload schema versions, checksums, and upcasters belong

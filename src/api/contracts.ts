@@ -29,7 +29,7 @@ import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttem
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { AccountRole } from "../../generated/api/AccountRole";
-import type { CourseAppearance } from "../../generated/api/CourseAppearance";
+import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
@@ -68,7 +68,7 @@ export interface AssignmentContentInput {
 /** One authorized Course Route View with its summary and browser-safe appearance. */
 export interface CourseRouteView {
   readonly summary: CourseSummary;
-  readonly appearance: CourseAppearance;
+  readonly appearance: CourseAppearanceView;
 }
 
 /**

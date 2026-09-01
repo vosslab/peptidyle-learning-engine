@@ -209,13 +209,13 @@ macro_rules! impl_banner_route_id {
     };
 }
 
-/// Stable same-origin route identity for the current course banner.
+/// Stable same-origin reference for the current course banner.
 ///
 /// This is a browser-safe delivery identity, not an object-store key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseBannerId(Uuid);
+pub struct CourseBannerReference(Uuid);
 
-impl_banner_route_id!(CourseBannerId);
+impl_banner_route_id!(CourseBannerReference);
 
 /// Opaque reference returned after an authorized Course Banner Upload.
 ///
@@ -229,33 +229,33 @@ impl_banner_route_id!(CourseBannerUploadReference);
 /// Validated informative text for one course banner.
 ///
 /// The wire value is a plain string. Empty or whitespace-only text is not an
-/// informative alternative, and the 160-scalar ceiling keeps the setting
+/// informative Course Banner text, and the 160-scalar ceiling keeps the setting
 /// short enough to review beside its preview.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseBannerAltText(String);
+pub struct CourseBannerInformativeText(String);
 
-impl CourseBannerAltText {
+impl CourseBannerInformativeText {
     /// Returns the validated text without normalization or truncation.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl TryFrom<String> for CourseBannerAltText {
+impl TryFrom<String> for CourseBannerInformativeText {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let scalar_count = value.chars().count();
         if scalar_count == 0 || scalar_count > 160 || value.trim().is_empty() {
-            return Err("informative banner alternative text must be 1 to 160 characters");
+            return Err("informative course banner text must be 1 to 160 characters");
         }
         Ok(Self(value))
     }
 }
 
-impl From<CourseBannerAltText> for String {
-    fn from(value: CourseBannerAltText) -> Self {
+impl From<CourseBannerInformativeText> for String {
+    fn from(value: CourseBannerInformativeText) -> Self {
         value.0
     }
 }
@@ -274,16 +274,16 @@ pub enum CourseBannerAlternativeText {
     /// The banner conveys information described by the validated text.
     Informative {
         /// Concise equivalent information for non-visual use.
-        text: CourseBannerAltText,
+        text: CourseBannerInformativeText,
     },
 }
 
-/// Browser-safe presentation of the one current course banner.
+/// Browser-safe current course banner.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CourseBannerPresentation {
-    /// Opaque ID resolved only through the same-origin asset route.
-    pub id: CourseBannerId,
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CourseBanner {
+    /// Opaque reference resolved only through the same-origin asset route.
+    pub reference: CourseBannerReference,
     /// Explicit decorative or informative treatment.
     pub alternative_text: CourseBannerAlternativeText,
 }
@@ -296,16 +296,20 @@ pub struct CourseBannerUploadReceipt {
     pub upload: CourseBannerUploadReference,
 }
 
-/// Complete browser-safe course appearance projection.
+/// Browser-safe current Course Appearance View.
+///
+/// A future durable `CourseAppearance` record retains revision history. This
+/// reader shape contains only the authorized current values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CourseAppearance {
+// ASVS 1.5.2 and 2.2.1: allowlist the complete external reader shape.
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CourseAppearanceView {
     /// Reviewed theme selected for the complete course route scope.
     pub theme: CourseThemeId,
     /// Strong revision shared by theme and banner state.
     pub revision: CourseAppearanceRevision,
-    /// Current banner presentation, or no banner frame at all.
-    pub banner: Option<CourseBannerPresentation>,
+    /// Current course banner, or no banner frame at all.
+    pub banner: Option<CourseBanner>,
 }
 
 /// Complete desired banner action in one atomic appearance update.
@@ -397,22 +401,22 @@ mod tests {
     }
 
     #[test]
-    fn informative_alt_text_is_short_nonblank_and_unicode_aware() {
-        let text = CourseBannerAltText::try_from("A peptide chain diagram".to_string())
+    fn informative_banner_text_is_short_nonblank_and_unicode_aware() {
+        let text = CourseBannerInformativeText::try_from("A peptide chain diagram".to_string())
             .expect("informative text should validate");
         assert_eq!(text.as_str(), "A peptide chain diagram");
-        assert!(CourseBannerAltText::try_from("   ".to_string()).is_err());
-        assert!(CourseBannerAltText::try_from("\u{03b2}".repeat(160)).is_ok());
-        assert!(CourseBannerAltText::try_from("\u{03b2}".repeat(161)).is_err());
+        assert!(CourseBannerInformativeText::try_from("   ".to_string()).is_err());
+        assert!(CourseBannerInformativeText::try_from("\u{03b2}".repeat(160)).is_ok());
+        assert!(CourseBannerInformativeText::try_from("\u{03b2}".repeat(161)).is_err());
     }
 
     #[test]
-    fn appearance_projection_contains_only_safe_presentation_data() {
-        let appearance = CourseAppearance {
+    fn appearance_view_contains_only_safe_course_banner_data() {
+        let appearance = CourseAppearanceView {
             theme: CourseThemeId::Ocean,
             revision: CourseAppearanceRevision::INITIAL,
-            banner: Some(CourseBannerPresentation {
-                id: CourseBannerId::from_uuid(Uuid::from_u128(7)),
+            banner: Some(CourseBanner {
+                reference: CourseBannerReference::from_uuid(Uuid::from_u128(7)),
                 alternative_text: CourseBannerAlternativeText::Decorative,
             }),
         };
@@ -423,10 +427,26 @@ mod tests {
                 "theme": "ocean",
                 "revision": "1",
                 "banner": {
-                    "id": "00000000-0000-0000-0000-000000000007",
+                    "reference": "00000000-0000-0000-0000-000000000007",
                     "alternativeText": { "kind": "decorative" }
                 }
             })
+        );
+        assert!(
+            serde_json::from_value::<CourseBanner>(serde_json::json!({
+                "id": "00000000-0000-0000-0000-000000000007",
+                "alternativeText": { "kind": "decorative" }
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CourseAppearanceView>(serde_json::json!({
+                "theme": "ocean",
+                "revision": "1",
+                "banner": null,
+                "privateAppearanceField": "must-not-be-accepted"
+            }))
+            .is_err()
         );
     }
 
@@ -451,7 +471,7 @@ mod tests {
             banner: CourseBannerMutation::Replace {
                 upload,
                 alternative_text: CourseBannerAlternativeText::Informative {
-                    text: CourseBannerAltText::try_from("Forest canopy".to_string())
+                    text: CourseBannerInformativeText::try_from("Forest canopy".to_string())
                         .expect("alt text should validate"),
                 },
             },

@@ -5,6 +5,7 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { createMasteryAssignmentEditorState } from "./support/assignment_editor_test_support.ts";
 import {
   assignmentContentInput,
+  assignmentQuestionLabel,
   moveAssignmentEntry,
   parseExactQuestionIds,
   validateAssignmentEditorState,
@@ -25,6 +26,12 @@ test("assignment Questions payload uses Question IDs as its only question identi
 test("Question ID paste supports instructor punctuation and rejects duplicate choices", () => {
   assert.deepEqual(parseExactQuestionIds("7k3-m9qp"), ["7K3-M9QP"]);
   assert.throws(() => parseExactQuestionIds("7K3-M9QP, 7K3-M9QP"), /once/u);
+});
+
+test("assignment Question labels use the exact public Question ID", () => {
+  const entry = publishedQuestionFixture.assignment.entries[0];
+  assert.ok(entry);
+  assert.equal(assignmentQuestionLabel(entry), entry.questionId);
 });
 
 test("ordinary editing preserves a fixed question while changing shared entry order", () => {

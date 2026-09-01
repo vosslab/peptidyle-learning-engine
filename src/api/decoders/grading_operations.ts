@@ -5,6 +5,8 @@ import type { CourseMembershipReference } from "../../../generated/api/CourseMem
 import type { GradingOperationAction } from "../../../generated/api/GradingOperationAction";
 import type { GradingOperationReason } from "../../../generated/api/GradingOperationReason";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
+import type { InstructorGradingOperationActionReceipt as GeneratedInstructorGradingOperationActionReceipt } from "../../../generated/api/InstructorGradingOperationActionReceipt";
+import type { InstructorGradingOperationRetryToken as GeneratedInstructorGradingOperationRetryToken } from "../../../generated/api/InstructorGradingOperationRetryToken";
 import type { InstructorGradingOperationState } from "../../../generated/api/InstructorGradingOperationState";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import {
@@ -51,7 +53,6 @@ const ACTIONS = ["retry", "recalculate"] as const satisfies ReadonlyArray<Gradin
 
 export type GradingOperationFocus = "question" | "student";
 export type GradingOperationStrongEtag = string;
-export type GradingOperationActionId = string;
 
 export interface InstructorGradingOperation {
   readonly reference: InstructorGradingOperationReference;
@@ -86,23 +87,8 @@ export interface InstructorGradingOperationsPage {
   readonly nextCursor: string | null;
 }
 
-export type GradingOperationActionReceipt =
-  | {
-      readonly kind: "retry";
-      readonly action: GradingOperationActionId;
-      readonly operation: InstructorGradingOperationReference;
-      readonly resultingOperationRevision: number;
-      readonly occurredAt: number;
-    }
-  | {
-      readonly kind: "recalculation";
-      readonly action: GradingOperationActionId;
-      readonly operation: InstructorGradingOperationReference;
-      readonly resultingOperationRevision: number;
-      readonly assignmentRevision: number;
-      readonly scoringGeneration: number;
-      readonly occurredAt: number;
-    };
+export type InstructorGradingOperationRetryToken = GeneratedInstructorGradingOperationRetryToken;
+export type GradingOperationActionReceipt = GeneratedInstructorGradingOperationActionReceipt;
 
 function closed(
   value: unknown,
@@ -258,10 +244,10 @@ export function decodeInstructorGradingOperationReference(
   return routeReference(value, path, "GO");
 }
 
-export function decodeGradingOperationActionId(
+export function decodeInstructorGradingOperationRetryToken(
   value: unknown,
-  path = "idempotencyKey",
-): GradingOperationActionId {
+  path = "retry_token",
+): InstructorGradingOperationRetryToken {
   return decodeUuid(value, path);
 }
 
@@ -288,59 +274,65 @@ export function decodeGradingOperationActionReceipt(
   if (receiptKind === "retry") {
     requireOnlyFields(record, path, [
       "kind",
-      "action",
+      "retry_token",
       "operation",
-      "resultingOperationRevision",
-      "occurredAt",
+      "resulting_operation_revision",
+      "occurred_at",
     ]);
     return {
       kind: receiptKind,
-      action: decodeGradingOperationActionId(field(record, "action", path), `${path}.action`),
+      retry_token: decodeInstructorGradingOperationRetryToken(
+        field(record, "retry_token", path),
+        `${path}.retry_token`,
+      ),
       operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,
       ),
-      resultingOperationRevision: positiveSafeInteger(
-        field(record, "resultingOperationRevision", path),
-        `${path}.resultingOperationRevision`,
+      resulting_operation_revision: positiveSafeInteger(
+        field(record, "resulting_operation_revision", path),
+        `${path}.resulting_operation_revision`,
         "operation revision",
       ),
-      occurredAt: decodeSafeInteger(field(record, "occurredAt", path), `${path}.occurredAt`),
+      occurred_at: decodeSafeInteger(field(record, "occurred_at", path), `${path}.occurred_at`),
     };
   }
   if (receiptKind === "recalculation") {
     requireOnlyFields(record, path, [
       "kind",
-      "action",
+      "retry_token",
       "operation",
-      "resultingOperationRevision",
-      "assignmentRevision",
-      "scoringGeneration",
-      "occurredAt",
+      "resulting_operation_revision",
+      "assignment_revision",
+      "scoring_generation",
+      "occurred_at",
     ]);
     return {
       kind: receiptKind,
-      action: decodeGradingOperationActionId(field(record, "action", path), `${path}.action`),
+      retry_token: decodeInstructorGradingOperationRetryToken(
+        field(record, "retry_token", path),
+        `${path}.retry_token`,
+      ),
       operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,
       ),
-      resultingOperationRevision: positiveSafeInteger(
-        field(record, "resultingOperationRevision", path),
-        `${path}.resultingOperationRevision`,
+      resulting_operation_revision: positiveSafeInteger(
+        field(record, "resulting_operation_revision", path),
+        `${path}.resulting_operation_revision`,
         "operation revision",
       ),
-      assignmentRevision: positiveSafeInteger(
-        field(record, "assignmentRevision", path),
-        `${path}.assignmentRevision`,
+      assignment_revision: positiveSafeInteger(
+        field(record, "assignment_revision", path),
+        `${path}.assignment_revision`,
         "assignment revision",
       ),
-      scoringGeneration: positiveSafeInteger(
-        field(record, "scoringGeneration", path),
-        `${path}.scoringGeneration`,
+      scoring_generation: positiveSafeInteger(
+        field(record, "scoring_generation", path),
+        `${path}.scoring_generation`,
         "scoring generation",
       ),
-      occurredAt: decodeSafeInteger(field(record, "occurredAt", path), `${path}.occurredAt`),
+      occurred_at: decodeSafeInteger(field(record, "occurred_at", path), `${path}.occurred_at`),
     };
   }
   throw new DecodeError(`${path}.kind`, "a known grading-operation action receipt kind");

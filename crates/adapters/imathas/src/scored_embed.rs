@@ -3,7 +3,7 @@
 //! This module verifies a score only after the server-side broker has matched
 //! it to an exact, single-use launch ledger.  iMathAS result JWTs authenticate
 //! the provider response, but the upstream protocol does not carry PLE's
-//! account, attempt, version, nonce, or idempotency claims. Consequently a
+//! account, attempt, version, challenge, or idempotency claims. Consequently a
 //! valid JWT alone is never a grade.
 
 use base64::Engine as _;
@@ -14,8 +14,9 @@ use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    GradeBinding, ImathasAdapterError, ProviderFailure, ServerCorrelation, VerifiedProviderGrade,
-    constant_time_eq,
+    ExternalToolGradingContext, ExternalToolLaunchChallenge,
+    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ProviderFailure,
+    VerifiedProviderGrade, constant_time_eq,
 };
 
 /// The only currently supported server-graded iMathAS profile.
@@ -85,7 +86,7 @@ impl ScoredEmbedProfileConfig {
     }
 
     /// Generic hosted MyOpenMath has no confirmed immutable execution target
-    /// or server-grade correlation contract, so published server grading is
+    /// or External Tool Launch Session authentication contract, so published server grading is
     /// deliberately refused.  A separate ungraded sandbox profile may use a
     /// public practice embed, but it is outside this module.
     pub fn generic_myopenmath_hosted(provider_key: impl Into<String>) -> Self {
@@ -134,7 +135,7 @@ impl ScoredEmbedFailure {
         match self {
             Self::UnsupportedProfile => ImathasAdapterError::UnsupportedProfile,
             Self::InvalidLedger | Self::StaleLedger | Self::DuplicateResult => {
-                ImathasAdapterError::InvalidCorrelation
+                ImathasAdapterError::InvalidExternalToolLaunchSessionAuthentication
             }
             Self::InvalidResult
             | Self::InvalidSignature
@@ -153,15 +154,15 @@ impl ScoredEmbedFailure {
 /// its own idempotency transaction; this in-memory type makes no durability
 /// claim and deliberately has no serde implementation.
 pub struct ScoredEmbedLaunchLedger {
-    binding: GradeBinding,
+    binding: ExternalToolGradingContext,
     provider_key: String,
     provider_question_id: String,
     source_digest: String,
     profile: String,
     provider_seed: u16,
     expires_at: Timestamp,
-    correlation: ServerCorrelation,
-    nonce: ScoredEmbedNonce,
+    launch_session_authentication: ExternalToolLaunchSessionAuthentication,
+    challenge: ExternalToolLaunchChallenge,
     binding_digest: String,
     consumed: bool,
 }
@@ -177,8 +178,8 @@ impl std::fmt::Debug for ScoredEmbedLaunchLedger {
             .field("profile", &self.profile)
             .field("provider_seed", &self.provider_seed)
             .field("expires_at", &self.expires_at)
-            .field("correlation", &"REDACTED")
-            .field("nonce", &"REDACTED")
+            .field("launch_session_authentication", &"REDACTED")
+            .field("challenge", &"REDACTED")
             .field("binding_digest", &"REDACTED")
             .field("consumed", &self.consumed)
             .finish()
@@ -193,12 +194,12 @@ impl ScoredEmbedLaunchLedger {
     #[allow(clippy::too_many_arguments)]
     pub fn begin(
         profile: &ScoredEmbedProfileConfig,
-        binding: GradeBinding,
+        binding: ExternalToolGradingContext,
         provider_question_id: impl Into<String>,
         source_digest: impl Into<String>,
         expires_at: Timestamp,
-        correlation: ServerCorrelation,
-        nonce: ScoredEmbedNonce,
+        launch_session_authentication: ExternalToolLaunchSessionAuthentication,
+        challenge: ExternalToolLaunchChallenge,
     ) -> Result<Self, ScoredEmbedFailure> {
         let provider_question_id = provider_question_id.into();
         let source_digest = source_digest.into();
@@ -214,7 +215,7 @@ impl ScoredEmbedLaunchLedger {
             &provider_question_id,
             &source_digest,
             normalize_provider_seed(binding.seed),
-            &correlation,
+            &launch_session_authentication,
         );
         Ok(Self {
             binding: binding.clone(),
@@ -224,8 +225,8 @@ impl ScoredEmbedLaunchLedger {
             profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
             provider_seed: normalize_provider_seed(binding.seed),
             expires_at,
-            correlation,
-            nonce,
+            launch_session_authentication,
+            challenge,
             binding_digest,
             consumed: false,
         })
@@ -254,8 +255,8 @@ impl ScoredEmbedLaunchLedger {
         }
     }
 
-    pub(crate) fn correlation(&self) -> &ServerCorrelation {
-        &self.correlation
+    pub(crate) fn launch_session_authentication(&self) -> &ExternalToolLaunchSessionAuthentication {
+        &self.launch_session_authentication
     }
 
     pub(crate) fn ensure_eligible_at(&self, now: Timestamp) -> Result<(), ScoredEmbedFailure> {
@@ -277,8 +278,8 @@ impl ScoredEmbedLaunchLedger {
             profile: self.profile.clone(),
             provider_seed: self.provider_seed,
             expires_at: self.expires_at,
-            correlation: self.correlation.0.clone(),
-            nonce: self.nonce.0,
+            launch_session_authentication: self.launch_session_authentication.0.clone(),
+            challenge: self.challenge.0,
             binding_digest: self.binding_digest.clone(),
             consumed: self.consumed,
         }
@@ -293,18 +294,19 @@ impl ScoredEmbedLaunchLedger {
             || parts.profile != SCORED_EMBED_BROKER_PROFILE_ID
             || parts.provider_seed != normalize_provider_seed(parts.binding.seed)
             || parts.expires_at.as_unix_millis() <= 0
-            || parts.nonce.iter().all(|byte| *byte == 0)
+            || parts.challenge.iter().all(|byte| *byte == 0)
             || !valid_sha256(&parts.binding_digest)
         {
             return Err(ScoredEmbedFailure::InvalidLedger);
         }
-        let correlation = ServerCorrelation(parts.correlation);
+        let launch_session_authentication =
+            ExternalToolLaunchSessionAuthentication(parts.launch_session_authentication);
         let expected = launch_binding_digest(
             &parts.binding,
             &parts.provider_question_id,
             &parts.source_digest,
             parts.provider_seed,
-            &correlation,
+            &launch_session_authentication,
         );
         if !constant_time_eq(expected.as_bytes(), parts.binding_digest.as_bytes()) {
             return Err(ScoredEmbedFailure::InvalidLedger);
@@ -317,8 +319,8 @@ impl ScoredEmbedLaunchLedger {
             profile: parts.profile,
             provider_seed: parts.provider_seed,
             expires_at: parts.expires_at,
-            correlation,
-            nonce: ScoredEmbedNonce(parts.nonce),
+            launch_session_authentication,
+            challenge: ExternalToolLaunchChallenge(parts.challenge),
             binding_digest: parts.binding_digest,
             consumed: parts.consumed,
         })
@@ -329,7 +331,7 @@ impl ScoredEmbedLaunchLedger {
     /// contract, never in a PLE browser DTO, URL, log, or Debug output.
     pub fn signed_launch_claims(&self) -> ScoredEmbedLaunchClaims {
         ScoredEmbedLaunchClaims {
-            nonce: self.nonce.encoded(),
+            challenge: base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(self.challenge.0),
             binding_digest: self.binding_digest.clone(),
         }
     }
@@ -338,43 +340,17 @@ impl ScoredEmbedLaunchLedger {
 /// Private fields carried inside an authenticated launch-session storage blob.
 /// It intentionally has no serde or Debug representation.
 pub(crate) struct LaunchLedgerStorageParts {
-    pub(crate) binding: GradeBinding,
+    pub(crate) binding: ExternalToolGradingContext,
     pub(crate) provider_key: String,
     pub(crate) provider_question_id: String,
     pub(crate) source_digest: String,
     pub(crate) profile: String,
     pub(crate) provider_seed: u16,
     pub(crate) expires_at: Timestamp,
-    pub(crate) correlation: String,
-    pub(crate) nonce: [u8; 32],
+    pub(crate) launch_session_authentication: String,
+    pub(crate) challenge: [u8; 32],
     pub(crate) binding_digest: String,
     pub(crate) consumed: bool,
-}
-
-/// High-entropy server-generated nonce for one provider launch. The broker
-/// must use cryptographically random bytes; this type rejects the obvious
-/// empty/all-zero placeholder and is never serializable.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ScoredEmbedNonce([u8; 32]);
-
-impl ScoredEmbedNonce {
-    /// Wraps 256 bits generated by the server's CSPRNG.
-    pub fn from_server_random(value: [u8; 32]) -> Result<Self, ScoredEmbedFailure> {
-        if value.iter().all(|byte| *byte == 0) {
-            return Err(ScoredEmbedFailure::InvalidLedger);
-        }
-        Ok(Self(value))
-    }
-
-    fn encoded(&self) -> String {
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(self.0)
-    }
-}
-
-impl std::fmt::Debug for ScoredEmbedNonce {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("ScoredEmbedNonce(REDACTED)")
-    }
 }
 
 /// Server-private claims that a contracted/self-hosted provider must copy from
@@ -382,14 +358,14 @@ impl std::fmt::Debug for ScoredEmbedNonce {
 /// not document these claims, so a provider unable to echo them is unavailable
 /// for this profile rather than weakly compatible.
 pub struct ScoredEmbedLaunchClaims {
-    nonce: String,
+    challenge: String,
     binding_digest: String,
 }
 
 impl ScoredEmbedLaunchClaims {
-    /// Opaque, per-launch correlation claim for the provider's signed result.
-    pub fn nonce(&self) -> &str {
-        &self.nonce
+    /// Opaque External Tool Launch Challenge claim for the provider's signed result.
+    pub fn challenge(&self) -> &str {
+        &self.challenge
     }
     /// Signed digest of exact attempt/problem/version/seed/source/profile binding.
     pub fn binding_digest(&self) -> &str {
@@ -485,14 +461,14 @@ impl ScoredEmbedResultVerifier {
         if claims.question_id != ledger.provider_question_id {
             return Err(ScoredEmbedFailure::WrongQuestion);
         }
-        let Some(nonce) = claims.nonce else {
+        let Some(challenge) = claims.challenge else {
             return Err(ScoredEmbedFailure::MissingLaunchBinding);
         };
         let Some(binding_digest) = claims.binding_digest else {
             return Err(ScoredEmbedFailure::MissingLaunchBinding);
         };
-        let expected_nonce = ledger.nonce.encoded();
-        if !constant_time_eq(nonce.as_bytes(), expected_nonce.as_bytes())
+        let expected_nonce = ledger.challenge.encoded();
+        if !constant_time_eq(challenge.as_bytes(), expected_nonce.as_bytes())
             || !constant_time_eq(binding_digest.as_bytes(), ledger.binding_digest.as_bytes())
         {
             return Err(ScoredEmbedFailure::WrongLaunchBinding);
@@ -519,7 +495,7 @@ impl ScoredEmbedResultVerifier {
                 points_possible: 1.0,
             },
             ledger.binding.clone(),
-            &ledger.correlation,
+            &ledger.launch_session_authentication,
         ))
     }
 }
@@ -547,9 +523,9 @@ struct ResultClaims {
     score: f64,
     #[serde(default)]
     exp: Option<i64>,
-    /// Required contracted-profile extension: exact opaque launch nonce.
-    #[serde(default, rename = "ple_nonce")]
-    nonce: Option<String>,
+    /// Required contracted-profile extension: exact opaque launch challenge.
+    #[serde(default, rename = "ple_launch_challenge")]
+    challenge: Option<String>,
     /// Required contracted-profile extension: signed exact ledger binding.
     #[serde(default, rename = "ple_binding")]
     binding_digest: Option<String>,
@@ -569,7 +545,7 @@ struct VerifiedClaims {
     question_id: String,
     score: f64,
     exp: Option<i64>,
-    nonce: Option<String>,
+    challenge: Option<String>,
     binding_digest: Option<String>,
 }
 
@@ -621,7 +597,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ScoredEmbe
         question_id,
         score,
         exp,
-        nonce,
+        challenge,
         binding_digest,
         raw,
         allans,
@@ -642,7 +618,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ScoredEmbe
         question_id,
         score,
         exp,
-        nonce: nonce.filter(|value| valid_nonce(value)),
+        challenge: challenge.filter(|value| valid_launch_challenge(value)),
         binding_digest: binding_digest.filter(|value| valid_sha256(value)),
     })
 }
@@ -668,7 +644,7 @@ fn valid_sha256(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
-fn valid_nonce(value: &str) -> bool {
+fn valid_launch_challenge(value: &str) -> bool {
     value.len() == 43
         && value
             .bytes()
@@ -676,11 +652,11 @@ fn valid_nonce(value: &str) -> bool {
 }
 
 fn launch_binding_digest(
-    binding: &GradeBinding,
+    binding: &ExternalToolGradingContext,
     provider_question_id: &str,
     source_digest: &str,
     provider_seed: u16,
-    correlation: &ServerCorrelation,
+    launch_session_authentication: &ExternalToolLaunchSessionAuthentication,
 ) -> String {
     let mut digest = Sha256::new();
     digest.update(b"ple:imathas:scored-embed-binding:v1");
@@ -698,7 +674,7 @@ fn launch_binding_digest(
     digest.update(SCORED_EMBED_BROKER_PROFILE_ID.as_bytes());
     digest.update(provider_question_id.as_bytes());
     digest.update(source_digest.as_bytes());
-    digest.update(correlation.0.as_bytes());
+    digest.update(launch_session_authentication.0.as_bytes());
     crate::hex(digest.finalize().as_slice())
 }
 
@@ -712,14 +688,14 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::CorrelationIssuer;
+    use crate::ExternalToolLaunchSessionAuthenticationCodec;
 
     fn profile() -> ScoredEmbedProfileConfig {
         ScoredEmbedProfileConfig::contracted_self_hosted("self-hosted-imathas", true, true).unwrap()
     }
 
-    fn binding() -> GradeBinding {
-        GradeBinding {
+    fn binding() -> ExternalToolGradingContext {
+        ExternalToolGradingContext {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(2)),
             question_revision: QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
@@ -730,25 +706,24 @@ mod tests {
     }
 
     fn ledger_with(
-        binding: GradeBinding,
+        binding: ExternalToolGradingContext,
         source_digest: String,
-        nonce: [u8; 32],
+        challenge: [u8; 32],
         expires_at: i64,
     ) -> ScoredEmbedLaunchLedger {
-        let correlation = CorrelationIssuer::from_server_secret([9; 32])
-            .restore(
-                binding.clone(),
-                &CorrelationIssuer::from_server_secret([9; 32]).begin(binding.clone()),
-            )
-            .unwrap();
+        let launch_challenge = ExternalToolLaunchChallenge::from_server_random(challenge).unwrap();
+        let launch_session_authentication =
+            ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+                .unwrap()
+                .authenticate(&binding, &launch_challenge);
         ScoredEmbedLaunchLedger::begin(
             &profile(),
             binding,
             "17",
             source_digest,
             Timestamp::from_unix_millis(expires_at),
-            correlation,
-            ScoredEmbedNonce::from_server_random(nonce).unwrap(),
+            launch_session_authentication,
+            launch_challenge,
         )
         .unwrap()
     }
@@ -776,8 +751,8 @@ mod tests {
         let claims = ledger.signed_launch_claims();
         token(
             &format!(
-                r#"{{"id":17,"score":{score},"ple_nonce":"{}","ple_binding":"{}"{extra}}}"#,
-                claims.nonce(),
+                r#"{{"id":17,"score":{score},"ple_launch_challenge":"{}","ple_binding":"{}"{extra}}}"#,
+                claims.challenge(),
                 claims.binding_digest(),
             ),
             secret,
@@ -873,7 +848,7 @@ mod tests {
             verifier.verify_result(
                 &mut ledger(20_000),
                 &token(
-                    r#"{"id":"99","score":1.0,"ple_nonce":"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc","ple_binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#,
+                    r#"{"id":"99","score":1.0,"ple_launch_challenge":"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc","ple_binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#,
                     secret,
                 ),
                 Timestamp::from_unix_millis(10_000),
@@ -904,14 +879,14 @@ mod tests {
 
         let base = binding();
         for changed in [
-            GradeBinding {
+            ExternalToolGradingContext {
                 question_revision: QuestionRevisionReference {
                     question_id: base.question_revision.question_id.clone(),
                     revision_number: QuestionRevisionNumber::new(44).expect("positive version"),
                 },
                 ..base.clone()
             },
-            GradeBinding {
+            ExternalToolGradingContext {
                 seed: QuestionSeed::new(10_002),
                 ..base.clone()
             },

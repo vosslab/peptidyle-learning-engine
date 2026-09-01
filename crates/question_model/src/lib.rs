@@ -131,9 +131,9 @@ pub use crate::course::{
     StudentAssignmentDetail, StudentAssignmentLandingSummary, StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
-    CourseAppearance, CourseAppearanceRevision, CourseAppearanceUpdate, CourseBannerAltText,
-    CourseBannerAlternativeText, CourseBannerId, CourseBannerMutation, CourseBannerPresentation,
-    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseThemeId,
+    CourseAppearanceRevision, CourseAppearanceUpdate, CourseAppearanceView, CourseBanner,
+    CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerMutation,
+    CourseBannerReference, CourseBannerUploadReceipt, CourseBannerUploadReference, CourseThemeId,
 };
 pub use crate::course_grade::{
     CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeMode,
@@ -155,12 +155,16 @@ pub use crate::curation::{
 };
 pub use crate::envelope::{QuestionVariation, QuestionVariationPresentation};
 pub use crate::feedback::{
-    QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint,
-    QuestionPostGradingContent, StudentFeedback, StudentResponseInspectionFeedback,
+    QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint, StudentFeedback,
+    StudentResponseInspectionFeedback,
 };
 pub use crate::generation::QuestionGeneratorReference;
 pub use crate::grading_operations::{
     GradingOperationAction, GradingOperationReason, GradingOperationVisibleState,
+    InstructorGradingOperationActionRequest, InstructorGradingOperationReceipt,
+    InstructorGradingOperationReplay, InstructorGradingOperationReplayError,
+    InstructorGradingOperationReplayLedger, InstructorGradingOperationRequestChecksum,
+    InstructorGradingOperationRetryToken, InstructorGradingOperationRetryTokenError,
     InstructorGradingOperationState, QuestionSubmissionGradingState,
     StudentQuestionSubmissionGradingState,
 };

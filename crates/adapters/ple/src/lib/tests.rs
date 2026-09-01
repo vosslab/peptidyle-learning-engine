@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_ple_draft};
 use domain::generator::QuestionVariationParameters;
+use domain::student_feedback_release::{StudentFeedbackReleaseDecision, project_student_feedback};
 use grading::{AnswerKey, GradingError};
 use question_model::answer::NumericResponseTolerance;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
@@ -13,10 +14,10 @@ use question_model::envelope::{
 use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionContent, QuestionAssetId, QuestionBackendLocator,
-    QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata, QuestionRevision,
-    QuestionRevisionNumber, QuestionType, SourceObjectChecksum, SourceObjectReference,
-    StudentResponse, WorkspaceId,
+    DraftQuestionBackendLocator, DraftQuestionContent, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionAssetId, QuestionBackendLocator, QuestionFeedback, QuestionFormat, QuestionGradingRule,
+    QuestionId, QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionType,
+    SourceObjectChecksum, SourceObjectReference, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -466,6 +467,125 @@ impl PleQuestionImplementation for NumericReferenceImplementation {
         }
         Ok(Some(AnswerKey::Numeric { expected: 7.0 }))
     }
+
+    fn derive_question_feedback_answer_and_explanation(
+        &self,
+        _question: &QuestionRevision,
+        _generated: &QuestionVariationParameters,
+        _envelope: &question_model::envelope::QuestionVariationPresentation,
+        _answer_key: Option<&AnswerKey>,
+        _result: &question_model::GradingResult,
+        _response: &StudentResponse,
+    ) -> Result<
+        (
+            QuestionFeedback,
+            Option<QuestionAnswer>,
+            Option<QuestionAnswerExplanation>,
+        ),
+        PleQuestionBackendError,
+    > {
+        Ok((
+            QuestionFeedback {
+                choice_feedback: Some(vec![QuestionContentBlock::Text {
+                    markdown: "Feedback value.".to_string(),
+                }]),
+                correct_feedback: None,
+                incorrect_feedback: None,
+            },
+            QuestionAnswer::new(vec![QuestionContentBlock::Text {
+                markdown: "Answer value.".to_string(),
+            }]),
+            QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
+                markdown: "Explanation value.".to_string(),
+            }]),
+        ))
+    }
+}
+
+#[test]
+fn verified_grading_keeps_question_feedback_answer_and_explanation_distinct_for_student_release() {
+    let mut adapter = PleQuestionBackend::empty();
+    adapter
+        .register_implementation(NumericReferenceImplementation)
+        .expect("test implementation should register");
+    let question = QuestionRevision {
+        question_id: question_id(),
+        revision_number: revision_number(4),
+        workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
+        backend_locator: QuestionBackendLocator::Ple,
+        question_format: QuestionFormat::PleAlgorithmic,
+        prompt: vec![QuestionContentBlock::Text {
+            markdown: "Enter the reference value.".to_string(),
+        }],
+        response: QuestionResponseFormat::Numeric {
+            tolerance: NumericResponseTolerance::Exact,
+            unit: None,
+        },
+        question_type: QuestionType::Numeric,
+        question_attempt_limit: QuestionAttemptLimit {
+            max_attempts: Some(1),
+        },
+        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+        question_variation_rule: QuestionVariationRule::Static,
+        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
+        metadata: metadata("Release roles"),
+    };
+    let issued = adapter
+        .issue(
+            &question,
+            QuestionSeed::new(12),
+            &source_object_reference(),
+            &source_object_checksum(),
+            &[],
+        )
+        .expect("verified PLE Question should issue");
+    let evaluation = adapter
+        .grade_with_feedback_answer_and_explanation(
+            &question,
+            QuestionSeed::new(12),
+            &issued.parameter_hash,
+            &issued.reproduction_details,
+            &[],
+            &StudentResponse::Numeric { value: 7.0 },
+        )
+        .expect("verified PLE Question should grade");
+    let grading::QuestionGradingOutcome::Graded(result) = evaluation.outcome else {
+        panic!("the numeric response should produce a grading result")
+    };
+    let disclosed = project_student_feedback(
+        StudentFeedbackReleaseDecision {
+            score: false,
+            per_item_correctness: false,
+            feedback_text: true,
+            question_answer: true,
+            question_answer_explanation: true,
+            class_statistics: false,
+        },
+        Some(result),
+        &evaluation.question_feedback,
+        evaluation.question_answer.as_ref(),
+        evaluation.question_answer_explanation.as_ref(),
+    )
+    .expect("the release decision exposes each selected teaching role");
+
+    assert_eq!(
+        disclosed.choice_feedback,
+        Some(vec![QuestionContentBlock::Text {
+            markdown: "Feedback value.".to_string(),
+        }])
+    );
+    assert_eq!(
+        disclosed.question_answer,
+        Some(vec![QuestionContentBlock::Text {
+            markdown: "Answer value.".to_string(),
+        }])
+    );
+    assert_eq!(
+        disclosed.question_answer_explanation,
+        Some(vec![QuestionContentBlock::Text {
+            markdown: "Explanation value.".to_string(),
+        }])
+    );
 }
 
 #[test]

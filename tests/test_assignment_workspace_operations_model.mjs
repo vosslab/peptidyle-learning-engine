@@ -18,9 +18,12 @@ test("grading-operation focus starts with no cursor", () => {
   });
 });
 
-test("grading-operation retry preserves the original idempotency key", () => {
+test("grading-operation retry preserves the original Instructor Grading Operation Retry Token", () => {
   const intent = retryOperationIntent("GO-12", 7, "00000000-0000-0000-0000-000000000012");
-  assert.equal(retryGradingOperationsAction(intent).idempotencyKey, intent.idempotencyKey);
+  assert.equal(
+    retryGradingOperationsAction(intent).instructorGradingOperationRetryToken,
+    intent.instructorGradingOperationRetryToken,
+  );
   assert.equal(retryGradingOperationsAction(intent).expectedRevision, '"7"');
 });
 

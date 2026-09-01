@@ -88,6 +88,23 @@ pub struct PleIssuedQuestion {
     pub reproduction_details: QuestionAttemptReproductionDetails,
 }
 
+/// One verified PLE Question Backend grading evaluation with separately named
+/// trusted teaching values for the exact issued Question Variation.
+///
+/// Question Feedback, Question Answer, and Question Answer Explanation remain
+/// independently policy-released by the Domain layer. This boundary never
+/// carries an Answer Key or browser-safe Student Feedback projection.
+pub struct PleQuestionGradingEvaluation {
+    /// Automatic grading outcome for the accepted Student Response.
+    pub outcome: grading::QuestionGradingOutcome,
+    /// Teaching content selected for the submitted Student Response.
+    pub question_feedback: question_model::QuestionFeedback,
+    /// Optional display-ready accepted response for this Question Variation.
+    pub question_answer: Option<question_model::QuestionAnswer>,
+    /// Optional explanation of how or why the Question Answer is reached.
+    pub question_answer_explanation: Option<question_model::QuestionAnswerExplanation>,
+}
+
 /// Server-only author presentation for one PLE Draft Question seed.
 ///
 /// Its fields are already-rendered student-facing blocks. It deliberately

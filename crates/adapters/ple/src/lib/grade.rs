@@ -1,12 +1,14 @@
 use grading::QuestionGradingOutcome;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionHint, QuestionPostGradingContent, QuestionRevision,
-    StudentResponse,
+    QuestionAttemptReproductionDetails, QuestionHint, QuestionRevision, StudentResponse,
 };
 
 use crate::reproduction::{resolve_question_asset_objects, verify_record};
-use crate::{PleQuestionBackend, PleQuestionBackendError, QuestionAssetObjectReference};
+use crate::{
+    PleQuestionBackend, PleQuestionBackendError, PleQuestionGradingEvaluation,
+    QuestionAssetObjectReference,
+};
 
 impl PleQuestionBackend {
     /// Reproduces and verifies an issued Question before providing pre-response support.
@@ -69,11 +71,12 @@ impl PleQuestionBackend {
             .map_err(PleQuestionBackendError::Grading)
     }
 
-    /// Reproduces, verifies, grades, and derives private teaching content in one pass.
+    /// Reproduces, verifies, grades, and derives separate private Question
+    /// Feedback, Question Answer, and Question Answer Explanation values in one pass.
     ///
     /// Keeping this separate from [`Self::grade`] prevents feedback from being
     /// recreated against a different instance or Question Source.
-    pub fn grade_with_feedback(
+    pub fn grade_with_feedback_answer_and_explanation(
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
@@ -81,7 +84,7 @@ impl PleQuestionBackend {
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
-    ) -> Result<(QuestionGradingOutcome, QuestionPostGradingContent), PleQuestionBackendError> {
+    ) -> Result<PleQuestionGradingEvaluation, PleQuestionBackendError> {
         let backend_execution =
             self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
@@ -96,18 +99,29 @@ impl PleQuestionBackend {
             .grade(question, response, prepared.derived.answer_key.as_ref())
             .map_err(PleQuestionBackendError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = &outcome else {
-            return Ok((outcome, QuestionPostGradingContent::default()));
+            return Ok(PleQuestionGradingEvaluation {
+                outcome,
+                question_feedback: Default::default(),
+                question_answer: None,
+                question_answer_explanation: None,
+            });
         };
         let implementation =
             self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
-        let content = implementation.derive_post_grading_content(
-            question,
-            &prepared.generated,
-            &prepared.envelope,
-            prepared.derived.answer_key.as_ref(),
-            result,
-            response,
-        )?;
-        Ok((outcome, content))
+        let (question_feedback, question_answer, question_answer_explanation) = implementation
+            .derive_question_feedback_answer_and_explanation(
+                question,
+                &prepared.generated,
+                &prepared.envelope,
+                prepared.derived.answer_key.as_ref(),
+                result,
+                response,
+            )?;
+        Ok(PleQuestionGradingEvaluation {
+            outcome,
+            question_feedback,
+            question_answer,
+            question_answer_explanation,
+        })
     }
 }

@@ -14,8 +14,8 @@ use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionGeneratorReference;
 use question_model::question_content::DraftQuestionContent;
 use question_model::{
-    GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision,
-    QuestionType, StudentResponse,
+    GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionFormat,
+    QuestionHint, QuestionRevision, QuestionType, StudentResponse,
 };
 
 use crate::PleQuestionBackendError;
@@ -79,11 +79,12 @@ pub trait PleQuestionImplementation: Send + Sync {
         generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, PleQuestionBackendError>;
 
-    /// Builds sanitized teaching material after the exact issued instance has
-    /// been reproduced and graded. The answer key never leaves this trusted
-    /// adapter boundary; implementations must return rendered public blocks,
-    /// not answer identifiers or key material.
-    fn derive_post_grading_content(
+    /// Builds separate private Question Feedback, Question Answer, and Question
+    /// Answer Explanation values
+    /// after the exact issued instance has been reproduced and graded. The
+    /// answer key never leaves this trusted adapter boundary; implementations
+    /// return only rendered public blocks, never answer identifiers or key material.
+    fn derive_question_feedback_answer_and_explanation(
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
@@ -91,9 +92,16 @@ pub trait PleQuestionImplementation: Send + Sync {
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<QuestionPostGradingContent, PleQuestionBackendError> {
+    ) -> Result<
+        (
+            QuestionFeedback,
+            Option<QuestionAnswer>,
+            Option<QuestionAnswerExplanation>,
+        ),
+        PleQuestionBackendError,
+    > {
         let _ = (question, generated, envelope, answer_key, result, response);
-        Ok(QuestionPostGradingContent::default())
+        Ok((QuestionFeedback::default(), None, None))
     }
 
     /// Builds one authorized pre-response hint for an exact issued Question.

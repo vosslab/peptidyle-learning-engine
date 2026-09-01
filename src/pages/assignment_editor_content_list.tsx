@@ -4,6 +4,7 @@ import { For, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import {
+  assignmentQuestionLabel,
   questionBackendLabel,
   type AssignmentQuestionRow,
   type AssignmentEditorEntry,
@@ -59,7 +60,8 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
       <li class="assignment-editor-row">
         <h3>{entry.title}</h3>
         <p>
-          <CopyableQuestionId displayId={entry.questionId} /> {questionBackendLabel(entry.backend)}
+          <CopyableQuestionId displayId={assignmentQuestionLabel(entry)} />{" "}
+          {questionBackendLabel(entry.backend)}
         </p>
         <div class="assignment-editor-row-actions">
           <button

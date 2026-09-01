@@ -6,7 +6,8 @@ use question_model::generation::QuestionSeed;
 use question_model::{QuestionAttemptId, QuestionRevisionReference};
 
 use crate::{
-    ImathasAdapterError, ProviderFailure, ServerCorrelation, VerifiedProviderGrade,
+    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ProviderFailure,
+    VerifiedProviderGrade,
     cache::{valid_item_ref, valid_opaque_key},
 };
 
@@ -219,14 +220,14 @@ pub struct ProviderRenderRequest<'a> {
 }
 
 /// Server-held, attempt-bound provider grade request. Private fields prevent a
-/// browser request from constructing a correlation or score payload.
+/// browser request from constructing a launch_session_authentication or score payload.
 pub struct ProviderGradeRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) profile: &'a str,
     pub(crate) attempt: QuestionAttemptId,
     pub(crate) question_revision: QuestionRevisionReference,
     pub(crate) seed: QuestionSeed,
-    pub(crate) correlation: &'a ServerCorrelation,
+    pub(crate) launch_session_authentication: &'a ExternalToolLaunchSessionAuthentication,
 }
 
 impl<'a> ProviderGradeRequest<'a> {
@@ -247,7 +248,7 @@ impl<'a> ProviderGradeRequest<'a> {
     }
 
     /// Opaque server-held value transmitted only by the provider client.
-    pub fn correlation(&self) -> &ServerCorrelation {
-        self.correlation
+    pub fn launch_session_authentication(&self) -> &ExternalToolLaunchSessionAuthentication {
+        self.launch_session_authentication
     }
 }

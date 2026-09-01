@@ -31,9 +31,11 @@ pub const GRADING_VERSION: &str = "1";
 pub use adapter::{
     ImathasAdapter, ImathasIssuedAttempt, ResolvedImathasQuestionSource, VerifiedGradeReceipt,
 };
+pub use external_question_provider::ExternalToolLaunchSessionAuthenticationCodec;
 pub use grade::{
-    CorrelationIssuer, GradeBinding, ImathasAdapterError, PersistedCorrelation, ProviderFailure,
-    ServerCorrelation, VerifiedProviderGrade,
+    ExternalToolGradingContext, ExternalToolLaunchChallenge,
+    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ProviderFailure,
+    VerifiedProviderGrade,
 };
 pub use provider::{
     ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,

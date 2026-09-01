@@ -6,3 +6,5 @@
 //! assigns its first route DTO. Values introduced here remain owned, runtime-
 //! free, and fallible-behavior-free; Axum, persistence, application state, and
 //! project tooling stay outside this product boundary.
+
+pub mod grading_operations;
