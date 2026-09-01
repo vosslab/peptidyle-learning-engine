@@ -24,7 +24,8 @@ export type CourseInvitationState = "pending" | "accepted" | "revoked" | "expire
 /** Coarse delivery state; never evidence that a recipient mailbox received mail. */
 export type CourseInvitationEmailDelivery =
   "queued" | "sentToProvider" | "needsAttention" | "cancelled";
-export type RosterImportRowStatus =
+/** Course Roster Import result for one normalized source row. */
+export type CourseRosterImportRowResult =
   "readyToInvite" | "alreadyMember" | "alreadyPending" | "duplicate" | "invalid";
 /** Instructor-safe explanation that never repeats invalid CSV cells or account existence. */
 export type RosterImportRowReason =
@@ -93,7 +94,7 @@ export interface RosterImportRow {
   readonly rowNumber: number;
   readonly email: string | null;
   readonly rosterId: string | null;
-  readonly status: RosterImportRowStatus;
+  readonly result: CourseRosterImportRowResult;
   readonly reason: RosterImportRowReason;
 }
 
@@ -366,7 +367,7 @@ export function decodeRosterRevisionResult(
 
 function decodeRosterImportRow(value: unknown, path: string): RosterImportRow {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rowNumber", "email", "rosterId", "status", "reason"]);
+  requireOnlyFields(record, path, ["rowNumber", "email", "rosterId", "result", "reason"]);
   const decoded: RosterImportRow = {
     rowNumber: decodePositiveInteger(field(record, "rowNumber", path), `${path}.rowNumber`),
     email: decodeNullable(field(record, "email", path), `${path}.email`, decodeNonemptyString),
@@ -375,7 +376,7 @@ function decodeRosterImportRow(value: unknown, path: string): RosterImportRow {
       `${path}.rosterId`,
       decodeNonemptyString,
     ),
-    status: decodeStringEnum(field(record, "status", path), `${path}.status`, [
+    result: decodeStringEnum(field(record, "result", path), `${path}.result`, [
       "readyToInvite",
       "alreadyMember",
       "alreadyPending",
@@ -391,24 +392,24 @@ function decodeRosterImportRow(value: unknown, path: string): RosterImportRow {
     ]),
   };
   const expectedReason: RosterImportRowReason =
-    decoded.status === "readyToInvite"
+    decoded.result === "readyToInvite"
       ? "ready"
-      : decoded.status === "alreadyMember"
+      : decoded.result === "alreadyMember"
         ? "alreadyOnRoster"
-        : decoded.status === "alreadyPending"
+        : decoded.result === "alreadyPending"
           ? "invitationPending"
-          : decoded.status === "duplicate"
+          : decoded.result === "duplicate"
             ? "duplicateInFile"
             : "correctEmailOrRosterId";
   if (decoded.reason !== expectedReason) {
-    throw new DecodeError(`${path}.reason`, "the safe category for its row status");
+    throw new DecodeError(`${path}.reason`, "the safe category for its import row result");
   }
   const withholdsInvalid =
-    decoded.status === "invalid"
+    decoded.result === "invalid"
       ? decoded.email === null && decoded.rosterId === null
       : decoded.email !== null && decoded.rosterId !== null;
   if (!withholdsInvalid) {
-    throw new DecodeError(path, "a row whose protected cells match its validation status");
+    throw new DecodeError(path, "a row whose protected cells match its import result");
   }
   return decoded;
 }

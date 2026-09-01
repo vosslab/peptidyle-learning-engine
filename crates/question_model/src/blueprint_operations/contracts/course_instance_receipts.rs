@@ -6,7 +6,7 @@ use super::{
     ApplyBlueprintUpdateEffect, AssignmentImportReceiptTarget, AssignmentSourceRecord,
     AssignmentSourceSnapshot, BlueprintOperationRetryToken, BoundedResolvedScheduleSet,
     CourseInstanceCreationReservation, CourseInstanceSnapshot, CourseOrigin,
-    CourseRolloverManifest, CurriculumImportRevision,
+    CourseRolloverManifest, CurriculumImportRevision, RequestChecksum,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,8 +26,8 @@ pub struct CourseInstanceReceiptBinding {
     outcome: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    idempotency_key: BlueprintOperationRetryToken,
-    request_digest: [u8; 32],
+    retry_token: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
 
@@ -35,8 +35,8 @@ pub struct CourseInstanceReceiptBinding {
 struct CourseInstanceReceiptAuthority {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    idempotency_key: BlueprintOperationRetryToken,
-    request_digest: [u8; 32],
+    retry_token: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
 
@@ -53,8 +53,8 @@ impl CourseInstanceReceiptBinding {
             outcome,
             course_origin: authority.course_origin,
             authorized_account: authority.authorized_account,
-            idempotency_key: authority.idempotency_key,
-            request_digest: authority.request_digest,
+            retry_token: authority.retry_token,
+            request_checksum: authority.request_checksum,
             server_time: authority.server_time,
         }
     }
@@ -81,11 +81,11 @@ impl CourseInstanceReceiptBinding {
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request_digest
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request_checksum
     }
     pub fn server_time(&self) -> Timestamp {
         self.server_time
@@ -213,11 +213,11 @@ impl CopyCourseForNewTermReceipt {
     pub fn manifest(&self) -> &CourseRolloverManifest {
         &self.manifest
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        self.created_from.idempotency_key()
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        self.created_from.retry_token()
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.created_from.request_digest()
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.created_from.request_checksum()
     }
     pub fn server_time(&self) -> Timestamp {
         self.server_time
@@ -241,8 +241,8 @@ impl ShiftCourseDatesReceipt {
             target_term,
             schedules,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         ) = record.into_receipt_parts();
         if destination.course != outcome.course {
             return Err(ShiftCourseDatesReceiptError::CourseMismatch);
@@ -275,8 +275,8 @@ impl ShiftCourseDatesReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    idempotency_key,
-                    request_digest,
+                    retry_token,
+                    request_checksum,
                     server_time,
                 },
             ),
@@ -311,8 +311,8 @@ impl ApplyBlueprintUpdateReceipt {
             destination,
             course_origin,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         ) = record.into_receipt_parts();
         if source != applied.source()
             || import.destination.assignment != applied.assignment().assignment
@@ -363,8 +363,8 @@ impl ApplyBlueprintUpdateReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    idempotency_key,
-                    request_digest,
+                    retry_token,
+                    request_checksum,
                     server_time,
                 },
             ),
@@ -403,8 +403,8 @@ impl CopyAssignmentFromBlueprintReceipt {
             schedule,
             replacements,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         ) = record.into_receipt_parts();
         if source != applied.source() {
             return Err(AssignmentReceiptError::SourceMismatch);
@@ -438,8 +438,8 @@ impl CopyAssignmentFromBlueprintReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    idempotency_key,
-                    request_digest,
+                    retry_token,
+                    request_checksum,
                     server_time,
                 },
             ),
@@ -512,8 +512,8 @@ impl ReconcileCourseInstanceReceipt {
             original_import_receipt,
             course_origin,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         ) = record.into_receipt_parts();
         let original_import_target = original_import_receipt.target();
         Ok(Self {
@@ -524,8 +524,8 @@ impl ReconcileCourseInstanceReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    idempotency_key,
-                    request_digest,
+                    retry_token,
+                    request_checksum,
                     server_time,
                 },
             ),
@@ -570,10 +570,10 @@ impl AssignmentImportReceipt {
     }
 
     /// Returns the original import request's exact retry identity.
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
         match self {
-            Self::ApplyBlueprintUpdate(receipt) => receipt.binding().idempotency_key(),
-            Self::CopyAssignmentFromBlueprint(receipt) => receipt.binding().idempotency_key(),
+            Self::ApplyBlueprintUpdate(receipt) => receipt.binding().retry_token(),
+            Self::CopyAssignmentFromBlueprint(receipt) => receipt.binding().retry_token(),
         }
     }
 
@@ -590,14 +590,14 @@ impl AssignmentImportReceipt {
         match self {
             Self::ApplyBlueprintUpdate(receipt) => AssignmentImportReceiptTarget::new(
                 receipt.binding().authorized_account(),
-                receipt.binding().idempotency_key().clone(),
+                receipt.binding().retry_token().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,
                 receipt.applied().import_revision(),
             ),
             Self::CopyAssignmentFromBlueprint(receipt) => AssignmentImportReceiptTarget::new(
                 receipt.binding().authorized_account(),
-                receipt.binding().idempotency_key().clone(),
+                receipt.binding().retry_token().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,
                 receipt.applied().import_revision(),

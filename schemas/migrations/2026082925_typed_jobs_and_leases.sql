@@ -15,19 +15,21 @@ CREATE TABLE ple_private.job (
         'publish_public_assets'
     )),
     job_target_kind text NOT NULL CHECK (job_target_kind IN (
-        'course_assignment', 'course_attempt', 'course_retention', 'question_revision',
+        'course_assignment', 'course_attempt', 'question_submission', 'course_retention', 'question_revision',
         'export', 'workspace_import', 'qti_import', 'public_asset_publication'
     )),
     course_id uuid REFERENCES ple_data.course_instance (course_id),
     assignment_id uuid,
     attempt_id uuid REFERENCES ple_private.question_attempt (question_attempt_id),
+    question_submission_id uuid REFERENCES ple_private.question_submission (submission_id),
     workspace_id uuid REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid,
     question_id text,
     revision_number integer,
-    export_id uuid,
+    assignment_export_id uuid,
     source_object_id uuid,
     expected_object_id uuid,
+    course_retention_plan_revision_id uuid,
     generation bigint NOT NULL CHECK (generation > 0),
     target_digest bytea NOT NULL CHECK (pg_catalog.octet_length(target_digest) = 32),
     payload jsonb NOT NULL CHECK (jsonb_typeof(payload) = 'object'),
@@ -42,36 +44,52 @@ CREATE TABLE ple_private.job (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT job_assignment_parent_matches FOREIGN KEY (course_id, assignment_id)
         REFERENCES ple_data.assignment (course_id, assignment_id),
+    CONSTRAINT job_question_submission_pair_is_unique UNIQUE (job_id, question_submission_id),
+    CONSTRAINT job_course_retention_plan_revision_pair_is_unique
+        UNIQUE (job_id, course_retention_plan_revision_id),
     CONSTRAINT job_question_revision_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
+    CONSTRAINT job_kind_matches_target CHECK (
+        (job_kind = 'grade_accepted_submission' AND job_target_kind = 'question_submission')
+        OR (job_kind <> 'grade_accepted_submission' AND job_target_kind <> 'question_submission')
+    ),
     CONSTRAINT job_target_shape_is_exact CHECK (
         (job_target_kind = 'course_assignment' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
-            AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
+            AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
         OR (job_target_kind = 'course_attempt' AND course_id IS NOT NULL AND attempt_id IS NOT NULL
-            AND assignment_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
+            AND assignment_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NULL)
+        OR (job_target_kind = 'question_submission' AND question_submission_id IS NOT NULL
+            AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL
+            AND workspace_id IS NULL AND import_id IS NULL AND question_id IS NULL
+            AND revision_number IS NULL AND assignment_export_id IS NULL AND source_object_id IS NULL
+            AND expected_object_id IS NULL)
         OR (job_target_kind = 'course_retention' AND course_id IS NOT NULL AND assignment_id IS NULL
-            AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL
-            AND source_object_id IS NULL AND expected_object_id IS NULL)
+            AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
+            AND source_object_id IS NULL AND expected_object_id IS NULL
+            AND course_retention_plan_revision_id IS NOT NULL)
         OR (job_target_kind IN ('question_revision', 'public_asset_publication') AND question_id IS NOT NULL
             AND revision_number IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
-            AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND export_id IS NULL AND source_object_id IS NULL AND expected_object_id IS NULL)
-        OR (job_target_kind = 'export' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
-            AND attempt_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NOT NULL
+            AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
+            AND assignment_export_id IS NULL AND source_object_id IS NULL AND expected_object_id IS NULL)
+        OR (job_target_kind = 'export' AND course_id IS NOT NULL AND assignment_id IS NOT NULL AND assignment_export_id IS NOT NULL
+            AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL
             AND source_object_id IS NULL AND expected_object_id IS NOT NULL)
         OR (job_target_kind = 'workspace_import' AND workspace_id IS NOT NULL AND source_object_id IS NOT NULL
-            AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND export_id IS NULL AND expected_object_id IS NULL)
+            AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL AND question_submission_id IS NULL AND import_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL AND expected_object_id IS NULL)
         OR (job_target_kind = 'qti_import' AND workspace_id IS NOT NULL AND import_id IS NOT NULL
             AND source_object_id IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
-            AND attempt_id IS NULL AND question_id IS NULL AND revision_number IS NULL
-            AND export_id IS NULL AND expected_object_id IS NULL)
+            AND attempt_id IS NULL AND question_submission_id IS NULL AND question_id IS NULL AND revision_number IS NULL
+            AND assignment_export_id IS NULL AND expected_object_id IS NULL)
+    ),
+    CONSTRAINT job_course_retention_plan_revision_matches_target CHECK (
+        (job_target_kind = 'course_retention') = (course_retention_plan_revision_id IS NOT NULL)
     ),
     CONSTRAINT job_lease_state_matches CHECK (
         (state = 'leased' AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL AND completed_at IS NULL)
@@ -91,13 +109,15 @@ BEGIN
         OR NEW.course_id IS DISTINCT FROM OLD.course_id
         OR NEW.assignment_id IS DISTINCT FROM OLD.assignment_id
         OR NEW.attempt_id IS DISTINCT FROM OLD.attempt_id
+        OR NEW.question_submission_id IS DISTINCT FROM OLD.question_submission_id
         OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
         OR NEW.import_id IS DISTINCT FROM OLD.import_id
         OR NEW.question_id IS DISTINCT FROM OLD.question_id
         OR NEW.revision_number IS DISTINCT FROM OLD.revision_number
-        OR NEW.export_id IS DISTINCT FROM OLD.export_id
+        OR NEW.assignment_export_id IS DISTINCT FROM OLD.assignment_export_id
         OR NEW.source_object_id IS DISTINCT FROM OLD.source_object_id
         OR NEW.expected_object_id IS DISTINCT FROM OLD.expected_object_id
+        OR NEW.course_retention_plan_revision_id IS DISTINCT FROM OLD.course_retention_plan_revision_id
         OR NEW.generation IS DISTINCT FROM OLD.generation
         OR NEW.target_digest IS DISTINCT FROM OLD.target_digest
         OR NEW.payload IS DISTINCT FROM OLD.payload THEN
@@ -109,6 +129,10 @@ $$;
 CREATE TRIGGER job_target_is_immutable
 BEFORE UPDATE ON ple_private.job
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_job_target_change();
+ALTER TABLE ple_private.question_submission_grading
+    ADD CONSTRAINT question_submission_grading_job_matches_submission
+    FOREIGN KEY (job_id, submission_id)
+    REFERENCES ple_private.job (job_id, question_submission_id);
 CREATE INDEX job_ready_claim_idx
     ON ple_private.job (available_at, job_id) WHERE state = 'ready';
 CREATE INDEX job_expired_lease_idx

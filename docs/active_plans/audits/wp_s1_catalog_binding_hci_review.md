@@ -24,7 +24,7 @@ the retained stack until both repairs pass their focused gates.
   The runner validates its exact bounded shape, strips it from arrangements and
   reports, and removes it before later student child handoff. The public J13
   state retains only the public problem/version IDs after rendered selection.
-- The instructor begins at `/`, fills the labelled `Search published problems`
+- The Instructor begins at `/`, fills the labelled `Search Published Questions`
   control, reaches `Search catalog` with `tabTo`, verifies focus, and activates
   it with Enter. It scopes a row to the exact rendered title, requires that
   title-bearing row count to be one, then reaches the row's `Add published

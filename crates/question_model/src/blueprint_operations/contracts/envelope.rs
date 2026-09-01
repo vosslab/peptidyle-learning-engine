@@ -96,14 +96,14 @@ pub enum BlueprintOperationCompleted {
 
 /// Browser apply intent for one atomic Store-owned Blueprint operation.
 ///
-/// The request repeats only browser-safe intent from preview. The idempotency key binds retries to
-/// the Store's canonical request digest; previews, commands, records, and receipts stay
+/// The request repeats only browser-safe intent from preview. The retry token binds retries to
+/// the Store's server-held Request Checksum; previews, commands, records, and receipts stay
 /// server-held.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintOperationApplyIntent {
     pub request: BlueprintOperationPreviewRequest,
-    pub idempotency_key: BlueprintOperationRetryToken,
+    pub retry_token: BlueprintOperationRetryToken,
 }
 
 #[cfg(test)]
@@ -127,8 +127,7 @@ mod tests {
     fn apply_intent_is_strict_snake_case_and_carries_only_a_request() {
         let intent = BlueprintOperationApplyIntent {
             request: fork_request(),
-            idempotency_key: BlueprintOperationRetryToken::parse("fork-apply")
-                .expect("idempotency key"),
+            retry_token: BlueprintOperationRetryToken::parse("fork-apply").expect("retry token"),
         };
         let wire = serde_json::to_value(&intent).expect("intent serializes");
         assert_eq!(wire["request"]["operation"], "fork_blueprint_course");

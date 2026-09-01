@@ -34,7 +34,7 @@ const bridge = await import(bridgePath);
 // `tests/fixtures/` because it is part of this boundary's durable contract.
 const { cases: pleQuestionJsonParityCases } = JSON.parse(
   fs.readFileSync(
-    path.join(repoRoot, "crates", "wasm", "ple_question_json_response_format_corpus.json"),
+    path.join(repoRoot, "crates", "wasm", "ple_question_json_response_format_fixture_set.json"),
     "utf8",
   ),
 );
@@ -119,7 +119,7 @@ assert.equal(questionAttemptTimingDecision, "submittedWithinGrace");
 
 const fixture = JSON.parse(
   fs.readFileSync(
-    path.join(repoRoot, "tests", "fixtures", "published_problem", "fixture_set.json"),
+    path.join(repoRoot, "tests", "fixtures", "published_question", "fixture_set.json"),
     "utf8",
   ),
 );
@@ -128,7 +128,7 @@ const capabilityViolations = JSON.parse(
     JSON.stringify({
       questions: [
         {
-          question: fixture.publishedProblem,
+          question: fixture.publishedQuestionRevision,
           questionBackendCapabilities: [],
         },
       ],
@@ -138,7 +138,7 @@ const capabilityViolations = JSON.parse(
 );
 assert.deepEqual(
   capabilityViolations.map((violation) => violation.capability),
-  ["algorithmicGeneration", "serverGrading"],
+  ["serverGrading"],
 );
 
 const draftPreview = JSON.parse(
@@ -183,12 +183,12 @@ const presentation = {
     ],
   },
 };
-const presentationDigest = "pd1_q2fE1ezXCkT6_yd7zeqkCQ";
+const presentationToken = "pd1_q2fE1ezXCkT6_yd7zeqkCQ";
 assert.equal(
   bridge.verify_presentation_descriptor(
     JSON.stringify(presentation),
     JSON.stringify([]),
-    presentationDigest,
+    presentationToken,
   ),
   true,
   "Wasm must reproduce the native Rust presentation vector",
@@ -197,7 +197,7 @@ assert.equal(
   bridge.verify_presentation_descriptor(
     JSON.stringify({ ...presentation, title: "Changed title" }),
     JSON.stringify([]),
-    presentationDigest,
+    presentationToken,
   ),
   false,
   "Wasm must reject a visible presentation mutation",

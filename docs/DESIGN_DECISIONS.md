@@ -500,7 +500,7 @@ Assets travel by logical reference through cacheable asset routes, not as repeat
 **Why.** Responsiveness depends more on avoiding repeated render data and renderer work than on
 trimming a few JSON characters. The split also keeps server evidence out of the browser.
 
-**Consequence.** The target response is an attempt-bound `presentationDigest` plus the minimal
+**Consequence.** The target response is an attempt-bound `presentationToken` plus the minimal
 answer for the exact Question Response Format. `kind` belongs in the render payload so a widget can be drawn, but the
 server derives its response decoder from the issued attempt.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#target-network-contract)
@@ -943,7 +943,7 @@ demo accessible without replacing authorization or claiming unverified email del
 ### The canonical walkthrough is a focused teaching loop
 
 **Decision.** The pilot walkthrough has an Instructor create a course, add an active Student, build
-a representative four-question Chapter 1 assignment from published problems, and observe the
+a representative four-Question Chapter 1 Assignment from Published Questions, and observe the
 Student's submitted and scored work. The complete eight-question sweep is a separate release gate.
 
 **Why.** A focused realistic loop demonstrates first success without substituting a one-question

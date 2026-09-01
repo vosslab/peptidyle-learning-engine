@@ -8,7 +8,7 @@ import { useApplicationApi } from "../api/application_api";
 import type { CursorPage, StudentAssignmentLandingSummary } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -310,7 +310,7 @@ export function CourseAssignmentsPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
   const courseScope = useCourseThemeRouteData();
-  const course = courseScope?.kind === "course" ? courseRouteData(courseScope).summary : undefined;
+  const course = courseScope?.kind === "course" ? courseRouteView(courseScope).summary : undefined;
   const courseId = course?.id;
   const courseReference =
     course === undefined ? undefined : courseInstanceRouteReference(course.reference);
@@ -325,7 +325,7 @@ export function CourseAssignmentsPage(): JSX.Element {
     const hasInstructorRole =
       current.kind === "authenticated" && current.session.account.role === "instructor";
     if (!hasInstructorRole || courseScope?.kind !== "course") return false;
-    const role = courseRouteData(courseScope).summary.role;
+    const role = courseRouteView(courseScope).summary.role;
     return role === "instructor";
   };
   async function reloadAssignments(): Promise<void> {

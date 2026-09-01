@@ -6,7 +6,7 @@ import test from "node:test";
 import { capabilityLabel, serializeEditorState } from "../src/pages/editor_page_model.ts";
 import { replaceFirstTextPrompt } from "../src/pages/editor_page.tsx";
 import { createEditorPreviewFacade } from "../src/pages/editor_preview_facade.ts";
-import { decodeNativeDraftPreviewResult } from "../src/wasm/index.ts";
+import { decodePleDraftPreviewResult } from "../src/wasm/index.ts";
 
 const draft = {
   workspace: "0198e000-0000-7000-8000-000000000010",
@@ -30,13 +30,13 @@ function keyFreePreview(seed = 17) {
   };
 }
 
-function wasmFacade(previewNativeDraft) {
+function wasmFacade(previewPleDraft) {
   return {
     mode: "wasm",
     validateResponseFormat: async () => ({ violations: [] }),
     questionAttemptTimingDecision: async () => "unlimited",
     validateAssignmentConfig: async () => [],
-    previewNativeDraft,
+    previewPleDraft,
   };
 }
 
@@ -87,7 +87,7 @@ test("WASM preview decoder refuses contaminated or unknown result fields", () =>
     kind: "ready",
     preview: keyFreePreview(),
   };
-  assert.deepEqual(decodeNativeDraftPreviewResult(JSON.stringify(clean)), clean);
+  assert.deepEqual(decodePleDraftPreviewResult(JSON.stringify(clean)), clean);
 
   for (const field of [
     "problem",
@@ -101,7 +101,7 @@ test("WASM preview decoder refuses contaminated or unknown result fields", () =>
   ]) {
     const contaminated = { ...clean, preview: { ...clean.preview, [field]: "forbidden" } };
     assert.throws(
-      () => decodeNativeDraftPreviewResult(JSON.stringify(contaminated)),
+      () => decodePleDraftPreviewResult(JSON.stringify(contaminated)),
       /unknown field|must not contain/,
     );
   }
@@ -109,15 +109,12 @@ test("WASM preview decoder refuses contaminated or unknown result fields", () =>
     ...clean,
     preview: { ...clean.preview, prompt: [{ ...clean.preview.prompt[0], unexpected: true }] },
   };
-  assert.throws(() => decodeNativeDraftPreviewResult(JSON.stringify(promptUnknown)), /unexpected/);
+  assert.throws(() => decodePleDraftPreviewResult(JSON.stringify(promptUnknown)), /unexpected/);
   const responseUnknown = {
     ...clean,
     preview: { ...clean.preview, response: { ...clean.preview.response, unexpected: true } },
   };
-  assert.throws(
-    () => decodeNativeDraftPreviewResult(JSON.stringify(responseUnknown)),
-    /unexpected/,
-  );
+  assert.throws(() => decodePleDraftPreviewResult(JSON.stringify(responseUnknown)), /unexpected/);
 });
 
 test("editing prose retains every non-text prompt block", () => {

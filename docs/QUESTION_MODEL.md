@@ -59,7 +59,7 @@ Issued Question without selecting again. The value remains a durable server
 record identity, not browser authority.
 
 Every Assignment Attempt also retains its exact Released Assignment Revision
-Reference. The stable Assignment groups later revisions; the retained revision
+Reference. The stable Assignment owns its later revisions; the retained revision
 is the immutable definition and delivery policy expanded into that Student's
 Issued Questions. A Student cannot begin an Assignment Attempt unless the
 stable Assignment is Released and selects that exact revision; Closed and
@@ -183,7 +183,7 @@ immutable historical evidence and is never edited or deleted.
 Replacement publication requires validated content and a closed, privacy-safe
 impact manifest. The resulting Correction Generation is handed to bounded
 idempotent, Correction-Generation-fenced workers for active-binding and remediation
-materialization across every active Blueprint, CourseInstance, assignment,
+updates across every active Blueprint, CourseInstance, assignment,
 selection-pool, and future-issuance reference. A deterministic compatibility
 check governs reissue or excuse for in-progress work. Issued or graded evidence
 remains pinned to the original immutable version; completed work receives
@@ -342,7 +342,7 @@ and persisted presentation binding; the four-character value is neither a
 durable identity nor a security credential.
 
 The canonical binary descriptor covers the Question Presentation, rendered-item
-bases, and Question Asset Renditions. PLE stores its full SHA-256 digest with the attempt and gives
+bases, and Question Asset Renditions. PLE stores its full Question Presentation Checksum with the attempt and gives
 the Student only a 128-bit `pd1_` base64url prefix in
 `StudentAttemptDescriptor`. The browser can rebuild and check the public
 descriptor through Wasm; the server checks the full digest when reproducing

@@ -44,7 +44,7 @@ pub struct DraftQuestionPreview {
     pub seed: QuestionSeed,
     /// Student-facing title.
     pub title: String,
-    /// Fully materialized prompt.
+    /// Fully constructed prompt for the deterministic Question Variation.
     pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
     pub response: QuestionResponseFormat,
@@ -118,7 +118,7 @@ pub fn preview_ple_draft(
             capability: Capability::OfflinePreview,
         });
     }
-    let prompt = materialize_prompt(&request.prompt, seed, &request.question_variation_rule)?;
+    let prompt = build_question_prompt(&request.prompt, seed, &request.question_variation_rule)?;
     Ok(DraftPreviewResult::Ready {
         preview: DraftQuestionPreview {
             workspace: request.workspace,
@@ -136,7 +136,7 @@ pub fn preview_ple_draft(
 /// question-content switch: prose, math, image descriptions, code source, and
 /// table text.  Asset identifiers, checksums, code language labels, and all
 /// response data remain literal.
-pub fn materialize_prompt(
+pub fn build_question_prompt(
     prompt: &[QuestionContentBlock],
     seed: QuestionSeed,
     question_variation_rule: &QuestionVariationRule,
@@ -145,11 +145,11 @@ pub fn materialize_prompt(
         generate(seed, question_variation_rule).map_err(PresentationError::Generation)?;
     prompt
         .iter()
-        .map(|block| materialize_block(block, &generated.parameters))
+        .map(|block| build_question_content_block(block, &generated.parameters))
         .collect()
 }
 
-fn materialize_block(
+fn build_question_content_block(
     block: &QuestionContentBlock,
     parameters: &std::collections::BTreeMap<String, QuestionVariationParameterValue>,
 ) -> Result<QuestionContentBlock, PresentationError> {
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn ple_preview_is_key_free_and_materializes_every_safe_text_field() {
+    fn ple_preview_is_key_free_and_builds_every_safe_text_field() {
         let result = preview_ple_draft(
             &request(DraftQuestionBackendLocator::Ple),
             QuestionSeed::new(19),

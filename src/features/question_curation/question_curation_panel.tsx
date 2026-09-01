@@ -75,9 +75,9 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
     readonly trigger: HTMLButtonElement;
   };
 
-  const [collections, setCollections] = createSignal<
-    QuestionCurationPage<QuestionFolderSummaryView>
-  >(pageWith([], null));
+  const [folders, setFolders] = createSignal<QuestionCurationPage<QuestionFolderSummaryView>>(
+    pageWith([], null),
+  );
   const [savedSearches, setSavedSearches] = createSignal<
     QuestionCurationPage<SavedQuestionSearchView>
   >(pageWith([], null));
@@ -85,14 +85,14 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
   const [stagedQuestionIds, setStagedQuestionIds] = createSignal<ReadonlyArray<string>>([]);
   const [notice, setNotice] = createSignal<CurationNotice>({ kind: "idle" });
   const [showPicker, setShowPicker] = createSignal(false);
-  const [showCollectionForm, setShowCollectionForm] = createSignal(false);
+  const [showFolderForm, setShowFolderForm] = createSignal(false);
   const [showSavedSearchForm, setShowSavedSearchForm] = createSignal(false);
   const [canEditDraft, setCanEditDraft] = createSignal(true);
-  const [openedCollection, setOpenedCollection] = createSignal<QuestionFolderSummaryView>();
+  const [openedFolder, setOpenedFolder] = createSignal<QuestionFolderSummaryView>();
   const [openedMembers, setOpenedMembers] = createSignal<
     QuestionCurationPage<QuestionFolderEntryView>
   >(pageWith([], null));
-  const [collectionTitle, setCollectionTitle] = createSignal("");
+  const [folderTitle, setFolderTitle] = createSignal("");
   const [savedSearchTitle, setSavedSearchTitle] = createSignal("");
   const [editingSavedSearch, setEditingSavedSearch] = createSignal<
     SavedQuestionSearchView | undefined
@@ -100,13 +100,13 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
   const [pendingDeletion, setPendingDeletion] = createSignal<PendingDeletion>();
   const [deletionBusy, setDeletionBusy] = createSignal(false);
   let pickerTrigger: HTMLButtonElement | undefined;
-  let collectionsHeading: HTMLHeadingElement | undefined;
+  let foldersHeading: HTMLHeadingElement | undefined;
   let savedSearchesHeading: HTMLHeadingElement | undefined;
 
-  async function loadCollections(cursor: string | null, append: boolean): Promise<boolean> {
+  async function loadFolders(cursor: string | null, append: boolean): Promise<boolean> {
     try {
       const page = await props.repository.listFolders(cursor);
-      setCollections((current) =>
+      setFolders((current) =>
         append ? pageWith([...current.items, ...page.items], page.nextCursor) : page,
       );
       return true;
@@ -139,16 +139,16 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
   async function reloadCuration(): Promise<void> {
     setNotice({ kind: "working", text: "Reloading current curation." });
     const results = await Promise.all([
-      loadCollections(null, false),
+      loadFolders(null, false),
       ...(props.mayMutatePersonalCuration ? [loadSavedSearches(null, false)] : []),
     ]);
     if (results.some((loaded) => !loaded)) return;
 
-    const opened = openedCollection();
+    const opened = openedFolder();
     if (opened !== undefined && canEditDraft()) {
       try {
         const current = await props.repository.getFolder(opened.reference);
-        setOpenedCollection(current.value);
+        setOpenedFolder(current.value);
         setDraft((local) =>
           local.reference === opened.reference ? { ...local, editNumber: current.etag } : local,
         );
@@ -165,15 +165,15 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
     setNotice({ kind: "success", text: "Current curation is loaded." });
   }
 
-  async function loadCollection(collection: QuestionFolderSummaryView): Promise<boolean> {
-    setNotice({ kind: "working", text: `Loading Question Folder ${collection.title}.` });
+  async function loadFolder(folder: QuestionFolderSummaryView): Promise<boolean> {
+    setNotice({ kind: "working", text: `Loading Question Folder ${folder.title}.` });
     try {
-      const current = await props.repository.getFolder(collection.reference);
-      setOpenedCollection(current.value);
+      const current = await props.repository.getFolder(folder.reference);
+      setOpenedFolder(current.value);
       const mayEdit = mayEditOpenedQuestionFolder(props.mayMutatePersonalCuration);
       setCanEditDraft(mayEdit);
       if (!mayEdit) {
-        const page = await props.repository.listFolderEntries(collection.reference, null);
+        const page = await props.repository.listFolderEntries(folder.reference, null);
         setOpenedMembers(pageWith(page.items, page.nextCursor));
         setNotice({
           kind: "success",
@@ -185,7 +185,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
       let etag = current.etag;
       let cursor: string | null = null;
       do {
-        const page = await props.repository.listFolderEntries(collection.reference, cursor);
+        const page = await props.repository.listFolderEntries(folder.reference, cursor);
         loaded.push(...page.items);
         etag = page.etag;
         cursor = page.nextCursor;
@@ -194,10 +194,10 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
         ...folderDraftFrom(current.value, loaded),
         editNumber: etag,
       });
-      setCollectionTitle(current.value.title);
+      setFolderTitle(current.value.title);
       setCanEditDraft(mayEdit);
       setOpenedMembers(pageWith(loaded, null));
-      setShowCollectionForm(true);
+      setShowFolderForm(true);
       setNotice({
         kind: "success",
         text: `${current.value.title} is ready to edit.`,
@@ -215,11 +215,11 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
   }
 
   async function loadMoreOpenedMembers(): Promise<void> {
-    const collection = openedCollection();
+    const folder = openedFolder();
     const cursor = openedMembers().nextCursor;
-    if (collection === undefined || cursor === null) return;
+    if (folder === undefined || cursor === null) return;
     try {
-      const page = await props.repository.listFolderEntries(collection.reference, cursor);
+      const page = await props.repository.listFolderEntries(folder.reference, cursor);
       setOpenedMembers((current) => pageWith([...current.items, ...page.items], page.nextCursor));
     } catch (error: unknown) {
       setNotice(failureNotice(error, "More Question Folder entries could not load. Try again."));
@@ -228,7 +228,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
 
   async function saveDraft(): Promise<void> {
     const current = draft();
-    const title = collectionTitle().trim();
+    const title = folderTitle().trim();
     if (title.length === 0) {
       setNotice({ kind: "error", text: "Name the Question Folder before saving it." });
       return;
@@ -248,11 +248,11 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
         editNumber: savedResult.etag,
         title: saved.title,
       });
-      setCollections((page) => {
+      setFolders((page) => {
         const existing = page.items.filter((item) => item.reference !== saved.reference);
         return pageWith([...existing, saved], page.nextCursor);
       });
-      setShowCollectionForm(false);
+      setShowFolderForm(false);
       setNotice({
         kind: "success",
         text: `${saved.title} now contains ${current.questionIds.length} ordered questions.`,
@@ -277,17 +277,17 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
     setShowPicker(false);
   }
 
-  async function addStagedTo(collection: QuestionFolderSummaryView): Promise<void> {
-    if (!(await loadCollection(collection))) return;
+  async function addStagedTo(folder: QuestionFolderSummaryView): Promise<void> {
+    if (!(await loadFolder(folder))) return;
     setDraft((current) => ({
       ...current,
       questionIds: appendFolderQuestionIds(current.questionIds, stagedQuestionIds()),
     }));
-    setCollectionTitle(collection.title);
-    setShowCollectionForm(true);
+    setFolderTitle(folder.title);
+    setShowFolderForm(true);
     setNotice({
       kind: "success",
-      text: `Review the ordered Question Folder ${collection.title}, then save the complete update.`,
+      text: `Review the ordered Question Folder ${folder.title}, then save the complete update.`,
     });
   }
 
@@ -349,7 +349,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
     try {
       if (deletion.kind === "folder") {
         await props.repository.deleteFolder(deletion.reference, deletion.editNumber);
-        setCollections((page) =>
+        setFolders((page) =>
           pageWith(
             page.items.filter((item) => item.reference !== deletion.reference),
             page.nextCursor,
@@ -368,7 +368,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
       closeDeletionConfirmation(false);
       setNotice({ kind: "success", text: `${deletion.title} was deleted.` });
       queueMicrotask(() =>
-        (deletion.kind === "folder" ? collectionsHeading : savedSearchesHeading)?.focus({
+        (deletion.kind === "folder" ? foldersHeading : savedSearchesHeading)?.focus({
           preventScroll: true,
         }),
       );
@@ -385,7 +385,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
   }
 
   onMount(() => {
-    void loadCollections(null, false);
+    void loadFolders(null, false);
     if (props.mayMutatePersonalCuration) void loadSavedSearches(null, false);
   });
 
@@ -427,8 +427,8 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
             onClick={() => {
               setDraft(EMPTY_FOLDER_DRAFT);
               setCanEditDraft(true);
-              setCollectionTitle("");
-              setShowCollectionForm(true);
+              setFolderTitle("");
+              setShowFolderForm(true);
             }}
           >
             Create Question Folder
@@ -441,14 +441,10 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
           <h3 id="staged-selection-heading">Selected questions ready to save</h3>
           <p>{stagedQuestionIds().length} questions will be appended in this order.</p>
           <div class="question-curation-actions">
-            <For each={collections().items}>
-              {(collection) => (
-                <button
-                  class="quiet-action"
-                  type="button"
-                  onClick={() => void addStagedTo(collection)}
-                >
-                  Add to {collection.title}
+            <For each={folders().items}>
+              {(folder) => (
+                <button class="quiet-action" type="button" onClick={() => void addStagedTo(folder)}>
+                  Add to {folder.title}
                 </button>
               )}
             </For>
@@ -456,18 +452,18 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
         </section>
       </Show>
 
-      <Show when={showCollectionForm() && props.mayMutatePersonalCuration && canEditDraft()}>
-        <section class="question-curation-editor" aria-labelledby="collection-editor-heading">
-          <h3 id="collection-editor-heading">
+      <Show when={showFolderForm() && props.mayMutatePersonalCuration && canEditDraft()}>
+        <section class="question-curation-editor" aria-labelledby="folder-editor-heading">
+          <h3 id="folder-editor-heading">
             {draft().reference === null ? "Create Question Folder" : "Update Question Folder"}
           </h3>
           <label>
             Question Folder name
             <input
-              value={collectionTitle()}
+              value={folderTitle()}
               maxlength={200}
               disabled={!canEditDraft()}
-              onInput={(event) => setCollectionTitle(event.currentTarget.value)}
+              onInput={(event) => setFolderTitle(event.currentTarget.value)}
             />
           </label>
           <p>{draft().questionIds.length} Questions in this ordered Question Folder.</p>
@@ -529,18 +525,18 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
             >
               Save Question Folder
             </button>
-            <button class="quiet-action" type="button" onClick={() => setShowCollectionForm(false)}>
+            <button class="quiet-action" type="button" onClick={() => setShowFolderForm(false)}>
               Keep editing later
             </button>
           </div>
         </section>
       </Show>
 
-      <Show when={openedCollection() !== undefined && !canEditDraft()}>
-        <section class="question-curation-detail" aria-labelledby="collection-detail-heading">
+      <Show when={openedFolder() !== undefined && !canEditDraft()}>
+        <section class="question-curation-detail" aria-labelledby="folder-detail-heading">
           <p class="eyebrow">Private Question Folder</p>
-          <h3 id="collection-detail-heading">{openedCollection()!.title}</h3>
-          <p>Private Question Folder - edit number {openedCollection()!.editNumber}</p>
+          <h3 id="folder-detail-heading">{openedFolder()!.title}</h3>
+          <p>Private Question Folder - edit number {openedFolder()!.editNumber}</p>
           <p>Browse these current published questions or reuse them through a question picker.</p>
           <ol class="question-curation-members">
             <For each={openedMembers().items}>
@@ -597,42 +593,42 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
         </section>
       </Show>
 
-      <section class="question-curation-list" aria-labelledby="collections-heading">
+      <section class="question-curation-list" aria-labelledby="folders-heading">
         <h3
-          id="collections-heading"
+          id="folders-heading"
           tabindex={-1}
           ref={(element) => {
-            collectionsHeading = element;
+            foldersHeading = element;
           }}
         >
           Question Folders
         </h3>
         <Show
-          when={collections().items.length > 0}
+          when={folders().items.length > 0}
           fallback={<p>Create a Question Folder or select Questions to begin.</p>}
         >
           <ul>
-            <For each={collections().items}>
-              {(collection) => (
+            <For each={folders().items}>
+              {(folder) => (
                 <li>
                   <div>
-                    <strong>{collection.title}</strong>
+                    <strong>{folder.title}</strong>
                     <span>Private Question Folder</span>
                   </div>
                   <div class="question-curation-actions">
                     <button
                       class="quiet-action"
                       type="button"
-                      onClick={() => void loadCollection(collection)}
+                      onClick={() => void loadFolder(folder)}
                     >
                       Open
                     </button>
                     <button
                       class="quiet-action"
                       type="button"
-                      aria-label={`Delete Question Folder ${collection.title}`}
+                      aria-label={`Delete Question Folder ${folder.title}`}
                       onClick={(event) =>
-                        requestDeletion(folderDeletionFromObserved(collection), event.currentTarget)
+                        requestDeletion(folderDeletionFromObserved(folder), event.currentTarget)
                       }
                     >
                       Delete
@@ -642,11 +638,11 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
               )}
             </For>
           </ul>
-          <Show when={collections().nextCursor !== null}>
+          <Show when={folders().nextCursor !== null}>
             <button
               class="quiet-action"
               type="button"
-              onClick={() => void loadCollections(collections().nextCursor, true)}
+              onClick={() => void loadFolders(folders().nextCursor, true)}
             >
               Load more Question Folders
             </button>
@@ -736,10 +732,7 @@ export function QuestionCurationPanel(props: QuestionCurationPanelProps): JSX.El
       <Show when={showPicker()}>
         <QuestionPicker
           repository={props.pickerRepository}
-          sources={questionCurationPickerSources(
-            collections().items,
-            props.mayMutatePersonalCuration,
-          )}
+          sources={questionCurationPickerSources(folders().items, props.mayMutatePersonalCuration)}
           mode={props.mayMutatePersonalCuration ? "many" : "none"}
           maximumSelection={MAX_QUESTION_FOLDER_MEMBERS}
           trigger={pickerTrigger}

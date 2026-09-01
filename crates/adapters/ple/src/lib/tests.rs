@@ -608,7 +608,7 @@ fn versioned_numeric_question(version: &str) -> QuestionRevision {
 }
 
 #[test]
-fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservative() {
+fn additive_generator_versions_coexist_while_question_summary_capabilities_stay_conservative() {
     let mut adapter = PleQuestionBackend::empty();
     adapter
         .register_implementation(VersionedNumericImplementation {
@@ -648,11 +648,11 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
         )
         .expect("published generator version 2 dispatches independently");
 
-    let catalog_capabilities = adapter
+    let question_summary_capabilities = adapter
         .capabilities(&version_one)
         .expect("implementation capabilities should resolve without a generator reference");
-    assert!(catalog_capabilities.supports(Capability::ServerGrading));
-    assert!(!catalog_capabilities.supports(Capability::ClientRendering));
+    assert!(question_summary_capabilities.supports(Capability::ServerGrading));
+    assert!(!question_summary_capabilities.supports(Capability::ClientRendering));
     assert!(matches!(
         adapter.grade(
             &version_one,

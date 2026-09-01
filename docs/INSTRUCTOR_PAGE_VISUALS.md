@@ -25,8 +25,8 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | ------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | Courses                  | `/`                                                          | Instructor home, choose or create a Blueprint, and create a Course Instance                                                      |
 | Course Instances         | `/courses/C-1`                                               | Course Instance identity, local navigation, and assignment scanning                                                              |
-| Blueprint Courses        | `/curriculum`                                                | Reusable Blueprint list, publication state, and owned drafts                                                                     |
-| Blueprint detail         | `/curriculum/:curriculumRef`                                 | Ordered modules and assignments, revision, publication, and fork actions                                                         |
+| Blueprint Courses        | `/blueprint-courses`                                         | Reusable Blueprint list, publication state, and owned drafts                                                                     |
+| Blueprint detail         | `/blueprint-courses/:blueprintCourseRef`                     | Ordered modules and assignments, revision, publication, and fork actions                                                         |
 | Assignment overview      | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                                                                     |
 | Student assignment page  | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                                                                       |
 | New assignment           | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and Question Library entry points                                                               |
@@ -43,7 +43,6 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | My Question Drafts       | `/workspace`                                                 | Private Question drafts and the selected Question draft                                                                          |
 | My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and PLE Question JSON authoring                                                                              |
 | Live Demo sign-in        | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                 |
-| Blueprint operations     | `/curriculum`                                                | Blueprint Course selection, update proposal, Copy Course for New Term, Shift Course Dates, and receipt evidence                 |
 
 The authentication completion pages, invitation redemption, and Student run pages are outside this
 Instructor-workspace gallery. The approved end-to-end teaching loop remains in

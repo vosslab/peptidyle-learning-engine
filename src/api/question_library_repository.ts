@@ -13,7 +13,7 @@ import type {
   QuestionSearchPage,
 } from "../pages/library_page_model";
 
-const CATALOG_PAGE_SIZE = 50;
+const QUESTION_LIBRARY_PAGE_SIZE = 50;
 const CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
@@ -165,7 +165,7 @@ export function questionSearchRequest(
     used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
     cursor,
-    page_size: CATALOG_PAGE_SIZE,
+    page_size: QUESTION_LIBRARY_PAGE_SIZE,
   };
 }
 

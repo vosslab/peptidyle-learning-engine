@@ -8,7 +8,7 @@ import type { EditorPreview, PreviewFacade } from "./editor_page_model";
 export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
   return {
     preview: async (draft, seed: QuestionSeed): Promise<EditorPreview> => {
-      const result = await wasm.previewNativeDraft(
+      const result = await wasm.previewPleDraft(
         {
           workspace: draft.workspace,
           backendLocator: draft.backendLocator,

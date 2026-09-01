@@ -2,7 +2,7 @@
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner, ple_audit_owner;
-GRANT REFERENCES ON TABLE ple_private.course_object_metadata TO ple_data_owner;
+GRANT REFERENCES ON TABLE ple_private.course_object_reference TO ple_data_owner;
 GRANT REFERENCES ON TABLE ple_private.account TO ple_audit_owner;
 RESET ROLE;
 
@@ -50,7 +50,7 @@ CREATE TABLE ple_data.course_object_delivery (
     course_id uuid NOT NULL,
     FOREIGN KEY (delivery_id, object_id) REFERENCES ple_data.object_delivery (delivery_id, object_id),
     FOREIGN KEY (object_id, course_id)
-        REFERENCES ple_private.course_object_metadata (object_id, course_id)
+        REFERENCES ple_private.course_object_reference (object_id, course_id)
 );
 -- ASVS 2.3.1/2.3.3: only one exact owner may make a delivery available.
 CREATE FUNCTION ple_data.require_exact_available_object_delivery_owner()
@@ -134,8 +134,10 @@ CREATE TABLE ple_audit.object_delivery_access_event (
     event_id uuid PRIMARY KEY,
     delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery (delivery_id),
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    course_id uuid,
-    authorized_at timestamp with time zone NOT NULL,
+    access_decision text NOT NULL,
+    accessed_at timestamp with time zone NOT NULL,
+    CONSTRAINT object_delivery_access_event_decision_is_closed
+        CHECK (access_decision IN ('allowed', 'denied')),
     UNIQUE (event_id, delivery_id)
 );
 CREATE TABLE ple_audit.object_storage_check_event (

@@ -218,7 +218,7 @@ export function createCourseRosterClient(
 }
 
 export function readyRosterRows(preview: RosterImportPreview): ReadonlyArray<number> {
-  return preview.rows.filter((row) => row.status === "readyToInvite").map((row) => row.rowNumber);
+  return preview.rows.filter((row) => row.result === "readyToInvite").map((row) => row.rowNumber);
 }
 
 export function newIdempotencyKey(): string {

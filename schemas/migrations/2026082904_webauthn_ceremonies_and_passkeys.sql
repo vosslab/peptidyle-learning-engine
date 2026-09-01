@@ -11,7 +11,7 @@ BEGIN
         SELECT 1 FROM pg_catalog.pg_class AS relations
         JOIN pg_catalog.pg_namespace AS namespaces ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'ple_private'
-          AND relations.relname IN ('webauthn_ceremony', 'passkey')
+          AND relations.relname IN ('passkey_ceremony', 'passkey')
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42P07',
             MESSAGE = 'a reserved migration 2026082904 relation already exists';
@@ -21,7 +21,7 @@ $$;
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE TABLE ple_private.webauthn_ceremony (
+CREATE TABLE ple_private.passkey_ceremony (
     ceremony_id uuid PRIMARY KEY,
     kind text NOT NULL,
     target_account_id uuid,
@@ -30,19 +30,19 @@ CREATE TABLE ple_private.webauthn_ceremony (
     created_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
-    CONSTRAINT webauthn_ceremony_kind_is_closed CHECK (kind IN ('registration', 'authentication')),
-    CONSTRAINT webauthn_ceremony_target_is_valid CHECK (
+    CONSTRAINT passkey_ceremony_kind_is_closed CHECK (kind IN ('registration', 'authentication')),
+    CONSTRAINT passkey_ceremony_target_is_valid CHECK (
         (kind = 'registration' AND target_account_id IS NOT NULL)
         OR kind = 'authentication'
     ),
-    CONSTRAINT webauthn_ceremony_target_exists FOREIGN KEY (target_account_id)
+    CONSTRAINT passkey_ceremony_target_exists FOREIGN KEY (target_account_id)
         REFERENCES ple_private.account (account_id),
-    CONSTRAINT webauthn_ceremony_binding_is_sha256 CHECK (pg_catalog.octet_length(browser_binding_hash) = 32),
-    CONSTRAINT webauthn_ceremony_state_is_present CHECK (pg_catalog.octet_length(state) > 0),
-    CONSTRAINT webauthn_ceremony_lifetime_is_bounded CHECK (
+    CONSTRAINT passkey_ceremony_binding_is_sha256 CHECK (pg_catalog.octet_length(browser_binding_hash) = 32),
+    CONSTRAINT passkey_ceremony_state_is_present CHECK (pg_catalog.octet_length(state) > 0),
+    CONSTRAINT passkey_ceremony_lifetime_is_bounded CHECK (
         expires_at > created_at AND expires_at <= created_at + interval '10 minutes'
     ),
-    CONSTRAINT webauthn_ceremony_consumption_is_ordered CHECK (consumed_at IS NULL OR consumed_at >= created_at)
+    CONSTRAINT passkey_ceremony_consumption_is_ordered CHECK (consumed_at IS NULL OR consumed_at >= created_at)
 );
 
 CREATE TABLE ple_private.passkey (
@@ -62,14 +62,14 @@ CREATE TABLE ple_private.passkey (
 );
 
 CREATE INDEX passkey_active_account_idx ON ple_private.passkey (account_id, created_at) WHERE revoked_at IS NULL;
-ALTER TABLE ple_private.webauthn_ceremony ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.webauthn_ceremony FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.passkey_ceremony ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.passkey_ceremony FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.passkey ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.passkey FORCE ROW LEVEL SECURITY;
-REVOKE ALL PRIVILEGES ON TABLE ple_private.webauthn_ceremony FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON TABLE ple_private.passkey_ceremony FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.passkey FROM PUBLIC;
-COMMENT ON TABLE ple_private.webauthn_ceremony IS
-    'Private browser-bound, single-use WebAuthn ceremony state; no password verifier.';
+COMMENT ON TABLE ple_private.passkey_ceremony IS
+    'Private browser-bound, single-use Passkey Ceremony state; WebAuthn is protocol-only.';
 COMMENT ON TABLE ple_private.passkey IS
     'Private serialized WebAuthn credential state for one global account.';
 

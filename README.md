@@ -45,49 +45,39 @@ launcher builds the production browser bundle and starts the real PostgreSQL, Mi
 gateway, and private WebWork services behind one disposable HTTPS origin. Use
 `./run_live_demo.sh --headless` when you need the same stack without opening a browser.
 
-Use the visible seeded-role entry to exercise ordinary PLE authorization and teaching work:
+Use the visible seeded-role entry to verify the currently mounted authorization boundary:
 
-- As Elena (Instructor), select an assignment title to open its **Overview**. Use **Questions** to
-  discover published questions by human-readable Question ID, reuse an existing assignment's
-  ordered questions, select from reusable pools, and replace future-run questions. Use **Policies**
-  for learner instructions, delivery, lifecycle, and disclosure rules. **Student view** shows the
-  current answer-free learner landing while retaining the Instructor session. To test ordinary
-  Instructor passkeys, use **Account** -> **Your passkeys**, sign out, and choose **Sign in with a
-  passkey**.
-- From the Instructor course, open reusable curricula to create revisioned private Blueprints,
-  inspect public Alpha curricula, reuse their ordered questions, and adopt a source into ordinary
-  course work through an answer-free proposal and immutable receipt.
-- As Mary (Student), enter the course through ordinary Student entry, start the assignment, and
-  submit a response. If **Response received** appears, use **Check grading status** until feedback
-  or an instructor-attention message appears. Return to Elena's Instructor session and open
-  **Gradebook**: the server-owned grade and authorized run history are visible there as ordinary
-  course records.
-- As Morgan (Sysadmin), open **Account** -> **Your passkeys**, add a passkey, sign out, and use
-  **Sign in with a passkey**. This direct Sysadmin test retains the ordinary Sysadmin account and
-  authorization; it is not a role claim supplied by the demo selector.
+- Select one seeded Account. The browser receives the answer-free Account ID and immutable Product
+  Role of its Authenticated Session; the role is resolved by the server rather than selected in a
+  browser request.
+- The current browser surface intentionally stops there. Course, Question Library, Question
+  authoring, Assignment delivery, Gradebook, passkey, and email-code workflows have contracts and
+  focused evidence, but remain unmounted until their owning Store and service boundaries exist.
+- Use the active implementation registry for exact completion evidence; it distinguishes permanent
+  contract tests from disposable database, local-stack, browser, and visual acceptance.
 
 When finished, run `./run_live_demo.sh stop` to clean only the active demo owner. Relaunching creates
 a fresh seeded installation, so changes made during exploration are disposable.
 
-## Why this project
+## The teaching system PLE is building
 
-Most homework systems treat a submitted assignment as finished. Instructors using algorithmic
-questions report the opposite behavior: students voluntarily rerun a completed assignment 30 or more
-times, because every run generates fresh values around the same concept. A platform that ends at
+Most homework systems treat a submitted Assignment as finished. Instructors using algorithmic
+Questions report the opposite behavior: Students voluntarily begin a new Assignment Attempt with
+fresh values around the same concept. A platform that ends at
 completion cannot serve that, and a platform tied to one question format cannot serve a course that
-already owns WeBWorK problems, QTI pools, and H5P activities.
+already uses WeBWorK Questions, QTI imports, and H5P activities.
 
 The design answers both:
 
-- Mastery runs as the default mode, where a student keeps working until every question is correct or
-  an instructor-defined stopping condition is reached.
+- Mastery Assignment Attempts as the default mode, where a Student keeps working until every
+  Question is correct or an Instructor-defined stopping condition is reached.
 - Unlimited practice after completion, with completion, grading, variation, continued practice, and
   feedback disclosure as five independent policies an instructor combines freely.
-- Question discovery and reuse through a published Library, human-readable Question IDs, ordered
-  assignment reuse, and reusable pools, with the same selection boundary used by authoring and
-  reusable curricula.
-- Reusable curricula through revisioned private Blueprints and public Alpha curricula, preserving
-  immutable publication pins and answer-free inspection while allowing ordinary course adoption.
+- Question discovery and reuse through the Question Library, human-readable Question IDs, ordered
+  Assignment reuse, and Question Pools, with the same selection boundary used by authoring and
+  Blueprint Courses.
+- Blueprint Courses and Course Instances with immutable Question Revision pins and answer-free
+  inspection, using exact Blueprint operations rather than a shared adoption lifecycle.
 - A focused assignment workspace: the title opens **Overview**, while **Questions**, **Policies**, and
   **Student view** each expose one teaching task without changing the Instructor identity.
 - One backend-neutral question model behind every engine, so PLE algorithmic questions,
@@ -121,11 +111,11 @@ is a compile-graph violation rather than a code-review judgment call. The bridge
 work: parameter generation, answer-format validation, timer display, and state transitions, none of
 which carry information about correctness.
 
-**Published content is shared and immutable; educational records are course-owned.** One published
-problem version serves many instructors without being copied. Exact course membership, Student
+**Published content is shared and immutable; educational records are course-owned.** One Published
+Question Revision serves many Instructors without being copied. Exact Course Membership, Student
 ownership, workspace relation, observer grants, and worker leases are the database-enforced privacy
-boundaries. Deleting a course's Student records destroys no reusable content because assignments
-reference shared problem versions instead of owning copies.
+boundaries. Deleting a Course Instance's Student records destroys no reusable content because
+Assignments reference shared Question Revisions instead of owning copies.
 
 ## Architecture at a glance
 
@@ -236,47 +226,45 @@ repository-owned Rust gate checks both Cargo feature graphs, strict Clippy, test
 the browser WebAssembly target. Build the API, WebAssembly bridge, generated contracts, and Solid
 client with `./build.sh`.
 
-## One assignment through the system
+## Target Assignment flow
 
-The core path is implemented as a set of explicit ownership transitions:
+The intended course-delivery path uses explicit ownership transitions; its mounted delivery service
+remains downstream work:
 
 ```text
 author draft
-  -> publish one immutable problem version
-  -> assign that exact version to a course
-  -> issue a fresh server-seeded learner attempt
-  -> persist an automatic result
-  -> publish the newest scoring generation atomically
-  -> rebuild the current course item analysis on a lower-priority job
+  -> publish one immutable Question Revision
+  -> add that exact Question Revision to an Assignment in a Course Instance
+  -> issue a fresh server-seeded Question Attempt
+  -> accept a Question Submission and Automated Grading Receipt
+  -> publish the current Assignment Scoring State atomically
+  -> rebuild current Course item analysis in a Job
 ```
 
-The final analysis is course-owned and instructor-only. It reports aggregate difficulty,
-discrimination, credit distribution, unanswered and pending-manual counts, and completion time. It
-contains no learner identity, raw response, answer key, or grading implementation. A stale analysis
-generation is discarded without delaying or rolling back the current grade.
+The final analysis is Course-owned and Instructor-only. It reports aggregate difficulty,
+discrimination, credit distribution, unanswered counts, and completion time. It contains no Student
+identity, raw response, Answer Key, or grading implementation. A stale analysis generation is
+discarded without delaying or rolling back the current Assignment Grade.
 
-When automatic grading needs attention, review the learner's attention state, open **Grading
-operations**, review the metadata-only operation, and choose its currently enabled **Retry automated
-grading for [question]** action when the operation is eligible. Follow the operation's current state
-and available action, wait for learner completion, then open **Gradebook** and confirm the current
-score. The recovery action reuses the accepted server-private response; the Instructor page receives
-metadata and receipts, not learner responses or answer keys.
+Automated-grading recovery contracts retain the accepted server-private Student Response, metadata,
+and Receipts without exposing Answer Keys. The Instructor-facing route is not mounted yet, so this
+is a design boundary rather than a current browser workflow.
 
 ## What exists today
 
 | Area                                 | State                                                                                                                                                                                                                                                                                                             |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Attempt, timing, deterministic scoring, item analysis, retention, catalog, and worker contracts; in-memory and PostgreSQL implementations share conformance tests                                                                                                                                                 |
-| Reusable curriculum                  | Revisioned private Blueprints, public Alpha curricula, immutable publication pins, answer-free inspection, and shared question selection                                                                                                                                                                          |
-| API server                           | Auth, catalog, course, assignment, run, submission, deterministic grading, item analysis, asset, export, workspace, retention, reusable curriculum, and curriculum-adoption route groups                                                                                                                          |
+| Rust domain and learning data access | Question, Assignment, Course, Blueprint-operation, timing, scoring, retention, and Job contracts; focused in-memory and PostgreSQL foundations carry their own conformance evidence.                                                                                                                               |
+| Blueprint and Course contracts       | Exact Blueprint Course and Course Instance operation contracts for forking, creation, copying, updates, new terms, and schedule changes; Memory evidence is complete only where the active registry says so.                                                                                                      |
+| API server                           | Authenticated Session handling, composition, health, request lifecycle, and HTTP security are mounted. Course, Question Library, delivery, and Job routes remain explicit downstream work.                                                                                                                        |
 | WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                                    |
-| Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                      |
-| Curriculum adoption                  | Current BlueprintCourse/CourseInstance contract and Memory behavior cover preview, explicit adoption, rollover, term shifting, provenance, controlled updates, and divergence recovery. PostgreSQL/RLS, server, browser, and live acceptance remain SD1 cutover work.                                             |
-| PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                          |
-| Question engines                     | PLE Question JSON schema version 2 implements all eight required PLE Question Types; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
-| DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                        |
+| Browser client                       | Seeded Live Demo Account selection is the mounted browser entry. Strict browser contracts and unmounted Course, Question Library, authoring, delivery, and Gradebook surfaces remain separately tracked.                                                                                                          |
+| Blueprint operations                 | Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates have exact contracts. Their PostgreSQL/RLS, service, browser, and live acceptance remain SD1 cutover work. |
+| PostgreSQL                           | Fresh SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification for their accepted foundations.                                                                                                                                                                  |
+| Question engines                     | PLE Question JSON schema version 2 supports the eight required Question Types. WeBWorK, QTI, iMathAS, and H5P boundaries have focused adapter contracts; mounted delivery and provider integration remain separately tracked.                                                                                     |
+| DOCX and PDF export                  | Deterministic Student and Answer Key artifact generation through the object-store boundary.                                                                                                                                                                                                                        |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                             |
-| Worker runtime                       | Production attests seven Job Kinds: six generic queue Job Kinds plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                            |
+| Worker runtime                       | Typed Job contracts and leases are established; mounted worker delivery remains separately tracked.                                                                                                                                                                                                                |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -287,19 +275,14 @@ The full architecture and milestone plan remain in
 
 ## Current limitations
 
-- PLE Question JSON schema version 2 strictly parses, splits, publishes, renders, validates, and server-grades
-  multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical entry, matching,
-  ordered list, and image hotspot; version 1 single choice remains compatible. The visual instructor
-  editor still supports only version 1 single choice. Family-specific visual authoring, external
-  QTI-JSONL adoption, hotspot pointer-overlay and media-upload workflows, and the Chapter 1 pilot
-  content remain planned work.
+- PLE Question JSON schema version 2 is the canonical static Question Source for MC, MA, FIB,
+  MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Browser authoring and delivery require their own
+  mounted Store and service boundaries before they are presented as current workflows.
 - QTI parsing is intentionally bounded to the reviewed Canvas and Blackboard subsets. A browser
   import workflow awaits one Store-backed Workspace Import and service route; broader vendor
   compatibility, imported media, and optional exporters remain deferred.
-- The live WeBWorK path intentionally supports only the licensed, user-authored single-radio PGML
-  fixture in `content/pilot/webwork/`. Matching and broader problem compatibility need their own
-  implementation and verification; this bounded renderer integration is not a general WeBWorK
-  compatibility claim.
+- WeBWorK support remains a bounded adapter contract rather than a general compatibility claim.
+  Broader Question Type support requires its own implementation and verification.
 - Course appearance intentionally supports one theme and at most one 1200 by 328 entry banner per
   course. Per-page themes, multiple banners, freeform CSS, SVG/animated uploads, and learner edits are
   out of scope because the accepted version already supplies safe, accessible course identity without

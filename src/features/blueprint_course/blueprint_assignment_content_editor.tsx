@@ -148,10 +148,10 @@ export function BlueprintAssignmentContentEditor(
   }
 
   return (
-    <section class="curriculum-content-editor" aria-label="Blueprint Assignment content">
+    <section class="blueprint-course-content-editor" aria-label="Blueprint Assignment content">
       <fieldset disabled={!props.editable}>
         <legend>Blueprint Assignment</legend>
-        <div class="curriculum-form-grid">
+        <div class="blueprint-course-form-grid">
           <label>
             Assignment title
             <input
@@ -160,7 +160,7 @@ export function BlueprintAssignmentContentEditor(
               onInput={(event) => changeText("title", event.currentTarget.value)}
             />
           </label>
-          <label class="curriculum-form-wide">
+          <label class="blueprint-course-form-wide">
             Instructions for students
             <textarea
               value={props.content.instructions}
@@ -172,14 +172,17 @@ export function BlueprintAssignmentContentEditor(
         </div>
       </fieldset>
 
-      <section class="curriculum-entry-section" aria-labelledby="curriculum-question-heading">
-        <div class="curriculum-section-heading">
+      <section
+        class="blueprint-course-entry-section"
+        aria-labelledby="blueprint-course-question-heading"
+      >
+        <div class="blueprint-course-section-heading">
           <div>
-            <h3 id="curriculum-question-heading">Questions and pools</h3>
+            <h3 id="blueprint-course-question-heading">Questions and pools</h3>
             <p>Fixed questions and pools stay in the order shown here.</p>
           </div>
           <Show when={props.editable}>
-            <div class="curriculum-inline-actions">
+            <div class="blueprint-course-inline-actions">
               <button type="button" onClick={(event) => openPicker("fixed", event.currentTarget)}>
                 Add fixed questions
               </button>
@@ -196,19 +199,19 @@ export function BlueprintAssignmentContentEditor(
         <Show
           when={props.content.entries.length > 0}
           fallback={
-            <p class="curriculum-empty-copy">
+            <p class="blueprint-course-empty-copy">
               Choose published questions to create the first reusable entry.
             </p>
           }
         >
-          <ol class="curriculum-entry-list">
+          <ol class="blueprint-course-entry-list">
             <For each={props.content.entries}>
               {(entry, index) => (
                 <li>
                   <div>
                     <strong>{entrySummary(entry)}</strong>
                     <Show when={entry.kind === "pool"}>
-                      <label class="curriculum-small-field">
+                      <label class="blueprint-course-small-field">
                         Draw each run
                         <input
                           type="number"
@@ -233,7 +236,7 @@ export function BlueprintAssignmentContentEditor(
                   </div>
                   <Show when={props.editable}>
                     <div
-                      class="curriculum-reorder-actions"
+                      class="blueprint-course-reorder-actions"
                       aria-label={`Actions for entry ${index() + 1}`}
                     >
                       <button
@@ -275,10 +278,10 @@ export function BlueprintAssignmentContentEditor(
 
       <fieldset disabled={!props.editable}>
         <legend>Reusable defaults</legend>
-        <p class="curriculum-field-help">
+        <p class="blueprint-course-field-help">
           These defaults apply when this content becomes a teaching-course assignment.
         </p>
-        <div class="curriculum-form-grid">
+        <div class="blueprint-course-form-grid">
           <label>
             Whole Assignment Attempt time limit (seconds)
             <input
@@ -350,11 +353,11 @@ export function BlueprintAssignmentContentEditor(
 
       <fieldset disabled={!props.editable}>
         <legend>Optional relative schedule</legend>
-        <p class="curriculum-field-help">
+        <p class="blueprint-course-field-help">
           Use day offset and local time, such as 7|09:00:00.000. Leave any moment blank when the
           future course should decide it.
         </p>
-        <div class="curriculum-form-grid">
+        <div class="blueprint-course-form-grid">
           <ScheduleField
             label="Available"
             field="available_at"

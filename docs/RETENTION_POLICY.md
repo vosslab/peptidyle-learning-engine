@@ -225,7 +225,7 @@ On 2026-08-09, a one-time isolated PostgreSQL and MinIO deletion exercise drove 
 deletion request through the retention worker. The completed manifest matched the exact typed
 student-record object. The worker removed that object and the student enrollment, run, attempt,
 submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis
-rows. It retained the assignment and instructor membership, published problem/version/source,
+rows. It retained the Assignment and Instructor membership, Published Question, Question Revision, and Question Source,
 workspace draft, and anonymous global statistics aggregate. Independent typed-object reads and
 physical bucket inspection agreed with the relational result. The temporary SQL, Rust helper, and
 shell harness were removed after recording the evidence.

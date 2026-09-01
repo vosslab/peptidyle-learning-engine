@@ -65,8 +65,8 @@ export interface AssignmentContentInput {
   readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
 }
 
-/** One authorized course identity and its browser-safe appearance projection. */
-export interface CourseRouteData {
+/** One authorized Course Route View with its summary and browser-safe appearance. */
+export interface CourseRouteView {
   readonly summary: CourseSummary;
   readonly appearance: CourseAppearance;
 }
@@ -281,7 +281,7 @@ export interface AssignmentAttemptSummaryOutcome {
 
 /** Current server projection; it never includes a question key, result, or release policy. */
 export interface AssignmentAttemptSummaryResponse {
-  readonly course: CourseRouteData;
+  readonly course: CourseRouteView;
   readonly assignmentAttempt: AssignmentAttempt;
   /** Server-derived student progress, never a policy, clock, or Student Record identifier. */
   readonly summary: AssignmentProgress;
@@ -396,7 +396,7 @@ export interface ExternalToolLaunch {
 
 /** Everything the reference Assignment Attempt screen needs from one cached query. */
 export interface AssignmentAttemptScreenData {
-  readonly course: CourseRouteData;
+  readonly course: CourseRouteView;
   /** Student-safe assignment projection; no policy or ownership inputs. */
   readonly assignment: StudentAssignmentLandingSummary;
   readonly assignmentAttempt: AssignmentAttempt;

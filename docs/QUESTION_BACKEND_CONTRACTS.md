@@ -136,7 +136,7 @@ not enable them.
 
 ### Source and render
 
-**Accepted bounded path.** PLE is the only WebWork client. A published problem resolves to immutable,
+**Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
 private external standalone `/render-api` service. The browser receives only a PLE envelope,
 sanitized prompt markup, and opaque PLE choice IDs. It never receives PG source, file path, renderer

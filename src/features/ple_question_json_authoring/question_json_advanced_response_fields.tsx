@@ -1,4 +1,4 @@
-// question_json_advanced_response_fields.tsx - protected editors for advanced native response kinds.
+// question_json_advanced_response_fields.tsx - protected editors for advanced PLE Question JSON response kinds.
 
 import { Show, type JSX } from "solid-js";
 

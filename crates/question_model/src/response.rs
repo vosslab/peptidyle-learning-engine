@@ -34,7 +34,7 @@ pub enum QuestionType {
     Matching,
     /// ORDER: an ordered sequence of response items.
     Ordering,
-    /// HOTSPOT: points or regions selected on an image-backed surface.
+    /// HOTSPOT: one or more Hotspot Regions selected on an image-backed surface.
     Hotspot,
 }
 

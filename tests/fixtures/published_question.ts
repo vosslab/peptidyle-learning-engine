@@ -4,7 +4,7 @@
 // and attempt data. This module only supplies browser test names for the same
 // current contracts; it never carries a second serialized copy.
 
-import fixtureSet from "./published_problem/fixture_set.json" with { type: "json" };
+import fixtureSet from "./published_question/fixture_set.json" with { type: "json" };
 
 type BrowserQuestionAttempt = Omit<
   (typeof fixtureSet.attempts)[number],
@@ -42,9 +42,9 @@ function browserIssuedQuestion(
   return browserSafeIssuedQuestion;
 }
 
-export const publishedProblemFixture = {
-  publishedQuestion: fixtureSet.catalogQuestion,
-  publishedProblem: fixtureSet.publishedProblem,
+export const publishedQuestionFixture = {
+  publishedQuestion: fixtureSet.questionSummary,
+  publishedQuestionRevision: fixtureSet.publishedQuestionRevision,
   draft: fixtureSet.draft,
   course: fixtureSet.course,
   assignment: fixtureSet.assignment,

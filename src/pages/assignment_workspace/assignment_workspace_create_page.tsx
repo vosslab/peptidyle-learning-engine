@@ -6,7 +6,7 @@ import { Show, createSignal, type JSX } from "solid-js";
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../../features/course_appearance/course_theme_context";
 import {
@@ -33,8 +33,8 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   const [state, setState] = createSignal<CreateState>("ready");
   let titleInput: HTMLInputElement | undefined;
-  const course = (): ReturnType<typeof courseRouteData>["summary"] | undefined =>
-    route?.kind === "course" ? courseRouteData(route).summary : undefined;
+  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined =>
+    route?.kind === "course" ? courseRouteView(route).summary : undefined;
   const courseReference = (): CourseInstanceRouteReference | null =>
     parseCourseInstanceReference(params["courseRef"] ?? "");
   const mayCreate = (): boolean => {

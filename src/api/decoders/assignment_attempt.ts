@@ -85,7 +85,7 @@ import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
 import {
   decodeAssignmentReference,
   decodeQuestionSummary,
-  decodeCourseRouteData,
+  decodeCourseRouteView,
   decodeCourseSummary,
 } from "./question_library";
 
@@ -577,7 +577,7 @@ export function decodeAssignmentAttemptSummaryResponse(
   const outcomes = decodeRecord(field(record, "outcomes", path), `${path}.outcomes`);
   requireOnlyFields(outcomes, `${path}.outcomes`, ["items", "nextCursor"]);
   const decoded = {
-    course: decodeCourseRouteData(field(record, "course", path), `${path}.course`),
+    course: decodeCourseRouteView(field(record, "course", path), `${path}.course`),
     assignmentAttempt: decodeStrictAssignmentAttempt(
       field(record, "assignmentAttempt", path),
       `${path}.assignmentAttempt`,

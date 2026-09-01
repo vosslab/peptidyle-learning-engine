@@ -34,7 +34,7 @@ variant. Important mappings are:
 
 | Object class                                           | Object Address family                                                                    | Domain and delivery authority                                                                                                                                                                                                                                |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Private workspace source and authoring assets          | `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority.                                                       |
+| Private workspace source and authoring assets          | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority.                                                       |
 | Published answer-free presentation asset               | `QuestionAsset`                                                                          | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
 | Published source, provenance, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                                    | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                                                                      |
 | Generation/grader keys and payloads                    | Server-only private records and any typed private object used by their owning worker     | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                              |
@@ -99,7 +99,7 @@ object or delivery ID never supply authority by themselves:
 `GET /api/assets/{id}` can return only an already-ready published presentation
 asset after the route proves approved-Instructor Question Library access or the exact
 Student assignment entitlement. It resolves an opaque registry ID, verifies
-the complete trusted `ProblemAsset`/`PublicAssets` record shape, then
+the complete trusted `QuestionAsset`/`PublicAssets` record shape, then
 redirects to a configured immutable CDN URL. It cannot authorize, audit, or
 issue a protected bearer URL, and it returns the same not-found response for
 protected and absent IDs.

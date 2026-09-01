@@ -245,7 +245,7 @@ export function parseExactQuestionIds(value: string): ReadonlyArray<string> {
 export function capabilityLabel(capability: Capability): string {
   return capability.replace(/([A-Z])/gu, " $1").toLowerCase();
 }
-export function assignmentProblemLabel(
+export function assignmentQuestionLabel(
   row: AssignmentQuestionRow | FixedQuestionAssignmentEntrySummary,
 ): string {
   return row.questionId;

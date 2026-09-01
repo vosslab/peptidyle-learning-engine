@@ -173,7 +173,7 @@ construct an answer key, provenance, published identity, grade, or score.
 `verify_presentation_descriptor` recomputes only the deterministic descriptor
 for already disclosed public envelope and asset-binding data. It returns a
 consistency result and cannot issue an attempt, accept a submission, resolve a
-durable mapping, or disclose a key. The server retains the full SHA-256 digest
+durable mapping, or disclose a key. The server retains the full Question Presentation Checksum
 and decides whether a request belongs to that presentation.
 
 Run the export gate directly:
@@ -546,8 +546,8 @@ current route rederives and validates the expected Question Response Format from
 `kind` is therefore not submission authority. The current grading-payload
 contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
 key, presentation checksum, and a format-minimal answer. That target
-also introduces CRC16 rendered-item IDs and a SHA-256-backed presentation
-digest to detect inconsistent presentation state. Neither target value
+also introduces CRC16 rendered-item IDs and a SHA-256-backed Question Presentation Checksum
+to detect inconsistent presentation state. Neither target value
 authenticates the student or grades an answer. All component scoring and
 partial credit remain server-owned in both contracts.
 
@@ -640,12 +640,12 @@ details that could disclose provider state or invite a duplicate action.
 Browser markup carries an internal logical `QuestionAssetId`, never a bucket name,
 physical key, or signed URL. `/api/assets/{id}` resolves the identifier through
 the database-authoritative immutable registry. The registry accepts only a
-`ProblemAsset` whose problem, version, asset, object, bucket, and category all
+`QuestionAsset` whose Question, Question Revision, asset, object, bucket, and category all
 agree, or a course-scoped `StudentRecord` authorized for the current Account;
 source packages, render caches, and `temp-processing` objects cannot be
 registered for this route.
 
-`WorkspaceSource` and `ProblemSource` are never direct delivery targets and the
+Workspace Import Sources and Question Sources are never direct delivery targets and the
 typed object contract refuses to sign either key. This includes compact PLE
 PLE Question JSON as well as QTI, iMathAS, and other answer-bearing sources.
 An instructor preview or export must use a separate authorized projection that

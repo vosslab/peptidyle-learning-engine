@@ -1,4 +1,4 @@
-// curriculum_live_pages.tsx - production route composition for reusable curricula.
+// blueprint_course_live_pages.tsx - production route composition for Blueprint Courses.
 
 import { useParams } from "@solidjs/router";
 import { createSignal, onMount, type JSX } from "solid-js";
@@ -11,17 +11,17 @@ import {
   mayMutatePersonalCuration,
 } from "../features/question_curation/question_curation_model";
 import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
-import { CurriculumDetailRoutePage } from "./curriculum_detail_route_page";
-import { CurriculumRoutePage } from "./curriculum_route_page";
+import { BlueprintCourseDetailRoutePage } from "./blueprint_course_detail_route_page";
+import { BlueprintCoursesRoutePage } from "./blueprint_course_route_page";
 
-interface CurriculumRouteComposition {
+interface BlueprintCourseRouteComposition {
   readonly client: ReturnType<typeof useApplicationApi>["client"];
   readonly pickerRepository: ReturnType<typeof createQuestionCurationRepository>["picker"];
   readonly pickerSources: () => ReturnType<typeof questionCurationPickerSources>;
 }
 
-/** Connects the live curation sources shared by curriculum definition editors. */
-function useCurriculumRouteComposition(): CurriculumRouteComposition {
+/** Connects the live curation sources shared by Blueprint Course definition editors. */
+function useBlueprintCourseRouteComposition(): BlueprintCourseRouteComposition {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();
   const questionLibrary = createQuestionLibraryRepository(runtime.client);
@@ -52,11 +52,11 @@ function useCurriculumRouteComposition(): CurriculumRouteComposition {
   };
 }
 
-/** `/curriculum`: live Blueprint Course workspace. */
-export function CurriculumLivePage(): JSX.Element {
-  const composition = useCurriculumRouteComposition();
+/** `/blueprint-courses`: live Blueprint Course workspace. */
+export function BlueprintCoursesLivePage(): JSX.Element {
+  const composition = useBlueprintCourseRouteComposition();
   return (
-    <CurriculumRoutePage
+    <BlueprintCoursesRoutePage
       client={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources()}
@@ -64,16 +64,16 @@ export function CurriculumLivePage(): JSX.Element {
   );
 }
 
-/** `/curriculum/:curriculumRef`: live reusable-curriculum editor and inspection workspace. */
-export function CurriculumDetailLivePage(): JSX.Element {
-  const composition = useCurriculumRouteComposition();
+/** `/blueprint-courses/:blueprintCourseRef`: live Blueprint Course editor and inspection workspace. */
+export function BlueprintCourseDetailLivePage(): JSX.Element {
+  const composition = useBlueprintCourseRouteComposition();
   const params = useParams();
   return (
-    <CurriculumDetailRoutePage
+    <BlueprintCourseDetailRoutePage
       client={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources()}
-      curriculumRef={params["curriculumRef"] ?? ""}
+      blueprintCourseRef={params["blueprintCourseRef"] ?? ""}
     />
   );
 }

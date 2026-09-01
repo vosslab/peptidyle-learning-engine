@@ -140,11 +140,11 @@ impl PasskeyId {
     }
 }
 
-/// Durable identity for one browser-bound WebAuthn ceremony.
+/// Durable identity for one browser-bound Passkey Ceremony.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WebauthnCeremonyId(Uuid);
+pub struct PasskeyCeremonyId(Uuid);
 
-impl WebauthnCeremonyId {
+impl PasskeyCeremonyId {
     /// Reconstitutes an ID read from trusted private storage.
     pub fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -203,7 +203,7 @@ pub trait AuthenticationCeremonyStore: Send + Sync {
     /// the browser ceremony and credential proof.
     async fn authenticate_passkey(
         &self,
-        ceremony: WebauthnCeremonyId,
+        ceremony: PasskeyCeremonyId,
         credential_id_hash: AuthenticationSecretHash,
         browser_binding_hash: AuthenticationSecretHash,
     ) -> Result<Option<AuthenticatedAccount>, StoreError>;

@@ -8,6 +8,25 @@ use serde::{Deserialize, Serialize};
 /// Largest browser-supplied retry token accepted by one Blueprint operation.
 pub const MAX_BLUEPRINT_OPERATION_RETRY_TOKEN_BYTES: usize = 128;
 
+/// Exact SHA-256 checksum supplied by the trusted server request boundary for one operation.
+///
+/// This server-held scalar keeps request-integrity evidence distinct from object
+/// checksums, presentation checksums, and content-derived identifiers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RequestChecksum([u8; 32]);
+
+impl RequestChecksum {
+    /// Records the complete SHA-256 checksum supplied by the request boundary.
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// Returns the exact bytes for trusted server persistence.
+    pub const fn into_bytes(self) -> [u8; 32] {
+        self.0
+    }
+}
+
 /// A validated opaque browser token that binds a completed Blueprint-operation retry.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]

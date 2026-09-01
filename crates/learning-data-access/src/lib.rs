@@ -25,7 +25,7 @@ pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
     AuthenticationSecretHash, EmailAuthenticationChallenge, EmailAuthenticationChallengeId,
     EmailAuthenticationPurpose, MAX_AUTHENTICATION_CEREMONY_SECONDS, Passkey, PasskeyId,
-    WebauthnCeremonyId,
+    PasskeyCeremonyId,
 };
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,

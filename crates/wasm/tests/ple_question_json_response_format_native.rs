@@ -6,12 +6,12 @@
 
 use serde_json::Value;
 
-#[path = "ple_question_json_response_corpus.rs"]
-mod ple_question_json_response_corpus;
+#[path = "ple_question_json_response_format_fixture_set.rs"]
+mod ple_question_json_response_format_fixture_set;
 
 #[test]
 fn ple_question_json_public_response_corpus_matches_native_bridge() {
-    for case in ple_question_json_response_corpus::cases() {
+    for case in ple_question_json_response_format_fixture_set::cases() {
         let report = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),
             &serde_json::to_string(&case.response).expect("response serializes"),
@@ -24,7 +24,7 @@ fn ple_question_json_public_response_corpus_matches_native_bridge() {
 
 #[test]
 fn ple_question_json_public_response_calls_are_repeatable_natively() {
-    let case = ple_question_json_response_corpus::matching_full_permutation();
+    let case = ple_question_json_response_format_fixture_set::matching_full_permutation();
     let definition = serde_json::to_string(&case.definition).expect("definition serializes");
     let response = serde_json::to_string(&case.response).expect("response serializes");
 

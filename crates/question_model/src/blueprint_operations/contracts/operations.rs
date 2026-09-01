@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     BlueprintOperationRetryToken, BlueprintRevisionReference, CourseInstanceCreationReservation,
-    CourseInstanceScheduleCorrection, QuestionRevisionSubstitutions,
+    CourseInstanceScheduleCorrection, QuestionRevisionSubstitutions, RequestChecksum,
     UnavailableQuestionRevisionRecovery,
 };
 use crate::{
@@ -20,8 +20,8 @@ use crate::{
 pub struct BlueprintForkReservation {
     source: BlueprintRevisionReference,
     authorized_account: AccountId,
-    request_digest: [u8; 32],
-    idempotency_key: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
+    retry_token: BlueprintOperationRetryToken,
     reserved_blueprint: BlueprintCourseReference,
 }
 
@@ -30,15 +30,15 @@ impl BlueprintForkReservation {
     pub fn new(
         source: BlueprintRevisionReference,
         authorized_account: AccountId,
-        request_digest: [u8; 32],
-        idempotency_key: BlueprintOperationRetryToken,
+        request_checksum: RequestChecksum,
+        retry_token: BlueprintOperationRetryToken,
         reserved_blueprint: BlueprintCourseReference,
     ) -> Self {
         Self {
             source,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
             reserved_blueprint,
         }
     }
@@ -53,17 +53,17 @@ impl BlueprintForkReservation {
         self.authorized_account
     }
 
-    /// Returns the canonical request binding used for idempotent receipt persistence.
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request_digest
+    /// Returns the server-held request binding used for idempotent receipt persistence.
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request_checksum
     }
 
     /// Returns the browser retry key bound to this server-created reservation.
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
 
-    /// Returns the server-reserved identity that the successful transaction materializes.
+    /// Returns the server-reserved identity that the successful transaction creates.
     pub fn reserved_blueprint(&self) -> BlueprintCourseReference {
         self.reserved_blueprint
     }
@@ -169,7 +169,7 @@ pub struct ForkBlueprintCourseCommand {
     source: BlueprintRevisionReference,
     replacements: QuestionRevisionSubstitutions,
     creation: BlueprintForkReservation,
-    idempotency_key: BlueprintOperationRetryToken,
+    retry_token: BlueprintOperationRetryToken,
 }
 
 /// Apply command derived only from a completed Create Course from Blueprint preview.
@@ -179,18 +179,18 @@ pub struct CreateCourseFromBlueprintCommand {
     target_term: CourseTerm,
     replacements: QuestionRevisionSubstitutions,
     creation: CourseInstanceCreationReservation,
-    idempotency_key: BlueprintOperationRetryToken,
+    retry_token: BlueprintOperationRetryToken,
 }
 
 impl ForkBlueprintCourseCommand {
     /// Consumes one server-held reservation; browser JSON is never apply authority.
     pub fn from_server_record(record: super::ForkBlueprintCourseApplyRecord) -> Self {
-        let idempotency_key = record.creation().idempotency_key().clone();
+        let retry_token = record.creation().retry_token().clone();
         Self {
             source: *record.source(),
             replacements: record.replacements().clone(),
             creation: record.creation().clone(),
-            idempotency_key,
+            retry_token,
         }
     }
     pub fn source(&self) -> &BlueprintRevisionReference {
@@ -202,21 +202,21 @@ impl ForkBlueprintCourseCommand {
     pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
 }
 
 impl CreateCourseFromBlueprintCommand {
     /// Consumes one server-held creation record; browser JSON is never apply authority.
     pub fn from_server_record(record: super::CreateCourseFromBlueprintApplyRecord) -> Self {
-        let idempotency_key = record.creation().idempotency_key().clone();
+        let retry_token = record.creation().retry_token().clone();
         Self {
             source: *record.source(),
             target_term: record.target_term().clone(),
             replacements: record.replacements().clone(),
             creation: record.creation().clone(),
-            idempotency_key,
+            retry_token,
         }
     }
     pub fn source(&self) -> &BlueprintRevisionReference {
@@ -233,8 +233,8 @@ impl CreateCourseFromBlueprintCommand {
         &self.creation
     }
 
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
 }
 
@@ -321,11 +321,11 @@ impl ForkBlueprintCourseReceipt {
     pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        self.creation.idempotency_key()
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        self.creation.retry_token()
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.creation.request_digest()
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.creation.request_checksum()
     }
     pub fn server_time(&self) -> Timestamp {
         self.server_time
@@ -457,7 +457,7 @@ mod tests {
                 BlueprintForkReservation::new(
                     source,
                     authorized_account(),
-                    [4; 32],
+                    RequestChecksum::from_bytes([4; 32]),
                     key.clone(),
                     BlueprintCourseReference::new(8).expect("reserved blueprint"),
                 ),
@@ -466,7 +466,7 @@ mod tests {
             .expect("server-held record"),
         );
         assert_eq!(command.source(), &source);
-        assert_eq!(command.idempotency_key(), &key);
+        assert_eq!(command.retry_token(), &key);
         let wire = serde_json::to_value(&fork).expect("preview serializes");
         assert!(wire.get("readiness").is_some());
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(wire).is_ok());
@@ -493,7 +493,7 @@ mod tests {
                     source,
                     term.clone(),
                     authorized_account(),
-                    [5; 32],
+                    RequestChecksum::from_bytes([5; 32]),
                     key.clone(),
                     CourseInstanceReference::new(4).expect("reserved course"),
                 ),
@@ -558,7 +558,7 @@ mod tests {
                 BlueprintForkReservation::new(
                     source(),
                     authorized_account(),
-                    [9; 32],
+                    RequestChecksum::from_bytes([9; 32]),
                     key.clone(),
                     BlueprintCourseReference::new(9).expect("reserved blueprint"),
                 ),
@@ -587,7 +587,7 @@ mod tests {
                     source(),
                     term,
                     authorized_account(),
-                    [9; 32],
+                    RequestChecksum::from_bytes([9; 32]),
                     key,
                     CourseInstanceReference::new(9).expect("reserved course"),
                 ),
@@ -612,7 +612,7 @@ mod tests {
         let creation = BlueprintForkReservation::new(
             source(),
             authorized_account(),
-            [6; 32],
+            RequestChecksum::from_bytes([6; 32]),
             key.clone(),
             BlueprintCourseReference::new(10).expect("reserved blueprint"),
         );
@@ -634,7 +634,7 @@ mod tests {
                 revision: BlueprintRevision::new(1).expect("revision"),
             },
             authorized_account(),
-            [7; 32],
+            RequestChecksum::from_bytes([7; 32]),
             key.clone(),
             BlueprintCourseReference::new(12).expect("reserved blueprint"),
         );
@@ -661,7 +661,7 @@ mod tests {
             source(),
             term.clone(),
             authorized_account(),
-            [8; 32],
+            RequestChecksum::from_bytes([8; 32]),
             instance_key.clone(),
             CourseInstanceReference::new(13).expect("reserved course"),
         );
@@ -681,10 +681,11 @@ mod tests {
     #[test]
     fn server_record_authority_survives_preview_mutation_and_fork_receipt_binds_creation() {
         let key = BlueprintOperationRetryToken::parse("server-record").expect("key");
+        let request_checksum = RequestChecksum::from_bytes([3; 32]);
         let creation = BlueprintForkReservation::new(
             source(),
             authorized_account(),
-            [3; 32],
+            request_checksum,
             key,
             BlueprintCourseReference::new(14).expect("reserved BlueprintCourse"),
         );
@@ -706,6 +707,7 @@ mod tests {
         };
         let command = ForkBlueprintCourseCommand::from_server_record(record);
         assert_ne!(command.source(), &browser_preview.source);
+        assert_eq!(command.creation().request_checksum(), request_checksum);
 
         let created = BlueprintRevisionReference {
             reference: creation.reserved_blueprint(),
@@ -718,6 +720,7 @@ mod tests {
             Timestamp::from_unix_millis(1),
         )
         .expect("matching receipt");
+        assert_eq!(receipt.request_checksum(), request_checksum);
         let completion = ForkBlueprintCourseCompleted {
             blueprint: receipt.created().reference,
             revision: receipt.created().revision,

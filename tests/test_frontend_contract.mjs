@@ -14,9 +14,9 @@ import { accountRoleMayAccessRoute, routeContractForPathname } from "../src/rout
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
   assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "questionDetail");
   assert.equal(routeContractForPathname("/library/7K3-M9QP/extra"), undefined);
-  assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
-  assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");
-  assert.equal(routeContractForPathname("/curriculum/BP-7/extra"), undefined);
+  assert.equal(routeContractForPathname("/blueprint-courses")?.id, "blueprintCourses");
+  assert.equal(routeContractForPathname("/blueprint-courses/BP-7")?.id, "blueprintCourseDetail");
+  assert.equal(routeContractForPathname("/blueprint-courses/BP-7/extra"), undefined);
   assert.equal(routeContractForPathname("/sysadmin/instructor-approval"), undefined);
   assert.equal(
     routeContractForPathname("/instructor/courses/C-1/assignments/A-1")?.id,
@@ -56,9 +56,9 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "instructor"), true);
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
   assert.equal(accountRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("curriculum", "student"), false);
-  assert.equal(accountRoleMayAccessRoute("curriculum", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("curriculum", "instructor"), true);
+  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "student"), false);
+  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
+  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "instructor"), true);
 });
 
 test("assignment workspace paths use the declared grading-operations route", () => {

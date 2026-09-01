@@ -13,8 +13,7 @@ export type CourseManagementSection =
   | "students"
   | "gradebook"
   | "gradeSettings"
-  | "teachingOperations"
-  | "curriculumAdoption";
+  | "teachingOperations";
 
 interface CourseManagementNavProps {
   readonly courseReference: CourseInstanceReference;
@@ -49,12 +48,6 @@ export function CourseManagementNav(props: CourseManagementNavProps): JSX.Elemen
         aria-current={current(props.active === "teachingOperations")}
       >
         Teaching operations
-      </A>
-      <A
-        href={`/instructor/courses/${reference}/curriculum`}
-        aria-current={current(props.active === "curriculumAdoption")}
-      >
-        Curriculum changes
       </A>
       <A
         href={`/instructor/courses/${reference}/gradebook`}

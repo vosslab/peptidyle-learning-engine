@@ -55,8 +55,8 @@ struct StoredFixtureSet {
     model_schema_version: u32,
     source_object_reference: SourceObjectReference,
     source_object_checksum: SourceObjectChecksum,
-    catalog_question: QuestionSummary,
-    published_problem: QuestionRevision,
+    question_summary: QuestionSummary,
+    published_question_revision: QuestionRevision,
     draft: DraftQuestionContent,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
@@ -125,26 +125,27 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     let adapter = PleQuestionBackend::new();
     ensure!(
         matches!(
-            &fixture_set.published_problem.backend_locator,
+            &fixture_set.published_question_revision.backend_locator,
             QuestionBackendLocator::Ple
         ),
         "stored published Question must use the PLE Question Backend"
     );
     ensure!(
-        fixture_set.catalog_question.metadata == fixture_set.published_problem.metadata,
+        fixture_set.question_summary.metadata == fixture_set.published_question_revision.metadata,
         "Question summary metadata must match the stored published Question"
     );
     ensure!(
-        fixture_set.catalog_question.question_type == fixture_set.published_problem.question_type,
+        fixture_set.question_summary.question_type
+            == fixture_set.published_question_revision.question_type,
         "Question summary type must match the stored published Question"
     );
     ensure!(
-        fixture_set.catalog_question.capabilities
-            == adapter.capabilities(&fixture_set.published_problem)?,
+        fixture_set.question_summary.capabilities
+            == adapter.capabilities(&fixture_set.published_question_revision)?,
         "Question summary capabilities must derive from the stored published Question"
     );
     ensure!(
-        fixture_set.draft.workspace == fixture_set.published_problem.workspace,
+        fixture_set.draft.workspace == fixture_set.published_question_revision.workspace,
         "stored Draft Question and Published Question must share their Authoring Workspace"
     );
     ensure!(
@@ -293,7 +294,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
             "PLE stored fixture must carry its exact Source Object Checksum"
         );
         let envelope = adapter.reproduce(
-            &fixture_set.published_problem,
+            &fixture_set.published_question_revision,
             attempt.seed,
             &attempt.parameter_hash,
             &attempt.reproduction_details,
@@ -302,14 +303,16 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
         ensure!(
             envelope.variation.question_revision
                 == QuestionRevisionReference {
-                    question_id: fixture_set.published_problem.question_id.clone(),
-                    revision_number: fixture_set.published_problem.revision_number,
+                    question_id: fixture_set.published_question_revision.question_id.clone(),
+                    revision_number: fixture_set.published_question_revision.revision_number,
                 },
             "reproduced fixture uses a different Question Revision"
         );
 
         if let Some(submission) = &attempt.submission {
-            if fixture_set.published_problem.question_format == QuestionFormat::PleQuestionJson {
+            if fixture_set.published_question_revision.question_format
+                == QuestionFormat::PleQuestionJson
+            {
                 // Static PLE Question JSON keeps its Answer Key in the verified
                 // immutable source object. This fixture validates public
                 // reproduction here; the resolved-source adapter test validates
@@ -321,7 +324,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
                 continue;
             }
             let outcome = adapter.grade(
-                &fixture_set.published_problem,
+                &fixture_set.published_question_revision,
                 attempt.seed,
                 &attempt.parameter_hash,
                 &attempt.reproduction_details,
@@ -358,7 +361,7 @@ mod tests {
     use super::*;
 
     fn fixture_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/published_problem")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/published_question")
     }
 
     #[test]

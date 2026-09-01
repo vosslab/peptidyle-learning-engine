@@ -25,7 +25,7 @@ import {
   type PendingRosterConfirmation,
 } from "./roster_confirmation_dialog";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 
@@ -47,8 +47,8 @@ function rosterError(state: RosterState): string {
   return state.kind === "error" ? state.message : "";
 }
 
-function importStatusLabel(status: RosterImportPreview["rows"][number]["status"]): string {
-  switch (status) {
+function importResultLabel(result: RosterImportPreview["rows"][number]["result"]): string {
+  switch (result) {
     case "readyToInvite":
       return "Ready to invite";
     case "alreadyMember":
@@ -114,7 +114,7 @@ function downloadRosterImportTemplate(): void {
 export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
   const courseId = course?.id;
   const [state, setState] = createSignal<RosterState>({ kind: "loading" });
   const [email, setEmail] = createSignal("");
@@ -725,7 +725,7 @@ export function CourseRosterPage(): JSX.Element {
                             <th scope="col">CSV row</th>
                             <th scope="col">Email</th>
                             <th scope="col">Roster ID</th>
-                            <th scope="col">Status</th>
+                            <th scope="col">Import result</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -734,7 +734,7 @@ export function CourseRosterPage(): JSX.Element {
                               <tr>
                                 <td>
                                   <Show
-                                    when={row.status === "readyToInvite"}
+                                    when={row.result === "readyToInvite"}
                                     fallback={<span>Not selectable</span>}
                                   >
                                     <button
@@ -754,7 +754,7 @@ export function CourseRosterPage(): JSX.Element {
                                 <td>{row.email ?? "Not retained"}</td>
                                 <td>{row.rosterId ?? "Not retained"}</td>
                                 <td>
-                                  <strong>{importStatusLabel(row.status)}</strong>
+                                  <strong>{importResultLabel(row.result)}</strong>
                                   <span class="roster-import-reason">
                                     {importReasonLabel(row.reason)}
                                   </span>

@@ -125,7 +125,7 @@ export type PresentationVerification =
 export type PresentationVerifier = (
   envelope: QuestionPresentation,
   assets: ReadonlyArray<QuestionAssetRendition>,
-  digest: QuestionPresentationToken,
+  token: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
 
 export interface WasmFacade {
@@ -134,7 +134,7 @@ export interface WasmFacade {
   readonly validateResponseFormat: FormatValidator;
   readonly questionAttemptTimingDecision: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
-  readonly previewNativeDraft: PleDraftPreviewer;
+  readonly previewPleDraft: PleDraftPreviewer;
   readonly verifyPresentationDescriptor: PresentationVerifier;
 }
 
@@ -147,7 +147,7 @@ interface WasmBindgenModule {
   readonly verify_presentation_descriptor: (
     envelopeJson: string,
     questionAssetRenditionsJson: string,
-    digest: string,
+    token: string,
   ) => boolean;
 }
 
@@ -195,7 +195,7 @@ function parseQuestionBackend(value: unknown): QuestionBackend {
 }
 
 /** Strictly decodes the reviewed, key-free WebAssembly draft-preview result. */
-export function decodeNativeDraftPreviewResult(json: string): PleDraftPreviewResult {
+export function decodePleDraftPreviewResult(json: string): PleDraftPreviewResult {
   const value: unknown = JSON.parse(json);
   if (!isRecord(value)) throw new Error("WASM draft preview result must be an object");
   const kind = requiredString(value, "kind");
@@ -399,18 +399,18 @@ async function initializeWasmFacade(
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
       );
-    const previewNativeDraft: PleDraftPreviewer = (request, seed) =>
+    const previewPleDraft: PleDraftPreviewer = (request, seed) =>
       Promise.resolve(
-        decodeNativeDraftPreviewResult(
+        decodePleDraftPreviewResult(
           loaded.preview_ple_draft(JSON.stringify(request), JSON.stringify(seed)),
         ),
       );
-    const verifyPresentationDescriptor: PresentationVerifier = (envelope, assets, digest) =>
+    const verifyPresentationDescriptor: PresentationVerifier = (envelope, assets, token) =>
       Promise.resolve({
         kind: loaded.verify_presentation_descriptor(
           JSON.stringify(envelope),
           JSON.stringify(assets),
-          digest,
+          token,
         )
           ? "match"
           : "mismatch",
@@ -420,7 +420,7 @@ async function initializeWasmFacade(
       validateResponseFormat,
       questionAttemptTimingDecision,
       validateAssignmentConfig,
-      previewNativeDraft,
+      previewPleDraft,
       verifyPresentationDescriptor,
     };
   } catch (error: unknown) {
@@ -430,7 +430,7 @@ async function initializeWasmFacade(
       validateResponseFormat: formatFallback,
       questionAttemptTimingDecision: timerFallback,
       validateAssignmentConfig: capabilityFallback,
-      previewNativeDraft: (request) =>
+      previewPleDraft: (request) =>
         Promise.resolve({
           kind: "unavailable",
           backend: request.backendLocator.backend,

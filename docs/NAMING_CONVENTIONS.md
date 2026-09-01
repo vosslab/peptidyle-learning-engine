@@ -93,8 +93,8 @@ external protocol identifiers retain their owner spelling inside their
 adapters.
 
 Use the complete subject and actual representation for each internal value. A
-UUID or locator identifies a candidate record; the exact stored relationship
-grants authority.
+UUID or locator identifies a record; the exact stored relationship grants
+authority.
 
 ## Domain relationship map
 

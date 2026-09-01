@@ -58,7 +58,7 @@ LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
     WITH consumed_ceremony AS (
-        UPDATE ple_private.webauthn_ceremony AS ceremony
+        UPDATE ple_private.passkey_ceremony AS ceremony
            SET consumed_at = pg_catalog.transaction_timestamp()
          WHERE ceremony.ceremony_id = p_ceremony_id
            AND ceremony.kind = 'authentication'

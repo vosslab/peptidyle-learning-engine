@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Deserialize)]
-struct Corpus {
+struct FixtureSet {
     cases: Vec<ParityCase>,
 }
 
@@ -18,10 +18,10 @@ pub struct ParityCase {
 }
 
 pub fn cases() -> Vec<ParityCase> {
-    serde_json::from_str::<Corpus>(include_str!(
-        "../ple_question_json_response_format_corpus.json"
+    serde_json::from_str::<FixtureSet>(include_str!(
+        "../ple_question_json_response_format_fixture_set.json"
     ))
-    .expect("committed answer-free ple-question-json-v2 response corpus is valid JSON")
+    .expect("committed answer-free Question Response Format fixture set is valid JSON")
     .cases
 }
 
@@ -29,5 +29,5 @@ pub fn matching_full_permutation() -> ParityCase {
     cases()
         .into_iter()
         .find(|case| case.name == "ple-question-json-v2-matching-full-permutation")
-        .expect("committed corpus includes matching full-permutation case")
+        .expect("fixture set includes the matching full-permutation case")
 }

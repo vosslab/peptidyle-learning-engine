@@ -129,7 +129,7 @@ equivalent bootstrap path.
 ## Demo accounts and courses
 
 The production-auth overlay seeds five ordinary PLE personas: Elena (Instructor),
-Mary and Jack (Students), Avery (Student approval candidate), and Morgan
+Mary, Jack, and Avery (Students), and Morgan
 (Sysadmin). The public selector chooses only a known seeded persona key. The
 server resolves the global account and issues an ordinary session; it does not
 accept a browser role claim.

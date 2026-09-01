@@ -10,7 +10,7 @@ import type { TeachingOperationRevision } from "../../generated/api/TeachingOper
 import type { SelectedStudent } from "./assignment_access/model";
 import { useApplicationApi } from "../api/application_api";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
@@ -72,7 +72,7 @@ export function AssignmentAccessLivePage(): JSX.Element {
 
   async function checkAccess(): Promise<void> {
     const course =
-      scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+      scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
     if (course === undefined) {
       setGate({ kind: "unavailable" });
       return;

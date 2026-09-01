@@ -41,9 +41,9 @@ export function AssignmentEditorQuestionPicker(
 ): JSX.Element {
   return (
     <>
-      <p class="assignment-picker-curriculum-link">
-        <A class="quiet-link" href="/curriculum">
-          Open reusable curricula
+      <p class="assignment-picker-blueprint-course-link">
+        <A class="quiet-link" href="/blueprint-courses">
+          Open Blueprint Courses
         </A>
       </p>
       <Show when={props.controller.intent()} keyed>

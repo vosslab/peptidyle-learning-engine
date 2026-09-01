@@ -16,9 +16,9 @@ attempt uses the stored values.
 | Layer                         | Authoritative inputs                                                       | Exact result                                              | Owner                              |
 | ----------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
 | Question Variation Parameters | generator reference, definition, seed                                      | `QuestionVariationParameters` and SHA-256                 | `domain` and Wasm                  |
-| Native issued question        | immutable Question Revision, seed                                           | Question Variation Presentation and Question Attempt Reproduction Details | trusted server backend             |
+| PLE issued question           | immutable Question Revision, seed                                           | Question Variation Presentation and Question Attempt Reproduction Details | trusted server backend             |
 | WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation and sanitized markup | private adapter/renderer           |
-| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce | Question Presentation Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce | Question Presentation Response Format, rendered IDs, Question Presentation Checksum | trusted server; browser may verify |
 | Submission                    | authenticated attempt, idempotency key, student response                   | one stored receipt or conflict                            | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
@@ -190,7 +190,7 @@ cache. A course-owned, validated, RLS-protected durable Attempt record is
 required before a mounted WeBWorK delivery or grading route can rely on it.
 
 Issued PLE Question JSON and WeBWorK attempts also retain checksummed, server-only
-first-grade contracts. A first grade validates its family-owned contract and
+first-grade contracts. A first grade validates its Question Backend-specific contract and
 fails unavailable if required material is absent or corrupt; it does not reread
 a current published Question Revision, private PLE Question JSON grader, or renderer to repair an
 earlier issuance.
@@ -230,7 +230,7 @@ or grading state.
 
 When a reservation is reused, the server verifies its immutable version, seed,
 parameter hash, provenance, and stored presentation binding. It rebuilds the
-presentation with the persisted nonce and refuses if the full digest differs.
+presentation with the persisted nonce and refuses if the full Question Presentation Checksum differs.
 Promotion consumes the reservation atomically with successor issuance; a
 committed receipt is the only authority that activates the next attempt.
 

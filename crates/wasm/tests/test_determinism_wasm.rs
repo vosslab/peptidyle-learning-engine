@@ -7,8 +7,8 @@ mod determinism_support;
 
 use wasm_bindgen_test::wasm_bindgen_test;
 
-#[path = "ple_question_json_response_corpus.rs"]
-mod ple_question_json_response_corpus;
+#[path = "ple_question_json_response_format_fixture_set.rs"]
+mod ple_question_json_response_format_fixture_set;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
@@ -19,7 +19,7 @@ fn committed_seed_vectors_match_browser_generation() {
 
 #[wasm_bindgen_test]
 fn ple_question_json_public_response_corpus_matches_browser_wasm() {
-    for case in ple_question_json_response_corpus::cases() {
+    for case in ple_question_json_response_format_fixture_set::cases() {
         let report = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),
             &serde_json::to_string(&case.response).expect("response serializes"),
@@ -33,7 +33,7 @@ fn ple_question_json_public_response_corpus_matches_browser_wasm() {
         );
     }
 
-    let repeated = ple_question_json_response_corpus::matching_full_permutation();
+    let repeated = ple_question_json_response_format_fixture_set::matching_full_permutation();
     let definition = serde_json::to_string(&repeated.definition).expect("definition serializes");
     let response = serde_json::to_string(&repeated.response).expect("response serializes");
     assert_eq!(

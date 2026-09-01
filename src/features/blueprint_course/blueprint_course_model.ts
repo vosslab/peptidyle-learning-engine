@@ -18,12 +18,12 @@ export const MAX_REUSABLE_TITLE_LENGTH = 200;
 export type ReusableScheduleField = "available_at" | "due_at" | "closes_at";
 export type ReusableEntryDirection = -1 | 1;
 
-export interface CurriculumValidation {
+export interface BlueprintCourseValidation {
   readonly valid: boolean;
   readonly message: string | null;
 }
 
-export interface CurriculumContinuationPresentation {
+export interface BlueprintCourseContinuationPresentation {
   readonly visible: boolean;
   readonly action: string | null;
 }
@@ -41,7 +41,7 @@ export function appendBlueprintCoursePage<Record extends { readonly reference: s
 export function blueprintCourseContinuationPresentation(
   hasMore: boolean,
   retry: boolean,
-): CurriculumContinuationPresentation {
+): BlueprintCourseContinuationPresentation {
   if (!hasMore) return { visible: false, action: null };
   return {
     visible: true,
@@ -227,7 +227,7 @@ function momentValue(moment: RelativeAssignmentScheduleMoment | null): number | 
   );
 }
 
-function validateSchedule(schedule: RelativeAssignmentSchedule): CurriculumValidation {
+function validateSchedule(schedule: RelativeAssignmentSchedule): BlueprintCourseValidation {
   const available = momentValue(schedule.available_at);
   const due = momentValue(schedule.due_at);
   const closes = momentValue(schedule.closes_at);
@@ -254,7 +254,7 @@ function validateSchedule(schedule: RelativeAssignmentSchedule): CurriculumValid
 /** Guides local drafting before the server performs authoritative validation. */
 export function validateReusableContent(
   content: BlueprintAssignmentContentInput,
-): CurriculumValidation {
+): BlueprintCourseValidation {
   if (content.title.trim().length === 0 || content.title.length > MAX_REUSABLE_TITLE_LENGTH) {
     return {
       valid: false,
@@ -295,7 +295,7 @@ export function validateReusableContent(
 /** Validates the complete local Blueprint Course tree before its create request. */
 export function validateBlueprintCourseContent(
   content: CreateBlueprintCourseContentInput,
-): CurriculumValidation {
+): BlueprintCourseValidation {
   if (content.title.trim().length === 0 || content.title.length > MAX_REUSABLE_TITLE_LENGTH) {
     return { valid: false, message: "Give this Blueprint Course a title of up to 200 characters." };
   }

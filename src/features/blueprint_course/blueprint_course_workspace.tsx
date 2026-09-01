@@ -9,7 +9,7 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import type { BlueprintCourseClient, BlueprintCourseEtag } from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
-import { CurriculumCreateDialog } from "./blueprint_course_create_dialog";
+import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import {
   appendBlueprintCoursePage,
   blueprintCourseContinuationPresentation,
@@ -33,18 +33,18 @@ interface LoadedBlueprintCourse {
   readonly draft: ReplaceBlueprintCourseContentInput;
 }
 
-export interface CurriculumWorkspaceProps {
+export interface BlueprintCoursesWorkspaceProps {
   readonly client: BlueprintCourseClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
 }
 
-export interface CurriculumDetailWorkspaceProps extends CurriculumWorkspaceProps {
-  readonly curriculumRef: string;
+export interface BlueprintCourseDetailWorkspaceProps extends BlueprintCoursesWorkspaceProps {
+  readonly blueprintCourseRef: string;
 }
 
 function referencePath(reference: string): string {
-  return `/curriculum/${encodeURIComponent(reference)}`;
+  return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -58,7 +58,7 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 /** Lists every Blueprint Course available to the current active Instructor. */
-export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Element {
+export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [courses, setCourses] = createSignal<ReadonlyArray<BlueprintCourseSummaryView>>([]);
   const [cursor, setCursor] = createSignal<string | null>(null);
@@ -117,8 +117,8 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
     blueprintCourseContinuationPresentation(cursor() !== null, continuationFailed());
 
   return (
-    <main class="page curriculum-workspace" data-route-surface="curriculum">
-      <header class="curriculum-page-heading">
+    <main class="page blueprint-course-workspace" data-route-surface="blueprintCourses">
+      <header class="blueprint-course-page-heading">
         <p class="eyebrow">Blueprint Courses</p>
         <h1>Build reusable course structure</h1>
         <p class="page-lede">
@@ -126,7 +126,7 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
           dates.
         </p>
       </header>
-      <p class="curriculum-notice" role={notice().kind === "alert" ? "alert" : "status"}>
+      <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
       <Switch>
@@ -139,8 +139,8 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
           </button>
         </Match>
         <Match when={state() === "ready"}>
-          <section class="curriculum-card" aria-labelledby="blueprint-courses-heading">
-            <div class="curriculum-section-heading">
+          <section class="blueprint-course-card" aria-labelledby="blueprint-courses-heading">
+            <div class="blueprint-course-section-heading">
               <div>
                 <h2 id="blueprint-courses-heading">Available Blueprint Courses</h2>
                 <p>Every active Instructor can inspect reusable question structure.</p>
@@ -158,12 +158,12 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
             <Show
               when={courses().length > 0}
               fallback={
-                <p class="curriculum-empty-copy">
+                <p class="blueprint-course-empty-copy">
                   No Blueprint Courses are visible yet. Create the first one.
                 </p>
               }
             >
-              <ul class="curriculum-summary-list">
+              <ul class="blueprint-course-summary-list">
                 <For each={courses()}>
                   {(course) => (
                     <li>
@@ -182,7 +182,7 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
               </ul>
             </Show>
             <Show when={continuation().visible}>
-              <div class="curriculum-continuation">
+              <div class="blueprint-course-continuation">
                 <p role={continuationFailed() ? "alert" : "status"}>
                   {continuationFailed()
                     ? "More Blueprint Courses are available. Retry when ready."
@@ -197,7 +197,7 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
         </Match>
       </Switch>
       <Show when={creating()}>
-        <CurriculumCreateDialog
+        <BlueprintCourseCreateDialog
           client={props.client}
           pickerRepository={props.pickerRepository}
           pickerSources={props.pickerSources}
@@ -213,7 +213,9 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
 }
 
 /** Loads one BP-* Blueprint Course and exposes its exact reusable structure. */
-export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps): JSX.Element {
+export function BlueprintCourseDetailWorkspace(
+  props: BlueprintCourseDetailWorkspaceProps,
+): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [current, setCurrent] = createSignal<LoadedBlueprintCourse>();
   const [notice, setNotice] = createSignal<Notice>({
@@ -225,14 +227,14 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
   const [conflict, setConflict] = createSignal(false);
 
   async function load(keepDraft: boolean): Promise<void> {
-    if (!/^BP-[1-9][0-9]*$/u.test(props.curriculumRef)) {
+    if (!/^BP-[1-9][0-9]*$/u.test(props.blueprintCourseRef)) {
       setState("error");
       setNotice({ kind: "alert", text: "Blueprint Course references begin with BP-." });
       return;
     }
     setState("loading");
     try {
-      const result = await props.client.getBlueprintCourse(props.curriculumRef);
+      const result = await props.client.getBlueprintCourse(props.blueprintCourseRef);
       const prior = current();
       setCurrent({
         view: result.blueprintCourse,
@@ -332,11 +334,11 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
 
   onMount(() => void load(false));
   return (
-    <main class="page curriculum-workspace" data-route-surface="curriculumDetail">
-      <A class="quiet-link" href="/curriculum">
+    <main class="page blueprint-course-workspace" data-route-surface="blueprintCourseDetail">
+      <A class="quiet-link" href="/blueprint-courses">
         Return to Blueprint Courses
       </A>
-      <p class="curriculum-notice" role={notice().kind === "alert" ? "alert" : "status"}>
+      <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
       <Switch>
@@ -350,8 +352,8 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
         </Match>
         <Match when={state() === "ready" && current()} keyed>
           {(loaded) => (
-            <section class="curriculum-detail-editor">
-              <header class="curriculum-page-heading">
+            <section class="blueprint-course-detail-editor">
+              <header class="blueprint-course-page-heading">
                 <p class="eyebrow">Blueprint Course</p>
                 <h1>{loaded.view.title}</h1>
                 <p class="page-lede">
@@ -360,7 +362,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
                 </p>
               </header>
               <Show when={loaded.view.access === "owner"}>
-                <footer class="curriculum-save-actions curriculum-detail-actions">
+                <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
                   <button type="button" disabled={saving()} onClick={() => void save()}>
                     {saving() ? "Saving..." : "Save Blueprint Course"}
                   </button>
@@ -371,14 +373,14 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
                   </Show>
                 </footer>
               </Show>
-              <div class="curriculum-editor-content">
+              <div class="blueprint-course-editor-content">
                 <For each={loaded.draft.modules}>
                   {(module, moduleIndex) => (
-                    <section class="curriculum-module">
+                    <section class="blueprint-course-module">
                       <h2>{module.label}</h2>
                       <For each={module.assignments}>
                         {(assignment, assignmentIndex) => (
-                          <section class="curriculum-content-card">
+                          <section class="blueprint-course-content-card">
                             <BlueprintAssignmentContentEditor
                               content={assignment.content}
                               editable={loaded.view.access === "owner"}

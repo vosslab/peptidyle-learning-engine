@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import {
   createHttpApiClient,
   ApiProtocolError,
@@ -18,7 +18,7 @@ import {
 } from "../src/api/question_authorship.ts";
 import { createWorkspaceEditorRepository } from "../src/pages/editor_workspace_repository.ts";
 
-const draft = publishedProblemFixture.draft;
+const draft = publishedQuestionFixture.draft;
 const workspace = draft.workspace;
 const draftQuestion = "D-901";
 
@@ -98,7 +98,7 @@ test("publication transport uses a bodyless validation request and explicit Ques
           { headers: { etag: '"1"' } },
         );
       }
-      return jsonResponse(publishedProblemFixture.publishedQuestion);
+      return jsonResponse(publishedQuestionFixture.publishedQuestion);
     },
   });
   await client.validateWorkspacePublication(workspace);

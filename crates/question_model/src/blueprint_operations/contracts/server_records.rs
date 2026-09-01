@@ -12,7 +12,7 @@ use super::{
     CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest,
     CreateCourseFromBlueprintCommandError, CreateCourseFromBlueprintReadiness,
     ForkBlueprintCourseCommandError, ForkBlueprintCourseReadiness, QuestionRevisionSubstitutions,
-    ReconcileCourseInstanceReadiness, ShiftCourseDatesReadiness,
+    ReconcileCourseInstanceReadiness, RequestChecksum, ShiftCourseDatesReadiness,
 };
 use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
@@ -20,20 +20,20 @@ use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintOperationRequestBinding {
     authorized_account: AccountId,
-    request_digest: [u8; 32],
-    idempotency_key: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
+    retry_token: BlueprintOperationRetryToken,
 }
 
 impl BlueprintOperationRequestBinding {
     pub fn new(
         authorized_account: AccountId,
-        request_digest: [u8; 32],
-        idempotency_key: BlueprintOperationRetryToken,
+        request_checksum: RequestChecksum,
+        retry_token: BlueprintOperationRetryToken,
     ) -> Self {
         Self {
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         }
     }
 
@@ -41,19 +41,19 @@ impl BlueprintOperationRequestBinding {
         self.authorized_account
     }
 
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request_digest
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request_checksum
     }
 
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
 
-    pub(super) fn into_parts(self) -> (AccountId, [u8; 32], BlueprintOperationRetryToken) {
+    pub(super) fn into_parts(self) -> (AccountId, RequestChecksum, BlueprintOperationRetryToken) {
         (
             self.authorized_account,
-            self.request_digest,
-            self.idempotency_key,
+            self.request_checksum,
+            self.retry_token,
         )
     }
 }
@@ -258,11 +258,11 @@ impl ShiftCourseDatesApplyRecord {
     pub fn authorized_account(&self) -> AccountId {
         self.request.authorized_account()
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request.request_digest()
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request.request_checksum()
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        self.request.idempotency_key()
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        self.request.retry_token()
     }
 
     pub(super) fn into_receipt_parts(
@@ -273,18 +273,18 @@ impl ShiftCourseDatesApplyRecord {
         CourseTerm,
         BoundedResolvedScheduleSet,
         AccountId,
-        [u8; 32],
+        RequestChecksum,
         BlueprintOperationRetryToken,
     ) {
-        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
         (
             self.destination,
             self.course_origin,
             self.target_term,
             self.schedules,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         )
     }
 }
@@ -343,11 +343,11 @@ impl ApplyBlueprintUpdateApplyRecord {
     pub fn authorized_account(&self) -> AccountId {
         self.request.authorized_account()
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request.request_digest()
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request.request_checksum()
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        self.request.idempotency_key()
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        self.request.retry_token()
     }
 
     pub(super) fn into_receipt_parts(
@@ -358,18 +358,18 @@ impl ApplyBlueprintUpdateApplyRecord {
         CourseInstanceSnapshot,
         CourseOrigin,
         AccountId,
-        [u8; 32],
+        RequestChecksum,
         BlueprintOperationRetryToken,
     ) {
-        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
         (
             self.source,
             self.import,
             self.destination,
             self.course_origin,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         )
     }
 }
@@ -425,11 +425,11 @@ impl CopyAssignmentFromBlueprintApplyRecord {
     pub fn authorized_account(&self) -> AccountId {
         self.request.authorized_account()
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request.request_digest()
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request.request_checksum()
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        self.request.idempotency_key()
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        self.request.retry_token()
     }
 
     pub(super) fn into_receipt_parts(
@@ -441,10 +441,10 @@ impl CopyAssignmentFromBlueprintApplyRecord {
         ResolvedAssignmentSchedule,
         QuestionRevisionSubstitutions,
         AccountId,
-        [u8; 32],
+        RequestChecksum,
         BlueprintOperationRetryToken,
     ) {
-        let (authorized_account, request_digest, idempotency_key) = self.request.into_parts();
+        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
         (
             self.source,
             self.destination,
@@ -452,8 +452,8 @@ impl CopyAssignmentFromBlueprintApplyRecord {
             self.schedule,
             self.replacements,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         )
     }
 }
@@ -461,7 +461,7 @@ impl CopyAssignmentFromBlueprintApplyRecord {
 /// Server-only reconciliation authority bound to one retained Assignment import receipt.
 ///
 /// `original_import_receipt` identifies the immutable source evidence. `authorized_account`,
-/// request digest, and idempotency key identify this new repair action, so a
+/// Request Checksum, and retry token identify this new repair action, so a
 /// repair has its own audit identity and never collides with the original
 /// completed operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -469,8 +469,8 @@ pub struct ReconcileCourseInstanceApplyRecord {
     original_import_receipt: AssignmentImportReceipt,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    request_digest: [u8; 32],
-    idempotency_key: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
+    retry_token: BlueprintOperationRetryToken,
 }
 
 impl ReconcileCourseInstanceApplyRecord {
@@ -479,8 +479,8 @@ impl ReconcileCourseInstanceApplyRecord {
         original_import_receipt: AssignmentImportReceipt,
         course_origin: CourseOrigin,
         authorized_account: AccountId,
-        request_digest: [u8; 32],
-        idempotency_key: BlueprintOperationRetryToken,
+        request_checksum: RequestChecksum,
+        retry_token: BlueprintOperationRetryToken,
         readiness: ReconcileCourseInstanceReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
@@ -488,7 +488,7 @@ impl ReconcileCourseInstanceApplyRecord {
         if course_origin != original_import_receipt.course_origin()
             || original_import_target.course() != original_import_receipt.destination().course
             || (authorized_account == original_import_receipt.authorized_account()
-                && idempotency_key == *original_import_receipt.idempotency_key())
+                && retry_token == *original_import_receipt.retry_token())
         {
             return Err(CourseInstanceCommandError::ReceiptBindingMismatch);
         }
@@ -496,8 +496,8 @@ impl ReconcileCourseInstanceApplyRecord {
             original_import_receipt,
             course_origin,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
         })
     }
 
@@ -510,11 +510,11 @@ impl ReconcileCourseInstanceApplyRecord {
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request_digest
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request_checksum
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
 
     pub(super) fn into_receipt_parts(
@@ -523,15 +523,15 @@ impl ReconcileCourseInstanceApplyRecord {
         AssignmentImportReceipt,
         CourseOrigin,
         AccountId,
-        [u8; 32],
+        RequestChecksum,
         BlueprintOperationRetryToken,
     ) {
         (
             self.original_import_receipt,
             self.course_origin,
             self.authorized_account,
-            self.request_digest,
-            self.idempotency_key,
+            self.request_checksum,
+            self.retry_token,
         )
     }
 }

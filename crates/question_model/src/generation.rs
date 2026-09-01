@@ -77,7 +77,7 @@ pub enum QuestionGeneratorParameter {
     },
     /// One entry drawn from an authored list.
     Choice {
-        /// The candidate values, in authoring order.
+        /// The authored choices, in authoring order.
         options: Vec<String>,
     },
     /// A value fixed by the author, drawn identically every time.

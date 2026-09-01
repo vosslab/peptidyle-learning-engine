@@ -36,12 +36,12 @@ pub use crate::question_source::{QuestionSourceResolutionError, ResolvedQuestion
 pub struct Sha256Checksum([u8; 32]);
 
 impl Sha256Checksum {
-    /// Computes the digest for object bytes.
+    /// Computes the checksum for object bytes.
     pub fn compute(bytes: &[u8]) -> Self {
         Self(Sha256::digest(bytes).into())
     }
 
-    /// Rebuilds a digest from its already-verified fixed-width representation.
+    /// Rebuilds a checksum from its already-verified fixed-width representation.
     ///
     /// Storage adapters use this when decoding a `bytea` checksum; hashing the
     /// checksum bytes again would silently change the authenticated value.
@@ -49,7 +49,7 @@ impl Sha256Checksum {
         Self(bytes)
     }
 
-    /// Returns the fixed 32-byte digest.
+    /// Returns the fixed 32-byte checksum.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
@@ -84,7 +84,7 @@ impl<'de> Deserialize<'de> for Sha256Checksum {
             type Value = Sha256Checksum;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("a lowercase 64-character hexadecimal SHA-256 digest")
+                formatter.write_str("a lowercase 64-character hexadecimal SHA-256 checksum")
             }
 
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>

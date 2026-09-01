@@ -36,7 +36,7 @@ Browser                                      PLE
    |                                          |
    | POST .../attempts/{attempt}/submissions  |
    | Idempotency-Key: ...                     |
-   | {presentationDigest, answer}             |
+   | {presentationToken, answer}             |
    |----------------------------------------->|
    | compact policy-permitted receipt         |
    |<-----------------------------------------|
@@ -47,7 +47,7 @@ server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemp
 `QuestionRevisionReference` plus seed before reading or mutating anything. A presentation checksum checks that
 the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
-and Hotspot Regions within that presentation. Neither the digest nor CRC16 authenticates the student or proves
+and Hotspot Regions within that presentation. Neither the Question Presentation Checksum nor CRC16 authenticates the student or proves
 correctness.
 
 ### SD1 authorization binding
@@ -221,7 +221,7 @@ descriptor, and one public envelope:
   "attempt": {
     "id": "...",
     "deadline": null,
-    "presentationDigest": "pd1_..."
+    "presentationToken": "pd1_..."
   },
   "envelope": {
     "version": "...",
@@ -249,7 +249,7 @@ Every ordinary answer uses the same outer request:
 
 ```json
 {
-  "presentationDigest": "pd1_...",
+  "presentationToken": "pd1_...",
   "answer": {}
 }
 ```
@@ -297,7 +297,7 @@ The target result is a compact, policy-projected receipt, conceptually:
 
 `outcome` or parts of it may be absent when the feedback policy withholds correctness or score. The
 browser never calculates partial credit and never sends component scores, weights, maximum score, or
-claims of correctness. Native PLE grading or the private backend computes all component results and
+claims of correctness. PLE Question Backend grading computes all component results and
 the server projects only what the student may see.
 
 ## Rendered-item IDs
@@ -361,7 +361,7 @@ it is compact and easy to inspect, not because it is collision-resistant or secr
 
 ### Whole-presentation checksum
 
-Fine-grained IDs say which rendered objects the student selected. A separate SHA-256 digest binds the
+Fine-grained IDs say which rendered objects the student selected. A separate Question Presentation Checksum binds the
 complete public presentation:
 
 - immutable version and seed;
@@ -372,7 +372,7 @@ complete public presentation:
 - asset IDs and content checksums; and
 - normalized hotspot geometry where applicable.
 
-The database stores all 32 digest bytes. The public `pd1_` token carries the first 16 bytes in
+The database stores all 32 Question Presentation Checksum bytes. The public Question Presentation Token carries the first 16 bytes in
 base64url form. A 128-bit public prefix is inexpensive and is more suitable than CRC16 for detecting
 whole-presentation disagreement. It is still a consistency value, not an authentication token.
 
@@ -491,7 +491,7 @@ The inspected evidence is in `routes/api.php`,
 `resources/js/components/QtiJsonQuestionViewer.vue`, and
 `resources/js/helpers/HandleTechnologyResponse.js` under that snapshot.
 
-### Native ADAPT flow
+### ADAPT direct-question flow
 
 ADAPT's assignment question view returns rich question records containing IDs, technology, revision,
 seeded and student-sanitized QTI JSON, prior response, points, timing/attempt state, media URLs, and
@@ -521,8 +521,8 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
 | Render sanitization | Strips correct responses and feedback by role/policy | Adopt and preserve                                       |
 | Determinism         | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt |
-| Native type         | Server infers `questionType`                         | Remove submission `kind` in PLE v1                       |
-| Native identity     | Browser sends assignment and question IDs            | Use one attempt ID that already binds both               |
+| Server-inferred type | Server infers `questionType`                        | Remove submission `kind` in PLE v1                       |
+| Server-held identity | Browser sends assignment and question IDs           | Use one attempt ID that already binds both                |
 | ADAPT render scope  | Rich assignment/question records                     | Return one minimal active student screen                 |
 | Matching response   | Whole mutated objects                                | Send only rendered-ID relationships                      |
 | Backend selector    | Browser sends `technology`                           | Derive backend from the attempt                          |
@@ -642,9 +642,9 @@ easy to navigate without duplicating its exact migration and codec specification
 - Owner: Rust implementation, independently reviewed for Wasm parity.
 - Files: question-model presentation and student descriptors, response wire types, Wasm exports,
   generated browser types, and fixed vectors.
-- Behavior: implement canonical descriptor bytes, SHA-256 digest, CRC16 item IDs, collision retry,
+- Behavior: implement canonical descriptor bytes, Question Presentation Checksum, CRC16 item IDs, collision retry,
   and all eight minimal answer shapes.
-- Success: Rust and Wasm vectors agree byte-for-byte; meaningful descriptor changes alter the digest;
+- Success: Rust and Wasm vectors agree byte-for-byte; meaningful descriptor changes alter the checksum;
   duplicate rendered IDs trigger bounded nonce retry and fail closed after eight attempts.
 - Validation: focused Rust/Wasm/vector tests, formatter, strict Clippy, generated-binding freshness,
   and independent Wasm review.
@@ -654,7 +654,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Owner: PostgreSQL and Store implementation.
 - Files: `2026080908_secure_question_grading_payloads.sql`, Store traits, Memory/PostgreSQL stores,
   prefetch promotion, retention, backup/restore, and conformance tests.
-- Behavior: persist the presentation version, nonce, digest, request-contract version, prefetch
+- Behavior: persist the presentation version, nonce, Question Presentation Checksum, request-contract version, prefetch
   binding, and bounded private WeBWorK replay state under forced RLS.
 - Success: constraints reject malformed data; another AccountId, another course, and a foreign attempt
   cannot read or write it; Memory and PostgreSQL agree; retention and restore preserve or remove

@@ -78,7 +78,7 @@ pub enum ObjectAddress {
     /// This intentionally uses the private-content Object Storage Area for immutable
     /// durable bytes and must never be exposed through CDN or Question Library asset
     /// delivery.
-    WorkspaceSource {
+    WorkspaceImportSource {
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Staged import identity.
@@ -98,9 +98,9 @@ pub enum ObjectAddress {
     },
     /// A verified logical asset extracted from a private workspace import.
     ///
-    /// Like [`Self::WorkspaceSource`], this is durable private-content storage
-    /// but not a CDN or Question Library delivery candidate.
-    WorkspaceAsset {
+    /// Like [`Self::WorkspaceImportSource`], this is durable private-content storage
+    /// but not eligible for CDN or Question Library delivery.
+    WorkspaceImportAsset {
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Staged import identity.
@@ -113,8 +113,8 @@ pub enum ObjectAddress {
     /// A logical asset authored directly for a private workspace question.
     ///
     /// This private-content object is intentionally distinct from
-    /// [`Self::WorkspaceAsset`]: it has no Workspace Import relationship and is never a
-    /// Question Library asset or direct-delivery candidate.
+    /// [`Self::WorkspaceImportAsset`]: it has no Workspace Import relationship and is never a
+    /// Question Library asset or direct delivery.
     WorkspaceQuestionAsset {
         /// Private authoring workspace.
         workspace: WorkspaceId,
@@ -213,9 +213,9 @@ impl ObjectAddress {
     /// Object Storage Area selected by this semantic Object Address.
     pub fn storage_area(&self) -> ObjectStorageArea {
         match self {
-            Self::WorkspaceSource { .. }
+            Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceImportAsset { .. }
             | Self::WorkspaceQuestionAsset { .. }
             | Self::QuestionSource { .. }
             | Self::PublishedImportArchive { .. }
@@ -232,9 +232,9 @@ impl ObjectAddress {
     /// Required Object Data Class inherited from the exact owning address.
     pub fn data_class(&self) -> ObjectDataClass {
         match self {
-            Self::WorkspaceSource { .. }
+            Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceImportAsset { .. }
             | Self::WorkspaceQuestionAsset { .. } => ObjectDataClass::AuthoringContent,
             Self::QuestionSource { .. } | Self::PublishedImportArchive { .. } => {
                 ObjectDataClass::QuestionSource
@@ -254,7 +254,7 @@ impl ObjectAddress {
     /// Immutable path derived only from typed identity components.
     pub fn path(&self) -> String {
         match self {
-            Self::WorkspaceSource {
+            Self::WorkspaceImportSource {
                 workspace,
                 import,
                 object,
@@ -264,7 +264,7 @@ impl ObjectAddress {
             Self::WorkspaceQuestionSource { workspace, object } => {
                 format!("workspaces/{workspace}/questions/source/{object}")
             }
-            Self::WorkspaceAsset {
+            Self::WorkspaceImportAsset {
                 workspace,
                 import,
                 asset,
@@ -337,9 +337,9 @@ impl ObjectAddress {
     /// Object-record identity embedded in the key.
     pub fn object_id(&self) -> ObjectId {
         match self {
-            Self::WorkspaceSource { object, .. }
+            Self::WorkspaceImportSource { object, .. }
             | Self::WorkspaceQuestionSource { object, .. }
-            | Self::WorkspaceAsset { object, .. }
+            | Self::WorkspaceImportAsset { object, .. }
             | Self::WorkspaceQuestionAsset { object, .. }
             | Self::QuestionSource { object, .. }
             | Self::PublishedImportArchive { object, .. }
@@ -373,9 +373,9 @@ impl ObjectAddress {
             | Self::QuestionRender {
                 question_revision, ..
             } => Some(question_revision),
-            Self::WorkspaceSource { .. }
+            Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceAsset { .. }
+            | Self::WorkspaceImportAsset { .. }
             | Self::WorkspaceQuestionAsset { .. }
             | Self::CourseBannerUpload { .. }
             | Self::CourseBanner { .. }
@@ -453,7 +453,7 @@ fn domain_separated_object_id(domain: &[u8], components: [uuid::Uuid; 3]) -> Obj
 ///
 /// UUID wrappers are encoded as their raw 16-byte values. The archive digest
 /// is deliberately excluded: an exact replay and divergent bytes for the same
-/// import identity must address the same immutable [`ObjectAddress::WorkspaceSource`]
+/// import identity must address the same immutable [`ObjectAddress::WorkspaceImportSource`]
 /// key so the owning upload path can distinguish replay from conflict.
 /// Only the first 16 bytes of the domain-separated SHA-256 digest become the
 /// deterministic object UUID.
@@ -552,7 +552,7 @@ mod tests {
         );
 
         for private_key in [
-            ObjectAddress::WorkspaceSource {
+            ObjectAddress::WorkspaceImportSource {
                 workspace,
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
                 object,
@@ -693,11 +693,11 @@ mod tests {
     }
 
     #[test]
-    fn workspace_qti_archive_uses_private_workspace_source_key() {
+    fn workspace_qti_archive_uses_private_workspace_import_source_key() {
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
         let object = workspace_qti_archive_object_id(workspace, import);
-        let key = ObjectAddress::WorkspaceSource {
+        let key = ObjectAddress::WorkspaceImportSource {
             workspace,
             import,
             object,

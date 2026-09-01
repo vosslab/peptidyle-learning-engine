@@ -180,11 +180,11 @@ tolerance is one of `exact`, `absolute` with nonnegative finite `epsilon`,
 positive `digits` count.
 
 Hotspot surfaces name an existing immutable asset UUID, its lowercase SHA-256
-checksum, and a nonblank description. Candidate rectangles use integer
-coordinates from 0 through 10,000, independent of browser pixels. Rectangles
-must be nonempty, contained by that normalized surface, and nonoverlapping.
-The candidate labels are the primary no-mouse response path; the image itself
-is not the only way to identify a region.
+checksum, and a nonblank description. Current Hotspot Regions are rectangles
+with integer coordinates from 0 through 10,000, independent of browser pixels.
+Each rectangle must be nonempty, contained by that normalized surface, and
+nonoverlapping. Hotspot Region labels are the primary no-mouse response path;
+the image itself is not the only way to identify a region.
 
 ## Compilation and security boundary
 
@@ -210,8 +210,8 @@ model            answer key + three feedback forms
 | Value                        | Storage and readers                                                                       | Contents                                                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
-| Published source             | Immutable private `ProblemSource` object                                                  | The canonical PLE JSON promoted at publication for provenance, recovery, and exact re-import                      |
-| Public compiled model        | Checksummed `problem_version_payload` JSONB                                               | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
+| Published source             | Immutable private Question Source object                                                   | The canonical PLE JSON promoted at publication for source recovery and exact re-import                             |
+| Public compiled model        | Checksummed public Question Revision projection                                            | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
 | Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
 | Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
 

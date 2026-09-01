@@ -174,7 +174,7 @@ upstream fields, storage locations, and grader state.
 An attempt-specific presentation binding protects against a valid but wrong
 render being submitted for the wrong attempt. Each selectable object has a
 small rendered-item ID; the full public descriptor has a presentation checksum.
-The digest is a consistency check, not an authentication mechanism or transport
+The Question Presentation Checksum and its public Question Presentation Token are consistency checks, not authentication mechanisms or transport
 checksum. The exact wire contract, CRC16 collision rule, readiness requirement,
 and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
@@ -323,7 +323,7 @@ a frozen manifest, idempotent object deletion, lease and generation fencing,
 and one verified relational purge transaction. It never follows an assignment
 reference into shared published content.
 
-Published problems, immutable versions, instructor drafts, and anonymous
+Published Questions, immutable Question Revisions, Instructor Drafts, and anonymous
 question statistics have different retention rules. A first completed
 assignment can contribute an identity-free aggregate exactly once. That
 aggregate supports future library improvement but is not a course-local

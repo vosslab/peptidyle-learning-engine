@@ -42,8 +42,8 @@ immutable Blueprint parent and applied revision are server-owned.
 | `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Student entitlement                                     |
 | `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                                                           |
 | /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                          |
-| /curriculum                                                            | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
-| /curriculum/:blueprintRef                                              | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
+| /blueprint-courses                                                      | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
+| /blueprint-courses/:blueprintCourseRef                                  | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
 | /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                |
 | /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                |
 | /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                             |
@@ -53,7 +53,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                                                        |
 | /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                                                             |
 | /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                                                             |
-| /curriculum                                                            | Blueprint Course adoption and imports              | Course Instance destination authority                                                 |
+| /blueprint-courses                                                      | Blueprint Course adoption and imports              | Course Instance destination authority                                                 |
 
 Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
 the canonical Assignment Attempt terms in
@@ -92,8 +92,8 @@ The reusable source client is owned by:
 - src/api/decoders/blueprint_course.ts: strict nested-tree decoder.
 - src/features/blueprint_course/: one list/detail/editor workspace and
   local draft model.
-- src/pages/curriculum_route_page.tsx and
-  src/pages/curriculum_detail_route_page.tsx: route composition.
+- src/pages/blueprint_course_route_page.tsx and
+  src/pages/blueprint_course_detail_route_page.tsx: route composition.
 
 The workspace displays ordered modules and ordered assignments. Its problem
 picker source descriptor contains one Blueprint reference and normalized module
@@ -199,7 +199,7 @@ is used only for non-authoritative format/timing help.
 A BlueprintCourse draft remains in component/page state until the typed
 repository reports success or a recoverable conflict. It is not a hidden
 browser authority. Course appearance and authorization are loaded from
-server-owned route data, not browser storage.
+server-owned Course Route View data, not browser storage.
 
 ## Errors and accessibility
 

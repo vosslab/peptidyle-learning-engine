@@ -9,7 +9,7 @@ import {
   createHttpApiClient,
   resolveAssignmentFixedItemReplacementFailure,
 } from "../src/api/http_client.ts";
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 const course = "0198e000-0000-7000-8000-000000000001";
@@ -18,14 +18,14 @@ const item = "0198e000-0000-7000-8000-000000000003";
 
 function replacementEditorDetail() {
   const { disclosurePolicy: _retiredDisclosurePolicy, ...assignmentDetail } =
-    publishedProblemFixture.assignment;
+    publishedQuestionFixture.assignment;
   const replacement = {
     ...assignmentDetail,
     id: assignment,
     courseId: course,
     entries: [
       {
-        ...publishedProblemFixture.assignment.entries[0],
+        ...publishedQuestionFixture.assignment.entries[0],
         questionId: "1A2-B3CD",
         title: "Replacement peptide bond question",
       },
@@ -141,7 +141,7 @@ test("fixed-item replacement decodes the revised editor detail and its new ETag"
 
   assert.equal(replaced.id, assignment);
   assert.equal(replaced.courseId, course);
-  assert.equal(replaced.entries[0].id, publishedProblemFixture.assignment.entries[0].id);
+  assert.equal(replaced.entries[0].id, publishedQuestionFixture.assignment.entries[0].id);
   assert.equal(replaced.entries[0].questionId, "1A2-B3CD");
   assert.equal(replaced.revision, '"5"');
 });

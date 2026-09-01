@@ -25,8 +25,8 @@ function canUseLibrary(state: SessionBootstrapState): boolean {
   return canAccessRoute(state, "library");
 }
 
-function canUseCurriculum(state: SessionBootstrapState): boolean {
-  return canAccessRoute(state, "curriculum");
+function canUseBlueprintCourses(state: SessionBootstrapState): boolean {
+  return canAccessRoute(state, "blueprintCourses");
 }
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
@@ -161,9 +161,9 @@ export function App(props: RouteSectionProps): JSX.Element {
               Library
             </A>
           </Show>
-          <Show when={canUseCurriculum(session.state())}>
-            <A href="/curriculum" activeClass="active">
-              Curriculum
+          <Show when={canUseBlueprintCourses(session.state())}>
+            <A href="/blueprint-courses" activeClass="active">
+              Blueprint Courses
             </A>
           </Show>
           <Show when={canUseAuthoringTools(session.state())}>

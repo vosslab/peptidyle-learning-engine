@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import { ApiRequestError, createHttpApiClient } from "../src/api/http_client.ts";
 import {
@@ -13,12 +13,12 @@ import {
 } from "./http_client_test_support.mjs";
 
 function clientWithIssuedQuestion(mutator) {
-  const attempt = publishedProblemFixture.attempts.at(-1);
+  const attempt = publishedQuestionFixture.attempts.at(-1);
   assert.ok(attempt);
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) {
       const issued = structuredClone(
-        issuedQuestionWireFixture(attempt, publishedProblemFixture.publishedProblem),
+        issuedQuestionWireFixture(attempt, publishedQuestionFixture.publishedQuestionRevision),
       );
       mutator(issued);
       return jsonResponse(issued);
@@ -35,18 +35,18 @@ function clientWithIssuedQuestion(mutator) {
 test("issued-question transport uses the explicit nested course and assignment route", async () => {
   const { attempt, client, requests } = clientWithIssuedQuestion(() => {});
   await client.getIssuedQuestion(
-    publishedProblemFixture.course.id,
-    publishedProblemFixture.assignment.id,
+    publishedQuestionFixture.course.id,
+    publishedQuestionFixture.assignment.id,
     attempt.id,
   );
   assert.equal(
     requests[1]?.url,
-    `https://client.example.test/api/courses/${publishedProblemFixture.course.id}/assignments/${publishedProblemFixture.assignment.id}/attempts/${attempt.id}/question`,
+    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assignments/${publishedQuestionFixture.assignment.id}/attempts/${attempt.id}/question`,
   );
 });
 
 test("issued-question transport preserves a concealed nested-route 404 without a legacy retry", async () => {
-  const attempt = publishedProblemFixture.attempts.at(-1);
+  const attempt = publishedQuestionFixture.attempts.at(-1);
   assert.ok(attempt);
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) return jsonResponse({}, 404);
@@ -55,8 +55,8 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   const client = createHttpApiClient({ fetch: recordingFetch });
   await assert.rejects(
     client.getIssuedQuestion(
-      publishedProblemFixture.course.id,
-      publishedProblemFixture.assignment.id,
+      publishedQuestionFixture.course.id,
+      publishedQuestionFixture.assignment.id,
       attempt.id,
     ),
     (error) => error instanceof ApiRequestError && error.status === 404,
@@ -74,8 +74,8 @@ test("issued-question transport rejects a response that carries a server-only fi
   });
   await assert.rejects(
     client.getIssuedQuestion(
-      publishedProblemFixture.course.id,
-      publishedProblemFixture.assignment.id,
+      publishedQuestionFixture.course.id,
+      publishedQuestionFixture.assignment.id,
       attempt.id,
     ),
     (error) =>
@@ -215,8 +215,8 @@ test("issued-question transport rejects answer material at every nested envelope
     const { attempt, client } = clientWithIssuedQuestion(hostile.mutate);
     await assert.rejects(
       client.getIssuedQuestion(
-        publishedProblemFixture.course.id,
-        publishedProblemFixture.assignment.id,
+        publishedQuestionFixture.course.id,
+        publishedQuestionFixture.assignment.id,
         attempt.id,
       ),
       (error) =>

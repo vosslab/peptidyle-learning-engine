@@ -50,7 +50,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     let import = WorkspaceImportId::from_uuid(id(3));
     let question_revision = question_revision(5);
     let archive_bytes = b"verified QTI archive bytes".to_vec();
-    let workspace_key = ObjectAddress::WorkspaceSource {
+    let workspace_key = ObjectAddress::WorkspaceImportSource {
         workspace,
         import,
         object: ObjectId::from_uuid(id(6)),

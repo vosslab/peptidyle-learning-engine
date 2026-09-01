@@ -498,7 +498,24 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'Gradebook does not preserve immutable calculations and an exact selected grade';
 	END IF;
-	IF to_regclass('ple_private.grading_result') IS NULL
+	IF to_regclass('ple_private.automated_grading_operation') IS NOT NULL
+		OR to_regclass('ple_private.question_submission_grading') IS NULL
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.question_submission_grading'::regclass
+			AND conname = 'question_submission_grading_job_matches_submission'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.question_submission_grading'::regclass
+			AND conname = 'question_submission_grading_state_is_closed'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.job'::regclass
+			AND conname = 'job_kind_matches_target'
+		)
+		OR to_regclass('ple_private.grading_result') IS NULL
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_private.grading_result'::regclass
@@ -506,13 +523,21 @@ BEGIN
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_private.grading_result'::regclass
-			AND conname = 'grading_result_matches_operation_submission'
+			AND conname = 'grading_result_matches_question_submission_grading'
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_audit.automated_grading_receipt'::regclass
-			AND conname = 'automated_grading_receipt_matches_result_operation'
+			AND conname = 'automated_grading_receipt_matches_grading_result'
 		) THEN
-		RAISE EXCEPTION 'Grading Result does not bind one Question Submission, automated operation, and receipt';
+		RAISE EXCEPTION 'Grading Result does not bind one Question Submission grading lifecycle, Job, and receipt';
+	END IF;
+	IF to_regclass('ple_private.course_object_metadata') IS NOT NULL OR to_regclass('ple_private.course_object_reference') IS NULL OR to_regclass('ple_private.external_tool_provider_cache') IS NOT NULL OR to_regclass('ple_private.external_question_provider_cache_entry') IS NULL OR to_regclass('ple_private.external_tool_passback_state') IS NOT NULL OR to_regclass('ple_private.lti_grade_return') IS NULL OR to_regclass('ple_private.course_retention_plan') IS NOT NULL OR to_regclass('ple_audit.retention_lifecycle_event') IS NOT NULL OR to_regclass('ple_private.course_retention_plan_revision') IS NULL OR to_regclass('ple_audit.course_retention_event') IS NULL OR to_regclass('ple_private.webauthn_ceremony') IS NOT NULL OR to_regclass('ple_private.passkey_ceremony') IS NULL OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('external_tool_launch_session', 'external_tool_exchange') AND column_name = 'provider_key') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('assignment_export_request', 'assignment_export_artifact') AND column_name IN ('export_id', 'artifact_kind', 'state')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.external_tool_exchange'::regclass AND conname = 'external_tool_exchange_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.lti_grade_return'::regclass AND conname = 'lti_grade_return_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_course_retention_plan_revision_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_assignment_export_matches') OR EXISTS (
+			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name IN ('scope', 'owner_student_record_id', 'sha256') ) OR NOT EXISTS (
+			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name = 'object_checksum' AND is_nullable = 'NO'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_audit.object_delivery_access_event'::regclass AND conname = 'object_delivery_access_event_decision_is_closed'
+		) THEN
+		RAISE EXCEPTION 'Course Object Reference, External Question Provider Cache Entry, or Object Delivery Access Event lacks its exact boundary';
 	END IF;
 	IF to_regclass('ple_private.account_state_event') IS NULL
 		OR NOT EXISTS (

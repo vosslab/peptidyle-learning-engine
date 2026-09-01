@@ -81,7 +81,7 @@ fn question_hint_rejects_blank_authored_content() {
 }
 
 #[test]
-fn version_two_compiles_and_grades_all_eight_flat_families() {
+fn version_two_compiles_and_grades_all_eight_question_types() {
     let cases = vec![
         (
             "single choice",

@@ -1,4 +1,4 @@
-// hotspot.tsx - accessible candidate-region alternative for image hotspots.
+// hotspot.tsx - accessible labeled-region control for image hotspots.
 
 import { createSignal, For, type JSX } from "solid-js";
 

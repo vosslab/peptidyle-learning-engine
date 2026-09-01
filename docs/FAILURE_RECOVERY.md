@@ -29,7 +29,7 @@ resolve an indeterminate request; and define the safe student/operator action.
 Its race-safety mechanism is specified separately in
 [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
 
-**Planned boundaries.** Presentation-digest recovery awaits its accepted
+**Planned boundaries.** Question Presentation Checksum recovery awaits its accepted
 payload package; Object Storage Checks are WP-RC7; managed point-in-time
 recovery and production failover are WP-RC10 deployment work. None is current
 automatic recovery behavior.

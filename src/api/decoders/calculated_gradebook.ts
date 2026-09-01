@@ -139,7 +139,7 @@ export type InspectedSubmissionEvidence =
       readonly kind: "issuedPresentation";
       readonly question: QuestionVariationPresentation;
       readonly questionAssetRenditions: ReadonlyArray<QuestionAssetRendition>;
-      readonly issuedPresentationDigest: string;
+      readonly issuedPresentationChecksum: string;
     }
   | { readonly kind: "presentationNotApplicable" };
 
@@ -554,7 +554,7 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
   if (evidenceKind !== "issuedPresentation") {
     throw new DecodeError(`${path}.kind`, "issuedPresentation or presentationNotApplicable");
   }
-  requireOnlyFields(record, path, ["kind", "presentation", "issuedPresentationDigest"]);
+  requireOnlyFields(record, path, ["kind", "presentation", "issuedPresentationChecksum"]);
   const presentationPath = `${path}.presentation`;
   const presentation = closed(field(record, "presentation", path), presentationPath, [
     "envelope",
@@ -572,9 +572,9 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
       MAX_ASSET_BINDINGS,
       decodeQuestionAssetRendition,
     ),
-    issuedPresentationDigest: decodeSha256(
-      field(record, "issuedPresentationDigest", path),
-      `${path}.issuedPresentationDigest`,
+    issuedPresentationChecksum: decodeSha256(
+      field(record, "issuedPresentationChecksum", path),
+      `${path}.issuedPresentationChecksum`,
     ),
   };
 }

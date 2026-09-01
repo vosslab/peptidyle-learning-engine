@@ -7,7 +7,7 @@ import type { CreateBlueprintCourseContentInput } from "../../generated/api/Crea
 import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "./contracts";
 
-/** Strong server ETag retained unchanged for a subsequent curriculum mutation. */
+/** Strong server ETag retained unchanged for a subsequent Blueprint Course mutation. */
 export type BlueprintCourseEtag = string;
 
 export interface RevisionedBlueprintCourse {

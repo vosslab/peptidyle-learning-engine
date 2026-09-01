@@ -187,8 +187,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       <h1>Question library</h1>
       <p class="page-lede">Find a current published question to study, reuse, or assign.</p>
       <p>
-        <A class="quiet-link" href="/curriculum">
-          Browse reusable curricula
+        <A class="quiet-link" href="/blueprint-courses">
+          Browse Blueprint Courses
         </A>
       </p>
       <p class="sr-only" role="status" aria-live="polite">

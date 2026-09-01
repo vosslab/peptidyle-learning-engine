@@ -6,11 +6,11 @@ import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type {
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
-  CourseRouteData,
+  CourseRouteView,
 } from "../../api/contracts";
 
 export type CourseThemeRouteData =
-  | { readonly kind: "course"; readonly course: CourseRouteData }
+  | { readonly kind: "course"; readonly course: CourseRouteView }
   | { readonly kind: "assignmentAttempt"; readonly screen: AssignmentAttemptScreenData }
   | {
       readonly kind: "assignmentAttemptSummary";
@@ -21,8 +21,8 @@ export const CourseThemeRouteContext = createContext<CourseThemeRouteData>();
 export const CourseThemePresentationContext =
   createContext<(appearance: CourseAppearance) => void>();
 
-/** Resolves the one safe course projection already authorized by the route owner. */
-export function courseRouteData(data: CourseThemeRouteData): CourseRouteData {
+/** Resolves the authorized Course Route View already owned by the route. */
+export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
   switch (data.kind) {
     case "course":
       return data.course;

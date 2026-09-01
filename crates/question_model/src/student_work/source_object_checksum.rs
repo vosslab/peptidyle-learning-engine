@@ -15,7 +15,7 @@ pub struct SourceObjectChecksumError;
 
 impl std::fmt::Display for SourceObjectChecksumError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("a lowercase 64-character hexadecimal SHA-256 digest is required")
+        formatter.write_str("a lowercase 64-character hexadecimal SHA-256 checksum is required")
     }
 }
 

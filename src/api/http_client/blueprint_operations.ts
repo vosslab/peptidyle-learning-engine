@@ -55,16 +55,16 @@ function decodeApplyIntent(value: BlueprintOperationApplyIntent): BlueprintOpera
   }
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record);
-  if (keys.length !== 2 || !keys.includes("request") || !keys.includes("idempotency_key")) {
-    throw new ApiProtocolError("API apply intent must contain only request and idempotency_key");
+  if (keys.length !== 2 || !keys.includes("request") || !keys.includes("retry_token")) {
+    throw new ApiProtocolError("API apply intent must contain only request and retry_token");
   }
   decodePreviewRequest(record.request as BlueprintOperationPreviewRequest);
   if (
-    typeof record.idempotency_key !== "string" ||
-    !/^[A-Za-z0-9._-]+$/u.test(record.idempotency_key) ||
-    new TextEncoder().encode(record.idempotency_key).length > 128
+    typeof record.retry_token !== "string" ||
+    !/^[A-Za-z0-9._-]+$/u.test(record.retry_token) ||
+    new TextEncoder().encode(record.retry_token).length > 128
   ) {
-    throw new ApiProtocolError("API apply intent requires a bounded idempotency key");
+    throw new ApiProtocolError("API apply intent requires a bounded retry token");
   }
   return value;
 }

@@ -1,8 +1,8 @@
 export {
-  CurriculumDetailWorkspace,
-  CurriculumWorkspace,
-  type CurriculumDetailWorkspaceProps,
-  type CurriculumWorkspaceProps,
+  BlueprintCourseDetailWorkspace,
+  BlueprintCoursesWorkspace,
+  type BlueprintCourseDetailWorkspaceProps,
+  type BlueprintCoursesWorkspaceProps,
 } from "./blueprint_course_workspace";
 export {
   appendBlueprintCoursePage,
@@ -20,7 +20,7 @@ export {
   updateReusableSchedule,
   updateReusableText,
   validateReusableContent,
-  type CurriculumValidation,
+  type BlueprintCourseValidation,
   type ReusableEntryDirection,
   type ReusableScheduleField,
 } from "./blueprint_course_model";

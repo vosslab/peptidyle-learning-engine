@@ -29,7 +29,7 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
     pageSize !== undefined &&
     (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE)
   ) {
-    throw new ApiProtocolError("curriculum page size must be an integer from 1 through 100");
+    throw new ApiProtocolError("Blueprint Course page size must be an integer from 1 through 100");
   }
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
@@ -62,7 +62,7 @@ function blueprintPath(value: BlueprintCourseReference): string {
   return `/api/course-blueprints/${encodeURIComponent(reference)}`;
 }
 
-async function curriculumJson<T>(
+async function blueprintCourseJson<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
   path: string,
@@ -91,7 +91,7 @@ async function curriculumJson<T>(
   return { body, response };
 }
 
-async function deleteCurriculum(
+async function deleteBlueprintCourse(
   fetchImplementation: ApiFetch,
   basePath: string,
   path: string,
@@ -109,7 +109,7 @@ async function deleteCurriculum(
   }
 }
 
-/** Creates the complete reusable-curriculum capability without coupling it to a screen model. */
+/** Creates the complete Blueprint Course capability without coupling it to a screen model. */
 export function createBlueprintCourseClient(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -120,7 +120,7 @@ export function createBlueprintCourseClient(
       pageSize,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath("/api/course-blueprints", cursor, pageSize);
-      const result = await curriculumJson(
+      const result = await blueprintCourseJson(
         fetchImplementation,
         basePath,
         path,
@@ -130,7 +130,7 @@ export function createBlueprintCourseClient(
     },
     getBlueprintCourse: async (reference): Promise<RevisionedBlueprintCourse> => {
       const path = blueprintPath(reference);
-      const result = await curriculumJson(
+      const result = await blueprintCourseJson(
         fetchImplementation,
         basePath,
         path,
@@ -145,7 +145,7 @@ export function createBlueprintCourseClient(
       content: CreateBlueprintCourseContentInput,
     ): Promise<RevisionedBlueprintCourse> => {
       const path = "/api/course-blueprints";
-      const result = await curriculumJson(
+      const result = await blueprintCourseJson(
         fetchImplementation,
         basePath,
         path,
@@ -167,7 +167,7 @@ export function createBlueprintCourseClient(
       etag,
     ): Promise<RevisionedBlueprintCourse> => {
       const path = blueprintPath(reference);
-      const result = await curriculumJson(
+      const result = await blueprintCourseJson(
         fetchImplementation,
         basePath,
         path,
@@ -185,6 +185,6 @@ export function createBlueprintCourseClient(
       };
     },
     deleteBlueprintCourse: (reference, etag) =>
-      deleteCurriculum(fetchImplementation, basePath, blueprintPath(reference), etag),
+      deleteBlueprintCourse(fetchImplementation, basePath, blueprintPath(reference), etag),
   };
 }

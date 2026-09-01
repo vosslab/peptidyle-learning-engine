@@ -190,9 +190,8 @@ test("only course-owned executable routes request a theme scope", () => {
     "/",
     "/library",
     "/workspace",
-    "/curriculum",
+    "/blueprint-courses",
     `/library/${course}/versions/${assignment}`,
-    `/instructor/courses/${course}/curriculum`,
   ]) {
     assert.deepEqual(courseThemeRouteRequest(path), { kind: "global" });
   }

@@ -32,7 +32,7 @@ pub use pins::{
 };
 pub use scalars::{
     BlueprintOperationRetryToken, BlueprintOperationRetryTokenError, CurriculumImportRevision,
-    CurriculumImportRevisionError,
+    CurriculumImportRevisionError, RequestChecksum,
 };
 pub use server_records::{
     ApplyBlueprintUpdateApplyRecord, BlueprintOperationRequestBinding,

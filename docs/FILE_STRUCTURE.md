@@ -66,7 +66,7 @@ crates/question_model/src/
 BlueprintCourse is one ordered module/assignment tree with one aggregate
 revision. Its exact public question members resolve to immutable
 QuestionRevisionReference pins. CourseInstance is not another source tree: the
-Blueprint-operation boundary materializes it under an exact CourseId, records the
+Blueprint-operation boundary creates it under an exact CourseId, records the
 immutable Blueprint parent and applied revision, and owns private delivery
 state. New upstream assignments appear in daughter instances as unreleased.
 
@@ -122,8 +122,8 @@ src/
 |  +- blueprint_course/                    One BlueprintCourse workspace/editor
 |  `- blueprint_operations/                Blueprint-operation workflow stylesheet
 +- pages/
-|  +- curriculum_route_page.tsx               Workspace route composition
-|  +- curriculum_detail_route_page.tsx        Detail route composition
+|  +- blueprint_course_route_page.tsx          Blueprint Course list route composition
+|  +- blueprint_course_detail_route_page.tsx   Blueprint Course detail route composition
 |  `- (no Blueprint-operation page is mounted)
 +- components/                                Shared answer-free and accessibility UI
 +`- routes.ts                                Executable route map

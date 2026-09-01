@@ -47,7 +47,7 @@ test("B2 client uses the one closed Blueprint-operation envelope", async () => {
   const preview = await client.previewBlueprintOperation(previewRequest);
   const completed = await client.applyBlueprintOperation({
     request: previewRequest,
-    idempotency_key: "fork-2026",
+    retry_token: "fork-2026",
   });
 
   assert.equal(preview.operation, "fork_blueprint_course");
@@ -58,7 +58,7 @@ test("B2 client uses the one closed Blueprint-operation envelope", async () => {
   assert.equal(requests[1].request.credentials, "same-origin");
   assert.deepEqual(JSON.parse(requests[1].body), {
     request: previewRequest,
-    idempotency_key: "fork-2026",
+    retry_token: "fork-2026",
   });
 });
 
@@ -106,8 +106,7 @@ test("B2 client rejects retired operations and malformed apply intents before tr
     ApiProtocolError,
   );
   assert.throws(
-    () =>
-      client.applyBlueprintOperation({ request: previewRequest, idempotency_key: "invalid key" }),
+    () => client.applyBlueprintOperation({ request: previewRequest, retry_token: "invalid key" }),
     ApiProtocolError,
   );
 });

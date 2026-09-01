@@ -1,4 +1,4 @@
-// curriculum_detail_route_page.tsx - route-owned composition boundary for one Blueprint Course.
+// blueprint_course_detail_route_page.tsx - route-owned composition boundary for one Blueprint Course.
 
 import type { JSX } from "solid-js";
 
@@ -8,15 +8,17 @@ import type {
   QuestionPickerSourceRepository,
 } from "../features/question_picker";
 import {
-  CurriculumDetailWorkspace,
-  type CurriculumDetailWorkspaceProps,
+  BlueprintCourseDetailWorkspace,
+  type BlueprintCourseDetailWorkspaceProps,
 } from "../features/blueprint_course/blueprint_course_workspace";
 
-export type CurriculumDetailRoutePageProps = CurriculumDetailWorkspaceProps;
+export type BlueprintCourseDetailRoutePageProps = BlueprintCourseDetailWorkspaceProps;
 
 /** Integrators pass the BP-* route parameter after ordinary route decoding. */
-export function CurriculumDetailRoutePage(props: CurriculumDetailRoutePageProps): JSX.Element {
-  return <CurriculumDetailWorkspace {...props} />;
+export function BlueprintCourseDetailRoutePage(
+  props: BlueprintCourseDetailRoutePageProps,
+): JSX.Element {
+  return <BlueprintCourseDetailWorkspace {...props} />;
 }
 
 export type { BlueprintCourseClient, QuestionPickerSource, QuestionPickerSourceRepository };

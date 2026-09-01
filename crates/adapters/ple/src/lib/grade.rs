@@ -37,7 +37,7 @@ impl PleQuestionBackend {
             question,
             &prepared.generated,
             &prepared.envelope,
-            prepared.materialized.answer_key.as_ref(),
+            prepared.derived.answer_key.as_ref(),
         )
     }
 
@@ -65,15 +65,11 @@ impl PleQuestionBackend {
             &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
         )?;
         grader_execution
-            .grade(
-                question,
-                response,
-                prepared.materialized.answer_key.as_ref(),
-            )
+            .grade(question, response, prepared.derived.answer_key.as_ref())
             .map_err(PleQuestionBackendError::Grading)
     }
 
-    /// Reproduces, verifies, grades, and materializes private teaching content in one pass.
+    /// Reproduces, verifies, grades, and derives private teaching content in one pass.
     ///
     /// Keeping this separate from [`Self::grade`] prevents feedback from being
     /// recreated against a different instance or Question Source.
@@ -97,11 +93,7 @@ impl PleQuestionBackend {
             &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
         )?;
         let outcome = grader_execution
-            .grade(
-                question,
-                response,
-                prepared.materialized.answer_key.as_ref(),
-            )
+            .grade(question, response, prepared.derived.answer_key.as_ref())
             .map_err(PleQuestionBackendError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = &outcome else {
             return Ok((outcome, QuestionPostGradingContent::default()));
@@ -112,7 +104,7 @@ impl PleQuestionBackend {
             question,
             &prepared.generated,
             &prepared.envelope,
-            prepared.materialized.answer_key.as_ref(),
+            prepared.derived.answer_key.as_ref(),
             result,
             response,
         )?;

@@ -389,7 +389,7 @@ Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
 Question. **PLE Question JSON** is the canonical Question Format for
-simple static Questions. Native algorithmic source, WeBWorK PG, QTI, H5P, and
+simple static Questions. PLE algorithmic Question Source, WeBWorK PG, QTI, H5P, and
 iMathAS source snapshots are other registered Question Formats at their exact
 adapter boundaries. Question Format remains independent of educational
 interaction, execution, and browser presentation.

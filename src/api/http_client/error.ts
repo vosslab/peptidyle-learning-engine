@@ -153,7 +153,7 @@ export class QuestionCurationConflictError extends ApiRequestError {
   }
 }
 
-/** A reusable-curriculum replacement lost its strong revision race. */
+/** A Blueprint Course replacement lost its strong revision race. */
 export class BlueprintCourseConflictError extends ApiRequestError {
   declare public readonly status: 412;
 

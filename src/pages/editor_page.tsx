@@ -253,7 +253,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     } catch (error: unknown) {
       setPage({
         kind: "error",
-        message: error instanceof Error ? error.message : "The workspace could not load.",
+        message: error instanceof Error ? error.message : "My Question Drafts could not load.",
       });
     }
   }
@@ -318,11 +318,11 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     const current = ready();
     if (current === undefined) return;
     setDraftDirty(true);
-    setSaveMessage("Saving workspace draft...");
+    setSaveMessage("Saving Draft Question...");
     try {
       const saved = await props.repository.saveDraft(current.draft);
       replaceDraft(saved, false);
-      setSaveMessage("Draft saved. It remains a private, unversioned workspace draft.");
+      setSaveMessage("Draft saved. It remains a private, unversioned Draft Question.");
       setStaleConflict(false);
     } catch (error: unknown) {
       setStaleConflict(error instanceof WorkspaceConflictError);
@@ -349,7 +349,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     setDraftDirty(true);
     try {
       await props.repository.deleteDraft(current.draft.workspace);
-      setSaveMessage("Draft deleted. You can choose another workspace draft.");
+      setSaveMessage("Draft deleted. You can choose another Draft Question in My Question Drafts.");
       await load();
     } catch (error: unknown) {
       setStaleConflict(error instanceof WorkspaceConflictError);
@@ -512,7 +512,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     if (boundary === undefined) {
       setInstructorPreview({
         kind: "unavailable",
-        message: "Instructor answer preview is not available for this workspace.",
+        message: "Instructor answer preview is not available for this Draft Question.",
       });
       return;
     }
@@ -585,7 +585,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         </p>
       </Show>
       <Show when={page().kind === "empty"}>
-        <section class="editor-panel" aria-label="No workspace drafts">
+        <section class="editor-panel" aria-label="No My Question Drafts">
           <h2>No drafts yet</h2>
           <p>Create a workspace draft to begin with a small Student-facing prompt and response.</p>
           <Show when={props.onCreatePleQuestionJson !== undefined}>
@@ -612,7 +612,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <Show when={ready()}>
         {(current) => (
           <div class="editor-grid">
-            <aside class="editor-panel" aria-label="Workspace drafts">
+            <aside class="editor-panel" aria-label="My Question Drafts">
               <h2>Your drafts</h2>
               <Show when={props.onCreatePleQuestionJson !== undefined}>
                 <button

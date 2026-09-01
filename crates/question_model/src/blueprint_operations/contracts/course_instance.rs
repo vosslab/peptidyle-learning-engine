@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     AssignmentImportReceipt, BlueprintAssignmentRevisionReference, BlueprintOperationRetryToken,
     BlueprintQuestionPosition, BlueprintRevisionReference, CurriculumImportRevision,
-    QuestionRevisionSubstitutions, ReplacementQuestionRevisionChoices,
+    QuestionRevisionSubstitutions, ReplacementQuestionRevisionChoices, RequestChecksum,
 };
 use crate::{
     AccountId, AssignmentReference, AssignmentRevisionNumber, CourseInstanceReference,
@@ -121,8 +121,8 @@ pub struct CourseInstanceCreationReservation {
     origin: CourseInstanceCreationOrigin,
     target_term: CourseTerm,
     authorized_account: AccountId,
-    request_digest: [u8; 32],
-    idempotency_key: BlueprintOperationRetryToken,
+    request_checksum: RequestChecksum,
+    retry_token: BlueprintOperationRetryToken,
     reserved_course: CourseInstanceReference,
 }
 
@@ -131,16 +131,16 @@ impl CourseInstanceCreationReservation {
         source: BlueprintRevisionReference,
         target_term: CourseTerm,
         authorized_account: AccountId,
-        request_digest: [u8; 32],
-        idempotency_key: BlueprintOperationRetryToken,
+        request_checksum: RequestChecksum,
+        retry_token: BlueprintOperationRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
             origin: CourseInstanceCreationOrigin::Blueprint(source),
             target_term,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
             reserved_course,
         }
     }
@@ -149,16 +149,16 @@ impl CourseInstanceCreationReservation {
         source: CourseInstanceSnapshot,
         target_term: CourseTerm,
         authorized_account: AccountId,
-        request_digest: [u8; 32],
-        idempotency_key: BlueprintOperationRetryToken,
+        request_checksum: RequestChecksum,
+        retry_token: BlueprintOperationRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
             origin: CourseInstanceCreationOrigin::Rollover(source),
             target_term,
             authorized_account,
-            request_digest,
-            idempotency_key,
+            request_checksum,
+            retry_token,
             reserved_course,
         }
     }
@@ -178,11 +178,11 @@ impl CourseInstanceCreationReservation {
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
     }
-    pub fn request_digest(&self) -> [u8; 32] {
-        self.request_digest
+    pub fn request_checksum(&self) -> RequestChecksum {
+        self.request_checksum
     }
-    pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
-        &self.idempotency_key
+    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+        &self.retry_token
     }
     pub fn reserved_course(&self) -> CourseInstanceReference {
         self.reserved_course
@@ -526,7 +526,7 @@ pub struct CopyAssignmentFromBlueprintPreviewRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconcileCourseInstanceIntent {
     pub original_import_receipt: AssignmentImportReceipt,
-    pub idempotency_key: BlueprintOperationRetryToken,
+    pub retry_token: BlueprintOperationRetryToken,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

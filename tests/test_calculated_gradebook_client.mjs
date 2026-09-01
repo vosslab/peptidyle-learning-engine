@@ -66,7 +66,7 @@ function issuedPresentationEvidence() {
         },
       ],
     },
-    issuedPresentationDigest: "c".repeat(64),
+    issuedPresentationChecksum: "c".repeat(64),
   };
 }
 

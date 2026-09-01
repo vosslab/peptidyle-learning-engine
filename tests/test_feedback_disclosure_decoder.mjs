@@ -11,7 +11,7 @@ import {
   decodeAssignmentAttemptSummaryResponse,
   decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const studentProgress = {
   assignment_scoring_state: "current",
@@ -35,7 +35,7 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
 });
 
 test("Student attempts require score freshness and redact stale numeric results", () => {
-  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  const attempt = structuredClone(publishedQuestionFixture.attempts[0]);
   const current = { ...attempt, assignmentScoringState: "current" };
   assert.deepEqual(decodeStudentQuestionAttempt(current), current);
 
@@ -66,9 +66,9 @@ test("Student attempts require score freshness and redact stale numeric results"
 });
 
 test("attempt decoder accepts only the closed Question Attempt state vocabulary", () => {
-  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  const attempt = structuredClone(publishedQuestionFixture.attempts[0]);
   const deadlineClosed = {
-    ...structuredClone(publishedProblemFixture.attempts.at(-1)),
+    ...structuredClone(publishedQuestionFixture.attempts.at(-1)),
     state: "closed_at_deadline",
     assignmentScoringState: "current",
     questionPoolSelectionPosition: null,
@@ -93,7 +93,7 @@ test("attempt decoder accepts only the closed Question Attempt state vocabulary"
 });
 
 test("Student Question Pool Selection Position exposes only a valid server-selected ordinal", () => {
-  const attempt = structuredClone(publishedProblemFixture.attempts[0]);
+  const attempt = structuredClone(publishedQuestionFixture.attempts[0]);
   const pooled = {
     ...attempt,
     assignmentScoringState: "current",
@@ -119,7 +119,7 @@ test("Student Question Pool Selection Position exposes only a valid server-selec
 });
 
 test("Student Issued Question excludes durable Question Pool Selection evidence", () => {
-  const issuedQuestion = structuredClone(publishedProblemFixture.issuedQuestions[0]);
+  const issuedQuestion = structuredClone(publishedQuestionFixture.issuedQuestions[0]);
   assert.deepEqual(decodeStudentIssuedQuestion(issuedQuestion), issuedQuestion);
   assert.throws(
     () =>
@@ -132,10 +132,10 @@ test("Student Issued Question excludes durable Question Pool Selection evidence"
 });
 
 test("Assignment Attempt summary decoder accepts only its compact redacted wire shape", () => {
-  const assignmentAttempt = publishedProblemFixture.runs[0];
+  const assignmentAttempt = publishedQuestionFixture.runs[0];
   const summary = {
     course: {
-      summary: publishedProblemFixture.course,
+      summary: publishedQuestionFixture.course,
       appearance: { theme: "grass", revision: "1", banner: null },
     },
     assignmentAttempt,
@@ -143,8 +143,8 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
     outcomes: {
       items: [
         {
-          attempt: publishedProblemFixture.attempts[0].id,
-          issuedQuestion: publishedProblemFixture.issuedQuestions[0],
+          attempt: publishedQuestionFixture.attempts[0].id,
+          issuedQuestion: publishedQuestionFixture.issuedQuestions[0],
           submittedAt: 1,
           response: null,
           feedback: null,
@@ -182,7 +182,7 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
 
 test("submission receipts require an exact feedback field and reject hostile nested material", () => {
   const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...attempt } =
-    publishedProblemFixture.attempts[0];
+    publishedQuestionFixture.attempts[0];
   const receipt = {
     accepted: true,
     attempt,
@@ -266,7 +266,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
         ...receipt,
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
-          issuedQuestion: publishedProblemFixture.issuedQuestions[1],
+          issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
           seed: receipt.attempt.seed,
           deadline: null,
           renderedQuestionSha256: "b".repeat(64),
@@ -282,7 +282,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
         assignmentAttemptCompletion: "completed",
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
-          issuedQuestion: publishedProblemFixture.issuedQuestions[1],
+          issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
           seed: receipt.attempt.seed,
           deadline: null,
           renderedQuestionSha256: "b".repeat(64),

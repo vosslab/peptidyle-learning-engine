@@ -82,7 +82,7 @@ target-term schedule resolution, previews, commands, provenance, receipts, and
 Apply Blueprint Update semantics. Create Course from Blueprint copies reusable
 definitions, policy/theme defaults, reviewed offsets, and normalized manifests
 into an exact destination `CourseId`; it never copies Students, invitations,
-groups containing Students, accommodations, runs, responses, grades, or issued
+Course Memberships, accommodations, Assignment Attempts, Student Responses, grades, or issued
 evidence.
 
 New assignments added to a BlueprintCourse propagate to daughter instances as

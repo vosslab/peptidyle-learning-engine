@@ -481,16 +481,16 @@ mod tests {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Fixture {
-        published_problem: QuestionRevision,
+        published_question_revision: QuestionRevision,
     }
     fn fixture_question() -> QuestionRevision {
         let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/fixtures/published_problem/fixture_set.json");
+            .join("../../tests/fixtures/published_question/fixture_set.json");
         let fixture = fs::read_to_string(&fixture_path)
             .unwrap_or_else(|error| panic!("read {}: {error}", fixture_path.display()));
         serde_json::from_str::<Fixture>(&fixture)
             .expect("approved stored Question fixture decodes")
-            .published_problem
+            .published_question_revision
     }
     fn printable_capabilities() -> QuestionBackendCapabilities {
         QuestionBackendCapabilities::from_iter([Capability::PrintExport])

@@ -67,7 +67,7 @@ pub trait PleQuestionImplementation: Send + Sync {
     /// Capabilities this implementation can honestly provide now.
     fn capabilities(&self) -> QuestionBackendCapabilities;
 
-    /// Derives the server-only Answer Key after shared prompt materialization.
+    /// Derives the server-only Answer Key after shared prompt construction.
     ///
     /// # Errors
     ///
@@ -112,7 +112,7 @@ pub trait PleQuestionImplementation: Send + Sync {
     }
 
     /// Produces an instructor-only, display-ready answer presentation for an
-    /// editable draft.  The adapter has already materialized `prompt` for the
+    /// editable draft. The adapter has already constructed `prompt` for the
     /// supplied deterministic variant.  Returning `None` is an honest
     /// declaration that this implementation does not yet provide a safe author view;
     /// callers must surface it as unavailable rather than exposing an answer

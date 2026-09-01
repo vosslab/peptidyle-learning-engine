@@ -24,7 +24,7 @@ PLE uses distinct caches with deliberately different contents and lifetimes.
 | ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Browser run state         | Current authoritative screen and one speculative envelope                             | Current route and active attempt                                                                                            | Answers, grade keys, durable prefetch reservation                                                   |
 | Browser asset cache       | Delivered image and other asset bytes                                                 | Delivery URL and content checksum                                                                                           | Private source or a signed protected URL retained by PLE                                            |
-| CDN public assets         | Public immutable `ProblemAsset` renditions in `PublicAssets`                          | Typed immutable public Object Address and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
+| CDN public assets         | Public immutable `QuestionAsset` renditions in `PublicAssets`                         | Typed immutable public Object Address and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
 | Adapter render cache      | Answer-free envelope, safe markup, source binding, renderer identity                  | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw provider output                                      |
 | Attempt and prefetch rows | Question Attempt Reproduction Details, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                |
 
@@ -34,7 +34,7 @@ protected asset delivery responses. It keeps a successfully decoded prefetched e
 in memory only, never in `localStorage` or `sessionStorage`.
 
 Public immutable asset delivery is the exception. `GET /api/assets/{id}` can
-resolve only a `Ready` Question Library `ProblemAsset` in the physically separate
+resolve only a `Ready` Question Library `QuestionAsset` in the physically separate
 `PublicAssets` domain, then redirects to its CDN URL with
 `Cache-Control: public, max-age=31536000, immutable` and a checksum ETag. A
 `Pending` record, restricted asset, and nonexistent delivery ID are all

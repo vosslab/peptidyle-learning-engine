@@ -235,13 +235,14 @@ one direct contract rather than leaving serialization in a shared routing module
     vocabulary; Student-work broker vocabulary; automated-only scoring; Student-work payloads;
     canonical receipt V2; Question Library/Question authoring workspace payloads; Blueprint Course payloads; and operational payloads.
     They run on a clean volume with zero row backfill.
-  - Canonical JSON, semantic/request digests, receipts, native/QTI/H5P records, object metadata,
-    replay schemas, and seed vectors retain their existing named identity and receive an explicit
+  - Canonical JSON; documented semantic Digests used as identities, fingerprints, cache discriminators,
+    or deduplication values; Request Checksums; receipts; PLE Question JSON/QTI/H5P records; object metadata,
+    replay schemas; and seed vectors retain their canonical named identity and receive an explicit
     forward version only for new records.
   - Pilot sources/provenance, accepted screenshot generations, external archive/source bytes, and
     accepted migration files remain frozen historical evidence.
 
-- Permanent gate: owning producer/reader, migration-conformance, canonical-digest, replay, and
+- Permanent gate: owning producer/reader, migration-conformance, deterministic encoding, request-checksum, replay, and
   deterministic fixture behavior. Migration review, clean-volume rebuild, regeneration, digest
   comparison, connected service runs, and visual inspection are one-time evidence.
 

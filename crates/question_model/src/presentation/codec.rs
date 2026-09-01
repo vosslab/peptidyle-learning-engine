@@ -71,7 +71,7 @@ impl QuestionPresentationChecksum {
 
     /// Produces the browser-facing 128-bit token.
     pub fn public_token(self) -> QuestionPresentationToken {
-        QuestionPresentationToken::from_digest(&self.0)
+        QuestionPresentationToken::from_checksum(&self.0)
     }
 }
 

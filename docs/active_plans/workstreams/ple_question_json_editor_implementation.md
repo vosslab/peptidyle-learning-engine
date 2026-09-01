@@ -48,7 +48,7 @@ Per-workspace operation generations discard late save/review work, and the UI
 locks duplicate saves while one is in flight. Publication first obtains normal
 answer-free readiness and diff data for the same saved revision. The author
 then chooses scope and confirms a scope-only publish request. On success the
-page shows the immutable published problem/version link. An edit or changed
+page shows the immutable Published Question and Question Revision link. An edit or changed
 revision invalidates a pending review rather than publishing stale work.
 
 The responsive author layout stacks without horizontal overflow at 375 px, and

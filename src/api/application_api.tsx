@@ -16,7 +16,7 @@ import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook"
 import type {
   StudentAssignmentLandingSummary,
   StudentAssignmentDetail,
-  CourseRouteData,
+  CourseRouteView,
   CourseSummary,
   CursorPage,
   AssignmentAttemptScreenData,
@@ -39,7 +39,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
     readonly assignmentSummary: QueryFunction<[AssignmentId], AssignmentProgress>;
-    readonly courseScope: QueryFunction<[CourseId], CourseRouteData>;
+    readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
     readonly assignmentAttemptScreen: QueryFunction<
       [AssignmentAttemptId],
       AssignmentAttemptScreenData

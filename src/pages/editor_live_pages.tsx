@@ -119,7 +119,9 @@ export function WorkspaceEditorLivePage(): JSX.Element {
       if (reference === "new") {
         const state = location.state;
         if (typeof state?.workspace !== "string") {
-          throw new Error("This new draft address has expired. Start again from the workspace.");
+          throw new Error(
+            "This new draft address has expired. Start again from My Question Drafts.",
+          );
         }
         return state.workspace;
       }
@@ -134,8 +136,8 @@ export function WorkspaceEditorLivePage(): JSX.Element {
         <section class="page" aria-busy={workspace.loading}>
           <p role={workspace.error === undefined ? "status" : "alert"}>
             {workspace.error === undefined
-              ? "Opening private workspace..."
-              : "This private draft is unavailable. Return to the workspace and choose it again."}
+              ? "Opening My Question Drafts..."
+              : "This private draft is unavailable. Return to My Question Drafts and choose it again."}
           </p>
         </section>
       }

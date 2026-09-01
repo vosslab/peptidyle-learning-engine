@@ -96,7 +96,7 @@ pub enum GenerationError {
         /// Parameter whose range is invalid.
         parameter: String,
     },
-    /// Authored choice list had no candidate.
+    /// Authored choice list had no choices.
     EmptyChoice {
         /// Parameter whose option list is empty.
         parameter: String,

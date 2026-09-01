@@ -2,7 +2,7 @@
 //!
 //! The engine is question agnostic: [`PleQuestionBackend`] dispatches by the
 //! versioned [`generator::PleQuestionImplementation`] contract, while Question
-//! Implementations own parameter-to-prompt materialization and server-only key
+//! Implementations own parameter-to-prompt construction and server-only key
 //! derivation. The stable facade coordinates focused registry, issue, grading,
 //! reproduction, and capability owners.
 
@@ -48,7 +48,7 @@ mod question_json_source_tests;
 #[cfg(test)]
 mod test_support;
 
-/// Extensible Question Implementation contract and server-only materialization result.
+/// Extensible Question Implementation contract and server-only derived Question data.
 pub mod generator;
 /// Strict, versioned PLE Question JSON source for first-party static Questions.
 pub mod question_json;
@@ -97,7 +97,7 @@ pub struct PleIssuedQuestion {
 pub struct PleDraftAuthorPresentation {
     /// Student-facing title.
     pub title: String,
-    /// Materialized student-facing prompt.
+    /// Constructed student-facing prompt for the generated Question Variation.
     pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
     pub response: question_model::QuestionResponseFormat,
@@ -118,13 +118,13 @@ pub struct PleQuestionBackend {
 
 struct PreparedPleQuestion {
     generated: QuestionVariationParameters,
-    materialized: MaterializedPleQuestion,
+    derived: DerivedPleQuestion,
     envelope: QuestionVariationPresentation,
     parameter_hash: String,
     rendered_question_sha256: String,
 }
 
-struct MaterializedPleQuestion {
+struct DerivedPleQuestion {
     prompt: Vec<QuestionContentBlock>,
     answer_key: Option<grading::AnswerKey>,
 }

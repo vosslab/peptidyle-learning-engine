@@ -15,7 +15,7 @@ import type {
 import type { AssignmentInspectionChoice } from "../api/decoders/gradebook_selection";
 import { useApplicationApi } from "../api/application_api";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { assignmentRouteReference, courseInstanceRouteReference } from "../navigation/public_route";
@@ -629,7 +629,7 @@ function GradebookCoursePage(props: {
 /** Recreates course-owned Gradebook state whenever the route course changes. */
 export function GradebookPage(): JSX.Element {
   const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
   return (
     <Show
       when={course}

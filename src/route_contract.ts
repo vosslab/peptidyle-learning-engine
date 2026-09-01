@@ -11,8 +11,8 @@ export interface RouteContract {
     | "assignmentAttemptSummary"
     | "library"
     | "questionDetail"
-    | "curriculum"
-    | "curriculumDetail"
+    | "blueprintCourses"
+    | "blueprintCourseDetail"
     | "workspaceList"
     | "workspaceEditor"
     | "assignmentCreate"
@@ -93,14 +93,14 @@ export const ROUTE_CONTRACT = [
     requiredRoles: ["instructor"],
   },
   {
-    id: "curriculum",
-    path: "/curriculum",
+    id: "blueprintCourses",
+    path: "/blueprint-courses",
     surface: "Blueprint Course workspace",
     requiredRoles: ["instructor"],
   },
   {
-    id: "curriculumDetail",
-    path: "/curriculum/:curriculumRef",
+    id: "blueprintCourseDetail",
+    path: "/blueprint-courses/:blueprintCourseRef",
     surface: "Blueprint Course inspection and editor",
     requiredRoles: ["instructor"],
   },

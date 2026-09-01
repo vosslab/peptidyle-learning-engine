@@ -25,7 +25,7 @@ import { useApplicationApi } from "../api/application_api";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { textFromBlocks } from "../components/question_response_controls/common";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import {
@@ -236,7 +236,7 @@ function SubmissionCard(props: {
               <dl>
                 <dt>Presentation SHA-256</dt>
                 <dd>
-                  <code>{evidence().issuedPresentationDigest}</code>
+                  <code>{evidence().issuedPresentationChecksum}</code>
                 </dd>
                 <dt>Question Asset Renditions</dt>
                 <dd>{evidence().questionAssetRenditions.length}</dd>
@@ -419,7 +419,7 @@ function StudentWorkCoursePage(props: {
 /** Resolves the route's public course reference through the existing course theme scope. */
 export function StudentWorkInspectionPage(): JSX.Element {
   const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
   return (
     <Show
       when={course}

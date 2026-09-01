@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { createMasteryAssignmentEditorState } from "./support/assignment_editor_test_support.ts";
 import {
   assignmentContentInput,
@@ -14,7 +14,7 @@ import { assignmentPickerMaximum } from "../src/pages/assignment_editor_picker_m
 
 test("assignment Questions payload uses Question IDs as its only question identity", () => {
   const draft = createMasteryAssignmentEditorState("course-1");
-  const item = publishedProblemFixture.assignment.entries[0];
+  const item = publishedQuestionFixture.assignment.entries[0];
   assert.ok(item);
   const configured = { ...draft, title: "Practice", entries: [{ ...item, kind: "fixedQuestion" }] };
   assert.deepEqual(assignmentContentInput(configured).entries[0]?.questionId, item.questionId);
@@ -28,7 +28,7 @@ test("Question ID paste supports instructor punctuation and rejects duplicate ch
 });
 
 test("ordinary editing preserves a fixed question while changing shared entry order", () => {
-  const first = publishedProblemFixture.assignment.entries[0];
+  const first = publishedQuestionFixture.assignment.entries[0];
   assert.ok(first);
   const second = { ...first, id: "item-2", questionId: "7K4-M9QP" };
   const moved = moveAssignmentEntry(
@@ -56,7 +56,7 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
   const draft = {
     ...createMasteryAssignmentEditorState("course-1"),
     entries: [
-      { ...publishedProblemFixture.assignment.entries[0], kind: "fixedQuestion" },
+      { ...publishedQuestionFixture.assignment.entries[0], kind: "fixedQuestion" },
       {
         kind: "questionPool",
         items: [
@@ -125,7 +125,7 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
   const overfullAssignmentContent = {
     ...createMasteryAssignmentEditorState("course-1"),
     entries: Array.from({ length: 1025 }, (_value, entryIndex) => ({
-      ...publishedProblemFixture.assignment.entries[0],
+      ...publishedQuestionFixture.assignment.entries[0],
       kind: "fixedQuestion",
       id: `item-${entryIndex}`,
     })),
@@ -162,7 +162,7 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
 });
 
 test("shared picker caps each assignment destination before the dialog opens", () => {
-  const fixed = publishedProblemFixture.assignment.entries[0];
+  const fixed = publishedQuestionFixture.assignment.entries[0];
   assert.ok(fixed);
   const draft = {
     ...createMasteryAssignmentEditorState("course-1"),

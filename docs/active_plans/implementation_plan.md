@@ -237,7 +237,7 @@ design. Six requirements shape it:
 - **Answer-bearing content is a separate security class.** Answers, keys, and grading logic stay on
   the server, so grading is a server round trip.
 - **Object storage is a core subsystem**, not an afterthought.
-- **Identity must separate drafts from published problems.** ADAPT mints a durable official ID for
+- **Identity must separate drafts from published Questions.** ADAPT mints a durable official ID for
   every saved problem, so the owner's sandbox holds abandoned experiments carrying permanent Question Library
   numbers.
 - **The sharing boundary is educational content versus educational records.** Assignments are course
@@ -248,7 +248,7 @@ design. Six requirements shape it:
   largest change: Peptidyle is a high-volume attempt-event system rather than an assignment
   submission system.
 
-The intended outcome is ADAPT's surface and its best feature -- one published problem reusable by
+The intended outcome is ADAPT's surface and its best feature -- one published Question reusable by
 thousands of instructors without copying -- without its three structural weaknesses: unbounded
 payloads in operational tables, no content integrity, and identity granted before publication.
 
@@ -590,11 +590,11 @@ cluster; the distinction is ownership and policy, not physical separation.
 | Anonymous question statistics                    | Per-student analytics and audit logs            |
 | Public and community libraries                   | Student-record artifacts                        |
 
-An assignment is **not** shareable content. It is a course source_object_reference referencing published problems,
-which is what lets one published problem serve thousands of instructors without copying:
+An assignment is **not** shareable content. It is a course source_object_reference referencing published Questions,
+which is what lets one published Question serve thousands of instructors without copying:
 
 ```text
-Published Problem Version (shared, immutable)
+Published Question Revision (shared, immutable)
         |                         |
         v                         v
 Assignment (Course A)     Assignment (Course B)
@@ -775,7 +775,7 @@ What each stage touches:
 
 | Deleted with student records         | Retained indefinitely                                        |
 | ------------------------------------ | ------------------------------------------------------------ |
-| Enrollments                          | Published problems and immutable versions                    |
+| Enrollments                          | Published Questions and immutable Question Revisions         |
 | Runs, question attempts, submissions | Question Library, Question Classifications, licensing        |
 | Grades and summary rows              | Instructor question drafts and workspaces                    |
 | Timer events and render traces       | Assignment Content (Instructor's choice at archive time) |
@@ -939,7 +939,7 @@ Authoritative-versus-derived roles, settled per backend:
 
 | Backend            | Authoritative source_object_reference                      | Derived                                           |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------------- |
-| Native algorithmic | Generator id and version; parameters derived from the seed | Rendered output                                   |
+| PLE algorithmic    | Generator id and version; parameters derived from the seed | Rendered output                                   |
 | PLE static         | Canonical versioned PLE Question JSON source               | Public Question model and private Question Grading Input |
 | WeBWorK            | PG source reference and version                            | Rendered HTML, images, cached renders             |
 | QTI                | Original ZIP in object storage                             | Parsed model in shared content, extracted assets  |
@@ -957,7 +957,7 @@ verify.
 PLE Question JSON follows the same source-preservation principle without
 copying QTI's interchange model. The bounded answer-bearing JSON is private in
 the workspace, is canonicalized and checksummed by the PLE Question Backend, and is
-promoted to an immutable non-signable `ProblemSource` object at publication.
+promoted to an immutable non-signable Question Source object at publication.
 The compiler writes an answer-free operational JSONB projection and separate
 grader-only key/feedback JSONB. Student rendering and grading read those compact
 database projections rather than fetching or reparsing the source object.
@@ -1028,7 +1028,7 @@ needed separate rulings for generated and static questions.
 
 For an algorithmic question, **the pinned generator identifier, generator
 version, and parameter specification are authoritative.** The normalized
-question model in `problem_version_payload` is a derived, cached projection for
+Question Revision public model is a derived, cached projection for
 rendering and search, regenerable from the pinned generator at any time.
 
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
@@ -1049,7 +1049,7 @@ semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 
 | Backend            | Authoritative                                           | Derived and regenerable                             |
 | ------------------ | ------------------------------------------------------- | --------------------------------------------------- |
-| Native algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                   |
+| PLE algorithmic    | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                   |
 | PLE static         | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input |
 | WeBWorK            | PG source reference and version                         | Normalized model, rendered HTML, cached renders     |
 | QTI                | Original ZIP in object storage                          | Parsed model, extracted assets                      |
@@ -1062,9 +1062,9 @@ Immutability creates a long-lived compatibility obligation. Every stored payload
 `model_schema_version`, and readers **upcast on read** into the current in-memory model, leaving the
 immutable row as written.
 
-The mechanism that keeps this honest is a committed corpus holding one payload per historical schema
+The mechanism that keeps this honest is a committed compatibility fixture set holding one payload per historical schema
 version, with a test asserting every one still loads into the current model. A schema change that
-cannot upcast an existing corpus entry is rejected at the gate. Dropping support for a historical
+cannot upcast an existing fixture-set entry is rejected at the gate. Dropping support for a historical
 schema version is an explicit breaking change requiring a documented batch re-publication path, never
 a silent read failure.
 
@@ -1139,8 +1139,8 @@ to row, byte, or index counts:
 
 | Table                     | Contents                                                     | Size at 10 M              | Access                       |
 | ------------------------- | ------------------------------------------------------------ | ------------------------- | ---------------------------- |
-| `problem_version`         | Identity, lifecycle, capability and Question Classification refs, checksums | ~2 GB | Hot; browse, search, resolve |
-| `problem_version_payload` | Normalized question model                                    | ~100 GB, hash-partitioned | Cold; read on attempt issue  |
+| `question_revision`         | Identity, lifecycle, capability and Question Classification refs, checksums | ~2 GB | Hot; browse, search, resolve |
+| `question_revision_payload` | Normalized Question Revision public model                     | ~100 GB, hash-partitioned | Cold; read on attempt issue  |
 
 Browse and search run against the configured metadata projection. A one-time query-plan and workload
 review decides whether the current PostgreSQL faceting remains suitable; immutable versions make a
@@ -1533,7 +1533,7 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 | Artifact                                        | Owner      |
 | ----------------------------------------------- | ---------- |
 | `crates/domain/tests/seed_vectors.json`         | MOD-GEN    |
-| `tests/fixtures/published_problem/` fixture set | MOD-QM     |
+| `tests/fixtures/published_question/` fixture set | MOD-QM     |
 | `schemas/migrations/**`                         | MOD-SCHEMA |
 | WASM export allowlist                           | MOD-WASM   |
 | Mock API handler set                            | MOD-CLIENT |
@@ -1925,7 +1925,7 @@ or implementer-authored specification is required.
 #### Work package: WP-C7 build approved serialization fixtures and narrow test-local fakes
 
 - Owner: `coder`. Modules: MOD-QM (fixtures), MOD-CLIENT (serialization tests). Depends on: WP-C3.
-- Touch points: `tests/fixtures/published_problem/` and test-local fixture builders.
+- Touch points: `tests/fixtures/published_question/` and test-local fixture builders.
 - Acceptance criteria: keep only the explicitly approved published-Question cross-layer fixture set whose
   production serialization is itself under test. Other examples are inline or generated by typed
   builders. Narrow local fakes may supply isolated protocol responses; there is no mock browser

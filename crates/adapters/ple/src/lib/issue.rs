@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use domain::draft_preview::materialize_prompt;
+use domain::draft_preview::build_question_prompt;
 use domain::generator::generate;
 use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionSeed;
@@ -14,12 +14,12 @@ use crate::generator::AuthorPresentationContent;
 use crate::registry::PleQuestionExecution;
 use crate::reproduction::resolve_question_asset_objects;
 use crate::{
-    MaterializedPleQuestion, PleDraftAuthorPresentation, PleIssuedQuestion, PleQuestionBackend,
+    DerivedPleQuestion, PleDraftAuthorPresentation, PleIssuedQuestion, PleQuestionBackend,
     PleQuestionBackendError, PreparedPleQuestion, QuestionAssetObjectReference,
 };
 
 impl PleQuestionBackend {
-    /// Generates one key-free native Issued Question.
+    /// Generates one key-free PLE Issued Question.
     ///
     /// Trusted Question Asset Object References are resolved against the generated envelope,
     /// then canonical immutable object IDs are persisted in the reproduction details.
@@ -68,8 +68,9 @@ impl PleQuestionBackend {
             .map_err(PleQuestionBackendError::Generation)?;
         let implementation =
             self.implementation_for_draft(question, generated.generator.as_ref())?;
-        let prompt = materialize_prompt(&question.prompt, seed, &question.question_variation_rule)
-            .map_err(PleQuestionBackendError::Presentation)?;
+        let prompt =
+            build_question_prompt(&question.prompt, seed, &question.question_variation_rule)
+                .map_err(PleQuestionBackendError::Presentation)?;
         let Some(AuthorPresentationContent {
             question_answer,
             question_answer_explanation,
@@ -103,9 +104,10 @@ impl PleQuestionBackend {
         let parameter_hash = generated
             .sha256()
             .map_err(PleQuestionBackendError::Generation)?;
-        let prompt = materialize_prompt(&question.prompt, seed, &question.question_variation_rule)
-            .map_err(PleQuestionBackendError::Presentation)?;
-        let materialized = MaterializedPleQuestion {
+        let prompt =
+            build_question_prompt(&question.prompt, seed, &question.question_variation_rule)
+                .map_err(PleQuestionBackendError::Presentation)?;
+        let derived = DerivedPleQuestion {
             prompt,
             answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
@@ -119,13 +121,13 @@ impl PleQuestionBackend {
                 seed,
             ),
             title: question.metadata.title.clone(),
-            prompt: materialized.prompt.clone(),
+            prompt: derived.prompt.clone(),
             response: question.response.clone(),
         };
         let rendered_question_sha256 = hash_json(&envelope)?;
         Ok(PreparedPleQuestion {
             generated,
-            materialized,
+            derived,
             envelope,
             parameter_hash,
             rendered_question_sha256,

@@ -419,7 +419,7 @@ pub enum QuestionPromptProjection {
         /// Browser-safe prompt blocks in authored order.
         blocks: Vec<crate::envelope::QuestionContentBlock>,
     },
-    /// One deterministic, server-materialized example of a variable prompt.
+    /// One deterministic, server-generated example of a variable prompt.
     GeneratedExample {
         /// Browser-safe prompt blocks with every authored parameter resolved.
         blocks: Vec<crate::envelope::QuestionContentBlock>,
@@ -432,7 +432,7 @@ pub enum QuestionPromptProjection {
 pub struct QuestionDetails {
     /// Exact immutable hot metadata for this publication.
     pub summary: QuestionSummary,
-    /// Static content or one server-materialized example; source, response,
+    /// Static content or one server-generated example; source, response,
     /// Question Variation Definition, grading, keys, and preview seed are excluded.
     pub prompt: QuestionPromptProjection,
     /// Explainable anonymous evidence for this exact publication.
@@ -494,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_text_recognizes_one_human_question_id_without_a_version() {
+    fn question_id_text_recognizes_one_human_question_id_without_a_revision() {
         let exact = QuestionSearchRequest {
             text: Some(" 7k3-m9qx ".to_string()),
             ..QuestionSearchRequest::default()

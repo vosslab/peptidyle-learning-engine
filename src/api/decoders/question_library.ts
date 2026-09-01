@@ -50,7 +50,7 @@ import type {
   AssignmentContentInput,
   AssignmentEditorEntryInput,
   CourseCreateInput,
-  CourseRouteData,
+  CourseRouteView,
 } from "../contracts";
 import {
   DecodeError,
@@ -577,7 +577,7 @@ export function decodeCourseCreateInput(value: unknown, path = "request"): Cours
   return decoded;
 }
 
-export function decodeCourseRouteData(value: unknown, path: string): CourseRouteData {
+export function decodeCourseRouteView(value: unknown, path: string): CourseRouteView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "appearance"]);
   return {

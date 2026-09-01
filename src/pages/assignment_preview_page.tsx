@@ -8,11 +8,11 @@ import type { InstructorPreviewSchedulePage } from "../../generated/api/Instruct
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
 import type { EffectiveAssignmentPolicyView } from "../../generated/api/EffectiveAssignmentPolicyView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
-import type { CourseRouteData } from "../api/contracts";
+import type { CourseRouteView } from "../api/contracts";
 import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { parseAssignmentReference } from "../navigation/public_route";
@@ -235,8 +235,8 @@ export function AssignmentPreviewPage(): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();
   const routeData = useCourseThemeRouteData();
-  const course = (): CourseRouteData["summary"] | undefined =>
-    routeData?.kind === "course" ? courseRouteData(routeData).summary : undefined;
+  const course = (): CourseRouteView["summary"] | undefined =>
+    routeData?.kind === "course" ? courseRouteView(routeData).summary : undefined;
   const assignment = (): AssignmentReference | undefined => {
     const reference = params["assignmentRef"];
     return reference === undefined ? undefined : (parseAssignmentReference(reference) ?? undefined);

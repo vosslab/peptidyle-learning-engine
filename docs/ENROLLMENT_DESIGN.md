@@ -29,7 +29,7 @@ Current delivery status and implementation evidence for those routes remain in
 PLE presents **one course-level roster workflow** to instructors. Course
 Enrollment establishes a Student Course Membership and its Student Record;
 Assignments derive activity authorization from that exact relationship and the
-Assignment's current lifecycle and direct Student Record access facts.
+Assignment Status, effective Assignment policy, and direct Student Record access facts.
 
 An instructor invites a student to the course once. After that student
 authenticates and claims the invitation, the same Store-owned transaction:
@@ -43,7 +43,7 @@ authenticates and claims the invitation, the same Store-owned transaction:
 When an instructor later creates an assignment, PLE stores the assignment for
 the Course Instance's active Student Records. The sole Assignment Access
 evaluator derives current access from the exact Student Record, Course
-Membership, Assignment lifecycle, and direct Student accommodation facts. The
+Membership, Assignment Status, effective Assignment policy, and direct Student accommodation facts. The
 first Assignment Attempt start, grade-bearing action, or explicit Instructor
 issue atomically creates the assignment receipt, typed empty summary, direct
 access basis, and immutable account-or-rule provenance.

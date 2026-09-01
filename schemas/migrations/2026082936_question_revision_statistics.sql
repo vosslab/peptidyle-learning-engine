@@ -55,7 +55,8 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.question_statistics_observation_receipt (
-    receipt_id uuid PRIMARY KEY REFERENCES ple_audit.automated_grading_receipt (receipt_id),
+    automated_grading_receipt_id uuid PRIMARY KEY
+        REFERENCES ple_audit.automated_grading_receipt (automated_grading_receipt_id),
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt (question_attempt_id),
     question_id text NOT NULL,
     revision_number integer NOT NULL,
@@ -76,15 +77,18 @@ CREATE POLICY question_attempt_statistics_api_owner_read
 CREATE POLICY question_submission_statistics_api_owner_read
     ON ple_private.question_submission
     FOR SELECT TO ple_api_owner USING (true);
-CREATE POLICY automated_grading_operation_statistics_api_owner_read
-    ON ple_private.automated_grading_operation
+CREATE POLICY question_submission_grading_statistics_api_owner_read
+    ON ple_private.question_submission_grading
+    FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY job_question_statistics_api_owner_read
+    ON ple_private.job
     FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY issued_question_statistics_api_owner_read
     ON ple_private.issued_question
     FOR SELECT TO ple_api_owner USING (true);
 GRANT USAGE ON SCHEMA ple_private TO ple_api_owner;
 GRANT SELECT ON TABLE ple_private.question_attempt, ple_private.question_submission,
-    ple_private.automated_grading_operation, ple_private.issued_question TO ple_api_owner;
+    ple_private.question_submission_grading, ple_private.job, ple_private.issued_question TO ple_api_owner;
 GRANT INSERT, SELECT ON TABLE ple_private.question_statistics_observation_receipt TO ple_api_owner;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.question_statistics_observation_receipt FROM PUBLIC;
 COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS
@@ -101,7 +105,7 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.record_question_statistics_observation(
-    p_receipt_id uuid,
+    p_automated_grading_receipt_id uuid,
     p_correct boolean,
     p_eligible_choice_ids text[]
 )
@@ -131,26 +135,31 @@ BEGIN
            receipt.committed_at
       INTO v_question_attempt_id, v_question_id, v_revision_number, v_observed_at
       FROM ple_audit.automated_grading_receipt AS receipt
-      JOIN ple_private.automated_grading_operation AS operation
-        ON operation.operation_id = receipt.operation_id
+      JOIN ple_private.grading_result AS result
+        ON result.grading_result_id = receipt.grading_result_id
+      JOIN ple_private.question_submission_grading AS grading
+        ON grading.question_submission_grading_id = result.question_submission_grading_id
+      JOIN ple_private.job AS job
+        ON job.job_id = grading.job_id
       JOIN ple_private.question_submission AS submission
-        ON submission.submission_id = operation.submission_id
+        ON submission.submission_id = grading.submission_id
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
-     WHERE receipt.receipt_id = p_receipt_id
-       AND operation.state = 'completed'
+     WHERE receipt.automated_grading_receipt_id = p_automated_grading_receipt_id
+       AND grading.grading_state = 'graded'
+       AND job.state = 'completed'
        AND issued.statistics_eligible;
     IF v_question_attempt_id IS NULL THEN
         RETURN;
     END IF;
 
     INSERT INTO ple_private.question_statistics_observation_receipt (
-        receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at
+        automated_grading_receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at
     ) VALUES (
-        p_receipt_id, v_question_attempt_id, v_question_id, v_revision_number, p_correct, v_observed_at
-    ) ON CONFLICT (receipt_id) DO NOTHING
+        p_automated_grading_receipt_id, v_question_attempt_id, v_question_id, v_revision_number, p_correct, v_observed_at
+    ) ON CONFLICT (automated_grading_receipt_id) DO NOTHING
     RETURNING true INTO v_inserted;
     IF COALESCE(v_inserted, false) IS NOT TRUE THEN
         RETURN;

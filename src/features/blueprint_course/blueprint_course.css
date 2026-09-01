@@ -1,46 +1,46 @@
 /* blueprint_course.css - fluid, feature-scoped layout for Blueprint Course work. */
 
-.curriculum-workspace {
+.blueprint-course-workspace {
   display: grid;
   gap: var(--ple-section-gap);
 }
 
-.curriculum-page-heading {
+.blueprint-course-page-heading {
   max-width: 72ch;
 }
 
-.curriculum-page-heading h1,
-.curriculum-section-heading h2,
-.curriculum-section-heading h3 {
+.blueprint-course-page-heading h1,
+.blueprint-course-section-heading h2,
+.blueprint-course-section-heading h3 {
   margin-block: 0.15rem;
 }
 
-.curriculum-page-heading p,
-.curriculum-section-heading p,
-.curriculum-field-help,
-.curriculum-empty-copy,
-.curriculum-notice {
+.blueprint-course-page-heading p,
+.blueprint-course-section-heading p,
+.blueprint-course-field-help,
+.blueprint-course-empty-copy,
+.blueprint-course-notice {
   color: var(--ple-muted);
 }
 
-.curriculum-notice {
+.blueprint-course-notice {
   min-height: 1.5rem;
   margin: 0;
   font-weight: 650;
 }
 
-.curriculum-grid {
+.blueprint-course-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 25rem), 1fr));
   gap: var(--ple-section-gap);
 }
 
-.curriculum-card,
-.curriculum-content-editor > fieldset,
-.curriculum-entry-section,
-.curriculum-module,
-.curriculum-inspection,
-.curriculum-create-dialog {
+.blueprint-course-card,
+.blueprint-course-content-editor > fieldset,
+.blueprint-course-entry-section,
+.blueprint-course-module,
+.blueprint-course-inspection,
+.blueprint-course-create-dialog {
   min-width: 0;
   padding: var(--ple-panel-padding);
   border: 1px solid var(--ple-border);
@@ -48,48 +48,48 @@
   background: var(--ple-card-surface);
 }
 
-.curriculum-card,
-.curriculum-content-editor,
-.curriculum-inspection,
-.curriculum-create-dialog[open] {
+.blueprint-course-card,
+.blueprint-course-content-editor,
+.blueprint-course-inspection,
+.blueprint-course-create-dialog[open] {
   display: grid;
   gap: var(--ple-layout-gap);
 }
 
-.curriculum-create-dialog {
+.blueprint-course-create-dialog {
   width: min(calc(100% - 2rem), 48rem);
   max-height: calc(100dvh - 2rem);
   margin: auto;
   overflow: auto;
 }
 
-.curriculum-create-dialog::backdrop {
+.blueprint-course-create-dialog::backdrop {
   background: rgb(18 31 44 / 48%);
 }
 
-.curriculum-section-heading,
-.curriculum-inline-actions,
-.curriculum-entry-list > li,
-.curriculum-save-actions,
-.curriculum-reorder-actions {
+.blueprint-course-section-heading,
+.blueprint-course-inline-actions,
+.blueprint-course-entry-list > li,
+.blueprint-course-save-actions,
+.blueprint-course-reorder-actions {
   display: flex;
   gap: var(--ple-layout-gap);
   align-items: center;
   justify-content: space-between;
 }
 
-.curriculum-section-heading {
+.blueprint-course-section-heading {
   align-items: start;
 }
 
-.curriculum-inline-actions,
-.curriculum-save-actions,
-.curriculum-reorder-actions {
+.blueprint-course-inline-actions,
+.blueprint-course-save-actions,
+.blueprint-course-reorder-actions {
   flex-wrap: wrap;
 }
 
-.curriculum-summary-list,
-.curriculum-entry-list {
+.blueprint-course-summary-list,
+.blueprint-course-entry-list {
   display: grid;
   gap: 0.7rem;
   margin: 0;
@@ -97,7 +97,7 @@
   list-style: none;
 }
 
-.curriculum-summary-list a {
+.blueprint-course-summary-list a {
   display: grid;
   gap: 0.25rem;
   padding: 0.85rem;
@@ -107,15 +107,15 @@
   text-decoration: none;
 }
 
-.curriculum-summary-list a:hover {
+.blueprint-course-summary-list a:hover {
   background: color-mix(in srgb, var(--ple-accent) 13%, var(--ple-card-surface));
 }
 
-.curriculum-summary-list span {
+.blueprint-course-summary-list span {
   color: var(--ple-muted);
 }
 
-.curriculum-continuation {
+.blueprint-course-continuation {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ple-layout-gap);
@@ -125,20 +125,20 @@
   border-top: 1px solid var(--ple-border);
 }
 
-.curriculum-continuation p {
+.blueprint-course-continuation p {
   margin: 0;
   color: var(--ple-muted);
 }
 
-.curriculum-form-grid {
+.blueprint-course-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   gap: var(--ple-layout-gap);
 }
 
-.curriculum-form-grid label,
-.curriculum-module > label,
-.curriculum-small-field {
+.blueprint-course-form-grid label,
+.blueprint-course-module > label,
+.blueprint-course-small-field {
   display: grid;
   gap: 0.35rem;
   color: var(--ple-muted);
@@ -146,86 +146,86 @@
   font-weight: 680;
 }
 
-.curriculum-form-wide {
+.blueprint-course-form-wide {
   grid-column: 1 / -1;
 }
 
-.curriculum-form-grid input,
-.curriculum-form-grid select,
-.curriculum-form-grid textarea,
-.curriculum-module input {
+.blueprint-course-form-grid input,
+.blueprint-course-form-grid select,
+.blueprint-course-form-grid textarea,
+.blueprint-course-module input {
   width: 100%;
 }
 
-.curriculum-content-editor > fieldset {
+.blueprint-course-content-editor > fieldset {
   margin: 0;
 }
 
-.curriculum-content-editor legend {
+.blueprint-course-content-editor legend {
   padding-inline: 0.35rem;
   color: var(--ple-text);
   font-weight: 750;
 }
 
-.curriculum-entry-section {
+.blueprint-course-entry-section {
   display: grid;
   gap: var(--ple-layout-gap);
 }
 
-.curriculum-entry-list > li {
+.blueprint-course-entry-list > li {
   align-items: start;
   gap: 1rem;
   padding-block: 0.7rem;
   border-bottom: 1px solid var(--ple-border);
 }
 
-.curriculum-entry-list > li:last-child {
+.blueprint-course-entry-list > li:last-child {
   border-bottom: 0;
 }
 
-.curriculum-small-field {
+.blueprint-course-small-field {
   max-width: 12rem;
   margin-top: 0.6rem;
 }
 
-.curriculum-save-actions {
+.blueprint-course-save-actions {
   padding: 0.8rem;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset);
   background: color-mix(in srgb, var(--ple-card-surface) 92%, var(--ple-page-background));
 }
 
-.curriculum-detail-editor {
+.blueprint-course-detail-editor {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(11rem, max-content);
   gap: var(--ple-section-gap);
   align-items: start;
 }
 
-.curriculum-detail-editor > .curriculum-page-heading {
+.blueprint-course-detail-editor > .blueprint-course-page-heading {
   grid-column: 1 / -1;
 }
 
-.curriculum-detail-reader {
+.blueprint-course-detail-reader {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "heading"
     "content";
 }
 
-.curriculum-detail-reader > .curriculum-page-heading {
+.blueprint-course-detail-reader > .blueprint-course-page-heading {
   grid-area: heading;
 }
 
-.curriculum-detail-reader > .curriculum-editor-content {
+.blueprint-course-detail-reader > .blueprint-course-editor-content {
   grid-area: content;
 }
 
-.curriculum-editor-content {
+.blueprint-course-editor-content {
   min-width: 0;
 }
 
-.curriculum-detail-actions {
+.blueprint-course-detail-actions {
   position: sticky;
   top: var(--ple-layout-gap);
   grid-column: 2;
@@ -234,12 +234,12 @@
   flex-direction: column;
 }
 
-.curriculum-module {
+.blueprint-course-module {
   display: grid;
   gap: var(--ple-section-gap);
 }
 
-.curriculum-content-card {
+.blueprint-course-content-card {
   display: grid;
   gap: var(--ple-layout-gap);
   padding: var(--ple-panel-padding);
@@ -247,24 +247,24 @@
   background: color-mix(in srgb, var(--ple-page-background) 48%, transparent);
 }
 
-.curriculum-inspection article {
+.blueprint-course-inspection article {
   margin-block: var(--ple-layout-gap);
   padding: 0.8rem;
   border-inline-start: 3px solid var(--ple-accent);
   background: color-mix(in srgb, var(--ple-page-background) 48%, transparent);
 }
 
-.curriculum-inspection h3,
-.curriculum-inspection h4 {
+.blueprint-course-inspection h3,
+.blueprint-course-inspection h4 {
   margin-bottom: 0.3rem;
 }
 
 @media (max-width: 60rem) {
-  .curriculum-detail-editor {
+  .blueprint-course-detail-editor {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .curriculum-detail-actions {
+  .blueprint-course-detail-actions {
     position: static;
     grid-column: 1;
     grid-row: auto;
@@ -272,18 +272,18 @@
 }
 
 @media (max-width: 44rem) {
-  .curriculum-section-heading,
-  .curriculum-entry-list > li,
-  .curriculum-save-actions {
+  .blueprint-course-section-heading,
+  .blueprint-course-entry-list > li,
+  .blueprint-course-save-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .curriculum-form-wide {
+  .blueprint-course-form-wide {
     grid-column: auto;
   }
 
-  .curriculum-small-field {
+  .blueprint-course-small-field {
     max-width: none;
   }
 }

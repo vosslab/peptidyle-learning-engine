@@ -5,7 +5,7 @@ import { Show, type JSX } from "solid-js";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import { useApplicationApi } from "../../api/application_api";
 import { createCourseBannerUrl } from "./course_banner_delivery";
-import { courseRouteData, useCourseThemeRouteData } from "./course_theme_context";
+import { courseRouteView, useCourseThemeRouteData } from "./course_theme_context";
 
 const COURSE_ENTRY_IDENTITY_STYLES = `
 .course-entry-identity {
@@ -38,10 +38,10 @@ function alternativeText(value: CourseBannerAlternativeText): string {
 export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApplicationApi();
   const routeData = useCourseThemeRouteData();
-  const banner = routeData === undefined ? null : courseRouteData(routeData).appearance.banner;
+  const banner = routeData === undefined ? null : courseRouteView(routeData).appearance.banner;
   const deliveryUrl = createCourseBannerUrl(() => banner?.id ?? null, runtime.client);
   if (routeData === undefined) return <></>;
-  const course = courseRouteData(routeData);
+  const course = courseRouteView(routeData);
   return (
     <header class="course-entry-identity" data-course-title>
       <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>

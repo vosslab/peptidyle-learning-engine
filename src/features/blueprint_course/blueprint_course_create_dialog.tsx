@@ -15,7 +15,7 @@ import {
 import { createBlueprintCourseWhenReady } from "./blueprint_course_creation";
 import { appendPickedFixedEntries, emptyReusableContent } from "./blueprint_course_model";
 
-export interface CurriculumCreateDialogProps {
+export interface BlueprintCourseCreateDialogProps {
   readonly client: BlueprintCourseClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
@@ -24,11 +24,11 @@ export interface CurriculumCreateDialogProps {
 }
 
 function detailPath(reference: string): string {
-  return `/curriculum/${encodeURIComponent(reference)}`;
+  return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
 
 /** Keeps an incomplete Blueprint Course draft in the browser until it has reusable content. */
-export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.Element {
+export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogProps): JSX.Element {
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("Untitled Blueprint Course");
   const [moduleLabel, setModuleLabel] = createSignal("Module 1");
@@ -103,8 +103,8 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
 
   return (
     <dialog
-      class="curriculum-create-dialog"
-      aria-labelledby="curriculum-create-heading"
+      class="blueprint-course-create-dialog"
+      aria-labelledby="blueprint-course-create-heading"
       ref={(element) => {
         dialog = element;
       }}
@@ -113,16 +113,16 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
         closeDraft();
       }}
     >
-      <div class="curriculum-section-heading">
+      <div class="blueprint-course-section-heading">
         <div>
-          <h2 id="curriculum-create-heading">Create a Blueprint Course</h2>
+          <h2 id="blueprint-course-create-heading">Create a Blueprint Course</h2>
           <p>A Blueprint Course is reusable structure with no Students or delivery dates.</p>
         </div>
         <button type="button" class="quiet-action" disabled={busy()} onClick={closeDraft}>
           Close draft
         </button>
       </div>
-      <p class="curriculum-notice" role="status">
+      <p class="blueprint-course-notice" role="status">
         {message()}
       </p>
       <label>
@@ -172,7 +172,7 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
       >
         Choose published Questions
       </button>
-      <div class="curriculum-save-actions">
+      <div class="blueprint-course-save-actions">
         <button type="button" disabled={busy()} onClick={() => void save()}>
           {busy() ? "Creating..." : "Create Blueprint Course"}
         </button>

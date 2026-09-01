@@ -35,7 +35,7 @@ const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
 const DEFAULT_TS_OUT_DIR: &str = "generated/api";
 
 /// Where intentional, tracked fixture evidence lives.
-const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/published_problem";
+const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/published_question";
 
 pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();

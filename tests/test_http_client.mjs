@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
@@ -20,7 +20,7 @@ import {
 } from "./http_client_test_support.mjs";
 
 test("question decoders reject answer-bearing and provider-secret fields", () => {
-  const draft = publishedProblemFixture.draft;
+  const draft = publishedQuestionFixture.draft;
   assert.throws(() => decodeDraftQuestionContent({ ...draft, answer: "secret" }), DecodeError);
   assert.throws(
     () =>
@@ -70,7 +70,7 @@ test("issued external-tool envelopes accept only their public marker", () => {
 });
 
 test("Question Submission acknowledgement separates its answer-free receipt and grading state", () => {
-  const attempt = publishedProblemFixture.attempts[0];
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const pending = {
     receipt: { accepted: true, attemptId: attempt.id },
@@ -104,7 +104,7 @@ test("Question Submission acknowledgement separates its answer-free receipt and 
 });
 
 test("Question Library pages remain bounded and do not disclose answer material", () => {
-  const page = { items: [publishedProblemFixture.publishedQuestion], nextCursor: null };
+  const page = { items: [publishedQuestionFixture.publishedQuestion], nextCursor: null };
   assert.deepEqual(decodeQuestionPage(page), page);
   assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
   assert.throws(
@@ -114,9 +114,9 @@ test("Question Library pages remain bounded and do not disclose answer material"
 });
 
 test("prefetch is a body-free same-origin no-store request", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const requests = [];
   const client = createHttpApiClient({
@@ -139,9 +139,9 @@ test("prefetch is a body-free same-origin no-store request", async () => {
 });
 
 test("Assignment Attempt start uses the explicit nested course and assignment route without a body", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const assignmentAttempt = publishedProblemFixture.runs[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const assignmentAttempt = publishedQuestionFixture.runs[0];
   assert.ok(assignmentAttempt);
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse(assignmentAttempt),
@@ -164,7 +164,7 @@ test("Assignment Attempt start uses the explicit nested course and assignment ro
 });
 
 test("Assignment Attempt transport preserves its exact Released Assignment Revision", () => {
-  const assignmentAttempt = publishedProblemFixture.runs[0];
+  const assignmentAttempt = publishedQuestionFixture.runs[0];
   assert.ok(assignmentAttempt);
   assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).assignmentRevision, {
     assignment: "A-1",
@@ -177,12 +177,12 @@ test("Assignment Attempt transport preserves its exact Released Assignment Revis
 });
 
 test("prefetch rejects a descriptor with a mismatched issued identity", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const predecessor = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const predecessor = publishedQuestionFixture.attempts[0];
   assert.ok(predecessor);
   const envelope = {
-    ...issuedQuestionWireFixture(predecessor, publishedProblemFixture.publishedProblem),
+    ...issuedQuestionWireFixture(predecessor, publishedQuestionFixture.publishedQuestionRevision),
     questionRevision: {
       questionId: "BCDEFGH",
       revisionNumber: "99",
@@ -193,9 +193,9 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
       jsonResponse({
         predecessor: predecessor.id,
         issuedQuestion: {
-          ...publishedProblemFixture.issuedQuestions[1],
+          ...publishedQuestionFixture.issuedQuestions[1],
           reference: {
-            ...publishedProblemFixture.issuedQuestions[1].reference,
+            ...publishedQuestionFixture.issuedQuestions[1].reference,
             version: "0198e000-0000-7000-8000-000000000099",
           },
         },
@@ -212,16 +212,19 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
 });
 
 test("prefetch preserves safe Question Pool selection for the cache-hit successor", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const predecessor = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const predecessor = publishedQuestionFixture.attempts[0];
   assert.ok(predecessor);
-  const envelope = issuedQuestionWireFixture(predecessor, publishedProblemFixture.publishedProblem);
+  const envelope = issuedQuestionWireFixture(
+    predecessor,
+    publishedQuestionFixture.publishedQuestionRevision,
+  );
   const client = createHttpApiClient({
     fetch: async () =>
       jsonResponse({
         predecessor: predecessor.id,
-        issuedQuestion: publishedProblemFixture.issuedQuestions[1],
+        issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
         seed: envelope.seed,
         renderedQuestionSha256: "b".repeat(64),
         questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
@@ -233,9 +236,9 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
 });
 
 test("external-tool launch is a strict same-origin route projection", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
@@ -252,9 +255,9 @@ test("external-tool launch is a strict same-origin route projection", async () =
 });
 
 test("external-tool launch rejects absolute, foreign, and decorated routes", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
   const routes = [
@@ -281,9 +284,9 @@ test("external-tool launch rejects absolute, foreign, and decorated routes", asy
 });
 
 test("ordinary submission uses the explicit nested binding and answer-only body", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
     attempt;
@@ -319,9 +322,9 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
 });
 
 test("submission status uses its route-bound same-origin no-store GET", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const pending = {
     receipt: { accepted: true, attemptId: attempt.id },
@@ -345,9 +348,9 @@ test("submission status uses its route-bound same-origin no-store GET", async ()
 });
 
 test("external-tool submission sends only the marker with its caller idempotency key", async () => {
-  const course = publishedProblemFixture.course;
-  const assignment = publishedProblemFixture.assignment;
-  const attempt = publishedProblemFixture.attempts[0];
+  const course = publishedQuestionFixture.course;
+  const assignment = publishedQuestionFixture.assignment;
+  const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
     attempt;

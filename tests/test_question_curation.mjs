@@ -17,7 +17,7 @@ import {
 } from "../src/features/question_curation/question_curation_model.ts";
 import { decodeQuestionFolderEntryPage } from "../src/api/decoders/question_curation.ts";
 import { EMPTY_QUESTION_SEARCH_QUERY } from "../src/pages/library_page_model.ts";
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 test("Question Folder edits retain a unique ordered public Question ID list", () => {
   const appended = appendFolderQuestionIds(["ABC-1234", "DEF-5678"], ["DEF-5678", "GHJ-9KMP"]);
@@ -28,8 +28,8 @@ test("Question Folder edits retain a unique ordered public Question ID list", ()
 
 test("Question Folder Entries carry the exact current Question Revision Availability", () => {
   const member = {
-    questionId: publishedProblemFixture.publishedQuestion.questionId,
-    summary: publishedProblemFixture.publishedQuestion,
+    questionId: publishedQuestionFixture.publishedQuestion.questionId,
+    summary: publishedQuestionFixture.publishedQuestion,
     questionRevisionAvailability: { availability: "archived", reason: "Replaced by a correction." },
   };
 

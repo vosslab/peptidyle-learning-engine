@@ -193,7 +193,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("current course banners are signable after separate pointer authorization");
 
-    let workspace_source = ObjectAddress::WorkspaceSource {
+    let workspace_import_source = ObjectAddress::WorkspaceImportSource {
         workspace: WorkspaceId::from_uuid(id(8)),
         import: WorkspaceImportId::from_uuid(id(9)),
         object: ObjectId::from_uuid(id(10)),
@@ -202,7 +202,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         workspace: WorkspaceId::from_uuid(id(8)),
         object: ObjectId::from_uuid(id(15)),
     };
-    let workspace_asset = ObjectAddress::WorkspaceAsset {
+    let workspace_import_asset = ObjectAddress::WorkspaceImportAsset {
         workspace: WorkspaceId::from_uuid(id(8)),
         import: WorkspaceImportId::from_uuid(id(9)),
         asset: QuestionAssetId::from_uuid(id(11)),
@@ -214,9 +214,9 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         object: ObjectId::from_uuid(id(17)),
     };
     for key in [
-        workspace_source.clone(),
+        workspace_import_source.clone(),
         workspace_question_source.clone(),
-        workspace_asset.clone(),
+        workspace_import_asset.clone(),
         workspace_question_asset.clone(),
     ] {
         let record = store
@@ -298,7 +298,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("course banner cleanup should succeed");
     store
-        .delete(&workspace_source)
+        .delete(&workspace_import_source)
         .await
         .expect("workspace source cleanup");
     store
@@ -306,7 +306,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("workspace question source cleanup");
     store
-        .delete(&workspace_asset)
+        .delete(&workspace_import_asset)
         .await
         .expect("workspace asset cleanup");
     store
@@ -317,12 +317,12 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
 
 #[test]
 fn workspace_object_paths_bind_workspace_and_import_identity() {
-    let source = ObjectAddress::WorkspaceSource {
+    let source = ObjectAddress::WorkspaceImportSource {
         workspace: WorkspaceId::from_uuid(id(21)),
         import: WorkspaceImportId::from_uuid(id(22)),
         object: ObjectId::from_uuid(id(23)),
     };
-    let other_workspace = ObjectAddress::WorkspaceSource {
+    let other_workspace = ObjectAddress::WorkspaceImportSource {
         workspace: WorkspaceId::from_uuid(id(24)),
         import: WorkspaceImportId::from_uuid(id(22)),
         object: ObjectId::from_uuid(id(23)),

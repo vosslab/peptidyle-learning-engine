@@ -8,10 +8,10 @@ import {
   BlueprintCourseConflictError,
   createHttpApiClient,
 } from "../src/api/http_client.ts";
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const { scope: _retiredPublicationScope, ...publishedQuestion } =
-  publishedProblemFixture.publishedQuestion;
+  publishedQuestionFixture.publishedQuestion;
 
 function contentInput() {
   return {

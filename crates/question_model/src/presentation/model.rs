@@ -123,7 +123,7 @@ impl From<QuestionPresentationNonce> for String {
 pub struct QuestionPresentationToken(String);
 
 impl QuestionPresentationToken {
-    pub(crate) fn from_digest(bytes: &[u8; 32]) -> Self {
+    pub(crate) fn from_checksum(bytes: &[u8; 32]) -> Self {
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes[..16]);
         Self(format!("pd1_{encoded}"))
     }
@@ -329,7 +329,7 @@ pub struct QuestionPresentation {
 pub struct StudentAttemptDescriptor {
     pub id: QuestionAttemptId,
     pub deadline: Option<Timestamp>,
-    pub presentation_digest: QuestionPresentationToken,
+    pub presentation_token: QuestionPresentationToken,
 }
 
 /// Course and Assignment shell needed for authorized Student navigation.

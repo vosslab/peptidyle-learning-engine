@@ -98,7 +98,7 @@ pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> 
     })
 }
 
-/// Materializes one key-free, unversioned native workspace-draft preview.
+/// Builds one key-free, unversioned PLE Question JSON workspace-draft preview.
 ///
 /// Non-PLE Question Sources return the explicit `unavailable` capability result.
 /// The bridge never imports Question Backend or Question Grader code: it can only
@@ -115,7 +115,7 @@ pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, Js
         .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
 }
 
-/// Recomputes the Rust-owned presentation descriptor and verifies its public digest.
+/// Recomputes the Rust-owned presentation descriptor and verifies its public Question Presentation Token.
 ///
 /// The browser passes only answer-free values it already received. TypeScript
 /// never implements the binary codec, CRC, or SHA-256 rules independently.
@@ -123,19 +123,20 @@ pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, Js
 /// # Errors
 ///
 /// Returns a JavaScript error for malformed or internally inconsistent public
-/// presentation data. A well-formed but mismatched digest returns `false`.
+/// presentation data. A well-formed but mismatched Question Presentation Token returns `false`.
 #[wasm_bindgen]
 pub fn verify_presentation_descriptor(
     envelope_json: &str,
     question_asset_renditions_json: &str,
-    digest: &str,
+    token: &str,
 ) -> Result<bool, JsValue> {
     let envelope: QuestionPresentation = serde_json::from_str(envelope_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
     let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
-    let expected = QuestionPresentationToken::parse(digest)
-        .map_err(|error| JsValue::from_str(&format!("invalid presentation checksum: {error}")))?;
+    let expected = QuestionPresentationToken::parse(token).map_err(|error| {
+        JsValue::from_str(&format!("invalid Question Presentation Token: {error}"))
+    })?;
     let presentation = rebuild_public_question_presentation(&envelope, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.checksum.public_token() == expected)

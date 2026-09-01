@@ -9,7 +9,7 @@ import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
 import { CourseGradeSchemeConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import {
@@ -667,7 +667,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
 
 export function CourseGradeSettingsPage(): JSX.Element {
   const route = useCourseThemeRouteData();
-  const course = route?.kind === "course" ? courseRouteData(route).summary : undefined;
+  const course = route?.kind === "course" ? courseRouteView(route).summary : undefined;
   return (
     <Show
       when={course}

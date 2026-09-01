@@ -48,7 +48,7 @@ that scope.
 
 The server resolves an authenticated session record to its global account and session identity from the authenticated
 global account session. A browser field, request path, header, queue payload,
-Object Address, or provider response can identify a candidate record, but cannot
+Object Address, or provider response can identify a record, but cannot
 establish Account authority or select a course. The Store and PostgreSQL boundary
 re-evaluate the exact relationship in the same transaction as each protected
 operation.
@@ -315,7 +315,7 @@ each page can update its own slice without replacing a sibling page's changes.
   delivery, but they do not make the workspace's Questions or Policies pages
   interchangeable.
 - Grading operations owns assignment-local automatic-grading recovery. It
-  groups safe operation metadata by question or student, includes assignment-
+  organizes safe operation metadata by Question or Student, includes Assignment-
   wide recalculation rows, and exposes guarded retry and recalculation commands;
   it does not own responses, evaluation
   payloads, or score mutation.

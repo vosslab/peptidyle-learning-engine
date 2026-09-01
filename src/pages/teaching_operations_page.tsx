@@ -4,7 +4,7 @@ import { Show, createSignal, onMount, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import { RetentionPanel } from "./teaching_operations/retention_panel";
@@ -16,7 +16,7 @@ type PageState = "loading" | "ready" | "denied" | "unavailable";
 export function TeachingOperationsPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
   const [state, setState] = createSignal<PageState>("loading");
   function load(): void {
     if (course === undefined) {

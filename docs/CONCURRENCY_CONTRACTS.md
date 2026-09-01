@@ -228,9 +228,10 @@ no retry, new claim/launch, grade, finalization, or revocation may guess that
 the provider did or did not act. A valid verified outcome clears the marker
 only in the same final persistence transition. Grade retrieval is a
 structurally safe GET-only operation, never a fall-through provider action.
-Only the holder of the active lease can move it from `verifying` to
-`verified_pending`; a verified token then binds the final commit. This is a
-deferred external-tool Store and adapter requirement.
+Only the holder of the active lease can move it from `verifying` to `ready_to_commit`;
+a verified token then binds the final commit. `failed` records a safe failure code,
+and `cancelled` records its terminal time; neither permits a retained provider result.
+This is a deferred external-tool Store and adapter requirement.
 
 ## Cross-system commit boundaries
 

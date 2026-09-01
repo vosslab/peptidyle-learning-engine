@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AssignmentAttempt, AssignmentEntryId, AssignmentId};
 
-/// The point in an assignment lifecycle when one Student-facing field may be
-/// disclosed.
+/// The Assignment Attempt state or Assignment schedule point when one
+/// Student-facing field may be disclosed.
 ///
 /// Each timing is evaluated independently so an instructor can, for example,
 /// show a score after submission while holding solutions until the assignment

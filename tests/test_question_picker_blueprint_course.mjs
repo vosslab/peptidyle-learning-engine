@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { publishedProblemFixture } from "./fixtures/published_problem.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { blueprintCourseQuestionPickerRepository } from "../src/features/question_picker/question_picker_model.ts";
 
 const { scope: _retiredPublicationScope, ...publishedQuestion } =
-  publishedProblemFixture.publishedQuestion;
+  publishedQuestionFixture.publishedQuestion;
 
 function questionLibraryEntry(questionId, title) {
   return {

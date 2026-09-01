@@ -21,16 +21,16 @@ export function createRecordingFetch(respond) {
 }
 
 /** Builds a literal browser-issued presentation from an already-public test attempt. */
-export function issuedQuestionWireFixture(attempt, publishedProblem) {
-  const response = publishedProblem.response;
+export function issuedQuestionWireFixture(attempt, publishedQuestionRevision) {
+  const response = publishedQuestionRevision.response;
   if (response.kind !== "multipleChoice")
     throw new Error("fixture requires multiple-choice response");
   return {
     questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
     seed: attempt.seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
-    title: publishedProblem.metadata.title,
-    prompt: publishedProblem.prompt.map((block) =>
+    title: publishedQuestionRevision.metadata.title,
+    prompt: publishedQuestionRevision.prompt.map((block) =>
       block.kind === "text"
         ? { ...block, markdown: block.markdown.replace("{{residue}}", "glycine") }
         : block,

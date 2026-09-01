@@ -18,7 +18,7 @@ import type { AssignmentEditorDetail, CourseSummary } from "../../api/contracts"
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import {
-  courseRouteData,
+  courseRouteView,
   useCourseThemeRouteData,
 } from "../../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../../navigation/resolved_route";
@@ -175,7 +175,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
   async function load(): Promise<void> {
     setState("loading");
     const course =
-      scopedRoute?.kind === "course" ? courseRouteData(scopedRoute).summary : undefined;
+      scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
     const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
     const assignmentReference = parseAssignmentReference(params["assignmentRef"] ?? "");
     if (course === undefined || courseReference === null || assignmentReference === null) {

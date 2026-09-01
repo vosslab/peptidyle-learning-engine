@@ -4,7 +4,7 @@ import { createAsync } from "@solidjs/router";
 import { createMemo, createSignal, Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../../api/application_api";
-import type { CourseRouteData } from "../../api/contracts";
+import type { CourseRouteView } from "../../api/contracts";
 import {
   CourseManagementFrame,
   courseManagementSectionForRoute,
@@ -12,7 +12,7 @@ import {
 import {
   CourseThemeRouteContext,
   CourseThemePresentationContext,
-  courseRouteData,
+  courseRouteView,
   type CourseThemeRouteData,
 } from "./course_theme_context";
 import { courseThemeRouteRequest, type CourseThemeRouteRequest } from "./course_theme_route";
@@ -110,7 +110,7 @@ function ResolvedCourseThemeScope(props: ResolvedCourseThemeScopeProps): JSX.Ele
       }
     >
       {(loaded) => {
-        const course = (): CourseRouteData => courseRouteData(loaded());
+        const course = (): CourseRouteView => courseRouteView(loaded());
         const managementRoute = (): RouteContract | undefined => {
           if (course().summary.role !== "instructor") return undefined;
           const route = routeContractForPathname(props.pathname);
