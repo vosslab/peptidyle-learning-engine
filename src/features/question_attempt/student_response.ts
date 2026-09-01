@@ -1,14 +1,14 @@
 // student_response.ts - key-free display projection of a Student's submitted response.
 
-import type { ContentBlock } from "../../../generated/api/ContentBlock";
-import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
-function text(markdown: string): ContentBlock {
+function text(markdown: string): QuestionContentBlock {
   return { kind: "text", markdown };
 }
 
-function blockText(blocks: ReadonlyArray<ContentBlock>): string {
+function blockText(blocks: ReadonlyArray<QuestionContentBlock>): string {
   return blocks
     .map((block) => {
       switch (block.kind) {
@@ -26,11 +26,11 @@ function blockText(blocks: ReadonlyArray<ContentBlock>): string {
 }
 
 function selectedBodies(
-  options: ReadonlyArray<{ readonly id: string; readonly body: Array<ContentBlock> }>,
+  options: ReadonlyArray<{ readonly id: string; readonly body: Array<QuestionContentBlock> }>,
   ids: ReadonlyArray<string>,
-): ReadonlyArray<ContentBlock> | null {
+): ReadonlyArray<QuestionContentBlock> | null {
   const byId = new Map(options.map((option) => [option.id, option.body]));
-  const bodies: ContentBlock[] = [];
+  const bodies: QuestionContentBlock[] = [];
   for (const id of ids) {
     const body = byId.get(id);
     if (body === undefined) return null;
@@ -45,9 +45,9 @@ function selectedBodies(
  * Student response instead of guessing at a result.
  */
 export function projectStudentResponse(
-  envelope: QuestionPresentation,
+  envelope: QuestionVariationPresentation,
   response: StudentResponse | null,
-): ReadonlyArray<ContentBlock> {
+): ReadonlyArray<QuestionContentBlock> {
   if (response === null || envelope.response.kind !== response.kind) return [];
   const definition = envelope.response;
   switch (response.kind) {

@@ -1,0 +1,184 @@
+-- Session-authorized binding of immutable Question Source bytes to one Draft
+-- Question Revision. Source bytes are registered first as an Object Record.
+
+SET LOCAL ROLE ple_private_owner;
+
+CREATE POLICY draft_question_private_owner_source_lookup ON ple_private.draft_question
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY draft_question_revision_private_owner_source_lookup ON ple_private.draft_question_revision
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY question_source_private_owner_source_lookup ON ple_private.question_source
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY question_source_private_owner_source_registration ON ple_private.question_source
+    FOR INSERT TO ple_private_owner WITH CHECK (true);
+
+-- ASVS 1.2.4, 2.1.1, 2.2.1, 2.2.2, 2.3.1, 8.1.1, 8.2.1, and 8.3.1:
+-- this is the sole session-authorized path that creates an immutable private
+-- Question Source. It validates the complete typed registration, rechecks the
+-- exact Draft Question Revision workspace, and permits only an identical retry.
+CREATE FUNCTION ple_private.register_draft_question_source(
+    p_question_source_id uuid,
+    p_draft_question_revision_id uuid,
+    p_workspace_id uuid,
+    p_backend text,
+    p_question_format text,
+    p_question_type text,
+    p_backend_locator jsonb,
+    p_source_object_id uuid,
+    p_source_object_checksum text,
+    p_public_binding_sha256 text
+)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+DECLARE
+    locator_keys text[];
+    resolved_question_source_id uuid;
+BEGIN
+    IF NOT ple_api.current_session_account_can_access_workspace(p_workspace_id) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Draft Question Source registration requires current workspace access';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1
+          FROM ple_private.draft_question_revision AS revision
+          JOIN ple_private.draft_question AS question
+            ON question.draft_question_id = revision.draft_question_id
+         WHERE revision.draft_question_revision_id = p_draft_question_revision_id
+           AND question.workspace_id = p_workspace_id
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Draft Question Source must use its Draft Question Revision workspace';
+    END IF;
+    IF p_source_object_checksum !~ '^[0-9a-f]{64}$'
+       OR p_public_binding_sha256 !~ '^[0-9a-f]{64}$' THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Source checksums must be canonical lowercase SHA-256 values';
+    END IF;
+    IF p_question_type NOT IN (
+        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+        'numeric', 'matching', 'ordering', 'hotspot'
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Source must use a supported Question Type';
+    END IF;
+    IF (p_backend = 'ple' AND p_question_format NOT IN ('pleFlatQuestionV2', 'pleAlgorithmic'))
+       OR (p_backend = 'webwork' AND p_question_format <> 'webworkPg')
+       OR (p_backend = 'qti' AND p_question_format <> 'qti')
+       OR (p_backend = 'h5p' AND p_question_format <> 'h5p')
+       OR (p_backend = 'imathas' AND p_question_format <> 'imathas')
+       OR p_backend NOT IN ('ple', 'webwork', 'qti', 'h5p', 'imathas') THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Source Format must be supported by its Question Backend';
+    END IF;
+    IF jsonb_typeof(p_backend_locator) <> 'object'
+       OR p_backend_locator->>'backend' <> p_backend THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Source must use an exact backend-specific location';
+    END IF;
+    SELECT array_agg(locator_key ORDER BY locator_key)
+      INTO locator_keys
+      FROM jsonb_object_keys(p_backend_locator) AS keys(locator_key);
+    IF (p_backend = 'ple' AND locator_keys IS DISTINCT FROM ARRAY['backend']::text[])
+       OR (p_backend = 'webwork' AND (
+            locator_keys IS DISTINCT FROM ARRAY['backend', 'pgPath']::text[]
+            OR jsonb_typeof(p_backend_locator->'pgPath') <> 'string'
+            OR char_length(btrim(p_backend_locator->>'pgPath')) NOT BETWEEN 1 AND 1000
+       ))
+       OR (p_backend = 'qti' AND (
+            locator_keys IS DISTINCT FROM ARRAY['backend', 'importId', 'itemId']::text[]
+            OR jsonb_typeof(p_backend_locator->'itemId') <> 'string'
+            OR char_length(btrim(p_backend_locator->>'itemId')) NOT BETWEEN 1 AND 1000
+            OR jsonb_typeof(p_backend_locator->'importId') <> 'string'
+            OR p_backend_locator->>'importId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+       ))
+       OR (p_backend = 'h5p' AND (
+            locator_keys IS DISTINCT FROM ARRAY['backend', 'contentType']::text[]
+            OR jsonb_typeof(p_backend_locator->'contentType') <> 'string'
+            OR char_length(btrim(p_backend_locator->>'contentType')) NOT BETWEEN 1 AND 255
+       ))
+       OR (p_backend = 'imathas' AND (
+            locator_keys IS DISTINCT FROM ARRAY['backend', 'itemRef', 'provider']::text[]
+            OR jsonb_typeof(p_backend_locator->'provider') <> 'string'
+            OR char_length(btrim(p_backend_locator->>'provider')) NOT BETWEEN 1 AND 255
+            OR jsonb_typeof(p_backend_locator->'itemRef') <> 'string'
+            OR char_length(btrim(p_backend_locator->>'itemRef')) NOT BETWEEN 1 AND 255
+       )) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Source backend location has an invalid shape';
+    END IF;
+
+    INSERT INTO ple_private.question_source (
+        question_source_id, draft_question_revision_id, backend, question_format,
+        question_type, backend_locator, source_object_id, source_object_checksum,
+        public_binding_sha256, created_at, updated_at
+    ) VALUES (
+        p_question_source_id, p_draft_question_revision_id, p_backend, p_question_format,
+        p_question_type, p_backend_locator, p_source_object_id, p_source_object_checksum,
+        p_public_binding_sha256, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+    ) ON CONFLICT DO NOTHING
+    RETURNING question_source_id INTO resolved_question_source_id;
+    IF FOUND THEN
+        RETURN resolved_question_source_id;
+    END IF;
+
+    SELECT source.question_source_id
+      INTO resolved_question_source_id
+      FROM ple_private.question_source AS source
+     WHERE source.draft_question_revision_id = p_draft_question_revision_id
+       AND source.backend = p_backend
+       AND source.question_format = p_question_format
+       AND source.question_type = p_question_type
+       AND source.backend_locator = p_backend_locator
+       AND source.source_object_id = p_source_object_id
+       AND source.source_object_checksum = p_source_object_checksum
+       AND source.public_binding_sha256 = p_public_binding_sha256;
+    IF FOUND THEN
+        RETURN resolved_question_source_id;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = '23505',
+        MESSAGE = 'Draft Question Revision or Question Source identity already names different immutable facts';
+END
+$$;
+
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.register_draft_question_source(
+    uuid, uuid, uuid, text, text, text, jsonb, uuid, text, text
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_source(
+    uuid, uuid, uuid, text, text, text, jsonb, uuid, text, text
+) TO ple_api_owner;
+
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.register_draft_question_source(
+    p_question_source_id uuid,
+    p_draft_question_revision_id uuid,
+    p_workspace_id uuid,
+    p_backend text,
+    p_question_format text,
+    p_question_type text,
+    p_backend_locator jsonb,
+    p_source_object_id uuid,
+    p_source_object_checksum text,
+    p_public_binding_sha256 text
+)
+RETURNS uuid LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT ple_private.register_draft_question_source(
+        p_question_source_id, p_draft_question_revision_id, p_workspace_id,
+        p_backend, p_question_format, p_question_type, p_backend_locator,
+        p_source_object_id, p_source_object_checksum, p_public_binding_sha256
+    )
+$$;
+
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.register_draft_question_source(
+    uuid, uuid, uuid, text, text, text, jsonb, uuid, text, text
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_source(
+    uuid, uuid, uuid, text, text, text, jsonb, uuid, text, text
+) TO ple_app;
+
+COMMENT ON FUNCTION ple_api.register_draft_question_source(
+    uuid, uuid, uuid, text, text, text, jsonb, uuid, text, text
+) IS 'Binds one Draft Question Revision to exact immutable Question Source bytes after session and workspace authorization.';
+
+RESET ROLE;

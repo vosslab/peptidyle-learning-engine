@@ -133,7 +133,7 @@ run "security_baseline_plan" {
   }
   assert {
     condition     = strcontains(aws_iam_role_policy.api_storage.policy, "/records/*") && strcontains(aws_iam_role_policy.api_storage.policy, "/processing/*") && !strcontains(aws_iam_role_policy.api_storage.policy, "/imports/*")
-    error_message = "Storage IAM must track typed ObjectKey prefixes, not obsolete broad paths."
+    error_message = "Storage IAM must track typed Object Address prefixes, not obsolete broad paths."
   }
   assert {
     condition     = strcontains(aws_iam_role_policy.publisher_storage.policy, "ple-published-immutable") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "DeleteObject") && !strcontains(aws_iam_role_policy.api_storage.policy, "s3:RequestObjectTag/ple-published-immutable")

@@ -29,8 +29,8 @@ pub(super) async fn grade<R: WebworkRenderer>(
             if points.is_finite()
                 && points >= 0.0
                 && crate::reviewed_webwork_source_capabilities(
-                    &question.source,
-                    &source.source_object_reference.sha256,
+                    &question.backend_locator,
+                    source.source_object_checksum.as_str(),
                 )?
                 .supports(Capability::PartialCredit) =>
         {

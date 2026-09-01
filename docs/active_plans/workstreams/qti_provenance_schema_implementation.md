@@ -20,8 +20,9 @@ conversion and object-copy orchestration remain WP-QTI-8.
   path, revoke `PUBLIC` execution, and grant only the named roles needed for staging, reading,
   replacement, promotion, and release.
 - Current origin writes validate the committed import registry's complete typed workspace-source
-  `ObjectRecord`: key shape/classification, no public version, checksum, size, media type, license,
-  provenance, and creation time. They do not trust a caller-supplied archive summary.
+  `ObjectRecord`: key shape/classification, no public version, checksum, size, media type, and
+  creation time. The committed import registry owns the source relationship; Question licensing
+  resolves through the owning Question Revision, and the record never trusts a caller summary.
 - Before an import commits, profile/report/public/private/combined/warning/choice-map evidence is
   staged and bound to each accepted item and normalized digest. Provenance reads require that
   committed evidence.

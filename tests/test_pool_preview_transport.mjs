@@ -25,11 +25,11 @@ function previewResponse() {
     questionPoolLabel: "Pool 2",
     selectionCount: 1,
     selectionRule: { selectedQuestionOrder: "randomOrder" },
-    candidates: [
-      { questionId: "7K3-M9QP", title: "First candidate" },
-      { questionId: "7K4-M9QP", title: "Second candidate" },
+    entries: [
+      { questionId: "7K3-M9QP", title: "First entry" },
+      { questionId: "7K4-M9QP", title: "Second entry" },
     ],
-    selected: [{ questionId: "7K4-M9QP", title: "Second candidate" }],
+    selected: [{ questionId: "7K4-M9QP", title: "Second entry" }],
   };
 }
 
@@ -52,7 +52,7 @@ test("pool preview decoder accepts only the safe closed server projection", () =
     () =>
       decodeQuestionPoolPreview({
         ...response,
-        selected: [{ questionId: "7K5-M9QP", title: "Not a candidate" }],
+        selected: [{ questionId: "7K5-M9QP", title: "Not a entry" }],
       }),
     DecodeError,
   );

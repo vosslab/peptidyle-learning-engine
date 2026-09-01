@@ -166,7 +166,7 @@ Preferred structure:
 - Maintain a REPO_ROOT/`VERSION` file as well that is sync'd with the `pyproject.toml` version.
 - Store the version under `[project] version`.
 - Prefer CalVer-style zero-padded year/zero-padded month versioning for new releases, formatted as `0Y.0M.PATCH` (for example `25.02.3rc1`). See https://calver.org/
-- Use PEP 440 pre-release tags when needed: `aN` for alpha, `bN` for beta, and `rcN` for release candidates.
+- Use PEP 440 pre-release tags when needed: `aN` for alpha, `bN` for beta, and `rcN` for release entries.
 - When PATCH == 0, use shorthand `25.02b1` instead of `25.02.0b1`
 - Prefer zero-padded 0Y.0M for readability and lexicographic sorting. Packaging tools may normalize 25.02.* to 25.2.*; this does not affect version ordering.
 - Reference: [PyPA version specifiers](https://packaging.python.org/en/latest/specifications/version-specifiers/).

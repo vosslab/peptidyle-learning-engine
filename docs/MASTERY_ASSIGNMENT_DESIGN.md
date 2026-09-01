@@ -170,7 +170,7 @@ Question Feedback is intentionally not serializable or debug-printable. It has
 separate selected-choice, correct-outcome, and incorrect-outcome feedback;
 automatic grading selects only the applicable authored content. A Question Hint
 is separate pre-response instructional support and never belongs to Question
-Feedback or the post-grade `StudentFeedback` DTO. The Native adapter verifies
+Feedback or the post-grade `StudentFeedback` DTO. The PLE Question Backend verifies
 the exact issued Question through its separate `hint_for_issued_question` path
 before it provides a Question Hint. The public `StudentFeedback`
 DTO is the automatic, policy-released result for one Student; it omits locked
@@ -262,9 +262,9 @@ Policies owns Student Feedback Release Rules, Assignment Activity Rules, instruc
 and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete
 authoritative projection, so a Policies save cannot silently replace Questions content.
 
-An empty persisted Draft is valid while the Instructor builds the assignment across pages. Derived
-Assignment Publication Readiness for the exact Draft Assignment Revision blocks Published until an active deliverable position and valid policy state
-exist. Once student work is issued, a structural Questions change can return the typed
+An empty persisted Assignment Working Copy is valid while the Instructor builds the assignment across pages.
+Assignment Release Validation returns Assignment Release Issues when the exact Assignment Working Copy
+lacks an active deliverable position or valid policy state. Once student work is issued, a structural Questions change can return the typed
 issued-student-work conflict; the page preserves its draft for recovery. Student view is an
 answer-free, non-mutating presentation of the current assignment and does not create a practice run.
 

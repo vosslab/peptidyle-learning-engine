@@ -2,9 +2,9 @@
 
 import type { GradingResult } from "../../../generated/api/GradingResult";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
-import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../../generated/api/DraftQuestionRevision";
 import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
-import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ExternalToolLaunch, PublicationResult } from "../contracts";
 import { isCanonicalExternalToolLaunchPath } from "../external_tool_launch";
@@ -32,10 +32,10 @@ import {
 import { decodeQuestionSummary } from "./question_library";
 import {
   decodeQuestionAttemptLimit,
-  decodeContentBlock,
-  decodeDraftQuestionSource,
+  decodeQuestionContentBlock,
+  decodeDraftQuestionBackendLocator,
   decodeQuestionGradingRule,
-  decodeQuestionSource,
+  decodeQuestionBackendLocator,
   decodeQuestionVariationDefinition,
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
@@ -65,13 +65,16 @@ function decodeQuestionContent(
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    source: decodeQuestionSource(field(record, "source", path), `${path}.source`),
+    backendLocator: decodeQuestionBackendLocator(
+      field(record, "backendLocator", path),
+      `${path}.backendLocator`,
+    ),
     questionFormat: decodeQuestionFormat(
       field(record, "questionFormat", path),
       `${path}.questionFormat`,
     ),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, true),
+      decodeQuestionContentBlock(block, blockPath, true),
     ),
     response,
     questionType,
@@ -98,7 +101,7 @@ function decodeQuestionContent(
 function decodeDraftQuestionContent(
   record: Record<string, unknown>,
   path: string,
-): DraftQuestionDefinition {
+): DraftQuestionRevision {
   const response = decodeQuestionResponseFormat(
     field(record, "response", path),
     `${path}.response`,
@@ -116,13 +119,16 @@ function decodeDraftQuestionContent(
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    source: decodeDraftQuestionSource(field(record, "source", path), `${path}.source`),
+    backendLocator: decodeDraftQuestionBackendLocator(
+      field(record, "backendLocator", path),
+      `${path}.backendLocator`,
+    ),
     questionFormat: decodeQuestionFormat(
       field(record, "questionFormat", path),
       `${path}.questionFormat`,
     ),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, true),
+      decodeQuestionContentBlock(block, blockPath, true),
     ),
     response,
     questionType,
@@ -143,7 +149,7 @@ function decodeDraftQuestionContent(
     ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
-  } satisfies DraftQuestionDefinition;
+  } satisfies DraftQuestionRevision;
 }
 
 export function decodeQuestionRevision(value: unknown, path = "response"): QuestionRevision {
@@ -152,7 +158,7 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
     "questionId",
     "revisionNumber",
     "workspace",
-    "source",
+    "backendLocator",
     "questionFormat",
     "prompt",
     "response",
@@ -175,14 +181,14 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
 }
 
 /** Strictly decodes editable content, which cannot carry published IDs. */
-export function decodeDraftQuestionDefinition(
+export function decodeDraftQuestionRevision(
   value: unknown,
   path = "response",
-): DraftQuestionDefinition {
+): DraftQuestionRevision {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "workspace",
-    "source",
+    "backendLocator",
     "questionFormat",
     "prompt",
     "response",
@@ -204,7 +210,7 @@ export function decodePublicationResult(value: unknown, path = "response"): Publ
 export function decodeQuestionPresentation(
   value: unknown,
   path = "response",
-): QuestionPresentation {
+): QuestionVariationPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["variation", "title", "prompt", "response"]);
   const variation = decodeRecord(field(record, "variation", path), `${path}.variation`);
@@ -223,14 +229,14 @@ export function decodeQuestionPresentation(
     },
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, true),
+      decodeQuestionContentBlock(block, blockPath, true),
     ),
     response: decodeQuestionResponseFormat(
       field(record, "response", path),
       `${path}.response`,
       true,
     ),
-  } satisfies QuestionPresentation;
+  } satisfies QuestionVariationPresentation;
   return decoded;
 }
 
@@ -417,7 +423,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
       ? decodeArray(
           field(record, "choiceFeedback", path),
           `${path}.choiceFeedback`,
-          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
   const correctFeedback =
@@ -425,7 +431,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
       ? decodeArray(
           field(record, "correctFeedback", path),
           `${path}.correctFeedback`,
-          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
   const incorrectFeedback =
@@ -433,7 +439,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
       ? decodeArray(
           field(record, "incorrectFeedback", path),
           `${path}.incorrectFeedback`,
-          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
   const questionAnswer =
@@ -441,7 +447,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
       ? decodeArray(
           field(record, "questionAnswer", path),
           `${path}.questionAnswer`,
-          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
   const questionAnswerExplanation =
@@ -449,7 +455,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
       ? decodeArray(
           field(record, "questionAnswerExplanation", path),
           `${path}.questionAnswerExplanation`,
-          (block, blockPath) => decodeContentBlock(block, blockPath, true),
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
   return {

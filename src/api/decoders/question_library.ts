@@ -1,11 +1,11 @@
 // Question Library, course, and assignment browser-visible API DTOs.
 
 import type { AssignmentEntryAvailability } from "../../../generated/api/AssignmentEntryAvailability";
-import type { QuestionPoolCandidateAvailability } from "../../../generated/api/QuestionPoolCandidateAvailability";
+import type { QuestionPoolEntryAvailability } from "../../../generated/api/QuestionPoolEntryAvailability";
 import type { FixedQuestionAssignmentEntrySummary as FixedQuestionAssignmentEntry } from "../../../generated/api/FixedQuestionAssignmentEntrySummary";
 import type { AssignmentEntrySummary } from "../../../generated/api/AssignmentEntrySummary";
 import type { AssignmentEntryScoringRule } from "../../../generated/api/AssignmentEntryScoringRule";
-import type { QuestionPoolCandidateSummary as QuestionPoolCandidate } from "../../../generated/api/QuestionPoolCandidateSummary";
+import type { QuestionPoolEntrySummary as QuestionPoolEntry } from "../../../generated/api/QuestionPoolEntrySummary";
 import type { QuestionPoolAssignmentEntrySummary as QuestionPoolAssignmentEntry } from "../../../generated/api/QuestionPoolAssignmentEntrySummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
 import type { QuestionStatistics } from "../../../generated/api/QuestionStatistics";
@@ -65,9 +65,9 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
+import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
@@ -88,7 +88,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
-import { decodeContentBlock } from "./question_model";
+import { decodeQuestionContentBlock } from "./question_model";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeCourseAppearance } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
@@ -123,7 +123,7 @@ export function decodeQuestionSummary(
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
-      "native",
+      "ple",
       "webwork",
       "qti",
       "h5p",
@@ -156,13 +156,13 @@ export function decodeQuestionSummary(
 }
 
 /**
- * Verifies the exact browser-safe success projection for a native publication.
+ * Verifies the exact browser-safe success projection for a PLE publication.
  *
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
  */
 export function isAvailableNativeQuestionSummary(summary: QuestionSummary): boolean {
-  return summary.backend === "native" && summary.availability.availability === "available";
+  return summary.backend === "ple" && summary.availability.availability === "available";
 }
 
 function decodeUnitInterval(value: unknown, path: string): number {
@@ -391,7 +391,7 @@ function decodeQuestionPromptProjection(value: unknown, path: string): QuestionP
       field(record, "blocks", path),
       `${path}.blocks`,
       MAX_QUESTION_SEARCH_PAGE_ITEMS,
-      (block, blockPath) => decodeContentBlock(block, blockPath, true),
+      (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
     ),
   };
 }
@@ -619,7 +619,7 @@ function decodeFixedQuestionAssignmentEntry(
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
-      "native",
+      "ple",
       "webwork",
       "qti",
       "h5p",
@@ -682,30 +682,33 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   }
   requireOnlyFields(record, path, [
     "kind",
-    "candidateQuestionIds",
+    "questionIds",
     "availability",
     "scoringRule",
     "selectionCount",
     "pointsPerItem",
     "selectionRule",
   ]);
-  const candidateQuestionIds = decodeBoundedArray(
-    field(record, "candidateQuestionIds", path),
-    `${path}.candidateQuestionIds`,
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
+  const questionIds = decodeBoundedArray(
+    field(record, "questionIds", path),
+    `${path}.questionIds`,
+    MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
     decodeQuestionId,
   );
-  if (new Set(candidateQuestionIds).size !== candidateQuestionIds.length)
-    throw new DecodeError(`${path}.candidateQuestionIds`, "unique Question IDs");
+  if (new Set(questionIds).size !== questionIds.length)
+    throw new DecodeError(`${path}.questionIds`, "unique Question IDs");
   const selectionCount = decodePositiveInteger(
     field(record, "selectionCount", path),
     `${path}.selectionCount`,
   );
-  if (selectionCount > candidateQuestionIds.length)
-    throw new DecodeError(`${path}.selectionCount`, "a value no greater than the candidate count");
+  if (selectionCount > questionIds.length)
+    throw new DecodeError(
+      `${path}.selectionCount`,
+      "a value no greater than the Question Pool Entry count",
+    );
   return {
     kind: "questionPool",
-    candidateQuestionIds,
+    questionIds,
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
       "retired",
@@ -738,15 +741,14 @@ function decodeAssignmentContentEntries(
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
     decodeAssignmentContentEntry,
   );
-  const totalCandidates = entries.reduce(
-    (total, entry) =>
-      total + (entry.kind === "questionPool" ? entry.candidateQuestionIds.length : 0),
+  const questionPoolEntryCount = entries.reduce(
+    (total, entry) => total + (entry.kind === "questionPool" ? entry.questionIds.length : 0),
     0,
   );
-  if (totalCandidates > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
+  if (questionPoolEntryCount > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
     throw new DecodeError(
       path,
-      `no more than ${MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES} Question Pool candidate Question IDs`,
+      `no more than ${MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES} Question Pool Entry Question IDs`,
     );
   return entries;
 }
@@ -764,7 +766,7 @@ export function decodeAssignmentContentInput(
   };
 }
 
-function decodeQuestionPoolCandidate(value: unknown, path: string): QuestionPoolCandidate {
+function decodeQuestionPoolEntry(value: unknown, path: string): QuestionPoolEntry {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -779,7 +781,7 @@ function decodeQuestionPoolCandidate(value: unknown, path: string): QuestionPool
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
-      "native",
+      "ple",
       "webwork",
       "qti",
       "h5p",
@@ -792,7 +794,7 @@ function decodeQuestionPoolCandidate(value: unknown, path: string): QuestionPool
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
       "retired",
-    ] as const satisfies ReadonlyArray<QuestionPoolCandidateAvailability>),
+    ] as const satisfies ReadonlyArray<QuestionPoolEntryAvailability>),
   };
 }
 
@@ -804,7 +806,7 @@ function decodeQuestionPoolSelectionRule(value: unknown, path: string): Question
       field(record, "selectedQuestionOrder", path),
       `${path}.selectedQuestionOrder`,
       [
-        "candidateOrder",
+        "questionPoolOrder",
         "randomOrder",
       ] as const satisfies ReadonlyArray<QuestionPoolSelectedQuestionOrder>,
     ),
@@ -824,7 +826,7 @@ function decodeQuestionPoolAssignmentEntry(
     "selectionCount",
     "pointsPerItem",
     "selectionRule",
-    "candidates",
+    "entries",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -850,10 +852,10 @@ function decodeQuestionPoolAssignmentEntry(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,
     ),
-    candidates: decodeArray(
-      field(record, "candidates", path),
-      `${path}.candidates`,
-      decodeQuestionPoolCandidate,
+    entries: decodeArray(
+      field(record, "entries", path),
+      `${path}.entries`,
+      decodeQuestionPoolEntry,
     ),
   };
 }

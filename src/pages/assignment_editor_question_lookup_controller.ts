@@ -1,7 +1,7 @@
 import { createSignal, type Accessor } from "solid-js";
 
 import type { AssignmentQuestionRow } from "./assignment_editor_model";
-import { parseExactProblemDisplayReferences } from "./assignment_editor_model";
+import { parseExactQuestionIds } from "./assignment_editor_model";
 import type { AssignmentEditorRepository } from "./assignment_editor_repository";
 
 export interface AssignmentEditorQuestionLookupController {
@@ -20,7 +20,7 @@ export function createAssignmentEditorQuestionLookupController(
   const [selected, setSelected] = createSignal<AssignmentQuestionRow>();
 
   async function lookup(value: string): Promise<AssignmentQuestionRow> {
-    const ids = parseExactProblemDisplayReferences(value);
+    const ids = parseExactQuestionIds(value);
     if (ids.length !== 1) throw new Error("Choose one Question ID for this action.");
     const id = ids[0];
     if (id === undefined) throw new Error("Choose one Question ID for this action.");

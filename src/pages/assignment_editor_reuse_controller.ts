@@ -7,15 +7,15 @@ import type { AssignmentId } from "../../generated/api/AssignmentId";
 
 import type {
   AssignmentEditorRepository,
-  ReusableAssignment,
+  BlueprintAssignment,
 } from "./assignment_editor_repository";
 
 export interface AssignmentEditorReuseController {
-  readonly reuse: Accessor<ReadonlyArray<ReusableAssignment>>;
+  readonly reuse: Accessor<ReadonlyArray<BlueprintAssignment>>;
   readonly message: Accessor<string>;
   readonly sourceIndex: Accessor<number | undefined>;
   readonly questionIndexes: Accessor<ReadonlySet<number>>;
-  readonly selectedSource: () => ReusableAssignment | undefined;
+  readonly selectedSource: () => BlueprintAssignment | undefined;
   readonly load: () => Promise<void>;
   readonly chooseSource: (index: number) => void;
   readonly toggleQuestion: (index: number, checked: boolean) => void;
@@ -26,19 +26,19 @@ export function createAssignmentEditorReuseController(
   courseId: CourseId,
   exclude?: AssignmentId,
 ): AssignmentEditorReuseController {
-  const [reuse, setReuse] = createSignal<ReadonlyArray<ReusableAssignment>>([]);
+  const [reuse, setReuse] = createSignal<ReadonlyArray<BlueprintAssignment>>([]);
   const [message, setMessage] = createSignal("");
   const [sourceIndex, setSourceIndex] = createSignal<number>();
   const [questionIndexes, setQuestionIndexes] = createSignal<ReadonlySet<number>>(new Set());
 
-  function selectedSource(): ReusableAssignment | undefined {
+  function selectedSource(): BlueprintAssignment | undefined {
     const index = sourceIndex();
     return index === undefined ? undefined : reuse()[index];
   }
 
   async function load(): Promise<void> {
     try {
-      const values = await repository.listReusableAssignments(courseId, exclude);
+      const values = await repository.listBlueprintAssignments(courseId, exclude);
       setReuse(values);
       setSourceIndex(values.length > 0 ? 0 : undefined);
       setQuestionIndexes(new Set(values[0]?.questions.map((_question, index) => index) ?? []));

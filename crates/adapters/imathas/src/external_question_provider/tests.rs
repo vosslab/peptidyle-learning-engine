@@ -5,12 +5,12 @@ use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::classification::License;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::{
     ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata, QuestionRevision,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionType, SourceObjectReference,
-    WorkspaceId,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
+    SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -51,7 +51,7 @@ impl ScoredEmbedTransport for RecordedTransport {
     ) -> Result<SafeProviderRender, ScoredEmbedTransportFailure> {
         Ok(SafeProviderRender {
             title: "Recorded broker question".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Use the protected activity.".into(),
             }],
         })
@@ -110,19 +110,14 @@ fn question_and_source() -> (QuestionRevision, ImathasSource) {
     let bytes = br#"{"recorded":true}"#.to_vec();
     let digest = hex(Sha256::digest(&bytes).as_slice());
     let object = ObjectId::from_uuid(Uuid::from_u128(3));
-    let source_object_reference = SourceObjectReference {
-        object,
-        sha256: digest.clone(),
-    };
+    let source_object_reference = SourceObjectReference { object };
     let question = QuestionRevision {
         question_id: question_revision.question_id.clone(),
         revision_number: question_revision.revision_number,
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        source: QuestionSource::Imathas {
+        backend_locator: QuestionBackendLocator::Imathas {
             provider: "self-hosted-imathas".into(),
             item_ref: "17".into(),
-            snapshot: object,
-            snapshot_sha256: digest,
             integration_profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
         },
         question_format: QuestionFormat::Imathas,
@@ -144,6 +139,8 @@ fn question_and_source() -> (QuestionRevision, ImathasSource) {
     let source = ImathasSource {
         question_revision,
         artifact: source_object_reference,
+        source_object_checksum: SourceObjectChecksum::parse(digest.clone())
+            .expect("stored checksum is canonical"),
         provider: "self-hosted-imathas".into(),
         item_ref: "17".into(),
         profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
@@ -297,11 +294,11 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
 async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
-    let foreign_draft = question_model::DraftQuestionSource::Imathas {
+    let foreign_draft = question_model::DraftQuestionBackendLocator::Imathas {
         provider: "foreign-imathas".into(),
         item_ref: "17".into(),
     };
-    let locator = ImathasDraftQuestionSource::from_draft(&foreign_draft).unwrap();
+    let locator = ImathasQuestionLocation::from_draft_backend_locator(&foreign_draft).unwrap();
     assert_eq!(
         provider.snapshot(&locator).await,
         Err(ProviderFailure::UnsupportedProfile)
@@ -310,7 +307,7 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
 
     let (mut question, mut source) = question_and_source();
     source.provider = "foreign-imathas".into();
-    if let QuestionSource::Imathas { provider, .. } = &mut question.source {
+    if let QuestionBackendLocator::Imathas { provider, .. } = &mut question.backend_locator {
         *provider = "foreign-imathas".into();
     }
     assert!(matches!(
@@ -347,7 +344,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
             seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
-        source.artifact.sha256.clone(),
+        source.source_object_checksum.to_string(),
     )
     .unwrap();
     let persisted = codec.seal(&session).unwrap();
@@ -398,7 +395,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
             ..expected.binding.clone()
         },
         "self-hosted-imathas",
-        source.artifact.sha256,
+        source.source_object_checksum.to_string(),
     )
     .unwrap();
     assert!(codec.restore(&persisted, &wrong_version).is_err());
@@ -419,7 +416,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
             seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
-        source.artifact.sha256.clone(),
+        source.source_object_checksum.to_string(),
     )
     .unwrap();
     let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();

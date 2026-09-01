@@ -30,8 +30,6 @@ impl ObjectStore for MemoryObjectStore {
             sha256: Sha256Digest::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
-            license: request.license,
-            provenance: request.provenance,
             created_at: request.created_at,
             address: request.address.clone(),
         };
@@ -131,8 +129,6 @@ mod tests {
                 address: key.clone(),
                 bytes: b"original".to_vec(),
                 media_type: "application/octet-stream".to_string(),
-                license: None,
-                provenance: "test".to_string(),
                 created_at: ActivityTimestamp::from_unix_millis(1),
             })
             .await

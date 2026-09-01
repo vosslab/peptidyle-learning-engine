@@ -1,6 +1,6 @@
 //! Strict browser contracts for the Instructor assignment workspace.
 //!
-//! These types describe request intent and publication readiness only. The
+//! These types describe request intent and publication validation only. The
 //! server resolves question references, course-local times, and authority
 //! before it changes the authoritative assignment aggregate.
 
@@ -12,7 +12,7 @@ use crate::{
     AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
     AssignmentPointValue, AssignmentStatus, AssignmentTitle, Capability, CourseTimeZone,
     InstructorAssignmentWorkingCopyDefinitionLocal, LateWorkRule, QuestionId,
-    QuestionPoolCandidateAvailability, QuestionPoolReuseRule, QuestionPoolSelectionRule,
+    QuestionPoolItemAvailability, QuestionPoolReuseRule, QuestionPoolSelectionRule,
     QuestionVariationRule, StudentFeedbackReleaseRule,
 };
 
@@ -65,10 +65,10 @@ pub struct ReplaceAssignmentPoliciesRequest {
 
 /// Browser-safe refusal returned when the Policies workspace cannot save its
 /// complete aggregate update. Once the server can build a valid teaching-state
-/// candidate, it returns every independently determinable correction in stable
+/// proposed teaching state, it returns every independently determinable correction in stable
 /// order before persistence replaces the Assignment Working Copy. A malformed
 /// teaching state is returned alone because it
-/// prevents constructing that candidate.
+/// prevents constructing that proposed teaching state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentPoliciesValidationFailure {
@@ -136,7 +136,7 @@ pub enum AssignmentEntryRequest {
     },
     /// A server-resolved selection from a pool of immutable questions.
     QuestionPool {
-        candidate_question_ids: Vec<QuestionId>,
+        question_ids: Vec<QuestionId>,
         availability: AssignmentEntryAvailability,
         scoring_rule: AssignmentEntryScoringRule,
         selection_count: u32,
@@ -236,10 +236,10 @@ impl AssignmentReleaseValidation {
                 pool.availability == AssignmentEntryAvailability::Available
                     && pool.selection_count > 0
                     && pool
-                        .candidates
+                        .items
                         .iter()
-                        .filter(|candidate| {
-                            candidate.availability == QuestionPoolCandidateAvailability::Available
+                        .filter(|entry| {
+                            entry.availability == QuestionPoolItemAvailability::Available
                         })
                         .count()
                         >= usize::try_from(pool.selection_count).unwrap_or(usize::MAX)
@@ -358,12 +358,12 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
-            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"candidateOrder"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
             serde_json::from_str::<ReplaceAssignmentContentRequest>(
-                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","candidateQuestionIds":["7K3-M9QP"],"selectionCount":1,"pointsPerItem":"1","selectedQuestionOrder":"candidateOrder"}]}"#,
+                r#"{"title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3-M9QP"],"selectionCount":1,"pointsPerItem":"1","selectedQuestionOrder":"questionPoolOrder"}]}"#,
             )
             .is_err()
         );

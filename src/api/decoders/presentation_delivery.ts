@@ -1,18 +1,21 @@
 // Strict student-presentation decoding and key-free response-widget projection.
 
-import type { AssetRef } from "../../../generated/api/AssetRef";
+import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
 import type { MatchingChoice } from "../../../generated/api/MatchingChoice";
 import type { MatchingPrompt } from "../../../generated/api/MatchingPrompt";
 import type { OrderingItem } from "../../../generated/api/OrderingItem";
-import type { PresentationEnvelopeV1 } from "../../../generated/api/PresentationEnvelopeV1";
-import type { PresentedBlankV1 } from "../../../generated/api/PresentedBlankV1";
-import type { PresentedChoiceV1 } from "../../../generated/api/PresentedChoiceV1";
-import type { PresentedHotspotRegionV1 } from "../../../generated/api/PresentedHotspotRegionV1";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { PresentedMatchingChoice } from "../../../generated/api/PresentedMatchingChoice";
+import type { PresentedMatchingPrompt } from "../../../generated/api/PresentedMatchingPrompt";
+import type { PresentedOrderingItem } from "../../../generated/api/PresentedOrderingItem";
+import type { PresentedQuestionChoice } from "../../../generated/api/PresentedQuestionChoice";
+import type { PresentedTextEntrySlot } from "../../../generated/api/PresentedTextEntrySlot";
+import type { PresentedHotspotRegion } from "../../../generated/api/PresentedHotspotRegion";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { QuestionChoice } from "../../../generated/api/QuestionChoice";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
-import type { IssuedQuestionResponseFormatV1 } from "../../../generated/api/IssuedQuestionResponseFormatV1";
+import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
 import {
   DecodeError,
@@ -34,11 +37,12 @@ import {
   kind,
   requireOnlyFields,
 } from "./shared";
-import { decodeContentBlock } from "./question_response_format";
+import { decodeQuestionContentBlock } from "./question_response_format";
 
 const MAX_PRESENTED_ITEMS = 32;
 const RENDERED_ITEM_ID = /^[0-9a-f]{4}$/u;
 const PRESENTATION_NONCE = /^[0-9a-f]{32}$/u;
+type PresentedResponseItemFields = Pick<PresentedQuestionChoice, "id" | "body">;
 
 function renderedItemId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
@@ -48,19 +52,23 @@ function renderedItemId(value: unknown, path: string): string {
   return decoded;
 }
 
-function presentedChoice(value: unknown, path: string): PresentedChoiceV1 {
+function presentedResponseItemFields(value: unknown, path: string): PresentedResponseItemFields {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "body"]);
   return {
     id: renderedItemId(field(record, "id", path), `${path}.id`),
     body: decodeBoundedArray(field(record, "body", path), `${path}.body`, 32, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, true),
+      decodeQuestionContentBlock(block, blockPath, true),
     ),
   };
 }
 
-function presentedChoices(value: unknown, path: string): PresentedChoiceV1[] {
-  const choices = decodeBoundedArray(value, path, MAX_PRESENTED_ITEMS, presentedChoice);
+function presentedItems<T extends { id: string }>(
+  value: unknown,
+  path: string,
+  decodeItem: (item: unknown, itemPath: string) => T,
+): T[] {
+  const choices = decodeBoundedArray(value, path, MAX_PRESENTED_ITEMS, decodeItem);
   if (choices.length < 2) throw new DecodeError(path, "at least two presented choices");
   const ids = choices.map((choice) => choice.id);
   if (new Set(ids).size !== ids.length) {
@@ -69,7 +77,23 @@ function presentedChoices(value: unknown, path: string): PresentedChoiceV1[] {
   return choices;
 }
 
-function presentedBlank(value: unknown, path: string): PresentedBlankV1 {
+function presentedQuestionChoice(value: unknown, path: string): PresentedQuestionChoice {
+  return presentedResponseItemFields(value, path);
+}
+
+function presentedMatchingPrompt(value: unknown, path: string): PresentedMatchingPrompt {
+  return presentedResponseItemFields(value, path);
+}
+
+function presentedMatchingChoice(value: unknown, path: string): PresentedMatchingChoice {
+  return presentedResponseItemFields(value, path);
+}
+
+function presentedOrderingItem(value: unknown, path: string): PresentedOrderingItem {
+  return presentedResponseItemFields(value, path);
+}
+
+function presentedTextEntrySlot(value: unknown, path: string): PresentedTextEntrySlot {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "label", "maxCharacters"]);
   return {
@@ -78,7 +102,7 @@ function presentedBlank(value: unknown, path: string): PresentedBlankV1 {
       field(record, "label", path),
       `${path}.label`,
       32,
-      (block, blockPath) => decodeContentBlock(block, blockPath, true),
+      (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
     ),
     maxCharacters: decodePositiveInteger(
       field(record, "maxCharacters", path),
@@ -93,7 +117,7 @@ function normalizedCoordinate(value: unknown, path: string): number {
   return decoded;
 }
 
-function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotRegionV1 {
+function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotRegion {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "label", "x", "y", "width", "height"]);
   const x = normalizedCoordinate(field(record, "x", path), `${path}.x`);
@@ -109,7 +133,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
       field(record, "label", path),
       `${path}.label`,
       32,
-      (block, blockPath) => decodeContentBlock(block, blockPath, true),
+      (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
     ),
     x,
     y,
@@ -118,7 +142,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
   };
 }
 
-function assetRef(value: unknown, path: string): AssetRef {
+function questionAssetReference(value: unknown, path: string): QuestionAssetReference {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["asset", "checksum"]);
   return {
@@ -139,19 +163,27 @@ function bounds(record: Record<string, unknown>, path: string, count: number): [
 function issuedQuestionResponseFormat(
   value: unknown,
   path: string,
-): IssuedQuestionResponseFormatV1 {
+): QuestionPresentationResponseFormat {
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
     case "singleChoice": {
       requireOnlyFields(record, path, ["kind", "choices"]);
       return {
         kind: "singleChoice",
-        choices: presentedChoices(field(record, "choices", path), `${path}.choices`),
+        choices: presentedItems(
+          field(record, "choices", path),
+          `${path}.choices`,
+          presentedQuestionChoice,
+        ),
       };
     }
     case "multipleAnswer": {
       requireOnlyFields(record, path, ["kind", "choices", "minimum", "maximum"]);
-      const choices = presentedChoices(field(record, "choices", path), `${path}.choices`);
+      const choices = presentedItems(
+        field(record, "choices", path),
+        `${path}.choices`,
+        presentedQuestionChoice,
+      );
       const [minimum, maximum] = bounds(record, path, choices.length);
       return { kind: "multipleAnswer", choices, minimum, maximum };
     }
@@ -170,7 +202,7 @@ function issuedQuestionResponseFormat(
         field(record, "blanks", path),
         `${path}.blanks`,
         MAX_PRESENTED_ITEMS,
-        presentedBlank,
+        presentedTextEntrySlot,
       );
       if (blanks.length === 0 || new Set(blanks.map((blank) => blank.id)).size !== blanks.length) {
         throw new DecodeError(`${path}.blanks`, "one or more blanks with unique IDs");
@@ -193,8 +225,16 @@ function issuedQuestionResponseFormat(
       };
     case "matching": {
       requireOnlyFields(record, path, ["kind", "prompts", "choices", "reuseChoices"]);
-      const prompts = presentedChoices(field(record, "prompts", path), `${path}.prompts`);
-      const choices = presentedChoices(field(record, "choices", path), `${path}.choices`);
+      const prompts = presentedItems(
+        field(record, "prompts", path),
+        `${path}.prompts`,
+        presentedMatchingPrompt,
+      );
+      const choices = presentedItems(
+        field(record, "choices", path),
+        `${path}.choices`,
+        presentedMatchingChoice,
+      );
       const reuseChoices = decodeBoolean(
         field(record, "reuseChoices", path),
         `${path}.reuseChoices`,
@@ -214,7 +254,7 @@ function issuedQuestionResponseFormat(
       requireOnlyFields(record, path, ["kind", "items"]);
       return {
         kind: "ordering",
-        items: presentedChoices(field(record, "items", path), `${path}.items`),
+        items: presentedItems(field(record, "items", path), `${path}.items`, presentedOrderingItem),
       };
     }
     case "hotspot": {
@@ -236,7 +276,10 @@ function issuedQuestionResponseFormat(
         kind: "hotspot",
         surface: {
           id: renderedItemId(field(surfaceRecord, "id", surfacePath), `${surfacePath}.id`),
-          asset: assetRef(field(surfaceRecord, "asset", surfacePath), `${surfacePath}.asset`),
+          asset: questionAssetReference(
+            field(surfaceRecord, "asset", surfacePath),
+            `${surfacePath}.asset`,
+          ),
           description: decodeNonemptyString(
             field(surfaceRecord, "description", surfacePath),
             `${surfacePath}.description`,
@@ -265,25 +308,43 @@ function selectionFromBounds(
   throw new DecodeError(path, "selection bounds supported by the question response control");
 }
 
-function responseItemsForWidget<T>(choices: ReadonlyArray<PresentedChoiceV1>): T[] {
-  return choices.map((choice) => ({ id: choice.id, body: choice.body }) as T);
+function questionChoicesForWidget(
+  choices: ReadonlyArray<PresentedQuestionChoice>,
+): QuestionChoice[] {
+  return choices.map((choice) => ({ id: choice.id, body: choice.body }));
+}
+
+function matchingPromptsForWidget(
+  prompts: ReadonlyArray<PresentedMatchingPrompt>,
+): MatchingPrompt[] {
+  return prompts.map((prompt) => ({ id: prompt.id, body: prompt.body }));
+}
+
+function matchingChoicesForWidget(
+  choices: ReadonlyArray<PresentedMatchingChoice>,
+): MatchingChoice[] {
+  return choices.map((choice) => ({ id: choice.id, body: choice.body }));
+}
+
+function orderingItemsForWidget(items: ReadonlyArray<PresentedOrderingItem>): OrderingItem[] {
+  return items.map((item) => ({ id: item.id, body: item.body }));
 }
 
 function responseForWidget(
-  response: IssuedQuestionResponseFormatV1,
+  response: QuestionPresentationResponseFormat,
   path: string,
 ): QuestionResponseFormat {
   switch (response.kind) {
     case "singleChoice":
       return {
         kind: "multipleChoice",
-        choices: responseItemsForWidget<QuestionChoice>(response.choices),
+        choices: questionChoicesForWidget(response.choices),
         selection: { kind: "exactlyOne" },
       };
     case "multipleAnswer":
       return {
         kind: "multipleChoice",
-        choices: responseItemsForWidget<QuestionChoice>(response.choices),
+        choices: questionChoicesForWidget(response.choices),
         selection: selectionFromBounds(
           response.minimum,
           response.maximum,
@@ -311,11 +372,11 @@ function responseForWidget(
       }
       return {
         kind: "matching",
-        prompts: responseItemsForWidget<MatchingPrompt>(response.prompts),
-        choices: responseItemsForWidget<MatchingChoice>(response.choices),
+        prompts: matchingPromptsForWidget(response.prompts),
+        choices: matchingChoicesForWidget(response.choices),
       };
     case "ordering":
-      return { kind: "ordering", items: responseItemsForWidget<OrderingItem>(response.items) };
+      return { kind: "ordering", items: orderingItemsForWidget(response.items) };
     case "hotspot": {
       const regions: HotspotRegion[] = response.surface.regions;
       return {
@@ -333,7 +394,7 @@ function responseForWidget(
 export function decodeIssuedPresentationEnvelope(
   value: unknown,
   path = "response",
-): QuestionPresentation {
+): QuestionVariationPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionRevision",
@@ -360,10 +421,10 @@ export function decodeIssuedPresentationEnvelope(
       field(record, "prompt", path),
       `${path}.prompt`,
       32,
-      (block, blockPath) => decodeContentBlock(block, blockPath, true),
+      (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
     ),
     response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
-  } satisfies PresentationEnvelopeV1;
+  } satisfies QuestionPresentation;
   return {
     variation: {
       questionRevision: presentation.questionRevision,

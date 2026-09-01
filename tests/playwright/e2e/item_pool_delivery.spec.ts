@@ -105,7 +105,7 @@ async function createCourseWithMixedPool(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await selectQuestionsInPicker(
     page,
@@ -132,7 +132,7 @@ async function createCourseWithMixedPool(
   for (const candidate of candidates) await expect(pool).toContainText(candidate.title);
   await pool.getByLabel("Selection count").fill("2");
   await pool.getByLabel("Points per selected Question").fill("2");
-  await pool.getByLabel("Selected Question order").selectOption("candidateOrder");
+  await pool.getByLabel("Selected Question order").selectOption("questionPoolOrder");
   await expect(pool).toContainText("Question Pool Selection");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await expect(

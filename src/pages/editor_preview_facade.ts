@@ -11,7 +11,7 @@ export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
       const result = await wasm.previewNativeDraft(
         {
           workspace: draft.workspace,
-          source: draft.source,
+          backendLocator: draft.backendLocator,
           title: draft.title,
           prompt: draft.prompt,
           response: draft.response,

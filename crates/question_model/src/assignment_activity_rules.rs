@@ -227,26 +227,26 @@ pub enum AssignmentQuestionOrderRule {
 /// Stable server-owned inputs for one Question Pool Selection.
 ///
 /// The basis contains only server-owned durable identities. It chooses
-/// candidate references; question issuance separately creates the fresh
+/// Question Pool Entry references; question issuance separately creates the fresh
 /// private server seed for every selected question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionInputs {
-    /// Repeat selections for one Student Record retain the same candidates.
+    /// Repeat selections for one Student Record retain the same Question Pool Entries.
     StableStudentRecord {
         student_record: crate::StudentRecordId,
         assignment: AssignmentId,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
     },
-    /// Each new Assignment Attempt receives independently selected candidates.
+    /// Each new Assignment Attempt receives independently selected Question Pool Entries.
     RegeneratedAssignmentAttempt {
         assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
     },
     /// An instructor-authorized, server-minted no-store preview sample.
     Preview {
         assignment: AssignmentId,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
         nonce: QuestionPoolPreviewNonce,
     },
 }
@@ -273,18 +273,18 @@ impl QuestionPoolReuseRule {
         self,
         assignment: AssignmentId,
         assignment_attempt: &AssignmentAttempt,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
     ) -> QuestionPoolSelectionInputs {
         match self {
             Self::ReuseSelection => QuestionPoolSelectionInputs::StableStudentRecord {
                 student_record: assignment_attempt.student_record,
                 assignment,
-                question_pool_entry,
+                question_pool_assignment_entry,
             },
             Self::SelectAgain => QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
                 assignment_attempt: assignment_attempt.id,
                 assignment,
-                question_pool_entry,
+                question_pool_assignment_entry,
             },
         }
     }
@@ -294,12 +294,12 @@ impl QuestionPoolSelectionInputs {
     /// Creates independent no-store selection inputs for a saved definition preview.
     pub const fn preview(
         assignment: AssignmentId,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
         nonce: QuestionPoolPreviewNonce,
     ) -> Self {
         Self::Preview {
             assignment,
-            question_pool_entry,
+            question_pool_assignment_entry,
             nonce,
         }
     }
@@ -460,7 +460,7 @@ mod tests {
             QuestionPoolSelectionInputs::StableStudentRecord {
                 student_record: assignment_attempt.student_record,
                 assignment,
-                question_pool_entry: entry,
+                question_pool_assignment_entry: entry,
             }
         );
         assert_eq!(
@@ -472,7 +472,7 @@ mod tests {
             QuestionPoolSelectionInputs::RegeneratedAssignmentAttempt {
                 assignment_attempt: assignment_attempt.id,
                 assignment,
-                question_pool_entry: entry,
+                question_pool_assignment_entry: entry,
             }
         );
     }

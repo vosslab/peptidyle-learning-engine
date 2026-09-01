@@ -269,8 +269,8 @@ export function inspectedStudentWorkUrl(
   const checkedCourseInstanceReference = checkedCourse(course);
   const checkedMembershipReference = checkedMembership(membership);
   const checkedAssignmentReference = checkedAssignment(assignment);
-  const checkedRunReference = checkedRun(run);
-  const path = `/instructor/courses/${checkedCourseInstanceReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedRunReference}`;
+  const checkedAssignmentAttemptReference = checkedRun(run);
+  const path = `/instructor/courses/${checkedCourseInstanceReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedAssignmentAttemptReference}`;
   if (operation === undefined) return path;
   const operationReference = decodeInstructorGradingOperationReference(operation);
   return `${path}?${new URLSearchParams({ operationRef: operationReference }).toString()}`;

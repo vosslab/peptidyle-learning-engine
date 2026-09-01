@@ -1,15 +1,16 @@
 //! Answer-key-free print model construction and deterministic artifact dispatch.
 //!
 //! The worker resolves immutable, published assets before it calls this crate.
-//! This crate receives verified bytes only: it never receives an object key,
+//! This crate receives verified bytes only: it never receives an Object Address,
 //! a URL, account-ownership information, or an answer key.
 
 use std::collections::BTreeMap;
 
 use objects::Sha256Digest;
-use question_model::envelope::{AssetRef, ContentBlock};
+use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::{
-    AssetId, Capability, QuestionBackendCapabilities, QuestionResponseFormat, QuestionRevision,
+    Capability, QuestionAssetId, QuestionBackendCapabilities, QuestionResponseFormat,
+    QuestionRevision,
 };
 
 /// The rendition selected by an instructor or accessibility workflow.
@@ -32,7 +33,7 @@ impl PrintLayout {
 }
 
 /// A rendered export artifact.  The caller persists it; this type has no path,
-/// URL, object key, account-ownership, or answer-bearing field.
+/// URL, Object Address, account-ownership, or answer-bearing field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportArtifact {
     pub filename: String,
@@ -49,13 +50,6 @@ pub struct ExportBundle {
     pub accessible_pdf: ExportArtifact,
 }
 
-/// One question plus the capability declaration made by its adapter.
-#[derive(Debug, Clone)]
-pub struct ExportCandidate<'a> {
-    pub question: &'a QuestionRevision,
-    pub capabilities: &'a QuestionBackendCapabilities,
-}
-
 /// Verified bytes for one immutable published asset.  Image support is
 /// deliberately narrow rather than silently degrading a visual question.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,7 +61,7 @@ pub struct PrintableAsset {
 /// Server-side asset lookup.  Implementations must return bytes from the exact
 /// immutable asset reference; the checksum is verified again below.
 pub trait TrustedAssetResolver {
-    fn resolve(&self, asset: &AssetRef) -> Result<PrintableAsset, String>;
+    fn resolve(&self, asset: &QuestionAssetReference) -> Result<PrintableAsset, String>;
 }
 
 /// One named question refused before any writer starts.
@@ -101,14 +95,14 @@ impl std::error::Error for ExportabilityError {}
 pub struct PrintExam {
     pub title: String,
     pub questions: Vec<PrintQuestion>,
-    assets: BTreeMap<AssetId, PrintableAsset>,
+    assets: BTreeMap<QuestionAssetId, PrintableAsset>,
 }
 
 /// One question in a validated print exam.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrintQuestion {
     pub title: String,
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     pub response: QuestionResponseFormat,
 }
 
@@ -117,18 +111,18 @@ impl PrintExam {
     /// requires the server's trusted resolver, so it is refused pre-build.
     pub fn build<'a>(
         title: impl Into<String>,
-        candidates: impl IntoIterator<Item = ExportCandidate<'a>>,
+        inputs: impl IntoIterator<Item = (&'a QuestionRevision, &'a QuestionBackendCapabilities)>,
     ) -> Result<Self, ExportabilityError> {
         struct NoAssets;
         impl TrustedAssetResolver for NoAssets {
-            fn resolve(&self, _: &AssetRef) -> Result<PrintableAsset, String> {
+            fn resolve(&self, _: &QuestionAssetReference) -> Result<PrintableAsset, String> {
                 Err(
                     "a trusted published-asset resolver is required for printable figures"
                         .to_string(),
                 )
             }
         }
-        Self::build_with_assets(title, candidates, &NoAssets)
+        Self::build_with_assets(title, inputs, &NoAssets)
     }
 
     /// Resolves every visual asset and checks every export constraint before a
@@ -137,16 +131,15 @@ impl PrintExam {
     /// actionable refusal rather than a text-only replacement.
     pub fn build_with_assets<'a>(
         title: impl Into<String>,
-        candidates: impl IntoIterator<Item = ExportCandidate<'a>>,
+        inputs: impl IntoIterator<Item = (&'a QuestionRevision, &'a QuestionBackendCapabilities)>,
         resolver: &dyn TrustedAssetResolver,
     ) -> Result<Self, ExportabilityError> {
         let mut questions = Vec::new();
         let mut assets = BTreeMap::new();
         let mut failures = Vec::new();
-        for candidate in candidates {
-            let question = candidate.question;
+        for (question, capabilities) in inputs {
             let mut reason = None;
-            if !candidate.capabilities.supports(Capability::PrintExport) {
+            if !capabilities.supports(Capability::PrintExport) {
                 reason = Some("the backend does not declare printExport".to_string());
             } else if matches!(question.response, QuestionResponseFormat::ExternalTool {}) {
                 reason = Some(
@@ -193,7 +186,7 @@ impl PrintExam {
         }
     }
 
-    pub(crate) fn asset(&self, id: AssetId) -> Option<&PrintableAsset> {
+    pub(crate) fn asset(&self, id: QuestionAssetId) -> Option<&PrintableAsset> {
         self.assets.get(&id)
     }
 }
@@ -201,7 +194,7 @@ impl PrintExam {
 fn resolve_question_assets(
     question: &QuestionRevision,
     resolver: &dyn TrustedAssetResolver,
-    target: &mut BTreeMap<AssetId, PrintableAsset>,
+    target: &mut BTreeMap<QuestionAssetId, PrintableAsset>,
 ) -> Result<(), String> {
     let mut refs = Vec::new();
     refs.extend(assets_in_blocks(&question.prompt));
@@ -256,11 +249,11 @@ fn resolve_question_assets(
     Ok(())
 }
 
-fn assets_in_blocks(blocks: &[ContentBlock]) -> Vec<&AssetRef> {
+fn assets_in_blocks(blocks: &[QuestionContentBlock]) -> Vec<&QuestionAssetReference> {
     blocks
         .iter()
         .filter_map(|block| match block {
-            ContentBlock::Image { asset, .. } => Some(asset),
+            QuestionContentBlock::Image { asset, .. } => Some(asset),
             _ => None,
         })
         .collect()
@@ -268,8 +261,14 @@ fn assets_in_blocks(blocks: &[ContentBlock]) -> Vec<&AssetRef> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FlowBlock {
-    Text { text: String, keep_with_next: bool },
-    Image { asset: AssetId, alternative: String },
+    Text {
+        text: String,
+        keep_with_next: bool,
+    },
+    Image {
+        asset: QuestionAssetId,
+        alternative: String,
+    },
 }
 
 pub(crate) fn exam_flow(exam: &PrintExam, layout: PrintLayout) -> Vec<Vec<FlowBlock>> {
@@ -291,20 +290,24 @@ pub(crate) fn exam_flow(exam: &PrintExam, layout: PrintLayout) -> Vec<Vec<FlowBl
     questions
 }
 
-fn append_block_flow(target: &mut Vec<FlowBlock>, block: &ContentBlock, layout: PrintLayout) {
+fn append_block_flow(
+    target: &mut Vec<FlowBlock>,
+    block: &QuestionContentBlock,
+    layout: PrintLayout,
+) {
     match block {
-        ContentBlock::Text { markdown } => target.push(FlowBlock::Text {
+        QuestionContentBlock::Text { markdown } => target.push(FlowBlock::Text {
             text: markdown.clone(),
             keep_with_next: false,
         }),
-        ContentBlock::Math { latex, description } => target.push(FlowBlock::Text {
+        QuestionContentBlock::Math { latex, description } => target.push(FlowBlock::Text {
             text: match layout {
                 PrintLayout::Standard => format!("Math: {latex} ({description})"),
                 PrintLayout::Accessible => format!("Math alternative: {description} [{latex}]"),
             },
             keep_with_next: false,
         }),
-        ContentBlock::Image { asset, description } => {
+        QuestionContentBlock::Image { asset, description } => {
             target.push(FlowBlock::Image {
                 asset: asset.asset,
                 alternative: description.clone(),
@@ -316,7 +319,7 @@ fn append_block_flow(target: &mut Vec<FlowBlock>, block: &ContentBlock, layout: 
                 });
             }
         }
-        ContentBlock::Code { language, source } => {
+        QuestionContentBlock::Code { language, source } => {
             target.push(FlowBlock::Text {
                 text: format!("Code ({language}):"),
                 keep_with_next: true,
@@ -328,7 +331,7 @@ fn append_block_flow(target: &mut Vec<FlowBlock>, block: &ContentBlock, layout: 
                 });
             }
         }
-        ContentBlock::Table {
+        QuestionContentBlock::Table {
             headers,
             rows,
             description,
@@ -500,9 +503,9 @@ mod tests {
             130,
         ]
     }
-    struct Assets(BTreeMap<AssetId, PrintableAsset>);
+    struct Assets(BTreeMap<QuestionAssetId, PrintableAsset>);
     impl TrustedAssetResolver for Assets {
-        fn resolve(&self, asset: &AssetRef) -> Result<PrintableAsset, String> {
+        fn resolve(&self, asset: &QuestionAssetReference) -> Result<PrintableAsset, String> {
             self.0
                 .get(&asset.asset)
                 .cloned()
@@ -540,13 +543,13 @@ mod tests {
     fn set_asset_checksums(question: &mut QuestionRevision) {
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
-            if let ContentBlock::Image { asset, .. } = block {
+            if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
-        let set_response_item_checksum = |body: &mut Vec<ContentBlock>| {
+        let set_response_item_checksum = |body: &mut Vec<QuestionContentBlock>| {
             for block in body {
-                if let ContentBlock::Image { asset, .. } = block {
+                if let QuestionContentBlock::Image { asset, .. } = block {
                     asset.checksum = checksum.clone();
                 }
             }
@@ -569,14 +572,8 @@ mod tests {
     #[test]
     fn build_refuses_unavailable_assets_before_writing() {
         let question = fixture_question();
-        let error = PrintExam::build(
-            "Midterm",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
-        )
-        .expect_err("figure must resolve");
+        let error = PrintExam::build("Midterm", [(&question, &printable_capabilities())])
+            .expect_err("figure must resolve");
         assert!(
             error.questions[0]
                 .reason
@@ -588,17 +585,14 @@ mod tests {
         let mut question = fixture_question();
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
-            if let ContentBlock::Image { asset, .. } = block {
+            if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
         let assets = assets_for(&question);
         let exam = PrintExam::build_with_assets(
             "Biochemistry",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
+            [(&question, &printable_capabilities())],
             &assets,
         )
         .expect("printable");
@@ -621,16 +615,13 @@ mod tests {
                 .to_string();
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
-            if let ContentBlock::Image { asset, .. } = block {
+            if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
         let exam = PrintExam::build_with_assets(
             "Exam",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
+            [(&question, &printable_capabilities())],
             &assets_for(&question),
         )
         .expect("ordinary scientific Unicode must be printable");
@@ -676,13 +667,13 @@ mod tests {
             .prompt
             .iter_mut()
             .find_map(|block| match block {
-                ContentBlock::Image { asset, description } => {
+                QuestionContentBlock::Image { asset, description } => {
                     Some((asset.clone(), description.clone()))
                 }
                 _ => None,
             })
             .expect("fixture image");
-        let figure = |description: &str| ContentBlock::Image {
+        let figure = |description: &str| QuestionContentBlock::Image {
             asset: image.0.clone(),
             description: description.to_string(),
         };
@@ -695,10 +686,7 @@ mod tests {
         };
         let exam = PrintExam::build_with_assets(
             "Exam",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
+            [(&question, &printable_capabilities())],
             &assets_for(&question),
         )
         .expect("choice figure resolves");
@@ -719,10 +707,7 @@ mod tests {
         };
         let ordering = PrintExam::build_with_assets(
             "Exam",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
+            [(&question, &printable_capabilities())],
             &assets_for(&question),
         )
         .expect("ordering figure resolves")
@@ -744,11 +729,11 @@ mod tests {
         let mut base = fixture_question();
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut base.prompt {
-            if let ContentBlock::Image { asset, .. } = block {
+            if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
-        let candidates = [
+        let response_formats = [
             QuestionResponseFormat::Numeric {
                 tolerance: question_model::answer::NumericResponseTolerance::Absolute {
                     epsilon: 0.1,
@@ -765,16 +750,13 @@ mod tests {
             },
             QuestionResponseFormat::Ordering { items: vec![] },
         ];
-        for response in candidates {
+        for response in response_formats {
             let mut question = base.clone();
             question.response = response;
             let assets = assets_for(&question);
             let exam = PrintExam::build_with_assets(
                 "Response shapes",
-                [ExportCandidate {
-                    question: &question,
-                    capabilities: &printable_capabilities(),
-                }],
+                [(&question, &printable_capabilities())],
                 &assets,
             )
             .expect("supported response must build");
@@ -790,17 +772,14 @@ mod tests {
         let mut question = fixture_question();
         let checksum = Sha256Digest::compute(&png()).to_string();
         for block in &mut question.prompt {
-            if let ContentBlock::Image { asset, .. } = block {
+            if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
             }
         }
         let assets = assets_for(&question);
         let exam = PrintExam::build_with_assets(
             "Reader validation",
-            [ExportCandidate {
-                question: &question,
-                capabilities: &printable_capabilities(),
-            }],
+            [(&question, &printable_capabilities())],
             &assets,
         )
         .expect("fixture builds");

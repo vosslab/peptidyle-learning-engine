@@ -56,7 +56,7 @@ details through storage, browser DTOs, and UI components.
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), and the adapter entries in
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
 **Planned closure.** The release plan owns full student-runtime and authoring acceptance for the
-eight native Question Types, broader WeBWorK compatibility, and explicitly bounded export claims.
+eight PLE Question Types, broader WeBWorK compatibility, and explicitly bounded export claims.
 
 ### Bloom classification follows publication
 
@@ -667,7 +667,7 @@ release/deployment packages rather than ordinary offline tests.
 
 ### Object storage is typed and server-owned
 
-**Decision.** Binary and archival bytes live behind typed server-generated object keys and immutable
+**Decision.** Binary and archival bytes live behind typed server-generated Object Addresses and immutable
 `ObjectRecord` evidence; client requests name logical delivery IDs, never buckets or paths.
 
 **Why.** A bucket path is storage implementation detail and an authorization hazard. Typed objects
@@ -958,7 +958,7 @@ can preserve interchange without dictating the engine's internal representation.
 
 ### Native interactions adapt the QTI self-test model
 
-**Decision.** Native Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit,
+**Decision.** PLE Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit,
 visible response state, per-part completion, plain-language feedback, reset, and completed state.
 PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
 

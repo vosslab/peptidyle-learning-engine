@@ -2,7 +2,7 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
+    CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, QuestionAssetId,
     QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
@@ -106,7 +106,7 @@ pub enum ObjectAddress {
         /// Staged import identity.
         import: WorkspaceImportId,
         /// Logical asset referenced by imported draft content.
-        asset: AssetId,
+        asset: QuestionAssetId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -119,7 +119,7 @@ pub enum ObjectAddress {
         /// Private authoring workspace.
         workspace: WorkspaceId,
         /// Logical asset referenced by a workspace question.
-        asset: AssetId,
+        asset: QuestionAssetId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -148,7 +148,7 @@ pub enum ObjectAddress {
         /// Exact immutable Question Revision that owns the asset.
         question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
-        asset: AssetId,
+        asset: QuestionAssetId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -162,7 +162,7 @@ pub enum ObjectAddress {
         /// Exact immutable Question Revision that owns the asset.
         question_revision: QuestionRevisionReference,
         /// Logical asset referenced by content.
-        asset: AssetId,
+        asset: QuestionAssetId,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -407,7 +407,7 @@ impl ObjectAddress {
     /// reconstructing a key later from an untrusted route or browser value.
     pub fn published_question_asset(
         question_revision: QuestionRevisionReference,
-        asset: AssetId,
+        asset: QuestionAssetId,
         object: ObjectId,
     ) -> Self {
         Self::RestrictedQuestionAsset {
@@ -520,7 +520,7 @@ mod tests {
         };
         let asset = ObjectAddress::QuestionAsset {
             question_revision: question_revision(2),
-            asset: AssetId::from_uuid(Uuid::from_u128(4)),
+            asset: QuestionAssetId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };
 
@@ -536,14 +536,14 @@ mod tests {
 
         let public_asset = ObjectAddress::QuestionAsset {
             question_revision: question_revision.clone(),
-            asset: AssetId::from_uuid(Uuid::from_u128(6)),
+            asset: QuestionAssetId::from_uuid(Uuid::from_u128(6)),
             object,
         };
         assert_eq!(public_asset.storage_area(), ObjectStorageArea::PublicAssets);
         assert_eq!(
             ObjectAddress::published_question_asset(
                 question_revision.clone(),
-                AssetId::from_uuid(Uuid::from_u128(60)),
+                QuestionAssetId::from_uuid(Uuid::from_u128(60)),
                 object,
             )
             .storage_area(),
@@ -559,7 +559,7 @@ mod tests {
             },
             ObjectAddress::WorkspaceQuestionAsset {
                 workspace,
-                asset: AssetId::from_uuid(Uuid::from_u128(8)),
+                asset: QuestionAssetId::from_uuid(Uuid::from_u128(8)),
                 object,
             },
             ObjectAddress::QuestionSource {
@@ -568,7 +568,7 @@ mod tests {
             },
             ObjectAddress::RestrictedQuestionAsset {
                 question_revision: question_revision.clone(),
-                asset: AssetId::from_uuid(Uuid::from_u128(61)),
+                asset: QuestionAssetId::from_uuid(Uuid::from_u128(61)),
                 object,
             },
             ObjectAddress::PublishedImportArchive {
@@ -789,17 +789,17 @@ mod tests {
     }
 
     #[test]
-    fn published_import_archive_key_round_trips_through_serde() {
-        let key = ObjectAddress::PublishedImportArchive {
+    fn published_import_archive_address_round_trips_through_serde() {
+        let address = ObjectAddress::PublishedImportArchive {
             question_revision: question_revision(3),
             import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
             object: ObjectId::from_uuid(Uuid::from_u128(5)),
         };
 
-        let encoded = serde_json::to_string(&key).expect("object key should serialize");
+        let encoded = serde_json::to_string(&address).expect("Object Address should serialize");
         let decoded: ObjectAddress =
-            serde_json::from_str(&encoded).expect("object key should deserialize");
-        assert_eq!(decoded, key);
+            serde_json::from_str(&encoded).expect("Object Address should deserialize");
+        assert_eq!(decoded, address);
         assert!(encoded.contains("publishedImportArchive"));
     }
 }

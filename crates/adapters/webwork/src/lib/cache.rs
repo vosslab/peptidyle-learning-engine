@@ -3,8 +3,8 @@
 use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ObjectId, QuestionPresentation, QuestionRendererVersion, QuestionRevisionReference,
-    SourceObjectReference,
+    ObjectId, QuestionRendererVersion, QuestionRevisionReference, QuestionVariationPresentation,
+    SourceObjectChecksum, SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -17,7 +17,7 @@ pub(super) const CACHE_SCHEMA_VERSION: u8 = 1;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SafeRenderedWebworkQuestion {
-    pub(super) envelope: QuestionPresentation,
+    pub(super) envelope: QuestionVariationPresentation,
     pub(super) sanitized_html: String,
     pub(super) renderer_version: QuestionRendererVersion,
 }
@@ -27,6 +27,7 @@ pub(super) struct SafeRenderedWebworkQuestion {
 pub(super) struct CachedWebworkRender {
     pub(super) schema_version: u8,
     pub(super) source_object_reference: SourceObjectReference,
+    pub(super) source_object_checksum: SourceObjectChecksum,
     pub(super) rendered: SafeRenderedWebworkQuestion,
 }
 
@@ -71,6 +72,7 @@ pub(super) fn validate_cached(
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
         || cached.source_object_reference != source.source_object_reference
+        || cached.source_object_checksum != source.source_object_checksum
         || cached.rendered.renderer_version.name.is_empty()
         || cached.rendered.renderer_version.version.is_empty()
     {
@@ -93,7 +95,7 @@ pub(super) fn validate_cached(
 }
 
 pub(super) fn validate_envelope(
-    envelope: &QuestionPresentation,
+    envelope: &QuestionVariationPresentation,
     question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
 ) -> Result<(), WebworkAdapterError> {

@@ -1,4 +1,4 @@
-// Real-stack WP-INST-D1 discovery journey. The installed native question is reused through
+// Real-stack WP-INST-D1 discovery journey. The installed PLE Question is reused through
 // visible course and student workflows so published evidence reflects ordinary completed work.
 //
 // Selector contract:
@@ -32,7 +32,7 @@ const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 420_000;
 const geneticsCourseTitle = "Genetics Practice Course";
 const baseAssignmentTitle = "Peptide Bonds: Structure and Resonance";
-const nativeQuestionTitle = "Peptide bond resonance and planarity";
+const pleQuestionTitle = "Peptide bond resonance and planarity";
 const firstVisibleResponseIndex = 0;
 
 const evidenceArtifacts = [
@@ -52,12 +52,12 @@ const emails = {
 
 async function libraryQuestionId(page: Page): Promise<string> {
   await page.getByRole("link", { name: "Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(nativeQuestionTitle);
+  await page.getByLabel("Search published questions").fill(pleQuestionTitle);
   await expect(page.locator('[data-route-surface="library"] .route-error')).toHaveCount(0);
   const card = page
     .getByRole("region", { name: "Published questions" })
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: nativeQuestionTitle, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: pleQuestionTitle, exact: true }) });
   await expect(card).toHaveCount(1);
   const questionId = await card.locator("code").innerText();
   expect(questionId).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
@@ -68,7 +68,7 @@ async function openLibraryDetail(page: Page): Promise<void> {
   const card = page
     .getByRole("region", { name: "Published questions" })
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: nativeQuestionTitle, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: pleQuestionTitle, exact: true }) });
   await card.getByRole("link", { name: "Open question", exact: true }).click();
   await expect(page.locator('[data-route-surface="questionDetail"]')).toBeVisible();
 }
@@ -102,7 +102,7 @@ async function createPublishedGeneticsAssignment(
   await expect(page.locator("[data-route-surface=courseAssignments]")).toBeVisible();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(questionId);
   await page.getByRole("button", { name: "Add Question IDs", exact: true }).click();
@@ -248,16 +248,16 @@ async function verifyLibraryFilters(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Return to question library", exact: true }).click();
   const library = page.locator('[data-route-surface="library"]');
   await expect(library).toBeVisible();
-  await page.getByLabel("Search published questions").fill(nativeQuestionTitle);
+  await page.getByLabel("Search published questions").fill(pleQuestionTitle);
   await page.getByLabel("Byline").selectOption("Dr. Elena Rivera");
-  await page.getByLabel("Backend").selectOption("native");
+  await page.getByLabel("Backend").selectOption("ple");
   await page.getByLabel("Tag").selectOption("peptide-bond");
   await page.getByLabel("Question Type").selectOption("multipleChoice");
   await page.getByLabel("Used in my courses").selectOption("used");
   const result = library
     .getByRole("region", { name: "Published questions" })
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: nativeQuestionTitle, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: pleQuestionTitle, exact: true }) });
   await expect(result).toHaveCount(1);
 }
 
@@ -266,7 +266,7 @@ async function verifyLaptopLibraryKeyboardPath(page: Page): Promise<void> {
   const results = page.getByRole("region", { name: "Published questions" });
   const result = results
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: nativeQuestionTitle, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: pleQuestionTitle, exact: true }) });
   const copyId = result.getByRole("button", { name: /^Copy question ID /u });
   const openQuestion = result.getByRole("link", { name: "Open question", exact: true });
 
@@ -325,7 +325,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         configureContextAndPage(context, page, actionTimeoutMs);
       }
 
-      await test.step("Elena finds the installed native question and sees initial evidence plus installed-course-only usage", async () => {
+      await test.step("Elena finds the installed PLE Question and sees initial evidence plus installed-course-only usage", async () => {
         await chooseSeededIdentity(elena, /Elena Rivera/u);
         await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
         await libraryQuestionId(elena);
@@ -354,7 +354,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         const questionId = await libraryQuestionId(morgan);
         await createPublishedGeneticsAssignment(morgan, questionId, geneticsAssignmentTitle);
         await morgan.getByRole("link", { name: "Library", exact: true }).click();
-        await morgan.getByLabel("Search published questions").fill(nativeQuestionTitle);
+        await morgan.getByLabel("Search published questions").fill(pleQuestionTitle);
         await openLibraryDetail(morgan);
         await expectUsageOnlyInCourse(morgan, geneticsCourseTitle);
         await signOutVisible(morgan);

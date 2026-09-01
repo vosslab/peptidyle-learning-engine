@@ -2,7 +2,7 @@
 
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { WorkspaceImportId } from "../../../generated/api/WorkspaceImportId";
-import { decodeDraftQuestionDefinition } from "../../api/decoders";
+import { decodeDraftQuestionRevision } from "../../api/decoders";
 import type {
   QtiProfileAcknowledgement,
   QtiProfileConversionResult,
@@ -290,7 +290,7 @@ export function createQtiProfileImportClient(
     });
     if (!response.ok) conflict(response, path);
     const value = await boundedJson(response, path);
-    const draft = decodeDraftQuestionDefinition(value, "response");
+    const draft = decodeDraftQuestionRevision(value, "response");
     if (draft.workspace !== workspace) {
       throw new QtiProfileImportProtocolError(
         "QTI conversion response workspace does not match its path",

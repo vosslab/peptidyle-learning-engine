@@ -9,7 +9,7 @@
 Complete. WP-QTI-4 passed focused/full adapter gates and independent P0/P1 review on 2026-08-09.
 
 This package adds the bounded Blackboard Original QTI 2.1 static-single-choice pool parser only. It
-does not add the native flat bridge, persistence, schema, routes, UI, or export behavior.
+does not add the PLE flat bridge, persistence, schema, routes, UI, or export behavior.
 
 ## Accepted boundary
 
@@ -64,7 +64,7 @@ separate capability owners.
 
 ## Historical successor
 
-The immediate successor was the Q3 pure native flat bridge in
+The immediate successor was the Q3 pure PLE flat bridge in
 [implementation_status.md](../implementation_status.md). It translated only trusted
 mapped items through native-owned flat-question validation and proved canonical public/private
 equivalence with hand-authored source, without Store or HTTP mutation.

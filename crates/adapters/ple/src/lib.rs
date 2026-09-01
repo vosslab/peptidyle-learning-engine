@@ -1,7 +1,7 @@
 //! MOD-ADP-NAT: the first-party algorithmic question adapter.
 //!
-//! The engine is question agnostic: [`NativeAdapter`] dispatches by the
-//! versioned [`generator::NativeQuestionImplementation`] contract, while Question
+//! The engine is question agnostic: [`PleQuestionBackend`] dispatches by the
+//! versioned [`generator::PleQuestionImplementation`] contract, while Question
 //! Implementations own parameter-to-prompt materialization and server-only key
 //! derivation. The stable facade coordinates focused registry, issue, grading,
 //! reproduction, and capability owners.
@@ -12,13 +12,13 @@ use std::sync::Arc;
 use domain::draft_preview::PresentationError;
 use domain::generator::{GenerationError, QuestionVariationParameters};
 use grading::GradingError;
-use question_model::envelope::{ContentBlock, QuestionPresentation};
+use question_model::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use question_model::{
-    AssetId, ObjectId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    ObjectId, QuestionAssetId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
     QuestionGraderVersion, QuestionTitleError,
 };
 
-use crate::generator::NativeQuestionImplementation;
+use crate::generator::PleQuestionImplementation;
 
 #[path = "lib/capabilities.rs"]
 mod capabilities;
@@ -33,7 +33,7 @@ mod reproduction;
 #[path = "lib/source_implementation.rs"]
 mod source_implementation;
 
-use registry::{NativeExecution, NativeQuestionImplementationKey};
+use registry::{PleQuestionExecution, PleQuestionImplementationKey};
 
 #[cfg(test)]
 use grading::QuestionGradingOutcome;
@@ -49,67 +49,65 @@ pub mod generator;
 /// Reference implementation proving generation, rendering, and server grading end to end.
 pub mod peptide_bond_geometry;
 
-/// Stable Question Backend identifier persisted with every native attempt.
-pub const ADAPTER_ID: &str = "native-adapter";
+/// Stable Question Backend identifier persisted with every PLE Question Attempt.
+pub const ADAPTER_ID: &str = "ple-question-backend";
 /// Current Question Backend Version for issuance and replay.
 ///
 /// This is distinct from the repository CalVer release and from a Question Revision.
 pub const ADAPTER_VERSION: &str = "1";
-/// Stable Question Grader identifier persisted with every native attempt.
+/// Stable Question Grader identifier persisted with every PLE Question Attempt.
 pub const GRADING_ID: &str = "generic-grader";
 /// Current Question Grader Version for issuance and replay.
 pub const GRADING_VERSION: &str = "1";
 
-/// One trusted, server-side binding from an authored logical asset to its
-/// immutable object-store record.
+/// One trusted, server-side relationship between a Question Asset and immutable Object Reference.
 ///
 /// The browser never constructs this input. A server storage adapter resolves
 /// immutable asset records for the published question revision before calling
-/// native issue, replay, or grading.
+/// PLE issue, replay, or grading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AssetObjectBinding {
+pub struct QuestionAssetObjectReference {
     /// Logical identifier embedded in a renderable content block.
-    pub asset: AssetId,
+    pub question_asset: QuestionAssetId,
     /// Immutable object-store record selected by the trusted storage layer.
-    pub object: ObjectId,
+    pub object_reference: ObjectId,
 }
 
-/// Key-free native Issued Question returned at Question Attempt issue time.
+/// Key-free PLE Issued Question returned at Question Attempt issue time.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NativeIssuedAttempt {
+pub struct PleIssuedQuestion {
     /// Generated prompt and response shape safe to deliver to the browser.
-    pub envelope: QuestionPresentation,
+    pub envelope: QuestionVariationPresentation,
     /// SHA-256 of the canonical generated parameter map.
     pub parameter_hash: String,
     /// Versions and object identities needed to reproduce the attempt.
     pub reproduction_details: QuestionAttemptReproductionDetails,
 }
 
-/// Server-only author presentation for one native draft seed.
+/// Server-only author presentation for one PLE Draft Question seed.
 ///
 /// Its fields are already-rendered student-facing blocks. It deliberately
 /// excludes answer keys, choice IDs, grading rules, source locators, and
 /// published identity.
 #[derive(Clone, PartialEq)]
-pub struct NativeDraftAuthorPresentation {
+pub struct PleDraftAuthorPresentation {
     /// Student-facing title.
     pub title: String,
     /// Materialized student-facing prompt.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
     pub response: question_model::QuestionResponseFormat,
     /// Display-ready accepted response for the exact generated variation.
-    pub question_answer: Vec<ContentBlock>,
+    pub question_answer: Vec<QuestionContentBlock>,
     /// Optional display-ready explanation of how or why the answer is reached.
-    pub question_answer_explanation: Option<Vec<ContentBlock>>,
+    pub question_answer_explanation: Option<Vec<QuestionContentBlock>>,
 }
 
-/// Versioned native Question Implementation registry and orchestration boundary.
-pub struct NativeAdapter {
-    implementations:
-        BTreeMap<NativeQuestionImplementationKey, Arc<dyn NativeQuestionImplementation>>,
-    backend_versions: BTreeMap<(String, String), NativeExecution>,
-    grader_versions: BTreeMap<(String, String), NativeExecution>,
+/// Versioned PLE Question Implementation registry and orchestration boundary.
+pub struct PleQuestionBackend {
+    implementations: BTreeMap<PleQuestionImplementationKey, Arc<dyn PleQuestionImplementation>>,
+    backend_versions: BTreeMap<(String, String), PleQuestionExecution>,
+    grader_versions: BTreeMap<(String, String), PleQuestionExecution>,
     current_backend: QuestionBackendVersion,
     current_grader: QuestionGraderVersion,
 }
@@ -117,20 +115,20 @@ pub struct NativeAdapter {
 struct PreparedNativeQuestion {
     generated: QuestionVariationParameters,
     materialized: MaterializedNativeQuestion,
-    envelope: QuestionPresentation,
+    envelope: QuestionVariationPresentation,
     parameter_hash: String,
     rendered_question_sha256: String,
 }
 
 struct MaterializedNativeQuestion {
-    prompt: Vec<ContentBlock>,
+    prompt: Vec<QuestionContentBlock>,
     answer_key: Option<grading::AnswerKey>,
 }
 
-/// Explicit native-adapter failure without database, HTTP, or SDK types.
+/// Explicit ple-question-backend failure without database, HTTP, or SDK types.
 #[derive(Debug)]
-pub enum NativeAdapterError {
-    /// A caller selected a non-native question source.
+pub enum PleQuestionBackendError {
+    /// A caller selected a non-PLE Question source.
     UnsupportedSource,
     /// No installed implementation matches the Question's explicit contract.
     UnknownQuestionImplementation {
@@ -161,26 +159,26 @@ pub enum NativeAdapterError {
     /// Stored attempt metadata disagreed with exact regeneration.
     ReproductionMismatch { field: &'static str },
     /// A renderable asset was not bound by the trusted storage layer.
-    MissingAssetBinding(AssetId),
+    MissingAssetBinding(QuestionAssetId),
     /// A trusted binding was supplied for an asset the envelope does not render.
-    UnrelatedAssetBinding(AssetId),
+    UnrelatedAssetBinding(QuestionAssetId),
     /// A binding list assigned one logical asset more than once.
-    ConflictingAssetBinding(AssetId),
+    ConflictingAssetBinding(QuestionAssetId),
     /// The server-only generic grader refused the response or definition.
     Grading(GradingError),
 }
 
-impl std::fmt::Display for NativeAdapterError {
+impl std::fmt::Display for PleQuestionBackendError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnsupportedSource => formatter.write_str("question source is not native"),
+            Self::UnsupportedSource => formatter.write_str("question source is not PLE"),
             Self::UnknownQuestionImplementation {
                 question_format,
                 question_type,
                 generator,
             } => write!(
                 formatter,
-                "native Question Implementation is not installed for {question_format:?}/{question_type:?}/{generator:?}",
+                "PLE Question Implementation is not installed for {question_format:?}/{question_type:?}/{generator:?}",
             ),
             Self::DuplicateQuestionImplementation {
                 question_format,
@@ -188,55 +186,60 @@ impl std::fmt::Display for NativeAdapterError {
                 generator,
             } => write!(
                 formatter,
-                "native Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}"
+                "PLE Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}"
             ),
             Self::UnknownQuestionBackendVersion { version } => write!(
                 formatter,
-                "native Question Backend Version is not installed: {}@{}",
+                "PLE Question Backend Version is not installed: {}@{}",
                 version.name, version.version
             ),
             Self::UnknownQuestionGraderVersion { version } => write!(
                 formatter,
-                "native Question Grader Version is not installed: {}@{}",
+                "PLE Question Grader Version is not installed: {}@{}",
                 version.name, version.version
             ),
             Self::IncompatibleQuestionImplementation { message } => {
                 write!(
                     formatter,
-                    "native Question Implementation rejected the definition: {message}"
+                    "PLE Question Implementation rejected the definition: {message}"
                 )
             }
             Self::InvalidTitle(error) => {
-                write!(formatter, "invalid native question title: {error}")
+                write!(formatter, "invalid PLE Question title: {error}")
             }
-            Self::Generation(error) => write!(formatter, "native generation failed: {error}"),
+            Self::Generation(error) => write!(formatter, "PLE generation failed: {error}"),
             Self::Presentation(error) => {
-                write!(formatter, "native prompt presentation failed: {error}")
+                write!(formatter, "PLE prompt presentation failed: {error}")
             }
             Self::Serialization(message) => {
-                write!(formatter, "native envelope could not be hashed: {message}")
+                write!(
+                    formatter,
+                    "PLE Question Presentation could not be hashed: {message}"
+                )
             }
             Self::ReproductionMismatch { field } => {
-                write!(formatter, "native attempt does not reproduce field {field}")
+                write!(
+                    formatter,
+                    "PLE Question Attempt does not reproduce field {field}"
+                )
             }
-            Self::MissingAssetBinding(asset) => write!(
-                formatter,
-                "native trusted binding missing for asset: {asset}"
-            ),
+            Self::MissingAssetBinding(asset) => {
+                write!(formatter, "PLE trusted binding missing for asset: {asset}")
+            }
             Self::UnrelatedAssetBinding(asset) => write!(
                 formatter,
-                "native trusted binding is unrelated to envelope asset: {asset}"
+                "PLE trusted binding is unrelated to Question Presentation asset: {asset}"
             ),
             Self::ConflictingAssetBinding(asset) => write!(
                 formatter,
-                "native trusted bindings conflict for asset: {asset}"
+                "PLE trusted bindings conflict for asset: {asset}"
             ),
-            Self::Grading(error) => write!(formatter, "native grading failed: {error}"),
+            Self::Grading(error) => write!(formatter, "PLE grading failed: {error}"),
         }
     }
 }
 
-impl std::error::Error for NativeAdapterError {}
+impl std::error::Error for PleQuestionBackendError {}
 
 #[cfg(test)]
 #[path = "lib/tests.rs"]

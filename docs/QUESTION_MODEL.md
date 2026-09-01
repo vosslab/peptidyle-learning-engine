@@ -29,7 +29,7 @@ Applied to answers, the split is:
 
 The left column is answer-free shared-model information. An individual
 Student projection may still omit it when it is not needed to render an input;
-for example, the current issued `IssuedQuestionResponseFormatV1` omits Numeric
+for example, the current issued `QuestionPresentationResponseFormat` omits Numeric
 Response Tolerance and Text Response Match Rule.
 Everything in the right column decides correctness and remains server-only.
 
@@ -37,7 +37,7 @@ Everything in the right column decides correctness and remains server-only.
 
 ### Identity
 
-`WorkspaceId`, `AssetId`, `CourseId`, and the activity identifiers are distinct
+`WorkspaceId`, `QuestionAssetId`, `CourseId`, and the activity identifiers are distinct
 newtypes over `Uuid`. `QuestionId` is a validated stable text identity and
 `QuestionRevisionNumber` is a validated positive integer. They cannot substitute for one
 another, so passing a draft identifier where published content is expected or
@@ -54,7 +54,7 @@ transition.
 
 `IssuedQuestionId` is the one idempotent exception: the server derives it as a
 UUIDv5 from the opaque Assignment Attempt, exact Assignment Entry, and the
-optional frozen Question Pool Candidate. A resume therefore resolves the same
+optional frozen Question Pool Entry. A resume therefore resolves the same
 Issued Question without selecting again. The value remains a durable server
 record identity, not browser authority.
 
@@ -71,7 +71,7 @@ backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
 The draft rule is carried by separate types rather than a flag:
-`DraftQuestionDefinition` has no Question identity, while `QuestionRevision`
+`DraftQuestionRevision` has no Question identity, while `QuestionRevision`
 requires both a Question ID and Question Revision Number. There is no separate
 boolean to fall out of sync with that boundary.
 
@@ -217,13 +217,13 @@ is about, and adding a ninth makes every exhaustive match stop compiling until
 it is handled.
 
 `domain::policy::validate_assignment_config` receives selected key-free
-question definitions, each adapter's declared capabilities, and any
+Question Revisions, each adapter's declared capabilities, and any
 assignment-wide delivery requirements. It returns every missing
 question/capability pair in question order and capability declaration order.
 The editor calls it through WebAssembly and the publish route calls the same
 Rust function.
 
-Question definitions imply these requirements:
+Question Revisions imply these requirements:
 
 | Question feature                  | Required backend capability         |
 | --------------------------------- | ----------------------------------- |
@@ -239,7 +239,7 @@ or `offlinePreview` from every selected backend. Duplicate requirements produce
 one violation. `crates/domain/tests/capability_violation_cases.json` is the
 reviewed table covering all eight capabilities and the return-all behavior.
 
-### Question definition
+### Question Revision
 
 `QuestionRevision` carries the fields the specification names:
 
@@ -248,8 +248,8 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `questionId`                  | `QuestionId`                  | Stable Question lineage                                                        |
 | `revisionNumber`               | `QuestionRevisionNumber`       | Exact immutable version within the lineage                                     |
 | `workspace`                   | `WorkspaceId`                 | Authoring workspace                                                            |
-| `source`                      | `QuestionSource`              | Which engine, and where to find it there                                       |
-| `prompt`                      | `Vec<ContentBlock>`           | Renderable content, in order                                                   |
+| `backendLocator`               | `QuestionBackendLocator`                            | Backend-specific location, separate from the stored Question Source            |
+| `prompt`                      | `Vec<QuestionContentBlock>`   | Renderable content, in order                                                   |
 | `questionType`                | `QuestionType`                | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
 | `response`                    | `QuestionResponseFormat`      | Accepted Student Response shape and constraints                                |
 | `questionAttemptLimit`        | `QuestionAttemptLimit`        | Retry bound for this Question                                                  |
@@ -295,19 +295,18 @@ Grading is deterministic and automated for every supported Question Type.
 
 ### Attempt presentation
 
-`presentation` is a second, narrower contract for an issued Student screen.
-It does not replace `QuestionRevision`, `QuestionPresentation`, or
-`StudentResponse`; it projects their public rendering portion for a specific
-attempt and provides a consistency binding for that presentation.
+`QuestionPresentation` is the narrow, issued contract for a Student screen.
+It projects the public rendering portion of one `QuestionVariationPresentation`
+for a specific attempt and provides a consistency binding for that presentation.
 
-`PresentationEnvelopeV1` contains the immutable version, issued seed,
+`QuestionPresentation` contains the immutable version, issued seed,
 server-minted nonce, title, prompt, and an answer-free
-`IssuedQuestionResponseFormatV1`. It is the issued projection of the durable
+`QuestionPresentationResponseFormat`. It is the issued projection of the durable
 Question Response Format: it replaces durable response-item references with
 rendered IDs while preserving the exact response shape. The schema currently
-covers the eight native flat Question Types:
+covers the eight PLE flat Question Types:
 
-| `IssuedQuestionResponseFormatV1` | Shared Question Response Format |
+| `QuestionPresentationResponseFormat` | Shared Question Response Format |
 | -------------------------------- | ------------------------------- |
 | `singleChoice`                   | exactly-one multiple choice     |
 | `multipleAnswer`                 | one-or-more multiple choice     |
@@ -324,7 +323,7 @@ Choices; Ordering has Ordering Items. Each record combines its Response Item
 Reference with the learner-visible content. This keeps similar wire shapes from
 becoming interchangeable application meanings.
 
-`ExternalTool` intentionally has no `IssuedQuestionResponseFormatV1` variant.
+`ExternalTool` intentionally has no `QuestionPresentationResponseFormat` variant.
 The presentation builder rejects it until its server-owned provider route has a
 complete delivery contract.
 
@@ -341,18 +340,18 @@ ability to rebuild the rendered-to-durable mapping from the exact definition
 and persisted presentation binding; the four-character value is neither a
 durable identity nor a security credential.
 
-The canonical binary descriptor covers the envelope, rendered-item bases, and
-asset bindings. PLE stores its full SHA-256 digest with the attempt and gives
+The canonical binary descriptor covers the Question Presentation, rendered-item
+bases, and Question Asset Renditions. PLE stores its full SHA-256 digest with the attempt and gives
 the Student only a 128-bit `pd1_` base64url prefix in
-`StudentAttemptDescriptorV1`. The browser can rebuild and check the public
+`StudentAttemptDescriptor`. The browser can rebuild and check the public
 descriptor through Wasm; the server checks the full digest when reproducing
 the attempt. The digest and rendered IDs detect a stale or incoherent render,
 but do not authenticate a Student, authorize a request, or determine whether
 an answer is correct.
 
-This is an accepted v1 presentation contract, not a statement that the live
+This is the accepted current presentation contract, not a statement that the live
 generic run route has already completed its payload cutover. The current route
-still issues `QuestionPresentation` and accepts a tagged `StudentResponse` in
+still issues `QuestionVariationPresentation` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation
 digest, and rendered IDs, then resolves the Question Type and durable IDs
@@ -362,7 +361,7 @@ own that transition and its acceptance gates.
 
 ### Content blocks
 
-`ContentBlock` is a closed set: text, math, image, code, table. Closed so the
+`QuestionContentBlock` is a closed set: text, math, image, code, table. Closed so the
 renderer's match is exhaustive and adding a kind points the compiler at the
 renderer.
 
@@ -399,8 +398,8 @@ without a combined mode hiding either decision.
 
 Each top-level Fixed Question or Question Pool has Assignment Entry Availability:
 Available includes it in future Assignment Attempts and Retired preserves historical
-Issued Questions without future delivery. Each Question Pool Candidate has its own
-Question Pool Candidate Availability, separate from the owning pool's availability.
+Issued Questions without future delivery. Each Question Pool Entry has its own
+Question Pool Entry Availability, separate from the owning pool's availability.
 Each top-level entry also carries its Assignment Entry Scoring Rule: Normal,
 Full Credit, Extra Credit, or Excluded. An Issued Question freezes the rule and
 point value from its source entry.
@@ -584,21 +583,21 @@ together; WN1-B does not change their effective Serde spelling.
 
 [PLE flat-question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
 authoring format for ordinary static questions. It is not another public
-question model. The native adapter compiles it into this crate's answer-free
-`DraftQuestionDefinition` plus separate grader-only material. Published browser
+question model. The PLE Question Backend compiles it into this crate's answer-free
+`DraftQuestionRevision` plus separate grader-only material. Published browser
 and Question Library browser projections therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
 
 The former flat-question v1 `singleChoice` reader and source contract are
 retired and unsupported. There is no v1 compatibility reader, source-byte
-fallback, or compatibility behavior. Version 2 is the only current native
+fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
 Student payload. It does not claim file-upload or external-tool authoring
 support. The compiler emits an answer-free draft/public model and separately
-checksummed grader-only key and feedback material.
+checksummed grader-only Answer Key and Question Feedback.
 
 The distinction matters when evolving either contract: the source format owns
 author ergonomics, stable choice IDs, answers, and private feedback; this crate

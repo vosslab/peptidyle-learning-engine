@@ -43,7 +43,7 @@ must not silently reinterpret v2 source bytes.
 ## Stored example
 
 The complete accepted record lives in
-[flat_single_choice_v2.json](../crates/adapters/native/tests/fixtures/flat_single_choice_v2.json).
+[flat_single_choice_v2.json](../crates/adapters/ple/tests/fixtures/flat_single_choice_v2.json).
 Parser and compiler tests load that stored Question data while executable source owns behavior.
 
 Choice IDs are semantic stable identifiers, not display labels such as `A`,
@@ -193,7 +193,7 @@ ordinary-browser-contract, or Wasm payload. The one narrow exception is an
 authenticated author-role instructor requesting that instructor's own private
 workspace source through the dedicated canonical-source `GET`/`PUT` route;
 that route is `no-store`, uses a strong ETag, and does not expose a signed
-object URL or checksum. The native adapter parses it once and produces two
+object URL or checksum. The PLE Question Backend parses it once and produces two
 independently checksummed values:
 
 ```text
@@ -276,8 +276,8 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 
 ## Evolution and QTI adapters
 
-Version 2 is the only current native source and reader. Its closed shape is
-parsed exactly: no legacy native flat-question v1 reader, upcaster, source-byte
+Version 2 is the only current PLE Question Source and reader. Its closed shape is
+parsed exactly: no legacy PLE flat-question v1 reader, upcaster, source-byte
 fallback, or republishing path is retained. Additive optional members require
 review against the v2 contract; incompatible future semantics use a new explicit
 version with its own reader and migration plan rather than reinterpreting v2 bytes.
@@ -289,8 +289,8 @@ features. Vendor-specific XML is not copied into the PLE flat-question schema
 merely because one exporter emits it.
 
 The native parser/compiler facade is
-`crates/adapters/native/src/flat_question.rs`; version 2 family shapes and
-compilation live in `crates/adapters/native/src/flat_question/v2.rs`.
+`crates/adapters/ple/src/flat_question.rs`; version 2 family shapes and
+compilation live in `crates/adapters/ple/src/flat_question/v2.rs`.
 The persistence boundary is `crates/learning-data-access/src/flat_question.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/flat_question_publication.rs`. The private source saves
@@ -298,7 +298,7 @@ atomically with its typed draft, publication copies its exact canonical bytes
 to an immutable non-signable source object, and the runtime obtains private
 Answer Keys and Question Grading Input only through an injected grading
 capability. The instructor editor is
-complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-native conversion, and their
+complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-PLE conversion, and their
 live and independent-review gates are accepted. The remaining visual authoring,
 external QTI-JSONL, pilot-content, and hotspot pointer-overlay work is tracked
 without weakening this accepted internal source and runtime contract.

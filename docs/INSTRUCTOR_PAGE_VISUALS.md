@@ -41,7 +41,7 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | Question Library         | `/library`                                                   | All Questions, My Questions, My Question Drafts, Starred, Watched, Question Search, filters, Question IDs, and published results |
 | Question Details         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                            |
 | My Question Drafts       | `/workspace`                                                 | Private Question drafts and the selected Question draft                                                                          |
-| My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and native flat-question authoring                                                                              |
+| My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and PLE flat-question authoring                                                                              |
 | Live Demo sign-in        | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                 |
 | Curriculum adoption      | `/curriculum`                                                | Blueprint Course selection, update proposal, rollover, term shift, and receipt evidence                                          |
 
@@ -82,6 +82,7 @@ passkey authentication adapters.
 ![Instructor Question Library discovery evidence](screenshots/instructor/question_library_discovery/01_disclosed_evidence_laptop.png)
 ![Instructor question curation workspace](screenshots/instructor/question_curation/01_curation_workspace_laptop.png)
 ![Instructor Blueprint Course workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
+<!-- Historical capture path retained as immutable evidence; the product term is Blueprint Course. -->
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
 <!-- screenshots:end -->
 

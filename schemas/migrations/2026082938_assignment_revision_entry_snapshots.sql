@@ -1,4 +1,4 @@
--- Immutable released Assignment Revision entry and Question Pool Candidate snapshots.
+-- Immutable released Assignment Revision entry and Question Pool Item snapshots.
 --
 -- Assignment working-copy JSON remains an authoring transport. Student Work
 -- derives only from these relational, immutable released-definition facts.
@@ -41,32 +41,32 @@ CREATE TABLE ple_data.assignment_revision_question_pool (
     assignment_entry_id uuid NOT NULL,
     selection_count integer NOT NULL CHECK (selection_count > 0),
     selected_question_order text NOT NULL CHECK (
-        selected_question_order IN ('candidate_order', 'random_order')
+        selected_question_order IN ('question_pool_order', 'random_order')
     ),
     PRIMARY KEY (assignment_revision_id, assignment_entry_id),
-    CONSTRAINT assignment_revision_question_pool_entry_matches
+    CONSTRAINT assignment_revision_question_pool_assignment_entry_matches
         FOREIGN KEY (assignment_revision_id, assignment_entry_id)
         REFERENCES ple_data.assignment_revision_entry (assignment_revision_id, assignment_entry_id)
 );
 
-CREATE TABLE ple_data.assignment_revision_question_pool_candidate (
+CREATE TABLE ple_data.assignment_revision_question_pool_item (
     assignment_revision_id uuid NOT NULL,
     assignment_entry_id uuid NOT NULL,
-    question_pool_candidate_id uuid NOT NULL,
-    candidate_index integer NOT NULL CHECK (candidate_index >= 0),
+    question_pool_item_id uuid NOT NULL,
+    entry_index integer NOT NULL CHECK (entry_index >= 0),
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     availability text NOT NULL CHECK (availability IN ('available', 'retired')),
     PRIMARY KEY (
-        assignment_revision_id, assignment_entry_id, question_pool_candidate_id
+        assignment_revision_id, assignment_entry_id, question_pool_item_id
     ),
-    UNIQUE (assignment_revision_id, assignment_entry_id, candidate_index),
-    CONSTRAINT assignment_revision_question_pool_candidate_pool_matches
+    UNIQUE (assignment_revision_id, assignment_entry_id, entry_index),
+    CONSTRAINT assignment_revision_question_pool_item_pool_matches
         FOREIGN KEY (assignment_revision_id, assignment_entry_id)
         REFERENCES ple_data.assignment_revision_question_pool (
             assignment_revision_id, assignment_entry_id
         ),
-    CONSTRAINT assignment_revision_question_pool_candidate_version_matches
+    CONSTRAINT assignment_revision_question_pool_item_version_matches
         FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number)
 );
@@ -87,8 +87,8 @@ DECLARE
     target_entry_kind text;
     fixed_question_count integer;
     question_pool_count integer;
-    candidate_count integer;
-    required_candidate_count integer;
+    entry_count integer;
+    required_entry_count integer;
 BEGIN
     SELECT entry.entry_kind
       INTO target_entry_kind
@@ -110,27 +110,27 @@ BEGIN
      WHERE question_pool.assignment_revision_id = target_revision_id
        AND question_pool.assignment_entry_id = target_entry_id;
     SELECT count(*)::integer
-      INTO candidate_count
-      FROM ple_data.assignment_revision_question_pool_candidate AS candidate
-     WHERE candidate.assignment_revision_id = target_revision_id
-       AND candidate.assignment_entry_id = target_entry_id;
+      INTO entry_count
+      FROM ple_data.assignment_revision_question_pool_item AS item
+     WHERE item.assignment_revision_id = target_revision_id
+       AND item.assignment_entry_id = target_entry_id;
 
     IF target_entry_kind = 'fixed_question'
-       AND (fixed_question_count <> 1 OR question_pool_count <> 0 OR candidate_count <> 0) THEN
+       AND (fixed_question_count <> 1 OR question_pool_count <> 0 OR entry_count <> 0) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Fixed Question Assignment Entry requires exactly one fixed Question pin';
     END IF;
     IF target_entry_kind = 'question_pool' THEN
         SELECT question_pool.selection_count
-          INTO required_candidate_count
+          INTO required_entry_count
           FROM ple_data.assignment_revision_question_pool AS question_pool
          WHERE question_pool.assignment_revision_id = target_revision_id
            AND question_pool.assignment_entry_id = target_entry_id;
         IF question_pool_count <> 1
            OR fixed_question_count <> 0
-           OR candidate_count < COALESCE(required_candidate_count, 1) THEN
+           OR entry_count < COALESCE(required_entry_count, 1) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'a Question Pool Assignment Entry requires enough exact candidates';
+            MESSAGE = 'a Question Pool Assignment Entry requires enough exact Items';
         END IF;
     END IF;
     RETURN NULL;
@@ -146,8 +146,8 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_assignment_revision_entry_change()
 CREATE TRIGGER assignment_revision_question_pool_is_immutable
 BEFORE UPDATE OR DELETE ON ple_data.assignment_revision_question_pool
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_assignment_revision_entry_change();
-CREATE TRIGGER assignment_revision_question_pool_candidate_is_immutable
-BEFORE UPDATE OR DELETE ON ple_data.assignment_revision_question_pool_candidate
+CREATE TRIGGER assignment_revision_question_pool_item_is_immutable
+BEFORE UPDATE OR DELETE ON ple_data.assignment_revision_question_pool_item
 FOR EACH ROW EXECUTE FUNCTION ple_data.reject_assignment_revision_entry_change();
 
 CREATE CONSTRAINT TRIGGER assignment_revision_entry_has_exact_shape
@@ -162,8 +162,8 @@ CREATE CONSTRAINT TRIGGER assignment_revision_question_pool_matches_entry_kind
 AFTER INSERT OR UPDATE OR DELETE ON ple_data.assignment_revision_question_pool
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION ple_data.validate_assignment_revision_entry_shape();
-CREATE CONSTRAINT TRIGGER assignment_revision_question_pool_candidate_count_is_sufficient
-AFTER INSERT OR UPDATE OR DELETE ON ple_data.assignment_revision_question_pool_candidate
+CREATE CONSTRAINT TRIGGER assignment_revision_question_pool_item_count_is_sufficient
+AFTER INSERT OR UPDATE OR DELETE ON ple_data.assignment_revision_question_pool_item
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION ple_data.validate_assignment_revision_entry_shape();
 
@@ -173,33 +173,33 @@ ALTER TABLE ple_data.assignment_revision_fixed_question ENABLE ROW LEVEL SECURIT
 ALTER TABLE ple_data.assignment_revision_fixed_question FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.assignment_revision_question_pool ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.assignment_revision_question_pool FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.assignment_revision_question_pool_candidate ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.assignment_revision_question_pool_candidate FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.assignment_revision_question_pool_item ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.assignment_revision_question_pool_item FORCE ROW LEVEL SECURITY;
 CREATE POLICY assignment_revision_entry_data_owner_access
     ON ple_data.assignment_revision_entry FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 CREATE POLICY assignment_revision_fixed_question_data_owner_access
     ON ple_data.assignment_revision_fixed_question FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 CREATE POLICY assignment_revision_question_pool_data_owner_access
     ON ple_data.assignment_revision_question_pool FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
-CREATE POLICY assignment_revision_question_pool_candidate_data_owner_access
-    ON ple_data.assignment_revision_question_pool_candidate FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
+CREATE POLICY assignment_revision_question_pool_item_data_owner_access
+    ON ple_data.assignment_revision_question_pool_item FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 CREATE POLICY assignment_revision_entry_private_lookup
     ON ple_data.assignment_revision_entry FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY assignment_revision_fixed_question_private_lookup
     ON ple_data.assignment_revision_fixed_question FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY assignment_revision_question_pool_private_lookup
     ON ple_data.assignment_revision_question_pool FOR SELECT TO ple_private_owner USING (true);
-CREATE POLICY assignment_revision_question_pool_candidate_private_lookup
-    ON ple_data.assignment_revision_question_pool_candidate FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY assignment_revision_question_pool_item_private_lookup
+    ON ple_data.assignment_revision_question_pool_item FOR SELECT TO ple_private_owner USING (true);
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
 GRANT SELECT ON TABLE ple_data.assignment_revision_entry,
     ple_data.assignment_revision_fixed_question,
     ple_data.assignment_revision_question_pool,
-    ple_data.assignment_revision_question_pool_candidate TO ple_private_owner;
+    ple_data.assignment_revision_question_pool_item TO ple_private_owner;
 REVOKE ALL PRIVILEGES ON TABLE ple_data.assignment_revision_entry,
     ple_data.assignment_revision_fixed_question,
     ple_data.assignment_revision_question_pool,
-    ple_data.assignment_revision_question_pool_candidate FROM PUBLIC;
+    ple_data.assignment_revision_question_pool_item FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_assignment_revision_entry_change() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.validate_assignment_revision_entry_shape() FROM PUBLIC;
 COMMENT ON TABLE ple_data.assignment_revision_entry IS
@@ -208,8 +208,8 @@ COMMENT ON TABLE ple_data.assignment_revision_fixed_question IS
     'Exact Published Question Revision pin for one fixed Assignment Entry.';
 COMMENT ON TABLE ple_data.assignment_revision_question_pool IS
     'Released Question Pool selection rule for one Assignment Entry.';
-COMMENT ON TABLE ple_data.assignment_revision_question_pool_candidate IS
-    'Exact eligible Question Pool Candidate and Published Question Revision for one released Assignment Entry.';
+COMMENT ON TABLE ple_data.assignment_revision_question_pool_item IS
+    'Exact eligible Question Pool Item and Published Question Revision for one released Assignment Entry.';
 
 RESET ROLE;
 
@@ -219,8 +219,8 @@ CREATE POLICY assignment_attempt_private_owner_access
     ON ple_private.assignment_attempt FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY question_pool_selection_private_owner_access
     ON ple_private.question_pool_selection FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-CREATE POLICY question_pool_selected_candidate_private_owner_access
-    ON ple_private.question_pool_selected_candidate FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+CREATE POLICY question_pool_selected_item_private_owner_access
+    ON ple_private.question_pool_selected_item FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY issued_question_private_owner_access
     ON ple_private.issued_question FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
@@ -244,7 +244,7 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_private.validate_question_pool_selected_candidate_source()
+CREATE FUNCTION ple_private.validate_question_pool_selected_item_source()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_data AS $$
 DECLARE
@@ -257,15 +257,15 @@ BEGIN
     IF reused_from_selection_id IS NOT NULL THEN
         IF NOT EXISTS (
             SELECT 1
-            FROM ple_private.question_pool_selected_candidate AS earlier_candidate
-            WHERE earlier_candidate.question_pool_selection_id = reused_from_selection_id
-              AND earlier_candidate.selection_position = NEW.selection_position
-              AND earlier_candidate.question_pool_candidate_id = NEW.question_pool_candidate_id
-              AND earlier_candidate.question_id = NEW.question_id
-              AND earlier_candidate.revision_number = NEW.revision_number
+            FROM ple_private.question_pool_selected_item AS earlier_item
+            WHERE earlier_entry.question_pool_selection_id = reused_from_selection_id
+              AND earlier_entry.selection_position = NEW.selection_position
+              AND earlier_item.question_pool_item_id = NEW.question_pool_item_id
+              AND earlier_entry.question_id = NEW.question_id
+              AND earlier_entry.revision_number = NEW.revision_number
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'reused Question Pool Selection must retain each earlier selected candidate in its exact order';
+                MESSAGE = 'reused Question Pool Selection must retain each earlier selected entry in its exact order';
         END IF;
         RETURN NEW;
     END IF;
@@ -275,17 +275,17 @@ BEGIN
         FROM ple_private.question_pool_selection AS selection
         JOIN ple_private.assignment_attempt AS attempt
           ON attempt.assignment_attempt_id = selection.assignment_attempt_id
-        JOIN ple_data.assignment_revision_question_pool_candidate AS candidate
-          ON candidate.assignment_revision_id = attempt.assignment_revision_id
-         AND candidate.assignment_entry_id = selection.assignment_entry_id
-         AND candidate.question_pool_candidate_id = NEW.question_pool_candidate_id
-         AND candidate.question_id = NEW.question_id
-         AND candidate.revision_number = NEW.revision_number
-         AND candidate.availability = 'available'
+        JOIN ple_data.assignment_revision_question_pool_item AS item
+          ON entry.assignment_revision_id = attempt.assignment_revision_id
+         AND entry.assignment_entry_id = selection.assignment_entry_id
+         AND item.question_pool_item_id = NEW.question_pool_item_id
+         AND entry.question_id = NEW.question_id
+         AND entry.revision_number = NEW.revision_number
+         AND entry.availability = 'available'
         WHERE selection.question_pool_selection_id = NEW.question_pool_selection_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Selection candidate must be an available exact candidate in its Released Assignment Revision';
+            MESSAGE = 'Question Pool Selection entry must be an available exact entry in its Released Assignment Revision';
     END IF;
     RETURN NEW;
 END
@@ -343,20 +343,20 @@ $$;
 CREATE TRIGGER question_pool_selection_matches_released_pool_entry
 BEFORE INSERT ON ple_private.question_pool_selection
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selection_entry();
-CREATE TRIGGER question_pool_selected_candidate_matches_released_pool_candidate
-BEFORE INSERT ON ple_private.question_pool_selected_candidate
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_candidate_source();
+CREATE TRIGGER question_pool_selected_item_matches_released_pool_item
+BEFORE INSERT ON ple_private.question_pool_selected_item
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_source();
 CREATE TRIGGER issued_question_matches_released_assignment_entry
 BEFORE INSERT ON ple_private.issued_question
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_issued_question_source();
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selection_entry() FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_candidate_source() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_item_source() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_issued_question_source() FROM PUBLIC;
 COMMENT ON FUNCTION ple_private.validate_question_pool_selection_entry() IS
     'Requires each Selection to use a Question Pool Entry in the exact Attempt Revision.';
-COMMENT ON FUNCTION ple_private.validate_question_pool_selected_candidate_source() IS
-    'Requires a new Selection to use available Revision candidates or an exact earlier Selection copy.';
+COMMENT ON FUNCTION ple_private.validate_question_pool_selected_item_source() IS
+    'Requires a new Selection to use available Revision entries or an exact earlier Selection copy.';
 COMMENT ON FUNCTION ple_private.validate_issued_question_source() IS
     'Requires every Issued Question to retain its exact released Entry, Question Revision, points, and scoring rule.';
 

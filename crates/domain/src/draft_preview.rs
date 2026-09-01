@@ -5,17 +5,17 @@
 //! instructor, but never chooses an answer or evaluates a response.
 
 use question_model::capability::Capability;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
 use question_model::question_library::QuestionBackend;
-use question_model::{DraftQuestionSource, QuestionResponseFormat, WorkspaceId};
+use question_model::{DraftQuestionBackendLocator, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 use crate::generator::{GenerationError, QuestionVariationParameterValue, generate};
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
 ///
-/// This deliberately does not reuse `DraftQuestionDefinition`: preview needs
+/// This deliberately does not reuse `DraftQuestionRevision`: preview needs
 /// neither grading policy nor publication-only validation data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,11 +23,11 @@ pub struct DraftPreviewRequest {
     /// Private workspace owning the unversioned draft.
     pub workspace: WorkspaceId,
     /// Draft adapter locator.
-    pub source: DraftQuestionSource,
+    pub backend_locator: DraftQuestionBackendLocator,
     /// Student-facing draft title.
     pub title: String,
     /// Authored prompt blocks.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
     pub response: QuestionResponseFormat,
     /// Deterministic authored parameter specification.
@@ -45,7 +45,7 @@ pub struct DraftQuestionPreview {
     /// Student-facing title.
     pub title: String,
     /// Fully materialized prompt.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
     pub response: QuestionResponseFormat,
 }
@@ -58,7 +58,7 @@ pub struct DraftQuestionPreview {
     rename_all_fields = "camelCase"
 )]
 pub enum DraftPreviewResult {
-    /// Native presentation is ready locally.
+    /// PLE Question presentation is ready locally.
     Ready { preview: DraftQuestionPreview },
     /// This source needs a backend path rather than a synthetic browser preview.
     Unavailable {
@@ -104,17 +104,17 @@ impl std::fmt::Display for PresentationError {
 
 impl std::error::Error for PresentationError {}
 
-/// Produces a local preview when the source is first-party native.
+/// Produces a local preview when the Question Source is PLE.
 ///
 /// All other draft Question Backends deliberately return an explicit capability result;
 /// they do not fall back to an invented browser evaluator.
-pub fn preview_native_draft(
+pub fn preview_ple_draft(
     request: &DraftPreviewRequest,
     seed: QuestionSeed,
 ) -> Result<DraftPreviewResult, PresentationError> {
-    if !matches!(request.source, DraftQuestionSource::Native) {
+    if !matches!(request.backend_locator, DraftQuestionBackendLocator::Ple) {
         return Ok(DraftPreviewResult::Unavailable {
-            backend: QuestionBackend::from(&request.source),
+            backend: QuestionBackend::from(&request.backend_locator),
             capability: Capability::OfflinePreview,
         });
     }
@@ -136,15 +136,15 @@ pub fn preview_native_draft(
 
 /// Applies generated values to the explicitly safe prompt fields.
 ///
-/// The allowed fields are data-driven by `ContentBlock`, rather than a native
+/// The allowed fields are data-driven by `QuestionContentBlock`, rather than an
 /// question-content switch: prose, math, image descriptions, code source, and
 /// table text.  Asset identifiers, checksums, code language labels, and all
 /// response data remain literal.
 pub fn materialize_prompt(
-    prompt: &[ContentBlock],
+    prompt: &[QuestionContentBlock],
     seed: QuestionSeed,
     question_variation_definition: &QuestionVariationDefinition,
-) -> Result<Vec<ContentBlock>, PresentationError> {
+) -> Result<Vec<QuestionContentBlock>, PresentationError> {
     let generated =
         generate(seed, question_variation_definition).map_err(PresentationError::Generation)?;
     prompt
@@ -154,30 +154,30 @@ pub fn materialize_prompt(
 }
 
 fn materialize_block(
-    block: &ContentBlock,
+    block: &QuestionContentBlock,
     parameters: &std::collections::BTreeMap<String, QuestionVariationParameterValue>,
-) -> Result<ContentBlock, PresentationError> {
+) -> Result<QuestionContentBlock, PresentationError> {
     match block {
-        ContentBlock::Text { markdown } => Ok(ContentBlock::Text {
+        QuestionContentBlock::Text { markdown } => Ok(QuestionContentBlock::Text {
             markdown: interpolate(markdown, parameters, "text.markdown")?,
         }),
-        ContentBlock::Math { latex, description } => Ok(ContentBlock::Math {
+        QuestionContentBlock::Math { latex, description } => Ok(QuestionContentBlock::Math {
             latex: interpolate(latex, parameters, "math.latex")?,
             description: interpolate(description, parameters, "math.description")?,
         }),
-        ContentBlock::Image { asset, description } => Ok(ContentBlock::Image {
+        QuestionContentBlock::Image { asset, description } => Ok(QuestionContentBlock::Image {
             asset: asset.clone(),
             description: interpolate(description, parameters, "image.description")?,
         }),
-        ContentBlock::Code { language, source } => Ok(ContentBlock::Code {
+        QuestionContentBlock::Code { language, source } => Ok(QuestionContentBlock::Code {
             language: language.clone(),
             source: interpolate(source, parameters, "code.source")?,
         }),
-        ContentBlock::Table {
+        QuestionContentBlock::Table {
             headers,
             rows,
             description,
-        } => Ok(ContentBlock::Table {
+        } => Ok(QuestionContentBlock::Table {
             headers: headers
                 .iter()
                 .map(|value| interpolate(value, parameters, "table.headers"))
@@ -239,25 +239,25 @@ fn generated_text(value: &QuestionVariationParameterValue) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
-    use question_model::DraftQuestionSource;
+    use question_model::DraftQuestionBackendLocator;
     use question_model::answer::TextResponseMatchRule;
-    use question_model::envelope::ContentBlock;
+    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use uuid::Uuid;
 
     use super::*;
 
-    fn request(source: DraftQuestionSource) -> DraftPreviewRequest {
+    fn request(backend_locator: DraftQuestionBackendLocator) -> DraftPreviewRequest {
         DraftPreviewRequest {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-            source,
+            backend_locator,
             title: "Preview".to_string(),
             prompt: vec![
-                ContentBlock::Text {
+                QuestionContentBlock::Text {
                     markdown: "Value {{count}} is {{residue}}.".to_string(),
                 },
-                ContentBlock::Table {
+                QuestionContentBlock::Table {
                     headers: vec!["{{residue}}".to_string()],
                     rows: vec![vec!["{{count}}".to_string()]],
                     description: "{{residue}} table".to_string(),
@@ -291,17 +291,19 @@ mod tests {
     }
 
     #[test]
-    fn native_preview_is_key_free_and_materializes_every_safe_text_field() {
-        let result =
-            preview_native_draft(&request(DraftQuestionSource::Native), QuestionSeed::new(19))
-                .expect("valid preview");
+    fn ple_preview_is_key_free_and_materializes_every_safe_text_field() {
+        let result = preview_ple_draft(
+            &request(DraftQuestionBackendLocator::Ple),
+            QuestionSeed::new(19),
+        )
+        .expect("valid preview");
         let DraftPreviewResult::Ready { preview } = result else {
-            panic!("native is ready")
+            panic!("PLE Question Source is ready")
         };
         assert_eq!(preview.seed, QuestionSeed::new(19));
         assert_eq!(
             preview.prompt[0],
-            ContentBlock::Text {
+            QuestionContentBlock::Text {
                 markdown: "Value 4 is glycine.".to_string()
             }
         );
@@ -314,9 +316,9 @@ mod tests {
     }
 
     #[test]
-    fn non_native_sources_are_explicitly_unavailable() {
-        let result = preview_native_draft(
-            &request(DraftQuestionSource::Webwork {
+    fn non_ple_sources_are_explicitly_unavailable() {
+        let result = preview_ple_draft(
+            &request(DraftQuestionBackendLocator::Webwork {
                 pg_path: "set/a.pg".to_string(),
             }),
             QuestionSeed::new(1),
@@ -333,19 +335,19 @@ mod tests {
 
     #[test]
     fn unresolved_or_unknown_placeholders_are_explicit() {
-        let mut request = request(DraftQuestionSource::Native);
-        request.prompt = vec![ContentBlock::Text {
+        let mut request = request(DraftQuestionBackendLocator::Ple);
+        request.prompt = vec![QuestionContentBlock::Text {
             markdown: "{{missing}}".to_string(),
         }];
         assert!(matches!(
-            preview_native_draft(&request, QuestionSeed::new(1)),
+            preview_ple_draft(&request, QuestionSeed::new(1)),
             Err(PresentationError::UnknownParameter { parameter, .. }) if parameter == "missing"
         ));
-        request.prompt = vec![ContentBlock::Text {
+        request.prompt = vec![QuestionContentBlock::Text {
             markdown: "{{missing".to_string(),
         }];
         assert!(matches!(
-            preview_native_draft(&request, QuestionSeed::new(1)),
+            preview_ple_draft(&request, QuestionSeed::new(1)),
             Err(PresentationError::UnclosedPlaceholder { .. })
         ));
     }

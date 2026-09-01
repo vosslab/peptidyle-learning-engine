@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use grading::QuestionGradingOutcome;
 use question_model::response::ResponseItemReference;
-use question_model::{QuestionPresentation, QuestionRendererVersion, StudentResponse};
+use question_model::{QuestionRendererVersion, QuestionVariationPresentation, StudentResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -49,7 +49,7 @@ pub enum WebworkReplayMappingV1 {
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
     /// Backend-neutral prompt and Question Response Format safe for a browser.
-    pub envelope: QuestionPresentation,
+    pub envelope: QuestionVariationPresentation,
     /// PG HTML supplied by the isolated renderer; it is still untrusted here.
     pub html: String,
     /// The implementation that actually produced this particular render.

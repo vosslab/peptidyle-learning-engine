@@ -121,10 +121,11 @@ Assignment Access for that reference.
 ## Publication and availability
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the canonical lifecycle
-meanings. Question Publication Readiness is the calculated blocking-issue set
-for one Draft Question Revision. A Question Publication Event creates the first
-Question Revision in a new lineage. A Question Revision Availability Event records
-whether an immutable version is Available or Archived for ordinary selection.
+meanings. Question Publication Requirements name the conditions for one Draft
+Question Revision; Question Publication Validation returns its ordered Question
+Publication Issues. A Question Publication Event creates the first Question Revision
+in a new lineage. A Question Revision Availability Event records whether an immutable
+revision is Available or Archived for ordinary selection.
 Both availability values preserve exact historical resolution through the same
 Question Revision Reference.
 

@@ -5,28 +5,29 @@ use std::collections::BTreeSet;
 use sha2::{Digest, Sha256};
 
 use crate::answer::ResponseSelectionRule;
-use crate::envelope::{ContentBlock, QuestionPresentation};
+use crate::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use crate::response::{
     MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, QuestionResponseFormat,
     ResponseItemReference,
 };
 
-use super::assets::{asset_binding, content_assets, validate_assets, validate_public_assets};
+use super::assets::{
+    content_assets, question_asset_rendition, validate_assets, validate_public_assets,
+};
 use super::binding::QuestionPresentationBinding;
 use super::codec::{
-    QuestionPresentationDigest, crc16_ccitt_false, descriptor_bytes_v1, item_basis_bytes,
+    QuestionPresentationDigest, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
 };
 use super::model::{
-    IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentationResponseItemReference,
-    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    PresentedQuestionAsset, QuestionPresentationNonce,
+    PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
+    PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
+    PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
+    QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,
+    QuestionPresentationResponseFormat,
 };
-
 const MAX_PRESENTED_ITEMS: usize = 32;
 const MAX_NONCE_ATTEMPTS: usize = 8;
 const NUMERIC_MAX_CHARACTERS: u32 = 128;
-
-/// Item role included in the CRC domain and descriptor codec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResponseItemRole {
     QuestionChoice,
@@ -52,33 +53,31 @@ impl ResponseItemRole {
     }
 }
 
-/// Server-only mapping from one rendered object to its durable identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResponseItemBinding {
     pub rendered: PresentationResponseItemReference,
     pub role: ResponseItemRole,
     pub ordinal: u32,
     pub durable_id: String,
-    pub(super) basis: ItemBasisV1,
+    pub(super) basis: ResponseItemBasis,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ItemBasisV1 {
+pub(super) struct ResponseItemBasis {
     pub role: ResponseItemRole,
     pub ordinal: u32,
     pub label: Option<String>,
-    pub content: Vec<ContentBlock>,
-    pub assets: Vec<PresentedQuestionAsset>,
+    pub content: Vec<QuestionContentBlock>,
+    pub assets: Vec<QuestionAssetRendition>,
     pub hotspot_width: Option<u32>,
     pub hotspot_height: Option<u32>,
-    pub hotspot_regions: Vec<HotspotRegionGeometryV1>,
+    pub hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 }
 
-/// Geometry and label bound to a hotspot surface before a presentation-scoped
-/// region identifier is created.
+/// Geometry and label bound to a hotspot before its presentation-scoped ID exists.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct HotspotRegionGeometryV1 {
-    pub label: Vec<ContentBlock>,
+pub(super) struct PendingHotspotRegionGeometry {
+    pub label: Vec<QuestionContentBlock>,
     pub x: u16,
     pub y: u16,
     pub width: u16,
@@ -86,23 +85,21 @@ pub(super) struct HotspotRegionGeometryV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct PendingItemV1 {
+struct PendingResponseItem {
     role: ResponseItemRole,
     ordinal: u32,
     durable_id: String,
-    basis: ItemBasisV1,
+    basis: ResponseItemBasis,
 }
 
-/// Fully constructed public presentation plus its server-only bindings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssuedQuestionPresentation {
-    pub envelope: PresentationEnvelopeV1,
-    pub asset_bindings: Vec<PresentedQuestionAsset>,
+    pub presentation: QuestionPresentation,
+    pub question_asset_renditions: Vec<QuestionAssetRendition>,
     pub item_bindings: Vec<ResponseItemBinding>,
     pub digest: QuestionPresentationDigest,
 }
 
-/// Bounded construction failures. None contains answer material.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PresentationBuildError {
     RandomnessUnavailable,
@@ -135,15 +132,15 @@ impl std::fmt::Display for PresentationBuildError {
 impl std::error::Error for PresentationBuildError {}
 
 /// Source of exact 16-byte nonces. Tests inject deterministic values.
-pub trait NonceSourceV1 {
+pub trait QuestionPresentationNonceSource {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError>;
 }
 
 /// Operating-system nonce source used by server issuance.
 #[derive(Debug, Default)]
-pub struct OsNonceSourceV1;
+pub struct OperatingSystemQuestionPresentationNonceSource;
 
-impl NonceSourceV1 for OsNonceSourceV1 {
+impl QuestionPresentationNonceSource for OperatingSystemQuestionPresentationNonceSource {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
         #[cfg(feature = "generate")]
         {
@@ -160,16 +157,20 @@ impl NonceSourceV1 for OsNonceSourceV1 {
 }
 
 /// Builds one presentation using operating-system randomness.
-pub fn build_presentation_v1(
-    envelope: &QuestionPresentation,
-    asset_bindings: &[PresentedQuestionAsset],
+pub fn build_question_presentation(
+    envelope: &QuestionVariationPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    build_presentation_v1_with_nonce_source(envelope, asset_bindings, &mut OsNonceSourceV1)
+    build_question_presentation_with_nonce_source(
+        envelope,
+        question_asset_renditions,
+        &mut OperatingSystemQuestionPresentationNonceSource,
+    )
 }
 
 struct PersistedNonceSource(Option<[u8; 16]>);
 
-impl NonceSourceV1 for PersistedNonceSource {
+impl QuestionPresentationNonceSource for PersistedNonceSource {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
         self.0
             .take()
@@ -182,14 +183,17 @@ impl NonceSourceV1 for PersistedNonceSource {
 /// This is the canonical server-side reproduction path. It recomputes every
 /// rendered-item ID and the full descriptor rather than trusting stored or
 /// browser-supplied public fields.
-pub fn reproduce_presentation_v1(
-    envelope: &QuestionPresentation,
-    asset_bindings: &[PresentedQuestionAsset],
+pub fn reproduce_question_presentation(
+    envelope: &QuestionVariationPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
     binding: QuestionPresentationBinding,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     let mut nonce = PersistedNonceSource(Some(binding.nonce().as_bytes()));
-    let presentation =
-        build_presentation_v1_with_nonce_source(envelope, asset_bindings, &mut nonce)?;
+    let presentation = build_question_presentation_with_nonce_source(
+        envelope,
+        question_asset_renditions,
+        &mut nonce,
+    )?;
     if presentation.digest != binding.digest() {
         return Err(PresentationBuildError::InvalidPublicContent(
             "presentation digest does not reproduce",
@@ -199,12 +203,12 @@ pub fn reproduce_presentation_v1(
 }
 
 /// Builds one presentation using an injected nonce source.
-pub fn build_presentation_v1_with_nonce_source<N: NonceSourceV1>(
-    envelope: &QuestionPresentation,
-    asset_bindings: &[PresentedQuestionAsset],
+pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonceSource>(
+    envelope: &QuestionVariationPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    build_with_hasher(envelope, asset_bindings, nonce_source, |bytes| {
+    build_with_hasher(envelope, question_asset_renditions, nonce_source, |bytes| {
         crc16_ccitt_false(bytes)
     })
 }
@@ -214,11 +218,11 @@ pub fn build_presentation_v1_with_nonce_source<N: NonceSourceV1>(
 /// This performs no grading and does not require durable IDs. It is the only
 /// operation the Wasm bridge needs in order to verify that the browser holds
 /// one coherent server-issued presentation.
-pub fn rebuild_public_presentation_v1(
-    envelope: &PresentationEnvelopeV1,
-    asset_bindings: &[PresentedQuestionAsset],
+pub fn rebuild_public_question_presentation(
+    envelope: &QuestionPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    let assets = validate_public_assets(envelope, asset_bindings)?;
+    let assets = validate_public_assets(envelope, question_asset_renditions)?;
     let item_bindings = public_item_bindings(&envelope.response, &assets)?;
     if item_bindings.len() > MAX_PRESENTED_ITEMS {
         return Err(PresentationBuildError::TooManyItems);
@@ -233,40 +237,40 @@ pub fn rebuild_public_presentation_v1(
         ));
     }
     let mut presentation = IssuedQuestionPresentation {
-        envelope: envelope.clone(),
-        asset_bindings: assets,
+        presentation: envelope.clone(),
+        question_asset_renditions: assets,
         item_bindings,
         digest: QuestionPresentationDigest::zero(),
     };
-    presentation.digest = QuestionPresentationDigest::compute(&descriptor_bytes_v1(&presentation)?);
+    presentation.digest = QuestionPresentationDigest::compute(&descriptor_bytes(&presentation)?);
     Ok(presentation)
 }
 
 #[cfg(test)]
-pub(super) fn build_presentation_v1_with_hasher<N, H>(
-    envelope: &QuestionPresentation,
-    asset_bindings: &[PresentedQuestionAsset],
+pub(super) fn build_question_presentation_with_hasher<N, H>(
+    envelope: &QuestionVariationPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
     hasher: H,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError>
 where
-    N: NonceSourceV1,
+    N: QuestionPresentationNonceSource,
     H: FnMut(&[u8]) -> u16,
 {
-    build_with_hasher(envelope, asset_bindings, nonce_source, hasher)
+    build_with_hasher(envelope, question_asset_renditions, nonce_source, hasher)
 }
 
 fn build_with_hasher<N, H>(
-    envelope: &QuestionPresentation,
-    asset_bindings: &[PresentedQuestionAsset],
+    envelope: &QuestionVariationPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
     mut hasher: H,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError>
 where
-    N: NonceSourceV1,
+    N: QuestionPresentationNonceSource,
     H: FnMut(&[u8]) -> u16,
 {
-    let assets = validate_assets(envelope, asset_bindings)?;
+    let assets = validate_assets(envelope, question_asset_renditions)?;
     let pending = pending_items(envelope, &assets)?;
     if pending.len() > MAX_PRESENTED_ITEMS {
         return Err(PresentationBuildError::TooManyItems);
@@ -298,12 +302,12 @@ where
         }
         let public = public_envelope(envelope, nonce, &bindings)?;
         let mut presentation = IssuedQuestionPresentation {
-            envelope: public,
-            asset_bindings: assets.clone(),
+            presentation: public,
+            question_asset_renditions: assets.clone(),
             item_bindings: bindings,
             digest: QuestionPresentationDigest::zero(),
         };
-        let bytes = descriptor_bytes_v1(&presentation)?;
+        let bytes = descriptor_bytes(&presentation)?;
         presentation.digest = QuestionPresentationDigest::compute(&bytes);
         return Ok(presentation);
     }
@@ -311,9 +315,9 @@ where
 }
 
 fn rendered_id_input(
-    envelope: &QuestionPresentation,
+    envelope: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
-    item: &PendingItemV1,
+    item: &PendingResponseItem,
     basis_bytes: &[u8],
 ) -> Result<Vec<u8>, PresentationBuildError> {
     let mut bytes = b"ple:rendered-item:v1\0".to_vec();
@@ -353,9 +357,9 @@ fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuil
 }
 
 fn pending_items(
-    envelope: &QuestionPresentation,
-    assets: &[PresentedQuestionAsset],
-) -> Result<Vec<PendingItemV1>, PresentationBuildError> {
+    envelope: &QuestionVariationPresentation,
+    assets: &[QuestionAssetRendition],
+) -> Result<Vec<PendingResponseItem>, PresentationBuildError> {
     let mut items = Vec::new();
     match &envelope.response {
         QuestionResponseFormat::MultipleChoice { choices, .. } => {
@@ -403,13 +407,16 @@ fn pending_items(
             regions,
             ..
         } => {
-            let binding = asset_binding(surface, assets)?;
-            let hotspot_regions = regions.iter().map(hotspot_region_geometry).collect();
+            let binding = question_asset_rendition(surface, assets)?;
+            let hotspot_regions = regions
+                .iter()
+                .map(pending_hotspot_region_geometry)
+                .collect();
             push_item(
                 &mut items,
                 ResponseItemRole::HotspotSurface,
                 &surface.asset.to_string(),
-                vec![ContentBlock::Image {
+                vec![QuestionContentBlock::Image {
                     asset: surface.clone(),
                     description: description.clone(),
                 }],
@@ -446,17 +453,16 @@ fn pending_items(
     }
     Ok(items)
 }
-
 trait PresentedResponseItem {
     fn id(&self) -> &ResponseItemReference;
-    fn body(&self) -> &[ContentBlock];
+    fn body(&self) -> &[QuestionContentBlock];
 }
 
 impl PresentedResponseItem for QuestionChoice {
     fn id(&self) -> &ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -465,7 +471,7 @@ impl PresentedResponseItem for MatchingPrompt {
     fn id(&self) -> &ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -474,7 +480,7 @@ impl PresentedResponseItem for MatchingChoice {
     fn id(&self) -> &ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -483,16 +489,16 @@ impl PresentedResponseItem for OrderingItem {
     fn id(&self) -> &ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
 
 fn push_choices<T: PresentedResponseItem>(
-    target: &mut Vec<PendingItemV1>,
+    target: &mut Vec<PendingResponseItem>,
     choices: &[T],
     role: ResponseItemRole,
-    assets: &[PresentedQuestionAsset],
+    assets: &[QuestionAssetRendition],
 ) -> Result<(), PresentationBuildError> {
     for choice in choices {
         push_item(
@@ -509,13 +515,13 @@ fn push_choices<T: PresentedResponseItem>(
 }
 
 fn push_item(
-    target: &mut Vec<PendingItemV1>,
+    target: &mut Vec<PendingResponseItem>,
     role: ResponseItemRole,
     durable_id: &str,
-    content: Vec<ContentBlock>,
-    assets: &[PresentedQuestionAsset],
+    content: Vec<QuestionContentBlock>,
+    assets: &[QuestionAssetRendition],
     hotspot_dimensions: Option<(u32, u32)>,
-    hotspot_regions: Vec<HotspotRegionGeometryV1>,
+    hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
     if durable_id.is_empty() {
         return Err(PresentationBuildError::InvalidPublicContent(
@@ -524,11 +530,11 @@ fn push_item(
     }
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
     let item_assets = content_assets(&content, assets)?;
-    target.push(PendingItemV1 {
+    target.push(PendingResponseItem {
         role,
         ordinal,
         durable_id: durable_id.to_owned(),
-        basis: ItemBasisV1 {
+        basis: ResponseItemBasis {
             role,
             ordinal,
             label: None,
@@ -541,19 +547,15 @@ fn push_item(
     });
     Ok(())
 }
-
 fn public_envelope(
-    source: &QuestionPresentation,
+    source: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
     bindings: &[ResponseItemBinding],
-) -> Result<PresentationEnvelopeV1, PresentationBuildError> {
+) -> Result<QuestionPresentation, PresentationBuildError> {
     let by_role = |role| bindings.iter().filter(move |binding| binding.role == role);
-    let choices = |role: ResponseItemRole| {
+    let presented_item_parts = |role: ResponseItemRole| {
         by_role(role)
-            .map(|binding| PresentedChoiceV1 {
-                id: binding.rendered.clone(),
-                body: binding.basis.content.clone(),
-            })
+            .map(|binding| (binding.rendered.clone(), binding.basis.content.clone()))
             .collect::<Vec<_>>()
     };
     let response = match &source.response {
@@ -561,20 +563,26 @@ fn public_envelope(
             choices: source_choices,
             selection,
         } => match selection {
-            ResponseSelectionRule::ExactlyOne => IssuedQuestionResponseFormatV1::SingleChoice {
-                choices: choices(ResponseItemRole::QuestionChoice),
+            ResponseSelectionRule::ExactlyOne => QuestionPresentationResponseFormat::SingleChoice {
+                choices: presented_item_parts(ResponseItemRole::QuestionChoice)
+                    .into_iter()
+                    .map(|(id, body)| PresentedQuestionChoice { id, body })
+                    .collect(),
             },
             _ => {
                 let (minimum, maximum) = selection_bounds(*selection, source_choices.len())?;
-                IssuedQuestionResponseFormatV1::MultipleAnswer {
-                    choices: choices(ResponseItemRole::QuestionChoice),
+                QuestionPresentationResponseFormat::MultipleAnswer {
+                    choices: presented_item_parts(ResponseItemRole::QuestionChoice)
+                        .into_iter()
+                        .map(|(id, body)| PresentedQuestionChoice { id, body })
+                        .collect(),
                     minimum,
                     maximum,
                 }
             }
         },
         QuestionResponseFormat::ShortText { max_length, .. } => {
-            IssuedQuestionResponseFormatV1::FillIn {
+            QuestionPresentationResponseFormat::FillIn {
                 max_characters: *max_length,
             }
         }
@@ -585,11 +593,11 @@ fn public_envelope(
                     "blank presentation mapping is incomplete",
                 ));
             }
-            IssuedQuestionResponseFormatV1::MultiFillIn {
+            QuestionPresentationResponseFormat::MultiFillIn {
                 blanks: blanks
                     .iter()
                     .zip(rendered)
-                    .map(|(blank, binding)| PresentedBlankV1 {
+                    .map(|(blank, binding)| PresentedTextEntrySlot {
                         id: binding.rendered.clone(),
                         label: blank.label.clone(),
                         max_characters: blank.max_length,
@@ -597,17 +605,28 @@ fn public_envelope(
                     .collect(),
             }
         }
-        QuestionResponseFormat::Numeric { unit, .. } => IssuedQuestionResponseFormatV1::Numerical {
-            max_characters: NUMERIC_MAX_CHARACTERS,
-            displayed_unit: unit.clone(),
-        },
-        QuestionResponseFormat::Matching { .. } => IssuedQuestionResponseFormatV1::Matching {
-            prompts: choices(ResponseItemRole::MatchingPrompt),
-            choices: choices(ResponseItemRole::MatchingChoice),
+        QuestionResponseFormat::Numeric { unit, .. } => {
+            QuestionPresentationResponseFormat::Numerical {
+                max_characters: NUMERIC_MAX_CHARACTERS,
+                displayed_unit: unit.clone(),
+            }
+        }
+        QuestionResponseFormat::Matching { .. } => QuestionPresentationResponseFormat::Matching {
+            prompts: presented_item_parts(ResponseItemRole::MatchingPrompt)
+                .into_iter()
+                .map(|(id, body)| PresentedMatchingPrompt { id, body })
+                .collect(),
+            choices: presented_item_parts(ResponseItemRole::MatchingChoice)
+                .into_iter()
+                .map(|(id, body)| PresentedMatchingChoice { id, body })
+                .collect(),
             reuse_choices: false,
         },
-        QuestionResponseFormat::Ordering { .. } => IssuedQuestionResponseFormatV1::Ordering {
-            items: choices(ResponseItemRole::OrderingItem),
+        QuestionResponseFormat::Ordering { .. } => QuestionPresentationResponseFormat::Ordering {
+            items: presented_item_parts(ResponseItemRole::OrderingItem)
+                .into_iter()
+                .map(|(id, body)| PresentedOrderingItem { id, body })
+                .collect(),
         },
         QuestionResponseFormat::Hotspot {
             regions, selection, ..
@@ -618,7 +637,8 @@ fn public_envelope(
                 .ok_or(PresentationBuildError::InvalidPublicContent(
                     "hotspot surface mapping is absent",
                 ))?;
-            let ContentBlock::Image { asset, description } = &surface.basis.content[0] else {
+            let QuestionContentBlock::Image { asset, description } = &surface.basis.content[0]
+            else {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "hotspot surface is not image-backed",
                 ));
@@ -630,15 +650,15 @@ fn public_envelope(
                     "hotspot region presentation mapping is incomplete",
                 ));
             }
-            IssuedQuestionResponseFormatV1::Hotspot {
-                surface: PresentedHotspotSurfaceV1 {
+            QuestionPresentationResponseFormat::Hotspot {
+                surface: PresentedHotspotSurface {
                     id: surface.rendered.clone(),
                     asset: asset.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()
                         .zip(rendered_regions)
-                        .map(|(region, binding)| PresentedHotspotRegionV1 {
+                        .map(|(region, binding)| PresentedHotspotRegion {
                             id: binding.rendered.clone(),
                             label: region.label.clone(),
                             x: region.x,
@@ -656,7 +676,7 @@ fn public_envelope(
             return Err(PresentationBuildError::UnsupportedResponse);
         }
     };
-    Ok(PresentationEnvelopeV1 {
+    Ok(QuestionPresentation {
         question_revision: source.variation.question_revision.clone(),
         seed: source.variation.seed,
         presentation_nonce: nonce,
@@ -667,24 +687,24 @@ fn public_envelope(
 }
 
 fn public_item_bindings(
-    response: &IssuedQuestionResponseFormatV1,
-    assets: &[PresentedQuestionAsset],
+    response: &QuestionPresentationResponseFormat,
+    assets: &[QuestionAssetRendition],
 ) -> Result<Vec<ResponseItemBinding>, PresentationBuildError> {
     let mut target = Vec::new();
     match response {
-        IssuedQuestionResponseFormatV1::SingleChoice { choices }
-        | IssuedQuestionResponseFormatV1::MultipleAnswer { choices, .. } => {
-            push_public_choices(
+        QuestionPresentationResponseFormat::SingleChoice { choices }
+        | QuestionPresentationResponseFormat::MultipleAnswer { choices, .. } => {
+            push_public_response_items(
                 &mut target,
                 choices,
                 ResponseItemRole::QuestionChoice,
                 assets,
             )?;
         }
-        IssuedQuestionResponseFormatV1::FillIn { max_characters } => {
+        QuestionPresentationResponseFormat::FillIn { max_characters } => {
             require_positive(*max_characters, "fill-in maximum must be positive")?;
         }
-        IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
+        QuestionPresentationResponseFormat::MultiFillIn { blanks } => {
             if blanks.is_empty() {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "multi-fill presentation has no blanks",
@@ -703,10 +723,10 @@ fn public_item_bindings(
                 )?;
             }
         }
-        IssuedQuestionResponseFormatV1::Numerical { max_characters, .. } => {
+        QuestionPresentationResponseFormat::Numerical { max_characters, .. } => {
             require_positive(*max_characters, "numeric maximum must be positive")?;
         }
-        IssuedQuestionResponseFormatV1::Matching {
+        QuestionPresentationResponseFormat::Matching {
             prompts,
             choices,
             reuse_choices,
@@ -719,34 +739,34 @@ fn public_item_bindings(
                     "matching presentation has incompatible sides",
                 ));
             }
-            push_public_choices(
+            push_public_response_items(
                 &mut target,
                 prompts,
                 ResponseItemRole::MatchingPrompt,
                 assets,
             )?;
-            push_public_choices(
+            push_public_response_items(
                 &mut target,
                 choices,
                 ResponseItemRole::MatchingChoice,
                 assets,
             )?;
         }
-        IssuedQuestionResponseFormatV1::Ordering { items } => {
+        QuestionPresentationResponseFormat::Ordering { items } => {
             if items.len() < 2 {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "ordering presentation requires at least two items",
                 ));
             }
-            push_public_choices(&mut target, items, ResponseItemRole::OrderingItem, assets)?;
+            push_public_response_items(&mut target, items, ResponseItemRole::OrderingItem, assets)?;
         }
-        IssuedQuestionResponseFormatV1::Hotspot {
+        QuestionPresentationResponseFormat::Hotspot {
             surface,
             minimum,
             maximum,
         } => {
             validate_public_bounds(*minimum, *maximum, u32::MAX)?;
-            let binding = asset_binding(&surface.asset, assets)?;
+            let binding = question_asset_rendition(&surface.asset, assets)?;
             let dimensions = Some((
                 binding
                     .intrinsic_width
@@ -764,7 +784,7 @@ fn public_item_bindings(
                 &mut target,
                 surface.id.clone(),
                 ResponseItemRole::HotspotSurface,
-                vec![ContentBlock::Image {
+                vec![QuestionContentBlock::Image {
                     asset: surface.asset.clone(),
                     description: surface.description.clone(),
                 }],
@@ -773,7 +793,7 @@ fn public_item_bindings(
                 surface
                     .regions
                     .iter()
-                    .map(hotspot_region_geometry)
+                    .map(pending_hotspot_region_geometry)
                     .collect(),
             )?;
             for region in &surface.regions {
@@ -790,12 +810,12 @@ fn public_item_bindings(
         }
     }
     match response {
-        IssuedQuestionResponseFormatV1::SingleChoice { choices } if choices.len() < 2 => {
+        QuestionPresentationResponseFormat::SingleChoice { choices } if choices.len() < 2 => {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "single-choice presentation requires at least two choices",
             ));
         }
-        IssuedQuestionResponseFormatV1::MultipleAnswer {
+        QuestionPresentationResponseFormat::MultipleAnswer {
             choices,
             minimum,
             maximum,
@@ -808,19 +828,18 @@ fn public_item_bindings(
     }
     Ok(target)
 }
-
-fn push_public_choices(
+fn push_public_response_items<T: PresentedResponseItemContent>(
     target: &mut Vec<ResponseItemBinding>,
-    choices: &[PresentedChoiceV1],
+    items: &[T],
     role: ResponseItemRole,
-    assets: &[PresentedQuestionAsset],
+    assets: &[QuestionAssetRendition],
 ) -> Result<(), PresentationBuildError> {
-    for choice in choices {
+    for item in items {
         push_public_item(
             target,
-            choice.id.clone(),
+            item.presentation_item_id().clone(),
             role,
-            choice.body.clone(),
+            item.presentation_item_body().to_vec(),
             assets,
             None,
             Vec::new(),
@@ -828,15 +847,14 @@ fn push_public_choices(
     }
     Ok(())
 }
-
 fn push_public_item(
     target: &mut Vec<ResponseItemBinding>,
     rendered: PresentationResponseItemReference,
     role: ResponseItemRole,
-    content: Vec<ContentBlock>,
-    assets: &[PresentedQuestionAsset],
+    content: Vec<QuestionContentBlock>,
+    assets: &[QuestionAssetRendition],
     hotspot_dimensions: Option<(u32, u32)>,
-    hotspot_regions: Vec<HotspotRegionGeometryV1>,
+    hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
     let item_assets = content_assets(&content, assets)?;
@@ -845,7 +863,7 @@ fn push_public_item(
         role,
         ordinal,
         durable_id: String::new(),
-        basis: ItemBasisV1 {
+        basis: ResponseItemBasis {
             role,
             ordinal,
             label: None,
@@ -881,8 +899,10 @@ fn validate_public_bounds(
     }
 }
 
-fn hotspot_region_geometry(region: &impl HotspotRegionGeometry) -> HotspotRegionGeometryV1 {
-    HotspotRegionGeometryV1 {
+fn pending_hotspot_region_geometry(
+    region: &impl HotspotRegionGeometry,
+) -> PendingHotspotRegionGeometry {
+    PendingHotspotRegionGeometry {
         label: region.label().clone(),
         x: region.x(),
         y: region.y(),
@@ -892,7 +912,7 @@ fn hotspot_region_geometry(region: &impl HotspotRegionGeometry) -> HotspotRegion
 }
 
 trait HotspotRegionGeometry {
-    fn label(&self) -> &Vec<ContentBlock>;
+    fn label(&self) -> &Vec<QuestionContentBlock>;
     fn x(&self) -> u16;
     fn y(&self) -> u16;
     fn width(&self) -> u16;
@@ -900,7 +920,7 @@ trait HotspotRegionGeometry {
 }
 
 impl HotspotRegionGeometry for crate::response::HotspotRegion {
-    fn label(&self) -> &Vec<ContentBlock> {
+    fn label(&self) -> &Vec<QuestionContentBlock> {
         &self.label
     }
     fn x(&self) -> u16 {
@@ -917,8 +937,8 @@ impl HotspotRegionGeometry for crate::response::HotspotRegion {
     }
 }
 
-impl HotspotRegionGeometry for PresentedHotspotRegionV1 {
-    fn label(&self) -> &Vec<ContentBlock> {
+impl HotspotRegionGeometry for PresentedHotspotRegion {
+    fn label(&self) -> &Vec<QuestionContentBlock> {
         &self.label
     }
     fn x(&self) -> u16 {
@@ -935,7 +955,7 @@ impl HotspotRegionGeometry for PresentedHotspotRegionV1 {
     }
 }
 
-fn validate_regions(regions: &[PresentedHotspotRegionV1]) -> Result<(), PresentationBuildError> {
+fn validate_regions(regions: &[PresentedHotspotRegion]) -> Result<(), PresentationBuildError> {
     const MAX: u32 = 10_000;
     if regions.is_empty() {
         return Err(PresentationBuildError::InvalidPublicContent(

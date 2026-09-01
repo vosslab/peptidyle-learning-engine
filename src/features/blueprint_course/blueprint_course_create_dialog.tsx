@@ -4,7 +4,7 @@ import { useNavigate } from "@solidjs/router";
 import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
+import type { BlueprintAssignmentDefinitionInput } from "../../../generated/api/BlueprintAssignmentDefinitionInput";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import {
   QuestionPicker,
@@ -32,7 +32,7 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("Untitled Blueprint Course");
   const [moduleLabel, setModuleLabel] = createSignal("Module 1");
-  const [definition, setDefinition] = createSignal<ReusableAssignmentDefinitionInput>(
+  const [definition, setDefinition] = createSignal<BlueprintAssignmentDefinitionInput>(
     emptyReusableDefinition("Module 1 assignment"),
   );
   const [showPicker, setShowPicker] = createSignal(false);

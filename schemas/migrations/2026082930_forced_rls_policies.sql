@@ -49,10 +49,24 @@ CREATE POLICY draft_question_revision_workspace_access ON ple_private.draft_ques
         WHERE question.draft_question_id = draft_question_revision.draft_question_id
           AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
     ));
-CREATE POLICY draft_question_source_access ON ple_private.draft_question_source
+CREATE POLICY question_source_draft_workspace_access ON ple_private.question_source
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+    USING (EXISTS (
+        SELECT 1
+          FROM ple_private.draft_question_revision AS revision
+          JOIN ple_private.draft_question AS question
+            ON question.draft_question_id = revision.draft_question_id
+         WHERE revision.draft_question_revision_id = question_source.draft_question_revision_id
+           AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
+    ))
+    WITH CHECK (EXISTS (
+        SELECT 1
+          FROM ple_private.draft_question_revision AS revision
+          JOIN ple_private.draft_question AS question
+            ON question.draft_question_id = revision.draft_question_id
+         WHERE revision.draft_question_revision_id = question_source.draft_question_revision_id
+           AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
+    ));
 CREATE POLICY draft_question_answer_key_write_access ON ple_private.draft_question_answer_key
     FOR INSERT TO ple_app
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));

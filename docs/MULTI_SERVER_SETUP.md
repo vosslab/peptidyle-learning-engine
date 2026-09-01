@@ -12,7 +12,7 @@ for the fixed browser profile. The lifecycle and recovery commands are in
 
 PLE is one installation with global accounts. An authenticated session resolves
 to `AuthenticatedSession { account_id, session_id }`; a browser route, header, queue row,
-object key, or provider response cannot supply a different Account or scope.
+Object Address, or provider response cannot supply a different Account or scope.
 Course selection is the set of exact current memberships returned for that
 session. Selecting a course supplies a route reference for the server to check,
 not a new authorization claim.

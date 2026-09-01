@@ -26,7 +26,7 @@ const QUESTION_SEARCH_LICENSES = [
   "cc0",
   "other",
 ] as const;
-const QUESTION_SEARCH_BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
+const QUESTION_SEARCH_BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
 const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",

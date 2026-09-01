@@ -22,7 +22,7 @@ pub use teaching_settings_local::{
 };
 
 use crate::{
-    ActivityTimestamp, AssignmentActivityRules, AssignmentEntryId, QuestionPoolCandidateId,
+    ActivityTimestamp, AssignmentActivityRules, AssignmentEntryId, QuestionPoolItemId,
     QuestionRevisionReference,
 };
 
@@ -35,11 +35,11 @@ pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
 /// Maximum fixed-or-pool entries in one ordered assignment definition.
 pub const MAX_ASSIGNMENT_ORDERED_ENTRIES: usize = 1_024;
 
-/// Maximum candidate Question IDs in one assignment Question Pool.
-pub const MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL: usize = 1_024;
+/// Maximum Question Pool Items in one Question Pool Assignment Entry.
+pub const MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY: usize = 1_024;
 
-/// Maximum candidate Question IDs across all Question Pools in one assignment definition.
-pub const MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES: usize = 8_192;
+/// Maximum Question Pool Items across one complete Assignment definition.
+pub const MAX_ASSIGNMENT_QUESTION_POOL_ITEMS: usize = 8_192;
 
 /// Instructor-controlled stable status for one Assignment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -318,11 +318,11 @@ pub enum AssignmentEntryAvailability {
     Retired,
 }
 
-/// Whether a candidate remains available for selection by its owning Question Pool.
+/// Whether a Question Pool Item remains available for selection by its owning Question Pool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuestionPoolCandidateAvailability {
-    /// Make this Question Pool Candidate available for future Question Pool Selections.
+pub enum QuestionPoolItemAvailability {
+    /// Make this Question Pool Item available for future Question Pool Selections.
     Available,
     /// Referential tombstone retained for protected existing responses.
     Retired,
@@ -362,9 +362,9 @@ pub struct FixedQuestionAssignmentEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionPoolSelectedQuestionOrder {
-    /// Preserve candidate order after deterministic selection.
-    CandidateOrder,
-    /// Deterministically shuffle selected candidates from the server selection entropy.
+    /// Preserve Question Pool Item order after deterministic selection.
+    QuestionPoolOrder,
+    /// Deterministically shuffle selected entries from the server selection entropy.
     RandomOrder,
 }
 
@@ -376,16 +376,16 @@ pub struct QuestionPoolSelectionRule {
     pub selected_question_order: QuestionPoolSelectedQuestionOrder,
 }
 
-/// One pinned candidate eligible for its owning Question Pool.
+/// One pinned Question Pool Item eligible for its owning Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionPoolCandidate {
-    /// Stable candidate identity used for retirement and audit actions.
-    pub id: QuestionPoolCandidateId,
+pub struct QuestionPoolItem {
+    /// Stable Question Pool Item identity used for retirement and audit actions.
+    pub id: QuestionPoolItemId,
     /// Exact immutable Question Library version eligible for selection.
     pub reference: QuestionRevisionReference,
-    /// Whether future Question Pool Selections may select this candidate.
-    pub availability: QuestionPoolCandidateAvailability,
+    /// Whether future Question Pool Selections may select this Question Pool Item.
+    pub availability: QuestionPoolItemAvailability,
 }
 
 /// A Question Pool Assignment Entry; issued Questions snapshot the selected result.
@@ -396,16 +396,16 @@ pub struct QuestionPoolAssignmentEntry {
     pub id: AssignmentEntryId,
     /// Whether future Assignment Attempts may receive this Assignment Entry.
     pub availability: AssignmentEntryAvailability,
-    /// Current-only scoring rule applied to every selected candidate.
+    /// Current-only scoring rule applied to every selected Question Pool Item.
     pub scoring_rule: AssignmentEntryScoringRule,
-    /// Number of available candidates selected for each future Assignment Attempt.
+    /// Number of available entries selected for each future Assignment Attempt.
     pub selection_count: u32,
-    /// Uniform current points for each selected candidate.
+    /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,
     /// Instructor-owned ordering behavior for the selected Questions.
     pub selection_rule: QuestionPoolSelectionRule,
-    /// Pinned candidate set; search criteria are deliberately absent.
-    pub candidates: Vec<QuestionPoolCandidate>,
+    /// Pinned Question Pool Items; search criteria are deliberately absent.
+    pub items: Vec<QuestionPoolItem>,
 }
 
 /// One ordered Assignment Entry in the complete Assignment definition.
@@ -421,7 +421,7 @@ pub struct QuestionPoolAssignmentEntry {
 pub enum AssignmentEntry {
     /// One exact published Question delivered as written.
     FixedQuestion(FixedQuestionAssignmentEntry),
-    /// A deterministic selection from explicit Question Pool Candidates.
+    /// A deterministic selection from explicit Question Pool Items.
     QuestionPool(QuestionPoolAssignmentEntry),
 }
 
@@ -463,11 +463,11 @@ mod tests {
     #[test]
     fn question_pool_selection_rule_contains_only_instructor_owned_order() {
         let rule = QuestionPoolSelectionRule {
-            selected_question_order: QuestionPoolSelectedQuestionOrder::CandidateOrder,
+            selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
         };
         assert_eq!(
             rule.selected_question_order,
-            QuestionPoolSelectedQuestionOrder::CandidateOrder
+            QuestionPoolSelectedQuestionOrder::QuestionPoolOrder
         );
     }
 
@@ -476,8 +476,8 @@ mod tests {
         assert_eq!(MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ATTEMPT_LIMIT, 2_147_483_647);
         assert_eq!(MAX_ASSIGNMENT_ORDERED_ENTRIES, 1_024);
-        assert_eq!(MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, 1_024);
-        assert_eq!(MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, 8_192);
+        assert_eq!(MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, 1_024);
+        assert_eq!(MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, 8_192);
     }
 
     #[test]

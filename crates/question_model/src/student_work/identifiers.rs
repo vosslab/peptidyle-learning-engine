@@ -11,9 +11,9 @@ pub struct AssignmentId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentEntryId(Uuid);
 
-/// One stable candidate inside its owning Question Pool Assignment Entry.
+/// One stable Question Pool Item inside its owning Question Pool Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionPoolCandidateId(Uuid);
+pub struct QuestionPoolItemId(Uuid);
 
 /// One immutable Question Pool result for one Assignment Attempt and one Assignment Entry.
 #[doc(hidden)]
@@ -89,7 +89,7 @@ macro_rules! impl_student_work_identifier {
 
 impl_student_work_identifier!(AssignmentId);
 impl_student_work_identifier!(AssignmentEntryId);
-impl_student_work_identifier!(QuestionPoolCandidateId);
+impl_student_work_identifier!(QuestionPoolItemId);
 impl_student_work_identifier!(QuestionPoolSelectionId);
 impl_student_work_identifier!(CourseId);
 impl_student_work_identifier!(CourseMembershipId);
@@ -109,12 +109,12 @@ impl IssuedQuestionId {
     pub fn for_frozen_content(
         assignment_attempt: AssignmentAttemptId,
         assignment_entry: AssignmentEntryId,
-        question_pool_candidate: Option<QuestionPoolCandidateId>,
+        question_pool_item: Option<QuestionPoolItemId>,
     ) -> Self {
         let mut name = [0_u8; 49];
         name[..16].copy_from_slice(assignment_attempt.as_uuid().as_bytes());
         name[16..32].copy_from_slice(assignment_entry.as_uuid().as_bytes());
-        if let Some(candidate) = question_pool_candidate {
+        if let Some(candidate) = question_pool_item {
             name[32] = 1;
             name[33..].copy_from_slice(candidate.as_uuid().as_bytes());
         }
@@ -130,7 +130,7 @@ mod tests {
     fn issued_question_identity_is_stable_and_distinguishes_frozen_content() {
         let attempt = AssignmentAttemptId::from_uuid(Uuid::from_u128(1));
         let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(2));
-        let candidate = QuestionPoolCandidateId::from_uuid(Uuid::from_u128(3));
+        let candidate = QuestionPoolItemId::from_uuid(Uuid::from_u128(3));
         let fixed = IssuedQuestionId::for_frozen_content(attempt, entry, None);
         let pooled = IssuedQuestionId::for_frozen_content(attempt, entry, Some(candidate));
 

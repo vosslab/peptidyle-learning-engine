@@ -16,7 +16,7 @@ import {
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { StudentResponseInspection } from "../../generated/api/StudentResponseInspection";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
 import type {
   InspectedStudentSubmission,
   InspectedStudentWorkDetail,
@@ -56,7 +56,7 @@ function formatActivity(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
-function responseItemLabel(question: QuestionPresentation, item: string): string {
+function responseItemLabel(question: QuestionVariationPresentation, item: string): string {
   switch (question.response.kind) {
     case "multipleChoice":
       return (question.response.choices.find((choice) => choice.id === item)?.body ?? []).length ===
@@ -89,7 +89,7 @@ function responseItemLabel(question: QuestionPresentation, item: string): string
 
 function InspectedResponse(props: {
   readonly response: StudentResponseInspection;
-  readonly question?: QuestionPresentation;
+  readonly question?: QuestionVariationPresentation;
 }): JSX.Element {
   const label = (item: string): string =>
     props.question === undefined ? item : responseItemLabel(props.question, item);
@@ -189,7 +189,7 @@ function SubmissionCard(props: {
   readonly submission: InspectedStudentSubmission;
   readonly position: number;
 }): JSX.Element {
-  const question = (): QuestionPresentation | undefined =>
+  const question = (): QuestionVariationPresentation | undefined =>
     props.submission.evidence.kind === "issuedPresentation"
       ? props.submission.evidence.question
       : undefined;
@@ -238,8 +238,8 @@ function SubmissionCard(props: {
                 <dd>
                   <code>{evidence().issuedPresentationDigest}</code>
                 </dd>
-                <dt>Public asset bindings</dt>
-                <dd>{evidence().assetBindings.length}</dd>
+                <dt>Question Asset Renditions</dt>
+                <dd>{evidence().questionAssetRenditions.length}</dd>
               </dl>
             </>
           )}

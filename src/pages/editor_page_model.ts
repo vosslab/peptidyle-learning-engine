@@ -1,8 +1,8 @@
 // editor_page_model.ts - browser-safe contracts for the workspace editor surface.
 
 import type { Capability } from "../../generated/api/Capability";
-import type { ContentBlock } from "../../generated/api/ContentBlock";
-import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
+import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
 import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
@@ -22,8 +22,8 @@ import type { InstructorPreviewResult } from "./editor_instructor_preview";
 export interface EditorDraft {
   readonly workspace: WorkspaceId;
   readonly title: string;
-  readonly source: DraftQuestionSource;
-  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly backendLocator: DraftQuestionBackendLocator;
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
@@ -39,7 +39,7 @@ export interface WorkspaceDraftSummary {
   readonly workspace: WorkspaceId;
   readonly reference: AuthoringWorkspaceReference;
   readonly title: string;
-  readonly sourceBackend: DraftQuestionSource["backend"];
+  readonly questionBackend: DraftQuestionBackendLocator["backend"];
 }
 
 export interface WorkspaceDraftPage {
@@ -52,7 +52,7 @@ export interface EditorPreview {
   readonly workspace: WorkspaceId;
   readonly seed: QuestionSeed;
   readonly title: string;
-  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
 

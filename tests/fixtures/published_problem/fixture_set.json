@@ -3,7 +3,7 @@
   "modelSchemaVersion": 1,
   "catalogQuestion": {
     "questionId": "7K3-M9QP",
-    "backend": "native",
+    "backend": "ple",
     "questionType": "multipleChoice",
     "capabilities": [
       "algorithmicGeneration",
@@ -39,10 +39,10 @@
     "questionId": "7K3-M9QP",
     "revisionNumber": 1,
     "workspace": "0198e000-0000-7000-8000-000000000002",
-    "source": {
-      "backend": "native"
+    "backendLocator": {
+      "backend": "ple"
     },
-    "questionFormat": "nativeAlgorithmic",
+    "questionFormat": "pleAlgorithmic",
     "questionType": "multipleChoice",
     "prompt": [
       {
@@ -142,10 +142,10 @@
   },
   "draft": {
     "workspace": "0198e000-0000-7000-8000-000000000002",
-    "source": {
-      "backend": "native"
+    "backendLocator": {
+      "backend": "ple"
     },
-    "questionFormat": "nativeAlgorithmic",
+    "questionFormat": "pleAlgorithmic",
     "questionType": "multipleChoice",
     "prompt": [
       {
@@ -281,7 +281,7 @@
         "id": "0198e000-0000-7000-8000-000000000017",
         "questionId": "7K3-M9QP",
         "title": "Peptide bond resonance and planarity",
-        "backend": "native",
+        "backend": "ple",
         "capabilities": [
           "algorithmicGeneration",
           "clientRendering",
@@ -408,7 +408,7 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolCandidate": null
+      "questionPoolEntry": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
@@ -424,7 +424,7 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolCandidate": null
+      "questionPoolEntry": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
@@ -440,7 +440,7 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolCandidate": null
+      "questionPoolEntry": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
@@ -456,7 +456,7 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolCandidate": null
+      "questionPoolEntry": null
     }
   ],
   "attempts": [
@@ -473,7 +473,7 @@
       },
       "reproductionDetails": {
         "backend": {
-          "name": "native-adapter",
+          "name": "ple-question-backend",
           "version": "1"
         },
         "rendererVersion": null,
@@ -521,7 +521,7 @@
       },
       "reproductionDetails": {
         "backend": {
-          "name": "native-adapter",
+          "name": "ple-question-backend",
           "version": "1"
         },
         "rendererVersion": null,
@@ -569,7 +569,7 @@
       },
       "reproductionDetails": {
         "backend": {
-          "name": "native-adapter",
+          "name": "ple-question-backend",
           "version": "1"
         },
         "rendererVersion": null,
@@ -617,7 +617,7 @@
       },
       "reproductionDetails": {
         "backend": {
-          "name": "native-adapter",
+          "name": "ple-question-backend",
           "version": "1"
         },
         "rendererVersion": null,

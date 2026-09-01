@@ -1,8 +1,8 @@
-// reusable_definition_editor.tsx - accessible authoring surface for one reusable assignment.
+// reusable_definition_editor.tsx - accessible authoring surface for one Blueprint Assignment.
 
 import { For, Show, createSignal, type JSX } from "solid-js";
 
-import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
+import type { BlueprintAssignmentDefinitionInput } from "../../../generated/api/BlueprintAssignmentDefinitionInput";
 import type { RelativeAssignmentScheduleMoment } from "../../../generated/api/RelativeAssignmentScheduleMoment";
 import {
   QuestionPicker,
@@ -23,11 +23,11 @@ import {
 } from "./blueprint_course_model";
 
 export interface ReusableDefinitionEditorProps {
-  readonly definition: ReusableAssignmentDefinitionInput;
+  readonly definition: BlueprintAssignmentDefinitionInput;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
-  readonly onChange: (definition: ReusableAssignmentDefinitionInput, message: string) => void;
+  readonly onChange: (definition: BlueprintAssignmentDefinitionInput, message: string) => void;
 }
 
 type PickerIntent = "fixed" | "pool";
@@ -49,21 +49,21 @@ function readMoment(value: string): RelativeAssignmentScheduleMoment | null {
   return { day_offset: dayOffset, local_time: localTime };
 }
 
-function entrySummary(entry: ReusableAssignmentDefinitionInput["entries"][number]): string {
+function entrySummary(entry: BlueprintAssignmentDefinitionInput["entries"][number]): string {
   if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
-  return `Question Pool: select ${entry.selection_count} from ${plural(entry.candidates.length, "candidate")}`;
+  return `Question Pool: select ${entry.selection_count} from ${plural(entry.entries.length, "entry")}`;
 }
 
 function lateWorkRuleFromValue(
   value: string,
-): ReusableAssignmentDefinitionInput["defaults"]["late_work_rule"] | undefined {
+): BlueprintAssignmentDefinitionInput["defaults"]["late_work_rule"] | undefined {
   return value === "accept" || value === "markLate" || value === "reject" ? value : undefined;
 }
 
 function assignmentAttemptGradeRuleFromValue(
   value: string,
 ):
-  | ReusableAssignmentDefinitionInput["defaults"]["activity_rules"]["assignmentAttemptGradeRule"]
+  | BlueprintAssignmentDefinitionInput["defaults"]["activity_rules"]["assignmentAttemptGradeRule"]
   | undefined {
   return value === "first" ||
     value === "latest" ||
@@ -122,7 +122,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
   function moveEntry(index: number, direction: ReusableEntryDirection): void {
     props.onChange(
       moveReusableEntry(props.definition, index, direction),
-      "Question order updated. Review the next entry or save the reusable assignment.",
+      "Question order updated. Review the next entry or save the Blueprint Assignment.",
     );
   }
 
@@ -146,9 +146,9 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
   }
 
   return (
-    <section class="curriculum-definition-editor" aria-label="Reusable assignment definition">
+    <section class="curriculum-definition-editor" aria-label="Blueprint Assignment definition">
       <fieldset disabled={!props.editable}>
-        <legend>Reusable assignment</legend>
+        <legend>Blueprint Assignment</legend>
         <div class="curriculum-form-grid">
           <label>
             Assignment title
@@ -211,7 +211,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
                         <input
                           type="number"
                           min="1"
-                          max={entry.kind === "pool" ? entry.candidates.length : 1}
+                          max={entry.kind === "pool" ? entry.entries.length : 1}
                           value={entry.kind === "pool" ? entry.selection_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
@@ -222,7 +222,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
                                 index(),
                                 selectionCount,
                               ),
-                              "Question Pool selection count updated. It must not exceed the candidate count.",
+                              "Question Pool selection count updated. It must not exceed the entry count.",
                             );
                           }}
                         />
@@ -382,7 +382,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
             mode="many"
             maximumSelection={1024}
             trigger={pickerTrigger}
-            title={intent === "pool" ? "Choose pool candidates" : "Choose fixed questions"}
+            title={intent === "pool" ? "Choose pool entries" : "Choose fixed questions"}
             confirmLabel={intent === "pool" ? "Add pool" : "Add fixed questions"}
             onConfirm={confirmPicker}
             onCancel={() => setPickerIntent(undefined)}
@@ -396,7 +396,7 @@ export function ReusableDefinitionEditor(props: ReusableDefinitionEditorProps): 
 interface ScheduleFieldProps {
   readonly label: string;
   readonly field: ReusableScheduleField;
-  readonly definition: ReusableAssignmentDefinitionInput;
+  readonly definition: BlueprintAssignmentDefinitionInput;
   readonly onChange: (field: ReusableScheduleField, value: string) => void;
 }
 

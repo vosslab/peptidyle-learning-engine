@@ -10,7 +10,7 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { ContentBlock } from "../../generated/api/ContentBlock";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import { formatPointScore, formatScoreValue } from "../score_format";
@@ -40,8 +40,8 @@ export type FeedbackPresentation =
 
 export interface FeedbackPanelProps {
   readonly disclosure: FeedbackPresentation;
-  /** A server-projected record of what the student submitted, never a question definition. */
-  readonly studentResponse?: ReadonlyArray<ContentBlock>;
+  /** A server-projected record of what the student submitted, never a Question Revision. */
+  readonly studentResponse?: ReadonlyArray<QuestionContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
   /** Omit on read-only history surfaces so static feedback does not add a no-op tab stop. */
@@ -82,12 +82,12 @@ export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
   return `Feedback released. ${outcomeHeading(disclosure)}.`;
 }
 
-function hasBlocks(blocks: ReadonlyArray<ContentBlock> | undefined): boolean {
+function hasBlocks(blocks: ReadonlyArray<QuestionContentBlock> | undefined): boolean {
   return blocks !== undefined && blocks.length > 0;
 }
 
 function FeedbackBlock(props: {
-  readonly block: ContentBlock;
+  readonly block: QuestionContentBlock;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -148,7 +148,7 @@ function FeedbackBlock(props: {
 
 /** Renders already server-approved teaching blocks without interpreting their meaning. */
 export function ContentBlockList(props: {
-  readonly blocks: ReadonlyArray<ContentBlock>;
+  readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
@@ -162,7 +162,7 @@ export function ContentBlockList(props: {
 
 function FeedbackSection(props: {
   readonly title: string;
-  readonly blocks: ReadonlyArray<ContentBlock>;
+  readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
@@ -232,7 +232,7 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
     return props.disclosure.kind === "released" ? props.disclosure.feedback : undefined;
   };
   const advanceLabel = (): string => props.advanceLabel ?? "Continue";
-  const response = (): ReadonlyArray<ContentBlock> => props.studentResponse ?? [];
+  const response = (): ReadonlyArray<QuestionContentBlock> => props.studentResponse ?? [];
 
   return (
     <section class="feedback-panel" aria-labelledby={headingId}>

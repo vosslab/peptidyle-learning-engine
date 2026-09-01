@@ -1,9 +1,9 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
+import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
 import { MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -240,7 +240,7 @@ function defaults(value: unknown, path: string): unknown {
 function assignmentEntry(
   value: unknown,
   path: string,
-): { kind: "fixed" | "pool"; candidates: string[] } {
+): { kind: "fixed" | "pool"; entries: string[] } {
   const record = decodeRecord(value, path);
   const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["fixed", "pool"]);
   if (kind === "fixed") {
@@ -253,20 +253,20 @@ function assignmentEntry(
       "extraCredit",
       "excluded",
     ]);
-    return { kind, candidates: [] };
+    return { kind, entries: [] };
   }
   requireOnlyFields(record, path, [
     "kind",
-    "candidates",
+    "entries",
     "selection_count",
     "points_per_item",
     "scoring_rule",
     "selection_rule",
   ]);
-  const candidates = decodeBoundedArray(
-    field(record, "candidates", path),
-    `${path}.candidates`,
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
+  const entries = decodeBoundedArray(
+    field(record, "entries", path),
+    `${path}.entries`,
+    MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
     questionId,
   );
   const selectionCount = decodePositiveInteger(
@@ -274,18 +274,18 @@ function assignmentEntry(
     `${path}.selection_count`,
   );
   if (
-    candidates.length === 0 ||
-    selectionCount > candidates.length ||
-    new Set(candidates).size !== candidates.length
+    entries.length === 0 ||
+    selectionCount > entries.length ||
+    new Set(entries).size !== entries.length
   ) {
     throw new DecodeError(
       path,
-      "a nonempty pool with distinct candidates and a valid selection count",
+      "a nonempty Question Pool with distinct entries and a valid selection count",
     );
   }
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
   selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
-  return { kind, candidates };
+  return { kind, entries };
 }
 
 function selectionRule(value: unknown, path: string): void {
@@ -294,7 +294,7 @@ function selectionRule(value: unknown, path: string): void {
   decodeStringEnum(
     field(record, "selected_question_order", path),
     `${path}.selected_question_order`,
-    ["candidateOrder", "randomOrder"],
+    ["questionPoolOrder", "randomOrder"],
   );
 }
 
@@ -311,9 +311,12 @@ function assignmentDefinition(value: unknown, path: string): unknown {
     assignmentEntry,
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one ordered entry");
-  const candidateCount = entries.reduce((total, entry) => total + entry.candidates.length, 0);
-  if (candidateCount > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
-    throw new DecodeError(`${path}.entries`, "pool candidates within the assignment total bound");
+  const questionPoolEntryCount = entries.reduce((total, entry) => total + entry.entries.length, 0);
+  if (questionPoolEntryCount > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
+    throw new DecodeError(
+      `${path}.entries`,
+      "Question Pool Entries within the Assignment total bound",
+    );
   defaults(field(record, "defaults", path), `${path}.defaults`);
   schedule(field(record, "schedule", path), `${path}.schedule`);
   return value;
@@ -464,16 +467,16 @@ function definitionView(value: unknown, path: string): void {
       } else {
         requireOnlyFields(entry, entryPath, [
           "kind",
-          "candidates",
+          "entries",
           "selection_count",
           "points_per_item",
           "scoring_rule",
           "selection_rule",
         ]);
         decodeBoundedArray(
-          field(entry, "candidates", entryPath),
-          `${entryPath}.candidates`,
-          MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
+          field(entry, "entries", entryPath),
+          `${entryPath}.entries`,
+          MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
           questionView,
         );
       }

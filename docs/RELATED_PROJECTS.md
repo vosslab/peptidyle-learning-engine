@@ -149,8 +149,8 @@ current acceptance status remains in
   for exchanging items, tests, and results among authoring tools, item banks, delivery systems, and
   scoring engines.
 - Evidence: 1EdTech's official specification describes that exchange workflow; PLE's
-  [CONTRACTS.md](CONTRACTS.md#qti-profile-to-native-contract) records its bounded Canvas 1.2 and
-  Blackboard 2.1 profile-to-native contract.
+  [CONTRACTS.md](CONTRACTS.md#qti-profile-to-PLE-contract) records its bounded Canvas 1.2 and
+  Blackboard 2.1 profile-to-PLE contract.
 - Notes: QTI is an interchange boundary rather than PLE's internal source model, and current profile
   support is intentionally narrower than the complete standard.
 

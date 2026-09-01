@@ -1,22 +1,24 @@
 use std::collections::BTreeMap;
 
-use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_native_draft};
+use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_ple_draft};
 use domain::generator::QuestionVariationParameters;
 use grading::{AnswerKey, GradingError};
 use question_model::answer::{NumericResponseTolerance, ResponseSelectionRule};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::classification::License;
-use question_model::envelope::{AssetRef, ContentBlock};
+use question_model::envelope::{
+    QuestionAssetReference as PresentedQuestionAssetReference, QuestionContentBlock,
+};
 use question_model::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
     QuestionVariationDefinition,
 };
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, QuestionFormat, QuestionGradingRule,
-    QuestionId, QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionSource,
-    QuestionType, StudentResponse, WorkspaceId,
+    DraftQuestionBackendLocator, DraftQuestionRevision, QuestionAssetId, QuestionBackendLocator,
+    QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata, QuestionRevision,
+    QuestionRevisionNumber, QuestionType, StudentResponse, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -45,14 +47,14 @@ fn flat_question() -> QuestionRevision {
         draft,
         question_id(),
         revision_number(1),
-        QuestionSource::Native,
+        QuestionBackendLocator::Ple,
     )
 }
 
 fn question_choice(id: &str, label: &str) -> QuestionChoice {
     QuestionChoice {
         id: ResponseItemReference::new(id),
-        body: vec![ContentBlock::Text {
+        body: vec![QuestionContentBlock::Text {
             markdown: label.to_string(),
         }],
     }
@@ -84,9 +86,9 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionR
         question_id: question_id(),
         revision_number: revision_number(1),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
-        source: QuestionSource::Native,
-        question_format: QuestionFormat::NativeAlgorithmic,
-        prompt: vec![ContentBlock::Text {
+        backend_locator: QuestionBackendLocator::Ple,
+        question_format: QuestionFormat::PleAlgorithmic,
+        prompt: vec![QuestionContentBlock::Text {
             markdown: "In a peptide containing {{residue}}, which linkage is planar?".to_string(),
         }],
         response: QuestionResponseFormat::MultipleChoice {
@@ -115,11 +117,11 @@ fn peptide_question_with_generator_version(generator_version: &str) -> QuestionR
     }
 }
 
-fn peptide_draft() -> DraftQuestionDefinition {
+fn peptide_draft() -> DraftQuestionRevision {
     let question = peptide_question();
-    DraftQuestionDefinition {
+    DraftQuestionRevision {
         workspace: question.workspace,
-        source: DraftQuestionSource::Native,
+        backend_locator: DraftQuestionBackendLocator::Ple,
         question_format: question.question_format,
         prompt: question.prompt,
         response: question.response,
@@ -134,7 +136,7 @@ fn peptide_draft() -> DraftQuestionDefinition {
 
 #[test]
 fn author_presentation_is_deterministic_varied_and_contains_only_display_material() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let draft = peptide_draft();
     let first = adapter
         .author_presentation(&draft, QuestionSeed::new(1))
@@ -148,20 +150,20 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
     assert!(first == replay, "the same seed must replay exactly");
     assert!(matches!(
         &first.prompt[0],
-        ContentBlock::Text { markdown }
+        QuestionContentBlock::Text { markdown }
             if !markdown.contains("{{residue}}")
                 && (markdown.contains("alanine") || markdown.contains("glycine"))
     ));
     assert_eq!(
         first.question_answer,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "amide".to_string(),
         }],
         "the presentation copies the public choice body, never its identifier"
     );
     assert!(matches!(
         first.question_answer_explanation.as_deref(),
-        Some([ContentBlock::Text { markdown }])
+        Some([QuestionContentBlock::Text { markdown }])
             if markdown.contains("partial double-bond") && markdown.contains("planar")
     ));
 
@@ -179,16 +181,16 @@ fn author_presentation_is_deterministic_varied_and_contains_only_display_materia
 
 #[test]
 fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
-    let mut adapter = NativeAdapter::empty();
+    let mut adapter = PleQuestionBackend::empty();
     adapter
         .register_implementation(NumericReferenceImplementation)
         .expect("the test implementation is unique");
     let mut draft = peptide_draft();
-    draft.source = DraftQuestionSource::Native;
-    draft.question_format = QuestionFormat::NativeAlgorithmic;
+    draft.backend_locator = DraftQuestionBackendLocator::Ple;
+    draft.question_format = QuestionFormat::PleAlgorithmic;
     draft.question_type = QuestionType::Numeric;
     draft.question_variation_definition = QuestionVariationDefinition::Static;
-    draft.prompt = vec![ContentBlock::Text {
+    draft.prompt = vec![QuestionContentBlock::Text {
         markdown: "Enter the reference value.".to_string(),
     }];
 
@@ -203,7 +205,7 @@ fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
 
 #[test]
 fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = peptide_question();
 
     let first = adapter
@@ -231,7 +233,7 @@ fn same_seed_issues_the_same_key_free_question_and_reproduction_record() {
 
 #[test]
 fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = flat_question();
     let expected = QuestionBackendCapabilities::from_iter([
         Capability::ClientRendering,
@@ -268,7 +270,7 @@ fn flat_question_capabilities_are_installed_and_reproducible_without_answer_keys
 
 #[test]
 fn flat_question_grade_refuses_without_server_persisted_material() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = flat_question();
     let issue = adapter
         .issue(&question, QuestionSeed::new(11), &[])
@@ -285,20 +287,22 @@ fn flat_question_grade_refuses_without_server_persisted_material() {
                 selected: vec![ResponseItemReference::new("blue")],
             },
         ),
-        Err(NativeAdapterError::Grading(GradingError::MissingAnswerKey))
+        Err(PleQuestionBackendError::Grading(
+            GradingError::MissingAnswerKey
+        ))
     ));
 }
 
 #[test]
-fn native_draft_preview_matches_the_published_envelope_presentation() {
-    let adapter = NativeAdapter::new();
+fn ple_draft_preview_matches_the_published_envelope_presentation() {
+    let adapter = PleQuestionBackend::new();
     let question = peptide_question();
     let seed = QuestionSeed::new(37);
-    let issued = adapter.issue(&question, seed, &[]).expect("native issue");
-    let preview = preview_native_draft(
+    let issued = adapter.issue(&question, seed, &[]).expect("PLE issue");
+    let preview = preview_ple_draft(
         &DraftPreviewRequest {
             workspace: question.workspace,
-            source: DraftQuestionSource::Native,
+            backend_locator: DraftQuestionBackendLocator::Ple,
             title: question.metadata.title.clone(),
             prompt: question.prompt.clone(),
             response: question.response.clone(),
@@ -306,9 +310,9 @@ fn native_draft_preview_matches_the_published_envelope_presentation() {
         },
         seed,
     )
-    .expect("native preview");
+    .expect("PLE preview");
     let DraftPreviewResult::Ready { preview } = preview else {
-        panic!("native previews locally")
+        panic!("PLE previews locally")
     };
     assert_eq!(preview.title, issued.envelope.title);
     assert_eq!(preview.prompt, issued.envelope.prompt);
@@ -317,7 +321,7 @@ fn native_draft_preview_matches_the_published_envelope_presentation() {
 
 #[test]
 fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = peptide_question();
     let issued = adapter
         .issue(&question, QuestionSeed::new(99), &[])
@@ -360,11 +364,11 @@ fn correct_and_wrong_responses_are_graded_only_after_regeneration() {
 
 #[test]
 fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = peptide_question();
     let issued = adapter
         .issue(&question, QuestionSeed::new(99), &[])
-        .expect("native issue");
+        .expect("PLE issue");
     let (outcome, content) = adapter
         .grade_with_feedback(
             &question,
@@ -382,7 +386,7 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
         content
             .question_answer
             .map(|answer| answer.content().to_vec()),
-        Some(vec![ContentBlock::Text {
+        Some(vec![QuestionContentBlock::Text {
             markdown: "amide".to_string(),
         }])
     );
@@ -400,10 +404,10 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
         .question_answer_explanation
         .expect("implemented Question Implementation provides a Question Answer Explanation");
     assert!(
-        matches!(&hint.content()[0], ContentBlock::Text { markdown } if markdown.contains("lone pair"))
+        matches!(&hint.content()[0], QuestionContentBlock::Text { markdown } if markdown.contains("lone pair"))
     );
     assert!(
-        matches!(&explanation.content()[0], ContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
+        matches!(&explanation.content()[0], QuestionContentBlock::Text { markdown } if markdown.contains("partial double-bond") && markdown.contains("planar"))
     );
     assert!(
         adapter
@@ -415,7 +419,7 @@ fn peptide_feedback_uses_public_choice_blocks_without_exposing_key_material() {
 
 #[test]
 fn altered_question_attempt_reproduction_details_are_refused_before_grading() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let question = peptide_question();
     let issued = adapter
         .issue(&question, QuestionSeed::new(5), &[])
@@ -434,25 +438,25 @@ fn altered_question_attempt_reproduction_details_are_refused_before_grading() {
                 selected: vec![ResponseItemReference::new("amide")],
             },
         ),
-        Err(NativeAdapterError::UnknownQuestionGraderVersion { .. })
+        Err(PleQuestionBackendError::UnknownQuestionGraderVersion { .. })
     ));
 }
 
 #[test]
 fn uninstalled_execution_versions_are_refused_before_issue_or_grading() {
-    let mut adapter = NativeAdapter::new();
+    let mut adapter = PleQuestionBackend::new();
     assert!(matches!(
         adapter.select_current_versions(
             backend_version(ADAPTER_ID, "2"),
             grader_version(GRADING_ID, GRADING_VERSION),
         ),
-        Err(NativeAdapterError::UnknownQuestionBackendVersion { .. })
+        Err(PleQuestionBackendError::UnknownQuestionBackendVersion { .. })
     ));
 }
 
 #[test]
 fn uninstalled_generator_versions_are_refused_without_fallback() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let mut question = peptide_question();
     let QuestionVariationDefinition::Seeded { generator, .. } =
         &mut question.question_variation_definition
@@ -463,18 +467,18 @@ fn uninstalled_generator_versions_are_refused_without_fallback() {
 
     assert!(matches!(
         adapter.issue(&question, QuestionSeed::new(61), &[]),
-        Err(NativeAdapterError::UnknownQuestionImplementation { generator: Some(found), .. })
+        Err(PleQuestionBackendError::UnknownQuestionImplementation { generator: Some(found), .. })
             if found.version == "2"
     ));
 }
 
-fn asset(id: u128) -> AssetId {
-    AssetId::from_uuid(Uuid::from_u128(id))
+fn asset(id: u128) -> QuestionAssetId {
+    QuestionAssetId::from_uuid(Uuid::from_u128(id))
 }
 
-fn image(asset: AssetId) -> ContentBlock {
-    ContentBlock::Image {
-        asset: AssetRef {
+fn image(asset: QuestionAssetId) -> QuestionContentBlock {
+    QuestionContentBlock::Image {
+        asset: PresentedQuestionAssetReference {
             asset,
             checksum: "fixture-checksum".to_string(),
         },
@@ -483,48 +487,52 @@ fn image(asset: AssetId) -> ContentBlock {
 }
 
 #[test]
-fn asset_provenance_requires_exact_complete_trusted_bindings() {
-    let adapter = NativeAdapter::new();
+fn question_asset_object_references_require_exact_complete_trusted_records() {
+    let adapter = PleQuestionBackend::new();
     let mut question = peptide_question();
     let rendered_asset = asset(81);
     question.prompt.push(image(rendered_asset));
-    let bindings = [AssetObjectBinding {
-        asset: rendered_asset,
-        object: ObjectId::from_uuid(Uuid::from_u128(82)),
+    let question_asset_object_references = [QuestionAssetObjectReference {
+        question_asset: rendered_asset,
+        object_reference: ObjectId::from_uuid(Uuid::from_u128(82)),
     }];
     let issued = adapter
-        .issue(&question, QuestionSeed::new(82), &bindings)
+        .issue(
+            &question,
+            QuestionSeed::new(82),
+            &question_asset_object_references,
+        )
         .expect("trusted assets should be recorded at issue time");
     assert_eq!(
         issued.reproduction_details.asset_objects,
-        vec![bindings[0].object]
+        vec![question_asset_object_references[0].object_reference]
     );
 
     assert!(matches!(
         adapter.issue(&question, QuestionSeed::new(82), &[]),
-        Err(NativeAdapterError::MissingAssetBinding(found)) if found == rendered_asset
+        Err(PleQuestionBackendError::MissingAssetBinding(found)) if found == rendered_asset
     ));
     assert!(matches!(
         adapter.issue(
             &peptide_question(),
             QuestionSeed::new(82),
-            &bindings,
+            &question_asset_object_references,
         ),
-        Err(NativeAdapterError::UnrelatedAssetBinding(found)) if found == rendered_asset
+        Err(PleQuestionBackendError::UnrelatedAssetBinding(found)) if found == rendered_asset
     ));
     assert!(matches!(
         adapter.issue(
             &question,
             QuestionSeed::new(82),
             &[
-                bindings[0],
-                AssetObjectBinding {
-                    asset: rendered_asset,
-                    object: ObjectId::from_uuid(Uuid::from_u128(83)),
+                question_asset_object_references[0],
+                QuestionAssetObjectReference {
+                    question_asset: rendered_asset,
+                    object_reference: ObjectId::from_uuid(Uuid::from_u128(83)),
                 },
             ],
         ),
-        Err(NativeAdapterError::ConflictingAssetBinding(found)) if found == rendered_asset
+        Err(PleQuestionBackendError::ConflictingAssetBinding(found)) if found == rendered_asset
     ));
 
     let mut altered_reproduction_details = issued.reproduction_details.clone();
@@ -536,9 +544,9 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
             QuestionSeed::new(82),
             &issued.parameter_hash,
             &altered_reproduction_details,
-            &bindings,
+            &question_asset_object_references,
         ),
-        Err(NativeAdapterError::ReproductionMismatch {
+        Err(PleQuestionBackendError::ReproductionMismatch {
             field: "assetObjects"
         })
     ));
@@ -546,7 +554,7 @@ fn asset_provenance_requires_exact_complete_trusted_bindings() {
 
 #[test]
 fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let mut question = peptide_question();
     let prompt_asset = asset(91);
     let response_asset = asset(90);
@@ -555,31 +563,38 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
         panic!("peptide fixture has multiple-choice response")
     };
     choices[0].body.push(image(response_asset));
-    let bindings = [
-        AssetObjectBinding {
-            asset: prompt_asset,
-            object: ObjectId::from_uuid(Uuid::from_u128(191)),
+    let question_asset_object_references = [
+        QuestionAssetObjectReference {
+            question_asset: prompt_asset,
+            object_reference: ObjectId::from_uuid(Uuid::from_u128(191)),
         },
-        AssetObjectBinding {
-            asset: response_asset,
-            object: ObjectId::from_uuid(Uuid::from_u128(190)),
+        QuestionAssetObjectReference {
+            question_asset: response_asset,
+            object_reference: ObjectId::from_uuid(Uuid::from_u128(190)),
         },
     ];
 
     let issued = adapter
-        .issue(&question, QuestionSeed::new(91), &bindings)
+        .issue(
+            &question,
+            QuestionSeed::new(91),
+            &question_asset_object_references,
+        )
         .expect("prompt and nested response assets should resolve");
 
     assert_eq!(
         issued.reproduction_details.asset_objects,
-        vec![bindings[1].object, bindings[0].object],
+        vec![
+            question_asset_object_references[1].object_reference,
+            question_asset_object_references[0].object_reference,
+        ],
         "asset IDs, not caller order, canonically order persisted objects"
     );
 }
 
 #[test]
 fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let issued = adapter
         .issue(&peptide_question(), QuestionSeed::new(37), &[])
         .expect("fixed vector should issue");
@@ -591,45 +606,45 @@ fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
 
 #[test]
 fn historical_blank_or_oversized_titles_are_refused_before_issue() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     for title in [" \t".to_string(), "\u{1F9EC}".repeat(513)] {
         let mut question = peptide_question();
         question.metadata.title = title;
         assert!(matches!(
             adapter.issue(&question, QuestionSeed::new(37), &[]),
-            Err(NativeAdapterError::InvalidTitle(_))
+            Err(PleQuestionBackendError::InvalidTitle(_))
         ));
     }
 }
 
 #[test]
 fn an_implementation_refuses_seeded_content_that_cannot_show_its_variation() {
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     let mut question = peptide_question();
-    question.prompt = vec![ContentBlock::Text {
+    question.prompt = vec![QuestionContentBlock::Text {
         markdown: "Which linkage is planar?".to_string(),
     }];
 
     assert!(matches!(
         adapter.issue(&question, QuestionSeed::new(1), &[]),
-        Err(NativeAdapterError::IncompatibleQuestionImplementation { .. })
+        Err(PleQuestionBackendError::IncompatibleQuestionImplementation { .. })
     ));
 }
 
 #[derive(Debug, Clone, Copy)]
 struct NumericReferenceImplementation;
 
-impl NativeQuestionImplementation for NumericReferenceImplementation {
+impl PleQuestionImplementation for NumericReferenceImplementation {
     fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::NativeAlgorithmic
+        QuestionFormat::PleAlgorithmic
     }
 
     fn question_type(&self) -> QuestionType {
         QuestionType::Numeric
     }
 
-    fn implementation_release(&self) -> crate::generator::NativeQuestionImplementationRelease {
-        crate::generator::NativeQuestionImplementationRelease {
+    fn implementation_release(&self) -> crate::generator::PleQuestionImplementationRelease {
+        crate::generator::PleQuestionImplementationRelease {
             id: "numeric-reference".to_string(),
             version: "1".to_string(),
         }
@@ -650,11 +665,13 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
         &self,
         question: &QuestionRevision,
         _generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, NativeAdapterError> {
+    ) -> Result<Option<AnswerKey>, PleQuestionBackendError> {
         if !matches!(question.response, QuestionResponseFormat::Numeric { .. }) {
-            return Err(NativeAdapterError::IncompatibleQuestionImplementation {
-                message: "numeric response required".to_string(),
-            });
+            return Err(
+                PleQuestionBackendError::IncompatibleQuestionImplementation {
+                    message: "numeric response required".to_string(),
+                },
+            );
         }
         Ok(Some(AnswerKey::Numeric { expected: 7.0 }))
     }
@@ -662,7 +679,7 @@ impl NativeQuestionImplementation for NumericReferenceImplementation {
 
 #[test]
 fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
-    let mut adapter = NativeAdapter::empty();
+    let mut adapter = PleQuestionBackend::empty();
     adapter
         .register_implementation(NumericReferenceImplementation)
         .expect("new implementation identifier should register");
@@ -670,9 +687,9 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
         question_id: question_id(),
         revision_number: revision_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        source: QuestionSource::Native,
-        question_format: QuestionFormat::NativeAlgorithmic,
-        prompt: vec![ContentBlock::Text {
+        backend_locator: QuestionBackendLocator::Ple,
+        question_format: QuestionFormat::PleAlgorithmic,
+        prompt: vec![QuestionContentBlock::Text {
             markdown: "Enter the reference value.".to_string(),
         }],
         response: QuestionResponseFormat::Numeric {
@@ -719,17 +736,17 @@ struct VersionedNumericImplementation {
     supports_client_rendering: bool,
 }
 
-impl NativeQuestionImplementation for VersionedNumericImplementation {
+impl PleQuestionImplementation for VersionedNumericImplementation {
     fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::NativeAlgorithmic
+        QuestionFormat::PleAlgorithmic
     }
 
     fn question_type(&self) -> QuestionType {
         QuestionType::Numeric
     }
 
-    fn implementation_release(&self) -> crate::generator::NativeQuestionImplementationRelease {
-        crate::generator::NativeQuestionImplementationRelease {
+    fn implementation_release(&self) -> crate::generator::PleQuestionImplementationRelease {
+        crate::generator::PleQuestionImplementationRelease {
             id: "versioned-numeric".to_string(),
             version: self.implementation_release.to_string(),
         }
@@ -754,7 +771,7 @@ impl NativeQuestionImplementation for VersionedNumericImplementation {
         &self,
         question: &QuestionRevision,
         _generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, NativeAdapterError> {
+    ) -> Result<Option<AnswerKey>, PleQuestionBackendError> {
         let _ = question;
         Ok(Some(AnswerKey::Numeric {
             expected: self.expected,
@@ -767,9 +784,9 @@ fn versioned_numeric_question(version: &str) -> QuestionRevision {
         question_id: question_id(),
         revision_number: revision_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-        source: QuestionSource::Native,
-        question_format: QuestionFormat::NativeAlgorithmic,
-        prompt: vec![ContentBlock::Text {
+        backend_locator: QuestionBackendLocator::Ple,
+        question_format: QuestionFormat::PleAlgorithmic,
+        prompt: vec![QuestionContentBlock::Text {
             markdown: "Enter the generated reference value.".to_string(),
         }],
         response: QuestionResponseFormat::Numeric {
@@ -795,7 +812,7 @@ fn versioned_numeric_question(version: &str) -> QuestionRevision {
 
 #[test]
 fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservative() {
-    let mut adapter = NativeAdapter::empty();
+    let mut adapter = PleQuestionBackend::empty();
     adapter
         .register_implementation(VersionedNumericImplementation {
             version: "1",
@@ -852,8 +869,8 @@ fn additive_generator_versions_coexist_while_catalog_capabilities_stay_conservat
 }
 
 #[test]
-fn native_implementation_registration_is_unique_per_source_contract() {
-    let mut adapter = NativeAdapter::empty();
+fn ple_question_implementation_registration_is_unique_per_source_contract() {
+    let mut adapter = PleQuestionBackend::empty();
     adapter
         .register_implementation(VersionedNumericImplementation {
             version: "1",
@@ -870,8 +887,8 @@ fn native_implementation_registration_is_unique_per_source_contract() {
             expected: 2.0,
             supports_client_rendering: false,
         }),
-        Err(NativeAdapterError::DuplicateQuestionImplementation {
-            question_format: QuestionFormat::NativeAlgorithmic,
+        Err(PleQuestionBackendError::DuplicateQuestionImplementation {
+            question_format: QuestionFormat::PleAlgorithmic,
             question_type: QuestionType::Numeric,
             generator: Some(QuestionGeneratorReference { .. }),
         })

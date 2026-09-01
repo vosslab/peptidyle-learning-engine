@@ -3,22 +3,19 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import type { QuestionPoolPreview } from "../api/contracts";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
+import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
 
 import type {
   AssignmentQuestionRow,
   AssignmentEditorQuestionPoolEntry,
 } from "./assignment_editor_model";
-import {
-  parseExactProblemDisplayReferences,
-  validateQuestionPoolEntry,
-} from "./assignment_editor_model";
+import { parseExactQuestionIds, validateQuestionPoolEntry } from "./assignment_editor_model";
 
 export interface AssignmentPoolEditorProps {
   readonly entry: AssignmentEditorQuestionPoolEntry;
   readonly entryIndex: number;
   readonly entryCount: number;
-  readonly resolveCandidates: (
+  readonly resolveEntries: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onChange: (entry: AssignmentEditorQuestionPoolEntry) => void;
@@ -28,7 +25,7 @@ export interface AssignmentPoolEditorProps {
   readonly preview: QuestionPoolPreview | undefined;
   readonly previewBusy: boolean;
   readonly onPreview: () => void;
-  readonly onChooseCandidates: (trigger: HTMLButtonElement) => void;
+  readonly onChooseEntries: (trigger: HTMLButtonElement) => void;
 }
 
 function poolLabel(entryIndex: number): string {
@@ -36,77 +33,75 @@ function poolLabel(entryIndex: number): string {
 }
 
 export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Element {
-  const [candidateText, setCandidateText] = createSignal("");
-  const [candidateError, setCandidateError] = createSignal("");
-  const [candidateBusy, setCandidateBusy] = createSignal(false);
+  const [entryText, setEntryText] = createSignal("");
+  const [entryError, setEntryError] = createSignal("");
+  const [entryBusy, setEntryBusy] = createSignal(false);
 
   function update(next: Partial<AssignmentEditorQuestionPoolEntry>): void {
     const entry = { ...props.entry, ...next };
     const error = validateQuestionPoolEntry(entry);
-    setCandidateError(error ?? "");
+    setEntryError(error ?? "");
     props.onChange(entry);
     props.onMessage(
       error === null
-        ? "Pool updated. Review its candidates, then save the complete assignment definition."
+        ? "Pool updated. Review its entries, then save the complete assignment definition."
         : `${error} Correct this pool before saving.`,
     );
   }
 
-  async function addCandidates(): Promise<void> {
+  async function addEntries(): Promise<void> {
     let questionIds: ReadonlyArray<string>;
     try {
-      questionIds = parseExactProblemDisplayReferences(candidateText());
+      questionIds = parseExactQuestionIds(entryText());
     } catch (error: unknown) {
-      setCandidateError(
-        error instanceof Error ? error.message : "Candidate Question IDs are invalid.",
+      setEntryError(
+        error instanceof Error ? error.message : "Question Pool Entry Question IDs are invalid.",
       );
       return;
     }
-    const existing = new Set(props.entry.candidates.map((candidate) => candidate.questionId));
+    const existing = new Set(props.entry.entries.map((entry) => entry.questionId));
     if (questionIds.some((questionId) => existing.has(questionId))) {
-      setCandidateError("Each candidate Question ID can appear only once in a pool.");
+      setEntryError("Each entry Question ID can appear only once in a pool.");
       return;
     }
     if (
-      props.entry.candidates.length + questionIds.length >
-      MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL
+      props.entry.entries.length + questionIds.length >
+      MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY
     ) {
-      setCandidateError(
-        `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer, then check and add candidates.`,
+      setEntryError(
+        `Keep this pool to ${MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY} Question Pool Entry Question IDs or fewer, then check and add entries.`,
       );
       return;
     }
-    setCandidateBusy(true);
+    setEntryBusy(true);
     try {
-      const candidates = await props.resolveCandidates(questionIds);
-      const nextCandidates = [...props.entry.candidates, ...candidates];
-      const entry = { ...props.entry, candidates: nextCandidates };
+      const entries = await props.resolveEntries(questionIds);
+      const nextEntries = [...props.entry.entries, ...entries];
+      const entry = { ...props.entry, entries: nextEntries };
       const error = validateQuestionPoolEntry(entry);
-      setCandidateError(error ?? "");
+      setEntryError(error ?? "");
       props.onChange(entry);
-      setCandidateText("");
+      setEntryText("");
       props.onMessage(
-        `Added ${candidates.length} candidate Question ID${candidates.length === 1 ? "" : "s"}. Set the selection count, then save the Assignment.`,
+        `Added ${entries.length} entry Question ID${entries.length === 1 ? "" : "s"}. Set the selection count, then save the Assignment.`,
       );
     } catch (error: unknown) {
-      setCandidateError(
+      setEntryError(
         error instanceof Error
-          ? `${error.message} Your candidate Question IDs are still here.`
-          : "Candidates could not be checked. Your candidate Question IDs are still here.",
+          ? `${error.message} Your Question Pool Entry Question IDs are still here.`
+          : "Question Pool Entries could not be checked. Your Question Pool Entry Question IDs are still here.",
       );
     } finally {
-      setCandidateBusy(false);
+      setEntryBusy(false);
     }
   }
 
-  function removeCandidate(questionId: string): void {
-    const candidates = props.entry.candidates.filter(
-      (candidate) => candidate.questionId !== questionId,
-    );
-    update({ candidates });
+  function removeEntry(questionId: string): void {
+    const entries = props.entry.entries.filter((entry) => entry.questionId !== questionId);
+    update({ entries });
   }
   function updateSelectedQuestionOrder(value: string): void {
-    if (value !== "candidateOrder" && value !== "randomOrder") return;
+    if (value !== "questionPoolOrder" && value !== "randomOrder") return;
     update({ selectionRule: { selectedQuestionOrder: value } });
   }
 
@@ -118,8 +113,8 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       <div>
         <h3>Question pool</h3>
         <p>
-          The server selects from the candidate Question IDs and records each Student&apos;s exact
-          Question Pool Selection as immutable evidence.
+          The server selects from the Question Pool Entry Question IDs and records each
+          Student&apos;s exact Question Pool Selection as immutable evidence.
         </p>
       </div>
       <div class="assignment-editor-row-actions">
@@ -159,7 +154,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           <input
             type="number"
             min="1"
-            max={props.entry.candidates.length || undefined}
+            max={props.entry.entries.length || undefined}
             value={props.entry.selectionCount}
             onInput={(event) => update({ selectionCount: Number(event.currentTarget.value) })}
           />
@@ -178,7 +173,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
             value={props.entry.selectionRule.selectedQuestionOrder}
             onChange={(event) => updateSelectedQuestionOrder(event.currentTarget.value)}
           >
-            <option value="candidateOrder">Candidate order</option>
+            <option value="questionPoolOrder">Question Pool Entry order</option>
             <option value="randomOrder">Random order</option>
           </select>
         </label>
@@ -194,12 +189,12 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
               Selected {preview().selectionCount} in {preview().selectionRule.selectedQuestionOrder}
               .
             </p>
-            <h5>Candidate questions</h5>
+            <h5>Question Pool Entries</h5>
             <ul>
-              <For each={preview().candidates}>
-                {(candidate) => (
+              <For each={preview().entries}>
+                {(entry) => (
                   <li>
-                    <strong>{candidate.questionId}</strong> {candidate.title}
+                    <strong>{entry.questionId}</strong> {entry.title}
                   </li>
                 )}
               </For>
@@ -221,25 +216,26 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
         )}
       </Show>
       <section
-        class="assignment-editor-pool-candidates"
-        aria-labelledby={`pool-candidates-${props.entryIndex}`}
+        class="assignment-editor-pool-entries"
+        aria-labelledby={`pool-entries-${props.entryIndex}`}
       >
-        <h4 id={`pool-candidates-${props.entryIndex}`}>Candidate Question IDs</h4>
+        <h4 id={`pool-entries-${props.entryIndex}`}>Question Pool Entry Question IDs</h4>
         <p class="assignment-editor-note">
-          Add candidates in the order you want preserved when delivery order is Candidate order.
+          Add entries in the order you want preserved when delivery order is Question Pool Entry
+          order.
         </p>
         <ul>
-          <For each={props.entry.candidates} fallback={<li>No candidates yet.</li>}>
-            {(candidate) => (
+          <For each={props.entry.entries} fallback={<li>No entries yet.</li>}>
+            {(entry) => (
               <li>
                 <span>
-                  <strong>{candidate.questionId}</strong> {candidate.title}
+                  <strong>{entry.questionId}</strong> {entry.title}
                 </span>
                 <button
                   class="quiet-action"
                   type="button"
-                  aria-label={`Remove ${candidate.questionId} from this question pool`}
-                  onClick={() => removeCandidate(candidate.questionId)}
+                  aria-label={`Remove ${entry.questionId} from this question pool`}
+                  onClick={() => removeEntry(entry.questionId)}
                 >
                   Remove
                 </button>
@@ -248,40 +244,40 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           </For>
         </ul>
         <label class="assignment-editor-field">
-          Add candidate Question IDs
+          Add Question Pool Entry Question IDs
           <textarea
             rows="2"
-            value={candidateText()}
+            value={entryText()}
             placeholder="7K3-M9QP, 7K4-M9QP"
-            aria-invalid={candidateError() !== ""}
-            aria-describedby={`pool-candidate-help-${props.entryIndex}`}
+            aria-invalid={entryError() !== ""}
+            aria-describedby={`pool-entry-help-${props.entryIndex}`}
             onInput={(event) => {
-              setCandidateText(event.currentTarget.value);
-              setCandidateError("");
+              setEntryText(event.currentTarget.value);
+              setEntryError("");
             }}
           />
         </label>
-        <p id={`pool-candidate-help-${props.entryIndex}`} class="assignment-editor-note">
+        <p id={`pool-entry-help-${props.entryIndex}`} class="assignment-editor-note">
           Paste canonical Question IDs separated by commas or lines. The library checks each one
-          before it becomes a candidate.
+          before it becomes a entry.
         </p>
         <button
           class="quiet-action"
           type="button"
-          disabled={candidateBusy()}
-          onClick={() => void addCandidates()}
+          disabled={entryBusy()}
+          onClick={() => void addEntries()}
         >
-          Check and add candidates
+          Check and add entries
         </button>
         <button
           class="quiet-action"
           type="button"
-          disabled={candidateBusy()}
-          onClick={(event) => props.onChooseCandidates(event.currentTarget)}
+          disabled={entryBusy()}
+          onClick={(event) => props.onChooseEntries(event.currentTarget)}
         >
-          Choose candidates
+          Choose entries
         </button>
-        <Show when={candidateError()}>
+        <Show when={entryError()}>
           {(error) => (
             <p class="inline-error" role="alert">
               {error()}

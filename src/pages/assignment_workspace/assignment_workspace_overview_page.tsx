@@ -25,9 +25,9 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
     ).length;
   const poolCount = (): number =>
     assignment().entries.filter((entry) => entry.kind === "questionPool").length;
-  const candidateCount = (): number =>
+  const questionPoolEntryCount = (): number =>
     assignment().entries.reduce(
-      (total, entry) => total + (entry.kind === "questionPool" ? entry.candidates.length : 0),
+      (total, entry) => total + (entry.kind === "questionPool" ? entry.entries.length : 0),
       0,
     );
   const base = (): string =>
@@ -65,7 +65,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
             <div>
               <dt>Pools</dt>
               <dd>
-                {poolCount()} ({candidateCount()} candidates)
+                {poolCount()} ({questionPoolEntryCount()} entries)
               </dd>
             </div>
           </dl>

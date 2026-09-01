@@ -8,8 +8,8 @@
 use domain::{draft_preview, policy, timing, validation};
 use question_model::generation::QuestionSeed;
 use question_model::presentation::{
-    PresentationEnvelopeV1, PresentedQuestionAsset, QuestionPresentationToken,
-    rebuild_public_presentation_v1,
+    QuestionAssetRendition, QuestionPresentation, QuestionPresentationToken,
+    rebuild_public_question_presentation,
 };
 use question_model::response::{QuestionResponseFormat, StudentResponse};
 use wasm_bindgen::JsValue;
@@ -100,16 +100,16 @@ pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> 
 
 /// Materializes one key-free, unversioned native workspace-draft preview.
 ///
-/// Non-native sources return the explicit `unavailable` capability result.
+/// Non-PLE Question Sources return the explicit `unavailable` capability result.
 /// The bridge never imports Question Backend or Question Grader code: it can only
 /// generate disclosed parameters and apply them to safe prompt fields.
 #[wasm_bindgen]
-pub fn preview_native_draft(draft_json: &str, seed_json: &str) -> Result<String, JsValue> {
+pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, JsValue> {
     let request: draft_preview::DraftPreviewRequest = serde_json::from_str(draft_json)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview request: {error}")))?;
     let seed: QuestionSeed = serde_json::from_str(seed_json)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview seed: {error}")))?;
-    let preview = draft_preview::preview_native_draft(&request, seed)
+    let preview = draft_preview::preview_ple_draft(&request, seed)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview: {error}")))?;
     serde_json::to_string(&preview)
         .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
@@ -127,16 +127,16 @@ pub fn preview_native_draft(draft_json: &str, seed_json: &str) -> Result<String,
 #[wasm_bindgen]
 pub fn verify_presentation_descriptor(
     envelope_json: &str,
-    asset_bindings_json: &str,
+    question_asset_renditions_json: &str,
     digest: &str,
 ) -> Result<bool, JsValue> {
-    let envelope: PresentationEnvelopeV1 = serde_json::from_str(envelope_json)
+    let envelope: QuestionPresentation = serde_json::from_str(envelope_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
-    let assets: Vec<PresentedQuestionAsset> = serde_json::from_str(asset_bindings_json)
+    let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
     let expected = QuestionPresentationToken::parse(digest)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation digest: {error}")))?;
-    let presentation = rebuild_public_presentation_v1(&envelope, &assets)
+    let presentation = rebuild_public_question_presentation(&envelope, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.digest.public_token() == expected)
 }
@@ -172,19 +172,6 @@ mod tests {
     }
 
     #[test]
-    fn native_draft_preview_stays_key_free() {
-        let preview = preview_native_draft(
-            r#"{"workspace":"00000000-0000-0000-0000-000000000001","source":{"backend":"native"},"title":"Fixture","prompt":[{"kind":"text","markdown":"Value {{value}}"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20},"questionVariationDefinition":{"kind":"seeded","generator":{"id":"fixture","version":"1"},"parameters":{"value":{"kind":"fixed","value":"safe"}}}}"#,
-            "4",
-        )
-        .expect("native draft preview");
-        assert_eq!(
-            preview,
-            r#"{"kind":"ready","preview":{"workspace":"00000000-0000-0000-0000-000000000001","seed":4,"title":"Fixture","prompt":[{"kind":"text","markdown":"Value safe"}],"response":{"kind":"shortText","matchMode":"normalized","maxLength":20}}}"#
-        );
-    }
-
-    #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let envelope = r#"{
             "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
@@ -197,7 +184,7 @@ mod tests {
                 {"id":"6603","body":[{"kind":"text","markdown":"Carboxyl group"}]}
             ]}
         }"#;
-        let rebuilt = rebuild_public_presentation_v1(
+        let rebuilt = rebuild_public_question_presentation(
             &serde_json::from_str(envelope).expect("fixture envelope"),
             &[],
         )

@@ -1,6 +1,6 @@
 // editor_instructor_preview.ts - explicit, protected author-preview transport and DTO boundary.
 
-import type { ContentBlock } from "../../generated/api/ContentBlock";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
@@ -17,7 +17,7 @@ import {
 import { decodeKeyFreeDraftPreview, decodeStudentFeedback } from "../api/decoders";
 
 const QUESTION_BACKENDS: ReadonlyArray<QuestionBackend> = [
-  "native",
+  "ple",
   "webwork",
   "qti",
   "h5p",
@@ -30,12 +30,12 @@ const MAX_WORKSPACE_REVISION = 9_223_372_036_854_775_807n;
 /** The safe presentation an instructor explicitly asks the server to derive. */
 export interface InstructorPreviewPresentation {
   readonly title: string;
-  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
   readonly seed: QuestionSeed;
   /** Display-ready blocks, not a reusable grading key or answer representation. */
-  readonly questionAnswer: ReadonlyArray<ContentBlock>;
-  readonly questionAnswerExplanation?: ReadonlyArray<ContentBlock>;
+  readonly questionAnswer: ReadonlyArray<QuestionContentBlock>;
+  readonly questionAnswerExplanation?: ReadonlyArray<QuestionContentBlock>;
 }
 
 export type InstructorPreviewResult =

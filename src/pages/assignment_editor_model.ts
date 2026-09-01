@@ -6,9 +6,9 @@ import type { AssignmentEntrySummary } from "../../generated/api/AssignmentEntry
 import type { Capability } from "../../generated/api/Capability";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
-import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
+import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type {
@@ -31,18 +31,18 @@ export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySum
 
 /**
  * Browser-owned pool state deliberately names only public Question IDs.
- * The server mints and preserves Question Pool entry/candidate identities when it saves this definition.
+ * The server mints and preserves Question Pool entry/entry identities when it saves this definition.
  */
 export interface AssignmentEditorQuestionPoolEntry {
   readonly kind: "questionPool";
   readonly id?: string;
   readonly availability: "available" | "retired";
   readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
-  readonly candidates: ReadonlyArray<AssignmentQuestionRow>;
+  readonly entries: ReadonlyArray<AssignmentQuestionRow>;
   readonly selectionCount: number;
   readonly pointsPerItem: string;
   readonly selectionRule: {
-    readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
+    readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
   };
 }
 
@@ -86,10 +86,10 @@ export function questionPoolEntry(
     id: entry.id,
     availability: entry.availability,
     scoringRule: entry.scoringRule,
-    candidates: entry.candidates.map((candidate) => ({
-      questionId: candidate.questionId,
-      title: candidate.title,
-      backend: candidate.backend,
+    entries: entry.entries.map((entry) => ({
+      questionId: entry.questionId,
+      title: entry.title,
+      backend: entry.backend,
     })),
     selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
@@ -154,12 +154,12 @@ export function appendFixedEntries(
 export function appendQuestionPool(draft: AssignmentEditorDraft): AssignmentEditorDraft {
   const questionPool: AssignmentEditorQuestionPoolEntry = {
     kind: "questionPool",
-    candidates: [],
+    entries: [],
     availability: "available",
     scoringRule: "normal",
     selectionCount: 1,
     pointsPerItem: "1",
-    selectionRule: { selectedQuestionOrder: "candidateOrder" },
+    selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   };
   return { ...draft, entries: [...draft.entries, questionPool] };
 }
@@ -176,7 +176,7 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
   }
   return {
     kind: "questionPool",
-    candidateQuestionIds: entry.candidates.map((candidate) => candidate.questionId),
+    questionIds: entry.entries.map((entry) => entry.questionId),
     availability: entry.availability,
     scoringRule: entry.scoringRule,
     selectionCount: entry.selectionCount,
@@ -194,17 +194,14 @@ export function assignmentContentInput(draft: AssignmentEditorDraft): Assignment
 }
 
 export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEntry): string | null {
-  if (entry.candidates.length === 0) return "Add at least one candidate Question ID.";
-  if (entry.candidates.length > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
-    return `Keep this pool to ${MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL} candidate Question IDs or fewer.`;
+  if (entry.entries.length === 0) return "Add at least one Question ID to this Question Pool.";
+  if (entry.entries.length > MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY)
+    return `Keep this Question Pool to ${MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY} Question IDs or fewer.`;
   if (entry.selectionCount < 1) return "Selection count must be at least one.";
-  if (entry.selectionCount > entry.candidates.length)
-    return "Selection count cannot exceed the number of candidate Question IDs.";
-  if (
-    new Set(entry.candidates.map((candidate) => candidate.questionId)).size !==
-    entry.candidates.length
-  )
-    return "Each candidate Question ID can appear only once in a pool.";
+  if (entry.selectionCount > entry.entries.length)
+    return "Selection count cannot exceed the number of Question IDs in this Question Pool.";
+  if (new Set(entry.entries.map((entry) => entry.questionId)).size !== entry.entries.length)
+    return "Each Question ID can appear only once in a Question Pool.";
   return null;
 }
 
@@ -215,20 +212,20 @@ export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEnt
 export function validateAssignmentEditorDraft(draft: AssignmentEditorDraft): string | null {
   if (draft.entries.length > MAX_ASSIGNMENT_ORDERED_ENTRIES)
     return `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer.`;
-  let totalCandidates = 0;
+  let totalQuestionPoolEntries = 0;
   for (const entry of draft.entries) {
     if (entry.kind !== "questionPool") continue;
     const entryError = validateQuestionPoolEntry(entry);
     if (entryError !== null)
       return `Question pool ${draft.entries.indexOf(entry) + 1}: ${entryError}`;
-    totalCandidates += entry.candidates.length;
-    if (totalCandidates > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
-      return `Keep all pools to ${MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES} candidate Question IDs or fewer.`;
+    totalQuestionPoolEntries += entry.entries.length;
+    if (totalQuestionPoolEntries > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
+      return `Keep all Question Pools to ${MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES} Question IDs or fewer.`;
   }
   return null;
 }
 
-export function parseExactProblemDisplayReferences(value: string): ReadonlyArray<string> {
+export function parseExactQuestionIds(value: string): ReadonlyArray<string> {
   const values = value
     .split(/[\n,]/u)
     .map((entry) => entry.trim())
@@ -252,9 +249,7 @@ export function assignmentProblemLabel(
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {
-  return { native: "PLE native", webwork: "WeBWorK", qti: "QTI", h5p: "H5P", imathas: "iMathAS" }[
-    backend
-  ];
+  return { ple: "PLE", webwork: "WeBWorK", qti: "QTI", h5p: "H5P", imathas: "iMathAS" }[backend];
 }
 export function violationMatchesQuestion(
   violation: AssignmentCapabilityViolation,

@@ -17,14 +17,14 @@ export type CourseMembershipRouteReference = CourseMembershipReference &
 export type AssignmentRouteReference = AssignmentReference & BrandedRouteReference<"assignment">;
 export type AssignmentAttemptRouteReference = AssignmentAttemptReference &
   BrandedRouteReference<"assignmentAttempt">;
-export type WorkspaceRouteReference = AuthoringWorkspaceReference &
-  BrandedRouteReference<"workspace">;
+export type AuthoringWorkspaceRouteReference = AuthoringWorkspaceReference &
+  BrandedRouteReference<"authoringWorkspace">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
   | CourseInstanceRouteReference
   | AssignmentRouteReference
-  | WorkspaceRouteReference;
+  | AuthoringWorkspaceRouteReference;
 
 function parseExact<Kind extends string>(
   value: string,
@@ -52,8 +52,10 @@ export function parseAssignmentAttemptReference(
 ): AssignmentAttemptRouteReference | null {
   return parseExact<"assignmentAttempt">(value, "R");
 }
-export function parseWorkspaceReference(value: string): WorkspaceRouteReference | null {
-  return parseExact<"workspace">(value, "W");
+export function parseAuthoringWorkspaceReference(
+  value: string,
+): AuthoringWorkspaceRouteReference | null {
+  return parseExact<"authoringWorkspace">(value, "W");
 }
 export function courseInstanceRouteReference(
   value: CourseInstanceReference,
@@ -83,9 +85,9 @@ export function assignmentAttemptRouteReference(
 }
 export function authoringWorkspaceRouteReference(
   value: AuthoringWorkspaceReference,
-): WorkspaceRouteReference {
-  const result = parseWorkspaceReference(value);
-  if (result === null) throw new Error("invalid workspace reference");
+): AuthoringWorkspaceRouteReference {
+  const result = parseAuthoringWorkspaceReference(value);
+  if (result === null) throw new Error("invalid Authoring Workspace Reference");
   return result;
 }
 export function parsePublicRouteReference(value: string): PublicRouteReference | null {
@@ -93,7 +95,7 @@ export function parsePublicRouteReference(value: string): PublicRouteReference |
     parseCourseInstanceReference(value) ??
     parseAssignmentReference(value) ??
     parseAssignmentAttemptReference(value) ??
-    parseWorkspaceReference(value)
+    parseAuthoringWorkspaceReference(value)
   );
 }
 export function questionRouteReference(questionId: QuestionId): QuestionRouteReference {

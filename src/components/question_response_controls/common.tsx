@@ -2,7 +2,7 @@
 
 import { createSignal, type JSX } from "solid-js";
 
-import type { ContentBlock } from "../../../generated/api/ContentBlock";
+import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -82,7 +82,7 @@ export interface SubmissionController {
   readonly submit: (response: StudentResponse) => Promise<void>;
 }
 
-export function textFromBlocks(blocks: ReadonlyArray<ContentBlock>): string {
+export function textFromBlocks(blocks: ReadonlyArray<QuestionContentBlock>): string {
   return blocks
     .map((block) => {
       switch (block.kind) {

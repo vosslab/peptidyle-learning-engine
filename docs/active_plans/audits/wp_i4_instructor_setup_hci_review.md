@@ -117,7 +117,7 @@ focused target; a visible completion or recovery state; and a bounded timeout.
   assertion identifies a generic visible `Local pilot` cell rather than the
   alias entered in the labelled J12 form. The child asserts normal success only;
   it does not prove the labelled recovery/error states that preserve the course
-  title, student alias, or assignment draft, nor does it set child-specific
+  title, student alias, or Assignment Working Copy, nor does it set child-specific
   timeouts beyond Playwright's global 30 seconds.
 - **Impact:** A changed ordering or preexisting local row can select the wrong
   resource, and a failure gives limited instructor-oriented recovery evidence.

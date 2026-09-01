@@ -2,8 +2,7 @@
 
 This is the concise semantic contract for PLE-owned database, API, test, and
 code terminology. It turns the owner glossary in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) into implementation boundaries; it does
-not supersede that owner guidance.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) into implementation boundaries; it does not supersede that owner guidance.
 
 Use [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) after selecting the correct
 domain term. Use [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) to
@@ -25,6 +24,12 @@ When a term has a narrower meaning at one boundary, name the narrower record or
 relationship. A broad context object never substitutes for a stored authority
 path.
 
+Prefer an established PLE term. Introduce another term only when it names a
+distinct concept more precisely. Human Guidance establishes product meaning,
+while technical boundaries may require additional implementation vocabulary.
+Judge that vocabulary by the distinction it preserves, rather than by raw word
+counts or by whether Human Guidance needs to mention it.
+
 ## Technical boundary vocabulary
 
 Use **HTTP** for the network protocol and **payload** for one bounded unit of
@@ -40,12 +45,28 @@ among multiple construction strategies and returns an implementation through a
 stable interface. Use a direct constructor for one configured result, and name
 an injected callable by its action, such as acquire or create.
 
+A **Checksum** verifies expected bytes or structured content. A **Digest** is
+available when a hash is itself used as a content-derived identifier,
+fingerprint, cache discriminator, or deduplication value; a hash used for
+integrity verification is a Checksum. Qualify either term with the exact thing
+it verifies or identifies. **Canonicalization** is the technical operation that
+produces one canonical representation for semantically equivalent input. Use
+Normalize, Sort, Renumber, or Deterministic Encoding when one of those narrower
+operations states the actual behavior. **Definition** remains ordinary prose
+and language-level vocabulary. A PLE-owned type or field instead uses the more
+specific Content, Response Format, Rule, Input, View, or other established term
+when that term names its meaning.
+
 A **Record** is one durable saved fact. A **View** is a read-only shape
 prepared from authoritative records for one specific reader or interface.
 Projection means selecting or rearranging fields in a database query. It
 remains an implementation technique rather than a PLE-owned type name. Payload
 remains transport vocabulary rather than the name of a Question, Assignment,
 or Student Work domain object.
+
+Name each temporary, proposed, eligible, or selected value by its exact relationship
+and state. Use complete names such as Question Pool Item, Course Banner Upload,
+Instructor Account, proposed value, replacement, or selected Question.
 
 A PLE-owned internal serialized format has one canonical current shape. Update
 its type, decoder, schema, fixtures, and stored development data together. A
@@ -61,14 +82,19 @@ it owns.
 
 ## Identity, authentication, and product role
 
-**Account** is one global login identity in the single PLE installation.
-Account creation assigns one immutable **Product Role**: **Student**,
-**Instructor**, or **Sysadmin**. An Account has an **Account State** derived
-from immutable Account State Events: Active, Suspended, or Closed.
+**Account** is one global login identity in the single PLE installation. Account creation assigns one immutable **Product Role**: **Student**, **Instructor**, or **Sysadmin**.
+**Account State** derives from immutable Account State Events: Active, Deactivated, or Closed. Deactivated is reversible: it disables access while preserving Product Role, authored content, ownership, Course relationships, Student records, and teaching history. Closed is terminal.
+
+**Instructor Vetting** is the Sysadmin's real-person review before Account creation. **Create Instructor Account** then accepts a normalized email address and creates one Active Account with the immutable Instructor Product Role.
+**Instructor Accounts** is the Sysadmin surface for creating and managing those Accounts. Account State is the complete later enablement lifecycle. An **Active Instructor Account** has the Instructor Product Role and Active Account State.
+
+**Last Successful Sign-In** is the time of the most recent successful credential verification that created or continued an Authenticated Session. The Instructor Accounts surface shows it as evidence for a Sysadmin's deactivation decision; it is not an Account State or a source of authority.
+**Deactivate Instructor Account** and **Reactivate Instructor Account** are Sysadmin operations that append the corresponding Account State Event. Deactivation revokes current sessions.
+After credential verification, a Deactivated Instructor Account receives guidance to contact a Sysadmin, and session creation remains pending reactivation.
 
 **Authenticated Session** is one server-side authentication record for one
 Active Account. A successful passkey or email-code authentication creates or
-continues an Authenticated Session; suspension or closure revokes its sessions.
+continues an Authenticated Session; deactivation or closure revokes its sessions.
 `Authenticated Session Reference` identifies that record. A session authenticates
 an Account; it grants no course, authoring, Question Library, or FERPA authority
 itself.
@@ -79,24 +105,21 @@ Instructor uses a Sysadmin Account for system administration and an Instructor
 Account for teaching. This separation makes the product role a stable security
 boundary while retaining ordinary passwordless authentication for each Account.
 
-**Instructor Approval** is the current result of immutable Instructor Approval
-Events. An Instructor Account requires current approval before it may use
-Instructor-only Question Library, authoring, or course-creation capabilities.
-
-**Workspace Collaborator** is an Approved Instructor with a current relationship
+**Workspace Collaborator** is an Active Instructor Account with a current relationship
 to one exact Authoring Workspace, derived from immutable start and end Workspace
 Collaborator Events. It grants only that private-authoring relationship.
 
 ## Course relationships
 
-**Blueprint Course** is a reusable, answer-free course definition. It has no
+**Blueprint Course** is reusable, answer-free course content. It has no
 Students or delivery deadlines. A **Blueprint Revision** is one complete,
-immutable authored definition. A **Draft Blueprint Revision** has not yet been
-published. **Blueprint Revision Content** is the complete answer-free
-definition held by one Blueprint Revision: its structure, defaults, relative
-schedules, and exact Question Revision References. A **Blueprint Content Digest**
-is the SHA-256 value for that versioned content. A **Blueprint Content Check**
-compares two complete Blueprint Revision Content values by their digests. A
+immutable revision of that authored content. A **Draft Blueprint Revision** has
+not yet been published. **Blueprint Revision Content** is the complete
+answer-free content held by one Blueprint Revision: its structure, defaults,
+relative schedules, and exact Question Revision References. A **Blueprint
+Content Checksum** is the SHA-256 integrity value for that versioned content. A
+**Blueprint Content Check** compares two complete Blueprint Revision Content
+values by their checksums. A
 **Relative Assignment Schedule** is the reusable schedule intent for one
 Blueprint Assignment. Each Relative Assignment Schedule Moment stores a signed
 calendar-day offset from Course Term start and one local time; it does not store
@@ -107,11 +130,11 @@ Relative Assignment Schedule. Each Resolved Assignment Schedule Moment pairs
 the resulting Course Local Date and Time with its exact absolute timestamp.
 It belongs to one exact Assignment Revision and that revision's Course Schedule
 Revision.
-**Blueprint Collaborator** is an Approved Instructor with an
+**Blueprint Collaborator** is an Active Instructor Account with an
 explicit, time-bounded contribution relationship to one exact Draft Blueprint
 Revision; it grants neither Authoring Workspace nor Course Instance authority.
 A **Blueprint Publication Event** makes one reviewed revision reusable by
-Approved Instructors and closes its Draft Blueprint Revision collaboration.
+Active Instructor Accounts and closes its Draft Blueprint Revision collaboration.
 **Blueprint Revision Availability** is the current Available or Archived state
 derived from immutable Blueprint Revision Availability Events for one published
 revision. It determines ordinary new selection without changing historical
@@ -151,7 +174,7 @@ Course Instance. It is distinct from the mutable operation precondition and
 does not grant authority.
 
 **Course Rollover Manifest** is the closed copied-and-excluded state for one
-Course Instance rollover. It retains bounded reusable Assignment sources and
+Course Instance rollover. It retains bounded Blueprint Assignment sources and
 resolved schedules, while its one exclusion policy excludes all Student and
 delivery records.
 
@@ -168,7 +191,7 @@ selected copy can proceed.
 
 **Assignment Source Record** is immutable server-held evidence that an
 Assignment Revision came from one exact Blueprint Assignment Revision. It
-retains the checked Question Revision substitutions, Blueprint Content Digest,
+retains the checked Question Revision substitutions, Blueprint Content Checksum,
 destination Assignment Revision, and import revision after the operation
 commits. It is distinct from the browser-safe Assignment Source View and
 from the pre-mutation Assignment Source Snapshot.
@@ -185,12 +208,12 @@ authority and is distinct from a Course Instance Creation Reservation.
 
 **Course Instance Creation Reservation** is server-held pre-creation evidence
 for one Course Instance. It binds the exact Blueprint or rollover source, target
-Course Term, authorizing Account, request digest, Retry Token, and reserved
+Course Term, authorizing Account, Request Checksum, Retry Token, and reserved
 Course Instance Reference; it creates no authority of its own.
 
 **Blueprint Fork Reservation** is server-held pre-creation evidence for one
 Blueprint Course fork. It binds the exact source Blueprint Revision, authorizing
-Account, request digest, Retry Token, and reserved Blueprint Course Reference;
+Account, Request Checksum, Retry Token, and reserved Blueprint Course Reference;
 it creates no authority of its own.
 
 **Course Time Zone** is the one exact IANA time-zone name owned by a Course
@@ -244,6 +267,8 @@ A **Draft Question Revision** is its complete immutable accepted state. Its
 Question Source, Question Grading Rule, Answer Key, optional Question Hint,
 Question Feedback, Question Answer Explanation, and any Question Format-specific
 Question Grading Input bind to that exact revision when the role applies.
+A **Draft Question Revision Number** is the positive sequence of accepted Draft
+Question Revisions within that Draft Question lineage.
 
 **Workspace Import** is one staged, Authoring Workspace-owned import through a
 registered Question Format. It retains the source package evidence, source
@@ -252,11 +277,19 @@ committed Workspace Import creates Draft Questions for the ordinary Question
 publication workflow. Assignment composition remains a separate Instructor
 choice.
 
-**Source Object Reference** is the exact private Object ID and SHA-256 checksum
-for immutable authored or imported source bytes. It is reproduction evidence
-owned by one exact Draft Question Revision, Question Revision, Workspace Import,
-or Question Attempt Reproduction Details. It identifies bytes; it is not object
-delivery authority and never supplies a Student-visible object URL.
+**Question Source** is the exact authored or imported immutable source data
+owned by one exact Draft Question Revision or Question Revision. The owning
+revision supplies its Draft or Published lifecycle; use Question Source in both.
+When the source is stored as an object, **Source Object Reference** identifies the exact private stored object.
+**Source Object Checksum** is the SHA-256 integrity property that verifies its stored bytes.
+Both are reproduction evidence, while Object Delivery owns any authorized retrieval.
+
+The Draft Question Source Store binds a registered Source Object Reference and
+Source Object Checksum to one exact authorized Draft Question Revision. It
+validates the Question Backend, Question Format, and backend-specific location
+separately from the source bytes, and an identical retry returns the existing
+immutable Question Source.
+The Object Record exists only after the server writes its bytes and registers the exact typed owner address.
 
 **Object Address** is the server-created typed physical location for immutable
 object bytes. It selects the Object Storage Area and derives the physical path
@@ -278,11 +311,16 @@ Reuse rights come from the exact owning Question Revision, Question Source, or
 Question Asset relationship. A generic Object Record or Object write does not
 independently declare a license.
 
+A **Course Banner Upload** is validated image data bound to one Course Instance,
+Account, expiry, and Object Reference until an atomic Course Appearance update.
+The exact Course relationship authorizes the Instructor; format and image checks
+protect data integrity. Save makes it current; cancellation or expiry leaves the current Course Banner unchanged.
+
 **Question Attempt Reproduction Details** are server-held facts used to
 reproduce and verify one exact Question Attempt. They record a Question Backend
-Version, optional Question Renderer Version, Source Object Reference, Object
-References for its Question Assets,
-Question Grader Version, and Question Presentation checksum. The owning
+Version, optional Question Renderer Version, Source Object Reference, Source
+Object Checksum, Object References for its Question Assets, Question Grader
+Version, and Question Presentation checksum. The owning
 Issued Question and Question Attempt separately supply the exact Question
 Revision Reference, Question Seed, and generated-parameter checksum.
 
@@ -311,7 +349,8 @@ Reference** pairs that logical Question Asset with the checksum of the authored
 file used by Question content. A **Question Asset Rendition** records the exact
 browser-safe form selected for a Question Presentation: its Question Asset
 Reference, rendition checksum, and intrinsic dimensions. The issued Question
-Presentation binds its Question Asset Renditions into the presentation digest.
+Presentation binds its Question Asset Renditions into the Question Presentation
+Checksum.
 Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
@@ -327,10 +366,10 @@ MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. In MATCH, a
 possible matching response. In HOTSPOT, a **Hotspot Surface** contains authored
 **Hotspot Regions** and a **Student Hotspot Selection** identifies one selected
 region. Region geometry belongs to the Question Response Format, never the
-Student Response. **Question Generator** is the exact deterministic definition
-stored as Question Source under one Draft Question Revision or Question
-Revision. It derives parameters from a Question Seed. Repairing generator
-behavior creates a Question Revision with the corrected Question Source. A
+Student Response. **Question Generator** is the exact deterministic generator
+selected within a Question Source. It derives parameters from a Question Seed. Repairing
+generator behavior creates a Question Revision with the corrected Question
+Source. A
 **Question Variation** is the resulting parameterized Question state for one
 exact Question Revision and seed. It retains the exact Question Revision,
 seed, and ordered declared parameters that produced the presentation in server
@@ -383,13 +422,13 @@ Question Answer. Outcome-controlled choice, correct, or incorrect content maps
 to its matching Question Feedback form, and a model solution maps to Question
 Answer Explanation.
 
-**Question Backend** is the server-side adapter selected by the published
-Question Source. It declares its capabilities and performs its exact validation,
-issue, reproduction, and automated-grading operations. A **Native Question
-Implementation** is the current first-party implementation registered for an
-exact Question Format and Question Type. The exact Question Source carries the
-generator definition, and the implementation validates and executes that
-stored definition. An
+**Question Backend** identifies the server-side adapter selected for one Draft
+Question Revision or Question Revision independently of its Question Source. It
+performs its exact validation, issue, reproduction, and automated-grading
+operations. Use exact names such as WeBWorK PG Path or iMathAS Item Reference
+for an external location. A **PLE Question Implementation** is the current
+first-party implementation registered for an exact Question Format and Question
+Type. It validates and executes the stored Question Source. An
 **External Question Provider** is a configured external system used through a
 Question Backend for its exact launch, exchange, render, or grade operations.
 
@@ -401,6 +440,7 @@ defines the correctness-neutral shape and constraints of an accepted **Student
 Response**. Use Question Response Format consistently for the authored Question,
 Published Question, issued Question Presentation, browser contract, and strict
 Student Response decoder.
+The authored Question Response Format retains durable Response Item References. **Question Presentation Response Format** is its issued answer-free projection with presentation-scoped Response Item References for one Question Presentation.
 Question Response Control names the browser interaction used to collect that
 response. The Question Presentation declares the control, keeping the Student
 interface independent of Question Type and Question Format.
@@ -432,15 +472,15 @@ Assignment Attempt and references its accepted Question Submissions instead of
 repeating their Student Responses.
 
 **Question Library** is the single shared, authoritative set of Published
-Questions available to every Approved Instructor. **My Questions** is the
+Questions available to every Active Instructor Account. **My Questions** is the
 current Account's view of Published Questions for which it has the Question
 Owner relationship. **My Question Drafts** is its view of Draft Questions it
 may edit through an exact Authoring Workspace Owner or Workspace Collaborator
 relationship.
 
-**Question Owner** is the Approved Instructor relationship accountable for one
+**Question Owner** is the Active Instructor Account relationship accountable for one
 Published Question lineage and its ordinary same-lineage revisions. Question
-Library visibility remains shared with every Approved Instructor. Every
+Library visibility remains shared with every Active Instructor Account. Every
 Published Question has exactly one current Question Owner, derived from its
 immutable **Question Ownership Events**. A Question Ownership Event records the
 initial owner or one accepted transfer. Question Ownership supplies PLE
@@ -449,7 +489,7 @@ of copyright ownership.
 
 **Starred Questions** is the current Account's view of Published Questions to
 which it added a **Question Star**. A Question Star is a visible endorsement;
-Approved Instructors may see its Account relationship. Use Question Star and
+Active Instructor Accounts may see its Account relationship. Use Question Star and
 Starred Questions consistently at UI, API, schema, and code boundaries.
 Private organization uses Question Folders, while stored search criteria use
 Saved Question Searches. **Watched Questions** is the current Account's private
@@ -549,23 +589,23 @@ Classification describes intended cognitive demand. Neither value substitutes fo
 
 The Published Question discovery, credit, and control facts are closed:
 
-| Canonical term                | Publication requirement | Owning scope      | Question Search use                       |
-| ----------------------------- | ----------------------- | ----------------- | ----------------------------------------- |
-| Question Title                | Required                | Question Revision | Text search and visible result name       |
-| Question Description          | Required                | Question Revision | Text search and visible discovery summary |
-| Question Authorship           | Required                | Question Revision | Author text, facet, and Authored by Me    |
-| Question Owner                | Required                | Question lineage  | My Questions relationship filter          |
-| Question License              | Required                | Question Revision | Exact license facet                       |
-| Question Citation             | Optional                | Question Revision | Citation text and URL search              |
-| Language                      | Required                | Question Revision | Exact language facet                      |
-| Question Subject              | One or more required    | Question Revision | Subject text and facet                    |
-| Question Subsubject           | Optional                | Question Revision | Subsubject text and facet                 |
-| Question Tag                  | Optional                | Question Revision | Tag text and facet                        |
-| Question Bloom Classification | Assigned after publication | Question Revision | Both Bloom dimension facets             |
-| Question Classification       | Optional                | Question Revision | Exact system/code filter and name text    |
-| Question Type                 | Required, derived       | Question Revision | Exact Question Type facet                 |
-| Question Format               | Required, derived       | Question Revision | Exact Question Format facet               |
-| Question Backend              | Required, derived       | Question Revision | Exact Question Backend facet              |
+| Canonical term                | Publication requirement    | Owning scope      | Question Search use                       |
+| ----------------------------- | -------------------------- | ----------------- | ----------------------------------------- |
+| Question Title                | Required                   | Question Revision | Text search and visible result name       |
+| Question Description          | Required                   | Question Revision | Text search and visible discovery summary |
+| Question Authorship           | Required                   | Question Revision | Author text, facet, and Authored by Me    |
+| Question Owner                | Required                   | Question lineage  | My Questions relationship filter          |
+| Question License              | Required                   | Question Revision | Exact license facet                       |
+| Question Citation             | Optional                   | Question Revision | Citation text and URL search              |
+| Language                      | Required                   | Question Revision | Exact language facet                      |
+| Question Subject              | One or more required       | Question Revision | Subject text and facet                    |
+| Question Subsubject           | Optional                   | Question Revision | Subsubject text and facet                 |
+| Question Tag                  | Optional                   | Question Revision | Tag text and facet                        |
+| Question Bloom Classification | Assigned after publication | Question Revision | Both Bloom dimension facets               |
+| Question Classification       | Optional                   | Question Revision | Exact system/code filter and name text    |
+| Question Type                 | Required, derived          | Question Revision | Exact Question Type facet                 |
+| Question Format               | Required, derived          | Question Revision | Exact Question Format facet               |
+| Question Backend              | Required, derived          | Question Revision | Exact Question Backend facet              |
 
 **Question Search** applies normalized criteria to the current Question
 Library. Its text search covers the Question ID, Question Title, Question
@@ -589,9 +629,11 @@ Question Revision must satisfy before publication. **Question Publication
 Validation** evaluates one exact Draft Question Revision against those
 requirements and returns its complete set of **Question Publication Issues**.
 The validation result is calculated rather than stored as a lifecycle state.
+A **Question Publication Review** is the answer-free comparison prepared from
+that exact Draft Question Revision before publication.
 
 **Published Question** is a validated Question lineage in the Question Library,
-available to every Approved Instructor. **Question Revision** is an
+available to every Active Instructor Account. **Question Revision** is an
 immutable published state identified by the exact `(question_id,
 revision_number)` pair. Its Question Revision Number is positive and increases
 monotonically within that lineage. Instructor history surfaces use Revision and
@@ -638,24 +680,25 @@ affected Assignment, Assignment Attempt, Issued Question, and Assignment Grade.
 It supplies the fixed scope for correction work and its evidence; it is not a
 generic remediation payload.
 
-**Assignment** is the stable Course Instance-owned teaching object.
+**Assignment** is the stable Course Instance-owned teaching object and owns its
+current Instructor-authored content.
 **Assignment Status** belongs to that stable Assignment and is Unreleased,
-Released, Closed, or Archived. Unreleased keeps the Assignment Instructor-only.
+Released, Closed, or Archived. Unreleased limits the Assignment to the Course Teaching Team's authoring and preview workflows.
 Released selects one exact Assignment Revision for future Student access,
 subject to its availability and closing rules. Released therefore records the
 Instructor's release decision rather than current Student access. Closed stops
 new Student work. Archived retires the Assignment from current teaching
 surfaces.
 
-An **Assignment Working Copy** is the one replaceable Instructor editing state
-for an Assignment. Ordinary saves replace that working copy and increment its
-**Assignment Edit Number**. Successful Assignment Releases alone create
-teaching-history records. An **Assignment Revision** is one complete immutable
-teaching definition created by a successful Assignment Release. It stores the
+Ordinary saves update the Assignment and increment its **Assignment Edit
+Number**. Successful Assignment Releases alone create teaching-history
+records. An **Assignment Revision** is one complete immutable teaching snapshot
+created by a successful Assignment Release. It stores the
 Assignment Title, Assignment Instructions, resolved schedule, time and attempt
 limits, late-work rule, Assignment Deadline Rule, Questions, and policies
 released together.
-**Create Assignment** creates the stable Assignment and its first working copy.
+**Create Assignment** creates the stable Assignment with its initial authored
+content.
 An **Assignment Revision Reference** pairs the Assignment Reference with its
 positive Assignment Revision Number. Assignment Workspace save requests carry
 the reviewed Assignment Edit Number as their concurrency precondition.
@@ -663,13 +706,12 @@ Successful Assignment Release creates the next Assignment Revision and selects
 it for future Assignment Attempts. Existing work stays pinned to its exact
 Assignment Revision and Question Revisions.
 Assignment Revisions preserve exact released teaching history. The Assignment
-Working Copy retains only the current authored state.
-One Assignment has at most one Assignment Working Copy, regardless of ordinary
-save count. Its Assignment Revision count equals its successful content
-releases. Closing or archiving changes Assignment Status alone.
+itself retains the current authored state. Ordinary saves advance only the
+Assignment Edit Number. Its Assignment Revision count equals its successful
+content releases. Closing or archiving changes Assignment Status alone.
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
 navigation, scoring, and Student Feedback Release configuration in that
-working copy or released revision. **Effective Assignment Policy** is the
+Assignment or released revision. **Effective Assignment Policy** is the
 server-calculated result for one exact Student Record, Assignment Revision, and
 evaluation time after the applicable Accommodation Revisions and Student
 Schedule Adjustments are applied.
@@ -696,35 +738,31 @@ release rule, and current time. Student Feedback reads are transient
 calculations. The Assignment Revision, exact grading records, and exact
 Question records form the durable audit trail.
 **Assignment Release Requirements** are the closed conditions an Assignment
-Working Copy must satisfy before release. **Assignment Release Validation**
-evaluates the working copy and returns its complete set of **Assignment Release
+must satisfy before release. **Assignment Release Validation** evaluates the
+Assignment and returns its complete set of **Assignment Release
 Issues**. The validation result is calculated. A successful Assignment Release
 creates the next immutable Assignment Revision and changes the stable
 Assignment Status to Released. Later releases select a new revision only for
 future Assignment Attempts.
 
-An Assignment Revision owns one ordered list of **Assignment Entries**. A
-**Fixed Question Assignment Entry** pins one exact Question Revision. A
-**Question Pool Assignment Entry** selects a stated number of Questions from
-an ordered, explicit list of **Question Pool Candidates**. Each candidate pins
-one exact Question Revision. Question Pool therefore names Assignment
-composition; Question Library organization uses Question Folders, Question
-Tags, Question Classifications, and Saved Question Searches.
+An Assignment Revision owns ordered **Assignment Entries**. A **Fixed Question
+Assignment Entry** pins one exact Question Revision. A **Question Pool Assignment
+Entry** selects Questions from ordered **Question Pool Items**. Each **Question
+Pool Item** represents one Question as configured within that Pool. It pins one
+exact Question Revision and owns its availability. It is distinct from a top-level
+Assignment Entry. Question Library organization instead uses Question Folders,
+Question Tags, Question Classifications, and Saved Question Searches.
 
-A **Question Pool Selection Rule** contains the **Question Pool Selection
-Count** and **Selected Question Order**. Candidate Order presents selected
-Questions in their candidate order. Random Order shuffles the selected
-Questions. The server selects available candidates without replacement using
-its one current selection implementation and records the exact result. The
-Assignment contract carries the Instructor's selection count and ordering
-choice. A **Question Pool Selection** is that
-immutable result for one Assignment Attempt: the exact Question Pool Assignment
-Entry and selected Question Pool Candidate References in delivery order. Each
-resulting Issued Question retains its source Question Pool Selection. A
-**Question Pool Selection Position** is the browser-safe selected-Question
-number and selected-Question count. A **Question Pool Preview** is an
-Instructor-authorized, no-store sample of the current rule. The Instructor-facing
-label for Question Pool Selection Count is **Questions to Select**.
+A **Question Pool Selection Rule** contains the **Question Pool Selection Count**
+and **Selected Question Order**. Question Pool Order retains item order; Random
+Order shuffles the selected Questions. The server selects available Question Pool
+Items without replacement and records the exact result. A **Question Pool
+Selection** is the immutable result for one Assignment Attempt: its exact Question Pool
+Assignment Entry and selected Question Pool Item References in delivery order.
+Each Issued Question retains its source Question Pool Selection. A **Question Pool
+Selection Position** is the browser-safe selected-Question number and count. A
+**Question Pool Preview** is an Instructor-authorized, no-store sample. The
+Instructor-facing label for Question Pool Selection Count is **Questions to Select**.
 
 A **Question Pool Reuse Rule** determines what a later Assignment Attempt does:
 Reuse Selection keeps the Student's selected Question Revisions, while Select
@@ -737,7 +775,7 @@ At the Blackboard import boundary, Blackboard Question Pool, Question Set, and
 Random Block retain their source-system meanings. A Blackboard Question Pool is
 a reusable Blackboard authoring container. Its import creates Workspace Import
 evidence and Draft Questions while preserving source-package membership. A
-Blackboard Question Set is an assessment-local explicit selection definition.
+Blackboard Question Set is an assessment-local explicit Question selection.
 After its Questions resolve to exact PLE Question Revisions, it becomes a PLE
 Question Pool. A Blackboard Random Block is an assessment-local dynamic filter
 over one or more Blackboard pools. Import resolves that pool and filter criteria
@@ -748,10 +786,9 @@ Assignment structure and retain Blackboard Question Set and Random Block in
 source evidence.
 
 An **Assignment Entry Availability** belongs to one top-level Fixed Question or
-Question Pool in that revision and is Available or Retired for future Assignment
-Attempts. A **Question Pool Candidate Availability** belongs only to one candidate
-inside its owning Question Pool. Existing Issued Questions retain their exact
-historical source regardless of later availability changes.
+Question Pool and is Available or Retired. A **Question Pool Item Availability**
+belongs only to one Question Pool Item. Existing Issued Questions retain their
+exact historical source regardless of later availability changes.
 An **Assignment Entry Scoring Rule** belongs to one top-level Fixed Question or
 Question Pool in an Assignment Revision. It is Normal, Full Credit, Extra
 Credit, or Excluded and freezes on each Issued Question.
@@ -841,110 +878,10 @@ transforms, and validates the stored records.
 
 ## Interface surfaces and ribbon navigation
 
-This section defines canonical surface names and their semantic ownership.
-[UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) owns placement, geometry, rendering,
-and interaction behavior.
-
-**Application Shell** is the persistent frame around the current PLE content
-region. It owns the **Ribbon**, presentation settings, and the content origin.
-Route content renders inside that frame.
-
-**Ribbon** is the Application Shell-owned navigation surface. It persists
-while route content changes and has one stable **Ribbon Schema** for each
-combination of **Ribbon Scope** and **Product Role**. Every Product Role uses
-the same Ribbon architecture with its own distinct menu. A page supplies its
-task heading and workflow content inside the content region.
-
-**Ribbon Schema** is the predefined ordered set of Ribbon Slots and Ribbon
-Tasks selected by one Ribbon Scope and Product Role pair. **Ribbon Scope** is
-the exact product context. The closed scopes are:
-
-- **Product Ribbon Scope** for navigation across PLE surfaces without one
-  selected Course Instance or Assignment Attempt.
-- **Course Instance Ribbon Scope** for one live Course Instance.
-- **Assignment Attempt Ribbon Scope** for one Student's exact Assignment
-  Attempt.
-
-Ribbon Scope and Product Role select the Ribbon Schema. Exact domain
-relationships supply presentation availability. The current route supplies
-selection. Loaded records supply labels and course appearance. Server and
-Store boundaries continue to authorize every protected operation. Because
-Product Role is immutable, one Account uses one Ribbon Schema for each Ribbon
-Scope throughout its Authenticated Session.
-
-**Ribbon Context Row** is the fixed row that identifies PLE, the current
-Course Instance or Assignment Attempt when present, and the current Account
-and Profile controls. A **Ribbon Context Control** is a utility destination
-owned by the Context Row rather than a Ribbon Slot. Account and Profile are
-Ribbon Context Controls. Context labels remain separate from the page's task
-heading.
-
-**Ribbon Tab Row** contains the primary **Ribbon Tabs** for the current Ribbon
-Schema. A Ribbon Tab is a navigation link to one primary destination. The
-**Selected Ribbon Tab** is the tab whose destination matches the current route.
-A route reached through a Ribbon Context Control may have **No Selected Ribbon
-Tab**; the selected Ribbon Schema remains present with no Tab selected. Account
-Security, Instructor Course Invitations, and Sign In are Context Control routes
-that use this state.
-
-**Ribbon Task Row** contains secondary **Ribbon Tasks** for the Selected
-Ribbon Tab. A Ribbon Task is a navigation link to one task-specific
-destination, such as Overview, Questions, Policies, Grading Operations, or
-Student View for an Assignment. A **Ribbon Task Area** is a presentation-only
-heading for adjacent Ribbon Tasks with one shared purpose.
-
-**Page Action** is a control that performs an operation on the current
-content, such as Create Assignment, Save, Publish, or Submit. Page Actions live
-with the content they affect. Ribbon Tabs and Ribbon Tasks navigate; Page
-Actions perform operations.
-
-**Ribbon Slot** is one stable ordered position in a predefined Ribbon Schema.
-Its **Ribbon Availability** is one of:
-
-- **Available** when current presentation facts make the destination
-  appropriate to show as a live link.
-- **Checking** while the exact relationship facts needed for presentation are
-  loading.
-- **Unavailable** when the known relationship excludes that destination from
-  the current Ribbon.
-
-Selection and loading are separate from Ribbon Availability. **Selected**
-means the control's destination is the current route. **Loading** means a
-navigation to that destination is still in progress. **Active** remains a
-domain-state term for records such as Accounts and Course Memberships.
-
-**Content Layout** is the route-selected composition below the Ribbon.
-**Reading Layout** uses a bounded line length for prose. **Full-width Layout**
-uses the available content width for the Question Library, teaching workspaces,
-and dense records.
-
-Canonical Product destination names are **Courses**, **Question Library**,
-**Blueprint Courses**, and **Instructor Approvals**. Courses is the current
-Account's Course Instance surface. Instructor Approvals is the Sysadmin surface
-for Instructor vetting and Account approval. Account and Profile remain Ribbon
-Context Controls.
-
-Canonical Question Library view names are **All Questions**, **My Questions**,
-**My Question Drafts**, **Starred**, and **Watched**. All Questions means every
-Published Question available through the Question Library. My means ownership,
-Draft means publication state, Starred means a Question Star relationship, and
-Watched means a Question Watch relationship. Folders, tags, classifications,
-Saved Question Searches, and search facets are organizational mechanisms within
-these views.
-
-Canonical Course Instance destination names are **Assignments**, **Students**,
-**Gradebook**, **Teaching Operations**, **Blueprint Updates**, and **Course
-Setup**. Teaching Operations names the teaching and course-lifecycle surface.
-Blueprint Updates names reviewed changes from the parent Blueprint Course.
-Course Setup names Course Instance configuration; **Grade Settings** names its
-grade-calculation configuration and **Appearance** names Course Appearance.
-**Create Assignment** is a Page Action.
-
-Canonical Assignment Attempt labels are **Attempt**, **Back to Assignments**,
-and **Assignment Attempt Progress**. Attempt names the Student's current
-Assignment Attempt surface. Back to Assignments names its course-Assignment
-navigation destination. Assignment Attempt Progress names the current Question
-position. Question positions are Attempt content rather than Ribbon navigation.
+Canonical Ribbon, layout, and navigation-surface terms live in
+`docs/INTERFACE_TERMINOLOGY.md`. That companion contract preserves their
+semantic ownership; [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) owns placement,
+geometry, rendering, and interaction behavior.
 
 ## Authority and inheritance paths
 
@@ -954,13 +891,13 @@ ordinary sources of PLE authority:
 | Capability                            | Required path                                                                                                                                                                                            |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Authenticate                          | Active Account -> Authenticated Session                                                                                                                                                                  |
-| Question Library                      | Authenticated Session -> Active Approved Instructor Account -> Published Question                                                                                                                        |
-| Private authoring                     | Authenticated Session -> Active Approved Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship                                                                |
-| Draft Blueprint Revision contribution | Authenticated Session -> Active Approved Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision                                                             |
-| Teach a Course Instance               | Authenticated Session -> Active Approved Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                    |
+| Question Library                      | Authenticated Session -> Active Instructor Account -> Published Question                                                                                                                                 |
+| Private authoring                     | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship                                                                         |
+| Draft Blueprint Revision contribution | Authenticated Session -> Active Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision                                                                      |
+| Teach a Course Instance               | Authenticated Session -> Active Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                             |
 | Student course work                   | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment Attempt -> exact Released Assignment Revision -> Issued Question -> Question Attempt |
 | Student FERPA information             | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                                                                         |
-| Course observation                    | Authenticated Session -> Active Approved Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope                                                     |
+| Course observation                    | Authenticated Session -> Active Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope                                                              |
 | System administration                 | Authenticated Session -> Active Sysadmin Account -> exact audited support operation; general Sysadmin status does not provide general FERPA access                                                       |
 
 The arrows show inheritance, not merely convenient joins. A caller may receive
@@ -976,7 +913,7 @@ private authoring, or a specific Course Instance.
   relationship from that Account.
 - A Course Instance inherits reusable structure from an exact Blueprint
   Revision, then owns its own delivery facts and Student records.
-- An Assignment owns delivery definition through immutable Assignment
+- An Assignment preserves released teaching content through immutable Assignment
   Revisions; an Assignment Attempt owns one Student Record's activity.
 - Publication is historical entry into shared availability; current selection
   availability is a separate fact.

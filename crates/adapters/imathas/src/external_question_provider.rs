@@ -8,7 +8,9 @@
 
 use async_trait::async_trait;
 use question_model::generation::QuestionSeed;
-use question_model::{ActivityTimestamp, QuestionAttemptId, QuestionRevision, QuestionSource};
+use question_model::{
+    ActivityTimestamp, QuestionAttemptId, QuestionBackendLocator, QuestionRevision,
+};
 use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
@@ -16,7 +18,7 @@ use crate::scored_embed::{
     ScoredEmbedLaunchLedger, ScoredEmbedNonce, ScoredEmbedProfileConfig, ScoredEmbedResultVerifier,
 };
 use crate::{
-    GradeBinding, ImathasAdapterError, ImathasDraftQuestionSource, ImathasProvider, ImathasSource,
+    GradeBinding, ImathasAdapterError, ImathasProvider, ImathasQuestionLocation, ImathasSource,
     ProviderFailure, ProviderGradeRequest, ProviderRenderRequest, SafeProviderRender,
     ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex, sealed, verify_binding,
 };
@@ -199,7 +201,7 @@ impl std::fmt::Debug for ExternalToolLaunchReference {
 
 /// Server-only request sent to a transport's authorized snapshot operation.
 pub struct SnapshotTransportRequest<'a> {
-    pub(crate) locator: &'a ImathasDraftQuestionSource,
+    pub(crate) locator: &'a ImathasQuestionLocation,
     pub(crate) provider_key: &'a str,
 }
 impl<'a> SnapshotTransportRequest<'a> {
@@ -207,7 +209,7 @@ impl<'a> SnapshotTransportRequest<'a> {
         self.provider_key
     }
     pub fn item_ref(&self) -> &'a str {
-        self.locator.item_ref()
+        self.locator.item_reference().as_str()
     }
 }
 
@@ -450,18 +452,18 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         if source.provider != self.config.profile.provider_key() {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let QuestionSource::Imathas {
+        let QuestionBackendLocator::Imathas {
             integration_profile,
             ..
-        } = &question.source
+        } = &question.backend_locator
         else {
             return Err(ImathasAdapterError::UnsupportedSource);
         };
         if integration_profile != SCORED_EMBED_BROKER_PROFILE_ID {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let locator = ImathasDraftQuestionSource::from_draft(
-            &question_model::DraftQuestionSource::Imathas {
+        let locator = ImathasQuestionLocation::from_draft_backend_locator(
+            &question_model::DraftQuestionBackendLocator::Imathas {
                 provider: source.provider.clone(),
                 item_ref: source.item_ref.clone(),
             },
@@ -475,7 +477,8 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             .await
             .map_err(map_transport)?;
         if fresh.bytes().len() > self.config.max_snapshot_bytes
-            || hex(Sha256::digest(fresh.bytes()).as_slice()) != source.artifact.sha256
+            || hex(Sha256::digest(fresh.bytes()).as_slice())
+                != source.source_object_checksum.as_str()
         {
             return Err(ImathasAdapterError::SourceChecksumMismatch);
         }
@@ -495,7 +498,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             &self.config.profile,
             binding,
             &source.item_ref,
-            &source.artifact.sha256,
+            source.source_object_checksum.as_str(),
             ActivityTimestamp::from_unix_millis(expiry),
             correlation,
             nonce,
@@ -506,7 +509,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             provider_key: self.config.profile.provider_key().to_owned(),
             item_ref: source.item_ref.clone(),
             provider_seed: ledger.provider_seed(),
-            source_digest: source.artifact.sha256.clone(),
+            source_digest: source.source_object_checksum.to_string(),
             signed_launch_jwt: protocol::signed_launch_jwt(
                 &self.config.launch_signing_secret,
                 &source.item_ref,
@@ -573,9 +576,9 @@ impl<T: ScoredEmbedTransport> sealed::ProviderSealed for ContractedScoredEmbedPr
 impl<T: ScoredEmbedTransport> ImathasProvider for ContractedScoredEmbedProvider<T> {
     async fn snapshot(
         &self,
-        locator: &ImathasDraftQuestionSource,
+        locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
-        if locator.provider() != self.config.profile.provider_key() {
+        if locator.provider_reference().as_str() != self.config.profile.provider_key() {
             return Err(ProviderFailure::UnsupportedProfile);
         }
         let snapshot = self

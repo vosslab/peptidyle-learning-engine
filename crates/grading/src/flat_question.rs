@@ -1,6 +1,6 @@
 //! Server-only integrity contract for PLE's static flat-question format.
 //!
-//! The authoring parser deliberately lives in `adapter_native`; this module
+//! The authoring parser deliberately lives in `adapter_ple`; this module
 //! owns every rule whose failure could change correctness or disclose answers.
 
 use std::collections::{BTreeSet, HashSet};
@@ -8,15 +8,15 @@ use std::fmt::Write as _;
 
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
 };
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, GradingResult, QuestionAnswer, QuestionFeedback,
-    QuestionFormat, QuestionGradingRule, QuestionMetadata, QuestionPostGradingContent,
-    QuestionRevision, QuestionSource, QuestionTitleError,
+    DraftQuestionBackendLocator, DraftQuestionRevision, GradingResult, QuestionAnswer,
+    QuestionBackendLocator, QuestionFeedback, QuestionFormat, QuestionGradingRule,
+    QuestionMetadata, QuestionPostGradingContent, QuestionRevision, QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -32,7 +32,7 @@ const MAX_FEEDBACK_CHARS: usize = 16_384;
 
 /// Stable errors for flat question parsing, validation, persistence, and grading.
 ///
-/// The native adapter re-exports this type to retain its established public API.
+/// The PLE Question Backend re-exports this type to retain its established public API.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FlatQuestionError {
     TooLarge,
@@ -113,7 +113,7 @@ pub struct FlatQuestionEvaluation {
 impl FlatQuestionPrivate {
     /// Builds private material for one of the closed v2 flat Question Types.
     pub fn new_with_key(
-        draft: &DraftQuestionDefinition,
+        draft: &DraftQuestionRevision,
         answer_key: AnswerKey,
         choice_feedback: Vec<(ResponseItemReference, String)>,
         correct_feedback: Option<String>,
@@ -162,7 +162,7 @@ impl FlatQuestionPrivate {
     /// the public Question Response Format.
     pub fn rebind_to_draft(
         &self,
-        draft: &DraftQuestionDefinition,
+        draft: &DraftQuestionRevision,
     ) -> Result<Self, FlatQuestionError> {
         self.validate_private_shape()?;
         // The caller has already validated these private Question records against the
@@ -188,7 +188,7 @@ impl FlatQuestionPrivate {
     /// fabricating a published [`QuestionRevision`].
     pub fn validate_for_draft(
         &self,
-        draft: &DraftQuestionDefinition,
+        draft: &DraftQuestionRevision,
     ) -> Result<(), FlatQuestionError> {
         validate_for_draft(draft)?;
         if public_binding_sha256_for_draft(draft)? != self.public_sha256 {
@@ -339,8 +339,8 @@ impl FlatQuestionPrivate {
 }
 
 /// Validates the public contract on a draft before it can receive private key material.
-pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQuestionError> {
-    if !matches!(draft.source, DraftQuestionSource::Native)
+pub fn validate_for_draft(draft: &DraftQuestionRevision) -> Result<(), FlatQuestionError> {
+    if !matches!(draft.backend_locator, DraftQuestionBackendLocator::Ple)
         || draft.question_format != QuestionFormat::PleFlatQuestionV2
     {
         return Err(FlatQuestionError::PublicBindingMismatch);
@@ -357,7 +357,7 @@ pub fn validate_for_draft(draft: &DraftQuestionDefinition) -> Result<(), FlatQue
 pub fn validate_flat_question_question(
     question: &QuestionRevision,
 ) -> Result<(), FlatQuestionError> {
-    if !matches!(question.source, QuestionSource::Native)
+    if !matches!(question.backend_locator, QuestionBackendLocator::Ple)
         || question.question_format != QuestionFormat::PleFlatQuestionV2
     {
         return Err(FlatQuestionError::PublicBindingMismatch);
@@ -470,14 +470,14 @@ fn validate_response_for_type(
 
 trait SelectableResponseItem {
     fn id(&self) -> &question_model::response::ResponseItemReference;
-    fn body(&self) -> &[ContentBlock];
+    fn body(&self) -> &[QuestionContentBlock];
 }
 
 impl SelectableResponseItem for question_model::response::QuestionChoice {
     fn id(&self) -> &question_model::response::ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -486,7 +486,7 @@ impl SelectableResponseItem for question_model::response::MatchingPrompt {
     fn id(&self) -> &question_model::response::ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -495,7 +495,7 @@ impl SelectableResponseItem for question_model::response::MatchingChoice {
     fn id(&self) -> &question_model::response::ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -504,7 +504,7 @@ impl SelectableResponseItem for question_model::response::OrderingItem {
     fn id(&self) -> &question_model::response::ResponseItemReference {
         &self.id
     }
-    fn body(&self) -> &[ContentBlock] {
+    fn body(&self) -> &[QuestionContentBlock] {
         &self.body
     }
 }
@@ -649,7 +649,7 @@ fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemRef
 fn correct_response_blocks(
     response: &QuestionResponseFormat,
     key: &AnswerKey,
-) -> Result<Vec<ContentBlock>, FlatQuestionError> {
+) -> Result<Vec<QuestionContentBlock>, FlatQuestionError> {
     validate_key_against_response(response, key)?;
     let blocks = match (response, key) {
         (
@@ -671,7 +671,7 @@ fn correct_response_blocks(
             ))
         }
         (QuestionResponseFormat::MultiBlank { blanks }, AnswerKey::MultiBlank { accepted }) => {
-            vec![ContentBlock::Table {
+            vec![QuestionContentBlock::Table {
                 headers: vec!["Blank".to_string(), "Accepted response".to_string()],
                 rows: blanks
                     .iter()
@@ -684,7 +684,7 @@ fn correct_response_blocks(
             QuestionResponseFormat::Matching { prompts, choices },
             AnswerKey::Matching { correct },
         ) => {
-            vec![ContentBlock::Table {
+            vec![QuestionContentBlock::Table {
                 headers: vec!["Prompt".to_string(), "Match".to_string()],
                 rows: prompts
                     .iter()
@@ -723,15 +723,15 @@ fn correct_response_blocks(
     Ok(blocks)
 }
 
-fn blocks_text(blocks: &[ContentBlock]) -> String {
+fn blocks_text(blocks: &[QuestionContentBlock]) -> String {
     blocks
         .iter()
         .map(|block| match block {
-            ContentBlock::Text { markdown } => markdown.as_str(),
-            ContentBlock::Math { description, .. }
-            | ContentBlock::Image { description, .. }
-            | ContentBlock::Table { description, .. } => description.as_str(),
-            ContentBlock::Code { source, .. } => source.as_str(),
+            QuestionContentBlock::Text { markdown } => markdown.as_str(),
+            QuestionContentBlock::Math { description, .. }
+            | QuestionContentBlock::Image { description, .. }
+            | QuestionContentBlock::Table { description, .. } => description.as_str(),
+            QuestionContentBlock::Code { source, .. } => source.as_str(),
         })
         .collect::<Vec<_>>()
         .join(" ")
@@ -742,7 +742,7 @@ fn blocks_text(blocks: &[ContentBlock]) -> String {
 struct PublicBinding<'a> {
     question_format: QuestionFormat,
     question_type: QuestionType,
-    prompt: &'a [ContentBlock],
+    prompt: &'a [QuestionContentBlock],
     response: &'a QuestionResponseFormat,
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
@@ -751,11 +751,11 @@ struct PublicBinding<'a> {
     metadata: &'a QuestionMetadata,
 }
 /// Returns the checksum that binds private Answer Key and Question Feedback to one exact
-/// browser-safe flat-question definition.
+/// browser-safe PLE flat Question Revision.
 pub fn public_binding_sha256_for_draft(
-    draft: &DraftQuestionDefinition,
+    draft: &DraftQuestionRevision,
 ) -> Result<String, FlatQuestionError> {
-    if !matches!(draft.source, DraftQuestionSource::Native)
+    if !matches!(draft.backend_locator, DraftQuestionBackendLocator::Ple)
         || draft.question_format != QuestionFormat::PleFlatQuestionV2
     {
         return Err(FlatQuestionError::PublicBindingMismatch);
@@ -775,7 +775,7 @@ pub fn public_binding_sha256_for_draft(
 fn public_binding_sha256_for_question(
     question: &QuestionRevision,
 ) -> Result<String, FlatQuestionError> {
-    if !matches!(question.source, QuestionSource::Native)
+    if !matches!(question.backend_locator, QuestionBackendLocator::Ple)
         || question.question_format != QuestionFormat::PleFlatQuestionV2
     {
         return Err(FlatQuestionError::PublicBindingMismatch);
@@ -805,8 +805,8 @@ fn sha256_hex(bytes: &[u8]) -> String {
     }
     value
 }
-fn markdown_blocks(markdown: &str) -> Vec<ContentBlock> {
-    vec![ContentBlock::Text {
+fn markdown_blocks(markdown: &str) -> Vec<QuestionContentBlock> {
+    vec![QuestionContentBlock::Text {
         markdown: markdown.to_string(),
     }]
 }

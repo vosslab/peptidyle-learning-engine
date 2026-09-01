@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   adoptReloadedRevision,
-  canonicalCourseLocalDateTime,
+  canonicalCourseLocalDateAndTime,
   emptyPatchDraft,
   policyRequest,
   sourceLabel,
@@ -44,10 +44,13 @@ test("synthetic accommodation requests keep dates inherited and accept both mode
 });
 
 test("course-local inputs are canonical strings with no epoch conversion", () => {
-  assert.equal(canonicalCourseLocalDateTime("2026-08-20T09:30"), "2026-08-20T09:30:00.000");
-  assert.equal(canonicalCourseLocalDateTime("2026-08-20T09:30:45"), "2026-08-20T09:30:45.000");
-  assert.equal(canonicalCourseLocalDateTime("2026-08-20T09:30:45.123"), "2026-08-20T09:30:45.123");
-  assert.throws(() => canonicalCourseLocalDateTime("2026-08-20T09:30:45.1"));
+  assert.equal(canonicalCourseLocalDateAndTime("2026-08-20T09:30"), "2026-08-20T09:30:00.000");
+  assert.equal(canonicalCourseLocalDateAndTime("2026-08-20T09:30:45"), "2026-08-20T09:30:45.000");
+  assert.equal(
+    canonicalCourseLocalDateAndTime("2026-08-20T09:30:45.123"),
+    "2026-08-20T09:30:45.123",
+  );
+  assert.throws(() => canonicalCourseLocalDateAndTime("2026-08-20T09:30:45.1"));
 });
 
 test("reloading a revision preserves the caller-owned modifier draft", () => {

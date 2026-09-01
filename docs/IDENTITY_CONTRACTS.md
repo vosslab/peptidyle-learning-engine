@@ -124,7 +124,7 @@ reads; neither another course nor a visible record ID extends that authority.
 | `WorkspaceImportId`        | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                                  |
 | `QuestionId`               | Global immutable published question identity | Human-facing Question Library locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared Question Library. |
 | `QuestionRevisionReference` | Server-only immutable Question Revision       | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                       |
-| `AssetId`                  | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                |
+| `QuestionAssetId`                  | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                |
 | `ObjectId`                 | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                            |
 
 Validated publication either starts a new immutable Question Library identity for a new
@@ -166,7 +166,7 @@ remediation; issued and graded evidence remains pinned to the original.
 Question Library discovery and reuse use current approved-Instructor state.
 Question Search and Question Details release only answer-free, content-focused fields.
 It excludes Student-linked data, accepted responses, grades, source packages,
-private grader payloads, provider identifiers and credentials, object keys,
+private grader payloads, provider identifiers and credentials, Object Addresses,
 signed URLs, and workspace identifiers.
 
 ## Current and future course relationships
@@ -196,7 +196,7 @@ until each workflow has its complete privacy and disclosure contract.
 | `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                      |
 | Job target scope         | Locked job manifest                      | A tagged `course`, `workspace`, `catalog`, `object`, or `provider` target resolved from immutable job metadata. Job Kind Registration, target type, generation, and broker grant agree before work starts. |
 | `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                                 |
-| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `AssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                      |
+| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                      |
 | `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                      |
 | `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                  |
 

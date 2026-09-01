@@ -16,8 +16,8 @@ use question_model::ObjectId;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::definition::{QuestionGradingRule, QuestionMetadata, QuestionSource};
-use question_model::envelope::ContentBlock;
+use question_model::definition::{QuestionBackendLocator, QuestionGradingRule, QuestionMetadata};
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
@@ -35,7 +35,7 @@ pub const MULTI_CHOICE_CONTENT_TYPE: &str = "H5P.MultiChoice";
 ///
 /// The object-store package is authoritative for re-import. The remote
 /// reference is provenance only and is intentionally kept out of the
-/// browser-safe [`QuestionSource`].
+/// browser-safe [`QuestionBackendLocator`].
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct H5pSourceReference {
@@ -198,9 +198,9 @@ pub struct ImportedH5pQuestion {
     /// Authoritative source record retained for re-import and provenance.
     pub source_reference: H5pSourceReference,
     /// The Question Backend source safe for downstream adapter dispatch.
-    pub source: QuestionSource,
+    pub backend_locator: QuestionBackendLocator,
     /// Prompt ready for the browser-safe renderer.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// Response shape, without a correct answer.
     pub response: QuestionResponseFormat,
     /// Practice retry behavior.
@@ -263,10 +263,10 @@ impl H5pImporter {
         Ok(ImportedH5pQuestion {
             import_schema_version: IMPORT_SCHEMA_VERSION,
             source_reference: source.clone(),
-            source: QuestionSource::H5p {
+            backend_locator: QuestionBackendLocator::H5p {
                 content_type: source.content_type,
             },
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: request.prompt_markdown,
             }],
             response: QuestionResponseFormat::MultipleChoice {
@@ -515,7 +515,7 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<QuestionChoice>, H5p
             }
             Ok(QuestionChoice {
                 id: ResponseItemReference::new(choice.id),
-                body: vec![ContentBlock::Text {
+                body: vec![QuestionContentBlock::Text {
                     markdown: choice.markdown,
                 }],
             })
@@ -529,8 +529,8 @@ mod tests {
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::capability::Capability;
     use question_model::classification::License;
-    use question_model::definition::{QuestionGradingRule, QuestionSource};
-    use question_model::envelope::ContentBlock;
+    use question_model::definition::{QuestionBackendLocator, QuestionGradingRule};
+    use question_model::envelope::QuestionContentBlock;
     use uuid::Uuid;
 
     const ARCHIVE_BYTES: &[u8] = b"fixture h5p archive bytes";
@@ -608,8 +608,8 @@ mod tests {
             .import(request())
             .expect("supported H5P imports");
         assert_eq!(
-            imported.source,
-            QuestionSource::H5p {
+            imported.backend_locator,
+            QuestionBackendLocator::H5p {
                 content_type: MULTI_CHOICE_CONTENT_TYPE.to_string(),
             }
         );
@@ -622,7 +622,7 @@ mod tests {
         );
         assert!(matches!(
             imported.prompt.as_slice(),
-            [ContentBlock::Text { markdown }] if markdown == "Which linkage joins amino acids?"
+            [QuestionContentBlock::Text { markdown }] if markdown == "Which linkage joins amino acids?"
         ));
         assert!(matches!(
             imported.response,

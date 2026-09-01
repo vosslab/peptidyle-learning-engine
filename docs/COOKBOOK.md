@@ -87,16 +87,16 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 ## Build and release an assignment
 
 1. In a Course Instance, open **Assignments**, choose **New assignment**, enter a title, and select
-   **Create assignment draft**.
+   **Create Assignment**.
 2. In **Questions**, use the saved-assignment picker or question library to add published questions.
    Arrange fixed Questions, add Question Pools with candidate IDs and selection counts, and choose **Save questions
    and order**. Pool samples create no Student work.
 3. Open **Policies**. Enter Student instructions, availability and due/close times in the Course
    Instance time zone, run limits, completion and continued-practice rules, late behavior, and
    disclosure settings. Choose **Save assignment policies**.
-4. Read **Publication readiness** on **Overview**. Resolve every blocking action. Choose **Published
-   - eligible for Student access** in the lifecycle control and save it. Until that save succeeds,
-     the assignment remains **Draft - students cannot access it**.
+4. Read **Release requirements** on **Overview**. Resolve every Assignment Release Issue. Choose
+   **Released - eligible for Student access** in the lifecycle control and save it. Until that save
+   succeeds, the Assignment remains **Unreleased - students cannot access it**.
 5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
    Instructor session and creates no Student run or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course

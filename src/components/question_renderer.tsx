@@ -3,8 +3,8 @@
 import { createUniqueId, ErrorBoundary, For, onMount, Show, type JSX } from "solid-js";
 import temml from "temml";
 
-import type { AssetRef } from "../../generated/api/AssetRef";
-import type { ContentBlock } from "../../generated/api/ContentBlock";
+import type { QuestionAssetReference } from "../../generated/api/QuestionAssetReference";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
@@ -165,24 +165,24 @@ type SanitizedMathMl = { readonly root: SafeMathMlElementNode };
 export interface SanitizedMarkupProjection {
   readonly promptIndex: number;
   readonly markup: SanitizedMarkup;
-  /** Logical IDs only. Object keys and bucket locations never reach this component. */
-  readonly assets: ReadonlyMap<string, AssetRef>;
+  /** Logical IDs only. Object Addresses and bucket locations never reach this component. */
+  readonly assets: ReadonlyMap<string, QuestionAssetReference>;
 }
 
-/** A narrow callback that must derive the documented application asset route from an AssetRef. */
-export type AssetUrlResolver = (asset: AssetRef) => URL;
+/** A narrow callback that must derive the documented application asset route from an QuestionAssetReference. */
+export type AssetUrlResolver = (asset: QuestionAssetReference) => URL;
 
 /**
  * The identity-free content the browser renderer actually needs. Published envelopes and private
  * workspace previews intentionally share this projection without sharing a publication identity.
  */
-export interface QuestionPresentation {
-  readonly prompt: ReadonlyArray<ContentBlock>;
+export interface QuestionVariationPresentation {
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
 
 export interface QuestionRendererProps {
-  readonly presentation: QuestionPresentation;
+  readonly presentation: QuestionVariationPresentation;
   readonly assetUrl: AssetUrlResolver;
   readonly suppliedMarkup?: ReadonlyArray<SanitizedMarkupProjection>;
   /** Re-fetches only this question resource; the surrounding run shell remains intact. */
@@ -191,7 +191,7 @@ export interface QuestionRendererProps {
 
 /** The semantic, answer-free prompt block surface shared by question views. */
 export interface QuestionPromptRendererProps {
-  readonly blocks: ReadonlyArray<ContentBlock>;
+  readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
   readonly suppliedMarkup?: ReadonlyArray<SanitizedMarkupProjection>;
 }
@@ -214,7 +214,7 @@ function hasRequiredDescription(description: string): boolean {
 /** Missing figure or math alternatives are authoring errors, not a silent visual-only fallback. */
 export function requireAccessibilityDescription(
   description: string,
-  kind: ContentBlock["kind"],
+  kind: QuestionContentBlock["kind"],
 ): string {
   if (!hasRequiredDescription(description)) {
     throw new QuestionContentError(
@@ -432,7 +432,10 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
 }
 
 /** Refuse every route except the authorized, logical application asset endpoint. */
-export function resolveSameOriginAssetUrl(asset: AssetRef, resolver: AssetUrlResolver): string {
+export function resolveSameOriginAssetUrl(
+  asset: QuestionAssetReference,
+  resolver: AssetUrlResolver,
+): string {
   const url = resolver(asset);
   const expectedPath = `/api/assets/${encodeURIComponent(asset.asset)}`;
   if (
@@ -549,7 +552,7 @@ function appendSafeNodes(
   document: Document,
   parent: Node,
   nodes: ReadonlyArray<SafeMarkupNode>,
-  assets: ReadonlyMap<string, AssetRef>,
+  assets: ReadonlyMap<string, QuestionAssetReference>,
   resolver: AssetUrlResolver,
 ): void {
   for (const node of nodes) {
@@ -599,7 +602,7 @@ function appendSafeMathMlNode(document: Document, parent: Node, node: SafeMathMl
 
 function ValidatedMarkup(props: {
   readonly markup: SanitizedMarkup;
-  readonly assets: ReadonlyMap<string, AssetRef>;
+  readonly assets: ReadonlyMap<string, QuestionAssetReference>;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   const hostId = createUniqueId();
@@ -647,7 +650,7 @@ function projectionFor(
 }
 
 function StructuredBlock(props: {
-  readonly block: ContentBlock;
+  readonly block: QuestionContentBlock;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -717,7 +720,7 @@ function StructuredBlock(props: {
 
 function PromptProjection(props: {
   readonly index: number;
-  readonly block: ContentBlock;
+  readonly block: QuestionContentBlock;
   readonly assetUrl: AssetUrlResolver;
   readonly suppliedMarkup: ReadonlyArray<SanitizedMarkupProjection>;
 }): JSX.Element {

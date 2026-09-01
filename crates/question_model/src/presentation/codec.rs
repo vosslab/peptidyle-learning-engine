@@ -2,18 +2,18 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::envelope::{AssetRef, ContentBlock};
+use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 
 use super::builder::{
-    IssuedQuestionPresentation, ItemBasisV1, PresentationBuildError, ResponseItemRole,
+    IssuedQuestionPresentation, PresentationBuildError, ResponseItemBasis, ResponseItemRole,
 };
 use super::model::{
-    IssuedQuestionResponseFormatV1, PresentationResponseItemReference, PresentedChoiceV1,
-    PresentedQuestionAsset, QuestionPresentationToken,
+    PresentationResponseItemReference, PresentedResponseItemContent, QuestionAssetRendition,
+    QuestionPresentationResponseFormat, QuestionPresentationToken,
 };
 
 /// Closed descriptor version stored with every v1 attempt.
-pub const DESCRIPTOR_VERSION_V1: u8 = 1;
+pub const CURRENT_DESCRIPTOR_VERSION: u8 = 1;
 const PRESENTATION_DOMAIN: &[u8] = b"ple:presentation:v1\0";
 const HOTSPOT_COORDINATE_MAXIMUM: u32 = 10_000;
 
@@ -76,51 +76,51 @@ impl QuestionPresentationDigest {
 }
 
 /// Encodes the complete answer-free presentation deterministically.
-pub fn descriptor_bytes_v1(
+pub fn descriptor_bytes(
     presentation: &IssuedQuestionPresentation,
 ) -> Result<Vec<u8>, PresentationBuildError> {
     let mut encoder = Encoder::new();
     encoder.raw(PRESENTATION_DOMAIN);
-    encoder.u8(DESCRIPTOR_VERSION_V1);
+    encoder.u8(CURRENT_DESCRIPTOR_VERSION);
     encoder.string(
         &presentation
-            .envelope
+            .presentation
             .question_revision
             .question_id
             .to_string(),
     )?;
     encoder.u32(
         presentation
-            .envelope
+            .presentation
             .question_revision
             .revision_number
             .get(),
     );
-    encoder.u64(presentation.envelope.seed.value());
-    encoder.raw(&presentation.envelope.presentation_nonce.as_bytes());
-    encoder.string(&presentation.envelope.title)?;
-    encoder.content_blocks(&presentation.envelope.prompt)?;
-    encoder.question_response_format(&presentation.envelope.response, presentation)?;
+    encoder.u64(presentation.presentation.seed.value());
+    encoder.raw(&presentation.presentation.presentation_nonce.as_bytes());
+    encoder.string(&presentation.presentation.title)?;
+    encoder.content_blocks(&presentation.presentation.prompt)?;
+    encoder.question_response_format(&presentation.presentation.response, presentation)?;
     encoder.u32_len(presentation.item_bindings.len())?;
     for item in &presentation.item_bindings {
         encoder.u16(item.rendered.as_u16());
         let basis = item_basis_bytes(&item.basis)?;
         encoder.bytes(&basis)?;
     }
-    encoder.u32_len(presentation.asset_bindings.len())?;
-    for binding in &presentation.asset_bindings {
-        encoder.asset_binding(binding)?;
+    encoder.u32_len(presentation.question_asset_renditions.len())?;
+    for binding in &presentation.question_asset_renditions {
+        encoder.question_asset_rendition(binding)?;
     }
     Ok(encoder.finish())
 }
 
 /// Verifies both the full persisted digest and the public prefix.
-pub fn verify_presentation_v1(
+pub fn verify_question_presentation(
     presentation: &IssuedQuestionPresentation,
     expected: QuestionPresentationDigest,
     public: &QuestionPresentationToken,
 ) -> Result<(), PresentationBuildError> {
-    let actual = QuestionPresentationDigest::compute(&descriptor_bytes_v1(presentation)?);
+    let actual = QuestionPresentationDigest::compute(&descriptor_bytes(presentation)?);
     if actual == expected && actual.public_token() == *public {
         Ok(())
     } else {
@@ -130,7 +130,9 @@ pub fn verify_presentation_v1(
     }
 }
 
-pub(super) fn item_basis_bytes(basis: &ItemBasisV1) -> Result<Vec<u8>, PresentationBuildError> {
+pub(super) fn item_basis_bytes(
+    basis: &ResponseItemBasis,
+) -> Result<Vec<u8>, PresentationBuildError> {
     let mut encoder = Encoder::new();
     encoder.u8(basis.role.tag());
     encoder.u32(basis.ordinal);
@@ -138,7 +140,7 @@ pub(super) fn item_basis_bytes(basis: &ItemBasisV1) -> Result<Vec<u8>, Presentat
     encoder.content_blocks(&basis.content)?;
     encoder.u32_len(basis.assets.len())?;
     for asset in &basis.assets {
-        encoder.asset_binding(asset)?;
+        encoder.question_asset_rendition(asset)?;
     }
     encoder.optional_u32(basis.hotspot_width);
     encoder.optional_u32(basis.hotspot_height);
@@ -266,47 +268,49 @@ impl Encoder {
         Ok(())
     }
 
-    fn asset_ref(&mut self, asset: &AssetRef) -> Result<(), PresentationBuildError> {
+    fn asset_ref(&mut self, asset: &QuestionAssetReference) -> Result<(), PresentationBuildError> {
         self.raw(asset.asset.as_uuid().as_bytes());
         self.checksum(&asset.checksum)
     }
 
-    fn asset_binding(
+    fn question_asset_rendition(
         &mut self,
-        asset: &PresentedQuestionAsset,
+        asset: &QuestionAssetRendition,
     ) -> Result<(), PresentationBuildError> {
-        self.raw(asset.asset.as_uuid().as_bytes());
-        self.checksum(&asset.authored_checksum)?;
+        self.asset_ref(&asset.question_asset)?;
         self.checksum(&asset.rendition_checksum)?;
         self.optional_u32(asset.intrinsic_width);
         self.optional_u32(asset.intrinsic_height);
         Ok(())
     }
 
-    fn content_blocks(&mut self, blocks: &[ContentBlock]) -> Result<(), PresentationBuildError> {
+    fn content_blocks(
+        &mut self,
+        blocks: &[QuestionContentBlock],
+    ) -> Result<(), PresentationBuildError> {
         self.u32_len(blocks.len())?;
         for block in blocks {
             match block {
-                ContentBlock::Text { markdown } => {
+                QuestionContentBlock::Text { markdown } => {
                     self.u8(0);
                     self.string(markdown)?;
                 }
-                ContentBlock::Math { latex, description } => {
+                QuestionContentBlock::Math { latex, description } => {
                     self.u8(1);
                     self.string(latex)?;
                     self.string(description)?;
                 }
-                ContentBlock::Image { asset, description } => {
+                QuestionContentBlock::Image { asset, description } => {
                     self.u8(2);
                     self.asset_ref(asset)?;
                     self.string(description)?;
                 }
-                ContentBlock::Code { language, source } => {
+                QuestionContentBlock::Code { language, source } => {
                     self.u8(3);
                     self.string(language)?;
                     self.string(source)?;
                 }
-                ContentBlock::Table {
+                QuestionContentBlock::Table {
                     headers,
                     rows,
                     description,
@@ -334,15 +338,19 @@ impl Encoder {
 
     fn question_response_format(
         &mut self,
-        response: &IssuedQuestionResponseFormatV1,
+        response: &QuestionPresentationResponseFormat,
         presentation: &IssuedQuestionPresentation,
     ) -> Result<(), PresentationBuildError> {
         match response {
-            IssuedQuestionResponseFormatV1::SingleChoice { choices } => {
+            QuestionPresentationResponseFormat::SingleChoice { choices } => {
                 self.u8(0);
-                self.choice_ordinals(choices, presentation, ResponseItemRole::QuestionChoice)?;
+                self.response_item_ordinals(
+                    choices,
+                    presentation,
+                    ResponseItemRole::QuestionChoice,
+                )?;
             }
-            IssuedQuestionResponseFormatV1::MultipleAnswer {
+            QuestionPresentationResponseFormat::MultipleAnswer {
                 choices,
                 minimum,
                 maximum,
@@ -350,13 +358,17 @@ impl Encoder {
                 self.u8(1);
                 self.u32(*minimum);
                 self.u32(*maximum);
-                self.choice_ordinals(choices, presentation, ResponseItemRole::QuestionChoice)?;
+                self.response_item_ordinals(
+                    choices,
+                    presentation,
+                    ResponseItemRole::QuestionChoice,
+                )?;
             }
-            IssuedQuestionResponseFormatV1::FillIn { max_characters } => {
+            QuestionPresentationResponseFormat::FillIn { max_characters } => {
                 self.u8(2);
                 self.u32(*max_characters);
             }
-            IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
+            QuestionPresentationResponseFormat::MultiFillIn { blanks } => {
                 self.u8(3);
                 self.u32_len(blanks.len())?;
                 for blank in blanks {
@@ -368,7 +380,7 @@ impl Encoder {
                     self.u32(blank.max_characters);
                 }
             }
-            IssuedQuestionResponseFormatV1::Numerical {
+            QuestionPresentationResponseFormat::Numerical {
                 max_characters,
                 displayed_unit,
             } => {
@@ -376,21 +388,29 @@ impl Encoder {
                 self.u32(*max_characters);
                 self.optional_string(displayed_unit.as_deref())?;
             }
-            IssuedQuestionResponseFormatV1::Matching {
+            QuestionPresentationResponseFormat::Matching {
                 prompts,
                 choices,
                 reuse_choices,
             } => {
                 self.u8(5);
-                self.choice_ordinals(prompts, presentation, ResponseItemRole::MatchingPrompt)?;
-                self.choice_ordinals(choices, presentation, ResponseItemRole::MatchingChoice)?;
+                self.response_item_ordinals(
+                    prompts,
+                    presentation,
+                    ResponseItemRole::MatchingPrompt,
+                )?;
+                self.response_item_ordinals(
+                    choices,
+                    presentation,
+                    ResponseItemRole::MatchingChoice,
+                )?;
                 self.u8(u8::from(*reuse_choices));
             }
-            IssuedQuestionResponseFormatV1::Ordering { items } => {
+            QuestionPresentationResponseFormat::Ordering { items } => {
                 self.u8(6);
-                self.choice_ordinals(items, presentation, ResponseItemRole::OrderingItem)?;
+                self.response_item_ordinals(items, presentation, ResponseItemRole::OrderingItem)?;
             }
-            IssuedQuestionResponseFormatV1::Hotspot {
+            QuestionPresentationResponseFormat::Hotspot {
                 surface,
                 minimum,
                 maximum,
@@ -408,15 +428,19 @@ impl Encoder {
         Ok(())
     }
 
-    fn choice_ordinals(
+    fn response_item_ordinals<T: PresentedResponseItemContent>(
         &mut self,
-        choices: &[PresentedChoiceV1],
+        items: &[T],
         presentation: &IssuedQuestionPresentation,
         role: ResponseItemRole,
     ) -> Result<(), PresentationBuildError> {
-        self.u32_len(choices.len())?;
-        for choice in choices {
-            self.u32(ordinal_for(&choice.id, presentation, role)?);
+        self.u32_len(items.len())?;
+        for item in items {
+            self.u32(ordinal_for(
+                item.presentation_item_id(),
+                presentation,
+                role,
+            )?);
         }
         Ok(())
     }

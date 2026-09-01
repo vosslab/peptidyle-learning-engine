@@ -17,15 +17,15 @@ CREATE TABLE ple_data.forced_question_correction (
     approved_at timestamp with time zone NOT NULL,
     generation integer NOT NULL CHECK (generation > 0),
     reason text NOT NULL CHECK (reason IN ('security_flaw', 'critical_correctness_flaw')),
-    CONSTRAINT forced_question_correction_versions_differ CHECK (
+    CONSTRAINT forced_question_correction_revisions_differ CHECK (
         (flawed_question_id, flawed_revision_number) <> (replacement_question_id, replacement_revision_number)
     ),
     CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
         REFERENCES ple_private.account (account_id, role),
     CONSTRAINT forced_question_correction_flawed_generation_is_unique UNIQUE (flawed_question_id, flawed_revision_number, generation),
-    CONSTRAINT forced_question_correction_flawed_version_matches FOREIGN KEY (flawed_question_id, flawed_revision_number)
+    CONSTRAINT forced_question_correction_flawed_revision_matches FOREIGN KEY (flawed_question_id, flawed_revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
-    CONSTRAINT forced_question_correction_replacement_version_matches FOREIGN KEY (replacement_question_id, replacement_revision_number)
+    CONSTRAINT forced_question_correction_replacement_revision_matches FOREIGN KEY (replacement_question_id, replacement_revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE FUNCTION ple_data.reject_forced_question_correction_change()
@@ -102,10 +102,10 @@ BEGIN
         NEW.merged_question_id <> base_question_id
         OR NEW.merged_revision_number <= base_revision_number
         OR EXISTS (
-            SELECT 1 FROM ple_data.question_revision AS later_version
-            WHERE later_version.question_id = base_question_id
-              AND later_version.revision_number > base_revision_number
-              AND later_version.revision_number <> NEW.merged_revision_number
+            SELECT 1 FROM ple_data.question_revision AS later_revision
+            WHERE later_revision.question_id = base_question_id
+              AND later_revision.revision_number > base_revision_number
+              AND later_revision.revision_number <> NEW.merged_revision_number
         )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a merged Question Change Proposal Revision requires its current exact base and a later same-lineage Question Revision';

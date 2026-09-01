@@ -9,7 +9,7 @@ migration work in
 [VOCABULARY_REPLACEMENTS.md](../../VOCABULARY_REPLACEMENTS.md).
 
 The target is to replace PLE-owned meaning with exact canonical terms. Raw word
-counts remain useful for finding candidates, while sentence and identifier
+counts remain useful for finding entries, while sentence and identifier
 context decides whether a match needs correction.
 
 Every reviewed meaning receives one explicit disposition: document the useful
@@ -65,7 +65,7 @@ Architecture paths include `src`, `crates`, `lib`, `tests`, `fixtures`,
 `support`, `examples`, `api`, `decoders`, `http_client`, `auth`, `components`,
 `domain`, `contracts`, `learning-data-access`, `postgres`, `objects`,
 `project-tools`, `tsgen`, `server`, `export`, `pdf`, `wasm`, and `styles`.
-Registered integration paths include `h5p`, `imathas`, `native`, `qti`,
+Registered integration paths include `h5p`, `imathas`, `ple`, `qti`,
 `blackboard`, `canvas`, and `webwork`. These names belong to architecture or
 their external specifications and need no PLE glossary entry.
 
@@ -87,7 +87,7 @@ maps to a canonical owner.
 | TERM-PATH-6               | `crates/question_model/src/curriculum_adoption/`, `src/features/curriculum_adoption/`, and their Store/API consumers | Split the umbrella into Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates. | Each operation owns its command, readiness result, retry token, manifest when needed, receipt, Store method, route, decoder, interface state, and tests. Shared code sits behind those exact contracts. | Run the focused Question Model, Store, server, and browser operation suites; run `npx tsc --noEmit`; inspect `curriculum_adoption` and unqualified adoption matches; run `git diff --check`. |
 | TERM-FACTORY-1 (complete) | `local_stack_control/acceptance_profile_owner.py` and its three callers                                              | Rename the two injected callables to `acquire_browser_suite_lease` and `create_command_runner`.                                                                                        | Every Local Stack callable states its actual action; Factory remains reserved for multi-strategy construction.                                                                                          | 2026-08-31: focused Local Stack owner, lease, reset, developer, and CLI tests pass. Current source, schema, generated contracts, and tests contain no Factory occurrence.                    |
 | TERM-FACTORY-2 (complete) | `crates/adapters/imathas/src/test_support.rs` and its adapter/server callers                                         | Replace the one-mode Factory wrappers with direct recorded-provider and recorded-transport construction.                                                                               | `RecordedImathasProvider` constructs directly from its mode; exact functions construct the contracted transport, provider, or provider-plus-transport pair; test-support callers use those operations.  | 2026-08-31: iMathAS adapter test-support suite and Clippy pass. Current source, schema, generated contracts, and tests contain no Factory occurrence.                                        |
-| TERM-FACTORY-3 (complete) | `crates/adapters/native/src/flat_question/imported.rs`                                                               | Trusted flat-Question import construction is the canonical direct boundary.                                                                                                            | Documentation names `ImportedFlatQuestion::from_imported` and `ImportedFlatQuestionError` directly and describes direct construction as the complete boundary.                                          | 2026-08-31: native adapter tests and Clippy, source inspection, and `git diff --check` pass.                                                                                                 |
+| TERM-FACTORY-3 (complete) | `crates/adapters/ple/src/flat_question/imported.rs`                                                               | Trusted flat-Question import construction is the canonical direct boundary.                                                                                                            | Documentation names `ImportedFlatQuestion::from_imported` and `ImportedFlatQuestionError` directly and describes direct construction as the complete boundary.                                          | 2026-08-31: PLE Question Backend tests and Clippy, source inspection, and `git diff --check` pass.                                                                                                 |
 
 ## Assessment naming question
 

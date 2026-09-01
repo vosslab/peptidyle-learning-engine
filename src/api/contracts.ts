@@ -12,13 +12,13 @@ import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptI
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
 import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
 import type { Capability } from "../../generated/api/Capability";
 import type { License } from "../../generated/api/License";
@@ -74,7 +74,7 @@ export interface CourseRouteData {
  * The instructor-only editable projection of a course-owned assignment.
  *
  * This intentionally carries immutable published references rather than
- * question definitions: authoring an assignment never transfers question
+ * complete Question Revisions: authoring an assignment never transfers question
  * source, capability declarations, keys, grading, or student-feedback policy
  * into the editor transport.
  */
@@ -113,9 +113,9 @@ export interface QuestionPoolPreview {
   readonly questionPoolLabel: string;
   readonly selectionCount: number;
   readonly selectionRule: {
-    readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
+    readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
   };
-  readonly candidates: ReadonlyArray<QuestionPoolPreviewQuestion>;
+  readonly entries: ReadonlyArray<QuestionPoolPreviewQuestion>;
   readonly selected: ReadonlyArray<QuestionPoolPreviewQuestion>;
 }
 
@@ -133,13 +133,13 @@ export type AssignmentEditorEntryInput =
     }
   | {
       readonly kind: "questionPool";
-      readonly candidateQuestionIds: ReadonlyArray<string>;
+      readonly questionIds: ReadonlyArray<string>;
       readonly availability: "available" | "retired";
       readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
       readonly selectionCount: number;
       readonly pointsPerItem: string;
       readonly selectionRule: {
-        readonly selectedQuestionOrder: "candidateOrder" | "randomOrder";
+        readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
       };
     };
 
@@ -192,7 +192,7 @@ export interface QuestionPoolSelectionPosition {
 /**
  * Browser-safe Issued Question identity and exact published Question Revision.
  *
- * The durable source selection and candidate stay in server-held Student Work
+ * The durable source selection and Question Pool Entry stay in server-held Student Work
  * records. Student delivery identifies pooled work only through
  * QuestionPoolSelectionPosition.
  */
@@ -265,7 +265,7 @@ export interface PrefetchedNextQuestion {
   readonly renderedQuestionSha256: string;
   /** Same safe ordinal provenance used when this cached successor becomes current. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
-  readonly envelope: QuestionPresentation;
+  readonly envelope: QuestionVariationPresentation;
 }
 
 /** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */
@@ -293,7 +293,7 @@ export interface FeedbackReleaseResponse {
 
 /** Strong ETag issued by the workspace route; pass it back byte-for-byte on an update. */
 export interface WorkspaceDraftDetail {
-  readonly draft: DraftQuestionDefinition;
+  readonly draft: DraftQuestionRevision;
   readonly revision: string;
 }
 
@@ -309,20 +309,20 @@ export interface PublicationValidationReport {
   readonly violations: ReadonlyArray<PublicationViolation>;
 }
 
-/** A persisted draft cannot be prepared for publication, without a capability violation payload. */
-export interface PublicationReadinessFailure {
-  readonly kind: "readinessFailure";
+/** A persisted draft cannot complete Question Publication Validation without capability issues. */
+export interface QuestionPublicationValidationUnavailable {
+  readonly kind: "questionPublicationValidationUnavailable";
   readonly message: string;
 }
 
-/** The validation endpoint's browser contract: capability report or honest readiness refusal. */
+/** The validation endpoint's browser contract: capability report or exact validation refusal. */
 export type PublicationValidationResponse =
   | {
       readonly kind: "capabilityReport";
       readonly revision: string;
       readonly violations: ReadonlyArray<PublicationViolation>;
     }
-  | PublicationReadinessFailure;
+  | QuestionPublicationValidationUnavailable;
 
 /** Answer-free review of the saved Question Working Copy proposed for publication. */
 export interface QuestionPublicationReview {
@@ -331,7 +331,7 @@ export interface QuestionPublicationReview {
   readonly baseQuestion: "newQuestion";
   readonly current: QuestionPublicationReviewSummary;
   readonly changed: ReadonlyArray<
-    | "sourceBackend"
+    | "questionBackend"
     | "title"
     | "prompt"
     | "response"
@@ -344,7 +344,7 @@ export interface QuestionPublicationReview {
 
 /** Safe review summary; source locators, grading, and keys remain server-held. */
 export interface QuestionPublicationReviewSummary {
-  readonly sourceBackend: QuestionBackend;
+  readonly questionBackend: QuestionBackend;
   readonly title: string;
   readonly prompt: { readonly blocks: ReadonlyArray<PublicationPromptBlockKind> };
   readonly response: {
@@ -399,7 +399,7 @@ export interface AssignmentAttemptScreenData {
   readonly assignmentAttempt: AssignmentAttempt;
   readonly attempt: StudentQuestionAttempt;
   /** Server-regenerated, key-free variant bound to this issued attempt. */
-  readonly issuedQuestion: QuestionPresentation;
+  readonly issuedQuestion: QuestionVariationPresentation;
 }
 
 /** Assignment Attempt identity alias used where a return value is clearer than a full DTO. */

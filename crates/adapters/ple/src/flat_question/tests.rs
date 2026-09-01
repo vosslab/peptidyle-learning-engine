@@ -3,7 +3,9 @@ use grading::QuestionGradingOutcome;
 use question_model::response::{
     ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentResponse, StudentTextEntry,
 };
-use question_model::{DraftQuestionSource, QuestionId, QuestionRevisionNumber, QuestionSource};
+use question_model::{
+    DraftQuestionBackendLocator, QuestionBackendLocator, QuestionId, QuestionRevisionNumber,
+};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -12,15 +14,15 @@ use crate::test_support::{
     flat_single_choice_value,
 };
 
-fn published(draft: DraftQuestionDefinition) -> QuestionRevision {
-    if !matches!(draft.source, DraftQuestionSource::Native) {
-        panic!("flat fixture must use the native Question Backend");
+fn published(draft: DraftQuestionRevision) -> QuestionRevision {
+    if !matches!(draft.backend_locator, DraftQuestionBackendLocator::Ple) {
+        panic!("flat fixture must use the PLE Question Backend");
     }
     QuestionRevision::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionRevisionNumber::new(1).expect("positive version"),
-        QuestionSource::Native,
+        QuestionBackendLocator::Ple,
     )
 }
 
@@ -359,12 +361,12 @@ fn version_two_refuses_ambiguous_or_incomplete_private_bindings() {
     }
 }
 
-fn text(blocks: Option<&Vec<ContentBlock>>) -> Vec<&str> {
+fn text(blocks: Option<&Vec<QuestionContentBlock>>) -> Vec<&str> {
     blocks
         .into_iter()
         .flatten()
         .filter_map(|block| match block {
-            ContentBlock::Text { markdown } => Some(markdown.as_str()),
+            QuestionContentBlock::Text { markdown } => Some(markdown.as_str()),
             _ => None,
         })
         .collect()

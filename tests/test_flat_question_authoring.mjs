@@ -52,7 +52,7 @@ function source() {
 function publicDefinition(includeVersion = false) {
   const definition = {
     workspace,
-    source: { backend: "native" },
+    backendLocator: { backend: "ple" },
     questionFormat: "pleFlatQuestionV2",
     prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
     response: {
@@ -84,7 +84,7 @@ function publicDefinition(includeVersion = false) {
   };
 }
 
-function publicationSummary(backend = "native") {
+function publicationSummary(backend = "ple") {
   return {
     questionId: "7K3-M9QP",
     backend,
@@ -665,7 +665,7 @@ test("client rejects public responses whose identity does not match the requeste
 
 test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
   const wrongSave = createFlatQuestionClient({
-    fetch: async () => jsonResponse({ ...publicDefinition(), questionFormat: "nativeAlgorithmic" }),
+    fetch: async () => jsonResponse({ ...publicDefinition(), questionFormat: "pleAlgorithmic" }),
   });
   await assert.rejects(wrongSave.save(workspace, source()), /PLE flat-question V2 format/u);
 
@@ -674,7 +674,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
   });
   await assert.rejects(
     wrongPublication.publish(workspace, { byline: { names: ["Fixture Instructor"] } }, '"1"'),
-    /available native Question Library summary/u,
+    /available PLE Question Library summary/u,
   );
 
   const staleScope = createFlatQuestionClient({
@@ -697,12 +697,12 @@ test("client rejects save DTOs and publication summaries that do not exactly con
         { byline: { names: ["Fixture Instructor"] } },
         '"1"',
       ),
-      /available native Question Library summary/u,
+      /available PLE Question Library summary/u,
     );
   }
 });
 
-test("client accepts the exact native hotspot Question Type for a strict hotspot source", async () => {
+test("client accepts the exact PLE hotspot Question Type for a strict hotspot source", async () => {
   const hotspot = decodeFlatQuestionSource({
     ...source(),
     response: {

@@ -67,7 +67,7 @@ The protected read or write performs the relationship check and data operation i
 transaction.
 
 The attempt also carries a server-owned typed capability such as
-`IssuedAttemptCapabilityV1::FlatPresentation` or `WebworkPresentation`. Its matching private
+`IssuedAttemptCapability::FlatPresentation` or `WebworkPresentation`. Its matching private
 grading envelope, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
 `NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
 the same exact target from a locked typed lease. Provider metadata remains external protocol data
@@ -409,7 +409,7 @@ must fail closed for operator investigation.
 
 ## Native flat grading
 
-For native flat questions, PLE owns both immutable content and grading. The normal path is:
+For PLE flat questions, PLE owns both immutable content and grading. The normal path is:
 
 1. Load the authenticated active attempt.
 2. Load its checksummed issued flat grading contract, not a current published Question or grader view.
@@ -447,7 +447,7 @@ boundary. The historical RC3 compatibility grading path originally performed two
 The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
 server-only grading envelope, and frozen WeBWorK definition under the issued attempt. Normal grade
 validates those artifacts and performs only the private grade call; it never resolves a current
-published Question definition or rerenders to recover state. The official upstream endpoint is stateless, so
+published Question Revision or rerenders to recover state. The official upstream endpoint is stateless, so
 PLE still sends immutable source provenance and signed server state on that private grade call. That
 repetition is an internal service cost, not student payload.
 
@@ -497,15 +497,15 @@ seeded and student-sanitized QTI JSON, prior response, points, timing/attempt st
 external iframe state. Its QTI formatter appropriately strips correct responses, private feedback,
 and solutions when release policy does not allow them.
 
-The native browser submits `assignment_id`, `question_id`, serialized `submission`, and a
+The ADAPT browser submits `assignment_id`, `question_id`, serialized `submission`, and a
 client-selected `technology`; current client code also constructs `max_score`. The server loads the
 stored question and infers `questionType`, so ADAPT already demonstrates that the student does not
-need to submit the native Question Type. It computes partial credit server-side.
+need to submit the PLE Question Type. It computes partial credit server-side.
 
 ADAPT's simple multiple-choice answer can be one choice identifier, but some Question Types are more
 verbose than necessary. Matching submits complete mutated `termsToMatch` objects even though grading
 needs relationships between identifiers. No attempt ID, presentation digest, version token, or ETag
-was found on the inspected native submission boundary.
+was found on the inspected ADAPT submission boundary.
 
 ### ADAPT WeBWorK flow
 
@@ -522,13 +522,13 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | Determinism         | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt |
 | Native type         | Server infers `questionType`                         | Remove submission `kind` in PLE v1                       |
 | Native identity     | Browser sends assignment and question IDs            | Use one attempt ID that already binds both               |
-| Native render scope | Rich assignment/question records                     | Return one minimal active student screen                 |
+| ADAPT render scope  | Rich assignment/question records                     | Return one minimal active student screen                 |
 | Matching response   | Whole mutated objects                                | Send only rendered-ID relationships                      |
 | Backend selector    | Browser sends `technology`                           | Derive backend from the attempt                          |
 | Partial credit      | Server computes it                                   | Preserve server-only scoring                             |
 | External context    | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE       |
 | Renderer result     | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt               |
-| Presentation check  | No native digest found                               | Bind the answer to a canonical PLE presentation digest   |
+| Presentation check  | No ADAPT digest found                                | Bind the answer to a canonical PLE presentation digest   |
 
 PLE should not copy ADAPT merely because ADAPT has more features. It should adopt the mature ideas
 that match PLE's goals and intentionally differ where an attempt-bound, server-mediated architecture
@@ -565,7 +565,7 @@ The end-to-end submission path contains:
 2. authentication and bounded JSON parsing;
 3. RLS-visible attempt, run, question, and idempotency reads;
 4. presentation and response validation;
-5. native grading or private PLE-to-WeBWorK round trip and execution;
+5. PLE grading or private PLE-to-WeBWorK round trip and execution;
 6. atomic persistence and summary updates; and
 7. compact receipt serialization and browser return.
 
@@ -661,17 +661,17 @@ easy to navigate without duplicating its exact migration and codec specification
 - Validation: fresh/no-op migration, malformed-version tests, forced-RLS tests, Store parity,
   retention, backup/restore, and independent PostgreSQL review.
 
-### WP-P3: Native API cutover
+### WP-P3: PLE API cutover
 
-- Owner: server and native grading implementation.
-- Files: run-screen and submission projections, native backend validation, route tests, API fixtures,
+- Owner: server and PLE grading implementation.
+- Files: run-screen and submission projections, PLE Question Backend validation, route tests, API fixtures,
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
 - Success: every family accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
   provenance crosses the active student route.
-- Validation: focused Axum and security tests, family wire vectors, native regression, and independent
+- Validation: focused Axum and security tests, Question Type wire vectors, PLE regression, and independent
   server review.
 
 ### WP-P4: WeBWorK replay
@@ -761,7 +761,7 @@ cutover because they require a separate broker design.
 
 ## Final decisions
 
-- Keep `kind` in the render schema; remove it from the v1 student answer.
+- Keep `kind` in the render schema; remove it from the v1 Student Response.
 - Use one authenticated attempt ID as submission identity; do not resend question context.
 - Give every addressable rendered object a four-hex CRC16 ID unique within its presentation.
 - Keep durable internal IDs independent from browser-facing rendered IDs.

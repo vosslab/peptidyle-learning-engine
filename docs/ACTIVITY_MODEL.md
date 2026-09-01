@@ -48,7 +48,7 @@ that scope.
 
 The server resolves an authenticated session record to its global account and session identity from the authenticated
 global account session. A browser field, request path, header, queue payload,
-object key, or provider response can identify a candidate record, but cannot
+Object Address, or provider response can identify a candidate record, but cannot
 establish Account authority or select a course. The Store and PostgreSQL boundary
 re-evaluate the exact relationship in the same transaction as each protected
 operation.

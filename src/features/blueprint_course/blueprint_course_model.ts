@@ -2,11 +2,11 @@
 
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { ReusableAssignmentDefaults } from "../../../generated/api/ReusableAssignmentDefaults";
-import type { ReusableAssignmentDefinitionInput } from "../../../generated/api/ReusableAssignmentDefinitionInput";
-import type { ReusableAssignmentDefinitionView } from "../../../generated/api/ReusableAssignmentDefinitionView";
-import type { ReusableAssignmentEntryInput } from "../../../generated/api/ReusableAssignmentEntryInput";
-import type { ReusableAssignmentEntryView } from "../../../generated/api/ReusableAssignmentEntryView";
+import type { BlueprintAssignmentDefaults } from "../../../generated/api/BlueprintAssignmentDefaults";
+import type { BlueprintAssignmentDefinitionInput } from "../../../generated/api/BlueprintAssignmentDefinitionInput";
+import type { BlueprintAssignmentDefinitionView } from "../../../generated/api/BlueprintAssignmentDefinitionView";
+import type { BlueprintAssignmentEntryInput } from "../../../generated/api/BlueprintAssignmentEntryInput";
+import type { BlueprintAssignmentEntryView } from "../../../generated/api/BlueprintAssignmentEntryView";
 import type { RelativeAssignmentSchedule } from "../../../generated/api/RelativeAssignmentSchedule";
 import type { RelativeAssignmentScheduleMoment } from "../../../generated/api/RelativeAssignmentScheduleMoment";
 import type { QuestionPickerSelection } from "../question_picker";
@@ -49,7 +49,7 @@ export function blueprintCourseContinuationPresentation(
   };
 }
 
-function defaultDefaults(): ReusableAssignmentDefaults {
+function defaultDefaults(): BlueprintAssignmentDefaults {
   return {
     assignment_attempt_time_limit_seconds: null,
     attempt_limit: null,
@@ -83,8 +83,8 @@ function emptySchedule(): RelativeAssignmentSchedule {
 
 /** Builds an editable assignment definition with visible teaching defaults. */
 export function emptyReusableDefinition(
-  title = "Untitled reusable assignment",
-): ReusableAssignmentDefinitionInput {
+  title = "Untitled Blueprint Assignment",
+): BlueprintAssignmentDefinitionInput {
   return {
     title,
     instructions: "",
@@ -108,48 +108,48 @@ function uniqueQuestionIds(selection: QuestionPickerSelection): ReadonlyArray<st
   );
 }
 
-function fixedEntry(questionId: string): ReusableAssignmentEntryInput {
+function fixedEntry(questionId: string): BlueprintAssignmentEntryInput {
   return { kind: "fixed", question_id: questionId, points_possible: "1", scoring_rule: "normal" };
 }
 
-function poolEntry(questionIds: ReadonlyArray<string>): ReusableAssignmentEntryInput {
+function poolEntry(questionIds: ReadonlyArray<string>): BlueprintAssignmentEntryInput {
   return {
     kind: "pool",
-    candidates: [...questionIds],
+    entries: [...questionIds],
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
-    selection_rule: { selectedQuestionOrder: "candidateOrder" },
+    selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
   };
 }
 
 /** Appends chosen Questions as fixed entries while retaining picker order. */
 export function appendPickedFixedEntries(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   selection: QuestionPickerSelection,
-): ReusableAssignmentDefinitionInput {
+): BlueprintAssignmentDefinitionInput {
   return {
     ...definition,
     entries: [...definition.entries, ...uniqueQuestionIds(selection).map(fixedEntry)],
   };
 }
 
-/** Appends one Question Pool with candidate order selected by the Instructor. */
+/** Appends one Question Pool with entry order selected by the Instructor. */
 export function appendPickedPool(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   selection: QuestionPickerSelection,
-): ReusableAssignmentDefinitionInput {
-  const candidates = uniqueQuestionIds(selection);
-  return candidates.length === 0
+): BlueprintAssignmentDefinitionInput {
+  const entries = uniqueQuestionIds(selection);
+  return entries.length === 0
     ? definition
-    : { ...definition, entries: [...definition.entries, poolEntry(candidates)] };
+    : { ...definition, entries: [...definition.entries, poolEntry(entries)] };
 }
 
 export function moveReusableEntry(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   index: number,
   direction: ReusableEntryDirection,
-): ReusableAssignmentDefinitionInput {
+): BlueprintAssignmentDefinitionInput {
   const destination = index + direction;
   if (index < 0 || destination < 0 || destination >= definition.entries.length) return definition;
   const entries = [...definition.entries];
@@ -162,9 +162,9 @@ export function moveReusableEntry(
 }
 
 export function removeReusableEntry(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   index: number,
-): ReusableAssignmentDefinitionInput {
+): BlueprintAssignmentDefinitionInput {
   if (index < 0 || index >= definition.entries.length) return definition;
   return {
     ...definition,
@@ -173,10 +173,10 @@ export function removeReusableEntry(
 }
 
 export function updateReusablePoolSelectionCount(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   index: number,
   selectionCount: number,
-): ReusableAssignmentDefinitionInput {
+): BlueprintAssignmentDefinitionInput {
   const entry = definition.entries[index];
   if (entry === undefined || entry.kind !== "pool") return definition;
   const entries = [...definition.entries];
@@ -185,24 +185,24 @@ export function updateReusablePoolSelectionCount(
 }
 
 export function updateReusableSchedule(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
   field: ReusableScheduleField,
   moment: RelativeAssignmentScheduleMoment | null,
-): ReusableAssignmentDefinitionInput {
+): BlueprintAssignmentDefinitionInput {
   return { ...definition, schedule: { ...definition.schedule, [field]: moment } };
 }
 
 export function updateReusableDefaults(
-  definition: ReusableAssignmentDefinitionInput,
-  defaults: ReusableAssignmentDefaults,
-): ReusableAssignmentDefinitionInput {
+  definition: BlueprintAssignmentDefinitionInput,
+  defaults: BlueprintAssignmentDefaults,
+): BlueprintAssignmentDefinitionInput {
   return { ...definition, defaults };
 }
 
 export function updateReusableText(
-  definition: ReusableAssignmentDefinitionInput,
-  change: Partial<Pick<ReusableAssignmentDefinitionInput, "title" | "instructions">>,
-): ReusableAssignmentDefinitionInput {
+  definition: BlueprintAssignmentDefinitionInput,
+  change: Partial<Pick<BlueprintAssignmentDefinitionInput, "title" | "instructions">>,
+): BlueprintAssignmentDefinitionInput {
   return { ...definition, ...change };
 }
 
@@ -253,12 +253,12 @@ function validateSchedule(schedule: RelativeAssignmentSchedule): CurriculumValid
 
 /** Guides local drafting before the server performs authoritative validation. */
 export function validateReusableDefinition(
-  definition: ReusableAssignmentDefinitionInput,
+  definition: BlueprintAssignmentDefinitionInput,
 ): CurriculumValidation {
   if (definition.title.trim().length === 0 || definition.title.length > MAX_REUSABLE_TITLE_LENGTH) {
     return {
       valid: false,
-      message: "Give this reusable assignment a title of up to 200 characters.",
+      message: "Give this Blueprint Assignment a title of up to 200 characters.",
     };
   }
   if (definition.entries.length === 0 || definition.entries.length > MAX_REUSABLE_ENTRIES) {
@@ -269,24 +269,23 @@ export function validateReusableDefinition(
   }
   for (const entry of definition.entries) {
     if (entry.kind !== "pool") continue;
-    if (entry.candidates.length === 0 || entry.candidates.length > MAX_POOL_CANDIDATES) {
+    if (entry.entries.length === 0 || entry.entries.length > MAX_POOL_CANDIDATES) {
       return {
         valid: false,
-        message: "Each Question Pool needs from 1 through 1024 candidate Questions.",
+        message: "Each Question Pool needs from 1 through 1024 entry Questions.",
       };
     }
-    if (new Set(entry.candidates).size !== entry.candidates.length) {
-      return { valid: false, message: "Each Question Pool candidate must appear only once." };
+    if (new Set(entry.entries).size !== entry.entries.length) {
+      return { valid: false, message: "Each Question Pool entry must appear only once." };
     }
     if (
       !Number.isSafeInteger(entry.selection_count) ||
       entry.selection_count < 1 ||
-      entry.selection_count > entry.candidates.length
+      entry.selection_count > entry.entries.length
     ) {
       return {
         valid: false,
-        message:
-          "Choose a whole selection count between 1 and this Question Pool's candidate count.",
+        message: "Choose a whole selection count between 1 and this Question Pool's entry count.",
       };
     }
   }
@@ -314,7 +313,7 @@ export function validateBlueprintCourseDefinition(
       };
     }
     if (module.definitions.length === 0 || module.definitions.length > MAX_REUSABLE_ENTRIES) {
-      return { valid: false, message: "Each module needs at least one reusable assignment." };
+      return { valid: false, message: "Each module needs at least one Blueprint Assignment." };
     }
     for (const assignment of module.definitions) {
       const validation = validateReusableDefinition(assignment);
@@ -324,13 +323,11 @@ export function validateBlueprintCourseDefinition(
   return { valid: true, message: null };
 }
 
-function entryInputFromView(entry: ReusableAssignmentEntryView): ReusableAssignmentEntryInput {
+function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssignmentEntryInput {
   if (entry.kind === "pool") {
     return {
       kind: "pool",
-      candidates: entry.candidates.map(
-        (candidate) => candidate.question_library.summary.questionId,
-      ),
+      entries: entry.entries.map((entry) => entry.question_library.summary.questionId),
       selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,
@@ -346,8 +343,8 @@ function entryInputFromView(entry: ReusableAssignmentEntryView): ReusableAssignm
 }
 
 export function reusableDefinitionInputFromView(
-  definition: ReusableAssignmentDefinitionView,
-): ReusableAssignmentDefinitionInput {
+  definition: BlueprintAssignmentDefinitionView,
+): BlueprintAssignmentDefinitionInput {
   return {
     title: definition.title,
     instructions: definition.instructions,

@@ -103,12 +103,12 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     "questionPoolLabel",
     "selectionCount",
     "selectionRule",
-    "candidates",
+    "entries",
     "selected",
   ]);
-  const candidates = decodeBoundedArray(
-    record.candidates,
-    `${path}.candidates`,
+  const entries = decodeBoundedArray(
+    record.entries,
+    `${path}.entries`,
     MAX_TEACHING_PAGE_SIZE,
     previewQuestion,
   );
@@ -120,11 +120,7 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
   );
   const selectionCount = decodeSafeInteger(record.selectionCount, `${path}.selectionCount`);
   const assignmentEntryId = decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`);
-  if (
-    selectionCount < 1 ||
-    selectionCount > candidates.length ||
-    selected.length !== selectionCount
-  )
+  if (selectionCount < 1 || selectionCount > entries.length || selected.length !== selectionCount)
     throw new DecodeError(
       `${path}.selectionCount`,
       "a valid selection count for the returned pool",
@@ -132,11 +128,9 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
   const selectedIds = new Set(selected.map((question) => question.questionId));
   if (
     selectedIds.size !== selected.length ||
-    !selected.every((question) =>
-      candidates.some((candidate) => candidate.questionId === question.questionId),
-    )
+    !selected.every((question) => entries.some((entry) => entry.questionId === question.questionId))
   )
-    throw new DecodeError(`${path}.selected`, "unique candidate Question IDs");
+    throw new DecodeError(`${path}.selected`, "unique Question Pool Entry Question IDs");
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
@@ -144,7 +138,7 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
     selectionCount,
     selectionRule: selectionRule(record.selectionRule, `${path}.selectionRule`),
-    candidates,
+    entries,
     selected,
   };
 }
@@ -152,13 +146,13 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
 function selectionRule(
   value: unknown,
   path: string,
-): { readonly selectedQuestionOrder: "candidateOrder" | "randomOrder" } {
+): { readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder" } {
   const record = closed(value, path, ["selectedQuestionOrder"]);
   return {
     selectedQuestionOrder: decodeStringEnum(
       record.selectedQuestionOrder,
       `${path}.selectedQuestionOrder`,
-      ["candidateOrder", "randomOrder"] as const,
+      ["questionPoolOrder", "randomOrder"] as const,
     ),
   };
 }

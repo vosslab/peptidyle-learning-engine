@@ -14,7 +14,7 @@ import {
   assignmentEditorDraftFrom,
   fixedEntries,
   moveAssignmentEntry,
-  parseExactProblemDisplayReferences,
+  parseExactQuestionIds,
   questionBackendLabel,
   validateAssignmentEditorDraft,
   type AssignmentQuestionRow,
@@ -90,7 +90,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     entries[entryIndex] = entry;
     update(
       { ...draft(), entries },
-      "Pool updated. Review its candidates, then save questions and order.",
+      "Pool updated. Review its Question Pool Entries, then save questions and order.",
     );
   }
 
@@ -111,7 +111,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     update(
       appendQuestionPool(draft()),
-      "Question Pool added. Add candidate Question IDs, set its selection count, then save questions and order.",
+      "Question Pool added. Add Question Pool Entry Question IDs, set its selection count, then save questions and order.",
     );
   }
 
@@ -127,7 +127,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     if (!hasUnsavedContent() && !needsReload() && !successorRevisionRequired()) return false;
     if (successorRevisionRequired()) {
       setMessage(
-        "A successor Draft Assignment Revision is required before structural question changes can be saved.",
+        "A successor Assignment Working Copy is required before structural question changes can be saved.",
       );
     } else if (needsReload()) {
       setMessage(
@@ -264,7 +264,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   async function addQuestionIds(): Promise<void> {
     let questionIds: ReadonlyArray<string>;
     try {
-      questionIds = parseExactProblemDisplayReferences(directQuestionId());
+      questionIds = parseExactQuestionIds(directQuestionId());
     } catch (error: unknown) {
       setDirectMessage(error instanceof Error ? error.message : "Question IDs are invalid.");
       return;
@@ -311,7 +311,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     if (successorRevisionRequired()) {
       setMessage(
-        "Create a successor Draft Assignment Revision to use these structural question changes. Existing Student work remains pinned to this revision.",
+        "Create a successor Assignment Working Copy to use these structural question changes. Existing Student work remains pinned to this revision.",
       );
       return false;
     }
@@ -498,7 +498,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         <section class="inline-error" role="alert">
           <p>
             Student work already pins this Assignment Revision. Your local question changes remain
-            here, and a successor Draft Assignment Revision is required for structural changes.
+            here, and a successor Assignment Working Copy is required for structural changes.
           </p>
           <button
             class="quiet-action"
@@ -563,13 +563,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               Add question pool
             </button>
             <p class="assignment-editor-note">
-              A Question Pool selects its configured number of candidates with the server&apos;s
-              current selection implementation.
+              A Question Pool selects its configured number of Question Pool Entries with the
+              server&apos;s current selection implementation.
             </p>
             <Show
               when={draft().entries.length > 0}
               fallback={
-                <section class="empty-state" aria-label="Empty question definition">
+                <section class="empty-state" aria-label="Empty assignment question list">
                   <p>Add at least one question.</p>
                   <p class="assignment-editor-note">
                     Search the library, reuse a saved selection, or enter a Question ID below.
@@ -582,7 +582,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 createMode={false}
                 busy={busy()}
                 preview={poolPreview()}
-                resolveCandidates={async (questionIds) =>
+                resolveEntries={async (questionIds) =>
                   await Promise.all(
                     questionIds.map(
                       async (questionId) => await workspace.repository.resolvePublished(questionId),
@@ -606,7 +606,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onRemovePool={removeEntry}
                 onMessage={setMessage}
                 onPreviewPool={(assignmentEntryId) => void previewPool(assignmentEntryId)}
-                onChoosePoolCandidates={(entryIndex, trigger) =>
+                onChoosePoolEntries={(entryIndex, trigger) =>
                   pickerController.open({ kind: "pool", entryIndex }, trigger)
                 }
               />

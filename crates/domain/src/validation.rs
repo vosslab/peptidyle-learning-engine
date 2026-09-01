@@ -8,7 +8,8 @@ use std::collections::BTreeSet;
 
 use question_model::answer::ResponseSelectionRule;
 use question_model::presentation::{
-    IssuedQuestionResponseFormatV1, PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1,
+    PresentedHotspotRegion, PresentedResponseItemContent, PresentedTextEntrySlot,
+    QuestionPresentationResponseFormat,
 };
 use question_model::response::{
     HotspotRegion, QuestionResponseFormat, ResponseItemReference, StudentResponse, TextEntrySlot,
@@ -39,7 +40,7 @@ pub enum StudentResponseFormatIssue {
         /// Repeated Response Item Reference.
         choice: ResponseItemReference,
     },
-    /// A submitted Response Item Reference does not occur in the question definition.
+    /// A submitted Response Item Reference does not occur in the Question Revision.
     UnknownChoice {
         /// Unrecognized Response Item Reference.
         choice: ResponseItemReference,
@@ -169,25 +170,28 @@ pub fn validate_response_format(
 /// Question Library or renderer to rebuild the student's already-issued widget. It
 /// checks only public shape, never answer material or correctness.
 pub fn validate_presentation_response_format(
-    schema: &IssuedQuestionResponseFormatV1,
+    schema: &QuestionPresentationResponseFormat,
     response: &StudentResponse,
 ) -> StudentResponseFormatCheck {
     let mut violations = Vec::new();
 
     match (schema, response) {
-        (IssuedQuestionResponseFormatV1::Numerical { .. }, StudentResponse::Numeric { value }) => {
+        (
+            QuestionPresentationResponseFormat::Numerical { .. },
+            StudentResponse::Numeric { value },
+        ) => {
             if !value.is_finite() {
                 violations.push(StudentResponseFormatIssue::NumericNotFinite);
             }
         }
         (
-            IssuedQuestionResponseFormatV1::SingleChoice { choices },
+            QuestionPresentationResponseFormat::SingleChoice { choices },
             StudentResponse::MultipleChoice { selected },
         ) => {
             validate_presented_selection(choices, 1, 1, selected, &mut violations);
         }
         (
-            IssuedQuestionResponseFormatV1::MultipleAnswer {
+            QuestionPresentationResponseFormat::MultipleAnswer {
                 choices,
                 minimum,
                 maximum,
@@ -195,19 +199,19 @@ pub fn validate_presentation_response_format(
             StudentResponse::MultipleChoice { selected },
         ) => validate_presented_selection(choices, *minimum, *maximum, selected, &mut violations),
         (
-            IssuedQuestionResponseFormatV1::FillIn { max_characters },
+            QuestionPresentationResponseFormat::FillIn { max_characters },
             StudentResponse::ShortText { text },
         ) => {
             validate_text_length(*max_characters, text, &mut violations);
         }
         (
-            IssuedQuestionResponseFormatV1::MultiFillIn { blanks },
+            QuestionPresentationResponseFormat::MultiFillIn { blanks },
             StudentResponse::MultiBlank { answers },
         ) => {
             validate_presented_multi_blank(blanks, answers, &mut violations);
         }
         (
-            IssuedQuestionResponseFormatV1::Matching {
+            QuestionPresentationResponseFormat::Matching {
                 prompts,
                 choices,
                 reuse_choices,
@@ -217,7 +221,7 @@ pub fn validate_presentation_response_format(
             validate_presented_matching(prompts, choices, *reuse_choices, matches, &mut violations)
         }
         (
-            IssuedQuestionResponseFormatV1::Ordering { items },
+            QuestionPresentationResponseFormat::Ordering { items },
             StudentResponse::Ordering { order },
         ) => {
             let expected: BTreeSet<ResponseItemReference> = items
@@ -234,7 +238,7 @@ pub fn validate_presentation_response_format(
             }
         }
         (
-            IssuedQuestionResponseFormatV1::Hotspot {
+            QuestionPresentationResponseFormat::Hotspot {
                 surface,
                 minimum,
                 maximum,
@@ -253,8 +257,8 @@ pub fn validate_presentation_response_format(
     StudentResponseFormatCheck { violations }
 }
 
-fn validate_presented_selection(
-    choices: &[PresentedChoiceV1],
+fn validate_presented_selection<T: PresentedResponseItemContent>(
+    choices: &[T],
     minimum: u32,
     maximum: u32,
     selected: &[ResponseItemReference],
@@ -269,7 +273,7 @@ fn validate_presented_selection(
     }
     let available: BTreeSet<ResponseItemReference> = choices
         .iter()
-        .map(|choice| ResponseItemReference::new(choice.id.as_str()))
+        .map(|choice| ResponseItemReference::new(choice.presentation_item_id().as_str()))
         .collect();
     let mut observed = BTreeSet::new();
     for choice in selected {
@@ -319,7 +323,7 @@ fn validate_text_length(
 }
 
 fn validate_presented_multi_blank(
-    blanks: &[PresentedBlankV1],
+    blanks: &[PresentedTextEntrySlot],
     answers: &[question_model::response::StudentTextEntry],
     violations: &mut Vec<StudentResponseFormatIssue>,
 ) {
@@ -345,16 +349,19 @@ fn validate_presented_multi_blank(
     }
 }
 
-fn validate_presented_matching(
-    prompts: &[PresentedChoiceV1],
-    choices: &[PresentedChoiceV1],
+fn validate_presented_matching<
+    Prompt: PresentedResponseItemContent,
+    Choice: PresentedResponseItemContent,
+>(
+    prompts: &[Prompt],
+    choices: &[Choice],
     reuse_choices: bool,
     matches: &[question_model::response::StudentMatch],
     violations: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let expected_prompts: BTreeSet<_> = prompts
         .iter()
-        .map(|prompt| ResponseItemReference::new(prompt.id.as_str()))
+        .map(|prompt| ResponseItemReference::new(prompt.presentation_item_id().as_str()))
         .collect();
     let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
     if expected_prompts.len() != prompts.len()
@@ -366,7 +373,7 @@ fn validate_presented_matching(
     }
     let available_choices: BTreeSet<_> = choices
         .iter()
-        .map(|choice| ResponseItemReference::new(choice.id.as_str()))
+        .map(|choice| ResponseItemReference::new(choice.presentation_item_id().as_str()))
         .collect();
     let mut observed = BTreeSet::new();
     for pair in matches {
@@ -384,7 +391,7 @@ fn validate_presented_matching(
 }
 
 fn validate_presented_hotspot(
-    regions: &[PresentedHotspotRegionV1],
+    regions: &[PresentedHotspotRegion],
     minimum: u32,
     maximum: u32,
     selections: &[question_model::response::StudentHotspotSelection],
@@ -770,8 +777,8 @@ mod tests {
         );
 
         let hotspot = QuestionResponseFormat::Hotspot {
-            surface: question_model::envelope::AssetRef {
-                asset: question_model::AssetId::from_uuid(uuid::Uuid::from_u128(1)),
+            surface: question_model::envelope::QuestionAssetReference {
+                asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
                 checksum: "a".repeat(64),
             },
             description: "A diagram".to_string(),

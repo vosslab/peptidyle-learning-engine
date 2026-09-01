@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
-use crate::envelope::{ContentBlock, QuestionPresentation};
+use crate::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use crate::generation::QuestionSeed;
 use crate::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
@@ -11,16 +11,16 @@ use crate::response::{
 use crate::{QuestionRevisionNumber, QuestionRevisionReference};
 
 use super::builder::{
-    NonceSourceV1, PresentationBuildError, build_presentation_v1_with_hasher,
-    build_presentation_v1_with_nonce_source,
+    PresentationBuildError, QuestionPresentationNonceSource,
+    build_question_presentation_with_hasher, build_question_presentation_with_nonce_source,
 };
-use super::codec::{crc16_ccitt_false, descriptor_bytes_v1};
+use super::codec::{crc16_ccitt_false, descriptor_bytes};
 use super::{
-    InspectedExternalToolStateV1, IssuedQuestionResponseFormatV1, QuestionPresentationBinding,
-    QuestionPresentationNonce, RenderedResponseTranslationErrorV1, ResponseItemRole,
-    StudentResponseInspection, project_durable_response_to_rendered_v1,
-    project_rendered_response_for_inspection_v1, rebuild_public_presentation_v1,
-    reproduce_presentation_v1, translate_rendered_response_v1, verify_presentation_v1,
+    InspectedExternalToolState, QuestionPresentationBinding, QuestionPresentationNonce,
+    QuestionPresentationResponseFormat, RenderedResponseTranslationError, ResponseItemRole,
+    StudentResponseInspection, project_durable_response_to_rendered,
+    project_rendered_response_for_inspection, rebuild_public_question_presentation,
+    reproduce_question_presentation, translate_rendered_response, verify_question_presentation,
 };
 
 fn question_choice(id: &str, text: &str) -> QuestionChoice {
@@ -51,14 +51,14 @@ fn ordering_item(id: &str, text: &str) -> OrderingItem {
     }
 }
 
-fn response_item_body(text: &str) -> Vec<ContentBlock> {
-    vec![ContentBlock::Text {
+fn response_item_body(text: &str) -> Vec<QuestionContentBlock> {
+    vec![QuestionContentBlock::Text {
         markdown: text.to_owned(),
     }]
 }
 
-fn fixture() -> QuestionPresentation {
-    QuestionPresentation {
+fn fixture() -> QuestionVariationPresentation {
+    QuestionVariationPresentation {
         variation: crate::QuestionVariation::static_variation(
             QuestionRevisionReference {
                 question_id: "123-4567".parse().expect("valid Question ID"),
@@ -67,7 +67,7 @@ fn fixture() -> QuestionPresentation {
             QuestionSeed::new(42),
         ),
         title: "Peptide bond".to_owned(),
-        prompt: vec![ContentBlock::Text {
+        prompt: vec![QuestionContentBlock::Text {
             markdown: "Which group forms the peptide bond?".to_owned(),
         }],
         response: QuestionResponseFormat::MultipleChoice {
@@ -94,7 +94,7 @@ impl Nonces {
     }
 }
 
-impl NonceSourceV1 for Nonces {
+impl QuestionPresentationNonceSource for Nonces {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
         self.calls += 1;
         self.values
@@ -111,14 +111,14 @@ fn crc_contract_uses_the_required_ccitt_false_vector() {
 #[test]
 fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     let mut source = Nonces::new([[0x11; 16]]);
-    let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
+    let presentation = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
-    let bytes = descriptor_bytes_v1(&presentation).expect("descriptor");
+    let bytes = descriptor_bytes(&presentation).expect("descriptor");
     let public = presentation.digest.public_token();
 
     assert!(bytes.starts_with(b"ple:presentation:v1\0\x01"));
     assert_eq!(
-        presentation.envelope.presentation_nonce,
+        presentation.presentation.presentation_nonce,
         QuestionPresentationNonce::from_bytes([0x11; 16])
     );
     assert_eq!(presentation.item_bindings.len(), 2);
@@ -137,20 +137,20 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     );
     assert_eq!(public.as_str(), "pd1_KDMpyY8wq0HdRmUQPO0t8w");
     assert!(
-        !serde_json::to_string(&presentation.envelope)
+        !serde_json::to_string(&presentation.presentation)
             .expect("public JSON")
             .contains("amine")
     );
-    verify_presentation_v1(&presentation, presentation.digest, &public)
+    verify_question_presentation(&presentation, presentation.digest, &public)
         .expect("matching descriptor");
-    let public_rebuild = rebuild_public_presentation_v1(&presentation.envelope, &[])
+    let public_rebuild = rebuild_public_question_presentation(&presentation.presentation, &[])
         .expect("public presentation should reproduce the server descriptor");
     assert_eq!(public_rebuild.digest, presentation.digest);
 
     let mut changed = fixture();
     changed.title.push('!');
     let mut changed_source = Nonces::new([[0x11; 16]]);
-    let changed = build_presentation_v1_with_nonce_source(&changed, &[], &mut changed_source)
+    let changed = build_question_presentation_with_nonce_source(&changed, &[], &mut changed_source)
         .expect("changed presentation");
     assert_ne!(presentation.digest, changed.digest);
 }
@@ -159,24 +159,28 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
 fn collision_retries_the_whole_presentation_with_a_fresh_nonce() {
     let mut source = Nonces::new([[1; 16], [2; 16]]);
     let mut calls = 0_usize;
-    let presentation = build_presentation_v1_with_hasher(&fixture(), &[], &mut source, |bytes| {
-        calls += 1;
-        if calls <= 2 {
-            7
-        } else {
-            crc16_ccitt_false(bytes)
-        }
-    })
-    .expect("second nonce should resolve the injected collision");
+    let presentation =
+        build_question_presentation_with_hasher(&fixture(), &[], &mut source, |bytes| {
+            calls += 1;
+            if calls <= 2 {
+                7
+            } else {
+                crc16_ccitt_false(bytes)
+            }
+        })
+        .expect("second nonce should resolve the injected collision");
 
     assert_eq!(source.calls, 2);
-    assert_eq!(presentation.envelope.presentation_nonce.as_bytes(), [2; 16]);
+    assert_eq!(
+        presentation.presentation.presentation_nonce.as_bytes(),
+        [2; 16]
+    );
 }
 
 #[test]
 fn eight_colliding_presentations_fail_closed() {
     let mut source = Nonces::new([[3; 16]; 8]);
-    let error = build_presentation_v1_with_hasher(&fixture(), &[], &mut source, |_| 0)
+    let error = build_question_presentation_with_hasher(&fixture(), &[], &mut source, |_| 0)
         .expect_err("a colliding presentation must not be issued");
 
     assert_eq!(error, PresentationBuildError::RenderedIdCollision);
@@ -186,15 +190,16 @@ fn eight_colliding_presentations_fail_closed() {
 #[test]
 fn public_json_uses_rendered_ids_and_schema_kind_only() {
     let mut source = Nonces::new([[4; 16]]);
-    let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
+    let presentation = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
-    let IssuedQuestionResponseFormatV1::SingleChoice { choices } = &presentation.envelope.response
+    let QuestionPresentationResponseFormat::SingleChoice { choices } =
+        &presentation.presentation.response
     else {
         panic!("single choice schema")
     };
     assert_eq!(choices.len(), 2);
     assert!(choices.iter().all(|choice| choice.id.as_str().len() == 4));
-    let json = serde_json::to_value(&presentation.envelope).expect("public JSON");
+    let json = serde_json::to_value(&presentation.presentation).expect("public JSON");
     assert_eq!(json["response"]["kind"], "singleChoice");
     assert!(json.get("grading").is_none());
 }
@@ -202,10 +207,10 @@ fn public_json_uses_rendered_ids_and_schema_kind_only() {
 #[test]
 fn persisted_binding_is_strict_and_round_trips_full_digest() {
     let mut source = Nonces::new([[5; 16]]);
-    let presentation = build_presentation_v1_with_nonce_source(&fixture(), &[], &mut source)
+    let presentation = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
     let binding = QuestionPresentationBinding::new(
-        presentation.envelope.presentation_nonce,
+        presentation.presentation.presentation_nonce,
         presentation.digest,
     );
     let json = serde_json::to_value(binding).expect("binding JSON");
@@ -226,26 +231,26 @@ fn persisted_binding_is_strict_and_round_trips_full_digest() {
     unknown["grading"] = serde_json::json!(true);
     assert!(serde_json::from_value::<QuestionPresentationBinding>(unknown).is_err());
 
-    let reproduced = reproduce_presentation_v1(&fixture(), &[], binding)
+    let reproduced = reproduce_question_presentation(&fixture(), &[], binding)
         .expect("persisted binding reproduces the exact presentation");
     assert_eq!(reproduced, presentation);
 
     let mut changed = fixture();
     changed.title.push('!');
-    assert!(reproduce_presentation_v1(&changed, &[], binding).is_err());
+    assert!(reproduce_question_presentation(&changed, &[], binding).is_err());
 }
 
 fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPresentation {
     let mut envelope = fixture();
     envelope.response = response;
     let mut source = Nonces::new([[0x91; 16]]);
-    build_presentation_v1_with_nonce_source(&envelope, &[], &mut source)
+    build_question_presentation_with_nonce_source(&envelope, &[], &mut source)
         .expect("valid presentation")
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let asset = crate::envelope::AssetRef {
-        asset: crate::AssetId::from_uuid(uuid::Uuid::from_u128(1)),
+    let asset = crate::envelope::QuestionAssetReference {
+        asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
     let mut envelope = fixture();
@@ -254,7 +259,7 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
             id: ResponseItemReference::new("nucleus"),
-            label: vec![ContentBlock::Text {
+            label: vec![QuestionContentBlock::Text {
                 markdown: "Nucleus".to_owned(),
             }],
             x: 1_000,
@@ -264,15 +269,14 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         }],
         selection: ResponseSelectionRule::ExactlyOne,
     };
-    let bindings = [super::PresentedQuestionAsset {
-        asset: asset.asset,
-        authored_checksum: asset.checksum.clone(),
+    let bindings = [super::QuestionAssetRendition {
+        question_asset: asset.clone(),
         rendition_checksum: asset.checksum,
         intrinsic_width: Some(800),
         intrinsic_height: Some(600),
     }];
     let mut source = Nonces::new([[0x92; 16]]);
-    build_presentation_v1_with_nonce_source(&envelope, &bindings, &mut source)
+    build_question_presentation_with_nonce_source(&envelope, &bindings, &mut source)
         .expect("valid hotspot presentation")
 }
 
@@ -301,7 +305,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         selected: vec![rendered(&multiple, ResponseItemRole::QuestionChoice)],
     };
     assert_eq!(
-        translate_rendered_response_v1(&multiple_response, &multiple).expect("choice response"),
+        translate_rendered_response(&multiple_response, &multiple).expect("choice response"),
         StudentResponse::MultipleChoice {
             selected: vec![ResponseItemReference::new("a")],
         }
@@ -310,7 +314,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
     let blanks = presentation_for(QuestionResponseFormat::MultiBlank {
         blanks: vec![TextEntrySlot {
             id: ResponseItemReference::new("slot-a"),
-            label: vec![ContentBlock::Text {
+            label: vec![QuestionContentBlock::Text {
                 markdown: "A".to_owned(),
             }],
             match_mode: TextResponseMatchRule::Exact,
@@ -324,7 +328,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }],
     };
     assert_eq!(
-        translate_rendered_response_v1(&blanks_response, &blanks).expect("blank response"),
+        translate_rendered_response(&blanks_response, &blanks).expect("blank response"),
         StudentResponse::MultiBlank {
             answers: vec![StudentTextEntry {
                 slot: ResponseItemReference::new("slot-a"),
@@ -344,7 +348,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }],
     };
     assert_eq!(
-        translate_rendered_response_v1(&matching_response, &matching).expect("matching response"),
+        translate_rendered_response(&matching_response, &matching).expect("matching response"),
         StudentResponse::Matching {
             matches: vec![StudentMatch {
                 prompt: ResponseItemReference::new("prompt-a"),
@@ -363,7 +367,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         order: vec![rendered(&ordering, ResponseItemRole::OrderingItem)],
     };
     assert_eq!(
-        translate_rendered_response_v1(&ordering_response, &ordering).expect("ordering response"),
+        translate_rendered_response(&ordering_response, &ordering).expect("ordering response"),
         StudentResponse::Ordering {
             order: vec![ResponseItemReference::new("first")],
         }
@@ -376,7 +380,7 @@ fn rendered_response_translation_rewrites_every_identifier_family() {
         }],
     };
     assert_eq!(
-        translate_rendered_response_v1(&hotspot_response, &hotspot).expect("hotspot response"),
+        translate_rendered_response(&hotspot_response, &hotspot).expect("hotspot response"),
         StudentResponse::Hotspot {
             selections: vec![StudentHotspotSelection {
                 region: ResponseItemReference::new("nucleus"),
@@ -400,7 +404,7 @@ fn rendered_response_translation_preserves_scalar_question_types() {
         StudentResponse::ExternalTool {},
     ] {
         assert_eq!(
-            translate_rendered_response_v1(&response, &presentation).expect("scalar response"),
+            translate_rendered_response(&response, &presentation).expect("scalar response"),
             response
         );
     }
@@ -413,7 +417,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         selection: ResponseSelectionRule::ExactlyOne,
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(&StudentResponse::MultipleChoice { selected: vec![ResponseItemReference::new("a")] }, &multiple),
+        project_durable_response_to_rendered(&StudentResponse::MultipleChoice { selected: vec![ResponseItemReference::new("a")] }, &multiple),
         Ok(StudentResponseInspection::MultipleChoice { selected }) if selected == vec![multiple.item_bindings[0].rendered.clone()]
     ));
 
@@ -426,7 +430,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         }],
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemReference::new("slot"), text: "entered".into() }] }, &blank),
+        project_durable_response_to_rendered(&StudentResponse::MultiBlank { answers: vec![StudentTextEntry { slot: ResponseItemReference::new("slot"), text: "entered".into() }] }, &blank),
         Ok(StudentResponseInspection::MultiBlank { answers }) if answers[0].text == "entered"
     ));
 
@@ -435,7 +439,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         choices: vec![matching_choice("c", "C")],
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(
+        project_durable_response_to_rendered(
             &StudentResponse::Matching {
                 matches: vec![StudentMatch {
                     prompt: ResponseItemReference::new("p"),
@@ -450,7 +454,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         items: vec![ordering_item("first", "First")],
     });
     assert!(matches!(
-        project_durable_response_to_rendered_v1(
+        project_durable_response_to_rendered(
             &StudentResponse::Ordering {
                 order: vec![ResponseItemReference::new("first")]
             },
@@ -460,14 +464,11 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
     ));
 
     assert_eq!(
-        project_durable_response_to_rendered_v1(
-            &StudentResponse::Numeric { value: 1.5 },
-            &multiple,
-        ),
+        project_durable_response_to_rendered(&StudentResponse::Numeric { value: 1.5 }, &multiple,),
         Ok(StudentResponseInspection::Numeric { value: 1.5 })
     );
     assert_eq!(
-        project_durable_response_to_rendered_v1(
+        project_durable_response_to_rendered(
             &StudentResponse::ShortText {
                 text: "written".into(),
             },
@@ -478,7 +479,7 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         })
     );
     assert_eq!(
-        project_durable_response_to_rendered_v1(
+        project_durable_response_to_rendered(
             &StudentResponse::Hotspot { selections: vec![] },
             &multiple,
         ),
@@ -487,9 +488,9 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         })
     );
     assert_eq!(
-        project_durable_response_to_rendered_v1(&StudentResponse::ExternalTool {}, &multiple),
+        project_durable_response_to_rendered(&StudentResponse::ExternalTool {}, &multiple),
         Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolStateV1::SubmissionRecorded
+            completion: InspectedExternalToolState::SubmissionRecorded
         })
     );
 }
@@ -503,11 +504,11 @@ fn browser_submitted_response_round_trips_through_safe_inspection() {
     let submitted = StudentResponse::MultipleChoice {
         selected: vec![rendered(&presentation, ResponseItemRole::QuestionChoice)],
     };
-    let rebuilt = rebuild_public_presentation_v1(&presentation.envelope, &[])
+    let rebuilt = rebuild_public_question_presentation(&presentation.presentation, &[])
         .expect("browser-safe presentation rebuild");
 
     assert!(matches!(
-        project_rendered_response_for_inspection_v1(&submitted, &rebuilt),
+        project_rendered_response_for_inspection(&submitted, &rebuilt),
         Ok(StudentResponseInspection::MultipleChoice { selected })
             if selected == vec![presentation.item_bindings[0].rendered.clone()]
     ));
@@ -523,8 +524,8 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
         selected: vec![ResponseItemReference::new(id)],
     };
     assert_eq!(
-        translate_rendered_response_v1(&response_for("not-an-id"), &presentation),
-        Err(RenderedResponseTranslationErrorV1::MalformedRenderedId)
+        translate_rendered_response(&response_for("not-an-id"), &presentation),
+        Err(RenderedResponseTranslationError::MalformedRenderedId)
     );
 
     let unknown = (0_u16..=u16::MAX)
@@ -537,8 +538,8 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
         })
         .expect("unused rendered identifier");
     assert_eq!(
-        translate_rendered_response_v1(&response_for(&unknown), &presentation),
-        Err(RenderedResponseTranslationErrorV1::UnknownRenderedId)
+        translate_rendered_response(&response_for(&unknown), &presentation),
+        Err(RenderedResponseTranslationError::UnknownRenderedId)
     );
 
     let mut duplicate = presentation.clone();
@@ -546,11 +547,11 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
         .item_bindings
         .push(duplicate.item_bindings[0].clone());
     assert_eq!(
-        translate_rendered_response_v1(
+        translate_rendered_response(
             &response_for(presentation.item_bindings[0].rendered.as_str()),
             &duplicate,
         ),
-        Err(RenderedResponseTranslationErrorV1::DuplicateRenderedIdBinding)
+        Err(RenderedResponseTranslationError::DuplicateRenderedIdBinding)
     );
 
     let matching = presentation_for(QuestionResponseFormat::Matching {
@@ -558,10 +559,10 @@ fn rendered_response_translation_rejects_malformed_unknown_duplicate_and_wrong_r
         choices: vec![matching_choice("choice-a", "Choice")],
     });
     assert_eq!(
-        translate_rendered_response_v1(
+        translate_rendered_response(
             &response_for(rendered(&matching, ResponseItemRole::MatchingPrompt).as_str()),
             &matching,
         ),
-        Err(RenderedResponseTranslationErrorV1::WrongRenderedItemRole)
+        Err(RenderedResponseTranslationError::WrongRenderedItemRole)
     );
 }

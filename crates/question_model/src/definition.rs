@@ -15,9 +15,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use crate::classification::{License, QuestionClassification, Tag};
-use crate::envelope::ContentBlock;
+use crate::envelope::QuestionContentBlock;
 use crate::generation::QuestionVariationDefinition;
-use crate::identity::{ObjectId, WorkspaceId, WorkspaceImportId};
+use crate::identity::{WorkspaceId, WorkspaceImportId};
 use crate::response::{QuestionResponseFormat, QuestionType};
 use crate::{QuestionId, QuestionRevisionNumber};
 
@@ -38,8 +38,8 @@ pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
 pub enum QuestionFormat {
     /// Version 2 of PLE's canonical static flat-question JSON.
     PleFlatQuestionV2,
-    /// A first-party generated Question authored as a native implementation.
-    NativeAlgorithmic,
+    /// A first-party generated Question authored as a PLE Question Implementation.
+    PleAlgorithmic,
     /// A WeBWorK PG source.
     WebworkPg,
     /// An imported QTI item.
@@ -88,20 +88,20 @@ pub fn validate_question_title(title: &str) -> Result<(), QuestionTitleError> {
     Ok(())
 }
 
-/// Which engine a question came from, and how to find it there.
+/// Backend-specific location information for a Question Source.
 ///
-/// The reference stays with the question so an import can be repeated and an
-/// export can point back at the original. Each variant carries exactly what its
-/// backend needs to locate the source.
+/// This identifies the Question Backend and the backend's own location fields.
+/// It deliberately carries neither Question Source data nor a Source Object
+/// Reference; the private Question Source record owns those exact bytes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "backend",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum QuestionSource {
-    /// A first-party native question.
-    Native,
+pub enum QuestionBackendLocator {
+    /// A first-party PLE Question.
+    Ple,
     /// A WeBWorK PG problem, rendered by the renderer service.
     Webwork {
         /// Path within the problem library, for example an OPL path.
@@ -111,80 +111,30 @@ pub enum QuestionSource {
     Qti {
         /// Item identifier within the package.
         item_id: String,
-        /// Immutable object containing the original published package bytes.
-        package_object: ObjectId,
-        /// SHA-256 of the original published package bytes.
-        package_sha256: String,
     },
     /// An imported H5P activity, which evaluates in the browser.
     H5p {
         /// H5P content type, for example `H5P.MultiChoice`.
         content_type: String,
     },
-    /// An iMathAS item frozen from a server-fetched source snapshot.
+    /// An iMathAS item resolved through a configured integration profile.
     ///
-    /// The provider name is an opaque deployment-configured key. The snapshot
-    /// and integration profile make a published version replayable without
-    /// serializing endpoints, credentials, launch material, or answer data.
+    /// The provider name is an opaque deployment-configured key. The private
+    /// Question Source record holds the immutable snapshot bytes separately.
     Imathas {
         /// Opaque configured provider key, never a URL or credential.
         provider: String,
         /// Provider-local item reference captured in the immutable snapshot.
         item_ref: String,
-        /// Secure object containing the immutable, checksum-verified source.
-        snapshot: ObjectId,
-        /// SHA-256 of the snapshot bytes in lowercase hexadecimal.
-        snapshot_sha256: String,
         /// Supported integration profile pinned at publication time.
         integration_profile: String,
     },
 }
 
-/// Why a published source locator cannot safely name immutable source bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionSourceValidationError {
-    /// A source checksum was not lowercase, fixed-width hexadecimal SHA-256.
-    NonCanonicalSha256,
-}
-
-impl std::fmt::Display for QuestionSourceValidationError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NonCanonicalSha256 => {
-                formatter.write_str("source SHA-256 must be 64 lowercase hexadecimal characters")
-            }
-        }
-    }
-}
-
-impl std::error::Error for QuestionSourceValidationError {}
-
-impl QuestionSource {
-    /// Validates source fields whose string representation is part of the
-    /// immutable published contract.
-    pub fn validate(&self) -> Result<(), QuestionSourceValidationError> {
-        let checksum = match self {
-            Self::Qti { package_sha256, .. } => package_sha256,
-            Self::Imathas {
-                snapshot_sha256, ..
-            } => snapshot_sha256,
-            Self::Native | Self::Webwork { .. } | Self::H5p { .. } => return Ok(()),
-        };
-        if checksum.len() == 64
-            && checksum
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        {
-            Ok(())
-        } else {
-            Err(QuestionSourceValidationError::NonCanonicalSha256)
-        }
-    }
-}
-
-/// Source locator permitted while content is still a private workspace draft.
+/// Backend-specific location information permitted while content is a private
+/// Draft Question Revision.
 ///
-/// Unlike [`QuestionSource::Imathas`], its iMathAS variant intentionally has
+/// Unlike [`QuestionBackendLocator::Imathas`], its iMathAS variant intentionally has
 /// no snapshot or profile: those are fetched and frozen by the server before
 /// publication can mint a durable version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -193,9 +143,9 @@ impl QuestionSource {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum DraftQuestionSource {
-    /// A first-party native question.
-    Native,
+pub enum DraftQuestionBackendLocator {
+    /// A first-party PLE Question.
+    Ple,
     /// A WeBWorK PG problem.
     Webwork { pg_path: String },
     /// An imported QTI item staged in this draft's private workspace.
@@ -212,29 +162,31 @@ pub enum DraftQuestionSource {
     Imathas { provider: String, item_ref: String },
 }
 
-impl TryFrom<DraftQuestionSource> for QuestionSource {
-    type Error = DraftSourcePublicationError;
+impl TryFrom<DraftQuestionBackendLocator> for QuestionBackendLocator {
+    type Error = QuestionBackendLocatorPreparationError;
 
-    fn try_from(source: DraftQuestionSource) -> Result<Self, Self::Error> {
-        match source {
-            DraftQuestionSource::Native => Ok(Self::Native),
-            DraftQuestionSource::Webwork { pg_path } => Ok(Self::Webwork { pg_path }),
-            DraftQuestionSource::Qti { .. } => Err(DraftSourcePublicationError::QtiImportRequired),
-            DraftQuestionSource::H5p { content_type } => Ok(Self::H5p { content_type }),
-            DraftQuestionSource::Imathas { .. } => {
-                Err(DraftSourcePublicationError::SnapshotRequired)
+    fn try_from(backend_locator: DraftQuestionBackendLocator) -> Result<Self, Self::Error> {
+        match backend_locator {
+            DraftQuestionBackendLocator::Ple => Ok(Self::Ple),
+            DraftQuestionBackendLocator::Webwork { pg_path } => Ok(Self::Webwork { pg_path }),
+            DraftQuestionBackendLocator::Qti { .. } => {
+                Err(QuestionBackendLocatorPreparationError::QtiImportRequired)
+            }
+            DraftQuestionBackendLocator::H5p { content_type } => Ok(Self::H5p { content_type }),
+            DraftQuestionBackendLocator::Imathas { .. } => {
+                Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
             }
         }
     }
 }
 
-/// Why a draft source cannot become a published immutable source automatically.
+/// Why a draft backend locator cannot become a published immutable source automatically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DraftSourcePublicationError {
-    /// iMathAS requires the server to archive a source snapshot and pin its profile.
+pub enum QuestionBackendLocatorPreparationError {
+    /// iMathAS requires the server to create the Question Source snapshot and pin its profile.
     SnapshotRequired,
     /// QTI publication must resolve an authorized staged import into an exact
-    /// immutable package object and checksum before identifiers are minted.
+    /// immutable Question Source before identifiers are minted.
     QtiImportRequired,
 }
 
@@ -298,15 +250,15 @@ impl QuestionMetadata {
 /// Publication is the one boundary that mints both durable identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DraftQuestionDefinition {
+pub struct DraftQuestionRevision {
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
-    /// Which engine it came from.
-    pub source: DraftQuestionSource,
+    /// The Question Backend and any backend-specific location facts.
+    pub backend_locator: DraftQuestionBackendLocator,
     /// The authored or imported representation of this Question.
     pub question_format: QuestionFormat,
     /// The prompt, in render order.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// The shape of response expected.
     pub response: QuestionResponseFormat,
     /// The educational interaction this Question assesses.
@@ -325,7 +277,7 @@ pub struct DraftQuestionDefinition {
 
 /// Compact browser-safe identity for one private workspace draft.
 ///
-/// The full source locator, prompt, Question Response Format, grading policy, and
+/// The full backend locator, prompt, Question Response Format, grading policy, and
 /// asset references remain on the detail record.  In particular, this list
 /// projection deliberately has no published Question ID or Question Revision Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -338,10 +290,10 @@ pub struct WorkspaceDraftSummary {
     /// Human-facing draft title.
     pub title: String,
     /// Question Backend without its private source locator.
-    pub source_backend: crate::question_library::QuestionBackend,
+    pub question_backend: crate::question_library::QuestionBackend,
 }
 
-impl DraftQuestionDefinition {
+impl DraftQuestionRevision {
     /// Builds the intentionally compact list projection for this draft.
     pub fn workspace_summary(
         &self,
@@ -351,7 +303,7 @@ impl DraftQuestionDefinition {
             workspace: self.workspace,
             reference,
             title: self.metadata.title.clone(),
-            source_backend: crate::question_library::QuestionBackend::from(&self.source),
+            question_backend: crate::question_library::QuestionBackend::from(&self.backend_locator),
         }
     }
 }
@@ -370,11 +322,11 @@ pub struct QuestionRevision {
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
     /// Which engine it came from.
-    pub source: QuestionSource,
+    pub backend_locator: QuestionBackendLocator,
     /// The authored or imported representation of this Question.
     pub question_format: QuestionFormat,
     /// The prompt, in render order.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// The shape of response expected.
     pub response: QuestionResponseFormat,
     /// The educational interaction this Question assesses.
@@ -394,16 +346,16 @@ pub struct QuestionRevision {
 impl QuestionRevision {
     /// Attaches the IDs minted at successful publication to draft content.
     pub fn from_draft(
-        draft: DraftQuestionDefinition,
+        draft: DraftQuestionRevision,
         question_id: QuestionId,
         revision_number: QuestionRevisionNumber,
-        source: QuestionSource,
+        backend_locator: QuestionBackendLocator,
     ) -> Self {
         Self {
             question_id,
             revision_number,
             workspace: draft.workspace,
-            source,
+            backend_locator,
             question_format: draft.question_format,
             prompt: draft.prompt,
             response: draft.response,
@@ -424,12 +376,12 @@ mod tests {
     use crate::generation::QuestionVariationDefinition;
     use uuid::Uuid;
 
-    fn sample_draft() -> DraftQuestionDefinition {
-        DraftQuestionDefinition {
+    fn sample_draft() -> DraftQuestionRevision {
+        DraftQuestionRevision {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            source: DraftQuestionSource::Native,
-            question_format: QuestionFormat::NativeAlgorithmic,
-            prompt: vec![ContentBlock::Text {
+            backend_locator: DraftQuestionBackendLocator::Ple,
+            question_format: QuestionFormat::PleAlgorithmic,
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "What is the molar mass?".to_string(),
             }],
             response: QuestionResponseFormat::Numeric {
@@ -464,7 +416,7 @@ mod tests {
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionSource::Native,
+            QuestionBackendLocator::Ple,
         );
         assert_eq!(published.question_id.to_string(), "123-4567");
     }
@@ -473,7 +425,7 @@ mod tests {
     fn a_question_survives_a_json_round_trip() {
         let question = sample_draft();
         let json = serde_json::to_string(&question).expect("serialization should succeed");
-        let restored: DraftQuestionDefinition =
+        let restored: DraftQuestionRevision =
             serde_json::from_str(&json).expect("deserialization should succeed");
         assert_eq!(restored, question);
     }
@@ -481,18 +433,18 @@ mod tests {
     #[test]
     fn imathas_sandbox_source_cannot_become_published_without_a_snapshot() {
         assert_eq!(
-            QuestionSource::try_from(DraftQuestionSource::Imathas {
+            QuestionBackendLocator::try_from(DraftQuestionBackendLocator::Imathas {
                 provider: "myopenmath".to_string(),
                 item_ref: "12345".to_string(),
             }),
-            Err(DraftSourcePublicationError::SnapshotRequired)
+            Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
         );
     }
 
     #[test]
     fn qti_draft_uses_only_an_opaque_workspace_import_and_requires_preparation() {
         let import_id = WorkspaceImportId::from_uuid(Uuid::from_u128(44));
-        let draft = DraftQuestionSource::Qti {
+        let draft = DraftQuestionBackendLocator::Qti {
             item_id: "choice-1".to_string(),
             import_id,
         };
@@ -501,47 +453,24 @@ mod tests {
         assert_eq!(json["importId"], import_id.to_string());
         assert!(json.get("packageObject").is_none());
         assert_eq!(
-            QuestionSource::try_from(draft),
-            Err(DraftSourcePublicationError::QtiImportRequired)
+            QuestionBackendLocator::try_from(draft),
+            Err(QuestionBackendLocatorPreparationError::QtiImportRequired)
         );
     }
 
     #[test]
-    fn published_qti_source_binds_exact_object_and_checksum() {
-        let source = QuestionSource::Qti {
+    fn qti_backend_locator_carries_only_its_item_location() {
+        let source = QuestionBackendLocator::Qti {
             item_id: "choice-1".to_string(),
-            package_object: ObjectId::from_uuid(Uuid::from_u128(45)),
-            package_sha256: "a".repeat(64),
         };
-        let json = serde_json::to_string(&source).expect("source serializes");
-        let restored: QuestionSource = serde_json::from_str(&json).expect("source round trips");
+        let json = serde_json::to_string(&source).expect("locator serializes");
+        let restored: QuestionBackendLocator =
+            serde_json::from_str(&json).expect("locator round trips");
         assert_eq!(restored, source);
-        assert!(serde_json::from_str::<QuestionSource>(
-            r#"{\"backend\":\"qti\",\"itemId\":\"choice-1\",\"packageObject\":\"00000000-0000-0000-0000-00000000002d\",\"packageSha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"archive\":\"leak\"}"#
+        assert!(serde_json::from_str::<QuestionBackendLocator>(
+            r#"{\"backend\":\"qti\",\"itemId\":\"choice-1\",\"sourceObjectReference\":{\"object\":\"00000000-0000-0000-0000-00000000002d\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}"#
         )
         .is_err());
-    }
-
-    #[test]
-    fn source_checksums_are_canonical_lowercase_sha256() {
-        let valid = QuestionSource::Qti {
-            item_id: "choice-1".to_string(),
-            package_object: ObjectId::from_uuid(Uuid::from_u128(45)),
-            package_sha256: "a".repeat(64),
-        };
-        assert_eq!(valid.validate(), Ok(()));
-
-        for invalid_checksum in ["a".repeat(63), "A".repeat(64), "g".repeat(64)] {
-            let invalid = QuestionSource::Qti {
-                item_id: "choice-1".to_string(),
-                package_object: ObjectId::from_uuid(Uuid::from_u128(45)),
-                package_sha256: invalid_checksum,
-            };
-            assert_eq!(
-                invalid.validate(),
-                Err(QuestionSourceValidationError::NonCanonicalSha256)
-            );
-        }
     }
 
     #[test]

@@ -81,7 +81,7 @@ Before accepting WP-W2, independently verify:
   a visible inline error (which fails), visible radios (which proceed directly),
   or actual visible `Start another practice run` (which is Tabbed to, focused,
   and Space-activated before radios). It must not infer a retry path from a
-  stale/removed response control or asynchronous heading wording.
+  stale/removed Question Response Control or asynchronous heading wording.
 - First selection produces only the observed Feedback heading. After Continue,
   the same 15-second structural poll must reach visible radios (`run`); a
   visible inline error or fresh-practice button fails. No body text,
@@ -100,7 +100,7 @@ Before accepting WP-W2, independently verify:
 
 Two real-stack attempts exposed an honest stale-run problem: J2's original
 Start/resume path reached the completed summary from existing student state, so
-the test correctly could not find a new response control. The repair does not
+the test correctly could not find a new Question Response Control. The repair does not
 clear state, inject a run, or infer an outcome. It requires the visible completed
 summary and then uses the ordinary keyboard-only `Start another practice run`
 control to obtain the server-owned fresh variation before beginning the first

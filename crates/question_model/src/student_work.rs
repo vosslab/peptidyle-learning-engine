@@ -14,6 +14,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use uuid::Uuid;
 
+mod source_object_checksum;
+#[cfg(test)]
+#[path = "student_work/source_object_checksum_tests.rs"]
+mod source_object_checksum_tests;
+
+pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
+
 use crate::QuestionRevisionReference;
 use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
 use crate::assignment_activity_rules::{QuestionPoolReuseRule, QuestionVariationRule};
@@ -26,7 +33,7 @@ mod identifiers;
 
 pub use identifiers::{
     AccommodationId, AssignmentAttemptId, AssignmentEntryId, AssignmentId, CourseId,
-    CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolCandidateId,
+    CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolItemId,
     QuestionPoolSelectionId, QuestionSubmissionId, StudentRecordId,
 };
 
@@ -130,13 +137,13 @@ impl AssignmentAttempt {
     }
 }
 
-/// One exact candidate selected from a Question Pool, in delivery order.
+/// One exact Question Pool Item selected in delivery order.
 #[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionPoolSelectedCandidate {
-    /// Stable identity of the candidate in its source Question Pool Assignment Entry.
-    pub candidate: QuestionPoolCandidateId,
+pub struct QuestionPoolSelectedItem {
+    /// Stable identity of the Item in its source Question Pool Assignment Entry.
+    pub question_pool_item: QuestionPoolItemId,
     /// Exact immutable Question Revision selected for delivery.
     pub reference: QuestionRevisionReference,
 }
@@ -148,26 +155,26 @@ pub struct QuestionPoolSelectedCandidate {
 pub struct QuestionPoolSelection {
     /// Durable Question Pool Selection identity.
     pub id: QuestionPoolSelectionId,
-    /// Assignment Attempt that owns this selected candidate set.
+    /// Assignment Attempt that owns this selected Question Pool Item set.
     pub assignment_attempt: AssignmentAttemptId,
-    /// Question Pool Assignment Entry that supplied the candidates.
-    pub question_pool_entry: AssignmentEntryId,
-    /// Database-authoritative time at which the server selected these candidates.
+    /// Question Pool Assignment Entry that supplied the Items.
+    pub question_pool_assignment_entry: AssignmentEntryId,
+    /// Database-authoritative time at which the server selected these entries.
     pub created_at: ActivityTimestamp,
-    /// Number of exact candidates selected for this Assignment Attempt.
+    /// Number of exact entries selected for this Assignment Attempt.
     ///
-    /// This repeats the candidate-row cardinality so storage can reject an
+    /// This repeats the selected-entry-row cardinality so storage can reject an
     /// incomplete Selection at transaction commit without consulting mutable
     /// Assignment Working Copy content.
     pub selected_question_count: u32,
-    /// Earlier Selection whose exact candidates this later Assignment Attempt retained.
+    /// Earlier Selection whose exact entries this later Assignment Attempt retained.
     ///
     /// A reused Selection is still an immutable result owned by this Assignment
-    /// Attempt. This link preserves the reason its candidate membership repeats
+    /// Attempt. This link preserves the reason its selected-entry membership repeats
     /// without treating the earlier Attempt's record as mutable shared state.
     pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact selected candidates in their frozen delivery order.
-    pub selected_candidates: Vec<QuestionPoolSelectedCandidate>,
+    /// Exact selected Items in their frozen delivery order.
+    pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
 
 /// A requested later-Attempt Selection does not match its earlier source.
@@ -175,7 +182,7 @@ pub struct QuestionPoolSelection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionReuseError {
     /// A Question Pool Selection can only be retained for the same Assignment Entry.
-    DifferentQuestionPoolEntry,
+    DifferentQuestionPoolAssignmentEntry,
     /// A Selection cannot use itself as an earlier Assignment Attempt's source.
     SameAssignmentAttempt,
 }
@@ -183,7 +190,7 @@ pub enum QuestionPoolSelectionReuseError {
 impl std::fmt::Display for QuestionPoolSelectionReuseError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DifferentQuestionPoolEntry => formatter
+            Self::DifferentQuestionPoolAssignmentEntry => formatter
                 .write_str("Question Pool Selection reuse requires the same Assignment Entry"),
             Self::SameAssignmentAttempt => formatter
                 .write_str("Question Pool Selection reuse requires a later Assignment Attempt"),
@@ -194,7 +201,7 @@ impl std::fmt::Display for QuestionPoolSelectionReuseError {
 impl std::error::Error for QuestionPoolSelectionReuseError {}
 
 impl QuestionPoolSelection {
-    /// Copies this immutable candidate result into a later Assignment Attempt.
+    /// Copies this immutable Question Pool Selection into a later Assignment Attempt.
     ///
     /// Storage additionally verifies that both attempts belong to the same
     /// Student and Assignment, and that the target attempt number is later.
@@ -204,11 +211,11 @@ impl QuestionPoolSelection {
         &self,
         id: QuestionPoolSelectionId,
         assignment_attempt: AssignmentAttemptId,
-        question_pool_entry: AssignmentEntryId,
+        question_pool_assignment_entry: AssignmentEntryId,
         created_at: ActivityTimestamp,
     ) -> Result<Self, QuestionPoolSelectionReuseError> {
-        if question_pool_entry != self.question_pool_entry {
-            return Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolEntry);
+        if question_pool_assignment_entry != self.question_pool_assignment_entry {
+            return Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssignmentEntry);
         }
         if assignment_attempt == self.assignment_attempt {
             return Err(QuestionPoolSelectionReuseError::SameAssignmentAttempt);
@@ -216,11 +223,11 @@ impl QuestionPoolSelection {
         Ok(Self {
             id,
             assignment_attempt,
-            question_pool_entry,
+            question_pool_assignment_entry,
             created_at,
             selected_question_count: self.selected_question_count,
             reused_from_question_pool_selection: Some(self.id),
-            selected_candidates: self.selected_candidates.clone(),
+            selected_items: self.selected_items.clone(),
         })
     }
 }
@@ -234,7 +241,7 @@ pub struct IssuedQuestion {
     pub id: IssuedQuestionId,
     /// Assignment Attempt whose future sequencing is frozen by this record.
     pub assignment_attempt: AssignmentAttemptId,
-    /// Stable fixed-question or Question Pool candidate identity.
+    /// Stable fixed-question or Question Pool Assignment Entry identity.
     pub assignment_entry: AssignmentEntryId,
     /// Entry index in the assignment definition when the Assignment Attempt began.
     pub definition_entry_index: u32,
@@ -253,8 +260,8 @@ pub struct IssuedQuestion {
     pub statistics_eligible: bool,
     /// Immutable Question Pool Selection that produced this item, if it was drawn.
     pub question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact candidate in that Question Pool Selection, if it was drawn.
-    pub question_pool_candidate: Option<QuestionPoolCandidateId>,
+    /// Exact Question Pool Item in that Question Pool Selection, if it was drawn.
+    pub question_pool_item: Option<QuestionPoolItemId>,
 }
 
 /// Server-recorded timing inputs for one issued question.
@@ -357,10 +364,8 @@ pub struct QuestionRendererVersion {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceObjectReference {
-    /// Immutable object-store record containing the source bytes.
+    /// Immutable Object Record containing the source bytes.
     pub object: ObjectId,
-    /// SHA-256 of those bytes at attempt issue time.
-    pub sha256: String,
 }
 
 /// Versions and object identities required to reproduce one Question Attempt.
@@ -374,8 +379,10 @@ pub struct QuestionAttemptReproductionDetails {
     pub renderer_version: Option<QuestionRendererVersion>,
     /// Generator used for parameterized content, when the backend has one.
     pub generator: Option<QuestionGeneratorReference>,
-    /// Exact source object and checksum, when the backend stores source bytes.
+    /// Exact source object, when the backend stores source bytes.
     pub source_object_reference: Option<SourceObjectReference>,
+    /// SHA-256 integrity evidence for the exact source object.
+    pub source_object_checksum: Option<SourceObjectChecksum>,
     /// Objects referenced by the rendered question.
     pub asset_objects: Vec<ObjectId>,
     /// Server-only Question Grader that produced the result.
@@ -392,11 +399,11 @@ pub struct QuestionAttemptReproductionDetails {
 /// downgrade a flat or WeBWorK attempt into a current Question Library recovery path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum IssuedAttemptCapabilityV1 {
-    /// A browser-safe `PresentationEnvelopeV1` with no format-specific
+pub enum IssuedAttemptCapability {
+    /// A browser-safe `QuestionPresentation` with no format-specific
     /// private first-grade contract.
     PresentationEnvelope,
-    /// A native flat presentation and its required private grading contract.
+    /// A PLE flat presentation and its required private grading contract.
     FlatPresentation,
     /// A WeBWorK presentation, immutable private definition, and replay map.
     WebworkPresentation,
@@ -405,7 +412,7 @@ pub enum IssuedAttemptCapabilityV1 {
     /// This is distinct from the generic presentation tag so loss of the
     /// opaque contract fails closed instead of inviting a Question Library lookup.
     QtiPresentation,
-    /// A Question Backend that intentionally issues no `PresentationEnvelopeV1`.
+    /// A Question Backend that intentionally issues no `QuestionPresentation`.
     NotApplicable,
 }
 
@@ -433,7 +440,7 @@ pub struct QuestionAttempt {
     #[serde(skip_serializing)]
     pub reproduction_details: QuestionAttemptReproductionDetails,
     /// Checksummed immutable capability for the protected issuance payloads.
-    pub issued_capability: IssuedAttemptCapabilityV1,
+    pub issued_capability: IssuedAttemptCapability,
 }
 
 /// Answer-free Student read of one Question Attempt.
@@ -457,7 +464,7 @@ pub struct StudentQuestionAttemptView {
     /// Student-visible timing record.
     pub timing: QuestionAttemptTiming,
     /// Checksummed immutable capability for the protected issuance payloads.
-    pub issued_capability: IssuedAttemptCapabilityV1,
+    pub issued_capability: IssuedAttemptCapability,
 }
 
 impl From<&QuestionAttempt> for StudentQuestionAttemptView {
@@ -642,9 +649,9 @@ mod tests {
     }
 
     #[test]
-    fn question_pool_selection_retains_exact_candidates_and_issued_question_link() {
+    fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
-        let candidate_id = QuestionPoolCandidateId::from_uuid(Uuid::from_u128(11));
+        let question_pool_item_id = QuestionPoolItemId::from_uuid(Uuid::from_u128(11));
         let reference = QuestionRevisionReference {
             question_id: "123-4567".parse().expect("valid Question ID"),
             revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
@@ -652,19 +659,19 @@ mod tests {
         let selection = QuestionPoolSelection {
             id: selection_id,
             assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(12)),
-            question_pool_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(13)),
+            question_pool_assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(13)),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
             selected_question_count: 1,
             reused_from_question_pool_selection: None,
-            selected_candidates: vec![QuestionPoolSelectedCandidate {
-                candidate: candidate_id,
+            selected_items: vec![QuestionPoolSelectedItem {
+                question_pool_item: question_pool_item_id,
                 reference: reference.clone(),
             }],
         };
         let issued_question = IssuedQuestion {
             id: IssuedQuestionId::from_uuid(Uuid::from_u128(14)),
             assignment_attempt: selection.assignment_attempt,
-            assignment_entry: selection.question_pool_entry,
+            assignment_entry: selection.question_pool_assignment_entry,
             definition_entry_index: 0,
             issued_position: 0,
             reference,
@@ -672,26 +679,29 @@ mod tests {
             scoring_rule: crate::AssignmentEntryScoringRule::Normal,
             statistics_eligible: true,
             question_pool_selection: Some(selection_id),
-            question_pool_candidate: Some(candidate_id),
+            question_pool_item: Some(question_pool_item_id),
         };
 
-        assert_eq!(selection.selected_candidates.len(), 1);
+        assert_eq!(selection.selected_items.len(), 1);
         assert_eq!(issued_question.question_pool_selection, Some(selection.id));
-        assert_eq!(issued_question.question_pool_candidate, Some(candidate_id));
+        assert_eq!(
+            issued_question.question_pool_item,
+            Some(question_pool_item_id)
+        );
 
         let reused = selection
             .reused_for_later_attempt(
                 QuestionPoolSelectionId::from_uuid(Uuid::from_u128(15)),
                 AssignmentAttemptId::from_uuid(Uuid::from_u128(16)),
-                selection.question_pool_entry,
+                selection.question_pool_assignment_entry,
                 ActivityTimestamp::from_unix_millis(2_000),
             )
-            .expect("same Question Pool may retain its exact candidates");
+            .expect("same Question Pool may retain its exact entries");
         assert_eq!(
             reused.reused_from_question_pool_selection,
             Some(selection.id)
         );
-        assert_eq!(reused.selected_candidates, selection.selected_candidates);
+        assert_eq!(reused.selected_items, selection.selected_items);
     }
 
     #[test]
@@ -699,18 +709,18 @@ mod tests {
         let selection = QuestionPoolSelection {
             id: QuestionPoolSelectionId::from_uuid(Uuid::from_u128(1)),
             assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(2)),
-            question_pool_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(3)),
+            question_pool_assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(3)),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
             selected_question_count: 1,
             reused_from_question_pool_selection: None,
-            selected_candidates: Vec::new(),
+            selected_items: Vec::new(),
         };
 
         assert_eq!(
             selection.reused_for_later_attempt(
                 QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
                 selection.assignment_attempt,
-                selection.question_pool_entry,
+                selection.question_pool_assignment_entry,
                 ActivityTimestamp::from_unix_millis(2_000),
             ),
             Err(QuestionPoolSelectionReuseError::SameAssignmentAttempt),
@@ -722,7 +732,7 @@ mod tests {
                 AssignmentEntryId::from_uuid(Uuid::from_u128(6)),
                 ActivityTimestamp::from_unix_millis(2_000),
             ),
-            Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolEntry),
+            Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssignmentEntry),
         );
     }
 
@@ -842,12 +852,17 @@ mod tests {
     fn reproduction_details_serialize_role_specific_versions() {
         let record = QuestionAttemptReproductionDetails {
             backend: QuestionBackendVersion {
-                name: "native-adapter".to_string(),
+                name: "ple-question-backend".to_string(),
                 version: "1".to_string(),
             },
             renderer_version: None,
             generator: None,
-            source_object_reference: None,
+            source_object_reference: Some(SourceObjectReference {
+                object: ObjectId::from_uuid(Uuid::from_u128(7)),
+            }),
+            source_object_checksum: Some(
+                SourceObjectChecksum::parse("a".repeat(64)).expect("canonical checksum"),
+            ),
             asset_objects: Vec::new(),
             grader: QuestionGraderVersion {
                 name: "generic-grader".to_string(),
@@ -859,6 +874,14 @@ mod tests {
         let wire = serde_json::to_value(record).expect("reproduction details serialize");
         assert!(wire.get("backend").is_some());
         assert!(wire.get("grader").is_some());
+        assert_eq!(
+            wire["sourceObjectReference"],
+            serde_json::json!({ "object": "00000000-0000-0000-0000-000000000007" })
+        );
+        assert_eq!(
+            wire["sourceObjectChecksum"],
+            serde_json::json!("a".repeat(64))
+        );
         assert!(wire.get("adapter").is_none());
         assert!(wire.get("grading").is_none());
     }
@@ -879,12 +902,13 @@ mod tests {
             },
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: QuestionBackendVersion {
-                    name: "native-adapter".to_string(),
+                    name: "ple-question-backend".to_string(),
                     version: "1".to_string(),
                 },
                 renderer_version: None,
                 generator: None,
                 source_object_reference: None,
+                source_object_checksum: None,
                 asset_objects: Vec::new(),
                 grader: QuestionGraderVersion {
                     name: "generic-grader".to_string(),
@@ -892,7 +916,7 @@ mod tests {
                 },
                 rendered_question_sha256: "b".repeat(64),
             },
-            issued_capability: IssuedAttemptCapabilityV1::NotApplicable,
+            issued_capability: IssuedAttemptCapability::NotApplicable,
         };
 
         let view = StudentQuestionAttemptView::from(&attempt);

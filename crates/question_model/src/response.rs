@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
-use crate::envelope::{AssetRef, ContentBlock};
+use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 
 /// The educational interaction a Question assesses.
 ///
@@ -91,7 +91,7 @@ pub struct QuestionChoice {
     /// Stable identifier, used by grading.
     pub id: ResponseItemReference,
     /// What the student sees, in render order.
-    pub body: Vec<ContentBlock>,
+    pub body: Vec<QuestionContentBlock>,
 }
 
 /// One prompt a Student must match to a Matching Choice.
@@ -99,7 +99,7 @@ pub struct QuestionChoice {
 #[serde(rename_all = "camelCase")]
 pub struct MatchingPrompt {
     pub id: ResponseItemReference,
-    pub body: Vec<ContentBlock>,
+    pub body: Vec<QuestionContentBlock>,
 }
 
 /// One selectable answer for a Matching Prompt.
@@ -107,7 +107,7 @@ pub struct MatchingPrompt {
 #[serde(rename_all = "camelCase")]
 pub struct MatchingChoice {
     pub id: ResponseItemReference,
-    pub body: Vec<ContentBlock>,
+    pub body: Vec<QuestionContentBlock>,
 }
 
 /// One item a Student arranges in an ordering response.
@@ -115,7 +115,7 @@ pub struct MatchingChoice {
 #[serde(rename_all = "camelCase")]
 pub struct OrderingItem {
     pub id: ResponseItemReference,
-    pub body: Vec<ContentBlock>,
+    pub body: Vec<QuestionContentBlock>,
 }
 
 /// One named text-entry slot in a multi-blank question.
@@ -125,7 +125,7 @@ pub struct TextEntrySlot {
     /// Stable semantic slot identifier.
     pub id: ResponseItemReference,
     /// Student-visible label or surrounding prompt fragment.
-    pub label: Vec<ContentBlock>,
+    pub label: Vec<QuestionContentBlock>,
     /// How the server compares this slot's text.
     pub match_mode: TextResponseMatchRule,
     /// Longest accepted response, in characters.
@@ -170,8 +170,8 @@ pub struct StudentHotspotSelection {
 pub struct HotspotRegion {
     /// Stable semantic region identifier. Correctness remains server-only.
     pub id: ResponseItemReference,
-    /// Nonvisual alternative used by the keyboard-first response control.
-    pub label: Vec<ContentBlock>,
+    /// Nonvisual alternative used by the keyboard-first Question Response Control.
+    pub label: Vec<QuestionContentBlock>,
     /// Left edge in normalized coordinates.
     pub x: u16,
     /// Top edge in normalized coordinates.
@@ -235,7 +235,7 @@ pub enum QuestionResponseFormat {
     /// One or more labeled regions selected on an image-backed surface.
     Hotspot {
         /// Immutable image used as the coordinate surface.
-        surface: AssetRef,
+        surface: QuestionAssetReference,
         /// Text alternative describing the whole surface.
         description: String,
         /// Public candidate regions; the correct region set remains private.

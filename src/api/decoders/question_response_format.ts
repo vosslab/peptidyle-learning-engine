@@ -1,7 +1,7 @@
 // Browser-safe content and Question Response Format decoders.
 
-import type { AssetRef } from "../../../generated/api/AssetRef";
-import type { ContentBlock } from "../../../generated/api/ContentBlock";
+import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
+import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { NumericResponseTolerance } from "../../../generated/api/NumericResponseTolerance";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionType } from "../../../generated/api/QuestionType";
@@ -20,16 +20,24 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeSha256, field, kind, requireOnlyFields } from "./shared";
 
-function decodeAssetRef(value: unknown, path: string, strict = false): AssetRef {
+export function decodeQuestionAssetReference(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionAssetReference {
   const record = decodeRecord(value, path);
   if (strict) requireOnlyFields(record, path, ["asset", "checksum"]);
   return {
     asset: decodeIdentifier(field(record, "asset", path), `${path}.asset`),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
-  } satisfies AssetRef;
+  } satisfies QuestionAssetReference;
 }
 
-export function decodeContentBlock(value: unknown, path: string, strict = false): ContentBlock {
+export function decodeQuestionContentBlock(
+  value: unknown,
+  path: string,
+  strict = false,
+): QuestionContentBlock {
   const record = decodeRecord(value, path);
   const block = kind(record, path);
   switch (block) {
@@ -38,7 +46,7 @@ export function decodeContentBlock(value: unknown, path: string, strict = false)
       return {
         kind: block,
         markdown: decodeString(field(record, "markdown", path), `${path}.markdown`),
-      } satisfies ContentBlock;
+      } satisfies QuestionContentBlock;
     case "math":
       if (strict) requireOnlyFields(record, path, ["kind", "latex", "description"]);
       return {
@@ -48,24 +56,24 @@ export function decodeContentBlock(value: unknown, path: string, strict = false)
           field(record, "description", path),
           `${path}.description`,
         ),
-      } satisfies ContentBlock;
+      } satisfies QuestionContentBlock;
     case "image":
       if (strict) requireOnlyFields(record, path, ["kind", "asset", "description"]);
       return {
         kind: block,
-        asset: decodeAssetRef(field(record, "asset", path), `${path}.asset`, strict),
+        asset: decodeQuestionAssetReference(field(record, "asset", path), `${path}.asset`, strict),
         description: decodeNonemptyString(
           field(record, "description", path),
           `${path}.description`,
         ),
-      } satisfies ContentBlock;
+      } satisfies QuestionContentBlock;
     case "code":
       if (strict) requireOnlyFields(record, path, ["kind", "language", "source"]);
       return {
         kind: block,
         language: decodeNonemptyString(field(record, "language", path), `${path}.language`),
         source: decodeString(field(record, "source", path), `${path}.source`),
-      } satisfies ContentBlock;
+      } satisfies QuestionContentBlock;
     case "table":
       if (strict) requireOnlyFields(record, path, ["kind", "headers", "rows", "description"]);
       return {
@@ -78,7 +86,7 @@ export function decodeContentBlock(value: unknown, path: string, strict = false)
           field(record, "description", path),
           `${path}.description`,
         ),
-      } satisfies ContentBlock;
+      } satisfies QuestionContentBlock;
     default:
       throw new DecodeError(`${path}.kind`, "a known content-block kind");
   }
@@ -86,7 +94,7 @@ export function decodeContentBlock(value: unknown, path: string, strict = false)
 
 type DecodedResponseItem = {
   readonly id: string;
-  readonly body: ContentBlock[];
+  readonly body: QuestionContentBlock[];
 };
 
 function decodeResponseItem(value: unknown, path: string, strict = false): DecodedResponseItem {
@@ -95,7 +103,7 @@ function decodeResponseItem(value: unknown, path: string, strict = false): Decod
   return {
     id: decodeNonemptyString(field(record, "id", path), `${path}.id`),
     body: decodeArray(field(record, "body", path), `${path}.body`, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, strict),
+      decodeQuestionContentBlock(block, blockPath, strict),
     ),
   };
 }
@@ -262,7 +270,7 @@ export function decodeQuestionResponseFormat(
             label: decodeArray(
               field(slot, "label", slotPath),
               `${slotPath}.label`,
-              (block, blockPath) => decodeContentBlock(block, blockPath, strict),
+              (block, blockPath) => decodeQuestionContentBlock(block, blockPath, strict),
             ),
             matchMode: decodeStringEnum(
               field(slot, "matchMode", slotPath),
@@ -300,7 +308,11 @@ export function decodeQuestionResponseFormat(
         requireOnlyFields(record, path, ["kind", "surface", "description", "regions", "selection"]);
       return {
         kind: response,
-        surface: decodeAssetRef(field(record, "surface", path), `${path}.surface`, strict),
+        surface: decodeQuestionAssetReference(
+          field(record, "surface", path),
+          `${path}.surface`,
+          strict,
+        ),
         description: decodeNonemptyString(
           field(record, "description", path),
           `${path}.description`,
@@ -333,7 +345,7 @@ export function decodeQuestionResponseFormat(
               label: decodeArray(
                 field(region, "label", regionPath),
                 `${regionPath}.label`,
-                (block, blockPath) => decodeContentBlock(block, blockPath, strict),
+                (block, blockPath) => decodeQuestionContentBlock(block, blockPath, strict),
               ),
               x,
               y,

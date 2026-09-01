@@ -24,7 +24,7 @@ PLE uses distinct caches with deliberately different contents and lifetimes.
 | ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Browser run state         | Current authoritative screen and one speculative envelope                             | Current route and active attempt                                                                                            | Answers, grade keys, durable prefetch reservation                                                   |
 | Browser asset cache       | Delivered image and other asset bytes                                                 | Delivery URL and content checksum                                                                                           | Private source or a signed protected URL retained by PLE                                            |
-| CDN public assets         | Public immutable `ProblemAsset` renditions in `PublicAssets`                          | Typed immutable public object key and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
+| CDN public assets         | Public immutable `ProblemAsset` renditions in `PublicAssets`                          | Typed immutable public Object Address and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
 | Adapter render cache      | Answer-free envelope, safe markup, source binding, renderer identity                  | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw provider output                                      |
 | Attempt and prefetch rows | Question Attempt Reproduction Details, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                |
 
@@ -38,7 +38,7 @@ resolve only a `Ready` Question Library `ProblemAsset` in the physically separat
 `PublicAssets` domain, then redirects to its CDN URL with
 `Cache-Control: public, max-age=31536000, immutable` and a checksum ETag. A
 `Pending` record, restricted asset, and nonexistent delivery ID are all
-non-deliverable on that GET path. The route does not accept an object key or
+non-deliverable on that GET path. The route does not accept an Object Address or
 list a bucket.
 
 Protected assets use `POST /api/assets/{id}/delivery`, not GET. The request is
@@ -50,7 +50,7 @@ image/download source, never retained as a reusable browser cache entry.
 ## Immutable render keys
 
 An adapter render is reusable only when it is a pure, safe projection of an
-immutable published version and its stored seed. Its object key is
+immutable published version and its stored seed. Its Object Address is
 `QuestionRender { question_revision, seed, object }`; it lives in
 `PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
@@ -93,12 +93,12 @@ course, Student, attempt, or reference from queue input.
 
 ## Adapter behavior
 
-### Native questions
+### PLE questions
 
-Native questions generate an answer-free envelope at issue time. A
+PLE questions generate an answer-free envelope at issue time. A
 presentation-bearing attempt retains that exact public snapshot and matching
 server-only grading envelope; submit and submitted reads validate those
-persisted artifacts rather than recomputing a renderer output. Native Question Implementations
+persisted artifacts rather than recomputing a renderer output. PLE Question Implementations
 without an envelope remain explicitly `NotApplicable`.
 
 ### WeBWorK
@@ -237,7 +237,7 @@ The following outcomes are intentional safety behavior:
 
 Measure meaningful work before reducing JSON fields by a few bytes. The
 relevant stages are browser-to-PLE time, route authorization and Store access,
-native issue or adapter cache lookup, PLE-to-provider/renderer time, grading,
+PLE issue or adapter cache lookup, PLE-to-provider/renderer time, grading,
 promotion and persistence, asset transfer, and return to the browser. Record
 bounded aggregate latency and hit/miss/error counts without attempt IDs,
 responses, asset URLs, provider payloads, or answer-bearing content.

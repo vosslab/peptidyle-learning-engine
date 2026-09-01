@@ -6,7 +6,7 @@ members = [
     "crates/grading",
     "crates/objects",
     "crates/learning-data-access",
-    "crates/adapters/native",
+    "crates/adapters/ple",
     "crates/adapters/webwork",
     "crates/adapters/qti",
     "crates/adapters/h5p",
@@ -123,7 +123,7 @@ domain = { path = "./crates/domain" }
 grading = { path = "./crates/grading" }
 objects = { path = "./crates/objects" }
 learning-data-access = { path = "./crates/learning-data-access" }
-adapter_native = { path = "./crates/adapters/native" }
+adapter_ple = { path = "./crates/adapters/ple" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
 adapter_qti = { path = "./crates/adapters/qti" }
 adapter_h5p = { path = "./crates/adapters/h5p" }

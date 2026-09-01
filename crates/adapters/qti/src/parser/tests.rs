@@ -100,20 +100,20 @@ fn imports_supported_single_choice_with_no_debuggable_answer_or_archive() {
         imported.questions,
         vec![ImportedQtiQuestion {
             item_id: "item".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Choose the correct answer.".into(),
             }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices: vec![
                     QuestionChoice {
                         id: ResponseItemReference::new("a"),
-                        body: vec![ContentBlock::Text {
+                        body: vec![QuestionContentBlock::Text {
                             markdown: "A".into(),
                         }],
                     },
                     QuestionChoice {
                         id: ResponseItemReference::new("b"),
-                        body: vec![ContentBlock::Text {
+                        body: vec![QuestionContentBlock::Text {
                             markdown: "B".into(),
                         }],
                     },
@@ -251,7 +251,7 @@ fn extracts_verified_image_to_worker_manifest_and_rewrites_prompt() {
     assert!(!format!("{:?}", imported.assets[0]).contains("assets/p.png"));
     assert!(matches!(
         imported.questions[0].prompt.last(),
-        Some(ContentBlock::Image { .. })
+        Some(QuestionContentBlock::Image { .. })
     ));
 }
 

@@ -8,24 +8,25 @@ use question_model::{
     StudentResponse,
 };
 
-use crate::generator::NativeQuestionImplementation;
+use crate::generator::PleQuestionImplementation;
 use crate::peptide_bond_geometry::PeptideBondGeometryV1;
 use crate::{
-    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, NativeAdapter, NativeAdapterError,
+    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, PleQuestionBackend,
+    PleQuestionBackendError,
 };
 
 #[derive(Debug, Clone, Copy)]
-pub(super) enum NativeExecution {
+pub(super) enum PleQuestionExecution {
     V1,
 }
 
-impl NativeExecution {
+impl PleQuestionExecution {
     pub(super) fn derive_answer_key(
         self,
-        implementation: &dyn NativeQuestionImplementation,
+        implementation: &dyn PleQuestionImplementation,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-    ) -> Result<Option<grading::AnswerKey>, NativeAdapterError> {
+    ) -> Result<Option<grading::AnswerKey>, PleQuestionBackendError> {
         match self {
             Self::V1 => implementation.derive_answer_key(question, generated),
         }
@@ -44,18 +45,18 @@ impl NativeExecution {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-/// Exact source contract claimed by one installed Native Question Implementation.
+/// Exact source contract claimed by one installed PLE Question Implementation.
 ///
 /// The Question Source owns generator identity and version. An implementation release
 /// remains reproduction evidence and is intentionally not a dispatch dimension.
-pub(super) struct NativeQuestionImplementationKey {
+pub(super) struct PleQuestionImplementationKey {
     pub(super) question_format: QuestionFormat,
     pub(super) question_type: QuestionType,
     pub(super) generator: Option<QuestionGeneratorReference>,
 }
 
-impl NativeQuestionImplementationKey {
-    pub(super) fn from_implementation(implementation: &dyn NativeQuestionImplementation) -> Self {
+impl PleQuestionImplementationKey {
+    pub(super) fn from_implementation(implementation: &dyn PleQuestionImplementation) -> Self {
         Self {
             question_format: implementation.question_format(),
             question_type: implementation.question_type(),
@@ -64,7 +65,7 @@ impl NativeQuestionImplementationKey {
     }
 }
 
-impl NativeAdapter {
+impl PleQuestionBackend {
     /// Builds the production registry with reviewed built-in implementations.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
@@ -90,11 +91,11 @@ impl NativeAdapter {
                     current_backend.name.clone(),
                     current_backend.version.clone(),
                 ),
-                NativeExecution::V1,
+                PleQuestionExecution::V1,
             )]),
             grader_versions: BTreeMap::from([(
                 (current_grader.name.clone(), current_grader.version.clone()),
-                NativeExecution::V1,
+                PleQuestionExecution::V1,
             )]),
             current_backend,
             current_grader,
@@ -109,7 +110,7 @@ impl NativeAdapter {
         &mut self,
         backend: QuestionBackendVersion,
         grader: QuestionGraderVersion,
-    ) -> Result<(), NativeAdapterError> {
+    ) -> Result<(), PleQuestionBackendError> {
         self.backend_execution_for(&backend)?;
         self.grader_execution_for(&grader)?;
         self.current_backend = backend;
@@ -124,13 +125,13 @@ impl NativeAdapter {
     pub fn register_implementation<F>(
         &mut self,
         implementation: F,
-    ) -> Result<(), NativeAdapterError>
+    ) -> Result<(), PleQuestionBackendError>
     where
-        F: NativeQuestionImplementation + 'static,
+        F: PleQuestionImplementation + 'static,
     {
-        let key = NativeQuestionImplementationKey::from_implementation(&implementation);
+        let key = PleQuestionImplementationKey::from_implementation(&implementation);
         if self.implementations.contains_key(&key) {
-            return Err(NativeAdapterError::DuplicateQuestionImplementation {
+            return Err(PleQuestionBackendError::DuplicateQuestionImplementation {
                 question_format: key.question_format,
                 question_type: key.question_type,
                 generator: key.generator.clone(),
@@ -144,10 +145,10 @@ impl NativeAdapter {
     pub(super) fn backend_execution_for(
         &self,
         version: &QuestionBackendVersion,
-    ) -> Result<&NativeExecution, NativeAdapterError> {
+    ) -> Result<&PleQuestionExecution, PleQuestionBackendError> {
         self.backend_versions
             .get(&(version.name.clone(), version.version.clone()))
-            .ok_or_else(|| NativeAdapterError::UnknownQuestionBackendVersion {
+            .ok_or_else(|| PleQuestionBackendError::UnknownQuestionBackendVersion {
                 version: version.clone(),
             })
     }
@@ -155,16 +156,16 @@ impl NativeAdapter {
     pub(super) fn grader_execution_for(
         &self,
         version: &QuestionGraderVersion,
-    ) -> Result<&NativeExecution, NativeAdapterError> {
+    ) -> Result<&PleQuestionExecution, PleQuestionBackendError> {
         self.grader_versions
             .get(&(version.name.clone(), version.version.clone()))
-            .ok_or_else(|| NativeAdapterError::UnknownQuestionGraderVersion {
+            .ok_or_else(|| PleQuestionBackendError::UnknownQuestionGraderVersion {
                 version: version.clone(),
             })
     }
 }
 
-impl Default for NativeAdapter {
+impl Default for PleQuestionBackend {
     fn default() -> Self {
         Self::new()
     }

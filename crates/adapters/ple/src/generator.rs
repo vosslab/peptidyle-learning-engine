@@ -1,7 +1,7 @@
 //! Extensible first-party Question Implementation contract (MOD-ADP-NAT).
 //!
 //! The adapter owns orchestration, reproducibility, and grading delegation.
-//! An implementation owns only the small piece that differs between native
+//! An implementation owns only the small piece that differs between PLE Question
 //! Questions: turning generated parameters into prompt blocks and a
 //! server-only answer key. Adding an implementation therefore does not change
 //! the engine, API, or browser contracts.
@@ -9,34 +9,34 @@
 use domain::generator::QuestionVariationParameters;
 use grading::AnswerKey;
 use question_model::capability::QuestionBackendCapabilities;
-use question_model::definition::DraftQuestionDefinition;
-use question_model::envelope::ContentBlock;
-use question_model::envelope::QuestionPresentation;
+use question_model::definition::DraftQuestionRevision;
+use question_model::envelope::QuestionContentBlock;
+use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
     GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision,
     QuestionType, StudentResponse,
 };
 
-use crate::NativeAdapterError;
+use crate::PleQuestionBackendError;
 
 /// Rendered instructor teaching material for one deterministic draft variant.
 ///
 /// This is deliberately display-ready rather than an answer-key projection:
 /// choice identifiers, numeric expectations, accepted-response sets, and
-/// grading rules remain inside the native adapter.
+/// grading rules remain inside the PLE Question Backend.
 #[derive(Clone, PartialEq)]
 pub struct AuthorPresentationContent {
     /// Display-ready accepted response for the exact generated variation.
-    pub question_answer: Vec<ContentBlock>,
+    pub question_answer: Vec<QuestionContentBlock>,
     /// Optional display-ready explanation of how or why the answer is reached.
-    pub question_answer_explanation: Option<Vec<ContentBlock>>,
+    pub question_answer_explanation: Option<Vec<QuestionContentBlock>>,
 }
 
-/// Exact release of one Native Question Implementation.
+/// Exact release of one PLE Question Implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NativeQuestionImplementationRelease {
-    /// Stable Native Question Implementation identifier.
+pub struct PleQuestionImplementationRelease {
+    /// Stable PLE Question Implementation identifier.
     pub id: String,
     /// Implementation compatibility release.
     pub version: String,
@@ -44,18 +44,18 @@ pub struct NativeQuestionImplementationRelease {
 
 /// One versioned first-party Question Implementation.
 ///
-/// Implement this trait to add a native implementation without editing adapter
+/// Implement this trait to add a PLE Question Implementation without editing backend
 /// dispatch, persistence, API routes, or the browser. Implementations must be
 /// deterministic functions of the immutable definition and generated Question Variation Parameters.
-pub trait NativeQuestionImplementation: Send + Sync {
+pub trait PleQuestionImplementation: Send + Sync {
     /// Authored representation this implementation accepts.
     fn question_format(&self) -> QuestionFormat;
 
     /// Educational interaction this implementation accepts.
     fn question_type(&self) -> QuestionType;
 
-    /// Stable native implementation name and exact release.
-    fn implementation_release(&self) -> NativeQuestionImplementationRelease;
+    /// Stable PLE Question Implementation name and exact release.
+    fn implementation_release(&self) -> PleQuestionImplementationRelease;
 
     /// Exact additive Question Generator supported by this implementation.
     ///
@@ -71,13 +71,13 @@ pub trait NativeQuestionImplementation: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Returns [`NativeAdapterError::IncompatibleQuestionImplementation`] when
+    /// Returns [`PleQuestionBackendError::IncompatibleQuestionImplementation`] when
     /// the authored Question does not satisfy this implementation's contract.
     fn derive_answer_key(
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, NativeAdapterError>;
+    ) -> Result<Option<AnswerKey>, PleQuestionBackendError>;
 
     /// Builds sanitized teaching material after the exact issued instance has
     /// been reproduced and graded. The answer key never leaves this trusted
@@ -87,11 +87,11 @@ pub trait NativeQuestionImplementation: Send + Sync {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionPresentation,
+        envelope: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<QuestionPostGradingContent, NativeAdapterError> {
+    ) -> Result<QuestionPostGradingContent, PleQuestionBackendError> {
         let _ = (question, generated, envelope, answer_key, result, response);
         Ok(QuestionPostGradingContent::default())
     }
@@ -104,9 +104,9 @@ pub trait NativeQuestionImplementation: Send + Sync {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionPresentation,
+        envelope: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
-    ) -> Result<Option<QuestionHint>, NativeAdapterError> {
+    ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
         let _ = (question, generated, envelope, answer_key);
         Ok(None)
     }
@@ -119,10 +119,10 @@ pub trait NativeQuestionImplementation: Send + Sync {
     /// key or fabricating teaching material.
     fn derive_author_presentation(
         &self,
-        question: &DraftQuestionDefinition,
+        question: &DraftQuestionRevision,
         generated: &QuestionVariationParameters,
-        prompt: &[ContentBlock],
-    ) -> Result<Option<AuthorPresentationContent>, NativeAdapterError> {
+        prompt: &[QuestionContentBlock],
+    ) -> Result<Option<AuthorPresentationContent>, PleQuestionBackendError> {
         let _ = (question, generated, prompt);
         Ok(None)
     }

@@ -133,6 +133,34 @@ assert.deepEqual(
   ["algorithmicGeneration", "serverGrading"],
 );
 
+const draftPreview = JSON.parse(
+  bridge.preview_ple_draft(
+    JSON.stringify({
+      workspace: "00000000-0000-0000-0000-000000000001",
+      backendLocator: { backend: "ple" },
+      title: "Fixture",
+      prompt: [{ kind: "text", markdown: "Value {{value}}" }],
+      response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
+      questionVariationDefinition: {
+        kind: "seeded",
+        generator: { id: "fixture", version: "1" },
+        parameters: { value: { kind: "fixed", value: "safe" } },
+      },
+    }),
+    JSON.stringify(4),
+  ),
+);
+assert.deepEqual(draftPreview, {
+  kind: "ready",
+  preview: {
+    workspace: "00000000-0000-0000-0000-000000000001",
+    seed: 4,
+    title: "Fixture",
+    prompt: [{ kind: "text", markdown: "Value safe" }],
+    response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
+  },
+});
+
 const presentation = {
   questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
   seed: 42,
@@ -168,5 +196,5 @@ assert.equal(
 );
 
 console.log(
-  `PASS: WASM bridge ${actualVersion} returned format, timer, capability, and presentation results`,
+  `PASS: WASM bridge ${actualVersion} returned format, timer, capability, draft preview, and presentation results`,
 );

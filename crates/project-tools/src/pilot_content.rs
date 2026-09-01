@@ -4,13 +4,13 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::path::{Component, Path, PathBuf};
 
-use adapter_native::flat_question::FlatQuestionDocument;
+use adapter_ple::flat_question::FlatQuestionDocument;
 use anyhow::{Context, Result, bail};
 use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
 use question_model::{
-    QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber, QuestionSource,
+    QuestionBackendLocator, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
     WorkspaceId, classification::License,
 };
 use serde::Deserialize;
@@ -355,10 +355,10 @@ fn validate_flat(
         PilotQuestionType::Matching => QuestionType::Matching,
     };
     if !matches!(
-        compiled.draft().source,
-        question_model::DraftQuestionSource::Native
+        compiled.draft().backend_locator,
+        question_model::DraftQuestionBackendLocator::Ple
     ) {
-        bail!("PLE flat payload compiled to a non-native source");
+        bail!("PLE flat payload compiled to a non-PLE Question Source");
     }
     if compiled.draft().question_format != QuestionFormat::PleFlatQuestionV2
         || compiled.draft().question_type != expected_question_type
@@ -369,7 +369,7 @@ fn validate_flat(
     validate_correct_and_wrong_grading(compiled, &bytes, question.question_type)
 }
 
-fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -> Result<()> {
+fn validate_answer_separation(draft: &question_model::DraftQuestionRevision) -> Result<()> {
     let public = serde_json::to_string(draft)?;
     for private_key in [
         "\"correctChoice\":",
@@ -387,7 +387,7 @@ fn validate_answer_separation(draft: &question_model::DraftQuestionDefinition) -
 }
 
 fn validate_correct_and_wrong_grading(
-    compiled: adapter_native::flat_question::CompiledFlatQuestion,
+    compiled: adapter_ple::flat_question::CompiledFlatQuestion,
     source: &[u8],
     question_type: PilotQuestionType,
 ) -> Result<()> {
@@ -398,14 +398,17 @@ fn validate_correct_and_wrong_grading(
         .ok_or_else(|| anyhow::anyhow!("PLE flat payload lacks its response object"))?;
     let (correct, wrong) = source_responses(response, question_type)?;
     let (draft, private) = compiled.into_parts();
-    if !matches!(draft.source, question_model::DraftQuestionSource::Native) {
-        bail!("PLE flat payload compiled to a non-native source");
+    if !matches!(
+        draft.backend_locator,
+        question_model::DraftQuestionBackendLocator::Ple
+    ) {
+        bail!("PLE flat payload compiled to a non-PLE Question Source");
     }
     let published = QuestionRevision::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionRevisionNumber::new(1).expect("positive version"),
-        QuestionSource::Native,
+        QuestionBackendLocator::Ple,
     );
     let correct_result = private.evaluate(&published, &correct)?;
     let wrong_result = private.evaluate(&published, &wrong)?;

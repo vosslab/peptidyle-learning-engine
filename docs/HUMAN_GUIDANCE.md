@@ -88,7 +88,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Draft Questions** are kept private until publication so unfinished material does not reduce shared-catalog quality.
 - **Draft Questions** must go through a validation process before being added to the library.
 - Questions are strictly and deterministically automated; do not add manual grading.
-- MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT flat-question families should be supported.
+- MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
 - Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`. where the final character is a checksum.

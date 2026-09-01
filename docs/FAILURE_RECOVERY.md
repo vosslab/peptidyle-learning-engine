@@ -63,7 +63,7 @@ attached diagnostic text.
 | `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative projection and ask the user to review before retrying.                       |
 | `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                           |
 | `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                   |
-| `InvalidRecord` or Assignment Activity Model | Trusted code or accepted wire data violated a model rule.                                                                      | Do not retry unchanged; return the bounded, route-approved validation message.                        |
+| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                        | Do not retry unchanged; return the bounded, route-approved validation message.                        |
 | `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                   |
 
 HTTP routes project this classification narrowly. For example,
@@ -75,7 +75,7 @@ found for a nonowner rather than confirming that the attempt exists. A new route
 relevant boundary's concealment rule instead of exposing a raw `StoreError` or making one global
 status mapping.
 
-Browser errors contain a stable short message only. They never contain SQL, object keys, bucket
+Browser errors contain a stable short message only. They never contain SQL, Object Addresses, bucket
 names, signed URLs, checksums not already public, Account or course identities, leases, renderer/provider
 state, source archives, answer keys, or raw backend errors.
 
@@ -120,7 +120,7 @@ allow a surviving replica to resume an authorized attempt. The exact topology an
 
 - A gateway removes an unready API replica from rotation. A replica's readiness checks database
   schema compatibility and object-store bucket access, not optional question-backend reachability.
-- A native question, course read, or authentication request can continue when an optional private
+- A PLE Question, course read, or authentication request can continue when an optional private
   renderer is down. The renderer-backed question itself returns a bounded `503`; PLE does not
   pretend it graded or substitute another question.
 - A process crash after an attempt or submission commit is recovered by reading durable state. A
@@ -245,7 +245,7 @@ Recovery needs enough evidence to classify an operation, but diagnostics are not
 browser-facing data channel.
 
 - Browser responses may contain a status, a short stable message, and a route-safe identifier
-  already visible to the caller. They never contain object keys, buckets, manifests, signed URLs,
+  already visible to the caller. They never contain Object Addresses, buckets, manifests, signed URLs,
   leases, provider payloads, source bytes, answer keys, raw responses, SQL, credentials, or a
   foreign Account's course, Student, workspace, or record existence.
 - Durable audit and access records remain course/Student-owned and retention-bound. Store the minimum

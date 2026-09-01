@@ -16,7 +16,7 @@ canonical live-demo path uses these same domains and delivery rules.
 | Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                           | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or exact Student assignment entitlement. |
 | Private content               | `PrivateContent`    | Private workspace source and assets, generation and grader keys or payloads, provenance, renders, and course-record presentation assets | Never CDN-readable. A protected delivery uses its exact server-derived authority.                                                                                                                                                                    |
 | Student records               | `StudentRecords`    | Student work and protected course-record artifacts, exports, and annotations                                                            | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                               |
-| Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner candidates                                                                          | Never signable or browser-served.                                                                                                                                                                                                                    |
+| Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner entries                                                                          | Never signable or browser-served.                                                                                                                                                                                                                    |
 
 Each Object Storage Area maps to its own provider bucket and KMS key. This physical split is
 an enforcement boundary: a public CDN policy cannot expose private workspace
@@ -36,7 +36,7 @@ variant. Important mappings are:
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Private workspace source and authoring assets          | `WorkspaceSource`, `WorkspaceQuestionSource`, `WorkspaceAsset`, `WorkspaceQuestionAsset` | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace projection. Collaboration is a future separately designed capability, not current authority.                                                       |
 | Published answer-free presentation asset               | `QuestionAsset`                                                                          | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
-| Published source, provenance, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                             | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                                                                      |
+| Published source, provenance, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                                    | `PrivateContent`; only an exact server capability or the authorized private workspace/provenance operation may read it.                                                                                                                                      |
 | Generation/grader keys and payloads                    | Server-only private records and any typed private object used by their owning worker     | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                              |
 | Course-record presentation asset                       | `CourseBanner`                                                                           | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                             |
 | Student work or protected artifact                     | `StudentRecord`                                                                          | `StudentRecords`; delivery rechecks exact Student ownership, course Instructor authority, or a narrow audited support capability.                                                                                                                            |
@@ -49,6 +49,19 @@ provenance, and creation time. Reads recompute SHA-256 and reject a
 mismatch. The checksum detects storage corruption or a substituted object; it
 does not authenticate a writer or authorize a reader. Database ownership,
 provider bucket/IAM policy, TLS, and publication immutability provide those properties.
+
+Private Workspace Question Source bytes follow the bytes-first rule: the
+server writes the typed object, then calls the session-authorized registration
+capability with the exact Workspace Question Source Object Address and returned
+metadata. PostgreSQL derives Private Content and authoring-content classification
+from that address, accepts an identical retry, and rejects a changed address or
+immutable record. A Question Source stores that Source Object Reference and
+Source Object Checksum as its only source-data representation. Published source
+registration remains part of the separate Question Publication operation.
+The Draft Question Source Store binds those bytes only to an authorized Draft
+Question Revision and rechecks the closed Question Backend, Question Format,
+and backend-location facts. It returns an earlier source only when every
+immutable fact agrees.
 
 ## Instructional image boundary
 

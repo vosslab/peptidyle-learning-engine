@@ -5,13 +5,15 @@
 //! an apply authority boundary.
 
 use super::{
+    AdoptBlueprintAssignmentCommandError, AdoptBlueprintAssignmentReadiness,
     ApplyBlueprintUpdateReadiness, AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference,
-    BlueprintForkReservation, BlueprintOperationCommandError, BlueprintOperationReadiness,
-    BlueprintOperationReconciliationReadiness, BlueprintOperationRetryToken,
-    BlueprintRevisionReference, BoundedResolvedScheduleSet, CopyAssignmentFromBlueprintReadiness,
-    CopyCourseForNewTermReadiness, CourseInstanceCommandError, CourseInstanceCreationReservation,
-    CourseInstanceOperationReceipt, CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest,
-    QuestionRevisionSubstitutions, ShiftCourseDatesReadiness,
+    BlueprintForkReservation, BlueprintOperationReconciliationReadiness,
+    BlueprintOperationRetryToken, BlueprintRevisionReference, BoundedResolvedScheduleSet,
+    CopyAssignmentFromBlueprintReadiness, CopyCourseForNewTermReadiness,
+    CourseInstanceCommandError, CourseInstanceCreationReservation, CourseInstanceOperationReceipt,
+    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, ForkBlueprintCourseCommandError,
+    ForkBlueprintCourseReadiness, InstantiateBlueprintCourseCommandError,
+    InstantiateBlueprintCourseReadiness, QuestionRevisionSubstitutions, ShiftCourseDatesReadiness,
 };
 use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
@@ -75,9 +77,9 @@ impl AdoptBlueprintAssignmentApplyRecord {
         course_origin: CourseOrigin,
         replacements: QuestionRevisionSubstitutions,
         request: CurriculumAdoptionRequestBinding,
-        readiness: BlueprintOperationReadiness,
-    ) -> Result<Self, BlueprintOperationCommandError> {
-        super::require_blueprint_operation_ready(&readiness)?;
+        readiness: AdoptBlueprintAssignmentReadiness,
+    ) -> Result<Self, AdoptBlueprintAssignmentCommandError> {
+        readiness.require_ready()?;
         Ok(Self {
             source,
             destination,
@@ -124,11 +126,11 @@ impl ForkBlueprintCourseApplyRecord {
         source: BlueprintRevisionReference,
         replacements: QuestionRevisionSubstitutions,
         creation: BlueprintForkReservation,
-        readiness: BlueprintOperationReadiness,
-    ) -> Result<Self, BlueprintOperationCommandError> {
-        super::require_blueprint_operation_ready(&readiness)?;
+        readiness: ForkBlueprintCourseReadiness,
+    ) -> Result<Self, ForkBlueprintCourseCommandError> {
+        readiness.require_ready()?;
         if creation.source() != &source {
-            return Err(BlueprintOperationCommandError::CreationWitnessMismatch);
+            return Err(ForkBlueprintCourseCommandError::CreationReservationMismatch);
         }
         Ok(Self {
             source,
@@ -164,11 +166,11 @@ impl InstantiateBlueprintCourseApplyRecord {
         target_term: CourseTerm,
         replacements: QuestionRevisionSubstitutions,
         creation: CourseInstanceCreationReservation,
-        readiness: BlueprintOperationReadiness,
-    ) -> Result<Self, BlueprintOperationCommandError> {
-        super::require_blueprint_operation_ready(&readiness)?;
+        readiness: InstantiateBlueprintCourseReadiness,
+    ) -> Result<Self, InstantiateBlueprintCourseCommandError> {
+        readiness.require_ready()?;
         if !creation.matches_blueprint_source(&source) || creation.target_term() != &target_term {
-            return Err(BlueprintOperationCommandError::CreationWitnessMismatch);
+            return Err(InstantiateBlueprintCourseCommandError::CreationReservationMismatch);
         }
         Ok(Self {
             source,

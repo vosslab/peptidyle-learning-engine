@@ -34,7 +34,7 @@ function semanticProjection(definition) {
         ? response.items.length
         : null;
   return {
-    sourceBackend: definition.source.backend,
+    questionBackend: definition.backendLocator.backend,
     title: definition.metadata.title,
     prompt: { blocks: definition.prompt.map((block) => block.kind) },
     response: { kind: response.kind, optionCount },
@@ -140,16 +140,16 @@ test("reviewed bylines share strict line-based author input and wire decoding", 
   );
 });
 
-test("publication 422 shapes keep readiness distinct from complete capability violations", async () => {
-  const readiness = createHttpApiClient({
+test("publication 422 shapes keep validation unavailability distinct from complete capability violations", async () => {
+  const validationUnavailable = createHttpApiClient({
     fetch: async () =>
       jsonResponse(
         { error: "question backend is not registered" },
         { status: 422, headers: { etag: '"1"' } },
       ),
   });
-  assert.deepEqual(await readiness.validateWorkspacePublication(workspace), {
-    kind: "readinessFailure",
+  assert.deepEqual(await validationUnavailable.validateWorkspacePublication(workspace), {
+    kind: "questionPublicationValidationUnavailable",
     message: "question backend is not registered",
   });
 
@@ -234,7 +234,7 @@ test("workspace CRUD uses no-store, exact ETags, and never permits a path/body m
               workspace,
               reference: "W-1",
               title: draft.metadata.title,
-              sourceBackend: draft.source.backend,
+              questionBackend: draft.backendLocator.backend,
             },
           ],
           nextCursor: null,
@@ -296,9 +296,7 @@ test("workspace boundaries reject foreign failures, oversized errors, and contam
   assert.throws(
     () =>
       decodeWorkspaceDraftPage({
-        items: [
-          { workspace, title: draft.metadata.title, sourceBackend: "native", version: "forbidden" },
-        ],
+        items: [{ workspace, title: draft.metadata.title, sourceBackend: "ple" }],
         nextCursor: null,
       }),
     /allowed by this response contract/u,

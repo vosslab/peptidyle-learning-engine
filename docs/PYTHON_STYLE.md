@@ -318,7 +318,7 @@ If you add a new third-party import, add the package to the appropriate requirem
 
 Be conservative. Only add arguments users frequently need to change between runs.
 
-**Good candidates:**
+**Good entries:**
 
 - Input/output file paths
 - Mode switches (--dry-run, --verbose, --format)

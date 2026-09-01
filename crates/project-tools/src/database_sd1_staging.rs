@@ -144,7 +144,10 @@ async fn apply_staged_migrations(
             .begin()
             .await
             .with_context(|| format!("starting SD1 migration {}", migration.version))?;
-        for statement in top_level_sql_statements(migration.sql.as_str())? {
+        for (statement_index, statement) in top_level_sql_statements(migration.sql.as_str())?
+            .into_iter()
+            .enumerate()
+        {
             // The splitter receives only the repository-owned migration text
             // loaded from the canonical directory above; no caller input
             // reaches this execution path.
@@ -152,7 +155,16 @@ async fn apply_staged_migrations(
                 .execute(&mut *transaction)
                 .await
                 .with_context(|| {
-                    format!("executing SD1 migration {} statement", migration.version)
+                    let first_line = statement
+                        .lines()
+                        .find(|line| !line.trim().is_empty() && !line.trim().starts_with("--"))
+                        .map(str::trim)
+                        .unwrap_or("empty SQL statement");
+                    format!(
+                        "executing SD1 migration {} statement {} ({first_line})",
+                        migration.version,
+                        statement_index + 1
+                    )
                 })?;
         }
         sqlx::query(

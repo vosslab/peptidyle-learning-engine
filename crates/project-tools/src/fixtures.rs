@@ -9,10 +9,10 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use adapter_native::{AssetObjectBinding, NativeAdapter};
+use adapter_ple::{PleQuestionBackend, QuestionAssetObjectReference};
 use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
-use question_model::definition::{DraftQuestionDefinition, QuestionRevision, QuestionSource};
+use question_model::definition::{DraftQuestionRevision, QuestionBackendLocator, QuestionRevision};
 use question_model::{
     AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
     IssuedQuestion, QuestionAttempt, QuestionRevisionReference, QuestionSummary, StudentRecordId,
@@ -38,7 +38,7 @@ pub struct Report {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FixtureAsset {
-    id: question_model::AssetId,
+    id: question_model::QuestionAssetId,
     object: question_model::ObjectId,
     filename: String,
     media_type: String,
@@ -52,7 +52,7 @@ struct StoredFixtureSet {
     model_schema_version: u32,
     catalog_question: QuestionSummary,
     published_problem: QuestionRevision,
-    draft: DraftQuestionDefinition,
+    draft: DraftQuestionRevision,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
     assignment: AssignmentSummary,
@@ -117,13 +117,13 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         validate_asset(&asset_root, asset)?;
     }
 
-    let adapter = NativeAdapter::new();
+    let adapter = PleQuestionBackend::new();
     ensure!(
         matches!(
-            &fixture_set.published_problem.source,
-            QuestionSource::Native
+            &fixture_set.published_problem.backend_locator,
+            QuestionBackendLocator::Ple
         ),
-        "stored published Question must use the native backend"
+        "stored published Question must use the PLE Question Backend"
     );
     ensure!(
         fixture_set.catalog_question.metadata == fixture_set.published_problem.metadata,
@@ -261,32 +261,32 @@ fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>> {
     fs::read(path).with_context(|| format!("reading {}", path.display()))
 }
 
-fn asset_bindings(assets: &[FixtureAsset]) -> Vec<AssetObjectBinding> {
+fn question_asset_object_references(assets: &[FixtureAsset]) -> Vec<QuestionAssetObjectReference> {
     assets
         .iter()
-        .map(|asset| AssetObjectBinding {
-            asset: asset.id,
-            object: asset.object,
+        .map(|asset| QuestionAssetObjectReference {
+            question_asset: asset.id,
+            object_reference: asset.object,
         })
         .collect()
 }
 
-fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) -> Result<()> {
-    let bindings = asset_bindings(&fixture_set.assets);
+fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBackend) -> Result<()> {
+    let question_asset_object_references = question_asset_object_references(&fixture_set.assets);
     for attempt in &fixture_set.attempts {
         ensure!(
             attempt
                 .reproduction_details
                 .source_object_reference
                 .is_none(),
-            "native stored fixture must not claim an external source source_object_reference"
+            "PLE stored fixture must not claim an external source source_object_reference"
         );
         let envelope = adapter.reproduce(
             &fixture_set.published_problem,
             attempt.seed,
             &attempt.parameter_hash,
             &attempt.reproduction_details,
-            &bindings,
+            &question_asset_object_references,
         )?;
         ensure!(
             envelope.variation.question_revision
@@ -303,7 +303,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &NativeAdapter) 
                 attempt.seed,
                 &attempt.parameter_hash,
                 &attempt.reproduction_details,
-                &bindings,
+                &question_asset_object_references,
                 &submission.response,
             )?;
             match submission.grading_result {
@@ -340,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn stored_fixture_set_reproduces_through_the_native_adapter() {
+    fn stored_fixture_set_reproduces_through_the_ple_question_backend() {
         let report = run(&fixture_root()).expect("stored fixture fixture_set should validate");
         assert_eq!(report.action, "validated");
         assert!(report.tracked_files > 1);

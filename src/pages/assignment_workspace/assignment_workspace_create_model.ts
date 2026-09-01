@@ -17,5 +17,5 @@ export function createdAssignmentQuestionsPath(
 
 /** Keeps transport details outside the visible draft-creation recovery path. */
 export function assignmentWorkspaceCreateErrorMessage(): string {
-  return "The assignment draft could not be created. Your title is still here. Try again.";
+  return "The Assignment could not be created. Your title is still here. Try again.";
 }

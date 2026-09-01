@@ -39,13 +39,13 @@ fn current_renderer_matching_shape_becomes_answer_free_typed_matching() {
     assert_eq!(choices.len(), 2);
     assert_eq!(
         prompts[0].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "a disorder affecting blood".into()
         }]
     );
     assert_eq!(
         choices[1].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "Marfan syndrome".into()
         }]
     );

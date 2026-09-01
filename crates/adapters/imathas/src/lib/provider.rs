@@ -1,7 +1,7 @@
 //! Provider-facing, answer-safe contracts and draft snapshot preparation.
 
 use async_trait::async_trait;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 use question_model::{QuestionAttemptId, QuestionRevisionReference};
 
@@ -63,29 +63,51 @@ impl SupportedProfile {
     }
 }
 
-/// A private draft locator. It intentionally cannot name a published Question
-/// or version and cannot carry an endpoint or credential.
+/// Opaque configured External Question Provider Reference.
 #[derive(Clone, PartialEq, Eq)]
-pub struct ImathasDraftQuestionSource {
-    provider: String,
-    item_ref: String,
+pub struct ExternalQuestionProviderReference(String);
+
+impl ExternalQuestionProviderReference {
+    /// Opaque provider key selected by trusted deployment configuration.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
-impl ImathasDraftQuestionSource {
-    /// Creates a private sandbox locator from the draft source only.
-    pub fn from_draft(
-        source: &question_model::DraftQuestionSource,
+/// Provider-local iMathAS Item Reference.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ImathasItemReference(String);
+
+impl ImathasItemReference {
+    /// Opaque provider-local item key.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// The configured provider and iMathAS Item Reference used to retrieve a draft snapshot.
+/// It contains no source bytes, endpoint, or credential.
+#[derive(Clone, PartialEq, Eq)]
+pub struct ImathasQuestionLocation {
+    provider: ExternalQuestionProviderReference,
+    item: ImathasItemReference,
+}
+
+impl ImathasQuestionLocation {
+    /// Creates the provider/item location from a Draft Question Backend Locator.
+    pub fn from_draft_backend_locator(
+        locator: &question_model::DraftQuestionBackendLocator,
     ) -> Result<Self, ImathasAdapterError> {
-        match source {
-            question_model::DraftQuestionSource::Imathas { provider, item_ref }
+        match locator {
+            question_model::DraftQuestionBackendLocator::Imathas { provider, item_ref }
                 if valid_opaque_key(provider) && valid_item_ref(item_ref) =>
             {
                 Ok(Self {
-                    provider: provider.clone(),
-                    item_ref: item_ref.clone(),
+                    provider: ExternalQuestionProviderReference(provider.clone()),
+                    item: ImathasItemReference(item_ref.clone()),
                 })
             }
-            question_model::DraftQuestionSource::Imathas { .. } => {
+            question_model::DraftQuestionBackendLocator::Imathas { .. } => {
                 Err(ImathasAdapterError::InvalidDraft)
             }
             _ => Err(ImathasAdapterError::UnsupportedSource),
@@ -93,19 +115,19 @@ impl ImathasDraftQuestionSource {
     }
 
     /// Opaque deployment configuration selector.
-    pub fn provider(&self) -> &str {
+    pub fn provider_reference(&self) -> &ExternalQuestionProviderReference {
         &self.provider
     }
 
-    /// Provider-local question reference.
-    pub fn item_ref(&self) -> &str {
-        &self.item_ref
+    /// Provider-local item reference.
+    pub fn item_reference(&self) -> &ImathasItemReference {
+        &self.item
     }
 }
 
-impl std::fmt::Debug for ImathasDraftQuestionSource {
+impl std::fmt::Debug for ImathasQuestionLocation {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("ImathasDraftQuestionSource(REDACTED)")
+        formatter.write_str("ImathasQuestionLocation(REDACTED)")
     }
 }
 
@@ -150,7 +172,7 @@ impl std::fmt::Debug for PreparedSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SafeProviderRender {
     /// Plain prompt blocks, already constrained by the adapter boundary.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// A browser-safe label for the external tool.
     pub title: String,
 }
@@ -168,7 +190,7 @@ pub trait ImathasProvider: sealed::ProviderSealed + Send + Sync {
     /// Fetches exact source bytes and an explicitly supported profile for an unversioned draft.
     async fn snapshot(
         &self,
-        locator: &ImathasDraftQuestionSource,
+        locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure>;
 
     /// Produces only browser-safe prompt material from archived source bytes.

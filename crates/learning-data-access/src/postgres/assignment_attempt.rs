@@ -125,16 +125,16 @@ fn storage_selections(
             .map(|(selection, id)| {
                 json!({
                     "question_pool_selection_id": id.as_uuid(),
-                    "assignment_entry_id": selection.question_pool_entry.as_uuid(),
+                    "assignment_entry_id": selection.question_pool_assignment_entry.as_uuid(),
                     "reused_from_question_pool_selection_id": selection
                         .reused_from_question_pool_selection
                         .map(|source| source.as_uuid()),
-                    "selected_candidates": selection.selected_candidates.iter().enumerate().map(
-                        |(position, candidate)| json!({
-                            "question_pool_candidate_id": candidate.candidate.as_uuid(),
+                    "selected_items": selection.selected_items.iter().enumerate().map(
+                        |(position, item)| json!({
+                            "question_pool_item_id": item.question_pool_item.as_uuid(),
                             "selection_position": position,
-                            "question_id": candidate.reference.question_id.to_string(),
-                            "revision_number": candidate.reference.revision_number.get(),
+                            "question_id": item.reference.question_id.to_string(),
+                            "revision_number": item.reference.revision_number.get(),
                         })
                     ).collect::<Vec<_>>(),
                 })
@@ -156,17 +156,17 @@ fn storage_issued_questions(
             let (
                 assignment_entry,
                 question_pool_selection,
-                question_pool_candidate,
+                question_pool_item,
                 reference,
             ): (_, Option<QuestionPoolSelectionId>, _, &QuestionRevisionReference) = match question {
                 PreparedIssuedQuestion::FixedQuestion {
                     assignment_entry,
                     reference,
                 } => (*assignment_entry, None, None, reference),
-                PreparedIssuedQuestion::QuestionPoolCandidate {
+                PreparedIssuedQuestion::QuestionPoolItem {
                     assignment_entry,
                     question_pool_selection_index,
-                    question_pool_candidate,
+                    question_pool_item,
                     reference,
                 } => (
                     *assignment_entry,
@@ -176,14 +176,14 @@ fn storage_issued_questions(
                                 .to_string(),
                         )
                     })?),
-                    Some(*question_pool_candidate),
+                    Some(*question_pool_item),
                     reference,
                 ),
             };
             let issued_question = IssuedQuestionId::for_frozen_content(
                 assignment_attempt,
                 assignment_entry,
-                question_pool_candidate,
+                question_pool_item,
             );
             Ok(json!({
                 "issued_question_id": issued_question.as_uuid(),
@@ -192,7 +192,7 @@ fn storage_issued_questions(
                 "question_id": reference.question_id.to_string(),
                 "revision_number": reference.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
-                "question_pool_candidate_id": question_pool_candidate.map(|candidate| candidate.as_uuid()),
+                "question_pool_item_id": question_pool_item.map(|item| item.as_uuid()),
             }))
         })
         .collect::<Result<Vec<_>, StoreError>>()

@@ -19,7 +19,7 @@ the retained stack until both repairs pass their focused gates.
   UUID: `Pilot retry corpus pilotref` followed by the lowercase hyphenless UUID.
   It is answer-free, bounded, unique per arrangement, and contains only ASCII
   letters, digits, and spaces. It is not derived from the selected variant,
-  choices, correct choice, feedback, or grading material.
+  choices, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input.
 - J13 receives that title only through the private runner environment handoff.
   The runner validates its exact bounded shape, strips it from arrangements and
   reports, and removes it before later student child handoff. The public J13

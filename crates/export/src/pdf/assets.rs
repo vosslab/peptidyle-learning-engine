@@ -3,7 +3,7 @@
 use std::io::Read;
 
 use flate2::read::ZlibDecoder;
-use question_model::AssetId;
+use question_model::QuestionAssetId;
 
 use crate::{FlowBlock, PrintExam};
 
@@ -106,7 +106,7 @@ impl Read for IdatReader<'_> {
 pub(super) fn collect_assets(
     exam: &PrintExam,
     flow: &[Vec<FlowBlock>],
-) -> Vec<(AssetId, PngImage)> {
+) -> Vec<(QuestionAssetId, PngImage)> {
     let mut assets = Vec::new();
     for question in flow {
         for block in question {

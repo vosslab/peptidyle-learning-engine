@@ -39,7 +39,7 @@ table. A transaction sets only the authenticated `AuthenticatedSession`; policie
 narrow broker functions derive exact current membership, Student ownership, or
 workspace collaboration from durable rows. A worker receives one typed lease:
 claims one durable, typed lease and derives its course, workspace, Question Library, or
-system target from the locked job row. Leases, object keys, adapter handles,
+system target from the locked job row. Leases, Object Addresses, adapter handles,
 and provider state remain typed server-side values, not browser DTO fields.
 
 ## Grading boundary
@@ -61,9 +61,9 @@ in `crates/grading`.
 
 `crates/grading` is the browser-excluded authority for checkers, answer keys,
 and correctness decisions. It is not the only server-only component that
-handles protected answer-bearing material. The native flat-source compiler
+handles protected answer-bearing material. The PLE flat-source compiler
 parses canonical author source and splits it into answer-free public content
-and private key/feedback material. `crates/learning-data-access` then validates
+and private Answer Key/Question Feedback records. `crates/learning-data-access` then validates
 and carries that private material as an opaque grading payload, bound to the
 public definition, for authorized staging, publication, and grader retrieval.
 It does not expose the canonical bytes through browser-facing stores, routes,
@@ -145,7 +145,7 @@ The reviewed application exports are currently:
 - `question_attempt_timing_decision`;
 - `validate_assignment_config`; and
 - `validate_response_format`;
-- `preview_native_draft`; and
+- `preview_ple_draft`; and
 - `verify_presentation_descriptor`.
 
 The allowlist also names the exact memory, table, allocator, and lifecycle
@@ -159,15 +159,15 @@ and its output cannot reveal an answer.
 The server still supplies the authoritative evaluation timestamp and decides
 whether to accept a submission; browser time remains display-only.
 
-`validate_assignment_config` receives only question definitions and backend
+`validate_assignment_config` receives only Question Revisions and backend
 capability declarations already shown to an instructor. Its violations name a
 question revision and a missing capability, never an answer or grading key. The
 server independently calls the same domain function before publication.
 
-`preview_native_draft` receives an unversioned draft workspace projection and
-a seed. It produces only title, prompt, and response material for native
+`preview_ple_draft` receives an unversioned draft workspace projection and
+a seed. It produces only title, prompt, and response material for a PLE
 drafts; other adapters return an explicit `offlinePreview` unavailability
-result. The shared materializer lives in `domain`, while native adapter key
+result. The shared materializer lives in `domain`, while PLE Question Backend key
 derivation remains in its server-only crate. The bridge therefore cannot
 construct an answer key, provenance, published identity, grade, or score.
 
@@ -352,10 +352,10 @@ nonparticipants, and unshared workspaces. Responses are `no-store`.
 
 The author route never serializes `AnswerKey`, Question Feedback, Question
 Answer Explanation, Question Grading Input, source
-locator, object key, provider credential, or published identity. A supported
-Native Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
-content through its server-only adapter seam. External sources and native
-Native Question Implementations without a reviewed presentation return an explicit unavailable state;
+locator, Object Address, provider credential, or published identity. A supported
+PLE Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
+content through its server-only adapter seam. External sources and PLE
+PLE Question Implementations without a reviewed presentation return an explicit unavailable state;
 they do not invent answer material. The editor saves before requesting this
 view, rejects a mismatched response ETag, and keeps author-preview data out of
 browser persistence. Student routes deny the authoring surface before its
@@ -403,7 +403,7 @@ chosen by that controlled operation, and never silently changes issued or
 graded work.
 
 Question Library search results contain hot browser-safe metadata only. They expose a
-Question Backend but no Native Question Implementation name, WeBWorK path, QTI package identifier,
+Question Backend but no PLE Question Implementation name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, Question Response Format, or answer-bearing value.
 Every published question remains discoverable to every approved Instructor while
 its lifecycle is `active`, `deprecated`, or `archived`; the safe projection
@@ -534,7 +534,7 @@ worker completion visible in one active-lease transaction. The request and
 artifact tables force account-and-relationship-scoped RLS, broker functions have narrow grants and
 no public execution, and permanent or exhausted jobs expose only a coarse
 failed state. Browser status contains delivery IDs, stable filenames, and media
-types, never object keys, manifests, leases, source refs, failure details, or
+types, never Object Addresses, manifests, leases, source refs, failure details, or
 signed URLs. Downloads continue through the protected asset route and its audit
 log.
 
@@ -638,7 +638,7 @@ details that could disclose provider state or invite a duplicate action.
 
 ## Asset delivery boundary
 
-Browser markup carries an internal logical `AssetId`, never a bucket name,
+Browser markup carries an internal logical `QuestionAssetId`, never a bucket name,
 physical key, or signed URL. `/api/assets/{id}` resolves the identifier through
 the database-authoritative immutable registry. The registry accepts only a
 `ProblemAsset` whose problem, version, asset, object, bucket, and category all
@@ -676,7 +676,7 @@ markup.
 
 Diagnostics preserve enough evidence to investigate a boundary failure without
 becoming another delivery path. Browser responses carry only short,
-route-approved messages. They do not contain raw SQL, object keys, bucket
+route-approved messages. They do not contain raw SQL, Object Addresses, bucket
 names, signed URLs, protected account or course identities, leases, source
 archives, provider state, answer keys, or raw backend errors.
 

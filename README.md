@@ -90,7 +90,7 @@ The design answers both:
   immutable publication pins and answer-free inspection while allowing ordinary course adoption.
 - A focused assignment workspace: the title opens **Overview**, while **Questions**, **Policies**, and
   **Student view** each expose one teaching task without changing the Instructor identity.
-- One backend-neutral question model behind every engine, so native algorithmic questions,
+- One backend-neutral question model behind every engine, so PLE algorithmic questions,
   WeBWorK, QTI, H5P, and a reviewed iMathAS provider use one adapter boundary even though their
   current runtime support differs.
 - Per-question timing anchored to server timestamps, so the browser timer is display only and the
@@ -157,7 +157,7 @@ convention:
 | `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
 | `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
 | `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and direct ownership | `question_model`, `domain`, `objects`            |
-| `crates/adapters/native`      | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
+| `crates/adapters/ple`      | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
 | `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
 | `crates/adapters/qti`         | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
 | `crates/adapters/imathas`     | Contracted or self-hosted, server-brokered scored embed                       | `question_model`, `objects`                      |
@@ -273,7 +273,7 @@ metadata and receipts, not learner responses or answer keys.
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                      |
 | Curriculum adoption                  | Current BlueprintCourse/CourseInstance contract and Memory behavior cover preview, explicit adoption, rollover, term shifting, provenance, controlled updates, and divergence recovery. PostgreSQL/RLS, server, browser, and live acceptance remain SD1 cutover work.                                             |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                          |
-| Question engines                     | PLE flat-question JSON v2 implements all eight required native Question Types; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| Question engines                     | PLE flat-question JSON v2 implements all eight required PLE Question Types; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                        |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                             |
 | Worker runtime                       | Production attests seven Job Kinds: six generic queue Job Kinds plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                            |

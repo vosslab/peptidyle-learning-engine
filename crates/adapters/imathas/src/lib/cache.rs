@@ -5,8 +5,9 @@ use std::fmt::Write as _;
 use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ObjectId, QuestionBackendVersion, QuestionGraderVersion, QuestionPresentation,
-    QuestionRevision, QuestionRevisionReference, QuestionSource, SourceObjectReference,
+    ObjectId, QuestionBackendLocator, QuestionBackendVersion, QuestionGraderVersion,
+    QuestionRevision, QuestionRevisionReference, QuestionVariationPresentation,
+    SourceObjectChecksum, SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -19,9 +20,10 @@ use crate::{GradeBinding, ImathasAdapterError, ImathasSource};
 pub(super) struct CachedRender {
     pub(super) schema: u8,
     pub(super) source: SourceObjectReference,
+    pub(super) source_object_checksum: SourceObjectChecksum,
     pub(super) provider: String,
     pub(super) profile: String,
-    pub(super) envelope: QuestionPresentation,
+    pub(super) envelope: QuestionVariationPresentation,
 }
 
 pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterError> {
@@ -36,6 +38,7 @@ pub(super) fn validate_cache(
 ) -> Result<(), ImathasAdapterError> {
     if cached.schema != 1
         || cached.source != source.artifact
+        || cached.source_object_checksum != source.source_object_checksum
         || cached.provider != source.provider
         || cached.profile != source.profile
         || cached.envelope.variation.question_revision
@@ -67,17 +70,13 @@ pub(super) fn verify_binding(
     {
         return Err(ImathasAdapterError::SourceDoesNotMatchQuestion);
     }
-    match &question.source {
-        QuestionSource::Imathas {
+    match &question.backend_locator {
+        QuestionBackendLocator::Imathas {
             provider,
             item_ref,
-            snapshot,
-            snapshot_sha256,
             integration_profile,
         } if provider.as_str() == source.provider.as_str()
             && item_ref.as_str() == source.item_ref.as_str()
-            && snapshot == &source.artifact.object
-            && snapshot_sha256.as_str() == source.artifact.sha256.as_str()
             && integration_profile.as_str() == source.profile.as_str() =>
         {
             Ok(())

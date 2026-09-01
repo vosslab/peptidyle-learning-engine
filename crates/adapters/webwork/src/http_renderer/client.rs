@@ -22,11 +22,11 @@ use grading::QuestionGradingOutcome;
 #[cfg(test)]
 use question_model::GradingResult;
 use question_model::answer::ResponseSelectionRule;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::response::{
     MatchingChoice, MatchingPrompt, QuestionChoice, QuestionResponseFormat, ResponseItemReference,
 };
-use question_model::{QuestionPresentation, QuestionRendererVersion, StudentResponse};
+use question_model::{QuestionRendererVersion, QuestionVariationPresentation, StudentResponse};
 use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION};
 use reqwest::{Client, StatusCode, Url};
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -346,7 +346,7 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
 }
 
 struct ParsedRender {
-    envelope: QuestionPresentation,
+    envelope: QuestionVariationPresentation,
     html: String,
     replay: WebworkReplayMappingV1,
 }
@@ -406,7 +406,7 @@ fn project_single_radio(
         let id = opaque_choice_id(request, index)?;
         choices.push(QuestionChoice {
             id: id.clone(),
-            body: vec![ContentBlock::Text {
+            body: vec![QuestionContentBlock::Text {
                 markdown: control.label,
             }],
         });
@@ -419,13 +419,13 @@ fn project_single_radio(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionPresentation {
+        envelope: QuestionVariationPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),
-            prompt: vec![ContentBlock::Text { markdown: prompt }],
+            prompt: vec![QuestionContentBlock::Text { markdown: prompt }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices,
                 selection: ResponseSelectionRule::ExactlyOne,
@@ -453,7 +453,7 @@ fn project_matching(
             let id = opaque_item_id(request, 3, index)?;
             choices.push(MatchingChoice {
                 id: id.clone(),
-                body: vec![ContentBlock::Text {
+                body: vec![QuestionContentBlock::Text {
                     markdown: choice.label.clone(),
                 }],
             });
@@ -464,7 +464,7 @@ fn project_matching(
         let id = opaque_item_id(request, 2, index)?;
         prompts.push(MatchingPrompt {
             id: id.clone(),
-            body: vec![ContentBlock::Text {
+            body: vec![QuestionContentBlock::Text {
                 markdown: prompt.label,
             }],
         });
@@ -477,13 +477,13 @@ fn project_matching(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionPresentation {
+        envelope: QuestionVariationPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
             title: "WeBWorK question".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: parsed_html.prompt_text,
             }],
             response: QuestionResponseFormat::Matching { prompts, choices },

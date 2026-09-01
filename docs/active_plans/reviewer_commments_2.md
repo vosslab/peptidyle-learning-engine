@@ -80,7 +80,7 @@ For responsiveness, object storage is not usually the bottleneck if:
 - assets use immutable content-hash URLs
 - CloudFront or another CDN caches them
 - the application never lists buckets during requests
-- the database already knows the exact object key
+- the database already knows the exact Object Address
 - QTI ZIP files are parsed at import time, not during student access
 
 I would also set thresholds. For example:

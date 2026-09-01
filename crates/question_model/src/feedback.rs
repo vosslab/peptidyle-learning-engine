@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::envelope::ContentBlock;
+use crate::envelope::QuestionContentBlock;
 
 /// Trusted Question-attached feedback selected after automatic grading.
 ///
@@ -20,11 +20,11 @@ use crate::envelope::ContentBlock;
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct QuestionFeedback {
     /// Feedback authored for the selected response item or items.
-    pub choice_feedback: Option<Vec<ContentBlock>>,
+    pub choice_feedback: Option<Vec<QuestionContentBlock>>,
     /// Feedback authored for a correct automatically graded response.
-    pub correct_feedback: Option<Vec<ContentBlock>>,
+    pub correct_feedback: Option<Vec<QuestionContentBlock>>,
     /// Feedback authored for an incorrect automatically graded response.
-    pub incorrect_feedback: Option<Vec<ContentBlock>>,
+    pub incorrect_feedback: Option<Vec<QuestionContentBlock>>,
 }
 
 /// Trusted display-ready accepted response for one exact Question Variation.
@@ -33,17 +33,17 @@ pub struct QuestionFeedback {
 /// allowing answer-key facts to cross into the browser contract.
 #[derive(Clone, PartialEq, Eq)]
 pub struct QuestionAnswer {
-    content: Vec<ContentBlock>,
+    content: Vec<QuestionContentBlock>,
 }
 
 impl QuestionAnswer {
     /// Creates one non-empty display-ready Question Answer.
-    pub fn new(content: Vec<ContentBlock>) -> Option<Self> {
+    pub fn new(content: Vec<QuestionContentBlock>) -> Option<Self> {
         (!content.is_empty()).then_some(Self { content })
     }
 
     /// Returns the display-ready content for an authorized release projection.
-    pub fn content(&self) -> &[ContentBlock] {
+    pub fn content(&self) -> &[QuestionContentBlock] {
         &self.content
     }
 }
@@ -51,17 +51,17 @@ impl QuestionAnswer {
 /// Trusted display-ready explanation of how or why one Question Answer is reached.
 #[derive(Clone, PartialEq, Eq)]
 pub struct QuestionAnswerExplanation {
-    content: Vec<ContentBlock>,
+    content: Vec<QuestionContentBlock>,
 }
 
 impl QuestionAnswerExplanation {
     /// Creates one non-empty Question Answer Explanation.
-    pub fn new(content: Vec<ContentBlock>) -> Option<Self> {
+    pub fn new(content: Vec<QuestionContentBlock>) -> Option<Self> {
         (!content.is_empty()).then_some(Self { content })
     }
 
     /// Returns the display-ready content for an authorized release projection.
-    pub fn content(&self) -> &[ContentBlock] {
+    pub fn content(&self) -> &[QuestionContentBlock] {
         &self.content
     }
 }
@@ -87,17 +87,17 @@ pub struct QuestionPostGradingContent {
 /// released Student feedback field.
 #[derive(Clone, PartialEq, Eq)]
 pub struct QuestionHint {
-    content: Vec<ContentBlock>,
+    content: Vec<QuestionContentBlock>,
 }
 
 impl QuestionHint {
     /// Creates one non-empty, server-owned Question Hint.
-    pub fn new(content: Vec<ContentBlock>) -> Option<Self> {
+    pub fn new(content: Vec<QuestionContentBlock>) -> Option<Self> {
         (!content.is_empty()).then_some(Self { content })
     }
 
     /// Returns the rendered instructional content for the authorized hint path.
-    pub fn content(&self) -> &[ContentBlock] {
+    pub fn content(&self) -> &[QuestionContentBlock] {
         &self.content
     }
 }
@@ -121,19 +121,19 @@ pub struct StudentFeedback {
     pub points_possible: Option<f64>,
     /// Released feedback for the selected response item or items.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub choice_feedback: Option<Vec<ContentBlock>>,
+    pub choice_feedback: Option<Vec<QuestionContentBlock>>,
     /// Released feedback for a correct automatically graded response.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub correct_feedback: Option<Vec<ContentBlock>>,
+    pub correct_feedback: Option<Vec<QuestionContentBlock>>,
     /// Released feedback for an incorrect automatically graded response.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub incorrect_feedback: Option<Vec<ContentBlock>>,
+    pub incorrect_feedback: Option<Vec<QuestionContentBlock>>,
     /// Server-sanitized display-ready accepted response, never an Answer Key.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub question_answer: Option<Vec<ContentBlock>>,
+    pub question_answer: Option<Vec<QuestionContentBlock>>,
     /// Server-sanitized explanation of the released Question Answer.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub question_answer_explanation: Option<Vec<ContentBlock>>,
+    pub question_answer_explanation: Option<Vec<QuestionContentBlock>>,
 }
 
 impl StudentFeedback {

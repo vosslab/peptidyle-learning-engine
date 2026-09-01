@@ -77,7 +77,7 @@ export function createAssignmentEditorPickerController(
     if (maximum(nextIntent) < 1) {
       props.onMessage(
         nextIntent.kind === "pool"
-          ? "This pool has reached its candidate limit. Remove a candidate before choosing another."
+          ? "This pool has reached its entry limit. Remove a entry before choosing another."
           : "This assignment has reached its ordered-entry limit. Remove an entry before adding another question.",
       );
       return;
@@ -105,18 +105,21 @@ export function createAssignmentEditorPickerController(
     const draft = props.currentDraft();
     const entry = draft?.entries[entryIndex];
     if (draft === undefined || entry === undefined || entry.kind !== "questionPool") return;
-    const known = new Set(entry.candidates.map((candidate) => candidate.questionId));
-    const candidates = [...entry.candidates, ...rows.filter((row) => !known.has(row.questionId))];
-    if (candidates.length === entry.candidates.length) {
-      props.onMessage("Every selected Question ID is already a candidate in this pool.");
+    const known = new Set(entry.entries.map((entry) => entry.questionId));
+    const addedPoolEntries = [
+      ...entry.entries,
+      ...rows.filter((row) => !known.has(row.questionId)),
+    ];
+    if (addedPoolEntries.length === entry.entries.length) {
+      props.onMessage("Every selected Question ID is already an entry in this pool.");
       return;
     }
-    const entries = [...draft.entries];
-    entries[entryIndex] = { ...entry, candidates };
-    props.onDraftChange({ ...draft, entries });
-    const added = candidates.length - entry.candidates.length;
+    const assignmentEntries = [...draft.entries];
+    assignmentEntries[entryIndex] = { ...entry, entries: addedPoolEntries };
+    props.onDraftChange({ ...draft, entries: assignmentEntries });
+    const added = addedPoolEntries.length - entry.entries.length;
     props.onMessage(
-      `${added} candidate Question ID${added === 1 ? "" : "s"} added to this Question Pool. Set its selection count, then save the Assignment.`,
+      `${added} entry Question ID${added === 1 ? "" : "s"} added to this Question Pool. Set its selection count, then save the Assignment.`,
     );
   }
 

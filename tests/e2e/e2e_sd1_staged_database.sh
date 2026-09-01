@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
 # e2e_sd1_staged_database.sh - disposable SD1 PostgreSQL staging acceptance.
-#
 # The public entry point delegates the lease, private manifest, and fixed
-# Compose ownership to local_stack_control.sd1_staged_database_owner. The
-# private child owns only this PostgreSQL 17 oracle.
-
+# Compose ownership to local_stack_control.sd1_staged_database_owner. The private child owns only this PostgreSQL 17 oracle.
 set -euo pipefail
-
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$script_directory/../.." && pwd -P)"
 readonly REPO_ROOT
-
 if [ "${1:-}" != "--owned-child" ]; then
 	cd "$REPO_ROOT"
 	exec python3 -m local_stack_control.sd1_staged_database_owner
 fi
 shift
-
 [ "$#" -eq 2 ] && [ "$1" = "--runtime-manifest" ] && [ "$2" = "runtime.yaml" ] || {
 	echo "SD1 staged database E2E: private child requires the owner-created runtime manifest" >&2
 	exit 2
@@ -26,32 +20,26 @@ WORKSPACE="$(pwd -P)"
 RUNTIME_MANIFEST_PATH="$WORKSPACE/$RUNTIME_MANIFEST"
 SD1_RUNTIME_MANIFEST_PATH="$WORKSPACE/sd1/runtime.yaml"
 readonly RUNTIME_MANIFEST WORKSPACE RUNTIME_MANIFEST_PATH SD1_RUNTIME_MANIFEST_PATH
-
 readonly DATABASE_NAME="ple_e2e_baseline"
 readonly BOOTSTRAP_USER="ple_e2e_migrator"
 readonly POSTGRES_DB="postgres"
 readonly PROJECT_NAME="ple-live-demo-browser"
 readonly STAGED_MIGRATION="2026082901"
-
 compose_started=0
 postgres_volume_name=""
-
 fail() {
 	echo "SD1 staged database E2E: $*" >&2
 	exit 1
 }
-
 require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
 }
-
 compose() {
 	(
 		cd "$REPO_ROOT"
 		python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"
 	)
 }
-
 capture_postgres_volume() {
 	local container_ids container_id volume_projects
 	container_ids="$(podman ps -aq \
@@ -76,7 +64,6 @@ capture_postgres_volume() {
 	esac
 	echo "SD1 staged database E2E: captured disposable PostgreSQL volume $postgres_volume_name"
 }
-
 cleanup() {
 	local status="$?"
 	local cleanup_failed=0
@@ -104,13 +91,11 @@ cleanup() {
 	exit "$status"
 }
 trap cleanup EXIT
-
 psql_in_container() {
 	local login="$1"
 	shift
 	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$login" "$@"
 }
-
 run_staged_tool() {
 	(
 		cd "$WORKSPACE"
@@ -119,7 +104,6 @@ run_staged_tool() {
 			database "$@" --acceptance-runtime
 	)
 }
-
 expect_denied() {
 	local label="$1"
 	shift
@@ -127,7 +111,6 @@ expect_denied() {
 		fail "$label unexpectedly succeeded"
 	fi
 }
-
 assert_catalog() {
 	echo "SD1 staged database E2E: exact principal, schema, ACL, and membership catalog"
 	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" <<'SQL'
@@ -355,12 +338,12 @@ BEGIN
 		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
 		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
 	) OR to_regclass('ple_private.question_pool_selection') IS NULL
-		OR to_regclass('ple_private.question_pool_selected_candidate') IS NULL
+		OR to_regclass('ple_private.question_pool_selected_entry') IS NULL
 		OR (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'assignment_attempt' AND column_name IN ('attempt_number', 'question_pool_reuse_rule', 'question_variation_rule')) <> 3 OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'question_pool_selection' AND column_name = 'selected_question_count' AND is_nullable = 'NO')
-		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.assignment_attempt'::regclass AND conname = 'assignment_attempt_student_assignment_number_is_unique') OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_private.question_pool_selection'::regclass AND tgname IN ('question_pool_selection_reuse_has_exact_student_and_assignment_history', 'question_pool_selection_has_exact_candidate_count') AND NOT tgisinternal GROUP BY tgrelid HAVING count(*) = 2)
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.assignment_attempt'::regclass AND conname = 'assignment_attempt_student_assignment_number_is_unique') OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_private.question_pool_selection'::regclass AND tgname IN ('question_pool_selection_reuse_has_exact_student_and_assignment_history', 'question_pool_selection_has_exact_entry_count') AND NOT tgisinternal GROUP BY tgrelid HAVING count(*) = 2)
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.issued_question'::regclass
-			AND conname = 'issued_question_selection_candidate_matches_version'
+			AND conname = 'issued_question_selection_entry_matches_version'
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_private.question_pool_selection'::regclass
 			AND tgname = 'question_pool_selection_is_immutable' AND NOT tgisinternal
@@ -625,6 +608,11 @@ BEGIN
 		OR to_regclass('ple_data.question_change_proposal_revision') IS NULL
 		OR to_regclass('ple_data.question_change_event') IS NULL
 		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.question_change_proposal_revision'::regclass
+			AND conname = 'question_change_proposal_revision_base_revision_matches'
+		)
+		OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger
 			WHERE tgrelid = 'ple_data.question_change_proposal_revision'::regclass
 			AND tgname = 'question_change_proposal_revision_is_immutable' AND NOT tgisinternal
@@ -702,7 +690,29 @@ BEGIN
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
+			AND column_name IN ('flawed_problem_id', 'replacement_problem_id')
+		)
+		OR (
+			SELECT count(*) FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
+			AND column_name = ANY (ARRAY[
+				'flawed_question_id', 'flawed_revision_number',
+				'replacement_question_id', 'replacement_revision_number'
+			])
+		) <> 4
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
 			AND column_name = 'remediation'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.forced_question_correction'::regclass
+			AND conname = 'forced_question_correction_flawed_revision_matches'
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_data.forced_question_correction'::regclass
+			AND conname = 'forced_question_correction_replacement_revision_matches'
 		)
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger
@@ -724,7 +734,7 @@ BEGIN
 			WHERE tgrelid = 'ple_audit.forced_question_correction_grade_target'::regclass
 			AND tgname = 'forced_question_correction_grade_target_is_immutable' AND NOT tgisinternal
 		) THEN
-		RAISE EXCEPTION 'Forced Question Correction Manifest lacks immutable exact teaching targets';
+		RAISE EXCEPTION 'Forced Question Correction Manifest lacks immutable exact Question Revision references or teaching targets';
 	END IF;
 	IF to_regclass('ple_audit.assignment_grade_event') IS NULL
 		OR to_regclass('ple_audit.grade_control_event') IS NOT NULL
@@ -750,7 +760,6 @@ SQL
 	private_question_records_sql="$(<"$script_directory/private_question_records.sql")"
 	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c "$private_question_records_sql"
 }
-
 legacy_assert_catalog() {
 	echo "SD1 staged database E2E: exact principal, schema, ACL, and membership catalog"
 	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" <<'SQL'
@@ -893,7 +902,6 @@ BEGIN
 END $$;
 SQL
 }
-
 assert_restricted_logins() {
 	echo "SD1 staged database E2E: restricted LOGIN allow/deny probes"
 	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" <<'SQL'
@@ -929,7 +937,6 @@ SQL
 			"SET ROLE $capability; CREATE TABLE ple_api.sd1_probe_denied (id integer)"
 	done
 }
-
 cd "$REPO_ROOT"
 require_command podman
 require_command cargo
@@ -937,12 +944,10 @@ require_command python3
 # shellcheck disable=SC1091
 source "$REPO_ROOT/source_me.sh"
 export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$RUNTIME_MANIFEST_PATH"
-
 echo "SD1 staged database E2E: starting isolated PostgreSQL 17 project $PROJECT_NAME"
 compose_started=1
 compose up -d postgres
 capture_postgres_volume
-
 ready=0
 for _ in {1..30}; do
 	if psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c 'SELECT 1' >/dev/null 2>&1; then
@@ -955,7 +960,6 @@ done
 version_major="$(psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -At -c \
 	"SELECT split_part(current_setting('server_version'), '.', 1)")"
 [ "$version_major" = "17" ] || fail "disposable PostgreSQL is not major 17 (got $version_major)"
-
 # The official image bootstrap login is used only to create the canonical
 # migration login and empty target. The staged command then installs that
 # role for SQLx; no bootstrap secret is copied into the child or SQL text.
@@ -977,13 +981,11 @@ psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c \
 	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $DATABASE_NAME FROM PUBLIC; GRANT CONNECT ON DATABASE $DATABASE_NAME TO ple_migrator"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c \
 	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
-
 echo "SD1 staged database E2E: staged status is pending before apply"
 initial_status="$(run_staged_tool sd1-staged-status)"
 printf '%s\n' "$initial_status"
 printf '%s\n' "$initial_status" | grep -Eq "$STAGED_MIGRATION.*pending" || \
 	fail "staged status did not report $STAGED_MIGRATION as pending"
-
 echo "SD1 staged database E2E: fresh apply and second-run no-op"
 run_staged_tool sd1-staged-migrate
 second_apply="$(run_staged_tool sd1-staged-migrate)"
@@ -991,9 +993,7 @@ printf '%s\n' "$second_apply"
 printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || \
 	fail "second staged apply did not report a no-op-compatible result"
 run_staged_tool sd1-staged-verify
-
 assert_catalog
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 assert_restricted_logins
-
 echo "SD1 staged database E2E: PASS (fresh apply, no-op, PostgreSQL 17 catalog, restricted probes)"

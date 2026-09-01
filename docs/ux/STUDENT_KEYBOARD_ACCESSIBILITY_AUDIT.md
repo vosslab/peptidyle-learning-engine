@@ -46,7 +46,7 @@ response components, but their convenience does not become a prerequisite for an
 | ---------------- | -------------------------- | -------------------------------- | ----------------------------------------------------- |
 | Enter content    | Bypass repeated navigation | Tab to skip link, Enter          | Main content receives focus                           |
 | Choose work      | Open course and assignment | Tab to each native link, Enter   | Each route loads and main content receives focus      |
-| Start practice   | Begin or resume a run      | Tab to the button, Space         | Current question and response control appear          |
+| Start practice   | Begin or resume a run      | Tab to the button, Space         | Current question and Question Response Control appear |
 | Answer           | Enter a response           | Tab to the choice, Space         | Format status announces ready or explains the problem |
 | Submit           | Record the response        | Tab to Submit answer, Space      | Feedback or recovery state appears                    |
 | Continue         | Move to the next task      | Tab to the visible action, Space | Next question or run-complete summary appears         |

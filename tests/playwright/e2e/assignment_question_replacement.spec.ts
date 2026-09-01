@@ -87,7 +87,7 @@ async function createPublishedAssignmentAndInvitation(
   await page.getByRole("link", { name: "Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Search question library", exact: true }).click();
   const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });

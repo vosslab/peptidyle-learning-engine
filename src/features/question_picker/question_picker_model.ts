@@ -299,7 +299,9 @@ function selectedBlueprintAssignment(
   ReturnType<BlueprintCourseClient["getBlueprintCourse"]>
 >["blueprintCourse"]["modules"][number]["definitions"][number] {
   if (course.reference !== source.reference || course.revision !== source.revision) {
-    throw new Error("The selected Blueprint Course changed. Choose a current reusable assignment.");
+    throw new Error(
+      "The selected Blueprint Course changed. Choose a current Blueprint Assignment.",
+    );
   }
   for (const module of course.modules) {
     const definition = module.definitions.find(
@@ -308,7 +310,7 @@ function selectedBlueprintAssignment(
     if (definition !== undefined) return definition;
   }
   throw new Error(
-    "The selected reusable assignment is no longer available in this Blueprint Course.",
+    "The selected Blueprint Assignment is no longer available in this Blueprint Course.",
   );
 }
 
@@ -322,19 +324,19 @@ function definitionRows(definition: {
       }
     | {
         readonly kind: "pool";
-        readonly candidates: ReadonlyArray<{
+        readonly entries: ReadonlyArray<{
           readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
         }>;
       }
   >;
 }): ReadonlyArray<QuestionSearchResult> {
   const rows: QuestionSearchResult[] = [];
-  for (const entry of definition.entries) {
-    if (entry.kind === "fixed")
-      rows.push(reusableQuestionLibraryRow(entry.question.question_library));
+  for (const assignmentEntry of definition.entries) {
+    if (assignmentEntry.kind === "fixed")
+      rows.push(reusableQuestionLibraryRow(assignmentEntry.question.question_library));
     else
-      for (const candidate of entry.candidates)
-        rows.push(reusableQuestionLibraryRow(candidate.question_library));
+      for (const questionPoolEntry of assignmentEntry.entries)
+        rows.push(reusableQuestionLibraryRow(questionPoolEntry.question_library));
   }
   return rows;
 }

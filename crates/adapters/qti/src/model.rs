@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use objects::Sha256Digest;
-use question_model::AssetId;
+use question_model::QuestionAssetId;
 use question_model::QuestionResponseFormat;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::response::ResponseItemReference;
 use serde::{Deserialize, Serialize};
 
@@ -92,10 +92,10 @@ pub struct QtiItemImportResult {
 ///
 /// `bytes` is intentionally excluded from JSON.  It is an import-worker
 /// handoff, not a browser or draft projection.  The worker uses `asset` as the
-/// logical ID and writes the bytes under the eventual immutable object key.
+/// logical ID and writes the bytes under the eventual immutable Object Address.
 #[derive(Clone, PartialEq, Eq)]
 pub struct QtiAssetObject {
-    pub(crate) asset: AssetId,
+    pub(crate) asset: QuestionAssetId,
     pub(crate) source_path: String,
     pub(crate) sha256: String,
     pub(crate) media_type: String,
@@ -121,7 +121,7 @@ impl QtiAssetObject {
     }
 
     /// Logical asset identity the worker carries into its private registry.
-    pub fn worker_asset_id(&self) -> AssetId {
+    pub fn worker_asset_id(&self) -> QuestionAssetId {
         self.asset
     }
 
@@ -145,7 +145,7 @@ impl QtiAssetObject {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ImportedQtiQuestion {
     pub item_id: String,
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     pub response: QuestionResponseFormat,
 }
 
@@ -154,8 +154,8 @@ pub struct ImportedQtiQuestion {
 /// the same logical asset cannot name two different immutable byte strings.
 pub fn qti_question_asset_checksums(
     question: &ImportedQtiQuestion,
-) -> Result<BTreeMap<AssetId, String>, QtiAssetReferenceError> {
-    let mut response_blocks: Vec<&ContentBlock> = Vec::new();
+) -> Result<BTreeMap<QuestionAssetId, String>, QtiAssetReferenceError> {
+    let mut response_blocks: Vec<&QuestionContentBlock> = Vec::new();
     let mut assets = BTreeMap::new();
     match &question.response {
         question_model::QuestionResponseFormat::MultipleChoice { choices, .. } => {
@@ -182,7 +182,7 @@ pub fn qti_question_asset_checksums(
         | question_model::QuestionResponseFormat::ExternalTool {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {
-        if let ContentBlock::Image { asset, .. } = block
+        if let QuestionContentBlock::Image { asset, .. } = block
             && let Some(previous) = assets.insert(asset.asset, asset.checksum.clone())
             && previous != asset.checksum
         {

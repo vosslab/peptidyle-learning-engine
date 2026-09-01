@@ -31,7 +31,7 @@ only the answer-free draft. `POST /api/questions/{workspace}/flat-question-publi
 uses the same no-store/ETag discipline, rereads and recompiles the private
 source, copies its exact canonical bytes to a distinct immutable non-signable
 `ProblemSource`, then sends one catalog promotion command. Neither route emits
-source bytes, checksums, answer keys, or feedback material.
+source bytes, checksums, Answer Keys, or Question Feedback.
 
 `FlatQuestionStore` atomically advances the typed draft and its source metadata
 in Memory and PostgreSQL. `FlatQuestionGradingStore` is separate: the runtime
@@ -52,8 +52,8 @@ The final focused validation and independent re-review passed:
 
 ```text
 cargo fmt --check
-cargo clippy -p adapter_native -p learning-data-access -p server_core --all-targets -- -D warnings
-cargo test -p adapter_native flat_question                         # 8 passed
+cargo clippy -p adapter_ple -p learning-data-access -p server_core --all-targets -- -D warnings
+cargo test -p adapter_ple flat_question                         # 8 passed
 cargo test -p learning-data-access --test conformance flat_question # 1 passed
 cargo test -p learning-data-access --features postgres --lib flat_question # 14 passed
 cargo test -p server_core flat_question                            # 6 passed

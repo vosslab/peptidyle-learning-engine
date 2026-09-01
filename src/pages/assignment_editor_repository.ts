@@ -27,13 +27,13 @@ export interface AssignmentEditorRepository {
     exclude?: AssignmentId,
   ) => Promise<ReadonlyArray<QuestionPickerSource>>;
   readonly questionPickerRepository: QuestionPickerSourceRepository;
-  readonly listReusableAssignments: (
+  readonly listBlueprintAssignments: (
     course: CourseId,
     exclude?: AssignmentId,
-  ) => Promise<ReadonlyArray<ReusableAssignment>>;
+  ) => Promise<ReadonlyArray<BlueprintAssignment>>;
 }
 
-export interface ReusableAssignment {
+export interface BlueprintAssignment {
   readonly assignmentId: AssignmentId;
   readonly title: string;
   readonly questions: ReadonlyArray<AssignmentQuestionRow>;
@@ -106,9 +106,9 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         }));
       const poolRows = assignment.entries.flatMap((entry) =>
         entry.kind === "questionPool"
-          ? entry.candidates.map((candidate) => ({
-              displayId: candidate.questionId,
-              title: candidate.title,
+          ? entry.entries.map((entry) => ({
+              displayId: entry.questionId,
+              title: entry.title,
               summary: "Question retained in this assignment pool.",
               byline: [],
               classifications: [],
@@ -132,7 +132,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       exclude,
     ): Promise<ReadonlyArray<QuestionPickerSource>> => {
       const folders = await client.listQuestionFolders();
-      const reusable = await listReusableAssignments(client, course, exclude);
+      const reusable = await listBlueprintAssignments(client, course, exclude);
       const blueprintCourses = await listAllBlueprintCourses(client);
       const blueprintAssignments = await listBlueprintAssignmentSources(client, blueprintCourses);
       return [
@@ -151,16 +151,19 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         ...blueprintAssignments,
       ];
     },
-    listReusableAssignments: async (course, exclude): Promise<ReadonlyArray<ReusableAssignment>> =>
-      await listReusableAssignments(client, course, exclude),
+    listBlueprintAssignments: async (
+      course,
+      exclude,
+    ): Promise<ReadonlyArray<BlueprintAssignment>> =>
+      await listBlueprintAssignments(client, course, exclude),
   };
 }
 
-async function listReusableAssignments(
+async function listBlueprintAssignments(
   client: ApiClient,
   course: CourseId,
   exclude: AssignmentId | undefined,
-): Promise<ReadonlyArray<ReusableAssignment>> {
+): Promise<ReadonlyArray<BlueprintAssignment>> {
   const assignments = [];
   let cursor: string | undefined;
   const seenCursors = new Set<string>();

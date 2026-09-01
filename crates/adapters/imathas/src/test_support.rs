@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::GradingResult;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use sha2::Sha256;
 
 use crate::external_question_provider::{
@@ -22,7 +22,7 @@ use crate::external_question_provider::{
 };
 use crate::scored_embed::ScoredEmbedProfileConfig;
 use crate::{
-    ImathasDraftQuestionSource, ImathasProvider, ProviderFailure, ProviderGradeRequest,
+    ImathasProvider, ImathasQuestionLocation, ProviderFailure, ProviderGradeRequest,
     ProviderRenderRequest, SafeProviderRender, SupportedProfile, VerifiedProviderGrade, sealed,
 };
 
@@ -93,7 +93,7 @@ impl sealed::ProviderSealed for RecordedImathasProvider {}
 impl ImathasProvider for RecordedImathasProvider {
     async fn snapshot(
         &self,
-        _locator: &ImathasDraftQuestionSource,
+        _locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
         self.snapshot_calls.fetch_add(1, Ordering::SeqCst);
         mode_result(self.mode)?;
@@ -112,7 +112,7 @@ impl ImathasProvider for RecordedImathasProvider {
         mode_result(self.mode)?;
         Ok(SafeProviderRender {
             title: "Recorded iMathAS question".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete the recorded external activity.".into(),
             }],
         })
@@ -264,7 +264,7 @@ impl ScoredEmbedTransport for RecordedContractedTransport {
     ) -> Result<SafeProviderRender, ScoredEmbedTransportFailure> {
         Ok(SafeProviderRender {
             title: "Recorded contracted iMathAS question".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete the protected activity.".into(),
             }],
         })
@@ -384,11 +384,11 @@ mod tests {
     async fn recorded_provider_is_feature_gated_and_counts_safe_calls() {
         let provider = RecordedImathasProvider::from_mode(RecordedProviderMode::Unavailable);
         assert_eq!(provider.snapshot_calls(), 0);
-        let source = question_model::DraftQuestionSource::Imathas {
+        let source = question_model::DraftQuestionBackendLocator::Imathas {
             provider: "recorded-provider".into(),
             item_ref: "item-17".into(),
         };
-        let locator = ImathasDraftQuestionSource::from_draft(&source).unwrap();
+        let locator = ImathasQuestionLocation::from_draft_backend_locator(&source).unwrap();
         assert_eq!(
             provider.snapshot(&locator).await,
             Err(ProviderFailure::Unavailable)

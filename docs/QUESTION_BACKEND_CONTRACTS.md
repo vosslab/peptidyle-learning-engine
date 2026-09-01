@@ -26,7 +26,7 @@ and [RELATED_PROJECTS.md](RELATED_PROJECTS.md) for ecosystem scope and compariso
 ## Current adapter contract
 
 The mounted `server_core` surface currently has no Question delivery route. The
-native, WeBWorK, and iMathAS adapters each expose their explicit issue,
+PLE, WeBWorK, and iMathAS Question Backends each expose their explicit issue,
 reproduce, and grade operations; a later server delivery boundary will compose
 them without creating a second product vocabulary.
 
@@ -50,7 +50,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend              | Current authority                                                        | Browser response                                           | Server grading authority                            | Current scope                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat          | Immutable PLE flat source and private flat grading payload               | Typed PLE response                                         | Native adapter plus isolated flat grader            | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
+| PLE flat             | Immutable PLE flat source and private flat grading payload               | Typed PLE response                                         | PLE Question Backend plus isolated flat grader      | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence      | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                  |
 | WeBWorK              | Immutable licensed PGML source and private renderer                      | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                        |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile       | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                                  |
@@ -60,29 +60,29 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 ### Source and render
 
-**Current.** The native adapter compiles versioned PLE flat JSON into two products: an answer-free
+**Current.** The PLE Question Backend compiles versioned PLE flat JSON into two products: an answer-free
 `QuestionRevision`/`QuestionPresentation` and private Answer Key, Question
 Feedback, Question Answer Explanation, and format-specific Question Grading
 Input. The trusted server bridge
-resolves immutable published-Question asset bindings before issue, replay, or grade. The browser receives prompt
+resolves immutable published-Question Asset References before issue, replay, or grade. The browser receives prompt
 blocks, public Question Response Format, asset references, version, and seed. It returns only the PLE
 response shape; it does not return source bytes, a private key, asset-object binding, implementation
 version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
-multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, matching, ordering, and hotspot questions. The native adapter dispatches by
-registered Native Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the Assignment Attempt model type-specific. The protected visual author
+multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, matching, ordering, and hotspot questions. The PLE Question Backend dispatches by
+registered PLE Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the Assignment Attempt model type-specific. The protected visual author
 editor exposes all eight v2 Question Types. Its instructor route is a convenience surface only: the server
-re-resolves source and asset bindings at save and publication, and the student contract remains
+re-resolves source and Question Asset References at save and publication, and the student contract remains
 answer-free. Integrated author-to-publication-to-student acceptance for every family, including the
 hotspot lifecycle, remains open.
 
 ### Grade, replay, and cache
 
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
-bindings before generic grading or isolated flat grading. First flat grade reads only the issued
+References before generic grading or isolated flat grading. First flat grade reads only the issued
 checksummed flat grading contract; ordinary published-Question and browser paths cannot read that material or
-replace it with a current Question Grader view. Provenance names the native Question Backend and
+replace it with a current Question Grader view. Provenance names the PLE Question Backend and
 Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
 
@@ -104,13 +104,13 @@ conformance coverage. It must not add a parallel run loop or browser grader.
 
 **Current.** QTI is an import and private-grading path, not a browser QTI runtime. An authorized
 author uploads a bounded archive to private workspace object storage. The worker parses a narrow,
-hostile-input profile and records safe reports, checksums, normalized item facts, asset bindings, and
+hostile-input profile and records safe reports, checksums, normalized item facts, Question Asset References, and
 server-only grading handoff. Publication atomically pins archive and item identity.
 
 At issue or replay, `QtiBackend` rereads the exact published archive, verifies object identity and
 SHA-256, reparses it, checks the selected item against the durable public definition, resolves
 immutable assets, and returns a normal answer-free PLE envelope. The student submits the same typed
-PLE response as for native questions. Student JSON has no QTI XML, archive object key, import ID, or
+PLE response as for PLE Questions. Student JSON has no QTI XML, archive Object Address, import ID, or
 answer binding.
 
 ### Grade, provenance, and scope
@@ -150,11 +150,11 @@ field/value mapping, converts durable choice identities to presentation-scoped r
 persists that mapping with the exact public snapshot, private grading envelope, and frozen WeBWorK
 definition. Normal grade reloads those validated artifacts, maps the student's rendered ID through
 the private envelope, and makes one private grade request. It does not reconstruct an issuance
-render or resolve a current published Question definition. The mapping never
+render or resolve a current published Question Revision. The mapping never
 appears in an envelope, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free
-envelope/markup, Source Object Reference binding, Question Renderer Version, and rendered-output checksum. A cache hit
+envelope/markup, Source Object Reference, Source Object Checksum, Question Renderer Version, and rendered-output checksum. A cache hit
 for a new issuance still performs the bounded private render needed to create that attempt's replay
 mapping; reproduction and normal grade do not. Telemetry uses only `renderer_call` and `cache_hit`
 event names.
@@ -180,10 +180,11 @@ The detailed protocol is in [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDER
 
 ### Source, render, and launch
 
-**Current contracted boundary.** iMathAS begins as a server-authorized draft locator with opaque,
-deployment-configured provider key and provider-local item reference. Before publication, the server
-pins immutable source snapshot, SHA-256, and integration profile. A published definition stores no
-endpoint, credential, launch material, or mutable provider location.
+**Current contracted boundary.** iMathAS begins with a server-authorized backend locator containing
+an opaque, deployment-configured provider key and provider-local item reference. Before publication,
+the server creates the immutable Question Source snapshot, records its Source Object Reference and
+Source Object Checksum, and pins the integration profile. A published Question Revision stores no
+source bytes, endpoint, credential, launch material, or mutable provider location.
 
 The adapter creates a safe render from that snapshot and caches only answer-free public rendering by
 immutable identity. The student response is not provider data: it is PLE's `ExternalTool {}` marker.
@@ -262,7 +263,7 @@ proxy policy, replay/idempotency semantics, and a closed capability declaration.
 | Contract                                                        | Primary locations                                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared Question model and Question Attempt Reproduction Details | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                             |
-| Adapter operations                                              | `crates/adapters/{native,webwork,imathas,qti}`                                                                                                                          |
+| Adapter operations                                              | `crates/adapters/{ple,webwork,imathas,qti}`                                                                                                                          |
 | Server composition                                              | `crates/server/src/{application.rs,composition.rs}`; Question delivery composition remains unmounted                                                                    |
 | WeBWorK renderer                                                | `crates/adapters/webwork` and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)                                                                      |
 | iMathAS broker                                                  | `crates/adapters/imathas`                                                                                                                                               |

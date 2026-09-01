@@ -16,8 +16,8 @@ use crate::{
     AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryScoringRule,
     AssignmentInstructions, AssignmentPointValue, BlueprintCourseReference, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
     QuestionId, QuestionPoolSelectionRule, QuestionSearchResult, StudentFeedbackReleaseRule,
 };
 
@@ -154,10 +154,10 @@ fn ordered_after(
         .is_some_and(|(earlier, later)| earlier > later)
 }
 
-/// Reusable assignment policy defaults copied into a future teaching course.
+/// Blueprint Assignment policy defaults copied into a future teaching course.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusableAssignmentDefaults {
+pub struct BlueprintAssignmentDefaults {
     /// Whole Assignment Attempt time limit, if the reusable definition establishes one.
     pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
     /// Number of Student runs, if the reusable definition establishes one.
@@ -173,7 +173,7 @@ pub struct ReusableAssignmentDefaults {
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
-impl ReusableAssignmentDefaults {
+impl BlueprintAssignmentDefaults {
     /// Validates reusable limits against the ordinary teaching-policy bounds.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         if self
@@ -204,13 +204,13 @@ pub struct ReusableFixedQuestionInput {
     pub scoring_rule: AssignmentEntryScoringRule,
 }
 
-/// One submitted pool, including its ordered public Question ID candidates.
+/// One submitted pool, including its ordered public Question ID entries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolInput {
-    /// Public candidates resolved under destination authority in this order.
-    pub candidates: Vec<QuestionId>,
-    /// Number of candidates selected for each future Assignment Attempt.
+    /// Public entries resolved under destination authority in this order.
+    pub entries: Vec<QuestionId>,
+    /// Number of entries selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected candidate.
     pub points_per_item: AssignmentPointValue,
@@ -222,18 +222,18 @@ pub struct ReusablePoolInput {
 
 impl ReusablePoolInput {
     fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if self.candidates.is_empty()
-            || self.candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL
+        if self.entries.is_empty()
+            || self.entries.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY
         {
-            return Err(BlueprintCourseValidationError::InvalidPoolCandidates);
+            return Err(BlueprintCourseValidationError::InvalidQuestionPoolEntries);
         }
         if self.selection_count == 0
-            || usize::try_from(self.selection_count).ok() > Some(self.candidates.len())
+            || usize::try_from(self.selection_count).ok() > Some(self.entries.len())
         {
             return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
-        if self.candidates.iter().collect::<BTreeSet<_>>().len() != self.candidates.len() {
-            return Err(BlueprintCourseValidationError::DuplicatePoolCandidate);
+        if self.entries.iter().collect::<BTreeSet<_>>().len() != self.entries.len() {
+            return Err(BlueprintCourseValidationError::DuplicateQuestionPoolEntry);
         }
         Ok(())
     }
@@ -242,7 +242,7 @@ impl ReusablePoolInput {
 /// One ordered reusable definition entry. Vector order is the only position.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum ReusableAssignmentEntryInput {
+pub enum BlueprintAssignmentEntryInput {
     /// One fixed question in definition order.
     Fixed(ReusableFixedQuestionInput),
     /// One pool in definition order.
@@ -252,20 +252,20 @@ pub enum ReusableAssignmentEntryInput {
 /// Complete submitted reusable-assignment meaning.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusableAssignmentDefinitionInput {
+pub struct BlueprintAssignmentDefinitionInput {
     /// Instructor-facing title copied into future assignment definitions.
     pub title: String,
     /// Student-facing instructions copied into future assignment definitions.
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in authored order.
-    pub entries: Vec<ReusableAssignmentEntryInput>,
+    pub entries: Vec<BlueprintAssignmentEntryInput>,
     /// Reusable delivery and run defaults.
-    pub defaults: ReusableAssignmentDefaults,
+    pub defaults: BlueprintAssignmentDefaults,
     /// Optional local calendar-relative timing defaults.
     pub schedule: RelativeAssignmentSchedule,
 }
 
-impl ReusableAssignmentDefinitionInput {
+impl BlueprintAssignmentDefinitionInput {
     /// Validates bounded ordered entries and their reusable schedule meaning.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         validate_blueprint_course_title(&self.title)
@@ -277,16 +277,16 @@ impl ReusableAssignmentDefinitionInput {
         self.schedule.validate()?;
         let mut total_pool_candidates = 0_usize;
         for entry in &self.entries {
-            if let ReusableAssignmentEntryInput::Pool(pool) = entry {
+            if let BlueprintAssignmentEntryInput::Pool(pool) = entry {
                 pool.validate()?;
                 total_pool_candidates = total_pool_candidates
-                    .checked_add(pool.candidates.len())
-                    .ok_or(BlueprintCourseValidationError::TooManyPoolCandidates)?;
+                    .checked_add(pool.entries.len())
+                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)?;
             }
         }
-        (total_pool_candidates <= MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES)
+        (total_pool_candidates <= MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
             .then_some(())
-            .ok_or(BlueprintCourseValidationError::TooManyPoolCandidates)
+            .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)
     }
 }
 
@@ -313,7 +313,7 @@ pub struct ReusableQuestionView {
 /// Current answer-free pool candidate projection in stored candidate order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusablePoolCandidateView {
+pub struct ReusablePoolEntryView {
     /// Current public Question Library metadata and disclosed evidence.
     pub question_library: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.
@@ -324,9 +324,9 @@ pub struct ReusablePoolCandidateView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
-    /// Current candidates in their retained definition order.
-    pub candidates: Vec<ReusablePoolCandidateView>,
-    /// Number of candidates selected for each future Assignment Attempt.
+    /// Current entries in their retained definition order.
+    pub entries: Vec<ReusablePoolEntryView>,
+    /// Number of entries selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected candidate.
     pub points_per_item: AssignmentPointValue,
@@ -339,7 +339,7 @@ pub struct ReusablePoolView {
 /// Current answer-free reusable-definition entry. Vector order is its position.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum ReusableAssignmentEntryView {
+pub enum BlueprintAssignmentEntryView {
     /// One fixed question in definition order.
     Fixed {
         /// Current answer-free question projection.
@@ -356,15 +356,15 @@ pub enum ReusableAssignmentEntryView {
 /// Current answer-free reusable-assignment definition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusableAssignmentDefinitionView {
+pub struct BlueprintAssignmentDefinitionView {
     /// Instructor-facing title copied into future assignment definitions.
     pub title: String,
     /// Student-facing instructions copied into future assignment definitions.
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in retained authored order.
-    pub entries: Vec<ReusableAssignmentEntryView>,
+    pub entries: Vec<BlueprintAssignmentEntryView>,
     /// Reusable delivery and run defaults.
-    pub defaults: ReusableAssignmentDefaults,
+    pub defaults: BlueprintAssignmentDefaults,
     /// Optional local calendar-relative timing defaults.
     pub schedule: RelativeAssignmentSchedule,
 }
@@ -497,13 +497,13 @@ pub enum BlueprintCourseValidationError {
     /// A module has no usable definitions or exceeds its shared bound.
     InvalidModuleDefinitionCount,
     /// A pool candidate list has no members or exceeds its shared bound.
-    InvalidPoolCandidates,
-    /// A pool selection count cannot select a meaningful subset of its candidates.
+    InvalidQuestionPoolEntries,
+    /// A pool selection count cannot select a meaningful subset of its entries.
     InvalidPoolSelectionCount,
     /// A pool repeats a candidate and therefore changes no selectable meaning.
-    DuplicatePoolCandidate,
-    /// All pool candidates exceed the assignment-level shared bound.
-    TooManyPoolCandidates,
+    DuplicateQuestionPoolEntry,
+    /// All pool entries exceed the assignment-level shared bound.
+    TooManyQuestionPoolEntries,
     /// Relative available, due, and close moments are not chronologically meaningful.
     InvalidScheduleOrder,
     /// A reusable whole Assignment Attempt time limit exceeds the ordinary assignment bound.
@@ -527,12 +527,14 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             Self::InvalidModuleDefinitionCount => {
                 "BlueprintCourse module must contain bounded reusable definitions"
             }
-            Self::InvalidPoolCandidates => "pool candidates must be present and within their bound",
+            Self::InvalidQuestionPoolEntries => {
+                "pool entries must be present and within their bound"
+            }
             Self::InvalidPoolSelectionCount => {
                 "pool selection count must be between one and candidate count"
             }
-            Self::DuplicatePoolCandidate => "pool candidates must be distinct",
-            Self::TooManyPoolCandidates => "pool candidates exceed the assignment-level bound",
+            Self::DuplicateQuestionPoolEntry => "pool entries must be distinct",
+            Self::TooManyQuestionPoolEntries => "pool entries exceed the assignment-level bound",
             Self::InvalidScheduleOrder => {
                 "relative availability, due, and close moments must be ordered"
             }
@@ -575,8 +577,8 @@ mod tests {
         "7K3-M9QX".parse().expect("valid question ID")
     }
 
-    fn defaults() -> ReusableAssignmentDefaults {
-        ReusableAssignmentDefaults {
+    fn defaults() -> BlueprintAssignmentDefaults {
+        BlueprintAssignmentDefaults {
             assignment_attempt_time_limit_seconds: None,
             attempt_limit: None,
             late_work_rule: LateWorkRule::Accept,
@@ -594,19 +596,19 @@ mod tests {
         }
     }
 
-    fn input(schedule: RelativeAssignmentSchedule) -> ReusableAssignmentDefinitionInput {
-        ReusableAssignmentDefinitionInput {
+    fn input(schedule: RelativeAssignmentSchedule) -> BlueprintAssignmentDefinitionInput {
+        BlueprintAssignmentDefinitionInput {
             title: "Protein structure practice".to_string(),
             instructions: AssignmentInstructions::try_new("Explain each choice.".to_string())
                 .expect("valid instructions"),
             entries: vec![
-                ReusableAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
+                BlueprintAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
                     question_id: question_id(),
                     points_possible: AssignmentPointValue::from_whole(3),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
                 }),
-                ReusableAssignmentEntryInput::Pool(ReusablePoolInput {
-                    candidates: vec![
+                BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
+                    entries: vec![
                         question_id(),
                         "12A-4BCZ".parse().expect("valid question ID"),
                     ],
@@ -628,7 +630,7 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
-                backend: QuestionBackend::Native,
+                backend: QuestionBackend::Ple,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
@@ -719,26 +721,26 @@ mod tests {
         assert!(wire["defaults"].is_object());
         assert!(wire["schedule"].is_object());
         assert_eq!(
-            serde_json::from_value::<ReusableAssignmentDefinitionInput>(wire)
+            serde_json::from_value::<BlueprintAssignmentDefinitionInput>(wire)
                 .expect("definition round trips"),
             definition
         );
-        let duplicate_pool = ReusableAssignmentDefinitionInput {
-            entries: vec![ReusableAssignmentEntryInput::Pool(ReusablePoolInput {
-                candidates: vec![question_id(), question_id()],
+        let duplicate_pool = BlueprintAssignmentDefinitionInput {
+            entries: vec![BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
+                entries: vec![question_id(), question_id()],
                 selection_count: 1,
                 points_per_item: AssignmentPointValue::from_whole(1),
                 scoring_rule: AssignmentEntryScoringRule::Normal,
                 selection_rule: QuestionPoolSelectionRule {
                     selected_question_order:
-                        crate::QuestionPoolSelectedQuestionOrder::CandidateOrder,
+                        crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
                 },
             })],
             ..definition
         };
         assert_eq!(
             duplicate_pool.validate(),
-            Err(BlueprintCourseValidationError::DuplicatePoolCandidate)
+            Err(BlueprintCourseValidationError::DuplicateQuestionPoolEntry)
         );
         let blueprint = CreateBlueprintCourseDefinitionInput {
             title: "Biochemistry Blueprint".to_string(),
@@ -762,10 +764,10 @@ mod tests {
                 label: "Week 1".to_string(),
                 definitions: vec![BlueprintCourseAssignmentDefinitionView {
                     assignment_id: assignment_id(),
-                    definition: ReusableAssignmentDefinitionView {
+                    definition: BlueprintAssignmentDefinitionView {
                         title: "Protein structure practice".to_string(),
                         instructions: AssignmentInstructions::default(),
-                        entries: vec![ReusableAssignmentEntryView::Fixed {
+                        entries: vec![BlueprintAssignmentEntryView::Fixed {
                             question: ReusableQuestionView {
                                 question_library: discovery(),
                                 selection_availability: ReusableSelectionAvailability::Available,
@@ -812,17 +814,17 @@ mod blueprint_course_tests {
             title: "Biochemistry".to_owned(),
             modules: vec![CreateBlueprintCourseModuleInput {
                 label: "Week 1".to_owned(),
-                definitions: vec![ReusableAssignmentDefinitionInput {
+                definitions: vec![BlueprintAssignmentDefinitionInput {
                     title: "Protein folding".to_owned(),
                     instructions: AssignmentInstructions::default(),
-                    entries: vec![ReusableAssignmentEntryInput::Fixed(
+                    entries: vec![BlueprintAssignmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
                             question_id: "7K3-M9QX".parse().expect("QuestionId"),
                             points_possible: AssignmentPointValue::from_whole(1),
                             scoring_rule: AssignmentEntryScoringRule::Normal,
                         },
                     )],
-                    defaults: ReusableAssignmentDefaults {
+                    defaults: BlueprintAssignmentDefaults {
                         assignment_attempt_time_limit_seconds: None,
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
@@ -867,17 +869,17 @@ mod blueprint_course_tests {
                 .parse::<BlueprintAssignmentId>()
                 .is_err()
         );
-        let definition = ReusableAssignmentDefinitionInput {
+        let definition = BlueprintAssignmentDefinitionInput {
             title: "Protein folding".to_owned(),
             instructions: AssignmentInstructions::default(),
-            entries: vec![ReusableAssignmentEntryInput::Fixed(
+            entries: vec![BlueprintAssignmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
                     question_id: "7K3-M9QX".parse().expect("QuestionId"),
                     points_possible: AssignmentPointValue::from_whole(1),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
                 },
             )],
-            defaults: ReusableAssignmentDefaults {
+            defaults: BlueprintAssignmentDefaults {
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,

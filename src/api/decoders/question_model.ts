@@ -1,28 +1,31 @@
 // Authoring and publication decoders.
 
 import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemptLimit";
-import type { ContentBlock } from "../../../generated/api/ContentBlock";
-import type { DraftQuestionSource } from "../../../generated/api/DraftQuestionSource";
+import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
+import type { DraftQuestionBackendLocator } from "../../../generated/api/DraftQuestionBackendLocator";
 import type { QuestionGradingRule } from "../../../generated/api/QuestionGradingRule";
 import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
-import type { QuestionSource } from "../../../generated/api/QuestionSource";
+import type { QuestionBackendLocator } from "../../../generated/api/QuestionBackendLocator";
 import type { QuestionVariationDefinition } from "../../../generated/api/QuestionVariationDefinition";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { QuestionAttemptTimeLimit } from "../../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraftSummary";
-import type { WorkspaceRouteReference } from "../../navigation/public_route";
-import { parseWorkspaceReference } from "../../navigation/public_route";
+import type { AuthoringWorkspaceRouteReference } from "../../navigation/public_route";
+import { parseAuthoringWorkspaceReference } from "../../navigation/public_route";
 
-function decodeAuthoringWorkspaceReference(value: unknown, path: string): WorkspaceRouteReference {
+function decodeAuthoringWorkspaceReference(
+  value: unknown,
+  path: string,
+): AuthoringWorkspaceRouteReference {
   if (typeof value !== "string") throw new DecodeError(path, "a W- reference");
-  const reference = parseWorkspaceReference(value);
+  const reference = parseAuthoringWorkspaceReference(value);
   if (reference === null) throw new DecodeError(path, "a W- reference");
   return reference;
 }
 import type {
   QuestionPublicationReview,
-  PublicationReadinessFailure,
+  QuestionPublicationValidationUnavailable,
   QuestionPublicationReviewSummary,
   PublicationValidationReport,
   PublicationViolation,
@@ -57,7 +60,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import {
-  decodeContentBlock,
+  decodeQuestionContentBlock,
   decodeQuestionResponseFormat,
   decodeQuestionType,
   questionResponseFormatSupportsType,
@@ -65,7 +68,7 @@ import {
 } from "./question_response_format";
 
 export {
-  decodeContentBlock,
+  decodeQuestionContentBlock,
   decodeQuestionResponseFormat,
   decodeQuestionType,
   decodeResponseSelectionRule,
@@ -74,7 +77,7 @@ export {
 
 const QUESTION_FORMATS = [
   "pleFlatQuestionV2",
-  "nativeAlgorithmic",
+  "pleAlgorithmic",
   "webworkPg",
   "qti",
   "h5p",
@@ -94,7 +97,7 @@ export function decodeKeyFreeDraftPreview(
   workspace: string;
   seed: number;
   title: string;
-  prompt: ReadonlyArray<ContentBlock>;
+  prompt: ReadonlyArray<QuestionContentBlock>;
   response: QuestionResponseFormat;
 } {
   const record = decodeRecord(value, path);
@@ -104,7 +107,7 @@ export function decodeKeyFreeDraftPreview(
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
-      decodeContentBlock(block, blockPath, true),
+      decodeQuestionContentBlock(block, blockPath, true),
     ),
     response: decodeQuestionResponseFormat(
       field(record, "response", path),
@@ -114,13 +117,13 @@ export function decodeKeyFreeDraftPreview(
   };
 }
 
-export function decodeQuestionSource(value: unknown, path: string): QuestionSource {
+export function decodeQuestionBackendLocator(value: unknown, path: string): QuestionBackendLocator {
   const record = decodeRecord(value, path);
   const backend = decodeString(field(record, "backend", path), `${path}.backend`);
   switch (backend) {
-    case "native": {
+    case "ple": {
       requireOnlyFields(record, path, ["backend"]);
-      const decoded = { backend } satisfies QuestionSource;
+      const decoded = { backend } satisfies QuestionBackendLocator;
       return decoded;
     }
     case "webwork": {
@@ -128,23 +131,15 @@ export function decodeQuestionSource(value: unknown, path: string): QuestionSour
       const decoded = {
         backend,
         pgPath: decodeNonemptyString(field(record, "pgPath", path), `${path}.pgPath`),
-      } satisfies QuestionSource;
+      } satisfies QuestionBackendLocator;
       return decoded;
     }
     case "qti": {
-      requireOnlyFields(record, path, ["backend", "itemId", "packageObject", "packageSha256"]);
+      requireOnlyFields(record, path, ["backend", "itemId"]);
       const decoded = {
         backend,
         itemId: decodeNonemptyString(field(record, "itemId", path), `${path}.itemId`),
-        packageObject: decodeIdentifier(
-          field(record, "packageObject", path),
-          `${path}.packageObject`,
-        ),
-        packageSha256: decodeNonemptyString(
-          field(record, "packageSha256", path),
-          `${path}.packageSha256`,
-        ),
-      } satisfies QuestionSource;
+      } satisfies QuestionBackendLocator;
       return decoded;
     }
     case "h5p": {
@@ -155,32 +150,20 @@ export function decodeQuestionSource(value: unknown, path: string): QuestionSour
           field(record, "contentType", path),
           `${path}.contentType`,
         ),
-      } satisfies QuestionSource;
+      } satisfies QuestionBackendLocator;
       return decoded;
     }
     case "imathas": {
-      requireOnlyFields(record, path, [
-        "backend",
-        "provider",
-        "itemRef",
-        "snapshot",
-        "snapshotSha256",
-        "integrationProfile",
-      ]);
+      requireOnlyFields(record, path, ["backend", "provider", "itemRef", "integrationProfile"]);
       const decoded = {
         backend,
         provider: decodeNonemptyString(field(record, "provider", path), `${path}.provider`),
         itemRef: decodeNonemptyString(field(record, "itemRef", path), `${path}.itemRef`),
-        snapshot: decodeIdentifier(field(record, "snapshot", path), `${path}.snapshot`),
-        snapshotSha256: decodeNonemptyString(
-          field(record, "snapshotSha256", path),
-          `${path}.snapshotSha256`,
-        ),
         integrationProfile: decodeNonemptyString(
           field(record, "integrationProfile", path),
           `${path}.integrationProfile`,
         ),
-      } satisfies QuestionSource;
+      } satisfies QuestionBackendLocator;
       return decoded;
     }
     default:
@@ -188,26 +171,29 @@ export function decodeQuestionSource(value: unknown, path: string): QuestionSour
   }
 }
 
-export function decodeDraftQuestionSource(value: unknown, path: string): DraftQuestionSource {
+export function decodeDraftQuestionBackendLocator(
+  value: unknown,
+  path: string,
+): DraftQuestionBackendLocator {
   const record = decodeRecord(value, path);
   const backend = decodeString(field(record, "backend", path), `${path}.backend`);
   switch (backend) {
-    case "native":
+    case "ple":
       requireOnlyFields(record, path, ["backend"]);
-      return { backend } satisfies DraftQuestionSource;
+      return { backend } satisfies DraftQuestionBackendLocator;
     case "webwork":
       requireOnlyFields(record, path, ["backend", "pgPath"]);
       return {
         backend,
         pgPath: decodeNonemptyString(field(record, "pgPath", path), `${path}.pgPath`),
-      } satisfies DraftQuestionSource;
+      } satisfies DraftQuestionBackendLocator;
     case "qti":
       requireOnlyFields(record, path, ["backend", "itemId", "importId"]);
       return {
         backend,
         itemId: decodeNonemptyString(field(record, "itemId", path), `${path}.itemId`),
         importId: decodeIdentifier(field(record, "importId", path), `${path}.importId`),
-      } satisfies DraftQuestionSource;
+      } satisfies DraftQuestionBackendLocator;
     case "h5p":
       requireOnlyFields(record, path, ["backend", "contentType"]);
       return {
@@ -216,14 +202,14 @@ export function decodeDraftQuestionSource(value: unknown, path: string): DraftQu
           field(record, "contentType", path),
           `${path}.contentType`,
         ),
-      } satisfies DraftQuestionSource;
+      } satisfies DraftQuestionBackendLocator;
     case "imathas":
       requireOnlyFields(record, path, ["backend", "provider", "itemRef"]);
       return {
         backend,
         provider: decodeNonemptyString(field(record, "provider", path), `${path}.provider`),
         itemRef: decodeNonemptyString(field(record, "itemRef", path), `${path}.itemRef`),
-      } satisfies DraftQuestionSource;
+      } satisfies DraftQuestionBackendLocator;
     default:
       throw new DecodeError(`${path}.backend`, "a known draft question backend");
   }
@@ -424,7 +410,7 @@ export function decodeWorkspaceDraftSummary(
   path = "response",
 ): WorkspaceDraftSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "reference", "title", "sourceBackend"]);
+  requireOnlyFields(record, path, ["workspace", "reference", "title", "questionBackend"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
     reference: decodeAuthoringWorkspaceReference(
@@ -432,9 +418,9 @@ export function decodeWorkspaceDraftSummary(
       `${path}.reference`,
     ),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
-    sourceBackend: decodeStringEnum(
-      field(record, "sourceBackend", path),
-      `${path}.sourceBackend`,
+    questionBackend: decodeStringEnum(
+      field(record, "questionBackend", path),
+      `${path}.questionBackend`,
       QUESTION_BACKENDS,
     ),
   } satisfies WorkspaceDraftSummary;
@@ -464,7 +450,7 @@ export function decodeWorkspaceDraftPage(
 }
 
 const PUBLICATION_FIELDS = [
-  "sourceBackend",
+  "questionBackend",
   "title",
   "prompt",
   "response",
@@ -504,15 +490,15 @@ export function decodePublicationValidationReport(
   };
 }
 
-/** Exact readiness-only 422 body. Capability failures use a distinct violations shape. */
-export function decodePublicationReadinessFailure(
+/** Exact validation-only 422 body. Capability failures use a distinct violations shape. */
+export function decodeQuestionPublicationValidationUnavailable(
   value: unknown,
   path = "response",
-): PublicationReadinessFailure {
+): QuestionPublicationValidationUnavailable {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["error"]);
   return {
-    kind: "readinessFailure",
+    kind: "questionPublicationValidationUnavailable",
     message: decodeNonemptyString(field(record, "error", path), `${path}.error`),
   };
 }
@@ -540,7 +526,7 @@ function decodeQuestionPublicationReviewSummary(
 ): QuestionPublicationReviewSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "sourceBackend",
+    "questionBackend",
     "title",
     "prompt",
     "response",
@@ -594,9 +580,9 @@ function decodeQuestionPublicationReviewSummary(
     "language",
   ]);
   return {
-    sourceBackend: decodeStringEnum(
-      field(record, "sourceBackend", path),
-      `${path}.sourceBackend`,
+    questionBackend: decodeStringEnum(
+      field(record, "questionBackend", path),
+      `${path}.questionBackend`,
       QUESTION_BACKENDS,
     ),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),

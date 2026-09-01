@@ -1,6 +1,6 @@
 // client.ts - the only API shape consumed by browser routes and components.
 
-import type { AssetId } from "../../generated/api/AssetId";
+import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
@@ -19,12 +19,12 @@ import type { CourseBannerId } from "../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionClassification } from "../../generated/api/QuestionClassification";
-import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { AccountApprovalView } from "../../generated/api/AccountApprovalView";
 import type { AccountReference } from "../../generated/api/AccountReference";
@@ -313,7 +313,7 @@ export interface ApiClient
   readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
   readonly saveWorkspaceDraft: (
     workspace: WorkspaceId,
-    draft: DraftQuestionDefinition,
+    draft: DraftQuestionRevision,
     revision?: string,
   ) => Promise<WorkspaceDraftDetail>;
   readonly deleteWorkspaceDraft: (workspace: WorkspaceId, revision: string) => Promise<void>;
@@ -333,7 +333,7 @@ export interface ApiClient
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
   readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
-  /** Gets the safe immutable library projection, never a question definition. */
+  /** Gets the safe immutable library projection, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listQuestionClassifications: (
     cursor?: string,
@@ -433,7 +433,7 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<QuestionPresentation>;
+  ) => Promise<QuestionVariationPresentation>;
   /** Best-effort key-free preparation; null means no deterministic successor. */
   readonly prefetchNextQuestion: (
     courseId: CourseId,
@@ -473,7 +473,7 @@ export interface ApiClient
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerId: CourseBannerId) => Promise<Blob>;
   /** Public immutable Question Library asset redirect path; it never issues a capability. */
-  readonly assetUrl: (assetId: AssetId) => string;
+  readonly assetUrl: (assetId: QuestionAssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssignmentConfigOnServer: CapabilityValidator;

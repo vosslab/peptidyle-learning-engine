@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::codec::{DESCRIPTOR_VERSION_V1, QuestionPresentationDigest};
+use super::codec::{CURRENT_DESCRIPTOR_VERSION, QuestionPresentationDigest};
 use super::model::QuestionPresentationNonce;
 
 /// Physical descriptor columns stored with an attempt or prefetch row.
@@ -24,7 +24,7 @@ impl QuestionPresentationBinding {
 
     /// Closed physical descriptor version.
     pub fn descriptor_version(self) -> u8 {
-        DESCRIPTOR_VERSION_V1
+        CURRENT_DESCRIPTOR_VERSION
     }
 
     /// Exact 16 bytes persisted in the nonce column.
@@ -40,7 +40,7 @@ impl QuestionPresentationBinding {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PresentationBindingWireV1 {
+struct QuestionPresentationBindingWire {
     descriptor_version: u8,
     nonce: String,
     digest: String,
@@ -48,8 +48,8 @@ struct PresentationBindingWireV1 {
 
 impl Serialize for QuestionPresentationBinding {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        PresentationBindingWireV1 {
-            descriptor_version: DESCRIPTOR_VERSION_V1,
+        QuestionPresentationBindingWire {
+            descriptor_version: CURRENT_DESCRIPTOR_VERSION,
             nonce: self.nonce.to_hex(),
             digest: self.digest.to_hex(),
         }
@@ -59,8 +59,8 @@ impl Serialize for QuestionPresentationBinding {
 
 impl<'de> Deserialize<'de> for QuestionPresentationBinding {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let wire = PresentationBindingWireV1::deserialize(deserializer)?;
-        if wire.descriptor_version != DESCRIPTOR_VERSION_V1 {
+        let wire = QuestionPresentationBindingWire::deserialize(deserializer)?;
+        if wire.descriptor_version != CURRENT_DESCRIPTOR_VERSION {
             return Err(serde::de::Error::custom(
                 "unsupported presentation descriptor version",
             ));

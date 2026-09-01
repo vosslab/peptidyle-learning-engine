@@ -31,6 +31,7 @@ legacy readers, or parallel authorization model.
 | 2919-2924       | Course objects, grading, analysis, and correction                   | Course Object Metadata, Automated Grading Operations, Grading Results, and Receipts, Assignment Grades and Events, Course and Item Analysis, Forced Question Corrections, Question Change Events, and correction evidence.                                                                                                         |
 | 2925-2931       | Jobs, retention, external tools, objects, and authorization closure | Typed Jobs and leases, exports and retention events, external-tool state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure.                                                                                                         |
 | 2932-2936       | Baseline witness and current root extensions                        | Baseline Acceptance Witness, authentication ceremony brokers, Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Revision Statistics.                                                                                                                                   |
+| 2937-2940       | Released Assignment snapshots and Object Record authority           | Independent Question Pool Reuse and Variation Rules, immutable released Assignment Entries and Question Pool Items, authenticated Assignment Attempt start, and immutable Object Records that bind Question Source object references.                                                                                                    |
 
 ## Ownership boundaries
 
@@ -77,9 +78,23 @@ generic Course Invitation boundary.
 An Object Delivery authorizes retrieval of one exact Object Reference. An Object
 Storage Check records a completed verified, missing, or mismatched observation.
 Object Cleanup requires a separate manifest, Job, and immutable receipt.
-Object metadata carries optional Object License reuse terms separately from its
-required Object Data Class, which derives from the exact Object Address and
-owning relationship.
+An immutable Object Record is the database-authoritative existence record for
+one typed Object Address, Object Storage Area, Object Data Class, checksum,
+size, media type, and creation time. The session-authorized Workspace Question
+Source registration capability accepts only the exact workspace-owned address
+after object bytes are written. Every Question Source has one required Source
+Object Reference and Source Object Checksum, with no inline source-data
+alternative; the reference names that exact record and verifies its owner
+address and checksum before use.
+The Draft Question Source Store then mints the source identity only after it
+resolves the current session, verifies the Draft Question Revision belongs to
+the requested Authoring Workspace, validates the Question Backend/Question
+Format pairing, and binds that exact pre-registered object. An identical retry
+returns the established source; changed facts or an unauthorized workspace are
+refused.
+Object Data Class derives from the exact Object Address and owning relationship.
+Reuse rights resolve through the owning Question Revision's Question License, or
+through an exact Question Source or Question Asset License when it differs.
 
 Accepted Student responses, automated grading, Gradebook calculations, and
 retention lifecycle operations each retain their own immutable receipts or

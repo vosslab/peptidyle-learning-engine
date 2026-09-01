@@ -1,7 +1,7 @@
 //! Current, course-local item-analysis projections.
 //!
 //! These records deliberately contain aggregate buckets only. They never
-//! retain Student identity, raw responses, answer choices, or object keys.
+//! retain Student identity, raw responses, answer choices, or Object Addresses.
 
 use question_model::{
     ActivityTimestamp, AssignmentEntryId, AssignmentId, CourseId, QuestionRevisionReference,

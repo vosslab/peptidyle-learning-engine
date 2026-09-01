@@ -34,7 +34,7 @@ pub use grade::{
     ServerCorrelation, VerifiedProviderGrade,
 };
 pub use provider::{
-    ImathasDraftQuestionSource, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
+    ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,
     ProviderRenderRequest, SafeProviderRender, SupportedProfile,
 };
 
@@ -53,15 +53,14 @@ use async_trait::async_trait;
 #[cfg(test)]
 use objects::{ObjectAddress, ObjectStore, PutObject};
 #[cfg(test)]
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 #[cfg(test)]
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, QuestionSource, SourceObjectReference,
+    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionBackendLocator,
+    QuestionId, QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
+    SourceObjectReference,
 };
-#[cfg(test)]
-use sha2::{Digest, Sha256};
 #[cfg(test)]
 use uuid::Uuid;

@@ -57,14 +57,14 @@ test("saved search filter keeps the current normalized Library meaning", () => {
   const filter = questionSearchFilterFromLibraryQuery({
     ...EMPTY_QUESTION_SEARCH_QUERY,
     search: "  kinase   pathway  ",
-    backend: "native",
+    backend: "ple",
     evidence: "available",
   });
 
   assert.deepEqual(filter, {
     text: "kinase pathway",
     bylines: [],
-    backends: ["native"],
+    backends: ["ple"],
     tags: [],
     question_types: [],
     classifications: [],
@@ -163,7 +163,7 @@ test("saved-search replacement sends the edit number already observed with retai
     filter: questionSearchFilterFromLibraryQuery({
       ...EMPTY_QUESTION_SEARCH_QUERY,
       search: "peptide",
-      backend: "native",
+      backend: "ple",
     }),
   };
   const replacement = savedSearchReplacementFromObserved(

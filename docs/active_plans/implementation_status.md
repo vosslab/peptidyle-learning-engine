@@ -20,7 +20,7 @@ data use domain identifiers.
   Question Revision, Variation, Seed, Feedback, Attempt Limit, Presentation, Reproduction Details,
   and Backend/Renderer/Grader Version; Response Item Reference; Object Address, Storage Area,
   Category removal, License, and Data Class; Assignment Scoring State/Snapshot; External Question
-  Provider Cache Entry; and iMathAS Draft Question Source across code, contracts, tests, and docs.
+  Provider Cache Entry; and iMathAS Question Source across code, contracts, tests, and docs.
   Workspace compilation, focused Rust/browser decoders, TypeScript, links, formatting, and diff
   checks supply evidence. The fresh private `question_attempt` stores the exact Question Seed,
   parameter SHA-256, Question Attempt State, and Reproduction Details. Deferred constraints pair
@@ -33,8 +33,8 @@ data use domain identifiers.
   Question Pool Selection replay; and Question Bloom Classification remain open. The fresh schema now names
   exact Answer Key, Question Feedback, Question Answer Explanation, and Question Grading Input
   records; their data-access, publication, and route closure remains open. Pool schema preserves immutable
-  released Assignment Entry and Question Pool Candidate snapshots, exact selection outcomes, UUIDv5-backed Issued Question identity from frozen attempt content, issued scoring facts, and same-Student reuse provenance; `domain::select_question_pool_candidates`
-  creates new candidates from transient server entropy; `2026082937` snapshots independent Question Pool Reuse
+  released Assignment Entry and Question Pool Entry snapshots, exact selection outcomes, UUIDv5-backed Issued Question identity from frozen attempt content, issued scoring facts, and same-Student reuse provenance; `domain::select_question_pool_entries`
+  creates new entries from transient server entropy; `2026082937` snapshots independent Question Pool Reuse
   and Question Variation Rules on each Assignment Attempt. The unmounted authenticated Assignment Attempt Start Store resolves one active Student session in its transaction, rechecks direct Student ownership, locks the released Assignment Revision, and starts or resumes the exact released definition atomically; mounted delivery and replay remain open. The fresh PostgreSQL oracle proves its session-broker RLS, Course Instance and Course Membership Event trigger paths, and derived Issued Question scoring facts. Bloom work requires
   publication to leave the exact new Question Revision classification unassigned. AI
   work searches for unassigned Published Question Revisions and supplies each initial
@@ -70,7 +70,7 @@ data use domain identifiers.
   is its stable lineage and the positive Question Revision Number is its
   immutable version within that lineage. The baseline schema and Question Model
   tests are aligned. Object Storage and the Native and WeBWorK adapters now
-  carry the same exact pair; object keys, deterministic object addresses,
+  carry the same exact pair; Object Addresses, deterministic object addresses,
   cache identities, and renderer boundaries bind both values. iMathAS now binds
   render caches, provider-grade correlation, restored handles, and scored-embed
   ledgers to the pair. The generated API and browser strict decoders now carry
@@ -143,7 +143,7 @@ data use domain identifiers.
   baseline, direct source-size checks, and independent `ACCEPT` cover only these value contracts.
 - **SD1-B3-B3 preparatory Question Folder receipt:** `WP-SD1-B3-B3` is independently accepted after
   the report 40 identity-opacity correction and report 43 final recheck, with reports 34 and 38
-  recording the approved architecture and implementation evidence. `NamedQuestionCollection`
+  recording the approved architecture and implementation evidence. `QuestionFolder`
   owns a new opaque server identity, immutable global `AccountId` owner, canonical validated title,
   storage-safe strong revision/CAS behavior (explicit stale expected/actual conflict, equal-state
   no-op, and checked exhaustion), and bounded ordered unique exact `QuestionRevisionReference` pins. The
@@ -154,9 +154,9 @@ data use domain identifiers.
   work; this receipt claims no runtime, persistence, or browser acceptance.
 - **SD1-B3-B5 preparatory Question Folder-sharing receipt:** `WP-SD1-B3-B5` is independently accepted
   after report 46's `REVISE` and report 47's final `ACCEPT`, using report 42's architecture and
-  report 45's implementation evidence. `NamedQuestionCollectionShare` is one server-only,
+  report 45's implementation evidence. `QuestionFolderShare` is one server-only,
   non-Serde, non-authorizing, recipient-specific relation over an exact existing
-  `NamedQuestionCollectionId`, immutable owner and distinct recipient `AccountId`s, and exactly
+  `QuestionFolderId`, immutable owner and distinct recipient `AccountId`s, and exactly
   `Active`/`Revoked` state. Self-sharing is refused; grant/reactivation and revoke expose
   explicit changed/unchanged outcomes. The private child module selectively re-exports its
   closed API through the curation facade and crate root. The relation carries no visibility,
@@ -284,7 +284,7 @@ in the SD1 scope register. The graph and inventories are one-time evidence; curr
 the authority.
 
 `SD1-A3` implementation is complete. The PostgreSQL table, key, policy, grant, broker, and typed
-scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082939`. Historical
+scope register allocates the fresh `WP-SD1-C` epoch as `2026082901` through `2026082940`. Historical
 `2026081881` and `2026081882` WN1-D work is retained as evidence/input absorbed by that fresh epoch,
 not as an active SD1 schema dependency.
 
@@ -786,7 +786,7 @@ explicit clean-cluster baseline decision. After v1 ships, accepted files are imm
 an allocation before implementation. Non-schema packages do not receive an implicit allocation.
 
 The owner-confirmed single-installation correction keeps PLE in its pre-production clean-cluster
-state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082937`, split by focused
+state. `WP-SD1-C` owns a fresh active epoch in `2026082901` through `2026082940`, split by focused
 capability as registered in its plan. Earlier allocations remain package-history evidence until
 SD1-C records the exact replacement ledger.
 
@@ -926,8 +926,10 @@ SD1-C records the exact replacement ledger.
 | `2026082935`              | `WP-SD1-C`             | Exact Draft Blueprint Revision collaboration, publication, and availability evidence                                                                                                                |
 | `2026082936`              | `WP-SD1-C`             | Identity-free exact Question Revision Statistics and idempotent accepted-grade observation evidence                                                                                                  |
 | `2026082937`              | `WP-SD1-C`             | Assignment policy split: independent Question Pool Reuse Rule and Question Variation Rule                                                                                                          |
-This registry is the current number-to-capability ledger for `WP-SD1-C`; historical
-`2026081881` and `2026081882` remain immutable evidence/input.
+| `2026082938`              | `WP-SD1-C`             | Immutable released Assignment Revision Entry and Question Pool Item snapshots                                                                                                                     |
+| `2026082939`              | `WP-SD1-C`             | Authenticated atomic Assignment Attempt start and resume                                                                                                                                            |
+| `2026082940-2942`         | `WP-SD1-C`             | Immutable Object Records, exact Question Source object-record authority, Workspace Question Source registration, object-only Question Sources, and authorized Draft Question Source registration |
+This registry is the current number-to-capability ledger for `WP-SD1-C`; historical `2026081881` and `2026081882` remain immutable evidence/input.
 
 `2026081803` (`S5`), `2026081804` (`S3`), and `2026081805` (`S4`) reflect the accepted
 pre-file allocation reorder. Allocations `2026081811`, `1813`, `1815`, `1821`, and `1822` retain
@@ -947,7 +949,6 @@ through it, revokes V1 execute, and drops the four-input V1 with `RESTRICT`. The
 database, RLS, worker, browser, WebWork, and replica-restart evidence is green. These rows remain
 allocated, and G1-W7 plus `WP-INST-G1` are accepted on the final 99-migration material tree. The
 Instructor plan owns dependencies among reserved capabilities.
-
 ## Accepted package pointers
 
 | Package                     | Current durable result                                                                                         | Owning evidence                                                                 |
@@ -976,7 +977,7 @@ The current handoff is:
    contracts.
 2. `SD1-B1-P0` is accepted preparatory identity-only work. Complete `SD1-B2` through `SD1-B4` as
    exact-scope contract roots, without claiming route conversion.
-3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082937`, then
+3. Implement `WP-SD1-C` as the fresh PostgreSQL epoch in `2026082901` through `2026082940`, then
    implement SD1-D Store/RLS and direct protected-service support with its connected proof. The
    historical `2026081881` and `2026081882` work is evidence/input to C, not an active WN1 queue
    item.

@@ -24,7 +24,7 @@ The first visible instructor draft editor is a persistence-aware authoring shell
 - edits draft student-facing fields,
 - renders local key-free preview before submission,
 - offers optional protected instructor preview tied to latest saved revision,
-- performs capability checks for publication readiness,
+- performs Question Publication Validation,
 - requires a confirmation diff before immutable publish.
 
 Plan expectation says draft editor + preview includes student and answer-key views with seeded generation in WASM
@@ -65,7 +65,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 - **Student preview**: local key-free derivation + question response control, no grading.
 - **Instructor preview**: protected server derivation of `questionAnswer` + optional `questionAnswerExplanation`.
 - **Capability**: policy dimension required before publish (`algorithmicGeneration`, `hints`, `perQuestionTiming`, `offlinePreview`).
-- **Publication readiness failure**: capability/infra issue message shown in editor.
+- **Question Publication Validation Unavailable**: capability or infrastructure issue message shown in editor.
 - **Stale conflict**: CAS mismatch; local unsaved content is preserved and can be reloaded.
 - **Review state**: server-computed publish diff requiring confirmation.
 

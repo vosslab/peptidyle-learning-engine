@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::{
-    Capability, DraftQuestionDefinition, QuestionBackendCapabilities, QuestionGradingRule,
+    Capability, DraftQuestionRevision, QuestionBackendCapabilities, QuestionGradingRule,
     QuestionRevision, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentQuestionConfig {
-    /// Browser-safe immutable question definition selected by the assignment.
+    /// Browser-safe immutable Question Revision selected by the assignment.
     pub question: QuestionRevision,
     /// Capabilities declared by the adapter that owns this question.
     pub question_backend_capabilities: QuestionBackendCapabilities,
@@ -96,7 +96,7 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
 
 /// Validates a draft at the publication boundary without inventing a version ID.
 pub fn validate_draft_for_publication(
-    question: &DraftQuestionDefinition,
+    question: &DraftQuestionRevision,
     question_backend_capabilities: &QuestionBackendCapabilities,
 ) -> Vec<PublicationViolation> {
     required_by_content(question)
@@ -136,7 +136,7 @@ impl QuestionContentView for QuestionRevision {
     }
 }
 
-impl QuestionContentView for DraftQuestionDefinition {
+impl QuestionContentView for DraftQuestionRevision {
     fn question_variation_definition(
         &self,
     ) -> &question_model::generation::QuestionVariationDefinition {
@@ -187,12 +187,12 @@ mod tests {
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
     use question_model::classification::{License, Tag};
-    use question_model::envelope::ContentBlock;
+    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::{
-        QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
-        QuestionRevisionReference, QuestionSource, QuestionType, WorkspaceId,
+        QuestionBackendLocator, QuestionFormat, QuestionId, QuestionMetadata,
+        QuestionRevisionNumber, QuestionRevisionReference, QuestionType, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -228,9 +228,9 @@ mod tests {
             question_id: question_revision.question_id,
             revision_number: question_revision.revision_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
-            source: QuestionSource::Native,
-            question_format: QuestionFormat::NativeAlgorithmic,
-            prompt: vec![ContentBlock::Text {
+            backend_locator: QuestionBackendLocator::Ple,
+            question_format: QuestionFormat::PleAlgorithmic,
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Capability fixture".to_string(),
             }],
             response: QuestionResponseFormat::ShortText {

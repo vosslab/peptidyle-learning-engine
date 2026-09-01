@@ -9,7 +9,7 @@ CREATE TABLE ple_data.published_question (
 CREATE TABLE ple_data.question_revision (
     question_id text NOT NULL REFERENCES ple_data.published_question (question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    backend text NOT NULL CHECK (backend IN ('native', 'webwork', 'qti', 'h5p', 'imathas')),
+    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'h5p', 'imathas')),
     published_at timestamp with time zone NOT NULL,
     public_metadata jsonb NOT NULL,
     PRIMARY KEY (question_id, revision_number),

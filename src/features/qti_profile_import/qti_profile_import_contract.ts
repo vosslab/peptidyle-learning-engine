@@ -1,6 +1,6 @@
 // qti_profile_import_contract.ts - answer-free browser contract for recognized QTI imports.
 
-import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../../generated/api/DraftQuestionRevision";
 import type { WorkspaceImportId } from "../../../generated/api/WorkspaceImportId";
 
 export interface QtiProfileDiagnostic {
@@ -53,6 +53,6 @@ export interface QtiProfileAcknowledgement {
 }
 
 export interface QtiProfileConversionResult {
-  readonly draft: DraftQuestionDefinition;
+  readonly draft: DraftQuestionRevision;
   readonly revision: string;
 }

@@ -20,7 +20,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
 - Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
   provenance required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, provider profile, or renderer identity.
-- Record source object and checksum, Question Backend/Grader/Renderer releases, parameter
+- Record Source Object Reference and Source Object Checksum, Question Backend/Grader/Renderer versions, parameter
   hash, rendered-envelope hash, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
   attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
   mismatched state makes grade unavailable rather than reissuing.
@@ -52,9 +52,10 @@ records and must iterate deterministically.
 
 Use the following sequence for a question-agnostic adapter.
 
-1. Define or use a `QuestionSource` / `DraftQuestionSource` variant that identifies the engine
-   without embedding credentials or mutable locations. Keep a draft locator private until trusted
-   server work snapshots and validates it.
+1. Store one immutable Question Source and bind it through its Source Object Reference to the
+   owning Draft Question Revision or Question Revision. Record the Question Backend separately,
+   with only its exact backend-specific locator; keep credentials and mutable locations outside
+   the stored relationship.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
    media type, license, provenance, immutable problem/version binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
@@ -67,14 +68,14 @@ Use the following sequence for a question-agnostic adapter.
    public rendered IDs through the protected grading envelope, and use retained immutable source
    provenance where a private grader needs it. A family that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
-   current published Question definition, grader, or renderer. Never trust browser-provided score,
+   current published Question Revision, grader, or renderer. Never trust browser-provided score,
    correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
-The native flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
-into a public definition and separate private material. Its closed v2 `singleChoice` Question Type is one of
-the eight native response types; new semantics require their own reviewed contract rather than an
+The PLE flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
+into a public Question Revision and separate private material. Its closed v2 `singleChoice` Question Type is one of
+the eight PLE Question Types; new semantics require their own reviewed contract rather than an
 ad hoc adapter widening. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
 [implementation_plan.md](active_plans/implementation_plan.md).
@@ -115,8 +116,8 @@ is needed, correlate and verify it with server-held attempt state before it beco
 | Adapter     | Implemented behavior                                                                                                                                       | Current boundary and status                                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime Question Types                                                    | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
-| QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, native conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
-| H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-native conversion and the complete capability close-out. |
+| QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, PLE conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
+| H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |
 | WeBWorK     | External standalone `/render-api` client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container  | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                             |
 

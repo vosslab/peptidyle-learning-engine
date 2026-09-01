@@ -6,8 +6,8 @@ use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAt
 use question_model::classification::License;
 use question_model::generation::QuestionVariationDefinition;
 use question_model::{
-    DraftQuestionSource, QuestionFormat, QuestionGradingRule, QuestionMetadata, QuestionRevision,
-    QuestionType, WorkspaceId,
+    DraftQuestionBackendLocator, QuestionFormat, QuestionGradingRule, QuestionMetadata,
+    QuestionRevision, QuestionType, WorkspaceId,
 };
 
 use super::*;
@@ -35,10 +35,10 @@ impl sealed::ProviderSealed for RecordedProvider {}
 impl ImathasProvider for RecordedProvider {
     async fn snapshot(
         &self,
-        locator: &ImathasDraftQuestionSource,
+        locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
-        assert_eq!(locator.provider(), "recorded-provider");
-        assert_eq!(locator.item_ref(), "item-17");
+        assert_eq!(locator.provider_reference().as_str(), "recorded-provider");
+        assert_eq!(locator.item_reference().as_str(), "item-17");
         Ok((b"{\"recorded\":true}".to_vec(), profile()))
     }
 
@@ -55,7 +55,7 @@ impl ImathasProvider for RecordedProvider {
         assert_eq!(request.profile, "recorded-v1");
         Ok(SafeProviderRender {
             title: "Recorded external question".into(),
-            prompt: vec![ContentBlock::Text {
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete this iMathAS activity.".into(),
             }],
         })
@@ -116,16 +116,14 @@ fn provider() -> RecordedProvider {
     }
 }
 
-fn question(snapshot: ObjectId, digest: String) -> QuestionRevision {
+fn question() -> QuestionRevision {
     QuestionRevision {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        source: QuestionSource::Imathas {
+        backend_locator: QuestionBackendLocator::Imathas {
             provider: "recorded-provider".into(),
             item_ref: "item-17".into(),
-            snapshot,
-            snapshot_sha256: digest,
             integration_profile: "recorded-v1".into(),
         },
         question_format: QuestionFormat::Imathas,
@@ -150,8 +148,7 @@ async fn stored_source(
     store: &MemoryObjectStore,
 ) -> (QuestionRevision, ImathasSource, SourceObjectReference) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
-    let digest = hex(Sha256::digest(b"{\"recorded\":true}").as_slice());
-    let question = question(snapshot, digest);
+    let question = question();
     let object = store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
@@ -163,22 +160,19 @@ async fn stored_source(
             },
             bytes: b"{\"recorded\":true}".to_vec(),
             media_type: "application/json".into(),
-            license: Some(License::CcBySa),
-            provenance: "recorded redacted iMathAS fixture".into(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
         .await
         .unwrap();
-    let artifact = SourceObjectReference {
-        object: snapshot,
-        sha256: object.sha256.to_string(),
-    };
+    let artifact = SourceObjectReference { object: snapshot };
     let source = ImathasSource {
         question_revision: QuestionRevisionReference {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
         },
         artifact: artifact.clone(),
+        source_object_checksum: SourceObjectChecksum::parse(object.sha256.to_string())
+            .expect("stored checksum is canonical"),
         provider: "recorded-provider".into(),
         item_ref: "item-17".into(),
         profile: "recorded-v1".into(),
@@ -192,7 +186,7 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
     let provider = provider();
     let adapter = ImathasAdapter::new(MemoryObjectStore::default(), provider, [profile()]);
     let prepared = adapter
-        .prepare_snapshot(&DraftQuestionSource::Imathas {
+        .prepare_snapshot(&DraftQuestionBackendLocator::Imathas {
             provider: "recorded-provider".into(),
             item_ref: "item-17".into(),
         })
@@ -202,10 +196,12 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
     assert_eq!(prepared.profile().name(), "recorded-v1");
     assert!(!format!("{prepared:?}").contains("recorded\\\":true"));
     assert!(
-        ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
-            provider: "https://untrusted.example".into(),
-            item_ref: "item-17".into(),
-        })
+        ImathasQuestionLocation::from_draft_backend_locator(
+            &DraftQuestionBackendLocator::Imathas {
+                provider: "https://untrusted.example".into(),
+                item_ref: "item-17".into(),
+            }
+        )
         .is_err()
     );
     for item_ref in [
@@ -217,23 +213,27 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
         &"a".repeat(129),
     ] {
         assert!(
-            ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
-                provider: "recorded-provider".into(),
-                item_ref: item_ref.into(),
-            })
+            ImathasQuestionLocation::from_draft_backend_locator(
+                &DraftQuestionBackendLocator::Imathas {
+                    provider: "recorded-provider".into(),
+                    item_ref: item_ref.into(),
+                }
+            )
             .is_err()
         );
     }
     assert_eq!(
         format!(
             "{:?}",
-            ImathasDraftQuestionSource::from_draft(&DraftQuestionSource::Imathas {
-                provider: "recorded-provider".into(),
-                item_ref: "item-17".into(),
-            })
+            ImathasQuestionLocation::from_draft_backend_locator(
+                &DraftQuestionBackendLocator::Imathas {
+                    provider: "recorded-provider".into(),
+                    item_ref: "item-17".into(),
+                }
+            )
             .unwrap()
         ),
-        "ImathasDraftQuestionSource(REDACTED)"
+        "ImathasQuestionLocation(REDACTED)"
     );
 }
 
@@ -311,18 +311,13 @@ async fn historical_invalid_metadata_title_is_refused_before_provider_or_cache()
 }
 
 #[tokio::test]
-async fn snapshot_mutation_wrong_binding_and_outage_refuse_without_fabricating_incorrectness() {
+async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectness() {
     let store = MemoryObjectStore::default();
     let (question, source, _) = stored_source(&store).await;
-    let mut changed_source = question.clone();
-    if let QuestionSource::Imathas {
-        snapshot_sha256, ..
-    } = &mut changed_source.source
-    {
-        *snapshot_sha256 = "00".repeat(32);
-    }
+    let mut changed_source = source.clone();
+    changed_source.provider = "different-provider".into();
     assert_eq!(
-        verify_binding(&changed_source, &source),
+        verify_binding(&question, &changed_source),
         Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
     );
     let wrong = ImathasAdapter::new(
@@ -464,8 +459,6 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
             address: key,
             bytes: b"{malformed".to_vec(),
             media_type: "application/json".into(),
-            license: None,
-            provenance: "test".into(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
         .await

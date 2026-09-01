@@ -3,7 +3,7 @@
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
-import type { PresentedQuestionAsset } from "../../../generated/api/PresentedQuestionAsset";
+import type { QuestionAssetRendition } from "../../../generated/api/QuestionAssetRendition";
 import type { CourseGradeMode } from "../../../generated/api/CourseGradeMode";
 import type { CourseGradeRoundingRule } from "../../../generated/api/CourseGradeRoundingRule";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
@@ -11,7 +11,7 @@ import type { CourseInstanceReference } from "../../../generated/api/CourseInsta
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { StudentResponseInspection } from "../../../generated/api/StudentResponseInspection";
 import type { StudentResponseInspectionFeedback } from "../../../generated/api/StudentResponseInspectionFeedback";
-import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import {
@@ -25,6 +25,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
+import { decodeQuestionAssetReference } from "./question_response_format";
 import { decodeInstructorGradingOperationReference } from "./grading_operations";
 import {
   decodeAssignmentInspectionChoice,
@@ -136,8 +137,8 @@ export interface CalculatedGradebookQuery {
 export type InspectedSubmissionEvidence =
   | {
       readonly kind: "issuedPresentation";
-      readonly question: QuestionPresentation;
-      readonly assetBindings: ReadonlyArray<PresentedQuestionAsset>;
+      readonly question: QuestionVariationPresentation;
+      readonly questionAssetRenditions: ReadonlyArray<QuestionAssetRendition>;
       readonly issuedPresentationDigest: string;
     }
   | { readonly kind: "presentationNotApplicable" };
@@ -516,10 +517,9 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
   }
 }
 
-function decodeAssetBinding(value: unknown, path: string): PresentedQuestionAsset {
+function decodeQuestionAssetRendition(value: unknown, path: string): QuestionAssetRendition {
   const record = closed(value, path, [
-    "asset",
-    "authoredChecksum",
+    "questionAsset",
     "renditionChecksum",
     "intrinsicWidth",
     "intrinsicHeight",
@@ -531,10 +531,9 @@ function decodeAssetBinding(value: unknown, path: string): PresentedQuestionAsse
       return decoded;
     });
   return {
-    asset: decodeIdentifier(field(record, "asset", path), `${path}.asset`),
-    authoredChecksum: decodeSha256(
-      field(record, "authoredChecksum", path),
-      `${path}.authoredChecksum`,
+    questionAsset: decodeQuestionAssetReference(
+      field(record, "questionAsset", path),
+      `${path}.questionAsset`,
     ),
     renditionChecksum: decodeSha256(
       field(record, "renditionChecksum", path),
@@ -559,7 +558,7 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
   const presentationPath = `${path}.presentation`;
   const presentation = closed(field(record, "presentation", path), presentationPath, [
     "envelope",
-    "assetBindings",
+    "questionAssetRenditions",
   ]);
   return {
     kind: evidenceKind,
@@ -567,11 +566,11 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
       field(presentation, "envelope", presentationPath),
       `${presentationPath}.envelope`,
     ),
-    assetBindings: decodeBoundedArray(
-      field(presentation, "assetBindings", presentationPath),
-      `${presentationPath}.assetBindings`,
+    questionAssetRenditions: decodeBoundedArray(
+      field(presentation, "questionAssetRenditions", presentationPath),
+      `${presentationPath}.questionAssetRenditions`,
       MAX_ASSET_BINDINGS,
-      decodeAssetBinding,
+      decodeQuestionAssetRendition,
     ),
     issuedPresentationDigest: decodeSha256(
       field(record, "issuedPresentationDigest", path),

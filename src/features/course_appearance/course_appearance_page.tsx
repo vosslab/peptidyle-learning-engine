@@ -107,7 +107,7 @@ function safeErrorMessage(error: unknown): string {
   return "The course appearance could not be saved. Your choices are still here; try again.";
 }
 
-/** Working course-local settings form; no answer-bearing value or object key enters this surface. */
+/** Working course-local settings form; no answer-bearing value or Object Address enters this surface. */
 export function CourseAppearancePage(): JSX.Element {
   const runtime = useApplicationApi();
   const routeThemeData = useCourseThemeRouteData();

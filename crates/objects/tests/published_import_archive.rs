@@ -33,8 +33,8 @@ fn question_revision(revision_number: u32) -> QuestionRevisionReference {
 /// The complete `AlreadyExists` acceptance comparison from the locked WP-QTI protocol.
 ///
 /// `storage_area` is included because it is derived from the typed Object Address and must not drift
-/// from the content-area provenance contract. License, provenance, and creation time are deliberately
-/// not replay-match fields; the frozen protocol names exactly these archive properties.
+/// from the content-area relationship. Question licensing and creation time are deliberately not
+/// replay-match fields; the frozen protocol names exactly these archive properties.
 fn is_exact_published_archive_replay(record: &ObjectRecord, candidate: &PutObject) -> bool {
     record.address == candidate.address
         && record.storage_area == candidate.address.storage_area()
@@ -61,8 +61,6 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
             address: workspace_key.clone(),
             bytes: archive_bytes.clone(),
             media_type: "application/zip".to_string(),
-            license: None,
-            provenance: "QTI workspace import".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -89,8 +87,6 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         },
         bytes: verified_workspace_archive.bytes,
         media_type: verified_workspace_archive.record.media_type,
-        license: None,
-        provenance: "published from verified QTI workspace archive".to_string(),
         created_at: ActivityTimestamp::from_unix_millis(2_000),
     };
 

@@ -5,7 +5,6 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::classification::License;
 use question_model::{ActivityTimestamp, ObjectId, QuestionRevisionReference};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
@@ -137,10 +136,6 @@ pub struct ObjectRecord {
     pub media_type: String,
     /// Exact Question Revision associated with content, when one exists.
     pub question_revision: Option<QuestionRevisionReference>,
-    /// Optional content-reuse terms. Data sensitivity belongs to `data_class`.
-    pub license: Option<License>,
-    /// Human-readable source or derivation record.
-    pub provenance: String,
     /// Server-supplied creation timestamp.
     pub created_at: ActivityTimestamp,
 }
@@ -154,10 +149,6 @@ pub struct PutObject {
     pub bytes: Vec<u8>,
     /// Verified media type.
     pub media_type: String,
-    /// Optional content-reuse terms. Data sensitivity is derived from `address`.
-    pub license: Option<License>,
-    /// Human-readable source or derivation record.
-    pub provenance: String,
     /// Server-supplied creation timestamp.
     pub created_at: ActivityTimestamp,
 }
@@ -299,8 +290,6 @@ mod tests {
             size_bytes: 123,
             media_type: "application/zip".to_string(),
             question_revision: Some(question_revision),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         };
         let encoded = serde_json::to_string(&record).expect("object record should serialize");
@@ -319,8 +308,6 @@ mod tests {
                 "\"sizeBytes\":123,",
                 "\"mediaType\":\"application/zip\",",
                 "\"questionRevision\":{\"questionId\":\"ABC-DEFG\",\"revisionNumber\":2},",
-                "\"license\":null,",
-                "\"provenance\":\"fixture\",",
                 "\"createdAt\":1000}"
             )
         );

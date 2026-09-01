@@ -481,7 +481,7 @@ errors emit "could not confirm" so the message stays accurate.
   working directory, set `cwd` correctly or use an absolute path.
 - For Read of a directory, use `ls <dir>` or `git ls-files <pathspec>`
   to list contents. For Glob with a file argument, switch to Read for a
-  single file or `git ls-files <pathspec>` to list candidates.
+  single file or `git ls-files <pathspec>` to list entries.
 - For a brand-new file you intend to create, prefer `Write`; the pre-check
   is exempt for `Write`. `Edit` of a brand-new file is also accepted as long
   as the parent directory already exists.

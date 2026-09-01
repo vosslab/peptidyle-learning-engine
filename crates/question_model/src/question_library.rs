@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::classification::{License, QuestionClassification, Tag};
 use crate::{
-    ActivityTimestamp, CourseInstanceReference, DraftQuestionSource, QuestionBackendCapabilities,
-    QuestionMetadata, QuestionRevisionNumber, QuestionSource,
+    ActivityTimestamp, CourseInstanceReference, DraftQuestionBackendLocator,
+    QuestionBackendCapabilities, QuestionBackendLocator, QuestionMetadata, QuestionRevisionNumber,
 };
 
 pub use crate::question_search::{
@@ -206,7 +206,7 @@ impl QuestionRevisionAvailability {
 #[serde(rename_all = "camelCase")]
 pub enum QuestionBackend {
     /// First-party Rust/WASM question.
-    Native,
+    Ple,
     /// WeBWorK PG question.
     Webwork,
     /// IMS QTI item.
@@ -220,7 +220,7 @@ pub enum QuestionBackend {
 impl QuestionBackend {
     /// Every browser-safe Question Backend supported by this release.
     pub const ALL: [Self; 5] = [
-        Self::Native,
+        Self::Ple,
         Self::Webwork,
         Self::Qti,
         Self::H5p,
@@ -230,7 +230,7 @@ impl QuestionBackend {
     /// Canonical public wire value for this closed backend vocabulary.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Native => "native",
+            Self::Ple => "ple",
             Self::Webwork => "webwork",
             Self::Qti => "qti",
             Self::H5p => "h5p",
@@ -239,26 +239,26 @@ impl QuestionBackend {
     }
 }
 
-impl From<&QuestionSource> for QuestionBackend {
-    fn from(source: &QuestionSource) -> Self {
+impl From<&QuestionBackendLocator> for QuestionBackend {
+    fn from(source: &QuestionBackendLocator) -> Self {
         match source {
-            QuestionSource::Native => Self::Native,
-            QuestionSource::Webwork { .. } => Self::Webwork,
-            QuestionSource::Qti { .. } => Self::Qti,
-            QuestionSource::H5p { .. } => Self::H5p,
-            QuestionSource::Imathas { .. } => Self::Imathas,
+            QuestionBackendLocator::Ple => Self::Ple,
+            QuestionBackendLocator::Webwork { .. } => Self::Webwork,
+            QuestionBackendLocator::Qti { .. } => Self::Qti,
+            QuestionBackendLocator::H5p { .. } => Self::H5p,
+            QuestionBackendLocator::Imathas { .. } => Self::Imathas,
         }
     }
 }
 
-impl From<&DraftQuestionSource> for QuestionBackend {
-    fn from(source: &DraftQuestionSource) -> Self {
+impl From<&DraftQuestionBackendLocator> for QuestionBackend {
+    fn from(source: &DraftQuestionBackendLocator) -> Self {
         match source {
-            DraftQuestionSource::Native => Self::Native,
-            DraftQuestionSource::Webwork { .. } => Self::Webwork,
-            DraftQuestionSource::Qti { .. } => Self::Qti,
-            DraftQuestionSource::H5p { .. } => Self::H5p,
-            DraftQuestionSource::Imathas { .. } => Self::Imathas,
+            DraftQuestionBackendLocator::Ple => Self::Ple,
+            DraftQuestionBackendLocator::Webwork { .. } => Self::Webwork,
+            DraftQuestionBackendLocator::Qti { .. } => Self::Qti,
+            DraftQuestionBackendLocator::H5p { .. } => Self::H5p,
+            DraftQuestionBackendLocator::Imathas { .. } => Self::Imathas,
         }
     }
 }
@@ -417,12 +417,12 @@ pub enum QuestionPromptProjection {
     /// The immutable publication contains one fixed prompt.
     Static {
         /// Browser-safe prompt blocks in authored order.
-        blocks: Vec<crate::envelope::ContentBlock>,
+        blocks: Vec<crate::envelope::QuestionContentBlock>,
     },
     /// One deterministic, server-materialized example of a variable prompt.
     GeneratedExample {
         /// Browser-safe prompt blocks with every authored parameter resolved.
-        blocks: Vec<crate::envelope::ContentBlock>,
+        blocks: Vec<crate::envelope::QuestionContentBlock>,
     },
 }
 
@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn backend_summary_never_carries_private_source_locators() {
         assert_eq!(
-            QuestionBackend::from(&QuestionSource::Webwork {
+            QuestionBackend::from(&QuestionBackendLocator::Webwork {
                 pg_path: "OpenProblemLibrary/private/path.pg".to_string(),
             }),
             QuestionBackend::Webwork
@@ -528,7 +528,7 @@ mod tests {
         );
         assert_eq!(
             QuestionBackend::ALL.map(QuestionBackend::as_str),
-            ["native", "webwork", "qti", "h5p", "imathas"]
+            ["ple", "webwork", "qti", "h5p", "imathas"]
         );
     }
 
@@ -553,7 +553,7 @@ mod tests {
                 "  Dr. Ada  Lovelace ".to_string(),
                 "dr. ada lovelace".to_string(),
             ],
-            backends: vec![QuestionBackend::Native, QuestionBackend::Native],
+            backends: vec![QuestionBackend::Ple, QuestionBackend::Ple],
             tags: vec![
                 " Protein   Structure ".to_string(),
                 "protein structure".to_string(),
@@ -577,7 +577,7 @@ mod tests {
         .expect("equivalent filters normalize");
         assert_eq!(query.text.as_deref(), Some("peptide bond"));
         assert_eq!(query.bylines, vec!["dr. ada lovelace"]);
-        assert_eq!(query.backends, vec![QuestionBackend::Native]);
+        assert_eq!(query.backends, vec![QuestionBackend::Ple]);
         assert_eq!(query.tags, vec!["protein structure"]);
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.classifications.len(), 1);
@@ -598,7 +598,7 @@ mod tests {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
-                backend: QuestionBackend::Native,
+                backend: QuestionBackend::Ple,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {

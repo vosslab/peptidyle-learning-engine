@@ -6,7 +6,7 @@ import { createMasteryAssignmentDraft } from "./support/assignment_editor_test_s
 import {
   assignmentContentInput,
   moveAssignmentEntry,
-  parseExactProblemDisplayReferences,
+  parseExactQuestionIds,
   validateAssignmentEditorDraft,
   validateQuestionPoolEntry,
 } from "../src/pages/assignment_editor_model.ts";
@@ -23,8 +23,8 @@ test("assignment Questions payload uses Question IDs as its only question identi
 });
 
 test("Question ID paste supports instructor punctuation and rejects duplicate choices", () => {
-  assert.deepEqual(parseExactProblemDisplayReferences("7k3-m9qp"), ["7K3-M9QP"]);
-  assert.throws(() => parseExactProblemDisplayReferences("7K3-M9QP, 7K3-M9QP"), /once/u);
+  assert.deepEqual(parseExactQuestionIds("7k3-m9qp"), ["7K3-M9QP"]);
+  assert.throws(() => parseExactQuestionIds("7K3-M9QP, 7K3-M9QP"), /once/u);
 });
 
 test("ordinary editing preserves a fixed question while changing shared entry order", () => {
@@ -52,16 +52,16 @@ test("ordinary editing preserves a fixed question while changing shared entry or
   );
 });
 
-test("Question Pool editor encodes public candidate Question IDs in entry order", () => {
+test("Question Pool editor encodes public entry Question IDs in entry order", () => {
   const draft = {
     ...createMasteryAssignmentDraft("course-1"),
     entries: [
       { ...publishedProblemFixture.assignment.entries[0], kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        candidates: [
-          { questionId: "7K4-M9QP", title: "Candidate one", backend: "native" },
-          { questionId: "7K5-M9QP", title: "Candidate two", backend: "native" },
+        entries: [
+          { questionId: "7K4-M9QP", title: "Entry one", backend: "ple" },
+          { questionId: "7K5-M9QP", title: "Entry two", backend: "ple" },
         ],
         availability: "available",
         scoringRule: "normal",
@@ -78,7 +78,7 @@ test("Question Pool editor encodes public candidate Question IDs in entry order"
   );
   assert.deepEqual(body.entries[1], {
     kind: "questionPool",
-    candidateQuestionIds: ["7K4-M9QP", "7K5-M9QP"],
+    questionIds: ["7K4-M9QP", "7K5-M9QP"],
     availability: "available",
     scoringRule: "normal",
     selectionCount: 1,
@@ -92,34 +92,34 @@ test("Question Pool editor encodes public candidate Question IDs in entry order"
 test("pool validation keeps an actionable correction path", () => {
   const invalid = {
     kind: "questionPool",
-    candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
+    entries: [{ questionId: "7K4-M9QP", title: "Entry", backend: "ple" }],
     availability: "available",
     selectionCount: 2,
     pointsPerItem: "1",
-    selectionRule: { selectedQuestionOrder: "candidateOrder" },
+    selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   };
   assert.equal(
     validateQuestionPoolEntry(invalid),
-    "Selection count cannot exceed the number of candidate Question IDs.",
+    "Selection count cannot exceed the number of Question IDs in this Question Pool.",
   );
 });
 
 test("pool authoring reports shared cardinality recovery paths before save", () => {
-  const candidate = { questionId: "7K4-M9QP", title: "Candidate", backend: "native" };
+  const entry = { questionId: "7K4-M9QP", title: "Entry", backend: "ple" };
   const overfullPool = {
     kind: "questionPool",
-    candidates: Array.from({ length: 1025 }, (_value, index) => ({
-      ...candidate,
+    entries: Array.from({ length: 1025 }, (_value, index) => ({
+      ...entry,
       questionId: `${index.toString(16).padStart(3, "0").toUpperCase()}-0000`,
     })),
     availability: "available",
     selectionCount: 1,
     pointsPerItem: "1",
-    selectionRule: { selectedQuestionOrder: "candidateOrder" },
+    selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   };
   assert.equal(
     validateQuestionPoolEntry(overfullPool),
-    "Keep this pool to 1024 candidate Question IDs or fewer.",
+    "Keep this Question Pool to 1024 Question IDs or fewer.",
   );
 
   const overfullDefinition = {
@@ -137,8 +137,8 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
 
   const pool = (entryIndex, candidateCount) => ({
     kind: "questionPool",
-    candidates: Array.from({ length: candidateCount }, (_value, index) => ({
-      ...candidate,
+    entries: Array.from({ length: candidateCount }, (_value, index) => ({
+      ...entry,
       questionId: `${entryIndex.toString(16).padStart(2, "0").toUpperCase()}${index
         .toString(16)
         .padStart(1, "0")}-0000`,
@@ -146,7 +146,7 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     availability: "available",
     selectionCount: 1,
     pointsPerItem: "1",
-    selectionRule: { selectedQuestionOrder: "candidateOrder" },
+    selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   });
   const tooManyCandidates = {
     ...createMasteryAssignmentDraft("course-1"),
@@ -157,7 +157,7 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
   };
   assert.equal(
     validateAssignmentEditorDraft(tooManyCandidates),
-    "Keep all pools to 8192 candidate Question IDs or fewer.",
+    "Keep all Question Pools to 8192 Question IDs or fewer.",
   );
 });
 
@@ -170,11 +170,11 @@ test("shared picker caps each assignment destination before the dialog opens", (
       { ...fixed, kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        candidates: [{ questionId: "7K4-M9QP", title: "Candidate", backend: "native" }],
+        entries: [{ questionId: "7K4-M9QP", title: "Entry", backend: "ple" }],
         availability: "available",
         selectionCount: 1,
         pointsPerItem: "1",
-        selectionRule: { selectedQuestionOrder: "candidateOrder" },
+        selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
       },
     ],
   };

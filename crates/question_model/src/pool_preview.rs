@@ -42,7 +42,7 @@ pub struct QuestionPoolPreview {
     pub question_pool_label: String,
     pub selection_count: u32,
     pub selection_rule: QuestionPoolSelectionRule,
-    pub candidates: Vec<QuestionPoolPreviewQuestion>,
+    pub entries: Vec<QuestionPoolPreviewQuestion>,
     pub selected: Vec<QuestionPoolPreviewQuestion>,
 }
 
@@ -71,13 +71,13 @@ mod tests {
             selection_rule: QuestionPoolSelectionRule {
                 selected_question_order: crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
             },
-            candidates: vec![QuestionPoolPreviewQuestion {
+            entries: vec![QuestionPoolPreviewQuestion {
                 question_id: question_id.clone(),
-                title: "Pool candidate".to_string(),
+                title: "Pool entry".to_string(),
             }],
             selected: vec![QuestionPoolPreviewQuestion {
                 question_id,
-                title: "Pool candidate".to_string(),
+                title: "Pool entry".to_string(),
             }],
         };
         assert_eq!(
@@ -85,8 +85,8 @@ mod tests {
             serde_json::json!({
                 "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "candidates":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}],
-                "selected":[{"questionId":"ABC-DEF1", "title":"Pool candidate"}]
+                "entries":[{"questionId":"ABC-DEF1", "title":"Pool entry"}],
+                "selected":[{"questionId":"ABC-DEF1", "title":"Pool entry"}]
             })
         );
     }

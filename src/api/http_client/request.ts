@@ -42,10 +42,10 @@ import {
   decodeCourseCreateInput,
   decodeCourseSummary,
   decodeCourseTermValidationFailure,
-  decodeDraftQuestionDefinition,
+  decodeDraftQuestionRevision,
   decodeFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
-  decodePublicationReadinessFailure,
+  decodeQuestionPublicationValidationUnavailable,
   decodePublicationResult,
   decodePublicationValidationFailure,
   decodePublicationValidationReport,
@@ -278,7 +278,7 @@ async function workspaceDraft(
       `API response ${path} must contain 1 to ${MAX_RESPONSE_CHARACTERS} JSON characters`,
     );
   return {
-    draft: decodeDraftQuestionDefinition(decodeJson(text, path), "response"),
+    draft: decodeDraftQuestionRevision(decodeJson(text, path), "response"),
     revision: workspaceRevision(response, path),
   };
 }
@@ -524,7 +524,8 @@ export function createRequestClient(
       if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
         throw new ApiProtocolError(`API response ${path} must contain a bounded JSON body`);
       const value = decodeJson(text, path);
-      if (response.status === 422) return decodePublicationReadinessFailure(value, "response");
+      if (response.status === 422)
+        return decodeQuestionPublicationValidationUnavailable(value, "response");
       if (!response.ok) throw new ApiRequestError(response.status, path);
       const report = decodePublicationValidationReport(value, "response");
       return {
@@ -629,7 +630,9 @@ export function createRequestClient(
       input: AssignmentCreateInput,
     ): ReturnType<ApiClient["createAssignment"]> => {
       if (typeof input.title !== "string" || input.title.trim().length === 0)
-        return Promise.reject(new ApiProtocolError("assignment draft needs a nonempty title"));
+        return Promise.reject(
+          new ApiProtocolError("Assignment Working Copy needs a nonempty title"),
+        );
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,

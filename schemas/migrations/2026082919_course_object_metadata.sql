@@ -1,4 +1,4 @@
--- SD1 private course-object metadata scopes; object keys are server-only.
+-- SD1 private course-object metadata scopes; Object Addresses are server-only.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;

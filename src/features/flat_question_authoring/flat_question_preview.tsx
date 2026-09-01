@@ -179,8 +179,8 @@ export function FlatQuestionPreview(props: FlatQuestionPreviewProps): JSX.Elemen
     >
       <h3 id="flat-student-preview-heading">Student preview</h3>
       <p class="flat-question-authoring__help">
-        This is answer-free. It uses the student response control but does not grade, save, or send
-        a request.
+        This is answer-free. It uses the Student Question Response Control but does not grade, save,
+        or send a request.
       </p>
       <article aria-labelledby="flat-preview-title">
         <h4 id="flat-preview-title">{props.preview.title}</h4>

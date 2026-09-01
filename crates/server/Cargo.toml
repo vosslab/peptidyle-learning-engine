@@ -50,7 +50,7 @@ webauthn-rs-proto.workspace = true
 question_model = { workspace = true, features = ["generate"] }
 domain.workspace = true
 grading.workspace = true
-adapter_native.workspace = true
+adapter_ple.workspace = true
 adapter_webwork.workspace = true
 adapter_imathas = { workspace = true, features = ["http-transport"] }
 adapter_qti.workspace = true

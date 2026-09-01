@@ -1,14 +1,14 @@
 use question_model::QuestionRevision;
 use question_model::capability::QuestionBackendCapabilities;
 
-use crate::{NativeAdapter, NativeAdapterError};
+use crate::{PleQuestionBackend, PleQuestionBackendError};
 
-impl NativeAdapter {
-    /// Returns conservative capabilities for a native Question contract.
+impl PleQuestionBackend {
+    /// Returns conservative capabilities for a PLE Question contract.
     pub fn capabilities(
         &self,
         question: &QuestionRevision,
-    ) -> Result<QuestionBackendCapabilities, NativeAdapterError> {
+    ) -> Result<QuestionBackendCapabilities, PleQuestionBackendError> {
         let implementations = self.implementations_for_question(question)?;
         let mut capabilities = implementations
             .first()

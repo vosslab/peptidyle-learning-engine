@@ -125,7 +125,7 @@ For example:
 ```ts
 interface QuestionRevision {
   id: string;
-  source: QuestionSource;
+  source: QuestionBackendLocator;
   version: string;
   prompt: QuestionContent;
   responseFormat: QuestionResponseFormat;

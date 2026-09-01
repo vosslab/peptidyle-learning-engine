@@ -1,4 +1,4 @@
-//! Exact answer-free source bindings for one reusable assignment definition.
+//! Exact answer-free source bindings for one Blueprint Assignment definition.
 
 use serde::{Deserialize, Serialize};
 

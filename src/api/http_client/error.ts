@@ -49,7 +49,7 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
-/** A 409 content-save refusal that requires a successor Draft Assignment Revision. */
+/** A 409 content-save refusal that requires a successor Assignment Working Copy. */
 export class AssignmentSuccessorRevisionRequiredError extends ApiRequestError {
   declare public readonly status: 409;
   public readonly requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired;
@@ -80,7 +80,7 @@ export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentC
     return {
       kind: "successorRevisionRequired",
       message:
-        "Student work already pins this Assignment Revision. Create a successor Draft Assignment Revision for structural question changes.",
+        "Student work already pins this Assignment Revision. Create a successor Assignment Working Copy for structural question changes.",
     };
   }
   if (

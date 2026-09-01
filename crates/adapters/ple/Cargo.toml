@@ -1,6 +1,6 @@
 # MOD-ADP-NAT: first-party algorithmic question adapter.
 [package]
-name = "adapter_native"
+name = "adapter_ple"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

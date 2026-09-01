@@ -14,7 +14,7 @@ use super::{IssuedQuestionPresentation, PresentationResponseItemReference, Respo
 
 /// Fail-closed reasons a browser-rendered identifier cannot be resolved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RenderedResponseTranslationErrorV1 {
+pub enum RenderedResponseTranslationError {
     /// The response identifier does not have the closed rendered-ID format.
     MalformedRenderedId,
     /// The rendered identifier is not present in the issued presentation.
@@ -29,7 +29,7 @@ pub enum RenderedResponseTranslationErrorV1 {
 ///
 /// This is deliberately a closed projection.  It contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;
-/// answer keys, grader material, durable object keys, and provider payloads
+/// answer keys, grader material, durable Object Addresses, and provider payloads
 /// have no representation here.  The server creates it after it has verified
 /// the issued presentation witness.  ASVS 14.1.1 and 14.2.1: sensitive
 /// educational-record data has one minimized response shape.
@@ -59,12 +59,12 @@ pub enum StudentResponseInspection {
     /// Text entries bound to their issued rendered blank identifiers.
     MultiBlank {
         /// Submitted blank entries.
-        answers: Vec<InspectedTextEntryV1>,
+        answers: Vec<InspectedTextEntry>,
     },
     /// Associations bound to issued rendered prompt and choice identifiers.
     Matching {
         /// Submitted associations.
-        matches: Vec<InspectedMatchPairV1>,
+        matches: Vec<InspectedMatchPair>,
     },
     /// Issued rendered order-item identifiers in Student-selected order.
     Ordering {
@@ -79,14 +79,14 @@ pub enum StudentResponseInspection {
     /// Coarse external-tool completion state.
     ExternalTool {
         /// Safe completion state, without provider data or launch authority.
-        completion: InspectedExternalToolStateV1,
+        completion: InspectedExternalToolState,
     },
 }
 
 /// One text entry bound to the rendered blank identifier visible in the issue.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InspectedTextEntryV1 {
+pub struct InspectedTextEntry {
     /// Issued rendered blank identifier binding this entry.
     pub slot: PresentationResponseItemReference,
     /// Text submitted for the rendered blank.
@@ -96,7 +96,7 @@ pub struct InspectedTextEntryV1 {
 /// One association bound to rendered prompt and choice identifiers.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InspectedMatchPairV1 {
+pub struct InspectedMatchPair {
     /// Issued rendered prompt identifier.
     pub prompt: PresentationResponseItemReference,
     /// Issued rendered choice identifier.
@@ -106,7 +106,7 @@ pub struct InspectedMatchPairV1 {
 /// Safe external-tool fact. Provider data and launch authority stay private.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum InspectedExternalToolStateV1 {
+pub enum InspectedExternalToolState {
     /// The external-tool submission was recorded; provider details remain private.
     SubmissionRecorded,
 }
@@ -130,19 +130,19 @@ impl std::fmt::Debug for StudentResponseInspection {
     }
 }
 
-impl std::fmt::Debug for InspectedTextEntryV1 {
+impl std::fmt::Debug for InspectedTextEntry {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("InspectedTextEntryV1([REDACTED])")
+        formatter.write_str("InspectedTextEntry([REDACTED])")
     }
 }
 
-impl std::fmt::Debug for InspectedMatchPairV1 {
+impl std::fmt::Debug for InspectedMatchPair {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("InspectedMatchPairV1([REDACTED])")
+        formatter.write_str("InspectedMatchPair([REDACTED])")
     }
 }
 
-impl std::fmt::Display for RenderedResponseTranslationErrorV1 {
+impl std::fmt::Display for RenderedResponseTranslationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MalformedRenderedId => formatter.write_str("rendered response ID is malformed"),
@@ -157,18 +157,18 @@ impl std::fmt::Display for RenderedResponseTranslationErrorV1 {
     }
 }
 
-impl std::error::Error for RenderedResponseTranslationErrorV1 {}
+impl std::error::Error for RenderedResponseTranslationError {}
 
 /// Converts browser-rendered item IDs into the durable IDs bound to one issue.
 ///
 /// Only identifier-bearing Question Response Formats are rewritten. Scalar
 /// response formats preserve their values exactly. The function intentionally exposes
 /// no durable mapping or serializable wire type.
-pub fn translate_rendered_response_v1(
+pub fn translate_rendered_response(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponse, RenderedResponseTranslationErrorV1> {
-    let durable_id = |id: &ResponseItemReference, role| durable_id_v1(id, role, presentation);
+) -> Result<StudentResponse, RenderedResponseTranslationError> {
+    let durable_id = |id: &ResponseItemReference, role| durable_id(id, role, presentation);
 
     match response {
         StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
@@ -229,11 +229,11 @@ pub fn translate_rendered_response_v1(
 /// The inverse mapping is intentionally available only at the trusted
 /// inspection boundary. It is pure and does not reveal Answer Keys, Question
 /// Feedback, Question Answer Explanations, or Question Grading Input.
-pub fn project_durable_response_to_rendered_v1(
+pub fn project_durable_response_to_rendered(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponseInspection, RenderedResponseTranslationErrorV1> {
-    let rendered_id = |id: &ResponseItemReference, role| rendered_id_v1(id, role, presentation);
+) -> Result<StudentResponseInspection, RenderedResponseTranslationError> {
+    let rendered_id = |id: &ResponseItemReference, role| rendered_id(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -253,7 +253,7 @@ pub fn project_durable_response_to_rendered_v1(
             answers: answers
                 .iter()
                 .map(|answer| {
-                    Ok(InspectedTextEntryV1 {
+                    Ok(InspectedTextEntry {
                         slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
@@ -264,7 +264,7 @@ pub fn project_durable_response_to_rendered_v1(
             matches: matches
                 .iter()
                 .map(|pair| {
-                    Ok(InspectedMatchPairV1 {
+                    Ok(InspectedMatchPair {
                         prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
                         choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
@@ -284,7 +284,7 @@ pub fn project_durable_response_to_rendered_v1(
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolStateV1::SubmissionRecorded,
+            completion: InspectedExternalToolState::SubmissionRecorded,
         }),
     }
 }
@@ -296,12 +296,12 @@ pub fn project_durable_response_to_rendered_v1(
 /// inspection boundary validates each identifier against the reconstructed
 /// public issue and retains that exact rendered identifier. Reconstructed
 /// browser-safe presentations intentionally contain no durable identifiers.
-pub fn project_rendered_response_for_inspection_v1(
+pub fn project_rendered_response_for_inspection(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponseInspection, RenderedResponseTranslationErrorV1> {
+) -> Result<StudentResponseInspection, RenderedResponseTranslationError> {
     let rendered_id =
-        |id: &ResponseItemReference, role| verified_rendered_id_v1(id, role, presentation);
+        |id: &ResponseItemReference, role| verified_rendered_id(id, role, presentation);
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -321,7 +321,7 @@ pub fn project_rendered_response_for_inspection_v1(
             answers: answers
                 .iter()
                 .map(|answer| {
-                    Ok(InspectedTextEntryV1 {
+                    Ok(InspectedTextEntry {
                         slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
                         text: answer.text.clone(),
                     })
@@ -332,7 +332,7 @@ pub fn project_rendered_response_for_inspection_v1(
             matches: matches
                 .iter()
                 .map(|pair| {
-                    Ok(InspectedMatchPairV1 {
+                    Ok(InspectedMatchPair {
                         prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
                         choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
                     })
@@ -352,73 +352,73 @@ pub fn project_rendered_response_for_inspection_v1(
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolStateV1::SubmissionRecorded,
+            completion: InspectedExternalToolState::SubmissionRecorded,
         }),
     }
 }
 
-fn durable_id_v1(
+fn durable_id(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<ResponseItemReference, RenderedResponseTranslationErrorV1> {
+) -> Result<ResponseItemReference, RenderedResponseTranslationError> {
     Ok(ResponseItemReference::new(
-        rendered_binding_v1(id, expected_role, presentation)?
+        rendered_binding(id, expected_role, presentation)?
             .durable_id
             .clone(),
     ))
 }
 
-fn verified_rendered_id_v1(
+fn verified_rendered_id(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<PresentationResponseItemReference, RenderedResponseTranslationErrorV1> {
-    Ok(rendered_binding_v1(id, expected_role, presentation)?
+) -> Result<PresentationResponseItemReference, RenderedResponseTranslationError> {
+    Ok(rendered_binding(id, expected_role, presentation)?
         .rendered
         .clone())
 }
 
-fn rendered_binding_v1<'a>(
+fn rendered_binding<'a>(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &'a IssuedQuestionPresentation,
-) -> Result<&'a super::ResponseItemBinding, RenderedResponseTranslationErrorV1> {
+) -> Result<&'a super::ResponseItemBinding, RenderedResponseTranslationError> {
     let rendered = PresentationResponseItemReference::parse(id.as_str())
-        .map_err(|_| RenderedResponseTranslationErrorV1::MalformedRenderedId)?;
+        .map_err(|_| RenderedResponseTranslationError::MalformedRenderedId)?;
     let mut bindings = presentation
         .item_bindings
         .iter()
         .filter(|binding| binding.rendered == rendered);
     let binding = bindings
         .next()
-        .ok_or(RenderedResponseTranslationErrorV1::UnknownRenderedId)?;
+        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)?;
     if bindings.next().is_some() {
-        return Err(RenderedResponseTranslationErrorV1::DuplicateRenderedIdBinding);
+        return Err(RenderedResponseTranslationError::DuplicateRenderedIdBinding);
     }
     if binding.role != expected_role {
-        return Err(RenderedResponseTranslationErrorV1::WrongRenderedItemRole);
+        return Err(RenderedResponseTranslationError::WrongRenderedItemRole);
     }
     Ok(binding)
 }
 
-fn rendered_id_v1(
+fn rendered_id(
     durable: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<PresentationResponseItemReference, RenderedResponseTranslationErrorV1> {
+) -> Result<PresentationResponseItemReference, RenderedResponseTranslationError> {
     let mut bindings = presentation
         .item_bindings
         .iter()
         .filter(|binding| binding.durable_id == durable.as_str());
     let binding = bindings
         .next()
-        .ok_or(RenderedResponseTranslationErrorV1::UnknownRenderedId)?;
+        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)?;
     if bindings.next().is_some() {
-        return Err(RenderedResponseTranslationErrorV1::DuplicateRenderedIdBinding);
+        return Err(RenderedResponseTranslationError::DuplicateRenderedIdBinding);
     }
     if binding.role != expected_role {
-        return Err(RenderedResponseTranslationErrorV1::WrongRenderedItemRole);
+        return Err(RenderedResponseTranslationError::WrongRenderedItemRole);
     }
     Ok(binding.rendered.clone())
 }

@@ -50,7 +50,7 @@ assignment action; PLE does not perform an implicit merge.
 ## Is PLE tied to one format?
 
 No. PLE gives Instructors one learning and assignment model while adapters bring different question
-sources into it. Native flat-question JSON supports multiple choice, multiple answer,
+sources into it. PLE flat-question JSON supports multiple choice, multiple answer,
 fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots. The
 current external WeBWorK path supports the four reviewed Chapter 1 MC/MATCH PGML sources; QTI, H5P,
 and iMathAS each have their own documented runtime boundary. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
@@ -92,7 +92,7 @@ and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 ## Is PLE flat-question JSON QTI?
 
 No. PLE flat-question JSON is the small, versioned, answer-bearing authoring format for ordinary
-static questions. The native adapter compiles it into an answer-free public question model and
+static questions. The PLE Question Backend compiles it into an answer-free public question model and
 separate grader-only material. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current

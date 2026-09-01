@@ -5,10 +5,10 @@ use objects::{
     ObjectAddress, ObjectDataClass, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
     Sha256Digest,
 };
-use question_model::classification::License;
 use question_model::{
-    ActivityTimestamp, AssetId, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
-    QuestionId, QuestionRevisionNumber, QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
+    ActivityTimestamp, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
+    QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, WorkspaceId,
+    WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -32,8 +32,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         address: key.clone(),
         bytes: b"published source".to_vec(),
         media_type: "application/zip".to_string(),
-        license: Some(License::CcBySa),
-        provenance: "fixture".to_string(),
         created_at: ActivityTimestamp::from_unix_millis(1_000),
     };
 
@@ -64,8 +62,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: archive_key.clone(),
             bytes: b"published import archive".to_vec(),
             media_type: "application/zip".to_string(),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -79,7 +75,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     );
     let asset_key = ObjectAddress::QuestionAsset {
         question_revision: question_revision(2),
-        asset: AssetId::from_uuid(id(13)),
+        asset: QuestionAssetId::from_uuid(id(13)),
         object: ObjectId::from_uuid(id(14)),
     };
     store
@@ -87,8 +83,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: asset_key.clone(),
             bytes: b"published asset".to_vec(),
             media_type: "image/png".to_string(),
-            license: Some(License::CcBySa),
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -115,8 +109,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: student_key.clone(),
             bytes: b"student export".to_vec(),
             media_type: "application/pdf".to_string(),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -142,8 +134,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: temporary_key.clone(),
             bytes: b"temporary workspace".to_vec(),
             media_type: "application/octet-stream".to_string(),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -158,8 +148,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: banner_candidate_key.clone(),
             bytes: b"normalized candidate".to_vec(),
             media_type: "image/webp".to_string(),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -192,8 +180,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: course_banner_key.clone(),
             bytes: b"current course banner".to_vec(),
             media_type: "image/webp".to_string(),
-            license: None,
-            provenance: "fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         })
         .await
@@ -226,12 +212,12 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     let workspace_asset = ObjectAddress::WorkspaceAsset {
         workspace: WorkspaceId::from_uuid(id(8)),
         import: WorkspaceImportId::from_uuid(id(9)),
-        asset: AssetId::from_uuid(id(11)),
+        asset: QuestionAssetId::from_uuid(id(11)),
         object: ObjectId::from_uuid(id(12)),
     };
     let workspace_question_asset = ObjectAddress::WorkspaceQuestionAsset {
         workspace: WorkspaceId::from_uuid(id(8)),
-        asset: AssetId::from_uuid(id(16)),
+        asset: QuestionAssetId::from_uuid(id(16)),
         object: ObjectId::from_uuid(id(17)),
     };
     for key in [
@@ -245,8 +231,6 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
                 address: key.clone(),
                 bytes: b"private workspace import".to_vec(),
                 media_type: "application/zip".to_string(),
-                license: None,
-                provenance: "fixture".to_string(),
                 created_at: ActivityTimestamp::from_unix_millis(1_000),
             })
             .await
@@ -378,7 +362,7 @@ fn workspace_question_source_key_has_stable_workspace_path_and_is_private_source
 fn workspace_question_asset_key_is_private_content_without_import_or_version() {
     let asset = ObjectAddress::WorkspaceQuestionAsset {
         workspace: WorkspaceId::from_uuid(id(34)),
-        asset: AssetId::from_uuid(id(35)),
+        asset: QuestionAssetId::from_uuid(id(35)),
         object: ObjectId::from_uuid(id(36)),
     };
     assert_eq!(

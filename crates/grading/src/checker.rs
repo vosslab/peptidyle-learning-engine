@@ -346,12 +346,12 @@ mod tests {
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
     use question_model::classification::License;
-    use question_model::envelope::ContentBlock;
+    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::QuestionVariationDefinition;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
-        QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber, QuestionSource,
-        WorkspaceId,
+        QuestionBackendLocator, QuestionFormat, QuestionId, QuestionMetadata,
+        QuestionRevisionNumber, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -377,9 +377,9 @@ mod tests {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            source: QuestionSource::Native,
-            question_format: QuestionFormat::NativeAlgorithmic,
-            prompt: vec![ContentBlock::Text {
+            backend_locator: QuestionBackendLocator::Ple,
+            question_format: QuestionFormat::PleAlgorithmic,
+            prompt: vec![QuestionContentBlock::Text {
                 markdown: "Fixture".to_string(),
             }],
             response,

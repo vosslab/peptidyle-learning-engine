@@ -9,22 +9,21 @@ use std::collections::BTreeSet;
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentAttemptId, AssignmentEntryId, AssignmentId, QuestionPoolCandidateId,
-    QuestionPoolSelectedCandidate, QuestionPoolSelectionId, QuestionRevisionReference,
-    StudentRecordId,
+    AssignmentAttemptId, AssignmentEntryId, AssignmentId, QuestionPoolItemId,
+    QuestionPoolSelectedItem, QuestionPoolSelectionId, QuestionRevisionReference, StudentRecordId,
 };
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Exact server-selected candidates for one Question Pool Assignment Entry.
+/// Exact server-selected entries for one Question Pool Assignment Entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedQuestionPoolSelection {
     /// Exact Question Pool Assignment Entry in the released Assignment Revision.
-    pub question_pool_entry: AssignmentEntryId,
-    /// Earlier same-Student Selection whose exact candidates are retained.
+    pub question_pool_assignment_entry: AssignmentEntryId,
+    /// Earlier same-Student Selection whose exact entries are retained.
     pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact selected candidates in their frozen delivery order.
-    pub selected_candidates: Vec<QuestionPoolSelectedCandidate>,
+    /// Exact selected entries in their frozen delivery order.
+    pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
 
 /// One exact Question to issue for a new Assignment Attempt.
@@ -37,14 +36,14 @@ pub enum PreparedIssuedQuestion {
         /// Exact pinned Question Revision.
         reference: QuestionRevisionReference,
     },
-    /// One candidate selected from a released Question Pool Assignment Entry.
-    QuestionPoolCandidate {
+    /// One Question Pool Item selected from a released Question Pool Assignment Entry.
+    QuestionPoolItem {
         /// Exact Question Pool Assignment Entry.
         assignment_entry: AssignmentEntryId,
         /// Position in [`AssignmentAttemptStart::question_pool_selections`].
         question_pool_selection_index: usize,
-        /// Exact selected candidate in that Question Pool.
-        question_pool_candidate: QuestionPoolCandidateId,
+        /// Exact selected Question Pool Item.
+        question_pool_item: QuestionPoolItemId,
         /// Exact pinned Question Revision.
         reference: QuestionRevisionReference,
     },
@@ -68,24 +67,25 @@ impl AssignmentAttemptStart {
     pub fn validate(&self) -> Result<(), StoreError> {
         let mut entries = BTreeSet::new();
         for selection in &self.question_pool_selections {
-            if selection.selected_candidates.is_empty() {
+            if selection.selected_items.is_empty() {
                 return Err(StoreError::InvalidRecord(
-                    "a Question Pool Selection must retain at least one candidate".to_string(),
+                    "a Question Pool Selection must retain at least one Question Pool Item"
+                        .to_string(),
                 ));
             }
-            if !entries.insert(selection.question_pool_entry.as_uuid()) {
+            if !entries.insert(selection.question_pool_assignment_entry.as_uuid()) {
                 return Err(StoreError::InvalidRecord(
                     "an Assignment Attempt has at most one Question Pool Selection per Assignment Entry"
                         .to_string(),
                 ));
             }
         }
-        let mut issued_pool_candidates = BTreeSet::new();
+        let mut issued_question_pool_items = BTreeSet::new();
         for question in &self.issued_questions {
-            let PreparedIssuedQuestion::QuestionPoolCandidate {
+            let PreparedIssuedQuestion::QuestionPoolItem {
                 assignment_entry,
                 question_pool_selection_index,
-                question_pool_candidate,
+                question_pool_item,
                 ..
             } = question
             else {
@@ -100,22 +100,21 @@ impl AssignmentAttemptStart {
                         .to_string(),
                 ));
             };
-            if selection.question_pool_entry != *assignment_entry
+            if selection.question_pool_assignment_entry != *assignment_entry
                 || !selection
-                    .selected_candidates
+                    .selected_items
                     .iter()
-                    .any(|candidate| candidate.candidate == *question_pool_candidate)
+                    .any(|item| item.question_pool_item == *question_pool_item)
             {
                 return Err(StoreError::InvalidRecord(
                     "a pooled Issued Question must match its prepared Selection".to_string(),
                 ));
             }
-            if !issued_pool_candidates.insert((
-                assignment_entry.as_uuid(),
-                question_pool_candidate.as_uuid(),
-            )) {
+            if !issued_question_pool_items
+                .insert((assignment_entry.as_uuid(), question_pool_item.as_uuid()))
+            {
                 return Err(StoreError::InvalidRecord(
-                    "a selected Question Pool candidate may be issued once".to_string(),
+                    "a selected Question Pool Item may be issued once".to_string(),
                 ));
             }
         }
@@ -166,17 +165,17 @@ mod tests {
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
             question_pool_selections: vec![PreparedQuestionPoolSelection {
-                question_pool_entry: entry,
+                question_pool_assignment_entry: entry,
                 reused_from_question_pool_selection: None,
-                selected_candidates: vec![QuestionPoolSelectedCandidate {
-                    candidate: QuestionPoolCandidateId::from_uuid(Uuid::from_u128(4)),
+                selected_items: vec![QuestionPoolSelectedItem {
+                    question_pool_item: QuestionPoolItemId::from_uuid(Uuid::from_u128(4)),
                     reference: reference(),
                 }],
             }],
-            issued_questions: vec![PreparedIssuedQuestion::QuestionPoolCandidate {
+            issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
                 assignment_entry: entry,
                 question_pool_selection_index: 0,
-                question_pool_candidate: QuestionPoolCandidateId::from_uuid(Uuid::from_u128(5)),
+                question_pool_item: QuestionPoolItemId::from_uuid(Uuid::from_u128(5)),
                 reference: reference(),
             }],
         };

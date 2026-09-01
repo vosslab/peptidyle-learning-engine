@@ -226,7 +226,7 @@ status while the sealed worker owns grading. A successful worker transaction
 then commits the grading result, score event, attempt transition, run completion,
 enrollment pointers, summary projection, successor receipt, and immutable
 idempotency receipt together. The completed receipt copies the issued,
-answer-free `PresentationEnvelopeV1` and exact public Presented Question Asset snapshot.
+answer-free `QuestionPresentation` and exact public Presented Question Asset snapshot.
 Replay and status reads therefore use durable accepted or completed evidence,
 never a newer published Question/backend render, and never re-grade an answer.
 
@@ -257,16 +257,16 @@ are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and
 target request/receipt shapes are detailed in
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
-## Backend authority by family
+## Question Backend authority
 
 The common lifecycle deliberately ends at a backend boundary. Adapters can
 share public attempt behavior without sharing private grading data or assuming
 the same source format.
 
-| Family        | Publication authority                                                     | Render authority                                                | Grade authority                                      | Important recovery rule                                                                                                                                  |
-| ------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat   | PLE compiles author source into public definition and server-only key     | PLE public renderer                                             | PLE native grader                                    | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
-| QTI           | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted native definition | Server-only `PostgresGraderStore` when enabled       | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                 |
+| Question Backend | Publication authority                                                     | Render authority                                                | Grade authority                                      | Important recovery rule                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key | PLE public renderer                                             | PLE Question Grader                                  | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
+| QTI           | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled       | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                 |
 | WeBWorK       | PLE copies licensed PG/PGML source and provenance into immutable storage  | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender            |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration     | Provider launch/session is server-mediated                      | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score                                                                           |
 
@@ -341,7 +341,7 @@ Use this lifecycle document to find the right detailed contract:
   rendered IDs, presentation digest, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, run, asset, and retention security boundaries.
-- [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed object keys, bucket roles,
+- [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed Object Addresses, bucket roles,
   checksums, delivery, and reconciliation.
 - [CONTRACTS.md](CONTRACTS.md): module ownership, frozen contracts, and change
   rules.

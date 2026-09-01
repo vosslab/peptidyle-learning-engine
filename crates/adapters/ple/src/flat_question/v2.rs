@@ -7,15 +7,15 @@ use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
 use question_model::classification::{License, QuestionClassification, Tag};
-use question_model::envelope::{AssetRef, ContentBlock};
+use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::generation::QuestionVariationDefinition;
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
 use question_model::{
-    AssetId, DraftQuestionDefinition, DraftQuestionSource, QuestionFormat, QuestionGradingRule,
-    QuestionMetadata, WorkspaceId,
+    DraftQuestionBackendLocator, DraftQuestionRevision, QuestionAssetId, QuestionFormat,
+    QuestionGradingRule, QuestionMetadata, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -196,7 +196,7 @@ struct FlatHotspotRegion {
 impl FlatQuestionV2 {
     pub(super) fn with_hotspot_surface_asset(
         &self,
-        asset: AssetId,
+        asset: QuestionAssetId,
     ) -> Result<Self, FlatQuestionError> {
         let mut published = self.clone();
         let FlatResponseV2::Hotspot { surface, .. } = &mut published.response else {
@@ -315,9 +315,9 @@ impl FlatQuestionV2 {
             compile_response(&self.response)?;
         let mut prompt = markdown_blocks(&self.prompt);
         prompt.extend(prompt_suffix);
-        let draft = DraftQuestionDefinition {
+        let draft = DraftQuestionRevision {
             workspace,
-            source: DraftQuestionSource::Native,
+            backend_locator: DraftQuestionBackendLocator::Ple,
             question_format: QuestionFormat::PleFlatQuestionV2,
             prompt,
             response,
@@ -368,7 +368,7 @@ type CompiledResponse = (
     QuestionResponseFormat,
     AnswerKey,
     Vec<(ResponseItemReference, String)>,
-    Vec<ContentBlock>,
+    Vec<QuestionContentBlock>,
 );
 
 fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQuestionError> {
@@ -478,10 +478,14 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
             regions,
             correct_regions,
         } => {
-            let asset = AssetRef {
-                asset: AssetId::from_uuid(Uuid::parse_str(&surface.asset).map_err(|_| {
-                    FlatQuestionError::InvalidDocument("hotspot asset must be a UUID".to_string())
-                })?),
+            let asset = QuestionAssetReference {
+                asset: QuestionAssetId::from_uuid(Uuid::parse_str(&surface.asset).map_err(
+                    |_| {
+                        FlatQuestionError::InvalidDocument(
+                            "hotspot asset must be a UUID".to_string(),
+                        )
+                    },
+                )?),
                 checksum: surface.checksum.clone(),
             };
             (
@@ -501,7 +505,7 @@ fn compile_response(response: &FlatResponseV2) -> Result<CompiledResponse, FlatQ
                         .collect(),
                 },
                 Vec::new(),
-                vec![ContentBlock::Image {
+                vec![QuestionContentBlock::Image {
                     asset,
                     description: surface.description.clone(),
                 }],

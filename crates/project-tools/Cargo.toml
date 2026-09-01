@@ -17,7 +17,7 @@ publish = false
 
 [dependencies]
 acceptance-runtime = { path = "../acceptance-runtime" }
-adapter_native.workspace = true
+adapter_ple.workspace = true
 adapter_webwork.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true

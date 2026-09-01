@@ -13,7 +13,7 @@ import {
 } from "solid-js";
 
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
@@ -56,7 +56,7 @@ import { studentProgressSummary, studentScoreValue } from "../student_progress";
 function attemptContext(
   assignmentAttemptId: string,
   attempt: StudentQuestionAttemptView,
-  envelope: QuestionPresentation,
+  envelope: QuestionVariationPresentation,
 ): AttemptContext {
   return {
     assignmentAttemptId,
@@ -121,7 +121,7 @@ function matchesIssuedSuccessor(
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
 const MAX_PREFETCH_ASSETS = 12;
 
-function assetIdsForEnvelope(envelope: QuestionPresentation): ReadonlyArray<string> {
+function assetIdsForEnvelope(envelope: QuestionVariationPresentation): ReadonlyArray<string> {
   const blocks = [...envelope.prompt];
   if (envelope.response.kind === "multipleChoice") {
     blocks.push(...envelope.response.choices.flatMap((choice) => choice.body));
@@ -485,7 +485,7 @@ function AttemptExperience(props: {
       terminalState()?.assignmentAttemptCompletion ?? "inProgress",
       true,
     );
-  const currentEnvelope = (): QuestionPresentation =>
+  const currentEnvelope = (): QuestionVariationPresentation =>
     currentState()?.envelope ?? screen().issuedQuestion;
   // A cache-hit advance has a server-issued descriptor and envelope but not a
   // complete AssignmentAttemptScreenData record. Keep student-response projection bound to

@@ -10,7 +10,7 @@
   workstream wording: FNV-1a combines the seed and label, splitmix32 expands that result, and
   sfc32 produces decisions.
 - ACCEPTED: `sort_public_identifiers` copies before sorting and explicitly breaks equal-identifier
-  ties by original index. Allocation similarly copies candidates before removal.
+  ties by original index. Allocation similarly copies entries before removal.
 
 ## Module Boundaries
 

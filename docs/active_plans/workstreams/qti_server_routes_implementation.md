@@ -8,7 +8,7 @@
 
 Complete and independently accepted on 2026-08-09. This handoff records the server-owned route,
 worker, object, and backend-lifecycle boundary. It does not claim author UI, deployment, or live
-PostgreSQL/RLS/profile-to-native acceptance.
+PostgreSQL/RLS/profile-to-PLE acceptance.
 
 ## Completed behavior
 
@@ -17,7 +17,7 @@ PostgreSQL/RLS/profile-to-native acceptance.
   `qtiImport` job. Exact replay returns the prior state; divergent replay refuses.
 - Safe report reads return only recognized package/item defaults, diagnostics, state, and digest
   acknowledgements. They exclude archive/object identity, raw XML, answer keys, feedback, vendor
-  choice maps, canonical source, and grading material.
+  choice maps, canonical source, Answer Keys, Question Feedback, Question Answer Explanations, and Question Grading Input.
 - The worker detects Canvas and Blackboard profiles before generic parsing, stages all-and-only
   accepted-item evidence, treats all-rejected recognized imports as reportable without conversion,
   and refuses mixed vendor evidence.
@@ -49,7 +49,7 @@ PostgreSQL/RLS/profile-to-native acceptance.
 ## Historical successor
 
 WP-QTI-10 was the immediate successor and owned the visible author UI over these stable safe DTOs.
-WP-QTI-11 then accepted the disposable live PostgreSQL/RLS/profile-to-native path, grading,
+WP-QTI-11 then accepted the disposable live PostgreSQL/RLS/profile-to-PLE path, grading,
 archive/provenance, and cleanup; WP-QTI-12 completed final independent review and documentation
 close-out.
 

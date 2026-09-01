@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    BlueprintCourseValidationError, ReusableAssignmentDefinitionInput,
-    ReusableAssignmentDefinitionView, validate_blueprint_course_title,
+    BlueprintAssignmentDefinitionInput, BlueprintAssignmentDefinitionView,
+    BlueprintCourseValidationError, validate_blueprint_course_title,
 };
 use crate::MAX_ASSIGNMENT_ORDERED_ENTRIES;
 
@@ -107,7 +107,7 @@ pub struct CreateBlueprintCourseModuleInput {
     /// Week or module label visible to approved Instructor readers.
     pub label: String,
     /// Reusable definitions in authored order.
-    pub definitions: Vec<ReusableAssignmentDefinitionInput>,
+    pub definitions: Vec<BlueprintAssignmentDefinitionInput>,
 }
 
 /// Complete submitted meaning for a newly created BlueprintCourse.
@@ -189,14 +189,14 @@ impl BlueprintAssignmentEditHandle {
     }
 }
 
-/// One reusable assignment in a complete BlueprintCourse edit.
+/// One Blueprint Assignment in a complete BlueprintCourse edit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseAssignmentReplacementInput {
     /// Explicit retained/new identity choice for this ordered assignment node.
     pub handle: BlueprintAssignmentEditHandle,
     /// Complete assignment meaning for this revision snapshot.
-    pub definition: ReusableAssignmentDefinitionInput,
+    pub definition: BlueprintAssignmentDefinitionInput,
 }
 
 /// One module in a complete BlueprintCourse edit.
@@ -257,14 +257,14 @@ impl ReplaceBlueprintCourseDefinitionInput {
     }
 }
 
-/// One answer-free reusable assignment with its stable BlueprintCourse handle.
+/// One answer-free Blueprint Assignment with its stable BlueprintCourse handle.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseAssignmentDefinitionView {
     /// Stable opaque handle retained by an edit of this assignment.
     pub assignment_id: BlueprintAssignmentId,
     /// Current answer-free assignment meaning.
-    pub definition: ReusableAssignmentDefinitionView,
+    pub definition: BlueprintAssignmentDefinitionView,
 }
 
 /// One answer-free BlueprintCourse module in retained aggregate-owned order.

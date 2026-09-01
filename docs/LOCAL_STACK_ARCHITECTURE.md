@@ -134,7 +134,7 @@ whether the PLE lifecycle may manage a container.
 - If PostgreSQL or MinIO is unavailable, API readiness reports degradation
   because authoritative state cannot be accessed safely.
 - If the renderer is unavailable while the API is running, WeBWorK-backed
-  questions fail closed. Native questions and stored records remain intact.
+  questions fail closed. PLE questions and stored records remain intact.
 - Restarting or recreating the renderer requires no data recovery.
 - A supported full start reattaches PostgreSQL and MinIO to their named volumes.
 - The owner cleans and recreates its complete disposable stack rather than

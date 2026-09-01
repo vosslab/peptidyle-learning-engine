@@ -19,7 +19,7 @@ import type { QuestionAttemptState } from "../../../generated/api/QuestionAttemp
 import type { QuestionAttemptTiming } from "../../../generated/api/QuestionAttemptTiming";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
-import type { IssuedAttemptCapabilityV1 } from "../../../generated/api/IssuedAttemptCapabilityV1";
+import type { IssuedAttemptCapability } from "../../../generated/api/IssuedAttemptCapability";
 import type { StudentQuestionAttemptView } from "../../../generated/api/StudentQuestionAttemptView";
 import type { QuestionSubmission } from "../../../generated/api/QuestionSubmission";
 import type { AssignmentProgress } from "../../../generated/api/AssignmentProgress";
@@ -94,7 +94,7 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
   "flatPresentation",
   "webworkPresentation",
   "notApplicable",
-] as const satisfies ReadonlyArray<IssuedAttemptCapabilityV1>;
+] as const satisfies ReadonlyArray<IssuedAttemptCapability>;
 
 // This fixed wire-contract minimum mirrors the server privacy floor. It only
 // rejects unsafe API data; release-policy evaluation remains server-owned.

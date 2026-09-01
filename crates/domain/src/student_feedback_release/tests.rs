@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::{
     ActivityTimestamp, AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule,
     QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionPostGradingContent,
@@ -160,23 +160,24 @@ fn denied_s3_verdict_has_no_student_feedback_release_decision() {
 }
 
 fn post_grading_content() -> QuestionPostGradingContent {
-    let question_answer = QuestionAnswer::new(vec![ContentBlock::Text {
+    let question_answer = QuestionAnswer::new(vec![QuestionContentBlock::Text {
         markdown: "Correct response".to_string(),
     }])
     .expect("one answer block is non-empty");
-    let question_answer_explanation = QuestionAnswerExplanation::new(vec![ContentBlock::Text {
-        markdown: "Answer explanation".to_string(),
-    }])
-    .expect("one explanation block is non-empty");
+    let question_answer_explanation =
+        QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
+            markdown: "Answer explanation".to_string(),
+        }])
+        .expect("one explanation block is non-empty");
     QuestionPostGradingContent {
         question_feedback: QuestionFeedback {
-            choice_feedback: Some(vec![ContentBlock::Text {
+            choice_feedback: Some(vec![QuestionContentBlock::Text {
                 markdown: "Choice feedback".to_string(),
             }]),
-            correct_feedback: Some(vec![ContentBlock::Text {
+            correct_feedback: Some(vec![QuestionContentBlock::Text {
                 markdown: "Correct feedback".to_string(),
             }]),
-            incorrect_feedback: Some(vec![ContentBlock::Text {
+            incorrect_feedback: Some(vec![QuestionContentBlock::Text {
                 markdown: "Incorrect feedback".to_string(),
             }]),
         },

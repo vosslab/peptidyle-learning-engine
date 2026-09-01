@@ -9,17 +9,17 @@ use super::*;
 mod current_matching;
 
 fn request() -> RenderRequest<'static> {
-    static QUESTION_VERSION: LazyLock<question_model::QuestionRevisionReference> =
+    static QUESTION_REVISION: LazyLock<question_model::QuestionRevisionReference> =
         LazyLock::new(|| question_model::QuestionRevisionReference {
             question_id: question_model::QuestionId::from_canonical_parts("ABCDEF", 'G')
                 .expect("Question ID"),
             revision_number: question_model::QuestionRevisionNumber::new(7)
-                .expect("positive version"),
+                .expect("positive revision"),
         });
     RenderRequest {
         pg_source: b"DOCUMENT();",
         pg_path: "Library/OPL/select-one.pg",
-        question_revision: &QUESTION_VERSION,
+        question_revision: &QUESTION_REVISION,
         seed: 19,
     }
 }
@@ -245,7 +245,7 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
     assert_eq!(*selection, ResponseSelectionRule::ExactlyOne);
     assert_eq!(choices.len(), 2);
     let prompt = match &parsed.envelope.prompt[0] {
-        ContentBlock::Text { markdown } => markdown,
+        QuestionContentBlock::Text { markdown } => markdown,
         _ => panic!("text prompt"),
     };
     assert!(prompt.contains("Which molecule is water?"));
@@ -288,7 +288,7 @@ Based on their molecular formula, which compound is most likely <span style="col
     assert_eq!(choices.len(), 2);
     assert!(matches!(
         &choices[1].body[0],
-        ContentBlock::Text { markdown } if markdown.contains("B. benzene")
+        QuestionContentBlock::Text { markdown } if markdown.contains("B. benzene")
     ));
     assert!(parsed.html.contains("hydrophobic"));
     assert!(!parsed.html.contains("style="));
@@ -327,25 +327,25 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     assert_eq!(choices.len(), 2);
     assert_eq!(
         prompts[0].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "Can carry a positive charge".into()
         }]
     );
     assert_eq!(
         prompts[1].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "-H2PO4-".into()
         }]
     );
     assert_eq!(
         choices[0].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "Amino".into()
         }]
     );
     assert_eq!(
         choices[1].body,
-        vec![ContentBlock::Text {
+        vec![QuestionContentBlock::Text {
             markdown: "Phosphate".into()
         }]
     );

@@ -10,13 +10,13 @@ use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
 use question_model::classification::License;
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
     QuestionRendererVersion, QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
-    QuestionVariation, SourceObjectReference, WorkspaceId,
+    QuestionVariation, SourceObjectChecksum, SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -74,26 +74,26 @@ impl WebworkRenderer for RecordedRenderer {
             ));
         }
         Ok(RenderedWebworkQuestion {
-            envelope: QuestionPresentation {
+            envelope: QuestionVariationPresentation {
                 variation: QuestionVariation::static_variation(
                     request.question_revision.clone(),
                     QuestionSeed::new(request.seed),
                 ),
                 title: "Untrusted renderer title".to_string(),
-                prompt: vec![ContentBlock::Text {
+                prompt: vec![QuestionContentBlock::Text {
                     markdown: "Which molecule is water?".to_string(),
                 }],
                 response: QuestionResponseFormat::MultipleChoice {
                     choices: vec![
                         QuestionChoice {
                             id: ResponseItemReference::new("water"),
-                            body: vec![ContentBlock::Text {
+                            body: vec![QuestionContentBlock::Text {
                                 markdown: "H&#x2082;O".to_string(),
                             }],
                         },
                         QuestionChoice {
                             id: ResponseItemReference::new("oxygen"),
-                            body: vec![ContentBlock::Text {
+                            body: vec![QuestionContentBlock::Text {
                                 markdown: "O&#x2082;".to_string(),
                             }],
                         },
@@ -171,7 +171,7 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        source: QuestionSource::Webwork {
+        backend_locator: QuestionBackendLocator::Webwork {
             pg_path: "Library/OPL/select-one.pg".to_string(),
         },
         question_format: QuestionFormat::WebworkPg,
@@ -197,8 +197,10 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
 async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> WebworkSource {
     let source_object_reference = SourceObjectReference {
         object: ObjectId::from_uuid(Uuid::from_u128(4)),
-        sha256: Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string(),
     };
+    let source_object_checksum =
+        SourceObjectChecksum::parse(Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string())
+            .expect("computed checksum is canonical");
     store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
@@ -210,8 +212,6 @@ async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> Webwo
             },
             bytes: OPL_FIXTURE.as_bytes().to_vec(),
             media_type: "text/x-wework-pg".to_string(),
-            license: Some(License::CcBySa),
-            provenance: "recorded OPL fixture".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1),
         })
         .await
@@ -223,6 +223,7 @@ async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> Webwo
             revision_number: question.revision_number,
         },
         source_object_reference,
+        source_object_checksum,
     )
     .await
     .expect("fixture source should resolve through trusted storage")
@@ -379,7 +380,7 @@ async fn renderer_outage_is_an_explicit_backend_local_failure() {
     );
     assert!(
         adapter
-            .capabilities(&question.source)
+            .capabilities(&question.backend_locator)
             .expect("WeBWorK capability declaration remains available")
             .supports(Capability::ServerGrading)
     );
@@ -470,12 +471,16 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
     let store = MemoryObjectStore::default();
     let question = question_with_response(fixture_response());
     let trusted = source(&store, &question).await;
-    let wrong_digest = SourceObjectReference {
-        object: trusted.source_object_reference().object,
-        sha256: "00".repeat(32),
-    };
+    let wrong_checksum =
+        SourceObjectChecksum::parse("00".repeat(32)).expect("fixed checksum is canonical");
     assert_eq!(
-        WebworkSource::resolve(&store, question_revision(2), wrong_digest,).await,
+        WebworkSource::resolve(
+            &store,
+            question_revision(2),
+            trusted.source_object_reference().clone(),
+            wrong_checksum,
+        )
+        .await,
         Err(WebworkAdapterError::UntrustedSource)
     );
     assert_eq!(
@@ -486,6 +491,7 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
                 revision_number: question.revision_number,
             },
             trusted.source_object_reference().clone(),
+            trusted.source_object_checksum().clone(),
         )
         .await,
         Err(WebworkAdapterError::ObjectStore(ObjectStoreError::NotFound))
@@ -539,7 +545,7 @@ fn partial_credit_is_not_claimed_without_per_source_evidence() {
         MemoryObjectStore::default(),
         recorded_renderer(Arc::new(AtomicUsize::new(0))),
     );
-    let source = QuestionSource::Webwork {
+    let source = QuestionBackendLocator::Webwork {
         pg_path: "Library/OPL/select-one.pg".to_string(),
     };
     assert!(
@@ -562,7 +568,7 @@ fn reviewed_chapter_matching_sources_claim_partial_credit_without_widening_near_
             "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
         ),
     ] {
-        let source = QuestionSource::Webwork {
+        let source = QuestionBackendLocator::Webwork {
             pg_path: pg_path.to_string(),
         };
         let capabilities = reviewed_webwork_source_capabilities(&source, source_sha256)
@@ -580,7 +586,7 @@ fn reviewed_chapter_matching_sources_claim_partial_credit_without_widening_near_
         );
     }
     let near_miss = reviewed_webwork_source_capabilities(
-        &QuestionSource::Webwork {
+        &QuestionBackendLocator::Webwork {
             pg_path: "content/pilot/sources/genetics/other-matching.pgml".to_string(),
         },
         "ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718",
@@ -609,7 +615,7 @@ fn reviewed_chapter_sources_admit_immediate_correctness_without_widening_pg_supp
             "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
         ),
     ] {
-        let source = QuestionSource::Webwork {
+        let source = QuestionBackendLocator::Webwork {
             pg_path: pg_path.to_string(),
         };
         assert!(
@@ -619,14 +625,14 @@ fn reviewed_chapter_sources_admit_immediate_correctness_without_widening_pg_supp
         );
     }
     let historical = reviewed_webwork_source_capabilities(
-        &QuestionSource::Webwork {
+        &QuestionBackendLocator::Webwork {
             pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
         },
         "810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c",
     )
     .expect("historical reviewed source has a conservative profile");
     assert!(!historical.supports(Capability::Hints));
-    let unreviewed = QuestionSource::Webwork {
+    let unreviewed = QuestionBackendLocator::Webwork {
         pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
     };
     assert!(
@@ -668,13 +674,13 @@ fn fixture_response() -> QuestionResponseFormat {
         choices: vec![
             QuestionChoice {
                 id: ResponseItemReference::new("water"),
-                body: vec![ContentBlock::Text {
+                body: vec![QuestionContentBlock::Text {
                     markdown: "H&#x2082;O".to_string(),
                 }],
             },
             QuestionChoice {
                 id: ResponseItemReference::new("oxygen"),
-                body: vec![ContentBlock::Text {
+                body: vec![QuestionContentBlock::Text {
                     markdown: "O&#x2082;".to_string(),
                 }],
             },

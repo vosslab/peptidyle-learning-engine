@@ -7,7 +7,7 @@ import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
-  decodeDraftQuestionDefinition,
+  decodeDraftQuestionRevision,
   decodeQuestionSubmissionAcknowledgement,
   decodeQuestionPresentation,
   decodeAssignmentAttempt,
@@ -21,12 +21,17 @@ import {
 
 test("question decoders reject answer-bearing and provider-secret fields", () => {
   const draft = publishedProblemFixture.draft;
-  assert.throws(() => decodeDraftQuestionDefinition({ ...draft, answer: "secret" }), DecodeError);
+  assert.throws(() => decodeDraftQuestionRevision({ ...draft, answer: "secret" }), DecodeError);
   assert.throws(
     () =>
-      decodeDraftQuestionDefinition({
+      decodeDraftQuestionRevision({
         ...draft,
-        source: { backend: "imathas", provider: "self-hosted", itemRef: "42", token: "secret" },
+        backendLocator: {
+          backend: "imathas",
+          provider: "self-hosted",
+          itemRef: "42",
+          token: "secret",
+        },
       }),
     DecodeError,
   );

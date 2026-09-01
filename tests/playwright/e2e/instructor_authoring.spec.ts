@@ -152,10 +152,10 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(elena.getByRole("link", { name: "Create the first assignment" })).toBeVisible();
       await elena.getByRole("link", { name: "Create the first assignment" }).click();
       await expect(
-        elena.getByRole("heading", { name: "Create an assignment draft", exact: true }),
+        elena.getByRole("heading", { name: "Create an Assignment", exact: true }),
       ).toBeVisible();
       await elena.getByLabel("Assignment title").fill(assignmentTitle);
-      await elena.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+      await elena.getByRole("button", { name: "Create Assignment", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
       await expect(elena.getByText("Add at least one question.", { exact: true })).toBeVisible();
       await elena.getByRole("link", { name: "Policies", exact: true }).click();

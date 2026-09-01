@@ -1,26 +1,26 @@
-//! Native-owned construction of canonical flat questions from trusted imports.
+//! PLE-owned construction of canonical flat questions from trusted imports.
 //!
 //! This module is deliberately not a QTI adapter. Its input is the already
 //! mapped, server-only flat-question shape. It fixes the PLE defaults required
 //! for an imported v2 static single-choice item, then delegates validation,
-//! canonical serialization, and compilation to the native flat-question owner.
+//! canonical serialization, and compilation to the PLE flat-question owner.
 
 use std::fmt;
 
-use question_model::{DraftQuestionDefinition, WorkspaceId};
+use question_model::{DraftQuestionRevision, WorkspaceId};
 
 use super::{CompiledFlatQuestion, FlatChoice, FlatQuestionDocument, FlatQuestionError};
 
 /// One ordered PLE choice from a trusted profile mapping.
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedChoice;
+/// use adapter_ple::flat_question::imported::ImportedChoice;
 /// fn needs_debug<T: std::fmt::Debug>() {}
 /// needs_debug::<ImportedChoice>();
 /// ```
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedChoice;
+/// use adapter_ple::flat_question::imported::ImportedChoice;
 /// fn needs_serialize<T: serde::Serialize>() {}
 /// needs_serialize::<ImportedChoice>();
 /// ```
@@ -43,13 +43,13 @@ impl ImportedChoice {
 /// neither `Debug` nor serialization.
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedSingleChoiceInput;
+/// use adapter_ple::flat_question::imported::ImportedSingleChoiceInput;
 /// fn needs_debug<T: std::fmt::Debug>() {}
 /// needs_debug::<ImportedSingleChoiceInput>();
 /// ```
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedSingleChoiceInput;
+/// use adapter_ple::flat_question::imported::ImportedSingleChoiceInput;
 /// fn needs_serialize<T: serde::Serialize>() {}
 /// needs_serialize::<ImportedSingleChoiceInput>();
 /// ```
@@ -63,7 +63,7 @@ pub struct ImportedSingleChoiceInput {
 }
 
 impl ImportedSingleChoiceInput {
-    /// Creates the bounded trusted input to the native flat-question import.
+    /// Creates the bounded trusted input to the PLE flat-question import.
     pub fn new(
         title: String,
         prompt: String,
@@ -84,16 +84,16 @@ impl ImportedSingleChoiceInput {
 /// A validated canonical imported source with no direct document access.
 ///
 /// It exposes only canonical source bytes and the normal split compiler, so
-/// a caller cannot bypass native flat-question validation or defaults.
+/// a caller cannot bypass PLE flat-question validation or defaults.
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedFlatQuestion;
+/// use adapter_ple::flat_question::imported::ImportedFlatQuestion;
 /// fn needs_debug<T: std::fmt::Debug>() {}
 /// needs_debug::<ImportedFlatQuestion>();
 /// ```
 ///
 /// ```compile_fail
-/// use adapter_native::flat_question::imported::ImportedFlatQuestion;
+/// use adapter_ple::flat_question::imported::ImportedFlatQuestion;
 /// fn needs_serialize<T: serde::Serialize>() {}
 /// needs_serialize::<ImportedFlatQuestion>();
 /// ```
@@ -135,7 +135,7 @@ impl ImportedFlatQuestion {
     /// # Errors
     ///
     /// Refuses noncanonical points and any mapped field that does not satisfy
-    /// the native flat-question v2 validation contract.
+    /// the PLE flat-question v2 validation contract.
     pub fn from_imported(
         input: ImportedSingleChoiceInput,
     ) -> Result<Self, ImportedFlatQuestionError> {
@@ -166,11 +166,11 @@ impl ImportedFlatQuestion {
         Ok(Self { document })
     }
 
-    /// Returns the native canonical source bytes for immutable source storage.
+    /// Returns the PLE canonical source bytes for immutable source storage.
     ///
     /// # Errors
     ///
-    /// Propagates the native canonical serializer's encoding failure.
+    /// Propagates the PLE canonical serializer's encoding failure.
     pub fn canonical_bytes(&self) -> Result<Vec<u8>, FlatQuestionError> {
         self.document.canonical_bytes()
     }
@@ -179,13 +179,13 @@ impl ImportedFlatQuestion {
     ///
     /// # Errors
     ///
-    /// Propagates the authoritative native flat-question compiler failure.
+    /// Propagates the authoritative PLE flat-question compiler failure.
     pub fn compile_parts(
         &self,
         workspace: WorkspaceId,
     ) -> Result<
         (
-            DraftQuestionDefinition,
+            DraftQuestionRevision,
             grading::flat_question::FlatQuestionPrivate,
         ),
         FlatQuestionError,

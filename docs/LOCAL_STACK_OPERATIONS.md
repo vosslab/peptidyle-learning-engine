@@ -26,7 +26,7 @@ authority.
 PLE is one installation with global accounts. The authenticated server session
 derives `AuthenticatedSession { account_id, session_id }`. It then authorizes the exact
 course selected by the user from current membership rows. A route course ID,
-workspace ID, Question ID, object key, queue payload, or external-provider field
+workspace ID, Question ID, Object Address, queue payload, or external-provider field
 is only a lookup/input value; it cannot establish authority.
 
 | Data                          | Exact owner                                           | Local enforcement                         |

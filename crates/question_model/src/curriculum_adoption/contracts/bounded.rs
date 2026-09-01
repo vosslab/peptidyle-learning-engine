@@ -6,8 +6,8 @@ use serde::{Deserialize, Deserializer, de};
 
 use super::QuestionRevisionSubstitution;
 use crate::{
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionRevisionReference,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionRevisionReference,
 };
 
 pub(super) fn deserialize_bounded_vec<'de, D, T, const MAX: usize>(
@@ -56,7 +56,7 @@ pub(super) fn deserialize_replacement_question_revisions<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL>(deserializer)
+    deserialize_bounded_vec::<D, _, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY>(deserializer)
 }
 
 pub(super) fn deserialize_question_revision_substitutions<'de, D>(
@@ -65,7 +65,7 @@ pub(super) fn deserialize_question_revision_substitutions<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES>(deserializer)
+    deserialize_bounded_vec::<D, _, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS>(deserializer)
 }
 
 pub(super) fn deserialize_course_instance_corrections<'de, D>(

@@ -17,7 +17,7 @@ implementation only.
 The server derives `AuthenticatedSession { account_id, session_id }` from a valid global Authenticated Session. Each
 protected database transaction sets only the trusted, transaction-local `ple.session_account_id` value.
 Forced RLS accepts the resolved authenticated Account value for the operation.
-Routes, browser fields, queue payloads, object keys, and provider responses are evidence or input;
+Routes, browser fields, queue payloads, Object Addresses, and provider responses are evidence or input;
 they establish only their exact membership, workspace, course, or worker authority.
 
 ## Authority relationships
@@ -140,7 +140,7 @@ restores inherit the highest label of their inputs.
 | Course analysis                       | `course_assignment_analysis`, `assignment_item_analysis`, `course_analysis_evidence`                                                                                                               |
 | Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                          |
 | Course and attempt linkage            | `course_instance`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records |
-| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery_record`, `object_delivery_access_event`, `worker_job`                                                                   |
+| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery`, exact Object Delivery owner relationships, `object_delivery_access_event`, `worker_job`                               |
 | Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                               |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.

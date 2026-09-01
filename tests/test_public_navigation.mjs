@@ -11,7 +11,7 @@ import {
   parseQuestionRouteReference,
   parsePublicRouteReference,
   parseAssignmentAttemptReference,
-  parseWorkspaceReference,
+  parseAuthoringWorkspaceReference,
   questionRouteReference,
   assignmentAttemptRouteReference,
   authoringWorkspaceRouteReference,
@@ -42,7 +42,7 @@ test("human route references are compact, typed, and bounded", () => {
     [parseCourseInstanceReference, "C"],
     [parseAssignmentReference, "A"],
     [parseAssignmentAttemptReference, "R"],
-    [parseWorkspaceReference, "W"],
+    [parseAuthoringWorkspaceReference, "W"],
   ]) {
     assert.equal(parser(`${prefix}-1`), `${prefix}-1`);
     for (const rejected of [

@@ -60,25 +60,25 @@ CREATE TABLE ple_private.question_pool_selection (
     UNIQUE (assignment_attempt_id, assignment_entry_id)
 );
 
-CREATE TABLE ple_private.question_pool_selected_candidate (
+CREATE TABLE ple_private.question_pool_selected_item (
     question_pool_selection_id uuid NOT NULL REFERENCES ple_private.question_pool_selection (question_pool_selection_id),
-    question_pool_candidate_id uuid NOT NULL,
+    question_pool_item_id uuid NOT NULL,
     selection_position integer NOT NULL CHECK (selection_position >= 0),
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     PRIMARY KEY (question_pool_selection_id, selection_position),
-    UNIQUE (question_pool_selection_id, question_pool_candidate_id),
-    UNIQUE (question_pool_selection_id, question_pool_candidate_id, question_id, revision_number),
-    CONSTRAINT question_pool_selected_candidate_version_matches FOREIGN KEY (question_id, revision_number)
+    UNIQUE (question_pool_selection_id, question_pool_item_id),
+    UNIQUE (question_pool_selection_id, question_pool_item_id, question_id, revision_number),
+    CONSTRAINT question_pool_selected_item_version_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 
 ALTER TABLE ple_private.issued_question
     ADD COLUMN question_pool_selection_id uuid,
-    ADD COLUMN question_pool_candidate_id uuid,
+    ADD COLUMN question_pool_item_id uuid,
     ADD CONSTRAINT issued_question_pool_membership_is_complete CHECK (
-        (question_pool_selection_id IS NULL AND question_pool_candidate_id IS NULL)
-        OR (question_pool_selection_id IS NOT NULL AND question_pool_candidate_id IS NOT NULL)
+        (question_pool_selection_id IS NULL AND question_pool_item_id IS NULL)
+        OR (question_pool_selection_id IS NOT NULL AND question_pool_item_id IS NOT NULL)
     ),
     ADD CONSTRAINT issued_question_selection_matches_attempt_and_entry
         FOREIGN KEY (question_pool_selection_id, assignment_attempt_id, assignment_entry_id)
@@ -87,15 +87,15 @@ ALTER TABLE ple_private.issued_question
             assignment_attempt_id,
             assignment_entry_id
         ),
-    ADD CONSTRAINT issued_question_selection_candidate_matches_version
+    ADD CONSTRAINT issued_question_selection_entry_matches_version
         FOREIGN KEY (
             question_pool_selection_id,
-            question_pool_candidate_id,
+            question_pool_item_id,
             question_id,
             revision_number
-        ) REFERENCES ple_private.question_pool_selected_candidate (
+        ) REFERENCES ple_private.question_pool_selected_item (
             question_pool_selection_id,
-            question_pool_candidate_id,
+            question_pool_item_id,
             question_id,
             revision_number
         );
@@ -110,8 +110,8 @@ $$;
 CREATE TRIGGER question_pool_selection_is_immutable
 BEFORE UPDATE OR DELETE ON ple_private.question_pool_selection
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_pool_selection_change();
-CREATE TRIGGER question_pool_selected_candidate_is_immutable
-BEFORE UPDATE OR DELETE ON ple_private.question_pool_selected_candidate
+CREATE TRIGGER question_pool_selected_item_is_immutable
+BEFORE UPDATE OR DELETE ON ple_private.question_pool_selected_item
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_pool_selection_change();
 
 CREATE FUNCTION ple_private.validate_question_pool_selection_reuse()
@@ -143,7 +143,7 @@ CREATE TRIGGER question_pool_selection_reuse_has_exact_student_and_assignment_hi
 BEFORE INSERT ON ple_private.question_pool_selection
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selection_reuse();
 
-CREATE FUNCTION ple_private.validate_question_pool_selected_candidate_count()
+CREATE FUNCTION ple_private.validate_question_pool_selected_item_count()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 DECLARE
     target_selection_id uuid := COALESCE(
@@ -156,43 +156,43 @@ BEGIN
         WHERE selection.question_pool_selection_id = target_selection_id
           AND selection.selected_question_count <> (
               SELECT count(*)::integer
-              FROM ple_private.question_pool_selected_candidate AS candidate
-              WHERE candidate.question_pool_selection_id = target_selection_id
+              FROM ple_private.question_pool_selected_item AS item
+              WHERE item.question_pool_selection_id = target_selection_id
           )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Selection must retain its exact selected candidate count';
+            MESSAGE = 'Question Pool Selection must retain its exact selected Item count';
     END IF;
     RETURN NULL;
 END
 $$;
 
-CREATE CONSTRAINT TRIGGER question_pool_selection_has_exact_candidate_count
+CREATE CONSTRAINT TRIGGER question_pool_selection_has_exact_entry_count
 AFTER INSERT ON ple_private.question_pool_selection
 DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_candidate_count();
-CREATE CONSTRAINT TRIGGER question_pool_selected_candidate_count_matches_selection
-AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_pool_selected_candidate
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_count();
+CREATE CONSTRAINT TRIGGER question_pool_selected_item_count_matches_selection
+AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_pool_selected_item
 DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_candidate_count();
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_count();
 
 ALTER TABLE ple_private.question_pool_selection ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_pool_selection FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_pool_selected_candidate ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_pool_selected_candidate FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_pool_selected_item ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_pool_selected_item FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.question_pool_selection,
-    ple_private.question_pool_selected_candidate FROM PUBLIC;
+    ple_private.question_pool_selected_item FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.reject_question_pool_selection_change() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selection_reuse() FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_candidate_count() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_item_count() FROM PUBLIC;
 
 COMMENT ON TABLE ple_private.question_pool_selection IS
-    'Immutable selected Question Pool candidate set for one Assignment Attempt and Assignment Entry.';
+    'Immutable selected Question Pool Item set for one Assignment Attempt and Assignment Entry.';
 COMMENT ON COLUMN ple_private.question_pool_selection.reused_from_question_pool_selection_id IS
-    'Earlier same-Student Assignment Attempt Selection whose exact candidates this Selection retained.';
+    'Earlier same-Student Assignment Attempt Selection whose exact Items this Selection retained.';
 COMMENT ON COLUMN ple_private.question_pool_selection.selected_question_count IS
-    'Exact number of selected candidate rows, checked at transaction commit.';
-COMMENT ON TABLE ple_private.question_pool_selected_candidate IS
-    'Exact selected Question Pool candidate and Question Revision in immutable delivery order.';
+    'Exact number of selected Item rows, checked at transaction commit.';
+COMMENT ON TABLE ple_private.question_pool_selected_item IS
+    'Exact selected Question Pool Item and Question Revision in immutable delivery order.';
 
 RESET ROLE;

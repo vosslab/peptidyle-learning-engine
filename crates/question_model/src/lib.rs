@@ -40,8 +40,7 @@ pub mod curation;
 /// Normalized B2 reusable meaning, semantic digests, and target-term schedule resolution.
 pub mod curriculum_adoption;
 pub mod definition;
-/// Internal entitlement and materialization contracts. These types never
-/// cross the browser boundary.
+/// Answer-free Question Presentation contracts with server-held generator details.
 pub mod envelope;
 /// Private teaching material and policy-redacted browser feedback.
 pub mod feedback;
@@ -83,10 +82,10 @@ pub use crate::assignment::{
     BaseAssignmentPolicy, CourseLocalDateAndTime, CourseLocalDateAndTimeError,
     FixedQuestionAssignmentEntry, InstructorAssignmentCurrentState,
     InstructorAssignmentWorkingCopyDefinitionLocal, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
-    MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
-    QuestionPoolAssignmentEntry, QuestionPoolCandidate, QuestionPoolCandidateAvailability,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+    QuestionPoolAssignmentEntry, QuestionPoolItem, QuestionPoolItemAvailability,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
     derive_instructor_assignment_current_state,
 };
@@ -107,8 +106,10 @@ pub use crate::assignment_workspace::{
 };
 pub use crate::auth::{AccountId, AccountRole};
 pub use crate::blueprint_course::{
-    BlueprintAssignmentEditHandle, BlueprintAssignmentId, BlueprintChildIdError,
-    BlueprintCourseAccess, BlueprintCourseAssignmentDefinitionView,
+    BlueprintAssignmentDefaults, BlueprintAssignmentDefinitionInput,
+    BlueprintAssignmentDefinitionView, BlueprintAssignmentEditHandle,
+    BlueprintAssignmentEntryInput, BlueprintAssignmentEntryView, BlueprintAssignmentId,
+    BlueprintChildIdError, BlueprintCourseAccess, BlueprintCourseAssignmentDefinitionView,
     BlueprintCourseAssignmentReplacementInput, BlueprintCourseModuleReplacementInput,
     BlueprintCourseModuleView, BlueprintCourseSummaryView, BlueprintCourseTitleError,
     BlueprintCourseValidationError, BlueprintCourseView, BlueprintModuleEditHandle,
@@ -116,9 +117,7 @@ pub use crate::blueprint_course::{
     CreateBlueprintCourseModuleInput, LocalTimeOfDay, LocalTimeOfDayError,
     MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, RelativeAssignmentSchedule,
     RelativeAssignmentScheduleMoment, ReplaceBlueprintCourseDefinitionInput,
-    ReusableAssignmentDefaults, ReusableAssignmentDefinitionInput,
-    ReusableAssignmentDefinitionView, ReusableAssignmentEntryInput, ReusableAssignmentEntryView,
-    ReusableFixedQuestionInput, ReusablePoolCandidateView, ReusablePoolInput, ReusablePoolView,
+    ReusableFixedQuestionInput, ReusablePoolEntryView, ReusablePoolInput, ReusablePoolView,
     ReusableQuestionView, ReusableSelectionAvailability, validate_blueprint_course_title,
 };
 pub use crate::byline::{PublicAuthorName, PublicByline, PublicBylineError};
@@ -126,7 +125,7 @@ pub use crate::capability::{Capability, QuestionBackendCapabilities};
 pub use crate::course::{
     AssignmentEntrySummary, AssignmentOverview, AssignmentSummary, CourseMembershipRole,
     CourseSummary, FixedQuestionAssignmentEntrySummary, GradebookSummaryRow,
-    QuestionPoolAssignmentEntrySummary, QuestionPoolCandidateSummary, StudentAssignmentDelivery,
+    QuestionPoolAssignmentEntrySummary, QuestionPoolItemSummary, StudentAssignmentDelivery,
     StudentAssignmentDetail, StudentAssignmentLandingSummary, StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
@@ -154,12 +153,12 @@ pub use crate::curation::{
 };
 pub use crate::curriculum_adoption::*;
 pub use crate::definition::{
-    DraftQuestionDefinition, DraftQuestionSource, DraftSourcePublicationError,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionFormat, QuestionGradingRule, QuestionMetadata,
-    QuestionRevision, QuestionSource, QuestionSourceValidationError, QuestionTitleError,
+    DraftQuestionBackendLocator, DraftQuestionRevision, MAX_QUESTION_TITLE_UNICODE_SCALARS,
+    QuestionBackendLocator, QuestionBackendLocatorPreparationError, QuestionFormat,
+    QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
     WorkspaceDraftSummary, validate_question_title,
 };
-pub use crate::envelope::{QuestionPresentation, QuestionVariation};
+pub use crate::envelope::{QuestionVariation, QuestionVariationPresentation};
 pub use crate::feedback::{
     QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint,
     QuestionPostGradingContent, StudentFeedback, StudentResponseInspectionFeedback,
@@ -171,18 +170,20 @@ pub use crate::grading_operations::{
     StudentQuestionSubmissionGradingState,
 };
 pub use crate::identity::{
-    AssetId, ObjectId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
+    ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::pool_preview::{
     QuestionPoolPreview, QuestionPoolPreviewQuestion, QuestionPoolPreviewRequest,
 };
 pub use crate::presentation::{
-    IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentationResponseItemReference,
-    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    PresentedQuestionAsset, QuestionPresentationBinding, QuestionPresentationDigest,
-    QuestionPresentationNonce, QuestionPresentationToken, StudentAssignmentAttemptScreenAttemptV1,
-    StudentAssignmentAttemptScreenScopeV1, StudentAssignmentAttemptScreenV1,
-    StudentAttemptDescriptorV1,
+    PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
+    PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
+    PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
+    QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
+    QuestionPresentationDigest, QuestionPresentationNonce, QuestionPresentationResponseFormat,
+    QuestionPresentationToken, StudentAssignmentAttemptScreen,
+    StudentAssignmentAttemptScreenAttempt, StudentAssignmentAttemptScreenScope,
+    StudentAttemptDescriptor,
 };
 pub use crate::preview_plane::{
     ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
@@ -231,12 +232,13 @@ pub use crate::student_work::{
     AccommodationId, ActivityTimestamp, AssignmentAttempt, AssignmentAttemptCompletion,
     AssignmentAttemptId, AssignmentEntryId, AssignmentGrade, AssignmentId, AssignmentProgress,
     AssignmentProgressRecord, AssignmentProgressScoreState, CourseId, CourseMembershipId,
-    GradingResult, IssuedAttemptCapabilityV1, IssuedQuestion, IssuedQuestionId, QuestionAttempt,
+    GradingResult, IssuedAttemptCapability, IssuedQuestion, IssuedQuestionId, QuestionAttempt,
     QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionAttemptState,
-    QuestionAttemptTiming, QuestionBackendVersion, QuestionGraderVersion, QuestionPoolCandidateId,
-    QuestionPoolSelectedCandidate, QuestionPoolSelection, QuestionPoolSelectionId,
+    QuestionAttemptTiming, QuestionBackendVersion, QuestionGraderVersion, QuestionPoolItemId,
+    QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
     QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
-    QuestionSubmissionId, SourceObjectReference, StudentQuestionAttemptView, StudentRecordId,
+    QuestionSubmissionId, SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
+    StudentQuestionAttemptView, StudentRecordId,
 };
 pub use crate::teaching_authority::{
     CourseInvitation, CourseInvitationEvent, CourseInvitationEventKind, CourseInvitationId,

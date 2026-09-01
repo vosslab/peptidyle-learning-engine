@@ -231,7 +231,7 @@ edit, sharing, deletion, preview, and publication preparation.
 An author preview is an authorized Instructor workspace operation with
 `no-store`; it is not a Student delivery path. Its projection is answer-free
 and contains no key, private rubric, source package, provider credential,
-object key, signed URL, or draft-to-published identity shortcut. Drafts remain
+Object Address, signed URL, or draft-to-published identity shortcut. Drafts remain
 private until successful publication. Question Folders, Stars, Watches, and Saved Question
 Searches may be personal or explicitly shared without changing the Question Library
 visibility of any published question they reference.
@@ -340,7 +340,7 @@ enrollments, or identities.
 These DTOs never contain Student-linked data, accepted responses, grades,
 small-cell or linkable cohort data, answer keys, scoring rules, private grader
 payloads, source packages, provider credentials or identifiers, workspace
-identifiers, object keys, signed URLs, or arbitrary metadata. Presentation
+identifiers, Object Addresses, signed URLs, or arbitrary metadata. Presentation
 asset delivery has its own typed object authorization.
 
 ## Typed scopes for workers and objects
@@ -356,7 +356,7 @@ names, raw responses, answer keys, grades, object URLs, or authority claims.
 
 Object metadata and delivery likewise use exactly one typed scope: public
 Question Library presentation, private workspace, or course Student record. Browser
-markup names a logical `AssetId`; it never receives a bucket name, physical key,
+markup names a logical `QuestionAssetId`; it never receives a bucket name, physical key,
 source path, or signed URL. Public Question Library presentation assets may use immutable
 public delivery. Workspace and course-record objects require the current typed
 relationship, database registry binding, and retention fence. Protected

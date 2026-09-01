@@ -8,7 +8,7 @@
 
 use std::fmt::Write as _;
 
-use crate::generator::{NativeQuestionImplementation, NativeQuestionImplementationRelease};
+use crate::generator::{PleQuestionImplementation, PleQuestionImplementationRelease};
 use grading::AnswerKey;
 pub use grading::flat_question::{
     FlatQuestionError, FlatQuestionEvaluation, FlatQuestionPrivate,
@@ -16,9 +16,9 @@ pub use grading::flat_question::{
 };
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::classification::{License, QuestionClassification};
-use question_model::envelope::ContentBlock;
+use question_model::envelope::QuestionContentBlock;
 use question_model::{
-    DraftQuestionDefinition, QuestionFormat, QuestionRevision, QuestionType, WorkspaceId,
+    DraftQuestionRevision, QuestionFormat, QuestionRevision, QuestionType, WorkspaceId,
     capability::{Capability, QuestionBackendCapabilities},
 };
 use serde::{Deserialize, Serialize};
@@ -166,13 +166,13 @@ struct FlatOutcomeFeedback {
 
 /// Public draft plus its separately persisted server-only Answer Key and Question Feedback.
 pub struct CompiledFlatQuestion {
-    draft: DraftQuestionDefinition,
+    draft: DraftQuestionRevision,
     private: FlatQuestionPrivate,
 }
 
 impl CompiledFlatQuestion {
     /// Returns the answer-free canonical draft used by Question Library publication.
-    pub fn draft(&self) -> &DraftQuestionDefinition {
+    pub fn draft(&self) -> &DraftQuestionRevision {
         &self.draft
     }
 
@@ -182,7 +182,7 @@ impl CompiledFlatQuestion {
     }
 
     /// Transfers the split values to their separate persistence owners.
-    pub fn into_parts(self) -> (DraftQuestionDefinition, FlatQuestionPrivate) {
+    pub fn into_parts(self) -> (DraftQuestionRevision, FlatQuestionPrivate) {
         (self.draft, self.private)
     }
 }
@@ -191,7 +191,7 @@ impl CompiledFlatQuestion {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct FlatV2QuestionImplementation(QuestionType);
 
-impl NativeQuestionImplementation for FlatV2QuestionImplementation {
+impl PleQuestionImplementation for FlatV2QuestionImplementation {
     fn question_format(&self) -> QuestionFormat {
         QuestionFormat::PleFlatQuestionV2
     }
@@ -200,8 +200,8 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
         self.0
     }
 
-    fn implementation_release(&self) -> NativeQuestionImplementationRelease {
-        NativeQuestionImplementationRelease {
+    fn implementation_release(&self) -> PleQuestionImplementationRelease {
+        PleQuestionImplementationRelease {
             id: "ple-flat-question".to_string(),
             version: "2".to_string(),
         }
@@ -224,17 +224,19 @@ impl NativeQuestionImplementation for FlatV2QuestionImplementation {
         &self,
         question: &QuestionRevision,
         _generated: &domain::generator::QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, crate::NativeAdapterError> {
-        if !matches!(question.source, question_model::QuestionSource::Native)
-            || question.question_format != self.question_format()
+    ) -> Result<Option<AnswerKey>, crate::PleQuestionBackendError> {
+        if !matches!(
+            question.backend_locator,
+            question_model::QuestionBackendLocator::Ple
+        ) || question.question_format != self.question_format()
             || question.question_type != self.question_type()
         {
-            return Err(crate::NativeAdapterError::IncompatibleQuestionImplementation {
-                message: "PLE flat Question Implementation requires the matching native Question Format and Question Type".to_string(),
+            return Err(crate::PleQuestionBackendError::IncompatibleQuestionImplementation {
+                message: "PLE flat Question Implementation requires the matching PLE Question Format and Question Type".to_string(),
             });
         }
         validate_flat_question_question(question).map_err(|error| {
-            crate::NativeAdapterError::IncompatibleQuestionImplementation {
+            crate::PleQuestionBackendError::IncompatibleQuestionImplementation {
                 message: error.to_string(),
             }
         })?;
@@ -309,7 +311,7 @@ impl FlatQuestionDocument {
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,
-        asset: question_model::AssetId,
+        asset: question_model::QuestionAssetId,
     ) -> Result<Self, FlatQuestionError> {
         Ok(Self(self.0.with_hotspot_surface_asset(asset)?))
     }
@@ -319,8 +321,8 @@ impl FlatQuestionDocument {
     }
 }
 
-fn markdown_blocks(markdown: &str) -> Vec<ContentBlock> {
-    vec![ContentBlock::Text {
+fn markdown_blocks(markdown: &str) -> Vec<QuestionContentBlock> {
+    vec![QuestionContentBlock::Text {
         markdown: markdown.to_string(),
     }]
 }

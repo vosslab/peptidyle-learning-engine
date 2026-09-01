@@ -25,7 +25,7 @@ test("Questions save owns only the title and ordered public definition", () => {
         id: "item-1",
         questionId: "7K3-M9QP",
         title: "Peptide bond resonance",
-        backend: "native",
+        backend: "ple",
         capabilities: [],
         pointsPossible: "1",
         availability: "available",
@@ -64,7 +64,7 @@ test("draft creation recovery gives one safe actionable message", () => {
   const message = assignmentWorkspaceCreateErrorMessage();
   assert.equal(
     message,
-    "The assignment draft could not be created. Your title is still here. Try again.",
+    "The Assignment could not be created. Your title is still here. Try again.",
   );
   assert.equal(message.includes("/api/"), false);
 });

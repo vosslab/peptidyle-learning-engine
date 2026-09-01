@@ -27,7 +27,7 @@ import {
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 600_000;
-const nativeQuestionTitle = "Peptide bond resonance and planarity";
+const pleQuestionTitle = "Peptide bond resonance and planarity";
 const privateFolderQuestionTitle = "Biochemistry Chapter 1: Functional group matching";
 const concurrentFolderQuestionTitle = "Genetics Chapter 1: Phenylalanine metabolism";
 
@@ -303,7 +303,7 @@ test.describe("question curation on the production PLE stack", () => {
         );
         await captureLaptop(elena, scenarioInput, panel, workspaceArtifacts);
 
-        await elena.getByLabel("Search published questions").fill(nativeQuestionTitle);
+        await elena.getByLabel("Search published questions").fill(pleQuestionTitle);
         await panel.getByRole("button", { name: "Save current search", exact: true }).click();
         const savedSearch = panel
           .getByRole("heading", { name: "Save this current search", exact: true })
@@ -393,9 +393,7 @@ test.describe("question curation on the production PLE stack", () => {
         const createDraft = elena.locator('[data-route-surface="assignmentCreate"]');
         await expect(createDraft).toBeVisible();
         await createDraft.getByLabel("Assignment title").fill(assignmentTitle);
-        await createDraft
-          .getByRole("button", { name: "Create assignment draft", exact: true })
-          .click();
+        await createDraft.getByRole("button", { name: "Create Assignment", exact: true }).click();
         const workspace = elena.locator('[data-route-surface="assignmentWorkspace"]');
         await expect(
           workspace.getByRole("heading", { name: "Questions", exact: true }),
@@ -424,13 +422,13 @@ test.describe("question curation on the production PLE stack", () => {
         await selectQuestionInPicker(
           elena,
           "My Questions",
-          nativeQuestionTitle,
+          pleQuestionTitle,
           "Add selected candidates",
           async (picker) => {
             await captureLaptop(elena, scenarioInput, picker, pickerArtifacts);
           },
         );
-        await expect(secondPool).toContainText(nativeQuestionTitle);
+        await expect(secondPool).toContainText(pleQuestionTitle);
 
         await workspace
           .getByRole("button", { name: "Save questions and order", exact: true })
@@ -449,7 +447,7 @@ test.describe("question curation on the production PLE stack", () => {
         ).toBeVisible();
       });
 
-      await test.step("Mary claims the ordinary invitation and sees the saved reusable assignment as student work", async () => {
+      await test.step("Mary claims the ordinary invitation and sees the saved Blueprint Assignment as student work", async () => {
         expect(invitationUrl).not.toBe("");
         await chooseSeededIdentity(mary, /Mary Okafor/u);
         await mary.goto(invitationUrl);

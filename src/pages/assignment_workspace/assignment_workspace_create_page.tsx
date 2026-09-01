@@ -101,7 +101,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
       >
         <header class="assignment-workspace-header">
           <p class="eyebrow">New assignment</p>
-          <h1>Create an assignment draft</h1>
+          <h1>Create an Assignment</h1>
           <p class="page-lede">
             Start with a title. Questions and delivery policies have their own focused steps next.
           </p>
@@ -132,7 +132,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
           </p>
           <div class="assignment-editor-actions">
             <button class="primary-action" type="submit" disabled={state() === "saving"}>
-              {state() === "saving" ? "Creating assignment draft..." : "Create assignment draft"}
+              {state() === "saving" ? "Creating Assignment..." : "Create Assignment"}
             </button>
             <A class="quiet-link" href={`/courses/${courseReference()!}`}>
               Return to assignments

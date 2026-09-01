@@ -19,7 +19,7 @@ use crate::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
     QuestionVariationDefinition,
 };
-use crate::identity::AssetId;
+use crate::identity::QuestionAssetId;
 use crate::response::QuestionResponseFormat;
 
 /// A reference to a stored asset.
@@ -29,9 +29,9 @@ use crate::response::QuestionResponseFormat;
 /// what makes a cached render trustworthy.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetRef {
+pub struct QuestionAssetReference {
     /// Identifier of the stored object.
-    pub asset: AssetId,
+    pub asset: QuestionAssetId,
     /// Hex-encoded checksum computed when the asset was written.
     pub checksum: String,
 }
@@ -48,7 +48,7 @@ pub struct AssetRef {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum ContentBlock {
+pub enum QuestionContentBlock {
     /// Prose, in a restricted Markdown subset that the renderer sanitizes.
     Text {
         /// Markdown source.
@@ -64,7 +64,7 @@ pub enum ContentBlock {
     /// An image or figure.
     Image {
         /// The stored asset.
-        asset: AssetRef,
+        asset: QuestionAssetReference,
         /// Description of what the image conveys.
         description: String,
     },
@@ -144,7 +144,7 @@ impl QuestionVariation {
 /// One answer-free Question Presentation derived from a Question Variation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionPresentation {
+pub struct QuestionVariationPresentation {
     /// The exact reproducible variation this presentation renders.
     pub variation: QuestionVariation,
     /// A bounded student-facing title from published metadata or a safe imported
@@ -152,7 +152,7 @@ pub struct QuestionPresentation {
     /// material while letting the student identify the issued question.
     pub title: String,
     /// The prompt, in render order.
-    pub prompt: Vec<ContentBlock>,
+    pub prompt: Vec<QuestionContentBlock>,
     /// The shape of response this variant expects.
     pub response: QuestionResponseFormat,
 }
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn visual_blocks_carry_their_description() {
-        let block = ContentBlock::Math {
+        let block = QuestionContentBlock::Math {
             latex: r"\frac{1}{2}".to_string(),
             description: "one half".to_string(),
         };
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn blocks_serialize_with_a_discriminant() {
-        let block = ContentBlock::Text {
+        let block = QuestionContentBlock::Text {
             markdown: "Balance the equation.".to_string(),
         };
         let json = serde_json::to_string(&block).expect("serialization should succeed");

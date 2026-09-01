@@ -17,7 +17,7 @@ unchanged.
   composition and acceptance as the immediate remaining package. The local-file provider is a
   pre-deployment-only mode, not canonical account enrollment.
 - `docs/HUMAN_GUIDANCE.md:142-146` establishes eight v2 flat families. The current source confirms
-  all eight discriminants in `crates/adapters/native/src/flat_question/v2.rs:62-99`.
+  all eight discriminants in `crates/adapters/ple/src/flat_question/v2.rs:62-99`.
 
 ## Blocking contradictions
 

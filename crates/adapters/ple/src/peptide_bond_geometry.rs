@@ -1,4 +1,4 @@
-//! Reference native Question Implementation: peptide-bond resonance and planarity.
+//! Reference PLE Question Implementation: peptide-bond resonance and planarity.
 //!
 //! This implementation is deliberately small. Its job is to prove that a native
 //! question can generate a visible variant, reproduce the same envelope, and
@@ -12,21 +12,21 @@ use grading::AnswerKey;
 use question_model::answer::ResponseSelectionRule;
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::definition::QuestionGradingRule;
-use question_model::envelope::{ContentBlock, QuestionPresentation};
+use question_model::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use question_model::generation::QuestionGeneratorReference;
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionDefinition, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    DraftQuestionRevision, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
     QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision, QuestionType,
     StudentResponse,
 };
 
-use crate::NativeAdapterError;
+use crate::PleQuestionBackendError;
 use crate::generator::{
-    AuthorPresentationContent, NativeQuestionImplementation, NativeQuestionImplementationRelease,
+    AuthorPresentationContent, PleQuestionImplementation, PleQuestionImplementationRelease,
 };
 
-/// Stable native Question Implementation name.
+/// Stable PLE Question Implementation name.
 pub const IMPLEMENTATION_ID: &str = "peptide-bond-geometry";
 /// First release of [`IMPLEMENTATION_ID`].
 pub const IMPLEMENTATION_RELEASE: &str = "1";
@@ -44,17 +44,17 @@ const CORRECT_CHOICE_ID: &str = "amide";
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PeptideBondGeometryV1;
 
-impl NativeQuestionImplementation for PeptideBondGeometryV1 {
+impl PleQuestionImplementation for PeptideBondGeometryV1 {
     fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::NativeAlgorithmic
+        QuestionFormat::PleAlgorithmic
     }
 
     fn question_type(&self) -> QuestionType {
         QuestionType::MultipleChoice
     }
 
-    fn implementation_release(&self) -> NativeQuestionImplementationRelease {
-        NativeQuestionImplementationRelease {
+    fn implementation_release(&self) -> PleQuestionImplementationRelease {
+        PleQuestionImplementationRelease {
             id: IMPLEMENTATION_ID.to_string(),
             version: IMPLEMENTATION_RELEASE.to_string(),
         }
@@ -81,10 +81,10 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, NativeAdapterError> {
+    ) -> Result<Option<AnswerKey>, PleQuestionBackendError> {
         validate_question_shape(question)?;
         if !question.prompt.iter().any(|block| {
-            matches!(block, question_model::envelope::ContentBlock::Text { markdown } if markdown.contains("{{residue}}"))
+            matches!(block, question_model::envelope::QuestionContentBlock::Text { markdown } if markdown.contains("{{residue}}"))
         }) {
             return Err(invalid_definition(
                 "prompt must include the {{residue}} token so seeded variants are visible",
@@ -101,11 +101,11 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionPresentation,
+        envelope: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
-    ) -> Result<QuestionPostGradingContent, NativeAdapterError> {
+    ) -> Result<QuestionPostGradingContent, PleQuestionBackendError> {
         validate_question_shape(question)?;
         let _ = generated_residue(generated)?;
         // Require the same trusted key shape used by grading, but never expose
@@ -154,10 +154,10 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
             QuestionAnswer::new(correct_choice.body.clone()).ok_or_else(|| {
                 invalid_definition("correct choice must contain display-ready content")
             })?;
-        let question_answer_explanation = QuestionAnswerExplanation::new(vec![ContentBlock::Text {
+        let question_answer_explanation = QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
                 markdown: "In a peptide bond, resonance delocalizes the nitrogen lone pair into the carbonyl. The C-N bond therefore has partial double-bond character, which restricts rotation and keeps the peptide group approximately planar.".to_string(),
             }])
-            .expect("the native Question Answer Explanation has one text block");
+            .expect("the PLE Question Answer Explanation has one text block");
         Ok(QuestionPostGradingContent {
             question_feedback: Default::default(),
             question_answer: Some(question_answer),
@@ -169,25 +169,25 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionPresentation,
+        envelope: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
-    ) -> Result<Option<QuestionHint>, NativeAdapterError> {
+    ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
         validate_question_shape(question)?;
         let _ = (generated, envelope, answer_key);
-        Ok(QuestionHint::new(vec![ContentBlock::Text {
+        Ok(QuestionHint::new(vec![QuestionContentBlock::Text {
             markdown: "Compare the C-N bond to an ordinary single bond: ask whether nitrogen's lone pair can share electron density with the neighboring carbonyl.".to_string(),
         }]))
     }
 
     fn derive_author_presentation(
         &self,
-        question: &DraftQuestionDefinition,
+        question: &DraftQuestionRevision,
         generated: &QuestionVariationParameters,
-        _prompt: &[ContentBlock],
-    ) -> Result<Option<AuthorPresentationContent>, NativeAdapterError> {
+        _prompt: &[QuestionContentBlock],
+    ) -> Result<Option<AuthorPresentationContent>, PleQuestionBackendError> {
         validate_draft_shape(question)?;
         if !question.prompt.iter().any(|block| {
-            matches!(block, ContentBlock::Text { markdown } if markdown.contains("{{residue}}"))
+            matches!(block, QuestionContentBlock::Text { markdown } if markdown.contains("{{residue}}"))
         }) {
             return Err(invalid_definition(
                 "prompt must include the {{residue}} token so seeded variants are visible",
@@ -205,25 +205,25 @@ impl NativeQuestionImplementation for PeptideBondGeometryV1 {
             })?;
         Ok(Some(AuthorPresentationContent {
             question_answer: correct_choice.body.clone(),
-            question_answer_explanation: Some(vec![ContentBlock::Text {
+            question_answer_explanation: Some(vec![QuestionContentBlock::Text {
                 markdown: "In a peptide bond, resonance delocalizes the nitrogen lone pair into the carbonyl. The C-N bond therefore has partial double-bond character, which restricts rotation and keeps the peptide group approximately planar.".to_string(),
             }]),
         }))
     }
 }
 
-fn validate_question_shape(question: &QuestionRevision) -> Result<(), NativeAdapterError> {
+fn validate_question_shape(question: &QuestionRevision) -> Result<(), PleQuestionBackendError> {
     validate_response_and_grading(&question.response, &question.grading)
 }
 
-fn validate_draft_shape(question: &DraftQuestionDefinition) -> Result<(), NativeAdapterError> {
+fn validate_draft_shape(question: &DraftQuestionRevision) -> Result<(), PleQuestionBackendError> {
     validate_response_and_grading(&question.response, &question.grading)
 }
 
 fn validate_response_and_grading(
     response: &QuestionResponseFormat,
     grading: &QuestionGradingRule,
-) -> Result<(), NativeAdapterError> {
+) -> Result<(), PleQuestionBackendError> {
     let QuestionResponseFormat::MultipleChoice { choices, selection } = response else {
         return Err(invalid_definition(
             "response must be a multiple-choice definition",
@@ -250,7 +250,9 @@ fn validate_response_and_grading(
     Ok(())
 }
 
-fn generated_residue(generated: &QuestionVariationParameters) -> Result<&str, NativeAdapterError> {
+fn generated_residue(
+    generated: &QuestionVariationParameters,
+) -> Result<&str, PleQuestionBackendError> {
     let Some(QuestionVariationParameterValue::Choice { value }) =
         generated.parameters.get(RESIDUE_PARAMETER)
     else {
@@ -266,8 +268,8 @@ fn generated_residue(generated: &QuestionVariationParameters) -> Result<&str, Na
     Ok(value)
 }
 
-fn invalid_definition(message: &str) -> NativeAdapterError {
-    NativeAdapterError::IncompatibleQuestionImplementation {
+fn invalid_definition(message: &str) -> PleQuestionBackendError {
+    PleQuestionBackendError::IncompatibleQuestionImplementation {
         message: message.to_string(),
     }
 }

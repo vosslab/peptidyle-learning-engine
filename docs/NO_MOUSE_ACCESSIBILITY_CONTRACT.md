@@ -89,7 +89,7 @@ native radio controls supply the behavior.
 | Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content      | Main content is focused and named                               |
 | Choose a course       | Tab reaches the course link; Enter opens it                                                        | Route content loads and main receives focus                     |
 | Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                       | Assignment title and action are available                       |
-| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and response control appear                    |
+| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and Question Response Control appear           |
 | Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                  | No interactive content is skipped or inserted out of order      |
 | Answer                | The family-specific contract below works without a pointer                                         | The selected or entered response is visibly represented         |
 | Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available                |

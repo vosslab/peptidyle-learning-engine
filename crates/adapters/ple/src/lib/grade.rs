@@ -5,10 +5,10 @@ use question_model::{
     StudentResponse,
 };
 
-use crate::reproduction::{resolve_asset_objects, verify_record};
-use crate::{AssetObjectBinding, NativeAdapter, NativeAdapterError};
+use crate::reproduction::{resolve_question_asset_objects, verify_record};
+use crate::{PleQuestionBackend, PleQuestionBackendError, QuestionAssetObjectReference};
 
-impl NativeAdapter {
+impl PleQuestionBackend {
     /// Reproduces and verifies an issued Question before providing pre-response support.
     ///
     /// This is intentionally separate from grading: a Question Hint is requested
@@ -20,8 +20,8 @@ impl NativeAdapter {
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
-        asset_bindings: &[AssetObjectBinding],
-    ) -> Result<Option<QuestionHint>, NativeAdapterError> {
+        question_asset_object_references: &[QuestionAssetObjectReference],
+    ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
         let backend_execution =
             self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let prepared = self.prepare_with_execution(question, seed, backend_execution)?;
@@ -29,7 +29,7 @@ impl NativeAdapter {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
+            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
         )?;
         let implementation =
             self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
@@ -51,9 +51,9 @@ impl NativeAdapter {
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
-        asset_bindings: &[AssetObjectBinding],
+        question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
-    ) -> Result<QuestionGradingOutcome, NativeAdapterError> {
+    ) -> Result<QuestionGradingOutcome, PleQuestionBackendError> {
         let backend_execution =
             self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
@@ -62,7 +62,7 @@ impl NativeAdapter {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
+            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
         )?;
         grader_execution
             .grade(
@@ -70,7 +70,7 @@ impl NativeAdapter {
                 response,
                 prepared.materialized.answer_key.as_ref(),
             )
-            .map_err(NativeAdapterError::Grading)
+            .map_err(PleQuestionBackendError::Grading)
     }
 
     /// Reproduces, verifies, grades, and materializes private teaching content in one pass.
@@ -83,9 +83,9 @@ impl NativeAdapter {
         seed: QuestionSeed,
         recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
-        asset_bindings: &[AssetObjectBinding],
+        question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
-    ) -> Result<(QuestionGradingOutcome, QuestionPostGradingContent), NativeAdapterError> {
+    ) -> Result<(QuestionGradingOutcome, QuestionPostGradingContent), PleQuestionBackendError> {
         let backend_execution =
             self.backend_execution_for(&recorded_reproduction_details.backend)?;
         let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
@@ -94,7 +94,7 @@ impl NativeAdapter {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_asset_objects(&prepared.envelope, asset_bindings)?,
+            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
         )?;
         let outcome = grader_execution
             .grade(
@@ -102,7 +102,7 @@ impl NativeAdapter {
                 response,
                 prepared.materialized.answer_key.as_ref(),
             )
-            .map_err(NativeAdapterError::Grading)?;
+            .map_err(PleQuestionBackendError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = &outcome else {
             return Ok((outcome, QuestionPostGradingContent::default()));
         };

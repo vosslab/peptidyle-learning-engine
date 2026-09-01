@@ -127,7 +127,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "assignmentCreate",
     path: "/instructor/courses/:courseRef/assignments/new",
-    surface: "Create persisted assignment draft and enter Questions",
+    surface: "Create persisted Assignment Working Copy and enter Questions",
     requiredRoles: ["instructor"],
   },
   {

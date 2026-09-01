@@ -202,9 +202,9 @@ async function createPublishedCourseAssignment(
 
   await openCourseAssignments(page);
   await page.getByRole("link", { name: "Create the first assignment" }).click();
-  await expect(page.getByRole("heading", { name: "Create an assignment draft" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create an Assignment" })).toBeVisible();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByRole("button", { name: "Create assignment draft", exact: true }).click();
+  await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await page.getByLabel("Question IDs").fill(questionId);
   await page.getByRole("button", { name: "Check Question ID", exact: true }).click();

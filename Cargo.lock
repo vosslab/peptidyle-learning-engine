@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "adapter_native"
+name = "adapter_ple"
 version = "26.8.0"
 dependencies = [
  "domain",
@@ -1981,7 +1981,7 @@ name = "learning-data-access"
 version = "26.8.0"
 dependencies = [
  "acceptance-runtime",
- "adapter_native",
+ "adapter_ple",
  "async-trait",
  "base64 0.23.1",
  "bigdecimal",
@@ -2534,7 +2534,7 @@ name = "project-tools"
 version = "26.8.0"
 dependencies = [
  "acceptance-runtime",
- "adapter_native",
+ "adapter_ple",
  "adapter_webwork",
  "anyhow",
  "async-trait",
@@ -3088,7 +3088,7 @@ version = "26.8.0"
 dependencies = [
  "acceptance-runtime",
  "adapter_imathas",
- "adapter_native",
+ "adapter_ple",
  "adapter_qti",
  "adapter_webwork",
  "anyhow",

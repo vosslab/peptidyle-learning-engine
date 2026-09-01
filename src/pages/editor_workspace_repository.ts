@@ -1,6 +1,6 @@
 // editor_workspace_repository.ts - live CRUD adapter for private, unversioned workspace drafts.
 
-import type { DraftQuestionDefinition } from "../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { ApiClient } from "../api/client";
 import { PublicationValidationError, WorkspaceConflictError } from "../api/http_client";
@@ -18,15 +18,15 @@ import type {
 } from "./editor_instructor_preview";
 
 interface LoadedDraft {
-  readonly definition: DraftQuestionDefinition;
+  readonly definition: DraftQuestionRevision;
   readonly revision: string;
 }
 
-function editorDraft(definition: DraftQuestionDefinition): EditorDraft {
+function editorDraft(definition: DraftQuestionRevision): EditorDraft {
   return {
     workspace: definition.workspace,
     title: definition.metadata.title,
-    source: definition.source,
+    backendLocator: definition.backendLocator,
     prompt: definition.prompt,
     response: definition.response,
     questionAttemptLimit: definition.questionAttemptLimit,
@@ -36,15 +36,15 @@ function editorDraft(definition: DraftQuestionDefinition): EditorDraft {
 }
 
 function updateDefinition(
-  existing: DraftQuestionDefinition,
+  existing: DraftQuestionRevision,
   draft: EditorDraft,
-): DraftQuestionDefinition {
+): DraftQuestionRevision {
   if (existing.workspace !== draft.workspace) {
     throw new Error("Workspace identity cannot change while editing a draft");
   }
   return {
     ...existing,
-    source: draft.source,
+    backendLocator: draft.backendLocator,
     prompt: [...draft.prompt],
     response: draft.response,
     questionAttemptLimit: draft.questionAttemptLimit,
@@ -115,7 +115,7 @@ export function createWorkspaceEditorRepository(
       _required,
     ): Promise<ReadonlyArray<DraftCapabilityViolation>> => {
       const validation = await client.validateWorkspacePublication(draft.workspace);
-      if (validation.kind === "readinessFailure") {
+      if (validation.kind === "questionPublicationValidationUnavailable") {
         throw new Error(validation.message);
       }
       return validation.violations;

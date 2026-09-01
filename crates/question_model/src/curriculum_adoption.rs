@@ -11,12 +11,12 @@ use sha2::{Digest, Sha256};
 use crate::{
     ActivityTimestamp, AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue,
     AssignmentTitle, AssignmentWorkingCopyDefinitionField,
-    AssignmentWorkingCopyDefinitionLocalError, BaseAssignmentPolicy,
+    AssignmentWorkingCopyDefinitionLocalError, BaseAssignmentPolicy, BlueprintAssignmentDefaults,
     BlueprintCourseValidationError, CourseInstanceReference, CourseLocalDateAndTime, CourseTerm,
-    CourseTimeZone, LocalTimeOfDay, MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES,
+    CourseTimeZone, LocalTimeOfDay, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
     QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
-    ReusableAssignmentDefaults, validate_blueprint_course_title,
+    validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -78,22 +78,22 @@ impl BlueprintRevisionContent {
     }
 }
 
-/// One validated reusable assignment with trusted immutable question pins.
+/// One validated Blueprint Assignment with trusted immutable question pins.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintAssignmentContent {
     title: AssignmentTitle,
     instructions: AssignmentInstructions,
     entries: Vec<BlueprintAssignmentEntryContent>,
-    defaults: ReusableAssignmentDefaults,
+    defaults: BlueprintAssignmentDefaults,
     schedule: RelativeAssignmentSchedule,
 }
 impl BlueprintAssignmentContent {
-    /// Validates all reusable assignment meaning before constructing a baseline.
+    /// Validates all Blueprint Assignment meaning before constructing a baseline.
     pub fn new(
         title: AssignmentTitle,
         instructions: AssignmentInstructions,
         entries: Vec<BlueprintAssignmentEntryContent>,
-        defaults: ReusableAssignmentDefaults,
+        defaults: BlueprintAssignmentDefaults,
         schedule: RelativeAssignmentSchedule,
     ) -> Result<Self, BlueprintCourseValidationError> {
         if entries.is_empty() || entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
@@ -104,16 +104,16 @@ impl BlueprintAssignmentContent {
         let total = entries
             .iter()
             .filter_map(|entry| match entry {
-                BlueprintAssignmentEntryContent::Pool(pool) => Some(pool.candidates.len()),
+                BlueprintAssignmentEntryContent::Pool(pool) => Some(pool.entries.len()),
                 _ => None,
             })
             .try_fold(0_usize, |total, value| {
                 total
                     .checked_add(value)
-                    .ok_or(BlueprintCourseValidationError::TooManyPoolCandidates)
+                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)
             })?;
-        if total > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES {
-            return Err(BlueprintCourseValidationError::TooManyPoolCandidates);
+        if total > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS {
+            return Err(BlueprintCourseValidationError::TooManyQuestionPoolEntries);
         }
         Ok(Self {
             title,
@@ -123,7 +123,7 @@ impl BlueprintAssignmentContent {
             schedule,
         })
     }
-    /// Returns the reusable assignment title.
+    /// Returns the Blueprint Assignment title.
     pub fn title(&self) -> &str {
         self.title.as_str()
     }
@@ -132,7 +132,7 @@ impl BlueprintAssignmentContent {
         &self.instructions
     }
     /// Returns the validated reusable policy defaults.
-    pub fn defaults(&self) -> &ReusableAssignmentDefaults {
+    pub fn defaults(&self) -> &BlueprintAssignmentDefaults {
         &self.defaults
     }
     /// Returns fixed questions and pools in meaningful authored order.
@@ -168,7 +168,7 @@ impl BlueprintCourseModuleContent {
     pub fn label(&self) -> &str {
         &self.label
     }
-    /// Returns reusable assignments in meaningful authored order.
+    /// Returns Blueprint Assignments in meaningful authored order.
     pub fn assignments(&self) -> &[BlueprintAssignmentContent] {
         &self.assignments
     }
@@ -221,7 +221,7 @@ pub enum BlueprintAssignmentEntryContent {
 /// One validated ordered pool of exact immutable publication pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    candidates: Vec<QuestionRevisionReference>,
+    entries: Vec<QuestionRevisionReference>,
     selection_count: u32,
     points_per_item: AssignmentPointValue,
     scoring_rule: AssignmentEntryScoringRule,
@@ -230,34 +230,34 @@ pub struct BlueprintQuestionPoolContent {
 impl BlueprintQuestionPoolContent {
     /// Validates pool cardinality, uniqueness, and selection bounds.
     pub fn new(
-        candidates: Vec<QuestionRevisionReference>,
+        entries: Vec<QuestionRevisionReference>,
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if candidates.is_empty() || candidates.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL {
-            return Err(BlueprintCourseValidationError::InvalidPoolCandidates);
+        if entries.is_empty() || entries.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
+            return Err(BlueprintCourseValidationError::InvalidQuestionPoolEntries);
         }
-        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(candidates.len()) {
+        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(entries.len()) {
             return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
-        if candidates.iter().collect::<BTreeSet<_>>().len() != candidates.len() {
-            return Err(BlueprintCourseValidationError::DuplicatePoolCandidate);
+        if entries.iter().collect::<BTreeSet<_>>().len() != entries.len() {
+            return Err(BlueprintCourseValidationError::DuplicateQuestionPoolEntry);
         }
         Ok(Self {
-            candidates,
+            entries,
             selection_count,
             points_per_item,
             scoring_rule,
             selection_rule,
         })
     }
-    /// Returns candidate pins in meaningful authored order.
-    pub fn candidates(&self) -> &[QuestionRevisionReference] {
-        &self.candidates
+    /// Returns Question Pool Entry pins in meaningful authored order.
+    pub fn entries(&self) -> &[QuestionRevisionReference] {
+        &self.entries
     }
-    /// Returns the number of candidates selected for one run.
+    /// Returns the number of Question Pool Entries selected for one Assignment Attempt.
     pub fn selection_count(&self) -> u32 {
         self.selection_count
     }
@@ -356,7 +356,7 @@ struct CanonicalAssignment<'a> {
     title: &'a str,
     instructions: &'a AssignmentInstructions,
     entries: Vec<CanonicalEntry<'a>>,
-    defaults: &'a ReusableAssignmentDefaults,
+    defaults: &'a BlueprintAssignmentDefaults,
     schedule: &'a RelativeAssignmentSchedule,
 }
 
@@ -369,7 +369,7 @@ enum CanonicalEntry<'a> {
         scoring_rule: AssignmentEntryScoringRule,
     },
     Pool {
-        candidates: &'a [QuestionRevisionReference],
+        entries: &'a [QuestionRevisionReference],
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
@@ -427,7 +427,7 @@ fn canonical_assignment(assignment: &BlueprintAssignmentContent) -> CanonicalAss
                     scoring_rule: *scoring_rule,
                 },
                 BlueprintAssignmentEntryContent::Pool(pool) => CanonicalEntry::Pool {
-                    candidates: &pool.candidates,
+                    entries: &pool.entries,
                     selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,

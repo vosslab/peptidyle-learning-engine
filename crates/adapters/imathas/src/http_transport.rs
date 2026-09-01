@@ -240,7 +240,7 @@ struct HandleResponse {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RenderResponse {
     title: String,
-    prompt: Vec<question_model::envelope::ContentBlock>,
+    prompt: Vec<question_model::envelope::QuestionContentBlock>,
 }
 
 #[async_trait]
@@ -484,9 +484,9 @@ mod tests {
         });
         (fixture, format!("http://{address}/"))
     }
-    fn locator() -> crate::ImathasDraftQuestionSource {
-        crate::ImathasDraftQuestionSource::from_draft(
-            &question_model::DraftQuestionSource::Imathas {
+    fn locator() -> crate::ImathasQuestionLocation {
+        crate::ImathasQuestionLocation::from_draft_backend_locator(
+            &question_model::DraftQuestionBackendLocator::Imathas {
                 provider: "self-hosted-imathas".into(),
                 item_ref: "17".into(),
             },

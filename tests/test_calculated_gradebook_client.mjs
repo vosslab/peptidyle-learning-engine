@@ -36,6 +36,40 @@ function selectedStudent(assignment = "A-2") {
   };
 }
 
+function issuedPresentationEvidence() {
+  return {
+    kind: "issuedPresentation",
+    presentation: {
+      envelope: {
+        questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
+        seed: 42,
+        presentationNonce: "11111111111111111111111111111111",
+        title: "Peptide bond",
+        prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],
+        response: {
+          kind: "singleChoice",
+          choices: [
+            { id: "cfdf", body: [{ kind: "text", markdown: "Amino group" }] },
+            { id: "6603", body: [{ kind: "text", markdown: "Carboxyl group" }] },
+          ],
+        },
+      },
+      questionAssetRenditions: [
+        {
+          questionAsset: {
+            asset: "0198e000-0000-7000-8000-000000000010",
+            checksum: "a".repeat(64),
+          },
+          renditionChecksum: "b".repeat(64),
+          intrinsicWidth: 800,
+          intrinsicHeight: 600,
+        },
+      ],
+    },
+    issuedPresentationDigest: "c".repeat(64),
+  };
+}
+
 function inspectedDetail(returnContext = "gradingOperation", membership = "M-1") {
   const common = {
     course: "C-1",
@@ -65,7 +99,16 @@ function inspectedDetail(returnContext = "gradingOperation", membership = "M-1")
     run: "R-3",
     studentDisplayLabel: "Ada Student",
     assignmentTitle: "Peptide Bonds: Guided Practice",
-    submissions: [],
+    submissions: [
+      {
+        submittedAt: 1_700_000_000_000,
+        evidence: issuedPresentationEvidence(),
+        scoringGeneration: 1,
+        feedback: {},
+        response: { kind: "multipleChoice", selected: [] },
+        assignmentScoringState: "current",
+      },
+    ],
     returnContext: context,
   };
 }
@@ -158,6 +201,10 @@ test("inspection decoder keeps required presentation labels outside its return i
   const decoded = decodeInspectedStudentWorkDetail(inspectedDetail());
   assert.equal(decoded.studentDisplayLabel, "Ada Student");
   assert.equal(decoded.assignmentTitle, "Peptide Bonds: Guided Practice");
+  assert.equal(
+    decoded.submissions[0].evidence.questionAssetRenditions[0].questionAsset.asset,
+    "0198e000-0000-7000-8000-000000000010",
+  );
   assert.equal(
     decodeInspectedStudentWorkDetail(inspectedDetail("gradebook")).returnContext.kind,
     "gradebook",

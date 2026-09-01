@@ -15,7 +15,7 @@ type BrowserQuestionAttempt = Omit<
 
 type BrowserIssuedQuestion = Omit<
   (typeof fixtureSet.issuedQuestions)[number],
-  "pointValue" | "scoringRule" | "questionPoolSelection" | "questionPoolCandidate"
+  "pointValue" | "scoringRule" | "questionPoolSelection" | "questionPoolEntry"
 >;
 
 function browserQuestionAttempt(
@@ -36,7 +36,7 @@ function browserIssuedQuestion(
     pointValue: _pointValue,
     scoringRule: _scoringRule,
     questionPoolSelection: _questionPoolSelection,
-    questionPoolCandidate: _questionPoolCandidate,
+    questionPoolEntry: _questionPoolEntry,
     ...browserSafeIssuedQuestion
   } = issuedQuestion;
   return browserSafeIssuedQuestion;

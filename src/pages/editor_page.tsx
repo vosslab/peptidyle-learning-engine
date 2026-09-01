@@ -3,7 +3,7 @@
 import { ErrorBoundary, For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import type { Capability } from "../../generated/api/Capability";
-import type { ContentBlock } from "../../generated/api/ContentBlock";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { PublicByline } from "../../generated/api/PublicByline";
@@ -103,7 +103,7 @@ function firstTextPrompt(draft: EditorDraft): string {
 /** This compact field edits only the first prose block; diagrams, math, code, and tables persist. */
 export function replaceFirstTextPrompt(draft: EditorDraft, markdown: string): EditorDraft {
   const index = draft.prompt.findIndex((candidate) => candidate.kind === "text");
-  const prompt: ReadonlyArray<ContentBlock> =
+  const prompt: ReadonlyArray<QuestionContentBlock> =
     index === -1
       ? [{ kind: "text", markdown }, ...draft.prompt]
       : draft.prompt.map((block, candidateIndex) =>
@@ -157,7 +157,9 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     [],
   );
   const [violations, setViolations] = createSignal<ReadonlyArray<DraftCapabilityViolation>>([]);
-  const [publicationReadiness, setPublicationReadiness] = createSignal<string | null>(null);
+  const [publicationValidationMessage, setPublicationValidationMessage] = createSignal<
+    string | null
+  >(null);
   const [saveMessage, setSaveMessage] = createSignal<string | null>(null);
   const [publicationByline, setPublicationByline] = createSignal("");
   const [staleConflict, setStaleConflict] = createSignal(false);
@@ -233,7 +235,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     setInstructorPreview({ kind: "idle" });
     setPublish({ kind: "idle" });
     setSaveMessage(null);
-    setPublicationReadiness(null);
+    setPublicationValidationMessage(null);
   }
 
   async function load(workspace = props.initialWorkspace): Promise<void> {
@@ -378,12 +380,12 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     if (current === undefined) return;
     try {
       setViolations(await props.repository.validateCapabilities(current.draft, next));
-      setPublicationReadiness(null);
+      setPublicationValidationMessage(null);
     } catch (error: unknown) {
-      setPublicationReadiness(
+      setPublicationValidationMessage(
         error instanceof Error
           ? error.message
-          : "Publication readiness could not be checked. Existing capability guidance is still shown.",
+          : "Question Publication Validation could not be checked. Existing capability guidance is still shown.",
       );
     }
   }
@@ -406,7 +408,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         requiredCapabilities(),
       );
       setViolations(nextViolations);
-      setPublicationReadiness(null);
+      setPublicationValidationMessage(null);
       if (nextViolations.length > 0) {
         setPublish({
           kind: "error",
@@ -422,7 +424,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     } catch (error: unknown) {
       const isConflict = error instanceof WorkspaceConflictError;
       setStaleConflict(isConflict);
-      if (!isConflict) setPublicationReadiness(error instanceof Error ? error.message : null);
+      if (!isConflict)
+        setPublicationValidationMessage(error instanceof Error ? error.message : null);
       setPublish({
         kind: "error",
         message: isConflict
@@ -629,7 +632,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                       >
                         <strong>{draft.title}</strong>
                         <br />
-                        <small>{draft.sourceBackend} workspace draft</small>
+                        <small>{draft.questionBackend} workspace draft</small>
                       </button>
                     </li>
                   )}
@@ -731,9 +734,9 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                     </p>
                   )}
                 </For>
-                <Show when={publicationReadiness()}>
+                <Show when={publicationValidationMessage()}>
                   <p class="inline-error" role="alert">
-                    Publication readiness: {publicationReadiness()}
+                    Question Publication Validation: {publicationValidationMessage()}
                   </p>
                 </Show>
               </section>

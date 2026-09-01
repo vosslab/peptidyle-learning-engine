@@ -8,8 +8,8 @@ use super::bounded::{
     deserialize_question_revision_substitutions, deserialize_replacement_question_revisions,
 };
 use crate::{
-    MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES, QuestionRevisionReference,
+    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionRevisionReference,
 };
 
 /// Exact bounded position of one Question Revision in Blueprint Revision Content.
@@ -54,7 +54,7 @@ impl BlueprintQuestionPosition {
     ) -> Result<Self, BlueprintQuestionPositionError> {
         let bound = u16::try_from(MAX_ASSIGNMENT_ORDERED_ENTRIES)
             .expect("assignment position bound fits u16");
-        let candidate_bound = u16::try_from(MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL)
+        let candidate_bound = u16::try_from(MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY)
             .expect("candidate position bound fits u16");
         if assignment_index >= bound
             || entry_index >= bound
@@ -134,7 +134,7 @@ impl QuestionRevisionSubstitutions {
     pub fn new(
         mut values: Vec<QuestionRevisionSubstitution>,
     ) -> Result<Self, QuestionRevisionSubstitutionsError> {
-        if values.len() > MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES {
+        if values.len() > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS {
             return Err(QuestionRevisionSubstitutionsError);
         }
         values.sort_unstable_by_key(|value| value.position);
@@ -199,7 +199,7 @@ impl ReplacementQuestionRevisionChoices {
     pub fn new(
         values: Vec<QuestionRevisionReference>,
     ) -> Result<Self, ReplacementQuestionRevisionChoicesError> {
-        if values.is_empty() || values.len() > MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL {
+        if values.is_empty() || values.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
             return Err(ReplacementQuestionRevisionChoicesError);
         }
         if values.iter().collect::<BTreeSet<_>>().len() != values.len() {

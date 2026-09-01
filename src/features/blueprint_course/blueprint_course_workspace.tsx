@@ -249,7 +249,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
         kind: "status",
         text:
           result.blueprintCourse.access === "owner"
-            ? "Blueprint Course loaded. Update its reusable assignments deliberately."
+            ? "Blueprint Course loaded. Update its Blueprint Assignments deliberately."
             : "Blueprint Course loaded. Inspect its answer-free reusable structure.",
       });
     } catch (error: unknown) {
@@ -272,7 +272,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
   function changeAssignment(
     moduleIndex: number,
     assignmentIndex: number,
-    definition: import("../../../generated/api/ReusableAssignmentDefinitionInput").ReusableAssignmentDefinitionInput,
+    definition: import("../../../generated/api/BlueprintAssignmentDefinitionInput").BlueprintAssignmentDefinitionInput,
     text: string,
   ): void {
     const loaded = current();

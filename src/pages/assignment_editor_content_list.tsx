@@ -17,7 +17,7 @@ export interface AssignmentEditorContentListProps {
   readonly createMode: boolean;
   readonly busy: boolean;
   readonly preview: QuestionPoolPreview | undefined;
-  readonly resolveCandidates: (
+  readonly resolveEntries: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
@@ -27,7 +27,7 @@ export interface AssignmentEditorContentListProps {
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
   readonly onPreviewPool: (assignmentEntryId: string) => void;
-  readonly onChoosePoolCandidates: (entryIndex: number, trigger: HTMLButtonElement) => void;
+  readonly onChoosePoolEntries: (entryIndex: number, trigger: HTMLButtonElement) => void;
 }
 
 export function AssignmentEditorContentList(props: AssignmentEditorContentListProps): JSX.Element {
@@ -38,7 +38,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           entry={entry}
           entryIndex={entryIndex}
           entryCount={props.entries.length}
-          resolveCandidates={props.resolveCandidates}
+          resolveEntries={props.resolveEntries}
           onChange={(nextEntry) => props.onPoolChange(entryIndex, nextEntry)}
           onMove={(direction) => props.onMove(entryIndex, direction)}
           onRemove={() => props.onRemovePool(entryIndex)}
@@ -48,7 +48,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           onPreview={() => {
             if (entry.id !== undefined) props.onPreviewPool(entry.id);
           }}
-          onChooseCandidates={(trigger) => props.onChoosePoolCandidates(entryIndex, trigger)}
+          onChooseEntries={(trigger) => props.onChoosePoolEntries(entryIndex, trigger)}
         />
       );
     }

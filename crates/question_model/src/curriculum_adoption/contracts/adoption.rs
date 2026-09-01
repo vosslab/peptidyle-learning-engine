@@ -69,18 +69,40 @@ impl BlueprintForkReservation {
     }
 }
 
-/// Closed server decision that allows a Blueprint operation to proceed.
+/// Closed server decision that allows a Blueprint Course fork to proceed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintOperationReadiness {
+pub enum ForkBlueprintCourseReadiness {
     Ready,
-    Blocked { blocker: BlueprintOperationBlocker },
+    Blocked { blocker: ForkBlueprintCourseBlocker },
 }
 
-/// Typed server blocker for a Blueprint operation preview.
+/// Typed server blocker for a Blueprint Course fork preview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintOperationBlocker {
+pub enum ForkBlueprintCourseBlocker {
+    UnavailableQuestionRevision {
+        recovery: UnavailableQuestionRevisionRecovery,
+    },
+    SourceRevisionDrift {
+        observed: BlueprintRevisionReference,
+    },
+}
+
+/// Closed server decision that allows Blueprint Assignment adoption to proceed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AdoptBlueprintAssignmentReadiness {
+    Ready,
+    Blocked {
+        blocker: AdoptBlueprintAssignmentBlocker,
+    },
+}
+
+/// Typed server blocker for one Blueprint Assignment adoption preview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum AdoptBlueprintAssignmentBlocker {
     ScheduleCorrectionsRequired {
         #[serde(deserialize_with = "deserialize_schedule_corrections")]
         corrections: Vec<CourseInstanceScheduleCorrection>,
@@ -94,6 +116,32 @@ pub enum BlueprintOperationBlocker {
     DestinationWitnessDrift {
         expected: CourseInstanceSnapshot,
         observed: CourseInstanceSnapshot,
+    },
+}
+
+/// Closed server decision that allows Blueprint Course instantiation to proceed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum InstantiateBlueprintCourseReadiness {
+    Ready,
+    Blocked {
+        blocker: InstantiateBlueprintCourseBlocker,
+    },
+}
+
+/// Typed server blocker for one Blueprint Course instantiation preview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum InstantiateBlueprintCourseBlocker {
+    ScheduleCorrectionsRequired {
+        #[serde(deserialize_with = "deserialize_schedule_corrections")]
+        corrections: Vec<CourseInstanceScheduleCorrection>,
+    },
+    UnavailableQuestionRevision {
+        recovery: UnavailableQuestionRevisionRecovery,
+    },
+    SourceRevisionDrift {
+        observed: BlueprintRevisionReference,
     },
 }
 
@@ -140,7 +188,7 @@ pub struct ForkBlueprintCoursePreviewView {
     /// Server-validated substitutions.
     pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the fork command.
-    pub readiness: BlueprintOperationReadiness,
+    pub readiness: ForkBlueprintCourseReadiness,
 }
 
 /// Answer-free result used to create an assignment-adoption command.
@@ -154,7 +202,7 @@ pub struct AdoptBlueprintAssignmentPreviewView {
     /// Server-validated substitutions.
     pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the ordinary adoption command.
-    pub readiness: BlueprintOperationReadiness,
+    pub readiness: AdoptBlueprintAssignmentReadiness,
 }
 
 /// Answer-free result used to create a course-instantiation command.
@@ -168,7 +216,7 @@ pub struct InstantiateBlueprintCoursePreviewView {
     /// Server-validated substitutions.
     pub replacements: QuestionRevisionSubstitutions,
     /// Server-owned authorization to construct the instantiation command.
-    pub readiness: BlueprintOperationReadiness,
+    pub readiness: InstantiateBlueprintCourseReadiness,
 }
 
 /// Apply command derived only from a completed fork preview.
@@ -255,19 +303,15 @@ impl ForkBlueprintCourseCommand {
             idempotency_key,
         }
     }
-
     pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
-
     pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
-
     pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-
     pub fn idempotency_key(&self) -> &BlueprintOperationRetryToken {
         &self.idempotency_key
     }
@@ -285,15 +329,12 @@ impl InstantiateBlueprintCourseCommand {
             idempotency_key,
         }
     }
-
     pub fn source(&self) -> &BlueprintRevisionReference {
         &self.source
     }
-
     pub fn target_term(&self) -> &CourseTerm {
         &self.target_term
     }
-
     pub fn replacements(&self) -> &QuestionRevisionSubstitutions {
         &self.replacements
     }
@@ -307,20 +348,55 @@ impl InstantiateBlueprintCourseCommand {
     }
 }
 
-/// A preview has unresolved schedule or exact-pin correction.
+/// A Blueprint Course fork preview cannot construct an apply command.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BlueprintOperationCommandError {
-    Blocked(BlueprintOperationBlocker),
-    CreationWitnessMismatch,
+pub enum ForkBlueprintCourseCommandError {
+    Blocked(ForkBlueprintCourseBlocker),
+    CreationReservationMismatch,
 }
 
-pub(super) fn require_blueprint_operation_ready(
-    readiness: &BlueprintOperationReadiness,
-) -> Result<(), BlueprintOperationCommandError> {
-    match readiness {
-        BlueprintOperationReadiness::Ready => Ok(()),
-        BlueprintOperationReadiness::Blocked { blocker } => {
-            Err(BlueprintOperationCommandError::Blocked(blocker.clone()))
+/// A Blueprint Assignment adoption preview cannot construct an apply command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdoptBlueprintAssignmentCommandError {
+    Blocked(AdoptBlueprintAssignmentBlocker),
+}
+
+/// A Blueprint Course instantiation preview cannot construct an apply command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InstantiateBlueprintCourseCommandError {
+    Blocked(InstantiateBlueprintCourseBlocker),
+    CreationReservationMismatch,
+}
+
+impl ForkBlueprintCourseReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), ForkBlueprintCourseCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => {
+                Err(ForkBlueprintCourseCommandError::Blocked(blocker.clone()))
+            }
+        }
+    }
+}
+
+impl AdoptBlueprintAssignmentReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), AdoptBlueprintAssignmentCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(AdoptBlueprintAssignmentCommandError::Blocked(
+                blocker.clone(),
+            )),
+        }
+    }
+}
+
+impl InstantiateBlueprintCourseReadiness {
+    pub(super) fn require_ready(&self) -> Result<(), InstantiateBlueprintCourseCommandError> {
+        match self {
+            Self::Ready => Ok(()),
+            Self::Blocked { blocker } => Err(InstantiateBlueprintCourseCommandError::Blocked(
+                blocker.clone(),
+            )),
         }
     }
 }
@@ -404,12 +480,26 @@ where
     )
 }
 
-impl std::fmt::Display for BlueprintOperationCommandError {
+impl std::fmt::Display for ForkBlueprintCourseCommandError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("curriculum adoption preview is not eligible for apply")
+        formatter.write_str("Blueprint Course fork preview is not ready for apply")
     }
 }
-impl std::error::Error for BlueprintOperationCommandError {}
+impl std::error::Error for ForkBlueprintCourseCommandError {}
+
+impl std::fmt::Display for AdoptBlueprintAssignmentCommandError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Blueprint Assignment adoption preview is not ready for apply")
+    }
+}
+impl std::error::Error for AdoptBlueprintAssignmentCommandError {}
+
+impl std::fmt::Display for InstantiateBlueprintCourseCommandError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Blueprint Course instantiation preview is not ready for apply")
+    }
+}
+impl std::error::Error for InstantiateBlueprintCourseCommandError {}
 
 /// Browser-safe completed assignment-adoption result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -529,7 +619,7 @@ mod tests {
         let fork = ForkBlueprintCoursePreviewView {
             source,
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: ForkBlueprintCourseReadiness::Ready,
         };
         let command = ForkBlueprintCourseCommand::from_server_record(
             super::super::ForkBlueprintCourseApplyRecord::new(
@@ -557,8 +647,8 @@ mod tests {
             source: location,
             destination: destination(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Blocked {
-                blocker: BlueprintOperationBlocker::ScheduleCorrectionsRequired {
+            readiness: AdoptBlueprintAssignmentReadiness::Blocked {
+                blocker: AdoptBlueprintAssignmentBlocker::ScheduleCorrectionsRequired {
                     corrections: vec![],
                 },
             },
@@ -572,8 +662,8 @@ mod tests {
                 request_binding(authorized_account(), [3; 32], key),
                 adopt.readiness,
             ),
-            Err(BlueprintOperationCommandError::Blocked(
-                BlueprintOperationBlocker::ScheduleCorrectionsRequired {
+            Err(AdoptBlueprintAssignmentCommandError::Blocked(
+                AdoptBlueprintAssignmentBlocker::ScheduleCorrectionsRequired {
                     corrections: vec![]
                 }
             ))
@@ -589,7 +679,7 @@ mod tests {
             source: location,
             destination: destination(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: AdoptBlueprintAssignmentReadiness::Ready,
         };
         let command = AdoptBlueprintAssignmentCommand::from_server_record(
             super::super::AdoptBlueprintAssignmentApplyRecord::new(
@@ -617,7 +707,7 @@ mod tests {
             source,
             target_term: term.clone(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: InstantiateBlueprintCourseReadiness::Ready,
         };
         let command = InstantiateBlueprintCourseCommand::from_server_record(
             super::super::InstantiateBlueprintCourseApplyRecord::new(
@@ -650,7 +740,7 @@ mod tests {
         let preview = ForkBlueprintCoursePreviewView {
             source,
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: ForkBlueprintCourseReadiness::Ready,
         };
         let wire = serde_json::to_value(preview).expect("preview serializes");
         assert!(wire.get("readiness").is_some());
@@ -669,59 +759,113 @@ mod tests {
                 .same_assignment_lineage(source)
         );
 
-        let blocker = serde_json::json!({
-            "kind": "unavailable_pin",
-            "recovery": serde_json::to_value(unavailable_recovery()).expect("recovery"),
-        });
+        let blocker =
+            serde_json::to_value(ForkBlueprintCourseBlocker::UnavailableQuestionRevision {
+                recovery: unavailable_recovery(),
+            })
+            .expect("blocker serializes");
+        assert!(serde_json::from_value::<ForkBlueprintCourseBlocker>(blocker.clone()).is_ok());
+        let schedule_blocker = serde_json::to_value(
+            AdoptBlueprintAssignmentBlocker::ScheduleCorrectionsRequired {
+                corrections: vec![],
+            },
+        )
+        .expect("schedule blocker serializes");
+        assert!(serde_json::from_value::<ForkBlueprintCourseBlocker>(schedule_blocker).is_err());
+        let destination_blocker =
+            serde_json::to_value(AdoptBlueprintAssignmentBlocker::DestinationWitnessDrift {
+                expected: destination(),
+                observed: destination(),
+            })
+            .expect("destination blocker serializes");
+        assert!(
+            serde_json::from_value::<InstantiateBlueprintCourseBlocker>(destination_blocker)
+                .is_err()
+        );
         let mut nested = blocker;
-        nested["recovery"]["untrusted"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<BlueprintOperationBlocker>(nested).is_err());
+        nested["unavailable_question_revision"]["recovery"]["untrusted"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<ForkBlueprintCourseBlocker>(nested).is_err());
     }
 
     #[test]
-    fn every_blueprint_blocker_prevents_command_construction() {
+    fn operation_specific_blockers_prevent_their_own_command_construction() {
         let key = BlueprintOperationRetryToken::parse("refused-blueprint").expect("key");
-        let blockers = vec![
-            BlueprintOperationBlocker::ScheduleCorrectionsRequired {
+        let fork_blocker = ForkBlueprintCourseBlocker::UnavailableQuestionRevision {
+            recovery: unavailable_recovery(),
+        };
+        assert_eq!(
+            super::super::ForkBlueprintCourseApplyRecord::new(
+                source(),
+                QuestionRevisionSubstitutions::default(),
+                BlueprintForkReservation::new(
+                    source(),
+                    authorized_account(),
+                    [9; 32],
+                    key.clone(),
+                    BlueprintCourseReference::new(9).expect("reserved blueprint"),
+                ),
+                ForkBlueprintCourseReadiness::Blocked {
+                    blocker: fork_blocker.clone()
+                },
+            ),
+            Err(ForkBlueprintCourseCommandError::Blocked(fork_blocker))
+        );
+
+        let adoption_blocker = AdoptBlueprintAssignmentBlocker::DestinationWitnessDrift {
+            expected: destination(),
+            observed: CourseInstanceSnapshot::new(
+                CourseInstanceReference::new(3).expect("course"),
+                schedule_revision(CourseInstanceReference::new(3).expect("course"), 2),
+                vec![],
+            )
+            .expect("bounded witness"),
+        };
+        assert_eq!(
+            super::super::AdoptBlueprintAssignmentApplyRecord::new(
+                BlueprintAssignmentRevisionReference::new(source(), assignment_id()),
+                destination(),
+                course_origin(),
+                QuestionRevisionSubstitutions::default(),
+                request_binding(authorized_account(), [9; 32], key.clone()),
+                AdoptBlueprintAssignmentReadiness::Blocked {
+                    blocker: adoption_blocker.clone()
+                },
+            ),
+            Err(AdoptBlueprintAssignmentCommandError::Blocked(
+                adoption_blocker
+            ))
+        );
+
+        let instantiation_blocker =
+            InstantiateBlueprintCourseBlocker::ScheduleCorrectionsRequired {
                 corrections: vec![CourseInstanceScheduleCorrection {
                     field: super::super::CourseInstanceScheduleField::DueAt,
                     reason: super::super::CourseInstanceScheduleReason::AmbiguousLocalTime,
                 }],
-            },
-            BlueprintOperationBlocker::UnavailableQuestionRevision {
-                recovery: unavailable_recovery(),
-            },
-            BlueprintOperationBlocker::SourceRevisionDrift { observed: source() },
-            BlueprintOperationBlocker::DestinationWitnessDrift {
-                expected: destination(),
-                observed: CourseInstanceSnapshot::new(
-                    CourseInstanceReference::new(3).expect("course"),
-                    schedule_revision(CourseInstanceReference::new(3).expect("course"), 2),
-                    vec![],
-                )
-                .expect("bounded witness"),
-            },
-        ];
-        for blocker in blockers {
-            let creation = BlueprintForkReservation::new(
+            };
+        let term =
+            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        assert_eq!(
+            super::super::InstantiateBlueprintCourseApplyRecord::new(
                 source(),
-                authorized_account(),
-                [9; 32],
-                key.clone(),
-                BlueprintCourseReference::new(9).expect("reserved blueprint"),
-            );
-            assert_eq!(
-                super::super::ForkBlueprintCourseApplyRecord::new(
+                term.clone(),
+                QuestionRevisionSubstitutions::default(),
+                CourseInstanceCreationReservation::for_blueprint(
                     source(),
-                    QuestionRevisionSubstitutions::default(),
-                    creation,
-                    BlueprintOperationReadiness::Blocked {
-                        blocker: blocker.clone(),
-                    },
+                    term,
+                    authorized_account(),
+                    [9; 32],
+                    key,
+                    CourseInstanceReference::new(9).expect("reserved course"),
                 ),
-                Err(BlueprintOperationCommandError::Blocked(blocker))
-            );
-        }
+                InstantiateBlueprintCourseReadiness::Blocked {
+                    blocker: instantiation_blocker.clone()
+                },
+            ),
+            Err(InstantiateBlueprintCourseCommandError::Blocked(
+                instantiation_blocker
+            ))
+        );
     }
 
     #[test]
@@ -730,7 +874,7 @@ mod tests {
         let fork = ForkBlueprintCoursePreviewView {
             source: source(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: ForkBlueprintCourseReadiness::Ready,
         };
         let creation = BlueprintForkReservation::new(
             source(),
@@ -768,7 +912,7 @@ mod tests {
                 mismatched,
                 fork.readiness.clone(),
             ),
-            Err(BlueprintOperationCommandError::CreationWitnessMismatch)
+            Err(ForkBlueprintCourseCommandError::CreationReservationMismatch)
         );
 
         let term =
@@ -777,7 +921,7 @@ mod tests {
             source: source(),
             target_term: term.clone(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: InstantiateBlueprintCourseReadiness::Ready,
         };
         let instance_key = BlueprintOperationRetryToken::parse("instance-binding").expect("key");
         let instance_creation = CourseInstanceCreationReservation::for_blueprint(
@@ -815,13 +959,13 @@ mod tests {
             source(),
             QuestionRevisionSubstitutions::default(),
             creation.clone(),
-            BlueprintOperationReadiness::Ready,
+            ForkBlueprintCourseReadiness::Ready,
         )
         .expect("server record");
         let mut browser_preview = ForkBlueprintCoursePreviewView {
             source: source(),
             replacements: QuestionRevisionSubstitutions::default(),
-            readiness: BlueprintOperationReadiness::Ready,
+            readiness: ForkBlueprintCourseReadiness::Ready,
         };
         browser_preview.source = BlueprintRevisionReference {
             reference: BlueprintCourseReference::new(15).expect("forged source"),

@@ -2,7 +2,7 @@
 
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
-import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
@@ -113,7 +113,7 @@ interface StateBase {
   /** Non-blocking notice that this response cannot survive a browser refresh. */
   readonly storageWarning: string | null;
   /** The prefetched, answer-free browser envelope for the current issued attempt. */
-  readonly envelope: QuestionPresentation | null;
+  readonly envelope: QuestionVariationPresentation | null;
 }
 
 type RecoveryReason =
@@ -171,7 +171,7 @@ export interface QuestionAttemptStateMachine {
 
 export interface NextAttempt {
   readonly context: AttemptContext;
-  readonly envelope: QuestionPresentation;
+  readonly envelope: QuestionVariationPresentation;
 }
 
 export interface QuestionAttemptStateMachineOptions {
@@ -217,7 +217,7 @@ function remainingMilliseconds(context: AttemptContext, now: number): number | n
 function initialState(
   context: AttemptContext,
   clock: AttemptClock,
-  envelope: QuestionPresentation | null = null,
+  envelope: QuestionVariationPresentation | null = null,
 ): QuestionAttemptExperienceState {
   return {
     phase: "loading",
@@ -397,7 +397,10 @@ function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
   }
 }
 
-function envelopeMatchesContext(envelope: QuestionPresentation, context: AttemptContext): boolean {
+function envelopeMatchesContext(
+  envelope: QuestionVariationPresentation,
+  context: AttemptContext,
+): boolean {
   return (
     envelope.variation.seed === context.seed &&
     envelope.variation.questionRevision.questionId === context.questionRevision.questionId &&

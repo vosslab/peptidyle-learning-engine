@@ -2,19 +2,19 @@ use std::sync::Arc;
 
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    DraftQuestionDefinition, DraftQuestionSource, QuestionRevision, QuestionSource,
+    DraftQuestionBackendLocator, DraftQuestionRevision, QuestionBackendLocator, QuestionRevision,
 };
 
-use crate::generator::NativeQuestionImplementation;
-use crate::{NativeAdapter, NativeAdapterError};
+use crate::generator::PleQuestionImplementation;
+use crate::{PleQuestionBackend, PleQuestionBackendError};
 
-impl NativeAdapter {
+impl PleQuestionBackend {
     pub(super) fn implementations_for_question(
         &self,
         question: &QuestionRevision,
-    ) -> Result<Vec<&dyn NativeQuestionImplementation>, NativeAdapterError> {
-        if !matches!(question.source, QuestionSource::Native) {
-            return Err(NativeAdapterError::UnsupportedSource);
+    ) -> Result<Vec<&dyn PleQuestionImplementation>, PleQuestionBackendError> {
+        if !matches!(question.backend_locator, QuestionBackendLocator::Ple) {
+            return Err(PleQuestionBackendError::UnsupportedSource);
         }
         let implementations: Vec<_> = self
             .implementations
@@ -36,9 +36,9 @@ impl NativeAdapter {
         &self,
         question: &QuestionRevision,
         generator: Option<&QuestionGeneratorReference>,
-    ) -> Result<&dyn NativeQuestionImplementation, NativeAdapterError> {
-        if !matches!(question.source, QuestionSource::Native) {
-            return Err(NativeAdapterError::UnsupportedSource);
+    ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
+        if !matches!(question.backend_locator, QuestionBackendLocator::Ple) {
+            return Err(PleQuestionBackendError::UnsupportedSource);
         }
         self.implementations
             .iter()
@@ -59,11 +59,11 @@ impl NativeAdapter {
 
     pub(super) fn implementation_for_draft(
         &self,
-        question: &DraftQuestionDefinition,
+        question: &DraftQuestionRevision,
         generator: Option<&QuestionGeneratorReference>,
-    ) -> Result<&dyn NativeQuestionImplementation, NativeAdapterError> {
-        if !matches!(question.source, DraftQuestionSource::Native) {
-            return Err(NativeAdapterError::UnsupportedSource);
+    ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
+        if !matches!(question.backend_locator, DraftQuestionBackendLocator::Ple) {
+            return Err(PleQuestionBackendError::UnsupportedSource);
         }
         self.implementations
             .iter()
@@ -87,8 +87,8 @@ impl NativeAdapter {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
         generator: Option<&QuestionGeneratorReference>,
-    ) -> NativeAdapterError {
-        NativeAdapterError::UnknownQuestionImplementation {
+    ) -> PleQuestionBackendError {
+        PleQuestionBackendError::UnknownQuestionImplementation {
             question_format,
             question_type,
             generator: generator.cloned(),

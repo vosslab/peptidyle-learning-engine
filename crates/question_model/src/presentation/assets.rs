@@ -2,18 +2,21 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::envelope::{AssetRef, ContentBlock, QuestionPresentation};
+use crate::envelope::{
+    QuestionAssetReference, QuestionContentBlock, QuestionVariationPresentation,
+};
 use crate::response::QuestionResponseFormat;
 
 use super::builder::PresentationBuildError;
 use super::model::{
-    IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentedQuestionAsset,
+    PresentedResponseItemContent, QuestionAssetRendition, QuestionPresentation,
+    QuestionPresentationResponseFormat,
 };
 
 pub(super) fn validate_assets(
-    envelope: &QuestionPresentation,
-    bindings: &[PresentedQuestionAsset],
-) -> Result<Vec<PresentedQuestionAsset>, PresentationBuildError> {
+    envelope: &QuestionVariationPresentation,
+    bindings: &[QuestionAssetRendition],
+) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
     collect_assets(&envelope.prompt, &mut referenced);
     collect_response_assets(&envelope.response, &mut referenced);
@@ -21,51 +24,55 @@ pub(super) fn validate_assets(
 }
 
 pub(super) fn validate_public_assets(
-    envelope: &PresentationEnvelopeV1,
-    bindings: &[PresentedQuestionAsset],
-) -> Result<Vec<PresentedQuestionAsset>, PresentationBuildError> {
+    envelope: &QuestionPresentation,
+    bindings: &[QuestionAssetRendition],
+) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
     collect_assets(&envelope.prompt, &mut referenced);
     match &envelope.response {
-        IssuedQuestionResponseFormatV1::SingleChoice { choices }
-        | IssuedQuestionResponseFormatV1::MultipleAnswer { choices, .. } => {
-            for choice in choices {
-                collect_assets(&choice.body, &mut referenced);
-            }
+        QuestionPresentationResponseFormat::SingleChoice { choices }
+        | QuestionPresentationResponseFormat::MultipleAnswer { choices, .. } => {
+            collect_presented_response_item_assets(choices, &mut referenced);
         }
-        IssuedQuestionResponseFormatV1::MultiFillIn { blanks } => {
+        QuestionPresentationResponseFormat::MultiFillIn { blanks } => {
             for blank in blanks {
                 collect_assets(&blank.label, &mut referenced);
             }
         }
-        IssuedQuestionResponseFormatV1::Matching {
+        QuestionPresentationResponseFormat::Matching {
             prompts, choices, ..
         } => {
-            for choice in prompts.iter().chain(choices) {
-                collect_assets(&choice.body, &mut referenced);
-            }
+            collect_presented_response_item_assets(prompts, &mut referenced);
+            collect_presented_response_item_assets(choices, &mut referenced);
         }
-        IssuedQuestionResponseFormatV1::Ordering { items } => {
-            for item in items {
-                collect_assets(&item.body, &mut referenced);
-            }
+        QuestionPresentationResponseFormat::Ordering { items } => {
+            collect_presented_response_item_assets(items, &mut referenced);
         }
-        IssuedQuestionResponseFormatV1::Hotspot { surface, .. } => {
+        QuestionPresentationResponseFormat::Hotspot { surface, .. } => {
             referenced.insert(AssetRefKey::from(&surface.asset));
             for region in &surface.regions {
                 collect_assets(&region.label, &mut referenced);
             }
         }
-        IssuedQuestionResponseFormatV1::FillIn { .. }
-        | IssuedQuestionResponseFormatV1::Numerical { .. } => {}
+        QuestionPresentationResponseFormat::FillIn { .. }
+        | QuestionPresentationResponseFormat::Numerical { .. } => {}
     }
     validate_asset_refs(&referenced, bindings)
 }
 
+fn collect_presented_response_item_assets<T: PresentedResponseItemContent>(
+    items: &[T],
+    referenced: &mut BTreeSet<AssetRefKey>,
+) {
+    for item in items {
+        collect_assets(item.presentation_item_body(), referenced);
+    }
+}
+
 pub(super) fn content_assets(
-    content: &[ContentBlock],
-    bindings: &[PresentedQuestionAsset],
-) -> Result<Vec<PresentedQuestionAsset>, PresentationBuildError> {
+    content: &[QuestionContentBlock],
+    bindings: &[QuestionAssetRendition],
+) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
     collect_assets(content, &mut referenced);
     referenced
@@ -74,8 +81,8 @@ pub(super) fn content_assets(
             bindings
                 .iter()
                 .find(|binding| {
-                    binding.asset == reference.asset
-                        && binding.authored_checksum == reference.checksum
+                    binding.question_asset.asset == reference.asset
+                        && binding.question_asset.checksum == reference.checksum
                 })
                 .cloned()
                 .ok_or(PresentationBuildError::InvalidPublicContent(
@@ -85,14 +92,15 @@ pub(super) fn content_assets(
         .collect()
 }
 
-pub(super) fn asset_binding<'a>(
-    reference: &AssetRef,
-    bindings: &'a [PresentedQuestionAsset],
-) -> Result<&'a PresentedQuestionAsset, PresentationBuildError> {
+pub(super) fn question_asset_rendition<'a>(
+    reference: &QuestionAssetReference,
+    bindings: &'a [QuestionAssetRendition],
+) -> Result<&'a QuestionAssetRendition, PresentationBuildError> {
     bindings
         .iter()
         .find(|binding| {
-            binding.asset == reference.asset && binding.authored_checksum == reference.checksum
+            binding.question_asset.asset == reference.asset
+                && binding.question_asset.checksum == reference.checksum
         })
         .ok_or(PresentationBuildError::InvalidPublicContent(
             "presentation asset binding is missing or mismatched",
@@ -101,12 +109,14 @@ pub(super) fn asset_binding<'a>(
 
 fn validate_asset_refs(
     referenced: &BTreeSet<AssetRefKey>,
-    bindings: &[PresentedQuestionAsset],
-) -> Result<Vec<PresentedQuestionAsset>, PresentationBuildError> {
+    bindings: &[QuestionAssetRendition],
+) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut by_id = BTreeMap::new();
     for binding in bindings {
-        if by_id.insert(binding.asset, binding).is_some()
-            || !is_sha256(&binding.authored_checksum)
+        if by_id
+            .insert(binding.question_asset.asset, binding)
+            .is_some()
+            || !is_sha256(&binding.question_asset.checksum)
             || !is_sha256(&binding.rendition_checksum)
             || binding.intrinsic_width.is_some() != binding.intrinsic_height.is_some()
             || binding.intrinsic_width == Some(0)
@@ -124,7 +134,7 @@ fn validate_asset_refs(
                 .ok_or(PresentationBuildError::InvalidPublicContent(
                     "presentation asset binding is missing",
                 ))?;
-        if binding.authored_checksum != reference.checksum {
+        if binding.question_asset.checksum != reference.checksum {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "presentation asset checksum does not match the question",
             ));
@@ -139,13 +149,13 @@ fn validate_asset_refs(
         ));
     }
     let mut values = bindings.to_vec();
-    values.sort_by_key(|binding| binding.asset);
+    values.sort_by_key(|binding| binding.question_asset.asset);
     Ok(values)
 }
 
-fn collect_assets(content: &[ContentBlock], target: &mut BTreeSet<AssetRefKey>) {
+fn collect_assets(content: &[QuestionContentBlock], target: &mut BTreeSet<AssetRefKey>) {
     for block in content {
-        if let ContentBlock::Image { asset, .. } = block {
+        if let QuestionContentBlock::Image { asset, .. } = block {
             target.insert(AssetRefKey::from(asset));
         }
     }
@@ -192,12 +202,12 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct AssetRefKey {
-    asset: crate::AssetId,
+    asset: crate::QuestionAssetId,
     checksum: String,
 }
 
-impl From<&AssetRef> for AssetRefKey {
-    fn from(value: &AssetRef) -> Self {
+impl From<&QuestionAssetReference> for AssetRefKey {
+    fn from(value: &QuestionAssetReference) -> Self {
         Self {
             asset: value.asset,
             checksum: value.checksum.clone(),

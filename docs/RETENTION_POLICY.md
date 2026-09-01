@@ -66,7 +66,7 @@ never supplies Account, course, Student, role, or support-capability authority.
 
 The retention API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
 revision ETag, and the fixed notification projection. It never exposes student identities, policy
-deadlines, object IDs, object keys, queue jobs, leases, or generations.
+deadlines, object IDs, Object Addresses, queue jobs, leases, or generations.
 
 - Archive and delete require `If-Match` with the current strong revision and create a durable
   replay receipt bound to the authenticated Account, action, requested disposition, expected generation, and

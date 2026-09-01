@@ -38,7 +38,7 @@ adds connected evidence under [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 | JSON            | **Current pre-WN1:** PLE JSON transport remains mixed and many routes use lower-camel fields directly. **Approved target:** PLE-owned JSON fields, TypeScript data-object properties, PLE query keys, and portable discriminants use direct `snake_case` generated from effective Serde. Feature decoders reject unknown and retired-camel PLE input and retain bounded-body, closed-union, numeric, and relationship checks. Registered external payloads retain owner spelling at their adapter boundary. |
 | Request parsing | Mutating Rust request types use closed Serde models or canonical typed-value comparison. Unknown fields, malformed IDs, and unsupported variants refuse.                                                                                                                                                                                                                                                                                                                                                    |
 | Pagination      | Lists use opaque cursors. Clients do not use offsets and must reject a repeated cursor during traversal.                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Object delivery | JSON carries opaque delivery IDs, never object keys, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, active public asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed delivery record, audits the decision, and returns the short-lived delivery result.                                                                                                                            |
+| Object delivery | JSON carries opaque delivery IDs, never Object Addresses, bucket names, object checksums, or signed URLs. `GET /api/assets/{id}` can redirect only an immutable, available public Question Asset. A protected object requires body-free `POST /api/assets/{id}/delivery`, which reauthorizes the current typed Object Delivery, audits the decision, and returns the short-lived delivery result.                                                                                                                    |
 | Error detail    | Errors describe a permitted action or unavailable service without disclosing hidden account, course, Student, draft, answer, key, renderer, or object state.                                                                                                                                                                                                                                                                                                                                                |
 
 ## Identity and authorization
@@ -51,7 +51,7 @@ cookie -> stored session -> AuthenticatedSession -> route resource lookup -> exa
 
 The route can use an identity in its path only after the session-derived Account
 context and exact relationship constrain the lookup. A caller never supplies
-an account, membership, or database object key as an authorization input.
+an account, membership, or database Object Address as an authorization input.
 
 | Scope               | Authority                                                                                               | Normal concealed result                                                                                                                                                                                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -175,15 +175,15 @@ The assignment workspace is one course-scoped resource. `GET
 direct Instructor relationship to the course and then verifies that the
 assignment belongs to that exact course. A mismatched or unavailable pair has
 the same concealed not-found result and returns no assignment facts. The
-response carries the complete Draft Assignment Revision editor projection: title, ordered
+response carries the complete Assignment Working Copy editor projection: title, ordered
 fixed or pool content, Student Feedback Release Rules, Assignment activity rules, course-local teaching
 settings, server-derived current state, Active Student Course Membership, and
-Assignment Publication Readiness for that exact Draft Assignment Revision.
+Assignment Release Validation for that exact Assignment Working Copy.
 
 `POST /api/courses/{course}/assignments/drafts` accepts only a title and
-persists an ordinary incomplete Draft with server-owned defaults. An empty
-Draft is valid and reloadable; Assignment Publication Readiness, rather than draft
-creation, requires an active deliverable position and valid policy state.
+persists an ordinary incomplete Assignment Working Copy with server-owned defaults. An empty
+Assignment Working Copy is valid and reloadable; Assignment Release Requirements, rather than
+creation, require an active deliverable position and valid policy state.
 
 Questions owns `PUT
 /api/courses/{course}/assignments/{assignment}/content`. It accepts the title
@@ -335,8 +335,8 @@ server cannot derive from authenticated state and the existing record.
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves, course appearance | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
 | `Idempotency-Key`           | Future Student submission                                                                                              | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
-| Server-generated identity   | Runs, attempts, publications, export jobs, upload candidates, object deliveries                                        | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
-| Bytes-first promotion       | Candidate banners, QTI/flat publication, exports                                                                       | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically.                            |
+| Server-generated identity   | Runs, attempts, publications, export jobs, upload entries, object deliveries                                        | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
+| Bytes-first promotion       | Entry banners, QTI/flat publication, exports                                                                       | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically.                            |
 
 ETags are resource revisions, not general-purpose cache validators. An attempt
 submission uses its attempt ID and idempotency key rather than a browser-owned
@@ -346,13 +346,13 @@ question/version/seed tuple.
 
 | Browser may receive                                                                                                                                                                                | Browser must not receive                                                                                                                                                                                                                                                          |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public Question Library metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, object keys, bucket names, signed URLs in JSON, authenticated-session context, database provenance, or raw provider results |
+| Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public Question Library metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, PG/QTI source, Object Addresses, bucket names, signed URLs in JSON, authenticated-session context, database provenance, or raw provider results |
 
 An instructor's private author preview is a distinct, authorized exception for
 display-ready correct-response teaching material. It is not a Student route and
 does not turn answer-bearing source or an `AnswerKey` into a browser API type.
 
-For native assessment payload detail, including attempt-specific rendered IDs,
+For PLE assessment payload detail, including attempt-specific rendered IDs,
 presentation digests, partial-credit results, and WeBWorK replay, use
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). For private
 source/object/renderer rules, use [SECURITY_MODEL.md](SECURITY_MODEL.md) and

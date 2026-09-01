@@ -5,9 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseThemeId;
-use crate::envelope::{AssetRef, ContentBlock};
+use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 use crate::generation::QuestionSeed;
-use crate::identity::AssetId;
 use crate::student_work::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
@@ -169,12 +168,10 @@ impl From<QuestionPresentationToken> for String {
 /// One logical asset and the exact rendition selected for this presentation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentedQuestionAsset {
-    /// Public presentation binding for the logical asset. This identifier
-    /// describes issued rendering and grants no storage or download authority.
-    pub asset: AssetId,
-    /// Checksum of the authored public asset selected for this rendering.
-    pub authored_checksum: String,
+pub struct QuestionAssetRendition {
+    /// Exact authored Question Asset selected for this rendering. This reference
+    /// identifies content but grants no storage or download authority.
+    pub question_asset: QuestionAssetReference,
     /// Checksum of the public rendition selected for this rendering.
     pub rendition_checksum: String,
     /// Intrinsic width of the selected public rendition, when known.
@@ -183,30 +180,79 @@ pub struct PresentedQuestionAsset {
     pub intrinsic_height: Option<u32>,
 }
 
-/// One displayed selectable object with a presentation-scoped ID.
+/// One displayed Question Choice with a presentation-scoped ID.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentedChoiceV1 {
+pub struct PresentedQuestionChoice {
     pub id: PresentationResponseItemReference,
-    pub body: Vec<ContentBlock>,
+    pub body: Vec<QuestionContentBlock>,
 }
+
+/// One displayed Matching Prompt with a presentation-scoped ID.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PresentedMatchingPrompt {
+    pub id: PresentationResponseItemReference,
+    pub body: Vec<QuestionContentBlock>,
+}
+
+/// One displayed Matching Choice with a presentation-scoped ID.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PresentedMatchingChoice {
+    pub id: PresentationResponseItemReference,
+    pub body: Vec<QuestionContentBlock>,
+}
+
+/// One displayed Ordering Item with a presentation-scoped ID.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PresentedOrderingItem {
+    pub id: PresentationResponseItemReference,
+    pub body: Vec<QuestionContentBlock>,
+}
+
+/// Shared descriptor and asset access for exact public response-item records.
+pub trait PresentedResponseItemContent {
+    fn presentation_item_id(&self) -> &PresentationResponseItemReference;
+    fn presentation_item_body(&self) -> &[QuestionContentBlock];
+}
+
+macro_rules! presented_response_item {
+    ($record:ty) => {
+        impl PresentedResponseItemContent for $record {
+            fn presentation_item_id(&self) -> &PresentationResponseItemReference {
+                &self.id
+            }
+
+            fn presentation_item_body(&self) -> &[QuestionContentBlock] {
+                &self.body
+            }
+        }
+    };
+}
+
+presented_response_item!(PresentedQuestionChoice);
+presented_response_item!(PresentedMatchingPrompt);
+presented_response_item!(PresentedMatchingChoice);
+presented_response_item!(PresentedOrderingItem);
 
 /// One displayed text-entry target in a multi-blank response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentedBlankV1 {
+pub struct PresentedTextEntrySlot {
     pub id: PresentationResponseItemReference,
-    pub label: Vec<ContentBlock>,
+    pub label: Vec<QuestionContentBlock>,
     pub max_characters: u32,
 }
 
 /// One public hotspot candidate used by both pointer and no-mouse controls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentedHotspotRegionV1 {
+pub struct PresentedHotspotRegion {
     /// Presentation-scoped identifier for this selectable region.
     pub id: PresentationResponseItemReference,
-    pub label: Vec<ContentBlock>,
+    pub label: Vec<QuestionContentBlock>,
     pub x: u16,
     pub y: u16,
     pub width: u16,
@@ -216,11 +262,11 @@ pub struct PresentedHotspotRegionV1 {
 /// Image-backed surface containing selectable regions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentedHotspotSurfaceV1 {
+pub struct PresentedHotspotSurface {
     pub id: PresentationResponseItemReference,
-    pub asset: AssetRef,
+    pub asset: QuestionAssetReference,
     pub description: String,
-    pub regions: Vec<PresentedHotspotRegionV1>,
+    pub regions: Vec<PresentedHotspotRegion>,
 }
 
 /// Answer-free browser widget schema selected by the persisted attempt.
@@ -231,12 +277,12 @@ pub struct PresentedHotspotSurfaceV1 {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-pub enum IssuedQuestionResponseFormatV1 {
+pub enum QuestionPresentationResponseFormat {
     SingleChoice {
-        choices: Vec<PresentedChoiceV1>,
+        choices: Vec<PresentedQuestionChoice>,
     },
     MultipleAnswer {
-        choices: Vec<PresentedChoiceV1>,
+        choices: Vec<PresentedQuestionChoice>,
         minimum: u32,
         maximum: u32,
     },
@@ -244,22 +290,22 @@ pub enum IssuedQuestionResponseFormatV1 {
         max_characters: u32,
     },
     MultiFillIn {
-        blanks: Vec<PresentedBlankV1>,
+        blanks: Vec<PresentedTextEntrySlot>,
     },
     Numerical {
         max_characters: u32,
         displayed_unit: Option<String>,
     },
     Matching {
-        prompts: Vec<PresentedChoiceV1>,
-        choices: Vec<PresentedChoiceV1>,
+        prompts: Vec<PresentedMatchingPrompt>,
+        choices: Vec<PresentedMatchingChoice>,
         reuse_choices: bool,
     },
     Ordering {
-        items: Vec<PresentedChoiceV1>,
+        items: Vec<PresentedOrderingItem>,
     },
     Hotspot {
-        surface: PresentedHotspotSurfaceV1,
+        surface: PresentedHotspotSurface,
         minimum: u32,
         maximum: u32,
     },
@@ -268,19 +314,19 @@ pub enum IssuedQuestionResponseFormatV1 {
 /// Complete answer-free question state presented to one student.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PresentationEnvelopeV1 {
+pub struct QuestionPresentation {
     pub question_revision: QuestionRevisionReference,
     pub seed: QuestionSeed,
     pub presentation_nonce: QuestionPresentationNonce,
     pub title: String,
-    pub prompt: Vec<ContentBlock>,
-    pub response: IssuedQuestionResponseFormatV1,
+    pub prompt: Vec<QuestionContentBlock>,
+    pub response: QuestionPresentationResponseFormat,
 }
 
 /// Minimal active attempt fields needed by the student screen.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAttemptDescriptorV1 {
+pub struct StudentAttemptDescriptor {
     pub id: QuestionAttemptId,
     pub deadline: Option<ActivityTimestamp>,
     pub presentation_digest: QuestionPresentationToken,
@@ -289,7 +335,7 @@ pub struct StudentAttemptDescriptorV1 {
 /// Course and Assignment shell needed for authorized Student navigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreenScopeV1 {
+pub struct StudentAssignmentAttemptScreenScope {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub theme: CourseThemeId,
@@ -298,16 +344,16 @@ pub struct StudentAssignmentAttemptScreenScopeV1 {
 /// Student-visible Assignment Attempt context, without storage or policy internals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreenAttemptV1 {
+pub struct StudentAssignmentAttemptScreenAttempt {
     pub number: u32,
 }
 
 /// One consolidated active student screen response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreenV1 {
-    pub scope: StudentAssignmentAttemptScreenScopeV1,
-    pub assignment_attempt: StudentAssignmentAttemptScreenAttemptV1,
-    pub attempt: StudentAttemptDescriptorV1,
-    pub envelope: PresentationEnvelopeV1,
+pub struct StudentAssignmentAttemptScreen {
+    pub scope: StudentAssignmentAttemptScreenScope,
+    pub assignment_attempt: StudentAssignmentAttemptScreenAttempt,
+    pub attempt: StudentAttemptDescriptor,
+    pub presentation: QuestionPresentation,
 }

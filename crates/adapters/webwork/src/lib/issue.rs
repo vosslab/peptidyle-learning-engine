@@ -10,9 +10,9 @@ use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ActivityTimestamp, QuestionAttemptReproductionDetails, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionPresentation, QuestionRendererVersion, QuestionRevision,
-    QuestionSource, QuestionTitleError, StudentResponse,
+    ActivityTimestamp, QuestionAttemptReproductionDetails, QuestionBackendLocator,
+    QuestionBackendVersion, QuestionGraderVersion, QuestionRendererVersion, QuestionRevision,
+    QuestionTitleError, QuestionVariationPresentation, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 #[cfg(test)]
@@ -56,7 +56,7 @@ fn take_test_cache_events() -> Vec<&'static str> {
 #[derive(Clone, PartialEq)]
 pub struct WebworkIssuedAttempt {
     /// Reusable browser-safe response contract and prompt blocks.
-    pub envelope: QuestionPresentation,
+    pub envelope: QuestionVariationPresentation,
     /// Sanitized supplied markup for the dedicated renderer component.
     pub sanitized_html: String,
     /// Deterministic parameter record for the version/seed pair.
@@ -140,9 +140,9 @@ impl std::error::Error for WebworkAdapterError {}
 
 /// Returns the conservative capabilities common to arbitrary PG sources.
 pub fn webwork_source_capabilities(
-    source: &QuestionSource,
+    source: &QuestionBackendLocator,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionSource::Webwork { .. } = source else {
+    let QuestionBackendLocator::Webwork { .. } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
     Ok(QuestionBackendCapabilities::from_iter([
@@ -153,10 +153,10 @@ pub fn webwork_source_capabilities(
 
 /// Returns capabilities proven for an exact immutable PG Source Object Reference.
 pub fn reviewed_webwork_source_capabilities(
-    source: &QuestionSource,
+    source: &QuestionBackendLocator,
     source_sha256: &str,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionSource::Webwork { pg_path } = source else {
+    let QuestionBackendLocator::Webwork { pg_path } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
     let mut capabilities = vec![Capability::AlgorithmicGeneration, Capability::ServerGrading];
@@ -171,10 +171,10 @@ pub fn reviewed_webwork_source_capabilities(
 /// The capability describes whether the source can produce teaching feedback;
 /// assignment-owned student disclosure controls when that content is shown.
 pub fn reviewed_webwork_source_profile_capabilities(
-    source: &QuestionSource,
+    source: &QuestionBackendLocator,
     source_sha256: &str,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionSource::Webwork { pg_path } = source else {
+    let QuestionBackendLocator::Webwork { pg_path } = source else {
         return Err(WebworkAdapterError::UnsupportedSource);
     };
     let mut capabilities = reviewed_webwork_source_capabilities(source, source_sha256)?;
@@ -211,7 +211,7 @@ where
     /// Returns the evidence-bounded capabilities of this exact PG source.
     pub fn capabilities(
         &self,
-        source: &QuestionSource,
+        source: &QuestionBackendLocator,
     ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
         webwork_source_capabilities(source)
     }
@@ -281,6 +281,7 @@ where
                 let rendered = crate::cache::CachedWebworkRender {
                     schema_version: crate::cache::CACHE_SCHEMA_VERSION,
                     source_object_reference: source.source_object_reference.clone(),
+                    source_object_checksum: source.source_object_checksum.clone(),
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
                         envelope: untrusted.envelope,
                         sanitized_html: sanitize_webwork_html(&untrusted.html),
@@ -304,12 +305,6 @@ where
                         address: cache_key.clone(),
                         bytes,
                         media_type: "application/json".to_string(),
-                        license: Some(question.metadata.license.clone()),
-                        provenance: format!(
-                            "WeBWorK render for {} seed {}",
-                            question_revision.revision_number,
-                            seed.value()
-                        ),
                         created_at,
                     })
                     .await
@@ -415,6 +410,7 @@ where
         let reproduced = crate::cache::CachedWebworkRender {
             schema_version: crate::cache::CACHE_SCHEMA_VERSION,
             source_object_reference: source.source_object_reference.clone(),
+            source_object_checksum: source.source_object_checksum.clone(),
             rendered: crate::cache::SafeRenderedWebworkQuestion {
                 envelope: rendered.envelope,
                 sanitized_html: sanitize_webwork_html(&rendered.html),
@@ -449,6 +445,7 @@ where
                 renderer_version: Some(renderer_version),
                 generator: None,
                 source_object_reference: Some(source.source_object_reference.clone()),
+                source_object_checksum: Some(source.source_object_checksum.clone()),
                 asset_objects: Vec::new(),
                 grader,
                 rendered_question_sha256,

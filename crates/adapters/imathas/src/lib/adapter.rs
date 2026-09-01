@@ -7,8 +7,8 @@ use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
     ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails,
-    QuestionPresentation, QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
-    QuestionSource, SourceObjectReference,
+    QuestionBackendLocator, QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
+    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference,
 };
 use sha2::{Digest, Sha256};
 
@@ -19,7 +19,7 @@ use crate::cache::{
 use crate::external_question_provider;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, GradeBinding, ImathasAdapterError,
-    ImathasDraftQuestionSource, ImathasProvider, PreparedSnapshot, ProviderGradeRequest,
+    ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,
     ProviderRenderRequest, ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex,
     verify_binding,
 };
@@ -29,6 +29,7 @@ use crate::{
 pub struct ImathasSource {
     pub(crate) question_revision: QuestionRevisionReference,
     pub(crate) artifact: SourceObjectReference,
+    pub(crate) source_object_checksum: SourceObjectChecksum,
     pub(crate) provider: String,
     pub(crate) item_ref: String,
     pub(crate) profile: String,
@@ -48,12 +49,17 @@ impl ImathasSource {
     pub fn artifact(&self) -> &SourceObjectReference {
         &self.artifact
     }
+
+    /// SHA-256 evidence for the immutable source bytes.
+    pub fn source_object_checksum(&self) -> &SourceObjectChecksum {
+        &self.source_object_checksum
+    }
 }
 
 /// Key-free issued external-tool question.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImathasIssuedAttempt {
-    pub envelope: QuestionPresentation,
+    pub envelope: QuestionVariationPresentation,
     pub parameter_hash: String,
     pub reproduction_details: QuestionAttemptReproductionDetails,
     pub cache_hit: bool,
@@ -103,9 +109,9 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// Snapshot a draft before publication. This neither knows nor mints a published identity.
     pub async fn prepare_snapshot(
         &self,
-        draft: &question_model::DraftQuestionSource,
+        draft: &question_model::DraftQuestionBackendLocator,
     ) -> Result<PreparedSnapshot, ImathasAdapterError> {
-        let locator = ImathasDraftQuestionSource::from_draft(draft)?;
+        let locator = ImathasQuestionLocation::from_draft_backend_locator(draft)?;
         let (bytes, profile) = self
             .provider
             .snapshot(&locator)
@@ -124,10 +130,10 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     /// Derives only capabilities actually delivered by the pinned profile.
     pub fn capabilities(
         &self,
-        source: &QuestionSource,
+        source: &QuestionBackendLocator,
         profile: &SupportedProfile,
     ) -> Result<QuestionBackendCapabilities, ImathasAdapterError> {
-        let QuestionSource::Imathas {
+        let QuestionBackendLocator::Imathas {
             integration_profile,
             ..
         } = source
@@ -197,9 +203,10 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         let record = CachedRender {
             schema: 1,
             source: source.artifact.clone(),
+            source_object_checksum: source.source_object_checksum.clone(),
             provider: source.provider.clone(),
             profile: source.profile.clone(),
-            envelope: QuestionPresentation {
+            envelope: QuestionVariationPresentation {
                 variation: question_model::QuestionVariation::static_variation(
                     question_revision.clone(),
                     seed,
@@ -217,8 +224,6 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 address: key.clone(),
                 bytes,
                 media_type: "application/vnd.peptidyle.imathas-render+json".into(),
-                license: None,
-                provenance: "safe iMathAS external-tool render cache".into(),
                 created_at,
             })
             .await
@@ -258,6 +263,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 }),
                 generator: None,
                 source_object_reference: Some(source.artifact.clone()),
+                source_object_checksum: Some(source.source_object_checksum.clone()),
                 asset_objects: Vec::new(),
                 grader: grader_version(GRADING_ID, GRADING_VERSION),
                 rendered_question_sha256: hash,

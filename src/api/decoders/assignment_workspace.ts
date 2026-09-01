@@ -74,7 +74,7 @@ export function decodeAssignmentEditorDetail(
   return decoded;
 }
 
-/** Decodes the exact 409 body requiring a successor Draft Assignment Revision. */
+/** Decodes the exact 409 body requiring a successor Assignment Working Copy. */
 export function decodeSuccessorAssignmentRevisionRequired(
   value: unknown,
   path = "response",

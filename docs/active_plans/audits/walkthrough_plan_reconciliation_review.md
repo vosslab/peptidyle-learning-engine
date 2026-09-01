@@ -155,7 +155,7 @@ otherwise execution-ready after this one assignment-contract clarification.
 - **Location:** `docs/active_plans/peptidyle-walkthrough-plan.md:103-108`,
   `:198-199`, and `:382-393`.
 - **Evidence:** The source seed's assignment policy is `AnswerAll`, `Highest`,
-  `Unlimited`, and `NewSeeds`, but its sole native question has
+  `Unlimited`, and `NewSeeds`, but its sole PLE Question has
   `max_attempts: Some(1)` and deferred feedback. It cannot provide the
   incorrect-then-correct retry evidence required by WP-W2. The plan says it
   reuses a "seeded mastery assignment" and creates later assignments including

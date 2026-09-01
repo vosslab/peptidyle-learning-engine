@@ -11,8 +11,8 @@ import { decodeNativeDraftPreviewResult } from "../src/wasm/index.ts";
 const draft = {
   workspace: "0198e000-0000-7000-8000-000000000010",
   title: "Peptide-bond geometry",
-  source: { backend: "native" },
-  questionFormat: "nativeAlgorithmic",
+  backendLocator: { backend: "ple" },
+  questionFormat: "pleAlgorithmic",
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
   questionAttemptLimit: { maxAttempts: null },
@@ -54,7 +54,7 @@ test("editor preview projects the exact draft and seed through the WASM facade",
     {
       request: {
         workspace: draft.workspace,
-        source: draft.source,
+        backendLocator: draft.backendLocator,
         title: draft.title,
         prompt: draft.prompt,
         response: draft.response,
@@ -77,7 +77,7 @@ test("editor preview surfaces backend-only draft availability honestly", async (
     })),
   );
   await assert.rejects(
-    facade.preview({ ...draft, source: { backend: "webwork", pgPath: "set/a.pg" } }, 17),
+    facade.preview({ ...draft, backendLocator: { backend: "webwork", pgPath: "set/a.pg" } }, 17),
     /webwork drafts need a backend preview/,
   );
 });

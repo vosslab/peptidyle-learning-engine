@@ -75,7 +75,7 @@ impl std::fmt::Display for QuestionRevisionNumber {
 
 /// A stored asset: an image, a figure, or an imported source package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssetId(Uuid);
+pub struct QuestionAssetId(Uuid);
 
 /// One immutable object-store record.
 ///
@@ -122,7 +122,7 @@ macro_rules! impl_identifier {
 
 impl_identifier!(WorkspaceId);
 impl_identifier!(WorkspaceImportId);
-impl_identifier!(AssetId);
+impl_identifier!(QuestionAssetId);
 impl_identifier!(ObjectId);
 
 #[cfg(test)]

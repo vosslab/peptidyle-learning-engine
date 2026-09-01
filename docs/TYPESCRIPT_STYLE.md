@@ -526,7 +526,7 @@ This is the canonical floor, not a ceiling. Per-repo additions (`src/*.ts` modul
 ## ARGUMENT PARSING
 
 - Be conservative. Only add arguments users frequently need to change between runs.
-- Good candidates:
+- Good entries:
   - Input and output file paths
   - Mode switches
   - Behavior toggles

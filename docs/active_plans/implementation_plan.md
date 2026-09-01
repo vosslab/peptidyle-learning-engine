@@ -80,7 +80,7 @@ adoption, Blueprint instantiation, rollover, term shift, controlled update, and 
 
 This is a clean pre-production cutover, not a compatibility layer. The SD1 sequence removes Alpha
 types, routes, schema branches, Store capabilities, generated aliases, and browser resource kinds;
-`BlueprintReference` (`BP-*`) is the only reusable-course locator. Existing `WP-INST-B1` and
+`BlueprintCourseReference` (`BP-*`) is the only reusable-course locator. Existing `WP-INST-B1` and
 `WP-INST-B2` acceptance records remain historical evidence; the current handoff and migration
 allocation remain solely in [implementation_status.md](implementation_status.md). `WP-R0`, `WP-R1`,
 `WP-R2`, and `WP-PY-L1` retain their registered package identities and acceptance status.
@@ -633,7 +633,7 @@ assignments arrive in daughter instances as unreleased; release and divergent de
 an explicit CourseInstance action. Archived referenced Blueprints remain resolvable for provenance
 and history.
 
-The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintReference`
+The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
 (`BP-*`) and one Store/route/decoder/editor family; it removes Alpha types, route families, schema
 branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
 module/assignment projection of the same BlueprintCourse. Fork, assignment adoption, and whole-course
@@ -695,7 +695,7 @@ composition boundaries are permanent only where the architecture requires them, 
 | `crates/grading`                           | **Answer keys, checkers, correctness decisions**                                                                        | `question_model`, `domain`                       |
 | `crates/objects`                           | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                 | `question_model`                                 |
 | `crates/learning-data-access`              | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                  | `question_model`, `domain`, `objects`            |
-| `crates/adapters/{native,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                     | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/{ple,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                     | `question_model`, `domain`, `grading`, `objects` |
 | `crates/export`                            | Print model, DOCX and PDF writers                                                                                       | `question_model`, `objects`                      |
 | `crates/wasm`                              | `wasm-bindgen` bridge, delegating every call to `domain`                                                                | `question_model`, `domain`                       |
 | `crates/server`                            | axum routes, auth, worker mode, composition root                                                                        | Every crate above                                |
@@ -920,8 +920,9 @@ student-records/exports/{course_id}/{export_id}/exam.pdf
 temp-processing/imports/{import_id}/
 ```
 
-Every object record carries `object_id`, `bucket`, `key`, `sha256`, `size_bytes`, `media_type`,
-`category` (`source` / `asset` / `render` / `export`), `license`, `provenance`, `created_at`.
+Every Object Record carries its typed Object Address, address-derived Object Storage Area and Object
+Data Class, Object ID, SHA-256, size, media type, and creation time. The owning Question Revision,
+import, render, export, or Student Record relationship retains its own source and legal evidence.
 
 Requests resolve assets from a known object record and read pre-parsed models, so bucket listings and
 archive parsing stay in the worker at import time. Public Question Library assets are served from CloudFront by
@@ -955,7 +956,7 @@ verify.
 
 PLE flat-question JSON follows the same source-preservation principle without
 copying QTI's interchange model. The bounded answer-bearing JSON is private in
-the workspace, is canonicalized and checksummed by the native adapter, and is
+the workspace, is canonicalized and checksummed by the PLE Question Backend, and is
 promoted to an immutable non-signable `ProblemSource` object at publication.
 The compiler writes an answer-free operational JSONB projection and separate
 grader-only key/feedback JSONB. Student rendering and grading read those compact
@@ -964,12 +965,12 @@ database projections rather than fetching or reparsing the source object.
 The 2026-08-09 flat-question package implements that transition: a typed
 compare-and-swap save atomically advances the workspace draft and source
 metadata; publication binds the copied canonical source, answer-free model, and
-typed private payload in one Question Library transition; and native runtime grading
+typed private payload in one Question Library transition; and PLE runtime grading
 uses an independently injected grader-only capability. The completed instructor
 editor uses the protected author-only canonical-source route as its narrow
 answer-bearing browser exception; student and public contracts remain
 answer-free. The bounded Canvas and Blackboard QTI profile mappings, Q3 pure
-native flat bridge, Q4 provenance contract, Q5/WP-QTI-7 schema/RLS/object-
+PLE flat bridge, Q4 provenance contract, Q5/WP-QTI-7 schema/RLS/object-
 binding implementation, WP-QTI-8 Memory/PostgreSQL conversion boundary, and WP-QTI-9 server routes
 are complete. WP-QTI-8
 closes staged profile evidence, revalidates exact accepted-result `itemId` binding, and atomically
@@ -984,14 +985,14 @@ and independent P0/P1 evidence passed. WP-QTI-10 author UI is also complete: it 
 answer-free QTI client and the existing workspace route/editor, keeps the selected ZIP and safe report
 only in component memory, requires an acknowledged report plus the displayed clean strong revision,
 and locks the stale editor through conversion/refetch recovery. Real-route Chromium and offline
-evidence passed. WP-QTI-11 live PostgreSQL/RLS/profile-to-native acceptance is complete: a fresh
+evidence passed. WP-QTI-11 live PostgreSQL/RLS/profile-to-PLE acceptance is complete: a fresh
 PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected report, native
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and
 re-reviewed. PLE flat JSON v2 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
 source/runtime semantics based on the reviewed QTI Package Maker item models. Version 1 source is
-refused; version 2 is the sole native reader. Remaining acceptance is recorded in
+refused; version 2 is the sole PLE reader. Remaining acceptance is recorded in
 `docs/active_plans/active/flat_question_family_evolution_plan.md`; external QTI-JSONL is a separate
 future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
 WP-RC2 is accepted; the shipped upstream WeBWorK implementation is historical WP-RC3 evidence. The dependency order and exact
@@ -1020,7 +1021,7 @@ image makes the record a lie.
 Four ownership questions that look like implementation details and are actually architecture. Each is
 settled here because discovering the answer during recovery or a decade-later migration is expensive.
 
-### Which source_object_reference defines a native question
+### Which source_object_reference defines a PLE Question
 
 The other backends have obvious authoritative artifacts; the native backend
 needed separate rulings for generated and static questions.
@@ -1490,7 +1491,7 @@ substitution for a required production path.
 | -------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, Question Classifications                             | none                                                                       | n/a (root contract)                  | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
 | MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionRevisionNumber`, lifecycle | MOD-QM                                                                     | n/a                                  | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
-| MOD-ACTIVITY               | Assignment Activity model and policies                                   | Assignment Attempt lifecycle, four policy types                                     | MOD-QM                                                                     | n/a                                  | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
+| MOD-ACTIVITY               | Assignment Activity Rules                                                | Assignment Attempt lifecycle and independent policy rules                          | MOD-QM                                                                     | n/a                                  | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
 | MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, within-Assignment-Attempt completion                         | MOD-QM, MOD-ACTIVITY                                                       | n/a                                  | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
 | MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                        | MOD-QM                                                                     | n/a                                  | Table-driven grace and pause cases                                                                                                                                                                                                          |
 | MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                    | MOD-QM, MOD-ACTIVITY                                                       | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
@@ -1500,7 +1501,7 @@ substitution for a required production path.
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                 | MOD-ID                                                                     | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
 | MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                       | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
 | MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                    | MOD-ID, MOD-ACTIVITY                                                       | n/a                                  | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
-| MOD-ADP-NAT                | Native adapter                                                           | Algorithmic families and strict PLE flat-question compiler                          | MOD-QM, MOD-GEN, MOD-GRD                                                   | n/a                                  | End-to-end generated family; flat JSON public/private split and reproducible hash                                                                                                                                                           |
+| MOD-ADP-NAT                | PLE Question Backend                                                     | Algorithmic Question Types and strict PLE flat-question compiler                    | MOD-QM, MOD-GEN, MOD-GRD                                                   | n/a                                  | End-to-end generated Question Type; flat JSON public/private split and reproducible hash                                                                                                                                                    |
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                         | MOD-QM, MOD-OBJ                                                            | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
 | MOD-ADP-QTI                | QTI adapter                                                              | Import pipeline, export                                                             | MOD-QM, MOD-OBJ                                                            | `MemoryObjectStore`                  | Hostile-ZIP fixture set rejected; unsupported features recorded                                                                                                                                                                             |
 | MOD-ADP-H5P                | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                                | MOD-QM                                                                     | n/a                                  | Capability honesty test; import path to internal model                                                                                                                                                                                      |
@@ -1544,7 +1545,7 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 | --- | ------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | M0  | Foundation and toolchain | Workspace, Solid build, containers, gates                             | Both toolchains green on a hello-path                                        |
 | M1  | Contract freeze          | Every contract, reference backend, and conformance suite              | Six or more lanes start without coordinating                                 |
-| M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, native adapter, API | Parity, secrecy, and cross-course/cross-user authorization gates green       |
+| M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, PLE Question Backend, API | Parity, secrecy, and cross-course/cross-user authorization gates green       |
 | M3  | Experience lanes         | Student and instructor UIs, worker pool, export                       | Long run history remains usable and correctly summarized                     |
 | M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                   | Adapter behavior is green and a one-time source-boundary receipt is accepted |
 | M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention               | Every gate green together, not just per lane                                 |
@@ -1590,7 +1591,7 @@ widget exist to build against.
 
 - Depends on: M1.
 - Deliverables: domain modules, run and scoring model, grading boundary with both gates, real object
-  storage, PostgreSQL store with RLS and partitions, native adapter including the PLE flat-question
+  storage, PostgreSQL store with RLS and partitions, PLE Question Backend including the PLE flat-question
   compiler and split persistence path, API route groups.
 - Lanes: (1) MOD-STATE, MOD-TIME, MOD-SCORE, MOD-CAP; (2) MOD-GEN, MOD-ADP-NAT; (3) MOD-GRD,
   MOD-WASM; (4) MOD-OBJ; (5) MOD-SCHEMA, MOD-STO; (6) the five API modules; (7) MOD-CLIENT.
@@ -1668,7 +1669,7 @@ iMathAS provider, not a second backend. Before MOD-ADP-IMATHAS begins, land the 
 draft-identity refactor. It is a prerequisite for every adapter, not an iMathAS-lane repair, and no
 adapter may consume an intermediate form:
 
-- MOD-QM defines a private workspace-owned `DraftQuestionDefinition` with workspace-only identity and no
+- MOD-QM defines a private workspace-owned `DraftQuestionRevision` with workspace-only identity and no
   `QuestionId` or `QuestionRevisionNumber`; published-only definitions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
   `QuestionRevisionReference`, stable QuestionId lineage, and immutable QuestionRevision only after all
@@ -1690,7 +1691,7 @@ one-time source-boundary receipt records that the adapter adds no edits inside `
 
 After that prerequisite:
 
-- Add `QuestionSource::Imathas` and `QuestionBackend::Imathas`. A draft sandbox preview may retain
+- Add `QuestionBackendLocator::Imathas` and `QuestionBackend::Imathas`. A draft sandbox preview may retain
   only an unversioned, private provider/question reference. Publishing first fetches and validates a
   supported profile, then stores immutable source bytes with an `ObjectId` and SHA-256 and pins the
   integration profile. The prerequisite publication transition mints the applicable immutable
@@ -1854,8 +1855,8 @@ or implementer-authored specification is required.
   types that cannot substitute for one another; publication creates a stable Question ID and Version
   Number 1; each accepted same-lineage change advances the positive monotonic Version Number; a fork
   creates a new Question ID; and `QuestionRevisionReference` carries the exact pair. Question
-  Publication Readiness, Question Publication Event, and Question Revision Availability remain
-  separate contracts.
+  Publication Requirements, Question Publication Validation, Question Publication Issues, Question
+  Publication Event, and Question Revision Availability remain separate contracts.
 - Next dependency: WP-C3 and WP-C4 consume this accepted package.
 
 #### Work package: WP-C3 define the Assignment Activity, policy, and summary model
@@ -1969,7 +1970,7 @@ or implementer-authored specification is required.
   `docs/active_plans/decisions/course_appearance_plan.md`. Depends on: WP-QTI-12 plus the
   existing course, auth, object, Store, schema, client, and frontend contracts. WP-QTI-12 and
   WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE flat JSON v2 for
-  native all-family source; external QTI-JSONL is a separate future adapter concern.
+  PLE Question Source for every Question Type; external QTI-JSONL is a separate future adapter concern.
 - Touch points: focused `course_appearance` modules in `question_model`, `learning-data-access`,
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
   generated client, Playwright, and durable documentation owners.
@@ -2000,27 +2001,27 @@ or implementer-authored specification is required.
   architecture, file structure, contracts, frontend/route docs, retention/object docs, and changelog
   boundary.
 
-### M3 flat-question family evolution package
+### M3 flat-question type evolution package
 
-#### Work package: WP-M3-FLAT-FAMILIES complete all flat families
+#### Work package: WP-M3-FLAT-FAMILIES complete all flat Question Types
 
-- Owner: `architect` coordinates the family closeout in
+- Owner: `architect` coordinates the Question Type closeout in
   `docs/active_plans/active/flat_question_family_evolution_plan.md`.
   Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure student-payload package, and
-  the existing native flat, grading, object, Store, schema, server, client, and frontend contracts.
+  the existing PLE flat, grading, object, Store, schema, server, client, and frontend contracts.
 - Touch points: closed PLE flat JSON v2 source/compiler; public/private
-  compilation; family response/checker types; source-to-object bindings; persistence, author
+  compilation; Question Type-specific response/checker types; source-to-object bindings; persistence, author
   editors, student widgets, live evidence, and durable documentation.
 - Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
   MATCH, ORDER, and HOTSPOT.
-- Acceptance criteria: keep answers and optional feedback protected; complete family-specific visual
+- Acceptance criteria: keep answers and optional feedback protected; complete Question Type-specific visual
   authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/student flows,
   immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, and no
   browser/Wasm answer association.
 - Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL/object-store oracles,
   the full repository gate, and independent PASS with no remaining P0/P1 finding.
 - Next dependency: WP-RC5 publishes the exact Chapter 1 content after MATCH and completes the other
-  family work packages in their frozen dependency order.
+  Question Type work packages in their frozen dependency order.
 
 ## Acceptance criteria and gates
 
@@ -2182,7 +2183,7 @@ The current implementation and scope decisions are expanded into dispatchable pa
   MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
   provides verified-image selection, immutable version-scoped publication, exact issue-time asset
   binding, and the primary keyboard region-list workflow. Its integrated author-to-student
-  object-lifecycle acceptance remains open in the flat-family plan.
+  object-lifecycle acceptance remains open in the flat-question type plan.
 - New assignments default to `highest`; new practice runs use `newSeeds` while resumed attempts keep
   their issued seed.
 - Retention defaults are notify at 30 days, archive at 100 days, student-record deletion at 365 days,

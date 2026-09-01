@@ -23,7 +23,7 @@ CREATE TABLE ple_data.question_change_proposal_revision (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT question_change_proposal_revision_number_is_unique UNIQUE (proposal_id, revision_number),
     CONSTRAINT question_change_proposal_revision_reference_is_unique UNIQUE (proposal_id, proposal_revision_id),
-    CONSTRAINT question_change_proposal_revision_base_version_matches FOREIGN KEY (base_question_id, base_revision_number)
+    CONSTRAINT question_change_proposal_revision_base_revision_matches FOREIGN KEY (base_question_id, base_revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number)
 );
 CREATE FUNCTION ple_data.reject_question_stewardship_change()

@@ -1,7 +1,7 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
 import type { ResponseItemReference } from "../../generated/api/ResponseItemReference";
-import type { PresentedQuestionAsset } from "../../generated/api/PresentedQuestionAsset";
+import type { QuestionAssetRendition } from "../../generated/api/QuestionAssetRendition";
 import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
@@ -10,9 +10,9 @@ import type { QuestionResponseFormat } from "../../generated/api/QuestionRespons
 import type { QuestionRevision } from "../../generated/api/QuestionRevision";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
-import type { PresentationEnvelopeV1 } from "../../generated/api/PresentationEnvelopeV1";
-import type { ContentBlock } from "../../generated/api/ContentBlock";
-import type { DraftQuestionSource } from "../../generated/api/DraftQuestionSource";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
+import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
 import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
 import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -88,43 +88,43 @@ export type CapabilityValidator = (
 ) => Promise<ReadonlyArray<CapabilityViolation>>;
 
 /** Key-free browser inputs for deterministic workspace-draft preview. */
-export interface NativeDraftPreviewRequest {
+export interface PleDraftPreviewRequest {
   readonly workspace: string;
-  readonly source: DraftQuestionSource;
+  readonly backendLocator: DraftQuestionBackendLocator;
   readonly title: string;
-  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
   readonly questionVariationDefinition: QuestionVariationDefinition;
 }
 
-/** Identity-free preview material returned only for local native sources. */
-export interface NativeDraftPreview {
+/** Identity-free preview material returned only for local PLE Question Sources. */
+export interface PleDraftPreview {
   readonly workspace: string;
   readonly seed: number;
   readonly title: string;
-  readonly prompt: ReadonlyArray<ContentBlock>;
+  readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
 
-export type NativeDraftPreviewResult =
-  | { readonly kind: "ready"; readonly preview: NativeDraftPreview }
+export type PleDraftPreviewResult =
+  | { readonly kind: "ready"; readonly preview: PleDraftPreview }
   | {
       readonly kind: "unavailable";
       readonly backend: QuestionBackend;
       readonly capability: "offlinePreview";
     };
 
-export type NativeDraftPreviewer = (
-  request: NativeDraftPreviewRequest,
+export type PleDraftPreviewer = (
+  request: PleDraftPreviewRequest,
   seed: number,
-) => Promise<NativeDraftPreviewResult>;
+) => Promise<PleDraftPreviewResult>;
 
 export type PresentationVerification =
   { readonly kind: "match" } | { readonly kind: "mismatch" } | { readonly kind: "unavailable" };
 
 export type PresentationVerifier = (
-  envelope: PresentationEnvelopeV1,
-  assets: ReadonlyArray<PresentedQuestionAsset>,
+  envelope: QuestionPresentation,
+  assets: ReadonlyArray<QuestionAssetRendition>,
   digest: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
 
@@ -134,7 +134,7 @@ export interface WasmFacade {
   readonly validateResponseFormat: FormatValidator;
   readonly questionAttemptTimingDecision: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
-  readonly previewNativeDraft: NativeDraftPreviewer;
+  readonly previewNativeDraft: PleDraftPreviewer;
   readonly verifyPresentationDescriptor: PresentationVerifier;
 }
 
@@ -143,10 +143,10 @@ interface WasmBindgenModule {
   readonly question_attempt_timing_decision: (evaluationJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
-  readonly preview_native_draft: (draftJson: string, seedJson: string) => string;
+  readonly preview_ple_draft: (draftJson: string, seedJson: string) => string;
   readonly verify_presentation_descriptor: (
     envelopeJson: string,
-    assetBindingsJson: string,
+    questionAssetRenditionsJson: string,
     digest: string,
   ) => boolean;
 }
@@ -166,7 +166,7 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
     typeof value["question_attempt_timing_decision"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
-    typeof value["preview_native_draft"] === "function" &&
+    typeof value["preview_ple_draft"] === "function" &&
     typeof value["verify_presentation_descriptor"] === "function"
   );
 }
@@ -183,7 +183,7 @@ function rejectUnknownFields(
 
 function parseQuestionBackend(value: unknown): QuestionBackend {
   switch (value) {
-    case "native":
+    case "ple":
     case "webwork":
     case "qti":
     case "h5p":
@@ -195,7 +195,7 @@ function parseQuestionBackend(value: unknown): QuestionBackend {
 }
 
 /** Strictly decodes the reviewed, key-free WebAssembly draft-preview result. */
-export function decodeNativeDraftPreviewResult(json: string): NativeDraftPreviewResult {
+export function decodeNativeDraftPreviewResult(json: string): PleDraftPreviewResult {
   const value: unknown = JSON.parse(json);
   if (!isRecord(value)) throw new Error("WASM draft preview result must be an object");
   const kind = requiredString(value, "kind");
@@ -399,10 +399,10 @@ async function initializeWasmFacade(
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
       );
-    const previewNativeDraft: NativeDraftPreviewer = (request, seed) =>
+    const previewNativeDraft: PleDraftPreviewer = (request, seed) =>
       Promise.resolve(
         decodeNativeDraftPreviewResult(
-          loaded.preview_native_draft(JSON.stringify(request), JSON.stringify(seed)),
+          loaded.preview_ple_draft(JSON.stringify(request), JSON.stringify(seed)),
         ),
       );
     const verifyPresentationDescriptor: PresentationVerifier = (envelope, assets, digest) =>
@@ -433,7 +433,7 @@ async function initializeWasmFacade(
       previewNativeDraft: (request) =>
         Promise.resolve({
           kind: "unavailable",
-          backend: request.source.backend,
+          backend: request.backendLocator.backend,
           capability: "offlinePreview",
         }),
       verifyPresentationDescriptor: () => Promise.resolve({ kind: "unavailable" }),

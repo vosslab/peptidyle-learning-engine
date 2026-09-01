@@ -14,26 +14,29 @@ mod response_translation;
 
 pub use binding::QuestionPresentationBinding;
 pub use builder::{
-    IssuedQuestionPresentation, NonceSourceV1, OsNonceSourceV1, PresentationBuildError,
-    ResponseItemBinding, ResponseItemRole, build_presentation_v1,
-    build_presentation_v1_with_nonce_source, rebuild_public_presentation_v1,
-    reproduce_presentation_v1,
+    IssuedQuestionPresentation, OperatingSystemQuestionPresentationNonceSource,
+    PresentationBuildError, QuestionPresentationNonceSource, ResponseItemBinding, ResponseItemRole,
+    build_question_presentation, build_question_presentation_with_nonce_source,
+    rebuild_public_question_presentation, reproduce_question_presentation,
 };
 pub use codec::{
-    DESCRIPTOR_VERSION_V1, QuestionPresentationDigest, descriptor_bytes_v1, verify_presentation_v1,
+    CURRENT_DESCRIPTOR_VERSION, QuestionPresentationDigest, descriptor_bytes,
+    verify_question_presentation,
 };
 pub use model::{
-    IssuedQuestionResponseFormatV1, PresentationEnvelopeV1, PresentationResponseItemReference,
-    PresentedBlankV1, PresentedChoiceV1, PresentedHotspotRegionV1, PresentedHotspotSurfaceV1,
-    PresentedQuestionAsset, QuestionPresentationNonce, QuestionPresentationToken,
-    StudentAssignmentAttemptScreenAttemptV1, StudentAssignmentAttemptScreenScopeV1,
-    StudentAssignmentAttemptScreenV1, StudentAttemptDescriptorV1,
+    PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
+    PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
+    PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
+    QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,
+    QuestionPresentationResponseFormat, QuestionPresentationToken, StudentAssignmentAttemptScreen,
+    StudentAssignmentAttemptScreenAttempt, StudentAssignmentAttemptScreenScope,
+    StudentAttemptDescriptor,
 };
 pub use response_translation::{
-    InspectedExternalToolStateV1, InspectedMatchPairV1, InspectedTextEntryV1,
-    RenderedResponseTranslationErrorV1, StudentResponseInspection,
-    project_durable_response_to_rendered_v1, project_rendered_response_for_inspection_v1,
-    translate_rendered_response_v1,
+    InspectedExternalToolState, InspectedMatchPair, InspectedTextEntry,
+    RenderedResponseTranslationError, StudentResponseInspection,
+    project_durable_response_to_rendered, project_rendered_response_for_inspection,
+    translate_rendered_response,
 };
 
 #[cfg(test)]

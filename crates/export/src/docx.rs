@@ -1,13 +1,13 @@
 //! Deterministic DOCX writer (MOD-EXPORT).
 
 use crate::{ExportArtifact, FlowBlock, PrintExam, PrintLayout, exam_flow};
-use question_model::AssetId;
+use question_model::QuestionAssetId;
 
 /// Writes a minimal OOXML package with explicit US Letter geometry, ordinary
 /// page margins, embedded PNG media, and paragraph keep controls.
 pub fn write(exam: &PrintExam, layout: PrintLayout) -> ExportArtifact {
     let flow = exam_flow(exam, layout);
-    let mut media = Vec::<(AssetId, Vec<u8>)>::new();
+    let mut media = Vec::<(QuestionAssetId, Vec<u8>)>::new();
     for question in &flow {
         for block in question {
             if let FlowBlock::Image { asset, .. } = block
@@ -58,14 +58,14 @@ fn content_types(images: bool) -> String {
 fn relationships() -> String {
     "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>".to_string()
 }
-fn document_relationships(media: &[(AssetId, Vec<u8>)]) -> String {
+fn document_relationships(media: &[(QuestionAssetId, Vec<u8>)]) -> String {
     let image_rels = media.iter().enumerate().map(|(index, _)| format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image{}.png\"/>", index + 1, index + 1)).collect::<String>();
     format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{image_rels}</Relationships>"
     )
 }
 
-fn document_xml(flow: &[Vec<FlowBlock>], media: &[(AssetId, Vec<u8>)]) -> String {
+fn document_xml(flow: &[Vec<FlowBlock>], media: &[(QuestionAssetId, Vec<u8>)]) -> String {
     let mut body = String::new();
     for question in flow {
         for block in question {

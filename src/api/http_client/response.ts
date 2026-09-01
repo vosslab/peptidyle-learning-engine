@@ -12,7 +12,7 @@ import type { CourseBannerId } from "../../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
@@ -38,7 +38,7 @@ import {
   decodeCourseGradebookTotalsView,
   decodeCoursePage,
   decodeCourseSummary,
-  decodeDraftQuestionDefinition,
+  decodeDraftQuestionRevision,
   decodeExternalToolLaunch,
   decodeStudentQuestionAttempt,
   decodeQuestionPresentation,
@@ -111,7 +111,7 @@ function issuedQuestionForAttempt(
   courseId: CourseId,
   assignmentId: AssignmentId,
   attempt: StudentQuestionAttempt,
-): Promise<QuestionPresentation> {
+): Promise<QuestionVariationPresentation> {
   const decoder =
     attempt.issuedCapability === "notApplicable"
       ? decodeQuestionPresentation
@@ -185,7 +185,7 @@ async function workspaceDraft(
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const value = await boundedResponseJson(response, path);
   return {
-    draft: decodeDraftQuestionDefinition(value, "response"),
+    draft: decodeDraftQuestionRevision(value, "response"),
     revision: workspaceRevision(response, path),
   };
 }
@@ -488,7 +488,11 @@ export function createResponseClient(
         `/api/attempts/${encodedId(attemptId)}`,
         decodeStudentQuestionAttempt,
       ),
-    getIssuedQuestion: async (courseId, assignmentId, attemptId): Promise<QuestionPresentation> => {
+    getIssuedQuestion: async (
+      courseId,
+      assignmentId,
+      attemptId,
+    ): Promise<QuestionVariationPresentation> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,

@@ -79,7 +79,7 @@ function decodeQuestionSearchBackendFacet(
   requireOnlyFields(record, path, ["backend", "count"]);
   return {
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
-      "native",
+      "ple",
       "webwork",
       "qti",
       "h5p",

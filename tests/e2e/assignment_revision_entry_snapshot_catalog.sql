@@ -5,7 +5,7 @@ BEGIN
     IF to_regclass('ple_data.assignment_revision_entry') IS NULL
        OR to_regclass('ple_data.assignment_revision_fixed_question') IS NULL
        OR to_regclass('ple_data.assignment_revision_question_pool') IS NULL
-       OR to_regclass('ple_data.assignment_revision_question_pool_candidate') IS NULL THEN
+       OR to_regclass('ple_data.assignment_revision_question_pool_entry') IS NULL THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot tables are missing';
     END IF;
     IF EXISTS (
@@ -47,8 +47,8 @@ BEGIN
           AND conname = 'assignment_revision_question_pool_entry_matches'
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'ple_data.assignment_revision_question_pool_candidate'::regclass
-          AND conname = 'assignment_revision_question_pool_candidate_pool_matches'
+        WHERE conrelid = 'ple_data.assignment_revision_question_pool_entry'::regclass
+          AND conname = 'assignment_revision_question_pool_entry_pool_matches'
     ) THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot relationships are incomplete';
     END IF;
@@ -58,7 +58,7 @@ BEGIN
         WHERE namespace.nspname = 'ple_data'
           AND relation.relname IN (
               'assignment_revision_entry', 'assignment_revision_fixed_question',
-              'assignment_revision_question_pool', 'assignment_revision_question_pool_candidate'
+              'assignment_revision_question_pool', 'assignment_revision_question_pool_entry'
           )
           AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
     ) THEN
@@ -71,7 +71,7 @@ BEGIN
         WHERE namespace.nspname = 'ple_data'
           AND relation.relname IN (
               'assignment_revision_entry', 'assignment_revision_fixed_question',
-              'assignment_revision_question_pool', 'assignment_revision_question_pool_candidate'
+              'assignment_revision_question_pool', 'assignment_revision_question_pool_entry'
           )
           AND privilege.grantee = 0
     ) THEN
@@ -82,17 +82,17 @@ BEGIN
             'ple_data.assignment_revision_entry'::regclass,
             'ple_data.assignment_revision_fixed_question'::regclass,
             'ple_data.assignment_revision_question_pool'::regclass,
-            'ple_data.assignment_revision_question_pool_candidate'::regclass
+            'ple_data.assignment_revision_question_pool_entry'::regclass
         )
           AND tgname IN (
               'assignment_revision_entry_is_immutable',
               'assignment_revision_fixed_question_is_immutable',
               'assignment_revision_question_pool_is_immutable',
-              'assignment_revision_question_pool_candidate_is_immutable',
+              'assignment_revision_question_pool_entry_is_immutable',
               'assignment_revision_entry_has_exact_shape',
               'assignment_revision_fixed_question_matches_entry_kind',
               'assignment_revision_question_pool_matches_entry_kind',
-              'assignment_revision_question_pool_candidate_count_is_sufficient'
+              'assignment_revision_question_pool_entry_count_is_sufficient'
           )
           AND NOT tgisinternal) <> 8 THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot immutability or shape validation is missing';
@@ -104,8 +104,8 @@ BEGIN
           AND NOT tgisinternal
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_trigger
-        WHERE tgrelid = 'ple_private.question_pool_selected_candidate'::regclass
-          AND tgname = 'question_pool_selected_candidate_matches_released_pool_candidate'
+        WHERE tgrelid = 'ple_private.question_pool_selected_entry'::regclass
+          AND tgname = 'question_pool_selected_entry_matches_released_pool_entry'
           AND NOT tgisinternal
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_trigger
@@ -148,7 +148,7 @@ INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('ABC-DEF0', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.question_revision (
     question_id, revision_number, backend, published_at, public_metadata
-) VALUES ('ABC-DEF0', 1, 'native', '2026-01-01 00:00:00+00', '{}'::jsonb);
+) VALUES ('ABC-DEF0', 1, 'ple', '2026-01-01 00:00:00+00', '{}'::jsonb);
 INSERT INTO ple_data.blueprint_course (blueprint_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.blueprint_course_revision (
@@ -270,7 +270,7 @@ BEGIN
               'question_id', 'ABC-DEF0',
               'revision_number', 1,
               'question_pool_selection_id', NULL,
-              'question_pool_candidate_id', NULL
+              'question_pool_entry_id', NULL
           ))
       );
     SELECT assignment_attempt_id, attempt_number, resumed

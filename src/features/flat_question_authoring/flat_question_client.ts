@@ -1,11 +1,11 @@
-import type { DraftQuestionDefinition } from "../../../generated/api/DraftQuestionDefinition";
+import type { DraftQuestionRevision } from "../../../generated/api/DraftQuestionRevision";
 import type { QuestionType } from "../../../generated/api/QuestionType";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { PublicByline } from "../../../generated/api/PublicByline";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import {
   decodeQuestionSummary,
-  decodeDraftQuestionDefinition,
+  decodeDraftQuestionRevision,
   isAvailableNativeQuestionSummary,
 } from "../../api/decoders";
 import { isPublicByline } from "../../api/public_byline";
@@ -51,7 +51,7 @@ export type FlatQuestionRead = {
 };
 
 export type FlatQuestionSave = {
-  readonly draft: DraftQuestionDefinition;
+  readonly draft: DraftQuestionRevision;
   readonly revision: string;
 };
 
@@ -177,13 +177,13 @@ function decodeJson(text: string, path: string): unknown {
 }
 
 function requireFlatQuestionContract(
-  draft: DraftQuestionDefinition,
+  draft: DraftQuestionRevision,
   response: FlatQuestionSourceV2["response"] | undefined,
   responseKind: "save" | "publication",
 ): void {
-  if (draft.source.backend !== "native" || draft.questionFormat !== "pleFlatQuestionV2") {
+  if (draft.backendLocator.backend !== "ple" || draft.questionFormat !== "pleFlatQuestionV2") {
     throw new FlatQuestionProtocolError(
-      `Flat-question ${responseKind} response must use the native PLE flat-question V2 format`,
+      `Flat-question ${responseKind} response must use PLE flat-question V2 format`,
     );
   }
   if (response !== undefined && draft.questionType !== questionTypeForResponse(response)) {
@@ -271,7 +271,7 @@ export function createFlatQuestionClient(
     if (!response.ok) throw new FlatQuestionRequestError(response.status, path);
     requireJson(response, path);
     const text = await boundedText(response, path);
-    const draft = decodeDraftQuestionDefinition(decodeJson(text, path));
+    const draft = decodeDraftQuestionRevision(decodeJson(text, path));
     if (draft.workspace !== workspace) {
       throw new FlatQuestionProtocolError(
         "Flat-question save response does not match its workspace",
@@ -316,7 +316,7 @@ export function createFlatQuestionClient(
     );
     if (!isAvailableNativeQuestionSummary(summary)) {
       throw new FlatQuestionProtocolError(
-        "Flat-question publication response must be an available native Question Library summary",
+        "Flat-question publication response must be an available PLE Question Library summary",
       );
     }
     return summary;

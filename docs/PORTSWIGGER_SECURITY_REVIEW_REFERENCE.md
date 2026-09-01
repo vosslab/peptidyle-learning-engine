@@ -168,7 +168,7 @@ has crossed its intended trust boundary. See
 - **Review questions:** Is input bounded before decode? Are archive names normalized and rejected on
   absolute paths, backslashes, traversal, duplicates, symlinks, and expansion bombs? Are media
   types sniffed and fully decoded? Can a wire payload choose a Rust trait object, filesystem path,
-  object key, serializer type, or privileged enum variant?
+  Object Address, serializer type, or privileged enum variant?
 - **Evidence:** **Code evidence target:** QTI and raster corpus tests must reject hostile archives
   and restrict raster decoding. The student file-upload route must fail closed until capability
   binding exists. Retain corpus tests for malformed, duplicate-key, oversized, and polyglot inputs.
@@ -247,7 +247,7 @@ testing; undocumented endpoints and different content types are part of the surf
   **Deployment evidence:** IAM policy review and the deployed workload-to-bucket/KMS/network path.
 - **Negative oracle:** Changing course settings, borrowing another role's URL, requesting another
   bucket/key prefix, or calling a privileged broker without its contract yields no data or action.
-- **False confidence:** An ORM filter, one broad cloud role, client-side object keys, a bucket-wide
+- **False confidence:** An ORM filter, one broad cloud role, client-side Object Addresses, a bucket-wide
   signed URL, encryption at rest without authorization, or a database superuser used by the API.
 - **Applicability:** **Deployment target and release blocker.** Object storage and cloud IAM are
   separate authorization planes; neither database RLS nor an encrypted drive substitutes for them.

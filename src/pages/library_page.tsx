@@ -46,7 +46,7 @@ function questionTypeLabel(value: string): string {
 
 function backendLabel(value: string): string {
   const labels: Readonly<Record<string, string>> = {
-    native: "Native",
+    ple: "PLE",
     webwork: "WeBWorK",
     qti: "QTI",
     h5p: "H5P",

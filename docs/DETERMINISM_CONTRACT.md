@@ -1,7 +1,7 @@
 # Determinism contract
 
 This document defines what PLE reproduces exactly, what it merely checks for
-consistency, and what must remain server-owned. It applies to native generated
+consistency, and what must remain server-owned. It applies to PLE generated
 questions, WeBWorK renders, issued student presentations, cache entries, and
 prefetch reservations.
 
@@ -16,9 +16,9 @@ attempt uses the stored values.
 | Layer                         | Authoritative inputs                                                       | Exact result                                              | Owner                              |
 | ----------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
 | Question Variation Parameters | generator reference, definition, seed                                      | `QuestionVariationParameters` and SHA-256                 | `domain` and Wasm                  |
-| Native issued question        | immutable question revision, seed                                           | envelope and Question Attempt Reproduction Details        | trusted server backend             |
-| WeBWorK safe render           | problem, immutable version, source source_object_reference, seed, renderer | safe cached envelope and sanitized markup                 | private adapter/renderer           |
-| Student presentation          | answer-free envelope, asset bindings, stored nonce                         | Question Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
+| Native issued question        | immutable Question Revision, seed                                           | Question Variation Presentation and Question Attempt Reproduction Details | trusted server backend             |
+| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation and sanitized markup | private adapter/renderer           |
+| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce | Question Presentation Response Format, rendered IDs, descriptor digest | trusted server; browser may verify |
 | Submission                    | authenticated attempt, idempotency key, student response                   | one stored receipt or conflict                            | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
@@ -82,9 +82,9 @@ a JavaScript string error; a structurally invalid but well-formed response
 returns a report. No export accepts an answer key or produces correctness.
 
 Flat v2 source is answer-bearing, so its parser and compiler remain in the
-server-only native adapter. Browser parity therefore covers the actual public
+server-only PLE Question Backend. Browser parity therefore covers the actual public
 boundary: answer-free `QuestionResponseFormat` values compiled from the current
-flat v2 MC and MATCH Question Types, and `StudentResponse` values. Inline native,
+flat v2 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
 generated-Node, and headless-browser cases cover valid selections and matching
 permutations, empty-response boundaries, malformed JSON errors, and repeated
 calls. They compare serialized reports exactly. This is a behavior test, not a
@@ -188,10 +188,10 @@ redacted mapping from presentation-scoped rendered item IDs to upstream fields a
 mapping is course-owned, validated, RLS-protected, and never serialized to the
 browser or cache.
 
-Issued native-flat and WeBWorK attempts also retain checksummed, server-only
+Issued PLE-flat and WeBWorK attempts also retain checksummed, server-only
 first-grade contracts. A first grade validates its family-owned contract and
 fails unavailable if required material is absent or corrupt; it does not reread
-a current published Question definition, private flat grader, or renderer to repair an
+a current published Question Revision, private flat grader, or renderer to repair an
 earlier issuance.
 
 The normal run route threads that private mapping from

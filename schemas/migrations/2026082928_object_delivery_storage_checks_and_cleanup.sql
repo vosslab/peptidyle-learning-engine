@@ -7,65 +7,105 @@ GRANT REFERENCES ON TABLE ple_private.account TO ple_audit_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
-CREATE TABLE ple_data.object_delivery_record (
+-- ASVS 2.1.1/2.1.2: delivery state and exact owner relationships are database-validated.
+CREATE TABLE ple_data.object_delivery (
     delivery_id uuid PRIMARY KEY,
     object_id uuid NOT NULL,
-    delivery_kind text NOT NULL CHECK (delivery_kind IN ('question_asset', 'course_banner', 'course_record')),
-    course_id uuid,
-    question_id text,
-    revision_number integer,
-    asset_id uuid,
     sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(sha256) = 32),
     media_type text NOT NULL CHECK (char_length(btrim(media_type)) BETWEEN 1 AND 200),
     byte_length bigint NOT NULL CHECK (byte_length >= 0),
-    publication_state text NOT NULL CHECK (publication_state IN ('pending', 'active', 'retired')),
+    delivery_state text NOT NULL CHECK (delivery_state IN ('pending', 'available', 'retired')),
     registered_at timestamp with time zone NOT NULL,
-    CONSTRAINT object_delivery_question_parent_matches FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision (question_id, revision_number),
-    CONSTRAINT object_delivery_course_parent_matches FOREIGN KEY (object_id, course_id)
-        REFERENCES ple_private.course_object_metadata (object_id, course_id),
-    CONSTRAINT object_delivery_parent_shape_is_exact CHECK (
-        (delivery_kind = 'question_asset' AND question_id IS NOT NULL AND revision_number IS NOT NULL
-            AND asset_id IS NOT NULL AND course_id IS NULL)
-        OR (delivery_kind = 'course_banner' AND course_id IS NOT NULL AND question_id IS NULL
-            AND revision_number IS NULL AND asset_id IS NULL)
-        OR (delivery_kind = 'course_record' AND course_id IS NOT NULL AND question_id IS NULL
-            AND revision_number IS NULL AND asset_id IS NULL)
-    )
+    UNIQUE (delivery_id, object_id)
 );
-CREATE FUNCTION ple_data.reject_object_delivery_parent_change()
+CREATE TABLE ple_data.course_banner (
+    course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
+    course_banner_id uuid NOT NULL,
+    object_id uuid NOT NULL,
+    PRIMARY KEY (course_id, course_banner_id),
+    UNIQUE (course_id, course_banner_id, object_id)
+);
+CREATE TABLE ple_data.question_asset_delivery (
+    delivery_id uuid PRIMARY KEY,
+    object_id uuid NOT NULL,
+    question_id text NOT NULL,
+    revision_number integer NOT NULL,
+    asset_id uuid NOT NULL,
+    FOREIGN KEY (delivery_id, object_id) REFERENCES ple_data.object_delivery (delivery_id, object_id),
+    FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number)
+);
+CREATE TABLE ple_data.course_banner_delivery (
+    delivery_id uuid PRIMARY KEY,
+    object_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    course_banner_id uuid NOT NULL,
+    FOREIGN KEY (delivery_id, object_id) REFERENCES ple_data.object_delivery (delivery_id, object_id),
+    FOREIGN KEY (course_id, course_banner_id, object_id)
+        REFERENCES ple_data.course_banner (course_id, course_banner_id, object_id)
+);
+CREATE TABLE ple_data.course_object_delivery (
+    delivery_id uuid PRIMARY KEY,
+    object_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    FOREIGN KEY (delivery_id, object_id) REFERENCES ple_data.object_delivery (delivery_id, object_id),
+    FOREIGN KEY (object_id, course_id)
+        REFERENCES ple_private.course_object_metadata (object_id, course_id)
+);
+-- ASVS 2.3.1/2.3.3: only one exact owner may make a delivery available.
+CREATE FUNCTION ple_data.require_exact_available_object_delivery_owner()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
+DECLARE
+    target_delivery_id uuid := COALESCE(NEW.delivery_id, OLD.delivery_id);
+    owner_count integer;
 BEGIN
-    IF NEW.object_id IS DISTINCT FROM OLD.object_id
-        OR NEW.delivery_kind IS DISTINCT FROM OLD.delivery_kind
-        OR NEW.course_id IS DISTINCT FROM OLD.course_id
-        OR NEW.question_id IS DISTINCT FROM OLD.question_id
-        OR NEW.revision_number IS DISTINCT FROM OLD.revision_number
-        OR NEW.asset_id IS DISTINCT FROM OLD.asset_id
-        OR NEW.sha256 IS DISTINCT FROM OLD.sha256
-        OR NEW.media_type IS DISTINCT FROM OLD.media_type
-        OR NEW.byte_length IS DISTINCT FROM OLD.byte_length
-        OR NEW.registered_at IS DISTINCT FROM OLD.registered_at THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'an object delivery parent is immutable';
+    IF (SELECT delivery_state FROM ple_data.object_delivery WHERE delivery_id = target_delivery_id) = 'available' THEN
+        SELECT (SELECT count(*) FROM ple_data.question_asset_delivery WHERE delivery_id = target_delivery_id)
+             + (SELECT count(*) FROM ple_data.course_banner_delivery WHERE delivery_id = target_delivery_id)
+             + (SELECT count(*) FROM ple_data.course_object_delivery WHERE delivery_id = target_delivery_id)
+        INTO owner_count;
+        IF owner_count <> 1 THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'an available Object Delivery requires exactly one owner relationship';
+        END IF;
     END IF;
-    RETURN NEW;
+    RETURN NULL;
 END
 $$;
-CREATE TRIGGER object_delivery_parent_is_immutable
-BEFORE UPDATE ON ple_data.object_delivery_record
-FOR EACH ROW EXECUTE FUNCTION ple_data.reject_object_delivery_parent_change();
-ALTER TABLE ple_data.object_delivery_record ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_data.object_delivery_record FORCE ROW LEVEL SECURITY;
-REVOKE ALL PRIVILEGES ON TABLE ple_data.object_delivery_record FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_object_delivery_parent_change() FROM PUBLIC;
+CREATE CONSTRAINT TRIGGER object_delivery_has_exact_available_owner
+AFTER INSERT OR UPDATE OR DELETE ON ple_data.object_delivery DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_exact_available_object_delivery_owner();
+CREATE CONSTRAINT TRIGGER question_asset_delivery_preserves_available_owner
+AFTER INSERT OR UPDATE OR DELETE ON ple_data.question_asset_delivery DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_exact_available_object_delivery_owner();
+CREATE CONSTRAINT TRIGGER course_banner_delivery_preserves_available_owner
+AFTER INSERT OR UPDATE OR DELETE ON ple_data.course_banner_delivery DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_exact_available_object_delivery_owner();
+CREATE CONSTRAINT TRIGGER course_object_delivery_preserves_available_owner
+AFTER INSERT OR UPDATE OR DELETE ON ple_data.course_object_delivery DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION ple_data.require_exact_available_object_delivery_owner();
+ALTER TABLE ple_data.object_delivery ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.object_delivery FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_banner ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_banner FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.question_asset_delivery ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.question_asset_delivery FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_banner_delivery ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_banner_delivery FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_object_delivery ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.course_object_delivery FORCE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE ple_data.object_delivery, ple_data.course_banner,
+    ple_data.question_asset_delivery, ple_data.course_banner_delivery,
+    ple_data.course_object_delivery FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_data.require_exact_available_object_delivery_owner() FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner, ple_audit_owner;
-GRANT REFERENCES ON TABLE ple_data.object_delivery_record TO ple_private_owner, ple_audit_owner;
+GRANT REFERENCES ON TABLE ple_data.object_delivery TO ple_private_owner, ple_audit_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.object_storage_check (
     object_storage_check_id uuid PRIMARY KEY,
-    delivery_id uuid NOT NULL UNIQUE REFERENCES ple_data.object_delivery_record (delivery_id),
+    delivery_id uuid NOT NULL UNIQUE REFERENCES ple_data.object_delivery (delivery_id),
     expected_sha256 bytea NOT NULL CHECK (pg_catalog.octet_length(expected_sha256) = 32),
     check_result text NOT NULL CHECK (check_result IN ('verified', 'missing', 'mismatched')),
     checked_at timestamp with time zone NOT NULL
@@ -92,7 +132,7 @@ RESET ROLE;
 SET LOCAL ROLE ple_audit_owner;
 CREATE TABLE ple_audit.object_delivery_access_event (
     event_id uuid PRIMARY KEY,
-    delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery_record (delivery_id),
+    delivery_id uuid NOT NULL REFERENCES ple_data.object_delivery (delivery_id),
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     course_id uuid,
     authorized_at timestamp with time zone NOT NULL,

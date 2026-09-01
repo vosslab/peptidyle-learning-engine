@@ -32,7 +32,7 @@ const LICENSES = [
   "cc0",
   "other",
 ] as const satisfies ReadonlyArray<QuestionSearchLicense>;
-const BACKENDS = ["native", "webwork", "qti", "h5p", "imathas"] as const;
+const BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
 const QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",

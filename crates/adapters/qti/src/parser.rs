@@ -4,7 +4,7 @@
 //! accepts a deliberately small QTI subset using an XML event parser: DTDs,
 //! entity declarations, malformed nesting, and duplicate attributes fail
 //! before any model is made.  Asset bytes leave this module only in an
-//! immutable worker handoff; student-visible questions contain `AssetId`s and
+//! immutable worker handoff; student-visible questions contain `QuestionAssetId`s and
 //! checksums, never archive paths or answer material.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,9 +12,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use objects::Sha256Digest;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
-use question_model::envelope::{AssetRef, ContentBlock};
+use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::response::{QuestionChoice, ResponseItemReference};
-use question_model::{AssetId, QuestionResponseFormat};
+use question_model::{QuestionAssetId, QuestionResponseFormat};
 use uuid::Uuid;
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";
@@ -456,7 +456,7 @@ fn content_blocks(
     nodes: &[&XmlNode],
     entries: &BoundedArchiveEntries,
     assets: &mut BTreeMap<String, QtiAssetObject>,
-) -> Result<Vec<ContentBlock>, UnsupportedFeature> {
+) -> Result<Vec<QuestionContentBlock>, UnsupportedFeature> {
     let mut blocks = Vec::new();
     for node in nodes {
         if node.name() == "object" || node.name() == "audio" || node.name() == "video" {
@@ -472,7 +472,7 @@ fn content_blocks(
         }
         let text = node.normalized_text_except("img");
         if !text.is_empty() {
-            blocks.push(ContentBlock::Text { markdown: text });
+            blocks.push(QuestionContentBlock::Text { markdown: text });
         }
         for image in node.descendants_named("img") {
             blocks.push(image_block(item_path, image, entries, assets)?);
@@ -496,7 +496,7 @@ fn image_block(
     image: &XmlNode,
     entries: &BoundedArchiveEntries,
     assets: &mut BTreeMap<String, QtiAssetObject>,
-) -> Result<ContentBlock, UnsupportedFeature> {
+) -> Result<QuestionContentBlock, UnsupportedFeature> {
     let raw = image
         .attribute("src")
         .or_else(|| image.attribute("data"))
@@ -522,8 +522,8 @@ fn image_block(
     let asset = assets
         .entry(path.clone())
         .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
-    Ok(ContentBlock::Image {
-        asset: AssetRef {
+    Ok(QuestionContentBlock::Image {
+        asset: QuestionAssetReference {
             asset: asset.asset,
             checksum: asset.sha256.clone(),
         },
@@ -541,7 +541,7 @@ fn asset_object(source_path: String, bytes: Vec<u8>, media_type: String) -> QtiA
     raw[6] = (raw[6] & 0x0f) | 0x40;
     raw[8] = (raw[8] & 0x3f) | 0x80;
     QtiAssetObject {
-        asset: AssetId::from_uuid(Uuid::from_bytes(raw)),
+        asset: QuestionAssetId::from_uuid(Uuid::from_bytes(raw)),
         source_path,
         sha256: digest.to_string(),
         media_type,

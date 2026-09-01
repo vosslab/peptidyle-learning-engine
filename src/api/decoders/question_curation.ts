@@ -108,7 +108,7 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
       `${path}.backends`,
       5,
       (entry, entryPath) =>
-        decodeStringEnum(entry, entryPath, ["native", "webwork", "qti", "h5p", "imathas"]),
+        decodeStringEnum(entry, entryPath, ["ple", "webwork", "qti", "h5p", "imathas"]),
     ),
     tags: decodeBoundedArray(
       field(record, "tags", path),

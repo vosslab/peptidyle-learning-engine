@@ -4,6 +4,7 @@ DECLARE
     table_name text;
     trigger_name text;
     expected_tables text[] := ARRAY[
+        'question_source',
         'draft_question_answer_key',
         'draft_question_feedback',
         'draft_question_answer_explanation',
@@ -15,7 +16,8 @@ DECLARE
         'workspace_import_grading_input'
     ];
 BEGIN
-    IF to_regclass('ple_private.draft_question_grading_material') IS NOT NULL
+    IF to_regclass('ple_private.draft_question_source') IS NOT NULL
+        OR to_regclass('ple_private.draft_question_grading_material') IS NOT NULL
         OR to_regclass('ple_private.published_flat_question_grading') IS NOT NULL
         OR to_regclass('ple_private.published_qti_question_grading') IS NOT NULL
         OR to_regclass('ple_private.workspace_qti_import_grading') IS NOT NULL THEN
@@ -43,6 +45,68 @@ BEGIN
             RAISE EXCEPTION 'private Question record % lacks a checksum constraint', table_name;
         END IF;
     END LOOP;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint AS table_constraint
+        WHERE table_constraint.conrelid = 'ple_private.question_source'::regclass
+          AND table_constraint.contype = 'f'
+          AND table_constraint.confrelid = 'ple_private.draft_question_revision'::regclass
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_constraint AS table_constraint
+        WHERE table_constraint.conrelid = 'ple_private.question_source'::regclass
+          AND table_constraint.contype = 'f'
+          AND table_constraint.confrelid = 'ple_data.question_revision'::regclass
+    ) THEN
+        RAISE EXCEPTION 'Question Source must be bound to Draft Question Revision or Question Revision';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name = 'question_source'
+           AND column_definition.column_name IN ('source_data', 'source_checksum')
+    ) OR EXISTS (
+        SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name = 'question_source'
+           AND column_definition.column_name IN ('source_object_id', 'source_object_checksum')
+           AND column_definition.is_nullable <> 'NO'
+    ) THEN
+        RAISE EXCEPTION 'Question Source must use one required Source Object Reference and Source Object Checksum';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_class AS relation
+          JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = 'ple_private'
+           AND relation.relname = 'object_record'
+           AND relation.relrowsecurity
+           AND relation.relforcerowsecurity
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint AS table_constraint
+         WHERE table_constraint.conrelid = 'ple_private.question_source'::regclass
+           AND table_constraint.conname = 'question_source_object_record_exists'
+           AND table_constraint.contype = 'f'
+           AND table_constraint.confrelid = 'ple_private.object_record'::regclass
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger AS trigger
+         WHERE trigger.tgrelid = 'ple_private.question_source'::regclass
+           AND trigger.tgname = 'question_source_object_record_matches_owner'
+           AND NOT trigger.tgisinternal
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger AS trigger
+         WHERE trigger.tgrelid = 'ple_private.object_record'::regclass
+           AND trigger.tgname = 'object_record_is_immutable'
+           AND NOT trigger.tgisinternal
+    ) THEN
+        RAISE EXCEPTION 'Question Source Object Reference must name an immutable private Object Record';
+    END IF;
 
     FOREACH table_name IN ARRAY ARRAY[
         'draft_question_answer_key',
@@ -77,6 +141,8 @@ BEGIN
     END LOOP;
 
     FOREACH trigger_name IN ARRAY ARRAY[
+        'question_source_backend_matches_question_revision',
+        'question_source_is_immutable',
         'draft_question_answer_key_is_immutable',
         'draft_question_feedback_is_immutable',
         'draft_question_answer_explanation_is_immutable',
@@ -102,6 +168,155 @@ BEGIN
           AND table_constraint.confrelid = 'ple_private.workspace_qti_import'::regclass
     ) THEN
         RAISE EXCEPTION 'Workspace Import Question Grading Input is not import-bound';
+    END IF;
+END
+$$;
+
+-- The Object Record writer accepts only the caller's exact workspace source
+-- address.  The staged-database oracle exercises the capability as ple_app;
+-- it does not grant that role ambient private-table access.
+BEGIN;
+
+INSERT INTO ple_private.account (account_id, role, created_at)
+VALUES ('00000000-0000-0000-0000-000000000901', 'instructor', '2026-08-31T00:00:00Z');
+INSERT INTO ple_private.authoring_workspace (
+    workspace_id, owner_account_id, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000901',
+    '2026-08-31T00:00:00Z'
+);
+
+SET LOCAL ROLE ple_app;
+SELECT pg_catalog.set_config(
+    'ple.session_account_id', '00000000-0000-0000-0000-000000000901', true
+);
+SELECT ple_api.register_workspace_question_source_object(
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000903',
+    jsonb_build_object(
+        'kind', 'workspaceQuestionSource',
+        'workspace', '00000000-0000-0000-0000-000000000902'::uuid,
+        'object', '00000000-0000-0000-0000-000000000903'::uuid
+    ),
+    decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+-- A retry after a bytes-first write crash accepts only the identical record.
+SELECT ple_api.register_workspace_question_source_object(
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000903',
+    jsonb_build_object(
+        'kind', 'workspaceQuestionSource',
+        'workspace', '00000000-0000-0000-0000-000000000902'::uuid,
+        'object', '00000000-0000-0000-0000-000000000903'::uuid
+    ),
+    decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+DO $$
+BEGIN
+    PERFORM ple_api.register_workspace_question_source_object(
+        '00000000-0000-0000-0000-000000000902',
+        '00000000-0000-0000-0000-000000000904',
+        jsonb_build_object(
+            'kind', 'temporary',
+            'object', '00000000-0000-0000-0000-000000000904'::uuid
+        ),
+        decode(repeat('cd', 32), 'hex'), 17, 'application/json', 1777603200000
+    );
+    RAISE EXCEPTION 'Workspace Question Source Object capability accepted a mismatched address';
+EXCEPTION
+    WHEN invalid_parameter_value THEN NULL;
+END
+$$;
+COMMIT;
+
+DO $$
+BEGIN
+    IF (SELECT count(*) FROM ple_private.object_record
+        WHERE object_id = '00000000-0000-0000-0000-000000000903') <> 1 THEN
+        RAISE EXCEPTION 'Workspace Question Source Object registration did not persist exactly one immutable Object Record';
+    END IF;
+END
+$$;
+
+INSERT INTO ple_private.draft_question (draft_question_id, workspace_id, created_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000905',
+    '00000000-0000-0000-0000-000000000902',
+    '2026-08-31T00:00:00Z'
+);
+INSERT INTO ple_private.draft_question_revision (
+    draft_question_revision_id, draft_question_id, revision_number, title, definition, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000906',
+    '00000000-0000-0000-0000-000000000905',
+    1, 'Object-backed source', '{}'::jsonb, '2026-08-31T00:00:00Z'
+);
+BEGIN;
+SET LOCAL ROLE ple_app;
+SELECT pg_catalog.set_config(
+    'ple.session_account_id', '00000000-0000-0000-0000-000000000901', true
+);
+SELECT ple_api.register_draft_question_source(
+    '00000000-0000-0000-0000-000000000907',
+    '00000000-0000-0000-0000-000000000906',
+    '00000000-0000-0000-0000-000000000902',
+    'ple', 'pleFlatQuestionV2', 'multipleChoice',
+    jsonb_build_object('backend', 'ple'),
+    '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
+);
+-- A retry mints no second record and returns the established source identity.
+SELECT ple_api.register_draft_question_source(
+    '00000000-0000-0000-0000-000000000908',
+    '00000000-0000-0000-0000-000000000906',
+    '00000000-0000-0000-0000-000000000902',
+    'ple', 'pleFlatQuestionV2', 'multipleChoice',
+    jsonb_build_object('backend', 'ple'),
+    '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
+);
+DO $$
+BEGIN
+    PERFORM ple_api.register_draft_question_source(
+        '00000000-0000-0000-0000-000000000908',
+        '00000000-0000-0000-0000-000000000906',
+        '00000000-0000-0000-0000-000000000902',
+        'ple', 'pleFlatQuestionV2', 'multipleChoice',
+        jsonb_build_object('backend', 'ple'),
+        '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('cd', 32)
+    );
+    RAISE EXCEPTION 'Draft Question Source registration accepted different immutable facts';
+EXCEPTION
+    WHEN unique_violation THEN NULL;
+END
+$$;
+DO $$
+BEGIN
+    PERFORM ple_api.register_draft_question_source(
+        '00000000-0000-0000-0000-000000000908',
+        '00000000-0000-0000-0000-000000000906',
+        '00000000-0000-0000-0000-000000000909',
+        'ple', 'pleFlatQuestionV2', 'multipleChoice',
+        jsonb_build_object('backend', 'ple'),
+        '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
+    );
+    RAISE EXCEPTION 'Draft Question Source registration accepted an unauthorized workspace';
+EXCEPTION
+    WHEN insufficient_privilege THEN NULL;
+END
+$$;
+COMMIT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+         FROM ple_private.question_source
+         WHERE question_source_id = '00000000-0000-0000-0000-000000000907'
+           AND backend_locator = jsonb_build_object('backend', 'ple')
+           AND source_object_id = '00000000-0000-0000-0000-000000000903'
+           AND source_object_checksum = repeat('ab', 32)
+    ) THEN
+        RAISE EXCEPTION 'Question Source did not retain its exact Source Object Reference and Source Object Checksum';
     END IF;
 END
 $$;

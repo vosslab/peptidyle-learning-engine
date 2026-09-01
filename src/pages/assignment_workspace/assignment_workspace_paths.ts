@@ -16,7 +16,7 @@ const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
   gradingOperations: "grading-operations",
 } as const satisfies Readonly<Record<AssignmentWorkspaceSection, string>>;
 
-/** The one route owner for starting a persisted Instructor assignment draft. */
+/** The one route owner for starting a persisted Assignment and its Assignment Working Copy. */
 export function assignmentWorkspaceCreatePath(
   courseReference: CourseInstanceRouteReference,
 ): string {

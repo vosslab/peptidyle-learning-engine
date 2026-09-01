@@ -38,4 +38,4 @@ test-support = ["question_model/generate"]
 tokio.workspace = true
 uuid.workspace = true
 acceptance-runtime = { path = "../acceptance-runtime" }
-adapter_native = { path = "../adapters/native" }
+adapter_ple = { path = "../adapters/ple" }

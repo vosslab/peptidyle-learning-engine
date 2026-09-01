@@ -63,7 +63,7 @@ scope under forced row-level security.
 
 `crates/question_model/src/blueprint_course.rs` owns the reusable meaning.
 The aggregate contains a title, reviewed byline/publication state, one strong
-revision, ordered modules, ordered reusable assignments, policy defaults,
+revision, ordered modules, ordered Blueprint Assignments, policy defaults,
 relative schedule defaults, evidence context, and public Question ID members.
 The Store resolves each public Question ID to an exact immutable publication pin
 before committing a whole-definition replacement.
@@ -106,7 +106,7 @@ assignment. Rollover and term shift are separate CourseInstance operations.
 | Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                               |
 | Browser             | `src/`                                                  | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions.                |
 | Object storage      | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.               |
-| Adapters            | `crates/adapters/`                                      | Bounded native, QTI, H5P, iMathAS, and WeBWorK interfaces behind declared capabilities.                                                           |
+| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, H5P, iMathAS, and WeBWorK Question Backends behind declared capabilities.                                                        |
 
 The server composition root is `crates/server/src/composition/`. It selects
 PostgreSQL, object storage, identity, adapters, worker capabilities, and the

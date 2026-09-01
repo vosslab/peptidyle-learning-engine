@@ -268,8 +268,6 @@ impl ObjectStore for S3ObjectStore {
             size_bytes,
             media_type: request.media_type,
             question_revision: request.address.question_revision().cloned(),
-            license: request.license,
-            provenance: request.provenance,
             created_at: request.created_at,
         };
         let encoded_record = encode_record(&record)?;
@@ -514,9 +512,8 @@ fn validate_immutable_publication_tags<'a>(
 mod tests {
     use super::*;
     use crate::ObjectDataClass;
-    use question_model::classification::License;
     use question_model::{
-        AssetId, ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+        ObjectId, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     };
     use uuid::Uuid;
 
@@ -541,8 +538,6 @@ mod tests {
             size_bytes: 6,
             media_type: "application/zip".to_string(),
             question_revision: Some(question_revision()),
-            license: Some(License::CcBySa),
-            provenance: "faculty source with an accented name: Jos\u{e9}".to_string(),
             created_at: ActivityTimestamp::from_unix_millis(1_000),
         }
     }
@@ -550,7 +545,7 @@ mod tests {
     fn public_asset_key() -> ObjectAddress {
         ObjectAddress::QuestionAsset {
             question_revision: question_revision(),
-            asset: AssetId::from_uuid(Uuid::from_u128(3)),
+            asset: QuestionAssetId::from_uuid(Uuid::from_u128(3)),
             object: ObjectId::from_uuid(Uuid::from_u128(4)),
         }
     }

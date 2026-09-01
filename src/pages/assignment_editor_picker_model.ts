@@ -1,8 +1,8 @@
 // assignment_editor_picker_model.ts - bounded selection limits for assignment picker destinations.
 
-import { MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL } from "../../generated/api/MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL";
+import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES } from "../../generated/api/MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
 
 import type { AssignmentEditorDraft } from "./assignment_editor_model";
 
@@ -22,11 +22,11 @@ export function assignmentPickerMaximum(
   }
   const entry = draft.entries[intent.entryIndex];
   if (entry === undefined || entry.kind !== "questionPool") return 0;
-  const usedCandidates = draft.entries.reduce(
-    (count, item) => count + (item.kind === "questionPool" ? item.candidates.length : 0),
+  const usedQuestionPoolEntries = draft.entries.reduce(
+    (count, item) => count + (item.kind === "questionPool" ? item.entries.length : 0),
     0,
   );
-  const poolRemaining = MAX_ASSIGNMENT_CANDIDATES_PER_QUESTION_POOL - entry.candidates.length;
-  const assignmentRemaining = MAX_ASSIGNMENT_TOTAL_QUESTION_POOL_CANDIDATES - usedCandidates;
+  const poolRemaining = MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY - entry.entries.length;
+  const assignmentRemaining = MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES - usedQuestionPoolEntries;
   return Math.max(0, Math.min(poolRemaining, assignmentRemaining));
 }

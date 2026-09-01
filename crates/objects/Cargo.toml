@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# Identity types build every object key; callers never supply a key.
+# Identity types build every Object Address; callers never supply a raw address.
 question_model.workspace = true
 async-trait.workspace = true
 serde.workspace = true

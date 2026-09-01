@@ -431,11 +431,11 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
     const generation = reviewRequestGeneration + 1;
     reviewRequestGeneration = generation;
     setReviewLoading(true);
-    setStatus("Checking publication readiness...");
+    setStatus("Checking Question Publication Validation...");
     try {
       const validation = await props.api.validateWorkspacePublication(props.workspace);
       if (!reviewRequestIsCurrent(generation, revision)) return;
-      if (validation.kind === "readinessFailure") {
+      if (validation.kind === "questionPublicationValidationUnavailable") {
         setStatus(validation.message);
         return;
       }
@@ -710,7 +710,7 @@ export function FlatQuestionEditorPage(props: FlatQuestionEditorPageProps): JSX.
                     onClick={() => void openPublishReview()}
                   >
                     {reviewLoading()
-                      ? "Checking publication readiness..."
+                      ? "Checking Question Publication Validation..."
                       : "Review publication changes"}
                   </button>
                 </Show>

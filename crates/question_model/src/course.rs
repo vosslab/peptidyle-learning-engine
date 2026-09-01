@@ -8,7 +8,7 @@ use crate::{
     AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord, AssignmentReference,
     AssignmentScoringState, AssignmentTitle, CourseId, CourseInstanceReference, CourseTimeZone,
     LateWorkRule, QuestionBackend, QuestionBackendCapabilities, QuestionId,
-    QuestionPoolCandidateAvailability, QuestionPoolCandidateId, QuestionPoolSelectionRule,
+    QuestionPoolItemAvailability, QuestionPoolItemId, QuestionPoolSelectionRule,
     QuestionVariationRule, StudentFeedbackReleaseRule, StudentRecordId,
 };
 
@@ -63,22 +63,22 @@ pub struct FixedQuestionAssignmentEntrySummary {
     pub scoring_rule: AssignmentEntryScoringRule,
 }
 
-/// Browser-safe candidate in one random-Question Pool.
+/// Browser-safe Question Pool Item in one Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionPoolCandidateSummary {
-    /// Server-minted identity for this editable selection candidate.
-    pub id: QuestionPoolCandidateId,
+pub struct QuestionPoolItemSummary {
+    /// Server-minted identity for this editable Question Pool Item.
+    pub id: QuestionPoolItemId,
     /// Sole browser-visible locator for the immutable published question.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,
-    /// Question Backend selected for the candidate.
+    /// Question Backend selected for this Question Pool Item.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
     pub capabilities: QuestionBackendCapabilities,
-    /// Whether future Question Pool Selections may select this candidate.
-    pub availability: QuestionPoolCandidateAvailability,
+    /// Whether future Question Pool Selections may select this Question Pool Item.
+    pub availability: QuestionPoolItemAvailability,
 }
 
 /// Browser-safe Question Pool Assignment Entry.
@@ -89,16 +89,16 @@ pub struct QuestionPoolAssignmentEntrySummary {
     pub id: AssignmentEntryId,
     /// Whether future Assignment Attempts may receive this Assignment Entry.
     pub availability: AssignmentEntryAvailability,
-    /// Current-only scoring rule applied to every selected candidate.
+    /// Current-only scoring rule applied to every selected Question Pool Item.
     pub scoring_rule: AssignmentEntryScoringRule,
-    /// Number of available candidates selected for each future Assignment Attempt.
+    /// Number of available entries selected for each future Assignment Attempt.
     pub selection_count: u32,
-    /// Uniform current points for each selected candidate.
+    /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
-    /// Browser-safe current candidate set.
-    pub candidates: Vec<QuestionPoolCandidateSummary>,
+    /// Browser-safe current Question Pool Items.
+    pub items: Vec<QuestionPoolItemSummary>,
 }
 
 /// Browser-safe Assignment Entry in authored delivery order.
@@ -316,7 +316,7 @@ mod tests {
                     id: crate::AssignmentEntryId::from_uuid(Uuid::from_u128(4)),
                     question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
                     title: "Peptide bonds".to_string(),
-                    backend: crate::QuestionBackend::Native,
+                    backend: crate::QuestionBackend::Ple,
                     capabilities: crate::QuestionBackendCapabilities::none(),
                     points_possible: crate::AssignmentPointValue::from_whole(1),
                     availability: crate::AssignmentEntryAvailability::Available,
