@@ -1,4 +1,4 @@
-//! MOD-ADP-NAT: the first-party algorithmic question adapter.
+//! MOD-ADP-PLE: the first-party algorithmic Question Backend adapter.
 //!
 //! The engine is question agnostic: [`PleQuestionBackend`] dispatches by the
 //! versioned [`generator::PleQuestionImplementation`] contract, while Question
@@ -26,6 +26,8 @@ mod capabilities;
 mod grade;
 #[path = "lib/issue.rs"]
 mod issue;
+#[path = "lib/question_json_source.rs"]
+mod question_json_source;
 #[path = "lib/registry.rs"]
 mod registry;
 #[path = "lib/reproduction.rs"]
@@ -33,6 +35,7 @@ mod reproduction;
 #[path = "lib/source_implementation.rs"]
 mod source_implementation;
 
+pub use question_json_source::ResolvedPleQuestionJsonSource;
 use registry::{PleQuestionExecution, PleQuestionImplementationKey};
 
 #[cfg(test)]
@@ -40,14 +43,15 @@ use grading::QuestionGradingOutcome;
 #[cfg(test)]
 use registry::{backend_version, grader_version};
 #[cfg(test)]
+#[path = "lib/question_json_source_tests.rs"]
+mod question_json_source_tests;
+#[cfg(test)]
 mod test_support;
 
-/// Strict, versioned JSON source for first-party static flat questions.
-pub mod flat_question;
 /// Extensible Question Implementation contract and server-only materialization result.
 pub mod generator;
-/// Reference implementation proving generation, rendering, and server grading end to end.
-pub mod peptide_bond_geometry;
+/// Strict, versioned PLE Question JSON source for first-party static Questions.
+pub mod question_json;
 
 /// Stable Question Backend identifier persisted with every PLE Question Attempt.
 pub const ADAPTER_ID: &str = "ple-question-backend";
@@ -112,15 +116,15 @@ pub struct PleQuestionBackend {
     current_grader: QuestionGraderVersion,
 }
 
-struct PreparedNativeQuestion {
+struct PreparedPleQuestion {
     generated: QuestionVariationParameters,
-    materialized: MaterializedNativeQuestion,
+    materialized: MaterializedPleQuestion,
     envelope: QuestionVariationPresentation,
     parameter_hash: String,
     rendered_question_sha256: String,
 }
 
-struct MaterializedNativeQuestion {
+struct MaterializedPleQuestion {
     prompt: Vec<QuestionContentBlock>,
     answer_key: Option<grading::AnswerKey>,
 }
@@ -164,6 +168,14 @@ pub enum PleQuestionBackendError {
     UnrelatedAssetBinding(QuestionAssetId),
     /// A binding list assigned one logical asset more than once.
     ConflictingAssetBinding(QuestionAssetId),
+    /// Immutable Question Source bytes could not be resolved from object storage.
+    QuestionSourceResolution(objects::QuestionSourceResolutionError),
+    /// PLE Question JSON source bytes did not use the canonical media type.
+    UnexpectedQuestionSourceMediaType { media_type: String },
+    /// PLE Question JSON source bytes did not compile into their Question Revision.
+    QuestionSourceDoesNotMatchQuestion,
+    /// PLE Question JSON source bytes were malformed or invalid.
+    QuestionSourceDocument(question_json::PleQuestionJsonError),
     /// The server-only generic grader refused the response or definition.
     Grading(GradingError),
 }
@@ -234,6 +246,14 @@ impl std::fmt::Display for PleQuestionBackendError {
                 formatter,
                 "PLE trusted bindings conflict for asset: {asset}"
             ),
+            Self::QuestionSourceResolution(error) => error.fmt(formatter),
+            Self::UnexpectedQuestionSourceMediaType { media_type } => write!(
+                formatter,
+                "PLE Question Source has media type {media_type:?} instead of the canonical PLE Question JSON media type"
+            ),
+            Self::QuestionSourceDoesNotMatchQuestion => formatter
+                .write_str("PLE Question JSON source does not compile into its Question Revision"),
+            Self::QuestionSourceDocument(error) => error.fmt(formatter),
             Self::Grading(error) => write!(formatter, "PLE grading failed: {error}"),
         }
     }
@@ -244,3 +264,7 @@ impl std::error::Error for PleQuestionBackendError {}
 #[cfg(test)]
 #[path = "lib/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "lib/source_evidence_tests.rs"]
+mod source_evidence_tests;

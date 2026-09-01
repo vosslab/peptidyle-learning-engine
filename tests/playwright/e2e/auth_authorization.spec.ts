@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/pages/sign_in_page.tsx owns seeded-demo entry and course-choice headings.
-// - src/pages/teaching_operations_page.tsx owns teaching-team and approval controls.
+// - src/pages/teaching_operations_page.tsx owns teaching-team controls.
 // - src/pages/account_pending_invitations_page.tsx owns current invitation acceptance.
 // - src/pages/course_list_page.tsx:330 owns the course heading and return-to-courses controls.
 
@@ -30,9 +30,7 @@ async function enterThenReenter(page: Page, name: RegExp, course: string): Promi
   await selectVisibleCourse(page, course);
 }
 
-test("authentication and authorization: sessions, approval, and course boundaries", async ({
-  browser,
-}) => {
+test("authentication and authorization: sessions and course boundaries", async ({ browser }) => {
   test.setTimeout(240_000);
   const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
   expect(scenarioInput.scenarioId).toBe("auth_authorization");
@@ -66,25 +64,11 @@ test("authentication and authorization: sessions, approval, and course boundarie
       basePath = new URL(mary.url()).pathname;
     });
 
-    await test.step("Morgan accesses Genetics and approves Avery", async () => {
+    await test.step("Morgan accesses the Sysadmin-visible Genetics course", async () => {
       await chooseSeededIdentity(morgan, /Morgan/u);
       await selectVisibleCourse(morgan, "Genetics Practice Course");
       await expect(morgan.getByRole("link", { name: "Teaching operations" })).toBeVisible();
       geneticsPath = new URL(morgan.url()).pathname;
-      await morgan.getByRole("link", { name: "Teaching operations" }).click();
-      await expect(morgan.getByRole("heading", { name: "Instructor approval" })).toBeVisible();
-      await morgan.getByLabel("Find an account by name").fill("Avery");
-      await morgan.getByRole("button", { name: "Search accounts" }).click();
-      await morgan
-        .getByRole("listitem")
-        .filter({ hasText: "Avery Singh" })
-        .getByRole("button", { name: "Approve as instructor" })
-        .click();
-      await morgan
-        .getByRole("dialog")
-        .getByRole("button", { name: "Approve as instructor" })
-        .click();
-      await expect(morgan.getByText(/Avery Singh.*approved/u)).toBeVisible();
     });
 
     await test.step("Elena invites approved Avery through the teaching UI", async () => {

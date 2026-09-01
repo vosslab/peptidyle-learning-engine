@@ -6,13 +6,26 @@ import type { DraftQuestionBackendLocator } from "../../../generated/api/DraftQu
 import type { QuestionGradingRule } from "../../../generated/api/QuestionGradingRule";
 import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
 import type { QuestionBackendLocator } from "../../../generated/api/QuestionBackendLocator";
-import type { QuestionVariationDefinition } from "../../../generated/api/QuestionVariationDefinition";
+import type { QuestionVariationRule } from "../../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { QuestionAttemptTimeLimit } from "../../../generated/api/QuestionAttemptTimeLimit";
-import type { WorkspaceDraftSummary } from "../../../generated/api/WorkspaceDraftSummary";
-import type { AuthoringWorkspaceRouteReference } from "../../navigation/public_route";
-import { parseAuthoringWorkspaceReference } from "../../navigation/public_route";
+import type { DraftQuestionSummary } from "../../../generated/api/DraftQuestionSummary";
+import type {
+  AuthoringWorkspaceRouteReference,
+  DraftQuestionRouteReference,
+} from "../../navigation/public_route";
+import {
+  parseAuthoringWorkspaceReference,
+  parseDraftQuestionReference,
+} from "../../navigation/public_route";
+
+function decodeDraftQuestionReference(value: unknown, path: string): DraftQuestionRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "a D- reference");
+  const reference = parseDraftQuestionReference(value);
+  if (reference === null) throw new DecodeError(path, "a D- reference");
+  return reference;
+}
 
 function decodeAuthoringWorkspaceReference(
   value: unknown,
@@ -53,7 +66,8 @@ import {
   decodeCursor,
   decodeEnvelopeTitle,
   decodeIdentifier,
-  decodeLicense,
+  decodeQuestionLicense,
+  decodeQuestionCitation,
   decodeQuestionClassification,
   field,
   kind,
@@ -76,7 +90,7 @@ export {
 };
 
 const QUESTION_FORMATS = [
-  "pleFlatQuestionV2",
+  "pleQuestionJson",
   "pleAlgorithmic",
   "webworkPg",
   "qti",
@@ -286,25 +300,25 @@ export function decodeQuestionGeneratorParameter(
   }
 }
 
-export function decodeQuestionVariationDefinition(
+export function decodeQuestionVariationRule(
   value: unknown,
   path: string,
   strict = false,
-): QuestionVariationDefinition {
+): QuestionVariationRule {
   const record = decodeRecord(value, path);
-  const variationDefinition = kind(record, path);
-  switch (variationDefinition) {
+  const variationRule = kind(record, path);
+  switch (variationRule) {
     case "static":
       if (strict) {
         requireOnlyFields(record, path, ["kind"]);
       }
-      return { kind: variationDefinition };
+      return { kind: variationRule };
     case "seeded": {
       if (strict) {
         requireOnlyFields(record, path, ["kind", "generator", "parameters"]);
       }
       const decoded = {
-        kind: variationDefinition,
+        kind: variationRule,
         generator: decodeGeneratorReference(
           field(record, "generator", path),
           `${path}.generator`,
@@ -316,11 +330,11 @@ export function decodeQuestionVariationDefinition(
           (parameter, parameterPath) =>
             decodeQuestionGeneratorParameter(parameter, parameterPath, strict),
         ),
-      } satisfies QuestionVariationDefinition;
+      } satisfies QuestionVariationRule;
       return decoded;
     }
     default:
-      throw new DecodeError(`${path}.kind`, "a known Question Variation Definition");
+      throw new DecodeError(`${path}.kind`, "a known Question Variation Rule");
   }
 }
 
@@ -405,17 +419,27 @@ export function decodeQuestionGradingRule(
 }
 
 /** Strict compact projection for an instructor-owned, unversioned workspace draft. */
-export function decodeWorkspaceDraftSummary(
+export function decodeDraftQuestionSummary(
   value: unknown,
   path = "response",
-): WorkspaceDraftSummary {
+): DraftQuestionSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "reference", "title", "questionBackend"]);
+  requireOnlyFields(record, path, [
+    "draftQuestion",
+    "workspace",
+    "authoringWorkspace",
+    "title",
+    "questionBackend",
+  ]);
   return {
+    draftQuestion: decodeDraftQuestionReference(
+      field(record, "draftQuestion", path),
+      `${path}.draftQuestion`,
+    ),
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    reference: decodeAuthoringWorkspaceReference(
-      field(record, "reference", path),
-      `${path}.reference`,
+    authoringWorkspace: decodeAuthoringWorkspaceReference(
+      field(record, "authoringWorkspace", path),
+      `${path}.authoringWorkspace`,
     ),
     title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
     questionBackend: decodeStringEnum(
@@ -423,14 +447,14 @@ export function decodeWorkspaceDraftSummary(
       `${path}.questionBackend`,
       QUESTION_BACKENDS,
     ),
-  } satisfies WorkspaceDraftSummary;
+  } satisfies DraftQuestionSummary;
 }
 
-export function decodeWorkspaceDraftPage(
+export function decodeDraftQuestionPage(
   value: unknown,
   path = "response",
 ): {
-  readonly items: ReadonlyArray<WorkspaceDraftSummary>;
+  readonly items: ReadonlyArray<DraftQuestionSummary>;
   readonly nextCursor: string | null;
 } {
   const record = decodeRecord(value, path);
@@ -439,7 +463,7 @@ export function decodeWorkspaceDraftPage(
     field(record, "items", path),
     `${path}.items`,
     MAX_CURSOR_PAGE_ITEMS,
-    decodeWorkspaceDraftSummary,
+    decodeDraftQuestionSummary,
   );
   const nextCursor = decodeNullable(
     field(record, "nextCursor", path),
@@ -456,7 +480,7 @@ const PUBLICATION_FIELDS = [
   "response",
   "questionAttemptLimit",
   "questionAttemptTimeLimit",
-  "questionVariationDefinition",
+  "questionVariationRule",
   "metadata",
 ] as const;
 
@@ -532,7 +556,7 @@ function decodeQuestionPublicationReviewSummary(
     "response",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationDefinition",
+    "questionVariationRule",
     "metadata",
   ]);
   const prompt = decodeRecord(field(record, "prompt", path), `${path}.prompt`);
@@ -567,16 +591,18 @@ function decodeQuestionPublicationReviewSummary(
       "present only for option-based responses",
     );
   }
-  const questionVariationDefinition = decodeRecord(
-    field(record, "questionVariationDefinition", path),
-    `${path}.questionVariationDefinition`,
+  const questionVariationRule = decodeRecord(
+    field(record, "questionVariationRule", path),
+    `${path}.questionVariationRule`,
   );
-  requireOnlyFields(questionVariationDefinition, `${path}.questionVariationDefinition`, ["kind"]);
+  requireOnlyFields(questionVariationRule, `${path}.questionVariationRule`, ["kind"]);
   const metadata = decodeRecord(field(record, "metadata", path), `${path}.metadata`);
   requireOnlyFields(metadata, `${path}.metadata`, [
+    "questionDescription",
     "tags",
     "classifications",
-    "license",
+    "questionLicense",
+    "questionCitation",
     "language",
   ]);
   return {
@@ -606,14 +632,18 @@ function decodeQuestionPublicationReviewSummary(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationDefinition: {
+    questionVariationRule: {
       kind: decodeStringEnum(
-        field(questionVariationDefinition, "kind", `${path}.questionVariationDefinition`),
-        `${path}.questionVariationDefinition.kind`,
+        field(questionVariationRule, "kind", `${path}.questionVariationRule`),
+        `${path}.questionVariationRule.kind`,
         ["static", "seeded"],
       ),
     },
     metadata: {
+      questionDescription: decodeNonemptyString(
+        field(metadata, "questionDescription", `${path}.metadata`),
+        `${path}.metadata.questionDescription`,
+      ),
       tags: decodeBoundedArray(
         field(metadata, "tags", `${path}.metadata`),
         `${path}.metadata.tags`,
@@ -627,10 +657,15 @@ function decodeQuestionPublicationReviewSummary(
         (classification, classificationPath) =>
           decodeQuestionClassification(classification, classificationPath, true),
       ),
-      license: decodeLicense(
-        field(metadata, "license", `${path}.metadata`),
-        `${path}.metadata.license`,
-        true,
+      questionLicense: decodeNullable(
+        field(metadata, "questionLicense", `${path}.metadata`),
+        `${path}.metadata.questionLicense`,
+        decodeQuestionLicense,
+      ),
+      questionCitation: decodeNullable(
+        field(metadata, "questionCitation", `${path}.metadata`),
+        `${path}.metadata.questionCitation`,
+        decodeQuestionCitation,
       ),
       language: decodeNonemptyString(
         field(metadata, "language", `${path}.metadata`),
@@ -645,10 +680,15 @@ export function decodeQuestionPublicationReview(
   path = "response",
 ): QuestionPublicationReview {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workingCopyEditNumber", "baseQuestion", "current", "changed"]);
-  const workingCopyEditNumber = decodePositiveInteger(
-    field(record, "workingCopyEditNumber", path),
-    `${path}.workingCopyEditNumber`,
+  requireOnlyFields(record, path, [
+    "draftQuestionRevisionNumber",
+    "baseQuestion",
+    "current",
+    "changed",
+  ]);
+  const draftQuestionRevisionNumber = decodePositiveInteger(
+    field(record, "draftQuestionRevisionNumber", path),
+    `${path}.draftQuestionRevisionNumber`,
   );
   const baseQuestion = decodeStringEnum(
     field(record, "baseQuestion", path),
@@ -672,8 +712,8 @@ export function decodeQuestionPublicationReview(
     throw new DecodeError(`${path}.changed`, "unique baseline-consistent semantic fields");
   }
   return {
-    workingCopyEditNumber,
-    revision: `"${workingCopyEditNumber}"`,
+    draftQuestionRevisionNumber,
+    revision: `"${draftQuestionRevisionNumber}"`,
     baseQuestion,
     current,
     changed,

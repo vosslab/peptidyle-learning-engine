@@ -61,7 +61,7 @@ in `crates/grading`.
 
 `crates/grading` is the browser-excluded authority for checkers, answer keys,
 and correctness decisions. It is not the only server-only component that
-handles protected answer-bearing material. The PLE flat-source compiler
+handles protected answer-bearing material. The PLE PLE Question JSON source compiler
 parses canonical author source and splits it into answer-free public content
 and private Answer Key/Question Feedback records. `crates/learning-data-access` then validates
 and carries that private material as an opaque grading payload, bound to the
@@ -71,7 +71,7 @@ generated contracts, or the Wasm closure.
 
 Ungraded content has no `AnswerKey`; it does not use a browser-safe placeholder
 key. Native H5P remains ungraded practice because its own evaluation runs in
-the browser. The authenticated author-role-only flat-source `GET`/`PUT` route
+the browser. The authenticated author-role-only PLE Question JSON source `GET`/`PUT` route
 is the narrow exception for an instructor's own canonical source. It uses
 `Cache-Control: no-store` and a strong ETag, exposes no signed object URL or
 checksum, and does not widen student, public, non-author, or Wasm contracts.
@@ -82,7 +82,7 @@ numeric exact, absolute, relative, and significant-figure comparisons;
 multiple-choice set comparison; declared short-text matching; and exact
 ordering. It returns only correctness and points. Partial-credit questions use
 a contracted deterministic backend or explicit private rubric. Each supported
-artifact family has an automated validation and server-grading contract; an
+Question Type has an automated validation and server-grading contract; an
 unsupported artifact receives a clear fail-closed result.
 
 ## Format validation
@@ -95,8 +95,7 @@ structure:
 - selection count, uniqueness, and IDs are valid;
 - short text fits its character limit;
 - ordering is an exact permutation of the displayed items; and
-- an artifact reference matches a server-issued capability for a supported
-  artifact family.
+- each Response Item Reference matches the issued Question Presentation.
 
 This function has no answer-key parameter and cannot determine correctness.
 The browser calls it through `wasm_bridge::validate_response_format`; the
@@ -364,7 +363,7 @@ repository or author-preview client is constructed.
 ## Question Library publication boundary
 
 The Question Library has one installation-wide visibility rule:
-every published assignment question is visible to every approved Instructor.
+every Published Question used in an Assignment is visible to every active Instructor.
 Private drafts remain inside their owner/collaborator workspace until the
 atomic publication transition commits. Question Library routes resolve `AuthenticatedSession`
 first; paths and bodies cannot select another account, workspace relationship,
@@ -385,10 +384,10 @@ compares and locks the same draft before committing metadata, immutable
 payload, Question Library publication state, and draft deletion in one
 transaction.
 
-Publication requires the canonical `approved_instructor(account_id, now)`
-predicate and any installation-wide review gate. `Sysadmin` status alone does
-not publish or provide Question Library access. Post-publication transitions require
-both `approved_instructor` and the recorded author relationship. Database
+Publication requires an Active Instructor Account and any installation-wide review
+gate. `Sysadmin` status alone does not publish or provide Question Library access.
+Post-publication transitions require an Active Instructor Account and the recorded
+author relationship. Database
 privileges permit only lifecycle fields to change; published identity, global
 visibility, payload, capabilities, metadata, authorship, and lineage cannot be
 updated or deleted by the application role.
@@ -405,11 +404,11 @@ graded work.
 Question Library search results contain hot browser-safe metadata only. They expose a
 Question Backend but no PLE Question Implementation name, WeBWorK path, QTI package identifier,
 H5P package identifier, prompt, Question Response Format, or answer-bearing value.
-Every published question remains discoverable to every approved Instructor while
-its lifecycle is `active`, `deprecated`, or `archived`; the safe projection
-shows that lifecycle state. Selection eligibility is separate: only `active`
-questions may be selected for an ordinary new assignment. Deprecated and
-archived questions remain resolvable for exact historical references and
+Every Published Question remains discoverable to every active Instructor. Its
+Question Revision Availability is `Available` or `Archived`; the safe projection
+shows that exact availability. Selection eligibility is separate: only `Available`
+Question Revisions may be selected for an ordinary new assignment. Archived
+Question Revisions remain resolvable for exact historical references and
 retained assignments, but are excluded from ordinary new selection. This
 lifecycle behavior does not add a successor, "latest" resolution, or automatic
 assignment replacement.
@@ -417,9 +416,9 @@ assignment replacement.
 ## Course authorization boundary
 
 Every course route resolves `AuthenticatedSession` before selecting a course. A global
-approved Instructor may create a course; Sysadmin status alone does not satisfy
-that predicate. A Sysadmin must complete the explicit Instructor approval path
-before course creation or teaching. Creation atomically establishes the first
+active Instructor may create a course; Sysadmin status alone does not satisfy
+that predicate. A Sysadmin creates an Instructor Account after Instructor Vetting;
+a person who needs both roles uses separate Accounts. Creation atomically establishes the first
 ordinary Instructor membership. Access to an existing course requires an
 exact current `course_member` row. Every current Teaching Team Member has the same
 teaching authority; course creation does not create an owner or elevated
@@ -488,8 +487,8 @@ update retains its assigned item identities and changes assignment-owned fields.
 Request JSON cannot supply an account, course, assignment ID, hidden
 publication pair, workspace draft, capability declaration, source, or question
 payload. The server resolves each Question ID through Question Library publication state,
-accepts only `active` questions for ordinary new selection. Deprecated and
-archived questions remain available for exact historical references and retained
+accepts only `Available` Question Revisions for ordinary new selection. Archived
+Question Revisions remain available for exact historical references and retained
 assignments, but ordinary new selection rejects both. It uses the persisted
 immutable capability declaration with
 `validate_assignment_config`. The browser may display the returned safe title,
@@ -546,7 +545,7 @@ the current student HTTP route still accepts the broader tagged
 current route rederives and validates the expected Question Response Format from the attempt;
 `kind` is therefore not submission authority. The current grading-payload
 contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
-key, presentation digest, and a format-minimal answer. That target
+key, presentation checksum, and a format-minimal answer. That target
 also introduces CRC16 rendered-item IDs and a SHA-256-backed presentation
 digest to detect inconsistent presentation state. Neither target value
 authenticates the student or grades an answer. All component scoring and
@@ -648,7 +647,7 @@ registered for this route.
 
 `WorkspaceSource` and `ProblemSource` are never direct delivery targets and the
 typed object contract refuses to sign either key. This includes compact PLE
-flat-question JSON as well as QTI, iMathAS, and other answer-bearing sources.
+PLE Question JSON as well as QTI, iMathAS, and other answer-bearing sources.
 An instructor preview or export must use a separate authorized projection that
 redacts or deliberately includes private material for that operation; it must
 not expose the source object URL.

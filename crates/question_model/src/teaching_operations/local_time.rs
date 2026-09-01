@@ -1,8 +1,8 @@
 //! Course-local conversion for teaching-operation modifier transport.
 
 use crate::{
-    ActivityTimestamp, AssignmentWorkingCopyDefinitionField,
-    AssignmentWorkingCopyDefinitionLocalError, CourseLocalDateAndTime, CourseTerm,
+    AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError, CourseLocalDateAndTime,
+    CourseTerm, Timestamp,
 };
 
 use super::{AssignmentPolicySource, TeachingPreviewTimeField};
@@ -13,11 +13,11 @@ use super::{AssignmentPolicySource, TeachingPreviewTimeField};
 /// clock value. The server remains responsible for resolving policy and for
 /// attaching the course's authoritative IANA zone to the allowed preview.
 pub fn project_teaching_preview_time_field(
-    value: Option<ActivityTimestamp>,
+    value: Option<Timestamp>,
     source: AssignmentPolicySource,
     course_term: &CourseTerm,
-    field: AssignmentWorkingCopyDefinitionField,
-) -> Result<TeachingPreviewTimeField, AssignmentWorkingCopyDefinitionLocalError> {
+    field: AssignmentAuthoredContentField,
+) -> Result<TeachingPreviewTimeField, AssignmentAuthoredContentLocalError> {
     Ok(TeachingPreviewTimeField {
         value: value
             .map(|value| CourseLocalDateAndTime::from_activity_timestamp(value, course_term, field))
@@ -35,8 +35,8 @@ pub fn project_teaching_preview_time_field(
 pub fn resolve_teaching_local_time(
     value: &CourseLocalDateAndTime,
     course_term: &CourseTerm,
-    field: AssignmentWorkingCopyDefinitionField,
-) -> Result<ActivityTimestamp, AssignmentWorkingCopyDefinitionLocalError> {
+    field: AssignmentAuthoredContentField,
+) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
     value.resolve_for_course(course_term, field)
 }
 
@@ -102,44 +102,38 @@ mod tests {
             resolve_teaching_local_time(
                 &local("2026-03-08T02:30:00.000"),
                 &term,
-                AssignmentWorkingCopyDefinitionField::AvailableAt,
+                AssignmentAuthoredContentField::AvailableAt,
             ),
-            Err(
-                AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(
-                    AssignmentWorkingCopyDefinitionField::AvailableAt
-                )
-            )
+            Err(AssignmentAuthoredContentLocalError::NonexistentLocalTime(
+                AssignmentAuthoredContentField::AvailableAt
+            ))
         );
         assert_eq!(
             resolve_teaching_local_time(
                 &local("2026-11-01T01:30:00.000"),
                 &term,
-                AssignmentWorkingCopyDefinitionField::DueAt,
+                AssignmentAuthoredContentField::DueAt,
             ),
-            Err(
-                AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(
-                    AssignmentWorkingCopyDefinitionField::DueAt
-                )
-            )
+            Err(AssignmentAuthoredContentLocalError::AmbiguousLocalTime(
+                AssignmentAuthoredContentField::DueAt
+            ))
         );
         assert_eq!(
             resolve_teaching_local_time(
                 &local("2027-01-01T10:00:00.000"),
                 &term,
-                AssignmentWorkingCopyDefinitionField::ClosesAt,
+                AssignmentAuthoredContentField::ClosesAt,
             ),
-            Err(
-                AssignmentWorkingCopyDefinitionLocalError::OutsideCourseTerm(
-                    AssignmentWorkingCopyDefinitionField::ClosesAt
-                )
-            )
+            Err(AssignmentAuthoredContentLocalError::OutsideCourseTerm(
+                AssignmentAuthoredContentField::ClosesAt
+            ))
         );
     }
 
     #[test]
     fn allowed_preview_carries_course_zone_and_exact_local_projections() {
         let term = chicago_term();
-        let timestamp = ActivityTimestamp::from_unix_millis(
+        let timestamp = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
                 .single()
                 .expect("valid UTC time")
@@ -150,7 +144,7 @@ mod tests {
             Some(timestamp),
             base_source(),
             &term,
-            AssignmentWorkingCopyDefinitionField::AvailableAt,
+            AssignmentAuthoredContentField::AvailableAt,
         )
         .expect("exact course-local projection");
         assert_eq!(
@@ -170,14 +164,14 @@ mod tests {
                 None,
                 base_source(),
                 &term,
-                AssignmentWorkingCopyDefinitionField::DueAt,
+                AssignmentAuthoredContentField::DueAt,
             )
             .expect("empty projection"),
             closes_at: project_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
-                AssignmentWorkingCopyDefinitionField::ClosesAt,
+                AssignmentAuthoredContentField::ClosesAt,
             )
             .expect("empty projection"),
             assignment_attempt_time_limit_seconds: TeachingPreviewLimitField {

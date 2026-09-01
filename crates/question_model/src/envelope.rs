@@ -16,8 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionReference;
 use crate::generation::{
-    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
-    QuestionVariationDefinition,
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed, QuestionVariationRule,
 };
 use crate::identity::QuestionAssetId;
 use crate::response::QuestionResponseFormat;
@@ -121,14 +120,14 @@ impl QuestionVariation {
     }
 
     /// Records the exact declared variation recipe for an issued Question.
-    pub fn from_question_variation_definition(
+    pub fn from_question_variation_rule(
         question_revision: QuestionRevisionReference,
-        question_variation_definition: &QuestionVariationDefinition,
+        question_variation_rule: &QuestionVariationRule,
         seed: QuestionSeed,
     ) -> Self {
-        match question_variation_definition {
-            QuestionVariationDefinition::Static => Self::static_variation(question_revision, seed),
-            QuestionVariationDefinition::Seeded {
+        match question_variation_rule {
+            QuestionVariationRule::Static => Self::static_variation(question_revision, seed),
+            QuestionVariationRule::Seeded {
                 generator,
                 parameters,
             } => Self {
@@ -199,9 +198,9 @@ mod tests {
             "count".to_string(),
             QuestionGeneratorParameter::IntegerRange { low: 2, high: 7 },
         );
-        let variation = QuestionVariation::from_question_variation_definition(
+        let variation = QuestionVariation::from_question_variation_rule(
             reference(),
-            &QuestionVariationDefinition::Seeded {
+            &QuestionVariationRule::Seeded {
                 generator: QuestionGeneratorReference {
                     id: "counted".to_string(),
                     version: "2".to_string(),

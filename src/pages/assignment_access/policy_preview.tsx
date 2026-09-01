@@ -1,4 +1,4 @@
-// policy_preview.tsx - server-derived preview with safe display-only provenance.
+// policy_preview.tsx - server-derived preview with safe display-only Assignment Policy Sources.
 
 import { For, Match, Show, Switch, type JSX } from "solid-js";
 
@@ -78,8 +78,8 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                   <dd>{preview().assignmentDeadlineRule.value}</dd>
                 </dl>
                 <details>
-                  <summary>Field provenance</summary>
-                  <ol class="assignment-access-provenance">
+                  <summary>Assignment Policy Sources</summary>
+                  <ol class="assignment-access-policy-sources">
                     <For
                       each={
                         [

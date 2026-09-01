@@ -1,14 +1,14 @@
 -- Immutable released Assignment Revision entry and Question Pool Item snapshots.
 --
--- Assignment working-copy JSON remains an authoring transport. Student Work
--- derives only from these relational, immutable released-definition facts.
+-- Assignment JSON remains an authoring transport. Student Work
+-- derives only from these relational, immutable released-content facts.
 
 SET LOCAL ROLE ple_data_owner;
 
 CREATE TABLE ple_data.assignment_revision_entry (
     assignment_revision_id uuid NOT NULL,
     assignment_entry_id uuid NOT NULL,
-    definition_entry_index integer NOT NULL CHECK (definition_entry_index >= 0),
+    assignment_content_entry_index integer NOT NULL CHECK (assignment_content_entry_index >= 0),
     entry_kind text NOT NULL CHECK (entry_kind IN ('fixed_question', 'question_pool')),
     availability text NOT NULL CHECK (availability IN ('available', 'retired')),
     scoring_rule text NOT NULL CHECK (
@@ -16,7 +16,7 @@ CREATE TABLE ple_data.assignment_revision_entry (
     ),
     point_value numeric NOT NULL CHECK (point_value >= 0),
     PRIMARY KEY (assignment_revision_id, assignment_entry_id),
-    UNIQUE (assignment_revision_id, definition_entry_index),
+    UNIQUE (assignment_revision_id, assignment_content_entry_index),
     CONSTRAINT assignment_revision_entry_revision_matches
         FOREIGN KEY (assignment_revision_id)
         REFERENCES ple_data.assignment_revision (assignment_revision_id)
@@ -258,14 +258,14 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1
             FROM ple_private.question_pool_selected_item AS earlier_item
-            WHERE earlier_entry.question_pool_selection_id = reused_from_selection_id
-              AND earlier_entry.selection_position = NEW.selection_position
+            WHERE earlier_item.question_pool_selection_id = reused_from_selection_id
+              AND earlier_item.selection_position = NEW.selection_position
               AND earlier_item.question_pool_item_id = NEW.question_pool_item_id
-              AND earlier_entry.question_id = NEW.question_id
-              AND earlier_entry.revision_number = NEW.revision_number
+              AND earlier_item.question_id = NEW.question_id
+              AND earlier_item.revision_number = NEW.revision_number
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'reused Question Pool Selection must retain each earlier selected entry in its exact order';
+                MESSAGE = 'reused Question Pool Selection must retain each earlier selected Item in its exact order';
         END IF;
         RETURN NEW;
     END IF;
@@ -276,16 +276,16 @@ BEGIN
         JOIN ple_private.assignment_attempt AS attempt
           ON attempt.assignment_attempt_id = selection.assignment_attempt_id
         JOIN ple_data.assignment_revision_question_pool_item AS item
-          ON entry.assignment_revision_id = attempt.assignment_revision_id
-         AND entry.assignment_entry_id = selection.assignment_entry_id
+          ON item.assignment_revision_id = attempt.assignment_revision_id
+         AND item.assignment_entry_id = selection.assignment_entry_id
          AND item.question_pool_item_id = NEW.question_pool_item_id
-         AND entry.question_id = NEW.question_id
-         AND entry.revision_number = NEW.revision_number
-         AND entry.availability = 'available'
+         AND item.question_id = NEW.question_id
+         AND item.revision_number = NEW.revision_number
+         AND item.availability = 'available'
         WHERE selection.question_pool_selection_id = NEW.question_pool_selection_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Selection entry must be an available exact entry in its Released Assignment Revision';
+            MESSAGE = 'Question Pool Selection Item must be an available exact Item in its Released Assignment Revision';
     END IF;
     RETURN NEW;
 END
@@ -340,7 +340,7 @@ BEGIN
 END
 $$;
 
-CREATE TRIGGER question_pool_selection_matches_released_pool_entry
+CREATE TRIGGER question_pool_selection_matches_released_pool_assignment_entry
 BEFORE INSERT ON ple_private.question_pool_selection
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selection_entry();
 CREATE TRIGGER question_pool_selected_item_matches_released_pool_item
@@ -354,9 +354,9 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selection_e
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_item_source() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_issued_question_source() FROM PUBLIC;
 COMMENT ON FUNCTION ple_private.validate_question_pool_selection_entry() IS
-    'Requires each Selection to use a Question Pool Entry in the exact Attempt Revision.';
+    'Requires each Selection to use a Question Pool Assignment Entry in the exact Attempt Revision.';
 COMMENT ON FUNCTION ple_private.validate_question_pool_selected_item_source() IS
-    'Requires a new Selection to use available Revision entries or an exact earlier Selection copy.';
+    'Requires a new Selection to use available Revision Items or an exact earlier Selection copy.';
 COMMENT ON FUNCTION ple_private.validate_issued_question_source() IS
     'Requires every Issued Question to retain its exact released Entry, Question Revision, points, and scoring rule.';
 

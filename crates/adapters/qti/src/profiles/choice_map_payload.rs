@@ -7,7 +7,7 @@
 
 use std::collections::BTreeSet;
 
-use objects::Sha256Digest;
+use objects::Sha256Checksum;
 
 use super::choice_ids::{MAX_PLE_CHOICE_ID_BYTES, MAX_VENDOR_ID_BYTES, QtiChoiceIdMap};
 
@@ -34,7 +34,7 @@ const MAX_CHOICE_COUNT: usize = 100;
 #[derive(Clone, PartialEq, Eq)]
 pub struct QtiChoiceMapPayload {
     bytes: Vec<u8>,
-    sha256: Sha256Digest,
+    sha256: Sha256Checksum,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,7 +61,7 @@ impl QtiChoiceMapPayload {
             append_string(&mut bytes, entry.server_vendor_choice_id())?;
             append_string(&mut bytes, entry.ple_choice_id())?;
         }
-        let sha256 = Sha256Digest::compute(&bytes);
+        let sha256 = Sha256Checksum::compute(&bytes);
         Ok(Self { bytes, sha256 })
     }
 
@@ -71,7 +71,7 @@ impl QtiChoiceMapPayload {
     }
 
     /// Returns the checksum for [`Self::server_bytes`].
-    pub fn server_sha256(&self) -> Sha256Digest {
+    pub fn server_sha256(&self) -> Sha256Checksum {
         self.sha256
     }
 }

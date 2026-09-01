@@ -32,4 +32,4 @@ pub use issue::{
     reviewed_webwork_source_capabilities, reviewed_webwork_source_profile_capabilities,
     webwork_source_capabilities,
 };
-pub use source_object_reference::WebworkSource;
+pub use source_object_reference::ResolvedWebworkQuestionSource;

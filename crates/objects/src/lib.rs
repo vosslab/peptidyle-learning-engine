@@ -5,7 +5,7 @@
 //! No AWS SDK type appears in this contract.
 
 use async_trait::async_trait;
-use question_model::{ActivityTimestamp, ObjectId, QuestionRevisionReference};
+use question_model::{ObjectId, QuestionRevisionReference, Timestamp};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
@@ -19,19 +19,23 @@ pub mod image_validation;
 pub mod memory;
 /// MinIO client wiring used by the development containers.
 pub mod minio;
+/// Trusted immutable Question Source object resolution.
+pub mod question_source;
 /// Production AWS S3 backend.
 pub mod s3;
 
 pub use crate::bucket::{
-    ObjectAddress, ObjectDataClass, ObjectStorageArea, course_banner_candidate_object_id,
-    course_banner_object_id, published_import_archive_object_id, workspace_qti_archive_object_id,
+    ObjectAddress, ObjectDataClass, ObjectStorageArea, course_banner_object_id,
+    course_banner_upload_object_id, published_import_archive_object_id,
+    workspace_qti_archive_object_id,
 };
+pub use crate::question_source::{QuestionSourceResolutionError, ResolvedQuestionSource};
 
 /// SHA-256 bytes recorded with every object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Sha256Digest([u8; 32]);
+pub struct Sha256Checksum([u8; 32]);
 
-impl Sha256Digest {
+impl Sha256Checksum {
     /// Computes the digest for object bytes.
     pub fn compute(bytes: &[u8]) -> Self {
         Self(Sha256::digest(bytes).into())
@@ -51,7 +55,7 @@ impl Sha256Digest {
     }
 }
 
-impl std::fmt::Display for Sha256Digest {
+impl std::fmt::Display for Sha256Checksum {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for byte in self.0 {
             write!(formatter, "{byte:02x}")?;
@@ -60,7 +64,7 @@ impl std::fmt::Display for Sha256Digest {
     }
 }
 
-impl Serialize for Sha256Digest {
+impl Serialize for Sha256Checksum {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -69,15 +73,15 @@ impl Serialize for Sha256Digest {
     }
 }
 
-impl<'de> Deserialize<'de> for Sha256Digest {
+impl<'de> Deserialize<'de> for Sha256Checksum {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct Sha256DigestVisitor;
+        struct Sha256ChecksumVisitor;
 
-        impl de::Visitor<'_> for Sha256DigestVisitor {
-            type Value = Sha256Digest;
+        impl de::Visitor<'_> for Sha256ChecksumVisitor {
+            type Value = Sha256Checksum;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 formatter.write_str("a lowercase 64-character hexadecimal SHA-256 digest")
@@ -100,11 +104,11 @@ impl<'de> Deserialize<'de> for Sha256Digest {
                 for (decoded, pair) in bytes.iter_mut().zip(encoded.as_chunks::<2>().0) {
                     *decoded = (hex_nibble(pair[0]) << 4) | hex_nibble(pair[1]);
                 }
-                Ok(Sha256Digest::from_bytes(bytes))
+                Ok(Sha256Checksum::from_bytes(bytes))
             }
         }
 
-        deserializer.deserialize_str(Sha256DigestVisitor)
+        deserializer.deserialize_str(Sha256ChecksumVisitor)
     }
 }
 
@@ -112,7 +116,7 @@ fn hex_nibble(byte: u8) -> u8 {
     match byte {
         b'0'..=b'9' => byte - b'0',
         b'a'..=b'f' => byte - b'a' + 10,
-        _ => unreachable!("Sha256Digest validates lowercase hexadecimal before decoding"),
+        _ => unreachable!("Sha256Checksum validates lowercase hexadecimal before decoding"),
     }
 }
 
@@ -129,7 +133,7 @@ pub struct ObjectRecord {
     /// Semantic Object Address from which the physical path is derived.
     pub address: ObjectAddress,
     /// Checksum computed from the stored bytes.
-    pub sha256: Sha256Digest,
+    pub sha256: Sha256Checksum,
     /// Stored byte count.
     pub size_bytes: u64,
     /// Media type verified by the owning import or render path.
@@ -137,7 +141,7 @@ pub struct ObjectRecord {
     /// Exact Question Revision associated with content, when one exists.
     pub question_revision: Option<QuestionRevisionReference>,
     /// Server-supplied creation timestamp.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
 }
 
 /// Bytes and metadata supplied to `put`.
@@ -150,7 +154,7 @@ pub struct PutObject {
     /// Verified media type.
     pub media_type: String,
     /// Server-supplied creation timestamp.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
 }
 
 /// Stored bytes returned only after checksum verification.
@@ -168,7 +172,7 @@ pub struct SignedUrl {
     /// Backend URL. Callers must treat it as opaque.
     pub url: String,
     /// Server-supplied expiration time.
-    pub expires_at: ActivityTimestamp,
+    pub expires_at: Timestamp,
 }
 
 /// Portable object-store failure with no AWS type in its variants.
@@ -219,7 +223,7 @@ pub trait ObjectStore: Send + Sync {
     async fn signed_url(
         &self,
         address: &ObjectAddress,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<SignedUrl, ObjectStoreError>;
 }
 
@@ -239,19 +243,19 @@ mod tests {
         "[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]";
 
     #[test]
-    fn sha256_digest_json_is_canonical_lowercase_hex_and_round_trips() {
-        let digest = Sha256Digest::from_bytes(DIGEST_BYTES);
-        let encoded = serde_json::to_string(&digest).expect("digest should serialize");
+    fn sha256_checksum_json_is_canonical_lowercase_hex_and_round_trips() {
+        let checksum = Sha256Checksum::from_bytes(DIGEST_BYTES);
+        let encoded = serde_json::to_string(&checksum).expect("checksum should serialize");
 
         assert_eq!(encoded, format!("\"{DIGEST_HEX}\""));
         assert_eq!(
-            serde_json::from_str::<Sha256Digest>(&encoded).expect("digest should deserialize"),
-            digest
+            serde_json::from_str::<Sha256Checksum>(&encoded).expect("checksum should deserialize"),
+            checksum
         );
     }
 
     #[test]
-    fn sha256_digest_json_rejects_noncanonical_values_and_arrays() {
+    fn sha256_checksum_json_rejects_noncanonical_values_and_arrays() {
         let uppercase = format!("\"{}\"", DIGEST_HEX.to_ascii_uppercase());
         let wrong_length = format!("\"{}\"", &DIGEST_HEX[..63]);
         let non_hex = format!("\"{}g\"", &DIGEST_HEX[..63]);
@@ -263,14 +267,14 @@ mod tests {
             LEGACY_ARRAY_JSON,
         ] {
             assert!(
-                serde_json::from_str::<Sha256Digest>(invalid).is_err(),
+                serde_json::from_str::<Sha256Checksum>(invalid).is_err(),
                 "digest JSON should reject {invalid}"
             );
         }
     }
 
     #[test]
-    fn object_record_json_shape_uses_canonical_hex_digest() {
+    fn object_record_json_shape_uses_canonical_hex_checksum() {
         let question_revision = QuestionRevisionReference {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
                 .expect("canonical Question ID"),
@@ -286,11 +290,11 @@ mod tests {
                 question_revision: question_revision.clone(),
                 object,
             },
-            sha256: Sha256Digest::from_bytes(DIGEST_BYTES),
+            sha256: Sha256Checksum::from_bytes(DIGEST_BYTES),
             size_bytes: 123,
             media_type: "application/zip".to_string(),
             question_revision: Some(question_revision),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         };
         let encoded = serde_json::to_string(&record).expect("object record should serialize");
 

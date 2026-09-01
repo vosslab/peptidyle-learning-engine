@@ -8,9 +8,9 @@
 use std::collections::BTreeSet;
 
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-use question_model::generation::QuestionVariationDefinition;
+use question_model::generation::QuestionVariationRule;
 use question_model::{
-    Capability, DraftQuestionRevision, QuestionBackendCapabilities, QuestionGradingRule,
+    Capability, DraftQuestionContent, QuestionBackendCapabilities, QuestionGradingRule,
     QuestionRevision, QuestionRevisionReference,
 };
 use serde::{Deserialize, Serialize};
@@ -96,7 +96,7 @@ pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
 
 /// Validates a draft at the publication boundary without inventing a version ID.
 pub fn validate_draft_for_publication(
-    question: &DraftQuestionRevision,
+    question: &DraftQuestionContent,
     question_backend_capabilities: &QuestionBackendCapabilities,
 ) -> Vec<PublicationViolation> {
     required_by_content(question)
@@ -115,18 +115,14 @@ fn required_by_question(question: &QuestionRevision) -> BTreeSet<Capability> {
 }
 
 trait QuestionContentView {
-    fn question_variation_definition(
-        &self,
-    ) -> &question_model::generation::QuestionVariationDefinition;
+    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule;
     fn grading(&self) -> &QuestionGradingRule;
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
 impl QuestionContentView for QuestionRevision {
-    fn question_variation_definition(
-        &self,
-    ) -> &question_model::generation::QuestionVariationDefinition {
-        &self.question_variation_definition
+    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule {
+        &self.question_variation_rule
     }
     fn grading(&self) -> &QuestionGradingRule {
         &self.grading
@@ -136,11 +132,9 @@ impl QuestionContentView for QuestionRevision {
     }
 }
 
-impl QuestionContentView for DraftQuestionRevision {
-    fn question_variation_definition(
-        &self,
-    ) -> &question_model::generation::QuestionVariationDefinition {
-        &self.question_variation_definition
+impl QuestionContentView for DraftQuestionContent {
+    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule {
+        &self.question_variation_rule
     }
     fn grading(&self) -> &QuestionGradingRule {
         &self.grading
@@ -154,8 +148,8 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
     let mut required = BTreeSet::new();
 
     if matches!(
-        question.question_variation_definition(),
-        QuestionVariationDefinition::Seeded { .. }
+        question.question_variation_rule(),
+        QuestionVariationRule::Seeded { .. }
     ) {
         required.insert(Capability::AlgorithmicGeneration);
     }
@@ -186,7 +180,7 @@ mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
-    use question_model::classification::{License, Tag};
+    use question_model::classification::{QuestionLicense, Tag};
     use question_model::envelope::QuestionContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
@@ -242,13 +236,15 @@ mod tests {
                 max_attempts: Some(1),
             },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_definition: QuestionVariationDefinition::Static,
+            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::Ungraded,
             metadata: QuestionMetadata {
                 title: "Capability fixture".to_string(),
+                question_description: "Instructor-facing capability fixture summary.".to_string(),
                 tags: vec![Tag::new("fixture")],
                 classifications: Vec::new(),
-                license: License::CcBy,
+                question_license: Some(QuestionLicense::CcBy4_0),
+                question_citation: None,
                 language: "en-US".to_string(),
             },
         }
@@ -257,7 +253,7 @@ mod tests {
     fn apply_feature(question: &mut QuestionRevision, feature: CaseFeature) {
         match feature {
             CaseFeature::Seeded => {
-                question.question_variation_definition = QuestionVariationDefinition::Seeded {
+                question.question_variation_rule = QuestionVariationRule::Seeded {
                     generator: QuestionGeneratorReference {
                         id: "capability-fixture".to_string(),
                         version: "1".to_string(),

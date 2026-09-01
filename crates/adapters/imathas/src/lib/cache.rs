@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{GradeBinding, ImathasAdapterError, ImathasSource};
+use crate::{GradeBinding, ImathasAdapterError, ResolvedImathasQuestionSource};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -34,11 +34,11 @@ pub(super) fn validate_cache(
     cached: &CachedRender,
     question: &QuestionRevision,
     seed: QuestionSeed,
-    source: &ImathasSource,
+    source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
     if cached.schema != 1
-        || cached.source != source.artifact
-        || cached.source_object_checksum != source.source_object_checksum
+        || cached.source != *source.artifact()
+        || cached.source_object_checksum != *source.source_object_checksum()
         || cached.provider != source.provider
         || cached.profile != source.profile
         || cached.envelope.variation.question_revision
@@ -60,9 +60,9 @@ pub(super) fn validate_cache(
 
 pub(super) fn verify_binding(
     question: &QuestionRevision,
-    source: &ImathasSource,
+    source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
-    if source.question_revision
+    if *source.question_revision()
         != (QuestionRevisionReference {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,

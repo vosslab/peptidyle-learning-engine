@@ -18,7 +18,7 @@ import {
   type QuestionSearchState,
 } from "./library_page_model";
 
-/* Each virtual row reserves room for a title, two-line summary, byline, and classification.
+/* Each virtual row reserves room for a title, two-line summary, Question Authors, and classification.
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
@@ -113,13 +113,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   };
   const facets = (
     facet:
-      | "byline"
+      | "authorName"
       | "backend"
       | "tag"
       | "questionType"
       | "classification"
       | "capability"
-      | "license"
+      | "questionLicense"
       | "evidence"
       | "usedInMyCourses",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
@@ -205,13 +205,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           />
         </label>
         <label>
-          Byline
+          Question Author
           <select
-            value={query().byline ?? ""}
-            onChange={(event) => changeQuery({ byline: event.currentTarget.value || null })}
+            value={query().authorName ?? ""}
+            onChange={(event) => changeQuery({ authorName: event.currentTarget.value || null })}
           >
-            <option value="">All bylines</option>
-            <For each={facets("byline")()}>
+            <option value="">All Question Authors</option>
+            <For each={facets("authorName")()}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>
@@ -273,13 +273,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
         <label>
-          License
+          Question License
           <select
-            value={query().license ?? ""}
-            onChange={(event) => changeQuery({ license: event.currentTarget.value || null })}
+            value={query().questionLicense ?? ""}
+            onChange={(event) =>
+              changeQuery({ questionLicense: event.currentTarget.value || null })
+            }
           >
-            <option value="">All licenses</option>
-            <For each={facets("license")()}>
+            <option value="">All Question Licenses</option>
+            <For each={facets("questionLicense")()}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>
@@ -375,8 +377,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                   <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
                     <h2>{row.title}</h2>
                     <p class="question-library-row-summary">{row.summary}</p>
-                    <p class="question-library-row-byline" aria-label="Published by">
-                      By {row.byline.join(", ")}
+                    <p class="question-library-row-authors" aria-label="Question Authors">
+                      Authors: {row.authorNames.join(", ")}
                     </p>
                     <p class="question-library-row-classifications card-kicker">
                       {row.classifications.join(" / ")}

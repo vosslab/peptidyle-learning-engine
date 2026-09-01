@@ -35,7 +35,7 @@ const input = {
     assignmentNavigationRule: "freeNavigation",
     assignmentQuestionOrderRule: "authoredOrder",
   },
-  assignmentWorkingCopyDefinition: {
+  assignmentAuthoredContent: {
     timeZone: "America/Chicago",
     instructions: "Use a structural drawing.",
     availableAt: null,

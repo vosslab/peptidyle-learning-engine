@@ -4,8 +4,8 @@
 //! retain Student identity, raw responses, answer choices, or Object Addresses.
 
 use question_model::{
-    ActivityTimestamp, AssignmentEntryId, AssignmentId, CourseId, QuestionRevisionReference,
-    ScoringGeneration,
+    AssignmentEntryId, AssignmentId, CourseId, QuestionRevisionReference, ScoringGeneration,
+    Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +50,7 @@ pub struct AssignmentItemAnalysis {
     pub assignment_entry: AssignmentEntryId,
     pub reference: QuestionRevisionReference,
     pub source_scoring_generation: ScoringGeneration,
-    pub analyzed_at: ActivityTimestamp,
+    pub analyzed_at: Timestamp,
     pub graded_attempt_count: u32,
     pub unanswered_attempt_count: u32,
     /// Submitted attempts whose automated evaluation has not produced a
@@ -78,7 +78,7 @@ pub struct CourseItemAnalysisReport {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub source_scoring_generation: ScoringGeneration,
-    pub analyzed_at: ActivityTimestamp,
+    pub analyzed_at: Timestamp,
     pub completed_assignment_attempt_count: u32,
     pub in_progress_assignment_attempt_count: u32,
     /// A terminal submitted attempt lacks a coherent automated score.

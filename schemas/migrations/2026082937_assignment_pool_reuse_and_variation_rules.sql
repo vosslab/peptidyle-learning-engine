@@ -6,7 +6,7 @@
 
 SET LOCAL ROLE ple_data_owner;
 
-ALTER TABLE ple_data.assignment_working_copy
+ALTER TABLE ple_data.assignment
     DROP COLUMN question_variation_rule,
     ADD COLUMN question_pool_reuse_rule text NOT NULL CHECK (
         question_pool_reuse_rule IN ('reuse_selection', 'select_again')
@@ -24,14 +24,63 @@ ALTER TABLE ple_data.assignment_revision
         question_variation_rule IN ('reuse_variation', 'new_variation')
     );
 
-COMMENT ON COLUMN ple_data.assignment_working_copy.question_pool_reuse_rule IS
+COMMENT ON COLUMN ple_data.assignment.question_pool_reuse_rule IS
     'Instructor decision for whether a later Assignment Attempt reuses its Question Pool Selection.';
-COMMENT ON COLUMN ple_data.assignment_working_copy.question_variation_rule IS
+COMMENT ON COLUMN ple_data.assignment.question_variation_rule IS
     'Instructor decision for whether a later Assignment Attempt reuses each Question Variation.';
 COMMENT ON COLUMN ple_data.assignment_revision.question_pool_reuse_rule IS
     'Released snapshot of the Question Pool Reuse Rule.';
 COMMENT ON COLUMN ple_data.assignment_revision.question_variation_rule IS
     'Released snapshot of the Question Variation Rule.';
+
+CREATE OR REPLACE FUNCTION ple_data.enforce_assignment_edit()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF NEW.assignment_id <> OLD.assignment_id
+       OR NEW.course_id <> OLD.course_id
+       OR NEW.source_blueprint_revision_id <> OLD.source_blueprint_revision_id
+       OR NEW.created_at <> OLD.created_at
+       OR NEW.updated_at < OLD.updated_at THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '23514',
+            MESSAGE = 'Assignment identity and timestamps are immutable or forward-only';
+    END IF;
+    IF ROW(
+        NEW.assignment_title, NEW.assignment_instructions,
+        NEW.available_at, NEW.due_at, NEW.closes_at,
+        NEW.assignment_attempt_time_limit_seconds, NEW.attempt_limit,
+        NEW.late_work_rule, NEW.assignment_deadline_rule,
+        NEW.assignment_completion_rule, NEW.assignment_completion_score_threshold,
+        NEW.assignment_attempt_grade_rule, NEW.assignment_attempt_continuation_rule,
+        NEW.max_additional_assignment_attempts, NEW.question_pool_reuse_rule,
+        NEW.question_variation_rule, NEW.assignment_attempt_resume_rule,
+        NEW.assignment_question_display_rule, NEW.assignment_navigation_rule,
+        NEW.assignment_question_order_rule
+    ) IS DISTINCT FROM ROW(
+        OLD.assignment_title, OLD.assignment_instructions,
+        OLD.available_at, OLD.due_at, OLD.closes_at,
+        OLD.assignment_attempt_time_limit_seconds, OLD.attempt_limit,
+        OLD.late_work_rule, OLD.assignment_deadline_rule,
+        OLD.assignment_completion_rule, OLD.assignment_completion_score_threshold,
+        OLD.assignment_attempt_grade_rule, OLD.assignment_attempt_continuation_rule,
+        OLD.max_additional_assignment_attempts, OLD.question_pool_reuse_rule,
+        OLD.question_variation_rule, OLD.assignment_attempt_resume_rule,
+        OLD.assignment_question_display_rule, OLD.assignment_navigation_rule,
+        OLD.assignment_question_order_rule
+    ) THEN
+        IF NEW.assignment_edit_number <> OLD.assignment_edit_number + 1 THEN
+            RAISE EXCEPTION USING
+                ERRCODE = '23514',
+                MESSAGE = 'Assignment content changes must advance exactly one Assignment Edit Number';
+        END IF;
+    ELSIF NEW.assignment_edit_number <> OLD.assignment_edit_number THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '23514',
+            MESSAGE = 'Assignment Edit Number changes only with authored Assignment content';
+    END IF;
+    RETURN NEW;
+END
+$$;
 
 RESET ROLE;
 

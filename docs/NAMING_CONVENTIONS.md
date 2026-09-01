@@ -32,10 +32,10 @@ a stronger reason.
 | Rust types, traits, and enum variants                             | `UpperCamelCase`                          | `AssignmentFastForwardDecision`   |
 | TypeScript functions, locals, signals, and ordinary UI properties | `lowerCamelCase`                          | `prepareFastForward`              |
 | TypeScript PLE data-object properties                             | `snake_case`                              | `roster_id`                       |
-| TypeScript types, interfaces, classes, and components             | `UpperCamelCase`                          | `CurriculumAdoptionPage`          |
+| TypeScript types, interfaces, classes, and components             | `UpperCamelCase`                          | `BlueprintOperationsPage`         |
 | Python modules, functions, locals, and fixtures                   | `snake_case`                              | `origin_receipt_from_file`        |
 | Python classes                                                    | `UpperCamelCase`                          | `ScenarioRunReceipt`              |
-| PostgreSQL identifiers                                            | `snake_case`                              | `curriculum_adoption_receipt`     |
+| PostgreSQL identifiers                                            | `snake_case`                              | `blueprint_operation_receipt`     |
 | PLE-owned serialized fields and portable discriminants            | `snake_case`                              | `import_revision`, `fast_forward` |
 | Cross-runtime symbolic values and declared portable map keys      | `snake_case`                              | `fresh_elena`                     |
 | Static URL segments and CSS class names                           | lowercase kebab case                      | `course-blueprints`               |
@@ -80,7 +80,7 @@ Name every identifying value for its exact boundary, representation, and role:
 | Immutable revision number                                 | Complete subject plus `RevisionNumber`    | `AssignmentRevisionNumber`                            |
 | Immutable revision reference                              | Complete subject plus `RevisionReference` | `AssignmentRevisionReference`                         |
 | Recalculation or worker fence                             | Complete subject plus `Generation`        | `ScoringGeneration`                                   |
-| Integrity value                                           | Complete subject plus `Digest`            | `RequestDigest`                                       |
+| Integrity value                                           | Complete subject plus `Checksum`          | `RequestChecksum`                                     |
 | Secret or bearer value                                    | Complete subject plus `Token`             | `WorkerLeaseToken`                                    |
 | One-time challenge value                                  | Complete subject plus `Nonce`             | `PresentationNonce`                                   |
 | Closed human-entered value                                | Complete subject plus `Code`              | `EmailAuthenticationCode`                             |
@@ -234,7 +234,7 @@ learning outcomes.
   constant modules retain generator-owned `SCREAMING_SNAKE_CASE.ts` names that match their Rust
   constant identity directly.
 - Migration filenames use a sortable numeric allocation followed by a lowercase snake-case
-  description, such as `2026081847_curriculum_adoption_public_bridge.sql`.
+  description, such as `2026081847_blueprint_operations_public_bridge.sql`.
 - Compose project, service, network, and container-facing names use lowercase kebab case when the
   owning Compose field permits it, such as `ple-live-demo-browser`.
 - PLE scenario IDs, evidence context IDs, durable namespaces, and similar machine-selected names use

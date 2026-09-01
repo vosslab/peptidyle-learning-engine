@@ -3,8 +3,8 @@
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
-import type { CreateBlueprintCourseDefinitionInput } from "../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { ReplaceBlueprintCourseDefinitionInput } from "../../generated/api/ReplaceBlueprintCourseDefinitionInput";
+import type { CreateBlueprintCourseContentInput } from "../../generated/api/CreateBlueprintCourseContentInput";
+import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "./contracts";
 
 /** Strong server ETag retained unchanged for a subsequent curriculum mutation. */
@@ -25,11 +25,11 @@ export interface BlueprintCourseClient {
     reference: BlueprintCourseReference,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly createBlueprintCourse: (
-    definition: CreateBlueprintCourseDefinitionInput,
+    content: CreateBlueprintCourseContentInput,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly replaceBlueprintCourse: (
     reference: BlueprintCourseReference,
-    definition: ReplaceBlueprintCourseDefinitionInput,
+    content: ReplaceBlueprintCourseContentInput,
     etag: BlueprintCourseEtag,
   ) => Promise<RevisionedBlueprintCourse>;
   readonly deleteBlueprintCourse: (

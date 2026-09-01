@@ -6,12 +6,12 @@ import type { Capability } from "../../generated/api/Capability";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { PublicByline } from "../../generated/api/PublicByline";
+import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
 import { QuestionRenderer } from "../components/question_renderer";
 import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
 import { ContentBlockList } from "../components/feedback_panel";
 import { WorkspaceConflictError } from "../api/http_client";
-import { parseReviewedPublicByline } from "../api/public_byline";
+import { parseReviewedQuestionAuthorship } from "../api/question_authorship";
 import type { WasmFacade } from "../wasm/index";
 import { useWasmFacade } from "../wasm/context";
 import { createEditorPreviewFacade } from "./editor_preview_facade";
@@ -28,7 +28,7 @@ import {
   type EditorRepository,
   type PreviewFacade,
   type QuestionPublicationReview,
-  type WorkspaceDraftSummary,
+  type DraftQuestionSummary,
 } from "./editor_page_model";
 import { EDITOR_PAGE_STYLES } from "./editor_page_styles";
 
@@ -36,7 +36,7 @@ type PageState =
   | { readonly kind: "loading" }
   | {
       readonly kind: "ready";
-      readonly drafts: ReadonlyArray<WorkspaceDraftSummary>;
+      readonly drafts: ReadonlyArray<DraftQuestionSummary>;
       readonly nextCursor: string | null;
       readonly draft: EditorDraft;
     }
@@ -96,18 +96,18 @@ function safeAssetUrl(asset: string): URL {
 }
 
 function firstTextPrompt(draft: EditorDraft): string {
-  const block = draft.prompt.find((candidate) => candidate.kind === "text");
+  const block = draft.prompt.find((promptBlock) => promptBlock.kind === "text");
   return block?.kind === "text" ? block.markdown : "";
 }
 
 /** This compact field edits only the first prose block; diagrams, math, code, and tables persist. */
 export function replaceFirstTextPrompt(draft: EditorDraft, markdown: string): EditorDraft {
-  const index = draft.prompt.findIndex((candidate) => candidate.kind === "text");
+  const index = draft.prompt.findIndex((promptBlock) => promptBlock.kind === "text");
   const prompt: ReadonlyArray<QuestionContentBlock> =
     index === -1
       ? [{ kind: "text", markdown }, ...draft.prompt]
-      : draft.prompt.map((block, candidateIndex) =>
-          candidateIndex === index ? { kind: "text", markdown } : block,
+      : draft.prompt.map((block, blockIndex) =>
+          blockIndex === index ? { kind: "text", markdown } : block,
         );
   return { ...draft, prompt };
 }
@@ -118,9 +118,9 @@ export interface EditorPageProps {
   readonly responseValidator: WasmFacade;
   readonly initialWorkspace?: WorkspaceId;
   /** Live routing may open a selected draft without changing the editor's runtime boundaries. */
-  readonly onOpenDraft?: (draft: WorkspaceDraftSummary) => void;
-  /** The live workspace list can start a complete flat-question draft. */
-  readonly onCreateFlatQuestion?: () => Promise<void>;
+  readonly onOpenDraft?: (draft: DraftQuestionSummary) => void;
+  /** The live workspace list can start a complete PLE Question JSON draft. */
+  readonly onCreatePleQuestionJson?: () => Promise<void>;
   /** Reports the strong revision and local-change state represented by this editor. */
   readonly onDraftDisplayStateChange?: (state: EditorDraftDisplayState | null) => void;
   /** Prevents edits while QTI conversion is replacing and refetching this draft. */
@@ -161,12 +161,12 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     string | null
   >(null);
   const [saveMessage, setSaveMessage] = createSignal<string | null>(null);
-  const [publicationByline, setPublicationByline] = createSignal("");
+  const [publicationAuthorshipText, setPublicationAuthorshipText] = createSignal("");
   const [staleConflict, setStaleConflict] = createSignal(false);
-  const [creatingFlatQuestion, setCreatingFlatQuestion] = createSignal(false);
+  const [creatingPleQuestionJson, setCreatingPleQuestionJson] = createSignal(false);
   const [creationMessage, setCreationMessage] = createSignal<string | null>(null);
   const [draftDirty, setDraftDirty] = createSignal(false);
-  let publicationBylineInput: HTMLTextAreaElement | undefined;
+  let publicationAuthorshipInput: HTMLTextAreaElement | undefined;
 
   const ready = (): Extract<PageState, { readonly kind: "ready" }> | undefined => {
     const value = page();
@@ -273,7 +273,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     }
   }
 
-  async function chooseDraft(summary: WorkspaceDraftSummary): Promise<void> {
+  async function chooseDraft(summary: DraftQuestionSummary): Promise<void> {
     const workspace = summary.workspace;
     if (props.onOpenDraft !== undefined) {
       props.onOpenDraft(summary);
@@ -297,18 +297,20 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     }
   }
 
-  async function createFlatQuestion(): Promise<void> {
-    if (props.onCreateFlatQuestion === undefined || creatingFlatQuestion()) return;
-    setCreatingFlatQuestion(true);
-    setCreationMessage("Creating a private flat-question draft...");
+  async function createPleQuestionJson(): Promise<void> {
+    if (props.onCreatePleQuestionJson === undefined || creatingPleQuestionJson()) return;
+    setCreatingPleQuestionJson(true);
+    setCreationMessage("Creating a private PLE Question JSON draft...");
     try {
-      await props.onCreateFlatQuestion();
+      await props.onCreatePleQuestionJson();
     } catch (error: unknown) {
       setCreationMessage(
-        error instanceof Error ? error.message : "The flat-question draft could not be created.",
+        error instanceof Error
+          ? error.message
+          : "The PLE Question JSON draft could not be created.",
       );
     } finally {
-      setCreatingFlatQuestion(false);
+      setCreatingPleQuestionJson(false);
     }
   }
 
@@ -441,13 +443,16 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     const current = ready();
     const review = publishConfirm();
     if (current === undefined || review === undefined) return;
-    const byline = parseReviewedPublicByline(publicationByline());
-    if (byline === null) {
-      setPublish({ ...review, message: "Provide one to sixteen distinct reviewed author names." });
-      requestAnimationFrame(() => publicationBylineInput?.focus());
+    const authorship = parseReviewedQuestionAuthorship(publicationAuthorshipText());
+    if (authorship === null) {
+      setPublish({
+        ...review,
+        message: "Provide one to sixteen distinct reviewed Question Authors.",
+      });
+      requestAnimationFrame(() => publicationAuthorshipInput?.focus());
       return;
     }
-    const request: { readonly byline: PublicByline } = { byline };
+    const request: { readonly authorship: QuestionAuthorship } = { authorship };
     setPublish({ kind: "publishing" });
     try {
       const outcome = await props.repository.publish(
@@ -583,14 +588,14 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
         <section class="editor-panel" aria-label="No workspace drafts">
           <h2>No drafts yet</h2>
           <p>Create a workspace draft to begin with a small Student-facing prompt and response.</p>
-          <Show when={props.onCreateFlatQuestion !== undefined}>
+          <Show when={props.onCreatePleQuestionJson !== undefined}>
             <button
               class="primary-action"
               type="button"
-              disabled={creatingFlatQuestion()}
-              onClick={() => void createFlatQuestion()}
+              disabled={creatingPleQuestionJson()}
+              onClick={() => void createPleQuestionJson()}
             >
-              {creatingFlatQuestion() ? "Creating flat question..." : "Create flat question"}
+              {creatingPleQuestionJson() ? "Creating Question..." : "Create Question"}
             </button>
           </Show>
         </section>
@@ -609,14 +614,14 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
           <div class="editor-grid">
             <aside class="editor-panel" aria-label="Workspace drafts">
               <h2>Your drafts</h2>
-              <Show when={props.onCreateFlatQuestion !== undefined}>
+              <Show when={props.onCreatePleQuestionJson !== undefined}>
                 <button
                   class="primary-action"
                   type="button"
-                  disabled={creatingFlatQuestion()}
-                  onClick={() => void createFlatQuestion()}
+                  disabled={creatingPleQuestionJson()}
+                  onClick={() => void createPleQuestionJson()}
                 >
-                  {creatingFlatQuestion() ? "Creating flat question..." : "Create flat question"}
+                  {creatingPleQuestionJson() ? "Creating Question..." : "Create Question"}
                 </button>
               </Show>
               <ul class="editor-draft-list">
@@ -913,16 +918,18 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         </For>
                       </ul>
                       <label class="editor-field">
-                        Reviewed public byline
+                        Question Authors
                         <textarea
                           ref={(element) => {
-                            publicationBylineInput = element;
+                            publicationAuthorshipInput = element;
                           }}
-                          value={publicationByline()}
-                          onInput={(event) => setPublicationByline(event.currentTarget.value)}
-                          aria-describedby="workspace-byline-help"
+                          value={publicationAuthorshipText()}
+                          onInput={(event) =>
+                            setPublicationAuthorshipText(event.currentTarget.value)
+                          }
+                          aria-describedby="workspace-authorship-help"
                         />
-                        <span id="workspace-byline-help">
+                        <span id="workspace-authorship-help">
                           Enter one reviewed name per line. The published attribution never uses
                           account data.
                         </span>

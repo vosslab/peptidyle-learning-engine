@@ -254,7 +254,7 @@ browser-facing data channel.
   protected correlation data only in the authorized operator boundary and never copy it into an
   HTTP response.
 - Before adding a diagnostic field, decide whether it is necessary to recover a correct durable
-  state. If not, omit it. A checksum or presentation digest supports consistency diagnosis; it is
+  state. If not, omit it. A checksum or presentation checksum supports consistency diagnosis; it is
   not authentication, transport security, or permission to reveal protected content.
 
 ## Change checklist

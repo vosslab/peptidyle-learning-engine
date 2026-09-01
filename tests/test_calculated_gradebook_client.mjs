@@ -8,7 +8,7 @@ import {
 } from "../src/api/decoders/calculated_gradebook.ts";
 import {
   decodeGradebookSelectionResult,
-  decodeSubmittedRunChoicesPage,
+  decodeSubmittedAssignmentAttemptChoicesPage,
 } from "../src/api/decoders/gradebook_selection.ts";
 import { ApiProtocolError } from "../src/api/http_client/error.ts";
 import { createCalculatedGradebookClient } from "../src/api/http_client/calculated_gradebook.ts";
@@ -28,9 +28,9 @@ function selectedStudent(assignment = "A-2") {
     membership: "M-1",
     assignment,
     inspectionChoice: {
-      kind: "selectedRun",
+      kind: "selectedAssignmentAttempt",
       basis: "latest",
-      run: "R-3",
+      assignmentAttempt: "R-3",
       submittedAt: 1_700_000_000_000,
     },
   };
@@ -96,7 +96,7 @@ function inspectedDetail(returnContext = "gradingOperation", membership = "M-1")
         };
   return {
     ...common,
-    run: "R-3",
+    assignmentAttempt: "R-3",
     studentDisplayLabel: "Ada Student",
     assignmentTitle: "Peptide Bonds: Guided Practice",
     submissions: [
@@ -138,7 +138,7 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
             availability: "unavailable",
             selectedScore: null,
             assignmentScoringState: "current",
-            inspectionChoice: { kind: "noSubmittedRun" },
+            inspectionChoice: { kind: "noSubmittedAssignmentAttempt" },
           },
         ],
       },
@@ -147,11 +147,14 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
   const decoded = decodeCalculatedGradebookResult(page);
   assert.equal(decoded.kind, "page");
   assert.equal(decoded.nextCursor, null);
-  assert.equal(decoded.rows[0].assignmentCells[0].inspectionChoice.kind, "noSubmittedRun");
+  assert.equal(
+    decoded.rows[0].assignmentCells[0].inspectionChoice.kind,
+    "noSubmittedAssignmentAttempt",
+  );
   assert.throws(() => decodeCalculatedGradebookResult({ ...page, extraField: true }), DecodeError);
 });
 
-test("Gradebook selection and submitted-run decoders keep closed public-reference pages", () => {
+test("Gradebook selection and submitted Assignment Attempt decoders keep closed public-reference pages", () => {
   const selection = decodeGradebookSelectionResult({
     kind: "studentSelection",
     rows: [
@@ -159,7 +162,10 @@ test("Gradebook selection and submitted-run decoders keep closed public-referenc
         membership: "M-1",
         displayLabel: "Ada Student",
         assignment: "A-2",
-        inspectionChoice: { kind: "chooseRun", completedRunCount: 2 },
+        inspectionChoice: {
+          kind: "chooseAssignmentAttempt",
+          completedAssignmentAttemptCount: 2,
+        },
       },
     ],
     nextCursor: "next-page",
@@ -167,12 +173,21 @@ test("Gradebook selection and submitted-run decoders keep closed public-referenc
   assert.equal(selection.kind, "studentSelection");
   assert.equal(selection.nextCursor, "next-page");
 
-  const choices = decodeSubmittedRunChoicesPage({
+  const choices = decodeSubmittedAssignmentAttemptChoicesPage({
     rosterRevision: 4,
-    rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
+    rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
   });
   assert.equal(choices.nextCursor, null);
-  assert.equal(choices.rows[0].run, "R-3");
+  assert.equal(choices.rows[0].assignmentAttempt, "R-3");
+
+  assert.throws(
+    () =>
+      decodeSubmittedAssignmentAttemptChoicesPage({
+        rosterRevision: 4,
+        rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
+      }),
+    DecodeError,
+  );
 
   assert.throws(
     () => decodeGradebookSelectionResult({ ...selectedStudent(), privateStudentId: "hidden" }),
@@ -189,9 +204,9 @@ test("Gradebook selection and submitted-run decoders keep closed public-referenc
   );
   assert.throws(
     () =>
-      decodeSubmittedRunChoicesPage({
+      decodeSubmittedAssignmentAttemptChoicesPage({
         rosterRevision: 4,
-        rows: [{ run: "R-03", submittedAt: 1_700_000_000_000, scoreSelected: true }],
+        rows: [{ assignmentAttempt: "R-03", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       }),
     DecodeError,
   );
@@ -245,7 +260,7 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
     if (path.includes("/assignment-attempts?")) {
       return jsonResponse({
         rosterRevision: 4,
-        rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
+        rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       });
     }
     return jsonResponse({ kind: "reloadRequired", reason: "filterChanged" });
@@ -269,7 +284,7 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
     filter: { kind: "operation", operation: "GO-7" },
     pageSize: 25,
   });
-  await client.getSubmittedRunChoices(COURSE_ID, "M-1", "A-2", {
+  await client.getSubmittedAssignmentAttemptChoices(COURSE_ID, "M-1", "A-2", {
     cursor: "next-page",
     pageSize: 10,
     operationRef: "GO-7",
@@ -309,7 +324,10 @@ test("Gradebook clients reject malformed inputs, cache drift, and echoed identit
       }),
     DecodeError,
   );
-  assert.throws(() => client.getSubmittedRunChoices(COURSE_ID, "M-01", "A-2"), ApiProtocolError);
+  assert.throws(
+    () => client.getSubmittedAssignmentAttemptChoices(COURSE_ID, "M-01", "A-2"),
+    ApiProtocolError,
+  );
   await assert.rejects(
     client.getGradebookSelection(COURSE_ID, {
       filter: { kind: "assignment", assignment: "A-2" },

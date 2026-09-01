@@ -11,7 +11,7 @@
 
 - A fresh isolated Playwright API request context authenticates an instructor only
   in memory, creates one fresh workspace UUID, and disposes the context on every path.
-- The authoring request sends a private `pleFlatQuestion` single-choice source with
+- The authoring request sends a private `pleQuestionJson` single-choice source with
   unlimited attempts, immediate full feedback, and untimed timing. A named WP-V1
   RNG stream selects its content without putting the answer in returned metadata.
   In every private variant, the first choice is incorrect and the second is correct,

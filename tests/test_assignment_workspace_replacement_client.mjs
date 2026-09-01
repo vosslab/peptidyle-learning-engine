@@ -31,7 +31,7 @@ function replacementEditorDetail() {
       },
     ],
     assignmentStatus: "unreleased",
-    assignmentWorkingCopyDefinition: {
+    assignmentAuthoredContent: {
       timeZone: "America/Chicago",
       instructions: "Use a structural drawing.",
       availableAt: null,
@@ -42,11 +42,37 @@ function replacementEditorDetail() {
       lateWorkRule: "accept",
       assignmentDeadlineRule: "autoSubmit",
     },
-    currentState: { state: "draft" },
+    assignmentAvailability: { state: "unreleased" },
     assignmentReleaseValidation: { blockingIssues: [] },
   };
   return replacement;
 }
+
+test("Create Assignment posts directly to the course Assignment collection", async () => {
+  const { recordingFetch, requests } = createRecordingFetch(
+    async () =>
+      new Response(JSON.stringify(replacementEditorDetail()), {
+        headers: {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          etag: '"5"',
+        },
+      }),
+  );
+  const client = createHttpApiClient({ fetch: recordingFetch });
+
+  const created = await client.createAssignment(course, { title: "Protein folding practice" });
+
+  assert.equal(created.id, assignment);
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.ok(request);
+  assert.equal(new URL(request.url).pathname, `/api/courses/${course}/assignments`);
+  assert.equal(request.method, "POST");
+  assert.equal(request.credentials, "same-origin");
+  assert.equal(request.cache, "no-store");
+  assert.deepEqual(await request.json(), { title: "Protein folding practice" });
+});
 
 test("fixed-item replacement sends one edit-number-checked focused request", async () => {
   const { recordingFetch, requests } = createRecordingFetch(

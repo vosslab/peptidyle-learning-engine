@@ -7,7 +7,7 @@ import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
-  decodeDraftQuestionRevision,
+  decodeDraftQuestionContent,
   decodeQuestionSubmissionAcknowledgement,
   decodeQuestionPresentation,
   decodeAssignmentAttempt,
@@ -21,10 +21,10 @@ import {
 
 test("question decoders reject answer-bearing and provider-secret fields", () => {
   const draft = publishedProblemFixture.draft;
-  assert.throws(() => decodeDraftQuestionRevision({ ...draft, answer: "secret" }), DecodeError);
+  assert.throws(() => decodeDraftQuestionContent({ ...draft, answer: "secret" }), DecodeError);
   assert.throws(
     () =>
-      decodeDraftQuestionRevision({
+      decodeDraftQuestionContent({
         ...draft,
         backendLocator: {
           backend: "imathas",
@@ -163,7 +163,7 @@ test("Assignment Attempt start uses the explicit nested course and assignment ro
   assert.equal(await request.text(), "");
 });
 
-test("Assignment Attempt transport preserves its exact published Assignment Revision", () => {
+test("Assignment Attempt transport preserves its exact Released Assignment Revision", () => {
   const assignmentAttempt = publishedProblemFixture.runs[0];
   assert.ok(assignmentAttempt);
   assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).assignmentRevision, {

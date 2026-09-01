@@ -140,7 +140,7 @@ published question revision. The Questions and Policies workspace pages expose t
 separately; they do not override question policies. See
 [src/pages/assignment_workspace/assignment_workspace_questions_page.tsx](../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx),
 [src/pages/assignment_workspace/assignment_workspace_policies_page.tsx](../src/pages/assignment_workspace/assignment_workspace_policies_page.tsx), and
-[crates/question_model/src/definition.rs](../crates/question_model/src/definition.rs).
+`crates/question_model/src/question_content.rs`.
 
 An instructor may intentionally choose a different composition. For example, a mastery threshold can
 use `ScoreAtLeast` when partial-credit questions are pedagogically meaningful, and per-item
@@ -262,8 +262,8 @@ Policies owns Student Feedback Release Rules, Assignment Activity Rules, instruc
 and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete
 authoritative projection, so a Policies save cannot silently replace Questions content.
 
-An empty persisted Assignment Working Copy is valid while the Instructor builds the assignment across pages.
-Assignment Release Validation returns Assignment Release Issues when the exact Assignment Working Copy
+An empty persisted Assignment is valid while the Instructor builds the assignment across pages.
+Assignment Release Validation returns Assignment Release Issues when the exact Assignment
 lacks an active deliverable position or valid policy state. Once student work is issued, a structural Questions change can return the typed
 issued-student-work conflict; the page preserves its draft for recovery. Student view is an
 answer-free, non-mutating presentation of the current assignment and does not create a practice run.

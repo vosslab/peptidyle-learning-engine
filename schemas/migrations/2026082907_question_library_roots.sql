@@ -12,8 +12,13 @@ CREATE TABLE ple_data.question_revision (
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'h5p', 'imathas')),
     published_at timestamp with time zone NOT NULL,
     public_metadata jsonb NOT NULL,
+    question_description text GENERATED ALWAYS AS (public_metadata ->> 'questionDescription') STORED,
     PRIMARY KEY (question_id, revision_number),
-    CONSTRAINT question_revision_metadata_is_object CHECK (jsonb_typeof(public_metadata) = 'object')
+    CONSTRAINT question_revision_metadata_is_object CHECK (jsonb_typeof(public_metadata) = 'object'),
+    CONSTRAINT question_revision_metadata_has_question_description CHECK (
+        jsonb_typeof(public_metadata -> 'questionDescription') = 'string'
+        AND char_length(btrim(question_description)) BETWEEN 1 AND 4000
+    )
 );
 CREATE FUNCTION ple_data.reject_question_revision_change()
 RETURNS trigger
@@ -35,5 +40,6 @@ ALTER TABLE ple_data.question_revision FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_data.published_question, ple_data.question_revision FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_question_revision_change() FROM PUBLIC;
 COMMENT ON TABLE ple_data.published_question IS 'Shared stable human-facing QuestionId lineage root; no private draft or answer data.';
-COMMENT ON TABLE ple_data.question_revision IS 'Immutable answer-free published version metadata; publication and current selection availability are separate event evidence.';
+COMMENT ON COLUMN ple_data.question_revision.question_description IS 'Generated searchable Question Description derived from canonical answer-free public metadata; never Student-delivered by default.';
+COMMENT ON TABLE ple_data.question_revision IS 'Immutable answer-free published version metadata including the required Instructor-facing Question Description; publication and current selection availability are separate event evidence.';
 RESET ROLE;

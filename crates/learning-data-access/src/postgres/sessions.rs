@@ -1,7 +1,7 @@
 //! PostgreSQL authentication-session persistence through the dedicated auth role.
 
 use async_trait::async_trait;
-use question_model::{AccountId, AccountRole, ActivityTimestamp};
+use question_model::{AccountId, AccountRole, Timestamp};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
@@ -121,8 +121,8 @@ fn decode_session_row(row: &PgRow) -> Result<SessionRecord, StoreError> {
         token_hash,
         account: AccountId::from_uuid(account),
         role: decode_role(&role)?,
-        created_at: ActivityTimestamp::from_unix_millis(created_at_millis),
-        expires_at: ActivityTimestamp::from_unix_millis(expires_at_millis),
+        created_at: Timestamp::from_unix_millis(created_at_millis),
+        expires_at: Timestamp::from_unix_millis(expires_at_millis),
     })
 }
 

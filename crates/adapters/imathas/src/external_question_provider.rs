@@ -8,9 +8,7 @@
 
 use async_trait::async_trait;
 use question_model::generation::QuestionSeed;
-use question_model::{
-    ActivityTimestamp, QuestionAttemptId, QuestionBackendLocator, QuestionRevision,
-};
+use question_model::{QuestionAttemptId, QuestionBackendLocator, QuestionRevision, Timestamp};
 use sha2::{Digest, Sha256};
 
 use crate::scored_embed::{
@@ -18,8 +16,8 @@ use crate::scored_embed::{
     ScoredEmbedLaunchLedger, ScoredEmbedNonce, ScoredEmbedProfileConfig, ScoredEmbedResultVerifier,
 };
 use crate::{
-    GradeBinding, ImathasAdapterError, ImathasProvider, ImathasQuestionLocation, ImathasSource,
-    ProviderFailure, ProviderGradeRequest, ProviderRenderRequest, SafeProviderRender,
+    GradeBinding, ImathasAdapterError, ImathasProvider, ImathasQuestionLocation, ProviderFailure,
+    ProviderGradeRequest, ProviderRenderRequest, ResolvedImathasQuestionSource, SafeProviderRender,
     ServerCorrelation, SupportedProfile, VerifiedProviderGrade, hex, sealed, verify_binding,
 };
 
@@ -441,12 +439,12 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
     pub async fn begin_launch(
         &self,
         question: &QuestionRevision,
-        source: &ImathasSource,
+        source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
         correlation: ServerCorrelation,
         nonce: ScoredEmbedNonce,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<ContractedLaunchSession, ImathasAdapterError> {
         verify_binding(question, source)?;
         if source.provider != self.config.profile.provider_key() {
@@ -478,7 +476,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             .map_err(map_transport)?;
         if fresh.bytes().len() > self.config.max_snapshot_bytes
             || hex(Sha256::digest(fresh.bytes()).as_slice())
-                != source.source_object_checksum.as_str()
+                != source.source_object_checksum().as_str()
         {
             return Err(ImathasAdapterError::SourceChecksumMismatch);
         }
@@ -498,8 +496,8 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             &self.config.profile,
             binding,
             &source.item_ref,
-            source.source_object_checksum.as_str(),
-            ActivityTimestamp::from_unix_millis(expiry),
+            source.source_object_checksum().as_str(),
+            Timestamp::from_unix_millis(expiry),
             correlation,
             nonce,
         )
@@ -509,7 +507,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
             provider_key: self.config.profile.provider_key().to_owned(),
             item_ref: source.item_ref.clone(),
             provider_seed: ledger.provider_seed(),
-            source_digest: source.source_object_checksum.to_string(),
+            source_digest: source.source_object_checksum().to_string(),
             signed_launch_jwt: protocol::signed_launch_jwt(
                 &self.config.launch_signing_secret,
                 &source.item_ref,
@@ -533,7 +531,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
     pub async fn retrieve_and_verify(
         &self,
         session: &mut ContractedLaunchSession,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<VerifiedProviderGrade, ImathasAdapterError> {
         result::retrieve_and_verify(&self.transport, &self.config, session, now).await
     }
@@ -546,7 +544,7 @@ impl<T: ScoredEmbedTransport> ContractedScoredEmbedProvider<T> {
         session: &ContractedLaunchSession,
         method: ProxyMethod,
         body: &[u8],
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<ProxyResponse, ImathasAdapterError> {
         session
             .ledger

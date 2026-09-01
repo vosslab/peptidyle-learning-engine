@@ -1,7 +1,7 @@
 //! Seeded parameter generation (WP-C5, MOD-GEN).
 //!
 //! [`generate`] is a pure function of a [`QuestionSeed`] and a
-//! [`QuestionVariationDefinition`]. Random draws come directly from
+//! [`QuestionVariationRule`]. Random draws come directly from
 //! `rand_chacha::ChaCha20Rng`; this module does not use `rand` distributions,
 //! whose sampling implementations are a separate compatibility surface.
 //! Ordered input and output maps make canonical JSON and its SHA-256 stable.
@@ -10,8 +10,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use question_model::generation::{
-    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
-    QuestionVariationDefinition,
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed, QuestionVariationRule,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::{Rng, SeedableRng};
@@ -151,12 +150,12 @@ impl std::error::Error for GenerationError {}
 /// be represented at their authored precision, or an empty choice list.
 pub fn generate(
     seed: QuestionSeed,
-    definition: &QuestionVariationDefinition,
+    rule: &QuestionVariationRule,
 ) -> Result<QuestionVariationParameters, GenerationError> {
-    let QuestionVariationDefinition::Seeded {
+    let QuestionVariationRule::Seeded {
         generator,
         parameters,
-    } = definition
+    } = rule
     else {
         return Ok(QuestionVariationParameters {
             generator: None,
@@ -184,9 +183,9 @@ pub fn generate(
 /// Returns the same errors as [`generate`] and [`QuestionVariationParameters::sha256`].
 pub fn generate_hash(
     seed: QuestionSeed,
-    definition: &QuestionVariationDefinition,
+    rule: &QuestionVariationRule,
 ) -> Result<String, GenerationError> {
-    generate(seed, definition)?.sha256()
+    generate(seed, rule)?.sha256()
 }
 
 /// Expands the stored 64-bit value into the exact key consumed by ChaCha20.
@@ -344,7 +343,7 @@ mod tests {
 
     #[test]
     fn static_generation_is_an_explicit_empty_variant() {
-        let output = generate(QuestionSeed::new(42), &QuestionVariationDefinition::Static)
+        let output = generate(QuestionSeed::new(42), &QuestionVariationRule::Static)
             .expect("static definitions should generate");
 
         assert_eq!(
@@ -362,11 +361,11 @@ mod tests {
             low: i64::MIN,
             high: i64::MAX,
         };
-        let base = QuestionVariationDefinition::Seeded {
+        let base = QuestionVariationRule::Seeded {
             generator: test_generator(),
             parameters: BTreeMap::from([("z_random".to_string(), random.clone())]),
         };
-        let with_fixed = QuestionVariationDefinition::Seeded {
+        let with_fixed = QuestionVariationRule::Seeded {
             generator: test_generator(),
             parameters: BTreeMap::from([
                 (
@@ -404,7 +403,7 @@ mod tests {
         ];
 
         for spec in invalid_specs {
-            let definition = QuestionVariationDefinition::Seeded {
+            let definition = QuestionVariationRule::Seeded {
                 generator: test_generator(),
                 parameters: BTreeMap::from([("invalid".to_string(), spec)]),
             };

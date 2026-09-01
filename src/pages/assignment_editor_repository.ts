@@ -42,17 +42,23 @@ export interface BlueprintAssignment {
 function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
-    const haystack = [row.title, row.displayId, row.summary, ...row.classifications, ...row.byline]
+    const haystack = [
+      row.title,
+      row.displayId,
+      row.summary,
+      ...row.classifications,
+      ...row.authorNames,
+    ]
       .join(" ")
       .toLocaleLowerCase();
     if (!haystack.includes(search)) return false;
   }
-  if (query.byline !== null && !row.byline.includes(query.byline)) return false;
+  if (query.authorName !== null && !row.authorNames.includes(query.authorName)) return false;
   if (query.backend !== null || query.questionType !== null || query.tag !== null) return false;
   if (query.classification !== null && !row.classifications.includes(query.classification))
     return false;
   if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
-  if (query.license !== null && row.license !== query.license) return false;
+  if (query.questionLicense !== null && row.questionLicense !== query.questionLicense) return false;
   if (query.evidence === "available" || query.usedInMyCourses === "used") return false;
   return true;
 }
@@ -98,22 +104,22 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           displayId: entry.questionId,
           title: entry.title,
           summary: "Active fixed question retained in this assignment.",
-          byline: [],
+          authorNames: [],
           classifications: [],
           capabilities: entry.capabilities,
-          license: "allRightsReserved",
+          questionLicense: null,
           evidence: { state: "insufficientEvidence" as const },
         }));
       const poolRows = assignment.entries.flatMap((entry) =>
         entry.kind === "questionPool"
-          ? entry.entries.map((entry) => ({
-              displayId: entry.questionId,
-              title: entry.title,
+          ? entry.items.map((item) => ({
+              displayId: item.questionId,
+              title: item.title,
               summary: "Question retained in this assignment pool.",
-              byline: [],
+              authorNames: [],
               classifications: [],
               capabilities: [],
-              license: "allRightsReserved",
+              questionLicense: null,
               evidence: { state: "insufficientEvidence" as const },
             }))
           : [],
@@ -226,14 +232,14 @@ async function listBlueprintAssignmentSources(
   );
   return currentCourses.flatMap(({ blueprintCourse }) =>
     blueprintCourse.modules.flatMap((module) =>
-      module.definitions.map((definition) => ({
+      module.assignments.map((content) => ({
         kind: "blueprintCourseAssignment" as const,
         source: {
           reference: blueprintCourse.reference,
           revision: blueprintCourse.revision,
-          assignment_id: definition.assignment_id,
+          assignment_id: content.assignment_id,
         },
-        label: `Blueprint Course: ${blueprintCourse.title} - ${module.label} - ${definition.definition.title}`,
+        label: `Blueprint Course: ${blueprintCourse.title} - ${module.label} - ${content.content.title}`,
       })),
     ),
   );

@@ -15,7 +15,7 @@ export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
           title: draft.title,
           prompt: draft.prompt,
           response: draft.response,
-          questionVariationDefinition: draft.questionVariationDefinition,
+          questionVariationRule: draft.questionVariationRule,
         },
         seed,
       );

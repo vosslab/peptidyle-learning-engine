@@ -55,7 +55,7 @@ an account, membership, or database Object Address as an authorization input.
 
 | Scope               | Authority                                                                                               | Normal concealed result                                                                                                                                                                                                                                                        |
 | ------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Question Library    | Authenticated approved-Instructor access plus visible lifecycle policy                                  | Every published state appears in browse and exact lookup; the response labels `Published`, `Deprecated`, or `Archived`.                                                                                                                                                        |
+| Question Library    | Authenticated approved-Instructor access plus Question Revision Availability                             | Every Published Question appears in browse and exact lookup; the response labels its Question Revision Availability as `Available` or `Archived`.                                                                                                                               |
 | Course              | Persisted direct `course_member` relationship                                                           | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority.                                                                                                                                                                      |
 | Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role | Student-facing Store reads and mutations require one active Student assignment entitlement in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
 | Workspace           | Exact workspace owner/collaborator relationship                                                         | Student, foreign, and unshared workspaces share an absent projection.                                                                                                                                                                                                          |
@@ -92,20 +92,20 @@ their paths as available.
 ### Question Library and Student entitlement
 
 The Question Library is one installation-wide Instructor surface. Every authenticated
-approved Instructor can browse, search, resolve, and inspect the safe published
-question content referenced by any course. `Published`, `Deprecated`, and
-`Archived` are all discoverable states; the response labels the state and any
-retirement reason. Only `Published` (the active state) is eligible for ordinary
-new assignment selection. Deprecated and Archived questions remain available
-for exact historical references, evidence, provenance, and retained
+active Instructor can browse, search, resolve, and inspect the safe published
+question content referenced by any course. Publication is the immutable entry
+event; `Available` and `Archived` are the discoverable Question Revision
+Availability states, with an Archive reason where relevant. Only `Available`
+Question Revisions are eligible for ordinary new assignment selection. Archived
+Question Revisions remain available for exact historical references, evidence, and retained
 assignments.
 
 Question ID is stable within one lineage; each immutable version has exact
-assignment and evidence pins. Approved Instructors can inspect version history,
+assignment and evidence pins. Active Instructors can inspect version history,
 lineage, and preserved improvement threads, including forks created by other
-Instructors. Any approved Instructor may start a fork, but its draft remains
+Instructors. Any active Instructor may start a fork, but its draft remains
 private to the creator until validation and publication. Star is one
-vetted-Instructor-visible endorsement per Question ID; approved Instructors may see its count
+vetted-Instructor-visible endorsement per Question ID; active Instructors may see its count
 and the identities of vetted Instructors who starred. Students and anonymous
 callers see neither the identity list nor star state. Watch is a private
 notification subscription for versions, forks, improvements, and impact
@@ -175,14 +175,14 @@ The assignment workspace is one course-scoped resource. `GET
 direct Instructor relationship to the course and then verifies that the
 assignment belongs to that exact course. A mismatched or unavailable pair has
 the same concealed not-found result and returns no assignment facts. The
-response carries the complete Assignment Working Copy editor projection: title, ordered
+response carries the complete editable Assignment editor projection: title, ordered
 fixed or pool content, Student Feedback Release Rules, Assignment activity rules, course-local teaching
 settings, server-derived current state, Active Student Course Membership, and
-Assignment Release Validation for that exact Assignment Working Copy.
+Assignment Release Validation for that exact Assignment.
 
-`POST /api/courses/{course}/assignments/drafts` accepts only a title and
-persists an ordinary incomplete Assignment Working Copy with server-owned defaults. An empty
-Assignment Working Copy is valid and reloadable; Assignment Release Requirements, rather than
+`POST /api/courses/{course}/assignments` accepts only a title and
+persists an ordinary incomplete Assignment with server-owned defaults. An empty
+Assignment is valid and reloadable; Assignment Release Requirements, rather than
 creation, require an active deliverable position and valid policy state.
 
 Questions owns `PUT
@@ -333,10 +333,10 @@ server cannot derive from authenticated state and the existing record.
 
 | Mechanism                   | Applies to                                                                                                             | Contract                                                                                                                                                                                                       |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves, course appearance | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
+| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
 | `Idempotency-Key`           | Future Student submission                                                                                              | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
 | Server-generated identity   | Runs, attempts, publications, export jobs, upload entries, object deliveries                                        | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
-| Bytes-first promotion       | Entry banners, QTI/flat publication, exports                                                                       | Objects may be written before the database transaction, but an unbound candidate is not visible content. The database commits the authoritative public/delivery pointer atomically.                            |
+| Bytes-first promotion       | QTI/PLE Question JSON publication and exports; future Course Banner Uploads                                                     | Objects may be written before the database transaction, but an unbound upload is not visible content. The database commits the authoritative public/delivery pointer atomically.                            |
 
 ETags are resource revisions, not general-purpose cache validators. An attempt
 submission uses its attempt ID and idempotency key rather than a browser-owned
@@ -353,7 +353,7 @@ display-ready correct-response teaching material. It is not a Student route and
 does not turn answer-bearing source or an `AnswerKey` into a browser API type.
 
 For PLE assessment payload detail, including attempt-specific rendered IDs,
-presentation digests, partial-credit results, and WeBWorK replay, use
+presentation checksums, partial-credit results, and WeBWorK replay, use
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). For private
 source/object/renderer rules, use [SECURITY_MODEL.md](SECURITY_MODEL.md) and
 [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
@@ -394,11 +394,12 @@ Versioning is therefore explicit at the boundary that evolves:
   the version they received;
 - semantic change classes determine whether an original-lineage steward may
   publish a same-ID version or whether a major objective, task, or response-
-  family change requires a private fork draft and a new Question ID.
+  Type or Question Response Format change requires a private fork draft and a new Question ID.
   Transport-size limits protect request handling; semantic classification
   determines compatibility;
 - strong numeric resource revisions protect concurrent workspace, assignment,
-  course-appearance, QTI-review, and conversion updates;
+  QTI-review, and conversion updates; a future Course Appearance Store will
+  apply the same boundary to Course Banner Upload promotion;
 - closed Rust/TypeScript discriminants version a DTO by adding a reviewed,
   decoder-supported variant rather than silently accepting unknown values;
 - content media types, payload schema versions, checksums, and upcasters belong

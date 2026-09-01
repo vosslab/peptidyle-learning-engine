@@ -6,7 +6,7 @@
 //! audit events; pause authorization and persistence belong to the server.
 
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-use question_model::{ActivityTimestamp, QuestionAttemptTiming};
+use question_model::{QuestionAttemptTiming, Timestamp};
 use serde::{Deserialize, Serialize};
 
 /// Complete clock-free input to one timer evaluation.
@@ -18,7 +18,7 @@ pub struct QuestionAttemptTimingEvaluation {
     /// Server-recorded issue, base-deadline, and submission timestamps.
     pub timer: QuestionAttemptTiming,
     /// Server time at which an unsubmitted timer is being evaluated.
-    pub evaluated_at: ActivityTimestamp,
+    pub evaluated_at: Timestamp,
     /// Total authorized pause duration added to the base deadline.
     pub pause_extension_millis: i64,
 }
@@ -166,13 +166,13 @@ fn validate_record_order(
 }
 
 fn checked_add_millis(
-    timestamp: ActivityTimestamp,
+    timestamp: Timestamp,
     milliseconds: i64,
-) -> Result<ActivityTimestamp, QuestionAttemptTimingEvaluationError> {
+) -> Result<Timestamp, QuestionAttemptTimingEvaluationError> {
     timestamp
         .as_unix_millis()
         .checked_add(milliseconds)
-        .map(ActivityTimestamp::from_unix_millis)
+        .map(Timestamp::from_unix_millis)
         .ok_or(QuestionAttemptTimingEvaluationError::TimestampOverflow)
 }
 
@@ -180,8 +180,8 @@ fn checked_add_millis(
 mod tests {
     use super::*;
 
-    fn timestamp(milliseconds: i64) -> ActivityTimestamp {
-        ActivityTimestamp::from_unix_millis(milliseconds)
+    fn timestamp(milliseconds: i64) -> Timestamp {
+        Timestamp::from_unix_millis(milliseconds)
     }
 
     fn evaluation(

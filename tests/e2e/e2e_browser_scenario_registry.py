@@ -11,7 +11,6 @@ import e2e_browser_scenarios_instructor as instructor
 import e2e_browser_scenarios_item_pool as item_pool
 import e2e_browser_scenarios_learner as student
 import e2e_browser_scenarios_preview as preview
-import e2e_browser_scenarios_qti as qti
 import e2e_browser_scenario_webwork_delivery as webwork_delivery
 
 
@@ -39,5 +38,4 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			),
 		)
 		+ failure.contracts()
-		+ qti.contracts()
 	)

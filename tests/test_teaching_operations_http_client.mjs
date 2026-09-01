@@ -30,11 +30,9 @@ test("retention uses generated responses and keeps non-successes coarse", async 
     fetch: createTeachingFetch(async (request) => {
       if (new URL(request.url).pathname.endsWith("/retention")) {
         assert.equal(request.method, "GET");
-        return jsonResponse(
-          { state: "active", assignmentDefinitions: "retain", revision: "4" },
-          200,
-          { etag: '"4"' },
-        );
+        return jsonResponse({ state: "active", assignmentContent: "retain", revision: "4" }, 200, {
+          etag: '"4"',
+        });
       }
       assert.equal(request.headers.get("if-match"), '"4"');
       return jsonResponse({ private: "not exposed" }, 412);
@@ -44,7 +42,7 @@ test("retention uses generated responses and keeps non-successes coarse", async 
   const current = await client.getCourseRetention(course);
   assert.equal(current.revision, "4");
   await assert.rejects(
-    client.archiveCourseRetention(course, { assignmentDefinitions: "retain" }, "4"),
+    client.archiveCourseRetention(course, { assignmentContent: "retain" }, "4"),
     (error) => error instanceof ApiRequestError && error.status === 412,
   );
 });
@@ -61,7 +59,6 @@ test("safe picker reads percent-encode pagination and decode only bounded projec
           targets: [
             {
               account: { reference: "U-1", display: "Dr. Ada" },
-              approval: { state: "approved", revision: "3" },
             },
           ],
           nextCursor: "2",
@@ -98,32 +95,4 @@ test("safe picker rejects a response that omits no-store", async () => {
   });
 
   await assert.rejects(client.listCourseStudentTargets(course), ApiProtocolError);
-});
-
-test("Sysadmin candidate search serializes one bounded display-label query", async () => {
-  const client = createHttpApiClient({
-    fetch: createTeachingFetch(async (request) => {
-      const url = new URL(request.url);
-      assert.equal(url.pathname, "/api/teaching/instructor-approval-candidates");
-      assert.equal(url.search, "?query=Avery+%26+Co&after=next%2Fpage&size=20");
-      assert.equal(request.method, "GET");
-      assert.equal(request.headers.get("content-type"), null);
-      return jsonResponse({
-        candidates: [
-          {
-            account: { reference: "U-8", display: "Avery Student" },
-            approval: { state: "unapproved", revision: null },
-          },
-        ],
-        nextCursor: null,
-      });
-    }),
-  });
-
-  const page = await client.searchSysadminInstructorCandidates({
-    query: "Avery & Co",
-    after: "next/page",
-    size: 20,
-  });
-  assert.equal(page.candidates[0]?.account.reference, "U-8");
 });

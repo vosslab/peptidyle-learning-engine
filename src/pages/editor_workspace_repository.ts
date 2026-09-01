@@ -1,6 +1,6 @@
 // editor_workspace_repository.ts - live CRUD adapter for private, unversioned workspace drafts.
 
-import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
+import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { ApiClient } from "../api/client";
 import { PublicationValidationError, WorkspaceConflictError } from "../api/http_client";
@@ -10,7 +10,7 @@ import type {
   DraftCapabilityViolation,
   PublishOutcome,
   QuestionPublicationReview,
-  WorkspaceDraftPage,
+  DraftQuestionPage,
 } from "./editor_page_model";
 import type {
   InstructorPreviewBoundary,
@@ -18,11 +18,11 @@ import type {
 } from "./editor_instructor_preview";
 
 interface LoadedDraft {
-  readonly definition: DraftQuestionRevision;
+  readonly definition: DraftQuestionContent;
   readonly revision: string;
 }
 
-function editorDraft(definition: DraftQuestionRevision): EditorDraft {
+function editorDraft(definition: DraftQuestionContent): EditorDraft {
   return {
     workspace: definition.workspace,
     title: definition.metadata.title,
@@ -31,14 +31,14 @@ function editorDraft(definition: DraftQuestionRevision): EditorDraft {
     response: definition.response,
     questionAttemptLimit: definition.questionAttemptLimit,
     questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    questionVariationDefinition: definition.questionVariationDefinition,
+    questionVariationRule: definition.questionVariationRule,
   };
 }
 
 function updateDefinition(
-  existing: DraftQuestionRevision,
+  existing: DraftQuestionContent,
   draft: EditorDraft,
-): DraftQuestionRevision {
+): DraftQuestionContent {
   if (existing.workspace !== draft.workspace) {
     throw new Error("Workspace identity cannot change while editing a draft");
   }
@@ -49,7 +49,7 @@ function updateDefinition(
     response: draft.response,
     questionAttemptLimit: draft.questionAttemptLimit,
     questionAttemptTimeLimit: draft.questionAttemptTimeLimit,
-    questionVariationDefinition: draft.questionVariationDefinition,
+    questionVariationRule: draft.questionVariationRule,
     metadata: { ...existing.metadata, title: draft.title },
   };
 }
@@ -84,7 +84,7 @@ export function createWorkspaceEditorRepository(
   }
 
   return {
-    listDrafts: async (cursor?: string): Promise<WorkspaceDraftPage> =>
+    listDrafts: async (cursor?: string): Promise<DraftQuestionPage> =>
       await client.listWorkspaceDrafts(cursor),
     getDraft: get,
     reloadDraft: get,

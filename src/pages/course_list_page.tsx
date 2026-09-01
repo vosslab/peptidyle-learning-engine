@@ -349,14 +349,9 @@ export function CourseListPage(): JSX.Element {
         {mayCreateCourse()
           ? "Open a course to manage assignments, Students, progress, and its visual identity."
           : isSysadmin()
-            ? "Approve Instructors and use explicit support capabilities for course-specific work."
+            ? "Use explicit support capabilities for course-specific work."
             : "Practice is open-book. Choose a course, explain your reasoning, and learn from each attempt."}
       </p>
-      <Show when={isSysadmin()}>
-        <A class="primary-link" href="/sysadmin/instructor-approval">
-          Review Instructor approvals
-        </A>
-      </Show>
       <Show when={mayCreateCourse()}>
         <form
           class="course-create-form"

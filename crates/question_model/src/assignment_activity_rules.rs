@@ -177,7 +177,7 @@ pub enum QuestionPoolReuseRule {
 /// What a later Assignment Attempt does with Question Variations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
-pub enum QuestionVariationRule {
+pub enum AssignmentQuestionVariationRule {
     /// Retain each selected Question's existing Question Variation.
     ReuseVariation,
     /// Issue a fresh Question Seed for every selected Question.
@@ -227,17 +227,17 @@ pub enum AssignmentQuestionOrderRule {
 /// Stable server-owned inputs for one Question Pool Selection.
 ///
 /// The basis contains only server-owned durable identities. It chooses
-/// Question Pool Entry references; question issuance separately creates the fresh
+/// Question Pool Item references; question issuance separately creates the fresh
 /// private server seed for every selected question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionInputs {
-    /// Repeat selections for one Student Record retain the same Question Pool Entries.
+    /// Repeat selections for one Student Record retain the same Question Pool Items.
     StableStudentRecord {
         student_record: crate::StudentRecordId,
         assignment: AssignmentId,
         question_pool_assignment_entry: AssignmentEntryId,
     },
-    /// Each new Assignment Attempt receives independently selected Question Pool Entries.
+    /// Each new Assignment Attempt receives independently selected Question Pool Items.
     RegeneratedAssignmentAttempt {
         assignment_attempt: crate::AssignmentAttemptId,
         assignment: AssignmentId,
@@ -321,7 +321,7 @@ pub struct AssignmentActivityRules {
     /// Whether a later Assignment Attempt reuses its Question Pool Selection.
     pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Whether a later Assignment Attempt reuses each selected Question Variation.
-    pub question_variation_rule: QuestionVariationRule,
+    pub question_variation_rule: AssignmentQuestionVariationRule,
     /// Whether the current Assignment Attempt can be resumed after leaving.
     pub assignment_attempt_resume_rule: AssignmentAttemptResumeRule,
     /// How many Issued Questions appear together.
@@ -339,7 +339,7 @@ impl Default for AssignmentActivityRules {
             assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
             assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: QuestionVariationRule::NewVariation,
+            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
             assignment_question_display_rule: AssignmentQuestionDisplayRule::AllQuestions,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
@@ -376,7 +376,7 @@ mod tests {
             assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
             assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: QuestionVariationRule::NewVariation,
+            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
             assignment_question_display_rule: AssignmentQuestionDisplayRule::AllQuestions,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
@@ -414,8 +414,8 @@ mod tests {
             QuestionPoolReuseRule::SelectAgain,
         ] {
             for question_variation_rule in [
-                QuestionVariationRule::ReuseVariation,
-                QuestionVariationRule::NewVariation,
+                AssignmentQuestionVariationRule::ReuseVariation,
+                AssignmentQuestionVariationRule::NewVariation,
             ] {
                 let rules = AssignmentActivityRules {
                     question_pool_reuse_rule,
@@ -443,11 +443,11 @@ mod tests {
                 revision_number: crate::AssignmentRevisionNumber::INITIAL,
             },
             attempt_number: 2,
-            started_at: crate::ActivityTimestamp::from_unix_millis(1),
+            started_at: crate::Timestamp::from_unix_millis(1),
             completed_at: None,
             score: None,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: QuestionVariationRule::NewVariation,
+            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
         };
         let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(4));
 

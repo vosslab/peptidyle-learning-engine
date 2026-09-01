@@ -24,11 +24,14 @@ When a term has a narrower meaning at one boundary, name the narrower record or
 relationship. A broad context object never substitutes for a stored authority
 path.
 
-Prefer an established PLE term. Introduce another term only when it names a
-distinct concept more precisely. Human Guidance establishes product meaning,
-while technical boundaries may require additional implementation vocabulary.
-Judge that vocabulary by the distinction it preserves, rather than by raw word
-counts or by whether Human Guidance needs to mention it.
+Prefer an established PLE term. Every new canonical noun must identify a
+distinct owner, identity, lifecycle, relationship, authority boundary,
+operation, or evidence boundary. Otherwise use an established PLE term, an
+exact qualified View name, or ordinary technical vocabulary. Human Guidance
+establishes product meaning, while technical boundaries may require additional
+implementation vocabulary. Judge that vocabulary by the distinction it
+preserves, rather than by raw word counts or by whether Human Guidance needs to
+mention it.
 
 ## Technical boundary vocabulary
 
@@ -64,6 +67,17 @@ remains an implementation technique rather than a PLE-owned type name. Payload
 remains transport vocabulary rather than the name of a Question, Assignment,
 or Student Work domain object.
 
+**Timestamp** is the ordinary technical scalar for an absolute instant. A
+PLE-owned field names the fact whose time it records, such as accepted time,
+published time, issued time, or Event recorded time. The owning fact supplies
+domain meaning and authority.
+
+Use State and Status only as parts of exact qualified canonical terms. This
+contract defines Account State, Assignment Status, Question Attempt State,
+Question Submission Grading State, Assignment Scoring State, and Student Late
+Work Status independently. Browser interaction state, process state, HTTP
+status, and visible status messages remain ordinary technical vocabulary.
+
 Name each temporary, proposed, eligible, or selected value by its exact relationship
 and state. Use complete names such as Question Pool Item, Course Banner Upload,
 Instructor Account, proposed value, replacement, or selected Question.
@@ -71,10 +85,10 @@ Instructor Account, proposed value, replacement, or selected Question.
 A PLE-owned internal serialized format has one canonical current shape. Update
 its type, decoder, schema, fixtures, and stored development data together. A
 PLE-owned domain type, function, View, and interface use their complete
-canonical role name. Registered external standards
-retain their owner-defined version names. A **Software Version** records the
-exact software build used for an operation; it is evidence in Question Attempt
-Reproduction Details. Each PLE boundary keeps one current implementation.
+canonical role name. Registered external standards retain their owner-defined
+version names. Question Attempt Reproduction Details retain the distinct
+Question Backend Version, Question Renderer Version, and Question Grader
+Version defined below. Each PLE boundary keeps one current implementation.
 
 These technical terms describe mechanics rather than PLE records, product
 surfaces, or authority. Name a PLE-owned component by the object or operation
@@ -159,9 +173,11 @@ Revision Reference** pairs the exact Course Instance with its positive revision
 number; it identifies that immutable record without treating the number alone
 as course-wide authority.
 
-Each operation owns its exact Readiness result, Retry Token, Manifest when one
-is needed, and Receipt. The operation name remains consistent across interface,
-API, schema, and code boundaries.
+Supporting terms use the complete operation name, such as Apply Blueprint
+Update Readiness or Copy Assignment from Blueprint Receipt. Readiness,
+Manifest, and Receipt describe only their exact qualified operation. The
+operation name remains consistent across interface, API, schema, and code
+boundaries.
 
 **Course Instance** is live teaching created from an exact Blueprint Revision.
 It owns enrollment, deadlines, releases, accommodations, grades, and other
@@ -178,11 +194,11 @@ Course Instance rollover. It retains bounded Blueprint Assignment sources and
 resolved schedules, while its one exclusion policy excludes all Student and
 delivery records.
 
-**Course Instance Operation Receipt** is one exact immutable receipt for Copy
-Course for New Term, Shift Course Dates, Apply Blueprint Update, Copy Assignment
-from Blueprint, or reconciliation. The server-only reconciliation selection
-holds one closed receipt variant; public callers receive the exact receipt for
-the operation they requested.
+Each completed Blueprint operation has its exact qualified Receipt, such as
+Copy Course for New Term Receipt, Shift Course Dates Receipt, Apply Blueprint
+Update Receipt, or Copy Assignment from Blueprint Receipt. A shared wrapper may
+remain ordinary implementation vocabulary; the exact qualified Receipt remains
+the PLE-owned concept.
 
 **Assignment Source Snapshot** is the immutable operation precondition for one
 Assignment import. It binds the exact Blueprint Assignment Revision source,
@@ -262,8 +278,22 @@ relationship for a manual-grading workflow and has no present implementation.
 
 ## Content and delivery relationships
 
+**Authoring Workspace** is the private authority boundary owned by one Active
+Instructor Account. It contains Draft Question lineages and Workspace Imports
+and may grant a Workspace Collaborator relationship. Draft Question supplies
+the authored content identity and lifecycle. My Question Drafts supplies the
+Instructor-facing View. **Authoring Workspace Owner** names the Workspace's
+owning Account relationship.
+
 **Draft Question** is one private Question lineage inside an Authoring Workspace.
-A **Draft Question Revision** is its complete immutable accepted state. Its
+Its **Draft Question Reference** is an opaque `D-` locator for Instructor-facing
+navigation; it resolves only inside the authorized Authoring Workspace and is
+never a storage UUID. A **Draft Question Content** is editable authored content before acceptance; it
+has an Authoring Workspace relationship but no Draft Question identity. A
+**Draft Question Revision** binds accepted Draft Question Content to one exact
+**Draft Question Revision Reference**: its private persisted Draft Question UUID
+and positive Draft Question Revision Number. It is a server persistence record,
+not a browser contract. Its
 Question Source, Question Grading Rule, Answer Key, optional Question Hint,
 Question Feedback, Question Answer Explanation, and any Question Format-specific
 Question Grading Input bind to that exact revision when the role applies.
@@ -351,6 +381,10 @@ browser-safe form selected for a Question Presentation: its Question Asset
 Reference, rendition checksum, and intrinsic dimensions. The issued Question
 Presentation binds its Question Asset Renditions into the Question Presentation
 Checksum.
+
+**Question Asset Purpose** is the short Authoring Workspace-held explanation of
+how an Instructor intends to use a Question Asset, such as a hotspot surface.
+It is neither a Question Source nor Question Authorship or credit.
 Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
@@ -375,10 +409,7 @@ exact Question Revision and seed. It retains the exact Question Revision,
 seed, and ordered declared parameters that produced the presentation in server
 and cache evidence. The browser receives
 only the answer-free Question Revision and Question Seed required to bind its
-presentation. A **Question Presentation** is the answer-free
-title, prompt, Question Assets, and Question Response Format derived from one
-Question Variation and bound through the issued-presentation record to one
-Question Attempt.
+presentation.
 
 **Question Grading Rule** names how automatic grading awards points.
 **Answer Key** names the private accepted-response facts. A **Question Answer**
@@ -440,10 +471,19 @@ defines the correctness-neutral shape and constraints of an accepted **Student
 Response**. Use Question Response Format consistently for the authored Question,
 Published Question, issued Question Presentation, browser contract, and strict
 Student Response decoder.
-The authored Question Response Format retains durable Response Item References. **Question Presentation Response Format** is its issued answer-free projection with presentation-scoped Response Item References for one Question Presentation.
+The authored Question Response Format retains durable Response Item References.
+**Question Presentation Response Format** is its answer-free View with
+presentation-scoped Response Item References for one Question Presentation.
 Question Response Control names the browser interaction used to collect that
 response. The Question Presentation declares the control, keeping the Student
 interface independent of Question Type and Question Format.
+
+**Question Presentation Binding** is the server-held evidence that pairs one
+Question Presentation Nonce with its complete Question Presentation Checksum.
+**Issued Question Presentation** is the exact relationship among one Issued
+Question, its Question Presentation, and that binding. These terms preserve the
+presentation and integrity evidence boundaries. Question Revision remains the
+Question content lifecycle.
 
 **Keyboard Instructions** are persistent text that explains how to operate a
 Question Response Control with the keyboard. A **Keyboard Tooltip** is transient
@@ -520,6 +560,9 @@ language, and at least one Question Subject. Question Bloom Classification begin
 filled automatically after publication. Question Subsubjects, Question Tags, other Question
 Classifications, and a Question Citation are optional. Question Type, Question Format, and Question
 Backend remain exact searchable Question Revision facts rather than free-form metadata.
+Question Metadata is a bounded grouping. Each contained fact keeps its exact
+canonical name, validation, and Question Revision ownership. Question Revision
+continues to supply identity, authority, and lifecycle.
 
 **Question Title** is the short name used to identify a Question. **Question
 Description** is a concise Instructor-facing, answer-free explanation of what
@@ -615,14 +658,17 @@ Structured filters and facets use the exact Question Type, Question Format,
 Question Backend, Question Author, Question Subject, Question Subsubject,
 Question Tag, both Question Bloom Classification fields, Question
 Classification, and Question License values. A
-**Question Summary** is one answer-free published-Question listing.
-A **Question Search Result** combines that summary with permitted Question
-Statistics. **Question Details** is the expanded answer-free view of one exact
-Question Revision. **Question Statistics** is the privacy-safe, revision-specific
-aggregate released from accepted graded Question Attempts. A **Question
-Picker** is the shared Instructor control that uses Question Search to select
-Published Questions for an Assignment or Blueprint Course; selection supplies
-no Question ownership or editing authority.
+**Question Summary** is one answer-free listing of a stable Published Question
+and carries the exact Question Revision Reference for its Latest Question
+Revision. A **Question Search Result** combines that summary with permitted
+Question Statistics for that exact Question Revision. **Question Details** is
+the expanded answer-free View of one exact Question Revision. These terms name
+read shapes; Published Question and Question Revision retain identity and
+lifecycle. **Question Statistics** is the privacy-safe, revision-specific
+aggregate released from accepted graded Question Attempts. A
+**Question Picker** is the shared Instructor control that uses Question Search
+to select Published Questions for an Assignment or Blueprint Course; selection
+supplies no Question ownership or editing authority.
 
 **Question Publication Requirements** are the closed conditions a Draft
 Question Revision must satisfy before publication. **Question Publication
@@ -648,20 +694,21 @@ Accounts are the same for a direct owner edit and may differ for an accepted
 Question Change Proposal. Neither fact changes Question Authorship or Question
 Ownership. The Question Revision Reason uses the visible label Reason for Edit
 and explains why the accepted change was made; it is the
-Instructor-language counterpart of a Git commit message. **Current Question
-Revision** is the latest accepted
-revision in the lineage; its currentness is independent of Revision
+Instructor-language counterpart of a Git commit message. **Latest Question
+Revision** is the accepted Question Revision with the greatest Question
+Revision Number in that lineage. The stable Question owns this relationship;
+Published Question and Question Revision retain their existing identities and
+lifecycles. Latest Question Revision is independent of Question Revision
 Availability.
 
 A **Question Revision Update Choice** accompanies creation of a new Question
-Revision and is either Use New Revision in My Assignment Working Copies or Keep
-Current Revision in My Assignment Working Copies. A **Question Revision Update
-Receipt** records the exact Assignment Working Copies advanced by that choice.
-Released Assignment Revisions, Issued Questions, Question Attempts, and Student
-Work retain their exact existing references. A Question Publication Event
-records entry into the Question Library; a separate Question Revision
-Availability Event records whether a published revision is Available or
-Archived for selection.
+Revision and is either Use New Revision in My Assignments or Keep Existing
+Revisions in My Assignments. A **Question Revision Update Receipt** records the
+exact Assignments whose selected Question Revision changed. Released Assignment
+Revisions, Issued Questions, Question Attempts, and Student Work retain their
+exact existing references. A Question Publication Event records entry into the
+Question Library; a separate Question Revision Availability Event records
+whether a published revision is Available or Archived for selection.
 
 **Question Change Proposal** is one Instructor-owned improvement thread against
 a Published Question. A **Question Change Proposal Revision** is one complete,
@@ -690,6 +737,12 @@ Instructor's release decision rather than current Student access. Closed stops
 new Student work. Archived retires the Assignment from current teaching
 surfaces.
 
+**Instructor Assignment Availability View** is the Instructor-facing
+calculation of one Assignment's Assignment Status and schedule at one
+authoritative time. It is Unreleased, Scheduled, Available, Closed, or
+Archived. Assignment Status remains the stable lifecycle; Assignment Access
+remains the per-Student decision.
+
 Ordinary saves update the Assignment and increment its **Assignment Edit
 Number**. Successful Assignment Releases alone create teaching-history
 records. An **Assignment Revision** is one complete immutable teaching snapshot
@@ -706,7 +759,7 @@ Successful Assignment Release creates the next Assignment Revision and selects
 it for future Assignment Attempts. Existing work stays pinned to its exact
 Assignment Revision and Question Revisions.
 Assignment Revisions preserve exact released teaching history. The Assignment
-itself retains the current authored state. Ordinary saves advance only the
+itself retains its editable authored content. Ordinary saves advance only the
 Assignment Edit Number. Its Assignment Revision count equals its successful
 content releases. Closing or archiving changes Assignment Status alone.
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
@@ -822,6 +875,15 @@ submission. A **Grading Result** records the later evaluation, and an
 **Automated Grading Receipt** binds that result to its exact automated
 operation. This record path keeps server-only Answer Keys, Question Grading
 Input, and FERPA records out of Student-visible data.
+
+**Question Submission Grading State** is the authoritative grading-progress
+fact for one accepted Question Submission: Pending, Graded, Instructor
+Attention, or Exempt. **Student Question Submission Grading State** is its
+Student-visible View and contains only Pending, Graded, or Instructor
+Attention. Question Submission Grading State remains the grading lifecycle.
+**Assignment Scoring State** is the separate Current, Recalculating, or Failed
+state for one Assignment's score calculation. A Grading Result remains the
+immutable evaluation.
 
 **Student Work Records** collectively names Assignment Attempts, Issued
 Questions, Question Attempts, Question Submissions, Grading Results, Events,

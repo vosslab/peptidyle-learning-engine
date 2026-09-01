@@ -338,7 +338,7 @@ BEGIN
 		WHERE conrelid = 'ple_private.assignment_attempt'::regclass
 		AND conname = 'assignment_attempt_revision_belongs_to_assignment'
 	) OR to_regclass('ple_private.question_pool_selection') IS NULL
-		OR to_regclass('ple_private.question_pool_selected_entry') IS NULL
+		OR to_regclass('ple_private.question_pool_selected_item') IS NULL
 		OR (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'assignment_attempt' AND column_name IN ('attempt_number', 'question_pool_reuse_rule', 'question_variation_rule')) <> 3 OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'question_pool_selection' AND column_name = 'selected_question_count' AND is_nullable = 'NO')
 		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.assignment_attempt'::regclass AND conname = 'assignment_attempt_student_assignment_number_is_unique') OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'ple_private.question_pool_selection'::regclass AND tgname IN ('question_pool_selection_reuse_has_exact_student_and_assignment_history', 'question_pool_selection_has_exact_entry_count') AND NOT tgisinternal GROUP BY tgrelid HAVING count(*) = 2)
 		OR NOT EXISTS (
@@ -409,11 +409,7 @@ BEGIN
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'course_instance'
 			AND column_name = 'delivery_time_zone'
-		) OR EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'ple_data' AND table_name = 'assignment'
-			AND column_name IN ('available_at', 'due_at', 'closes_at', 'local_override')
-		) OR NOT EXISTS (
+	) OR NOT EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision'
 			AND column_name = 'course_schedule_revision_id' AND is_nullable = 'NO'
@@ -431,12 +427,12 @@ BEGIN
 		AND conname = 'assignment_released_revision_matches_assignment'
 	) OR NOT EXISTS (
 		SELECT 1 FROM information_schema.columns
-		WHERE table_schema = 'ple_data' AND table_name = 'assignment_working_copy'
-		AND column_name = 'edit_number' AND is_nullable = 'NO'
+		WHERE table_schema = 'ple_data' AND table_name = 'assignment'
+		AND column_name = 'assignment_edit_number' AND is_nullable = 'NO'
 	) OR NOT EXISTS (
 		SELECT 1 FROM pg_trigger
-		WHERE tgrelid = 'ple_data.assignment_working_copy'::regclass
-		AND tgname = 'assignment_working_copy_replacement_is_exact' AND NOT tgisinternal
+		WHERE tgrelid = 'ple_data.assignment'::regclass
+		AND tgname = 'assignment_edit_is_exact' AND NOT tgisinternal
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_data.assignment_revision'::regclass
@@ -518,29 +514,6 @@ BEGIN
 		) THEN
 		RAISE EXCEPTION 'Grading Result does not bind one Question Submission, automated operation, and receipt';
 	END IF;
-	IF to_regclass('ple_data.question_publication_event') IS NULL
-		OR to_regclass('ple_data.question_revision_availability_event') IS NULL
-		OR to_regclass('ple_data.published_question_lifecycle_event') IS NOT NULL
-		OR EXISTS (
-			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'ple_data' AND table_name = 'question_revision'
-			AND column_name = 'lifecycle'
-		)
-		OR NOT EXISTS (
-			SELECT 1 FROM pg_constraint
-			WHERE conrelid = 'ple_data.question_publication_event'::regclass
-			AND conname = 'question_publication_event_version_is_unique'
-		) OR NOT EXISTS (
-			SELECT 1 FROM pg_constraint
-			WHERE conrelid = 'ple_data.question_revision_availability_event'::regclass
-			AND conname = 'question_revision_availability_event_kind_is_unique'
-		) OR NOT EXISTS (
-			SELECT 1 FROM pg_trigger
-			WHERE tgrelid = 'ple_data.question_revision_availability_event'::regclass
-			AND tgname = 'question_revision_availability_event_has_valid_transition' AND NOT tgisinternal
-		) THEN
-		RAISE EXCEPTION 'Question publication and availability evidence remains conflated';
-	END IF;
 	IF to_regclass('ple_private.account_state_event') IS NULL
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger
@@ -552,15 +525,6 @@ BEGIN
 			AND tgname = 'account_restriction_revokes_sessions' AND NOT tgisinternal
 		) THEN
 		RAISE EXCEPTION 'Account State does not govern authenticated-session access';
-	END IF;
-	IF to_regclass('ple_private.instructor_approval_event') IS NULL
-		OR to_regclass('ple_private.instructor_approval') IS NOT NULL
-		OR NOT EXISTS (
-			SELECT 1 FROM pg_trigger
-			WHERE tgrelid = 'ple_private.instructor_approval_event'::regclass
-			AND tgname = 'instructor_approval_event_is_immutable' AND NOT tgisinternal
-		) THEN
-		RAISE EXCEPTION 'Instructor Approval does not retain immutable approval and revocation evidence';
 	END IF;
 	IF to_regclass('ple_data.course_membership_event') IS NULL
 		OR NOT EXISTS (
@@ -703,7 +667,17 @@ BEGIN
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
-			AND column_name = 'remediation'
+			AND column_name IN ('remediation', 'generation')
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'forced_question_correction'
+			AND column_name = 'correction_generation'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_audit' AND table_name = 'correction_recalculation_evidence'
+			AND column_name = 'correction_generation'
 		)
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
@@ -994,6 +968,7 @@ printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || \
 	fail "second staged apply did not report a no-op-compatible result"
 run_staged_tool sd1-staged-verify
 assert_catalog
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_credit_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 assert_restricted_logins
 echo "SD1 staged database E2E: PASS (fresh apply, no-op, PostgreSQL 17 catalog, restricted probes)"

@@ -2,7 +2,6 @@
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
-GRANT SELECT ON TABLE ple_private.instructor_approval_event TO ple_data_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
@@ -61,13 +60,9 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
           FROM ple_data.blueprint_course AS blueprint
-          JOIN LATERAL (
-              SELECT approval.event_kind
-                FROM ple_private.instructor_approval_event AS approval
-               WHERE approval.instructor_account_id = NEW.published_by_account_id
-               ORDER BY approval.occurred_at DESC, approval.instructor_approval_event_id DESC
-               LIMIT 1
-          ) AS latest_approval ON latest_approval.event_kind = 'approved'
+          JOIN ple_private.account AS account
+            ON account.account_id = NEW.published_by_account_id
+           AND account.role = 'instructor'
          WHERE blueprint.blueprint_id = NEW.blueprint_id
            AND blueprint.owner_account_id = NEW.published_by_account_id
     ) THEN
@@ -166,17 +161,12 @@ BEGIN
            OR NEW.recorded_by_account_id <> course_owner_account_id
            OR NOT EXISTS (
                SELECT 1
-                 FROM LATERAL (
-                     SELECT approval.event_kind
-                       FROM ple_private.instructor_approval_event AS approval
-                      WHERE approval.instructor_account_id = NEW.collaborator_account_id
-                      ORDER BY approval.occurred_at DESC, approval.instructor_approval_event_id DESC
-                      LIMIT 1
-                 ) AS latest_approval
-                WHERE latest_approval.event_kind = 'approved'
+                 FROM ple_private.account AS account
+                WHERE account.account_id = NEW.collaborator_account_id
+                  AND account.role = 'instructor'
            ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'only the Blueprint Course Owner may grant a Draft Blueprint Revision contribution relationship to an Approved Instructor';
+                MESSAGE = 'only the Blueprint Course Owner may grant a Draft Blueprint Revision contribution relationship to an Instructor Account';
         END IF;
     ELSIF NOT EXISTS (
         SELECT 1
@@ -225,7 +215,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_blueprint_publication_event_ch
 COMMENT ON TABLE ple_data.blueprint_publication_event IS
     'Immutable evidence that one exact Blueprint Revision left private draft collaboration and entered reusable publication.';
 COMMENT ON TABLE ple_data.blueprint_collaborator_event IS
-    'Immutable grant or end evidence for one Approved Instructor contribution relationship to one exact Draft Blueprint Revision.';
+    'Immutable grant or end evidence for one Instructor Account contribution relationship to one exact Draft Blueprint Revision.';
 COMMENT ON TABLE ple_data.blueprint_revision_availability_event IS
     'Immutable Available or Archived selection state evidence for one exact published Blueprint Revision.';
 

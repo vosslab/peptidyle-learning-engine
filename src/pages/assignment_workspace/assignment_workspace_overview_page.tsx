@@ -25,9 +25,9 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
     ).length;
   const poolCount = (): number =>
     assignment().entries.filter((entry) => entry.kind === "questionPool").length;
-  const questionPoolEntryCount = (): number =>
+  const questionPoolItemCount = (): number =>
     assignment().entries.reduce(
-      (total, entry) => total + (entry.kind === "questionPool" ? entry.entries.length : 0),
+      (total, entry) => total + (entry.kind === "questionPool" ? entry.items.length : 0),
       0,
     );
   const base = (): string =>
@@ -55,8 +55,8 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
               <dd>{stateCopy(assignment().assignmentStatus)}</dd>
             </div>
             <div>
-              <dt>Current state</dt>
-              <dd>{stateCopy(assignment().currentState.state)}</dd>
+              <dt>Assignment availability</dt>
+              <dd>{stateCopy(assignment().assignmentAvailability.state)}</dd>
             </div>
             <div>
               <dt>Questions</dt>
@@ -65,7 +65,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
             <div>
               <dt>Pools</dt>
               <dd>
-                {poolCount()} ({questionPoolEntryCount()} entries)
+                {poolCount()} ({questionPoolItemCount()} items)
               </dd>
             </div>
           </dl>
@@ -80,7 +80,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
             when={assignment().assignmentReleaseValidation.blockingIssues.length === 0}
             fallback={
               <>
-                <p role="status">This Assignment Working Copy is not ready to release.</p>
+                <p role="status">This Assignment is not ready to release.</p>
                 <ul class="assignment-workspace-next-actions">
                   <For each={assignment().assignmentReleaseValidation.blockingIssues}>
                     {(issue) => (
@@ -105,9 +105,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
               </>
             }
           >
-            <p role="status">
-              The current Assignment Working Copy meets the known release requirements.
-            </p>
+            <p role="status">The current Assignment meets the known release requirements.</p>
           </Show>
           <p class="assignment-workspace-action-row">
             <A
@@ -139,29 +137,29 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         >
           <h2 id="assignment-instructions-heading">Instructions and delivery</h2>
           <Show
-            when={assignment().assignmentWorkingCopyDefinition.instructions.length > 0}
+            when={assignment().assignmentAuthoredContent.instructions.length > 0}
             fallback={<p>No Student instructions have been added.</p>}
           >
             <p class="plain-text-instructions">
-              {assignment().assignmentWorkingCopyDefinition.instructions}
+              {assignment().assignmentAuthoredContent.instructions}
             </p>
           </Show>
           <dl class="assignment-facts">
             <div>
               <dt>Time zone</dt>
-              <dd>{assignment().assignmentWorkingCopyDefinition.timeZone}</dd>
+              <dd>{assignment().assignmentAuthoredContent.timeZone}</dd>
             </div>
             <div>
               <dt>Available</dt>
-              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.availableAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.availableAt)}</dd>
             </div>
             <div>
               <dt>Due</dt>
-              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.dueAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.dueAt)}</dd>
             </div>
             <div>
               <dt>Closes</dt>
-              <dd>{localTime(assignment().assignmentWorkingCopyDefinition.closesAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.closesAt)}</dd>
             </div>
           </dl>
         </section>

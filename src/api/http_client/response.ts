@@ -38,7 +38,7 @@ import {
   decodeCourseGradebookTotalsView,
   decodeCoursePage,
   decodeCourseSummary,
-  decodeDraftQuestionRevision,
+  decodeDraftQuestionContent,
   decodeExternalToolLaunch,
   decodeStudentQuestionAttempt,
   decodeQuestionPresentation,
@@ -47,7 +47,7 @@ import {
   decodeAssignmentAttemptSummaryResponse,
   decodeAssignmentProgress,
   decodeQuestionClassificationPage,
-  decodeWorkspaceDraftPage,
+  decodeDraftQuestionPage,
   decodeQuestionPublicationReview,
   decodeNavigationResolution,
 } from "../decoders";
@@ -185,7 +185,7 @@ async function workspaceDraft(
   if (!response.ok) throw new ApiRequestError(response.status, path);
   const value = await boundedResponseJson(response, path);
   return {
-    draft: decodeDraftQuestionRevision(value, "response"),
+    draft: decodeDraftQuestionContent(value, "response"),
     revision: workspaceRevision(response, path),
   };
 }
@@ -323,7 +323,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         cursorPath("/api/workspaces", cursor),
-        decodeWorkspaceDraftPage,
+        decodeDraftQuestionPage,
       ),
     getWorkspaceDraft: (workspace) => workspaceDraft(fetchImplementation, basePath, workspace),
     getQuestionPublicationReview: (workspace) =>

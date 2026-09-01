@@ -91,7 +91,7 @@ native radio controls supply the behavior.
 | Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                       | Assignment title and action are available                       |
 | Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and Question Response Control appear           |
 | Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                  | No interactive content is skipped or inserted out of order      |
-| Answer                | The family-specific contract below works without a pointer                                         | The selected or entered response is visibly represented         |
+| Answer                | The Question-Type-specific contract below works without a pointer                                  | The selected or entered response is visibly represented         |
 | Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available                |
 | Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                | Pending state prevents a duplicate submission                   |
 | Read feedback         | Authorized feedback receives a heading and sensible focus; unreleased feedback is not inferred     | Student can read result and next action                         |
@@ -167,7 +167,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 
 - A hotspot question must not require a pointer-only click or a path-dependent gesture.
 - The image has a text alternative and explicit instructions for keyboard use.
-- The current PLE flat HOTSPOT contract requires named public candidate regions. Its primary control
+- The current PLE Question JSON HOTSPOT contract requires named public Hotspot Regions. Its primary control
   is an equivalent labeled radio or checkbox list that Tab reaches and Space selects. Region labels
   describe the diagram without revealing correctness.
 - A later pointer overlay or coordinate cursor may be added as an extension, but it must preserve the
@@ -227,7 +227,7 @@ Permanent tests protect stable user behavior, not today's component layout:
   keyboard traps;
 - the live WebWork gate proves a keyboard-operated PLE-owned radio path and PLE-only network
   boundary; and
-- each new WP-RC5 family adds its family-specific no-mouse behavior before acceptance.
+- each new WP-RC5 Question Type adds its Question-Type-specific no-mouse behavior before acceptance.
 
 Tests assert outcomes such as focused control, changed selection, preserved response, announcement,
 and completed action. They do not freeze exact Tab counts, DOM ancestry, private helper names, or the
@@ -276,7 +276,7 @@ live gate exercises an extension path and does not replace the platform-key jour
 The Chapter 1 release gate now exercises static and WeBWorK MATCH through visible keyboard controls.
 Numeric, short-text, FIB, MULTI-FIB, HOTSPOT, and unavailable-file behavior still rely partly on
 focused component/source evidence rather than a full route and must satisfy this contract as part of
-their family acceptance rather than being deferred to a later generic accessibility pass.
+their Question Type acceptance rather than being deferred to a later generic accessibility pass.
 
 The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
 run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,

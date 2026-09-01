@@ -76,7 +76,7 @@ impl PleQuestionBackend {
     /// Reproduces, verifies, grades, and materializes private teaching content in one pass.
     ///
     /// Keeping this separate from [`Self::grade`] prevents feedback from being
-    /// recreated against a different instance or source record.
+    /// recreated against a different instance or Question Source.
     pub fn grade_with_feedback(
         &self,
         question: &QuestionRevision,

@@ -3,7 +3,7 @@
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
 use question_model::generation::QuestionSeed;
-use question_model::{ActivityTimestamp, QuestionAttemptId};
+use question_model::{QuestionAttemptId, Timestamp};
 use sha2::Sha256;
 use uuid::Uuid;
 
@@ -141,7 +141,7 @@ impl LaunchSessionCodec {
         let source_digest = cursor.text()?;
         let profile = cursor.text()?;
         let provider_seed = cursor.u16()?;
-        let expires_at = ActivityTimestamp::from_unix_millis(cursor.i64()?);
+        let expires_at = Timestamp::from_unix_millis(cursor.i64()?);
         let correlation = cursor.text()?;
         let nonce: [u8; 32] = cursor
             .take(32)?

@@ -1,9 +1,9 @@
-// Strict decoders for the course appearance API family.
+// Strict decoders for the course appearance API surface.
 
 import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
 import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
-import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
+import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseBannerPresentation } from "../../../generated/api/CourseBannerPresentation";
 import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
 import {
@@ -88,13 +88,13 @@ export function decodeCourseAppearance(value: unknown, path = "response"): Cours
 }
 
 /** Strict receipt for a course-bound, server-normalized temporary banner. */
-export function decodeCourseBannerCandidateReceipt(
+export function decodeCourseBannerUploadReceipt(
   value: unknown,
   path = "response",
-): CourseBannerCandidateReceipt {
+): CourseBannerUploadReceipt {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["candidate"]);
-  return { candidate: decodeUuid(field(record, "candidate", path), `${path}.candidate`) };
+  requireOnlyFields(record, path, ["upload"]);
+  return { upload: decodeUuid(field(record, "upload", path), `${path}.upload`) };
 }
 
 /** Strict atomic course-appearance update at the request decoder boundary. */
@@ -128,15 +128,12 @@ export function decodeCourseAppearanceUpdate(
         },
       };
     case "replace":
-      requireOnlyFields(banner, `${path}.banner`, ["kind", "candidate", "alternativeText"]);
+      requireOnlyFields(banner, `${path}.banner`, ["kind", "upload", "alternativeText"]);
       return {
         theme,
         banner: {
           kind,
-          candidate: decodeUuid(
-            field(banner, "candidate", `${path}.banner`),
-            `${path}.banner.candidate`,
-          ),
+          upload: decodeUuid(field(banner, "upload", `${path}.banner`), `${path}.banner.upload`),
           alternativeText: decodeCourseBannerAlternativeText(
             field(banner, "alternativeText", `${path}.banner`),
             `${path}.banner.alternativeText`,

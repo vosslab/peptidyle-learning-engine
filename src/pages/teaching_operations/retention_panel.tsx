@@ -48,7 +48,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
   const [pending, setPending] = createSignal<RetentionAction>();
   const [confirmation, setConfirmation] = createSignal("");
   const [confirmationMessage, setConfirmationMessage] = createSignal("");
-  const [definitionDisposition, setDefinitionDisposition] =
+  const [assignmentContentDisposition, setAssignmentContentDisposition] =
     createSignal<RetentionDispositionView>("retain");
   const [extensionDays, setExtensionDays] = createSignal("30");
   const [reloadRequired, setReloadRequired] = createSignal(false);
@@ -158,7 +158,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
         action === "archive"
           ? await props.applicationApi.client.archiveCourseRetention(
               props.courseId,
-              { assignmentDefinitions: definitionDisposition() },
+              { assignmentContent: assignmentContentDisposition() },
               current.revision,
             )
           : await props.applicationApi.client.deleteCourseRetention(
@@ -167,7 +167,7 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
             );
       setRetention({
         state: response.state,
-        assignmentDefinitions: response.assignmentDefinitions,
+        assignmentContent: response.assignmentContent,
         revision: response.revision,
       });
       setMessage(retentionOutcomeCopy(response.outcome));
@@ -248,8 +248,8 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
             <div class="teaching-operations-retention">
               <p>{retentionStateCopy(current.state)}</p>
               <p>
-                Assignment definitions:{" "}
-                {current.assignmentDefinitions === "retain" ? "retained" : "deleted"}.
+                Assignment content:{" "}
+                {current.assignmentContent === "retain" ? "retained" : "deleted"}.
               </p>
               <Show
                 when={current.notification}
@@ -340,17 +340,17 @@ export function RetentionPanel(props: RetentionPanelProps): JSX.Element {
             </p>
             <Show when={action === "archive"}>
               <label>
-                Assignment definitions
+                Assignment content
                 <select
-                  value={definitionDisposition()}
+                  value={assignmentContentDisposition()}
                   onChange={(event) =>
-                    setDefinitionDisposition(
+                    setAssignmentContentDisposition(
                       event.currentTarget.value === "delete" ? "delete" : "retain",
                     )
                   }
                 >
-                  <option value="retain">Retain assignment definitions</option>
-                  <option value="delete">Delete assignment definitions</option>
+                  <option value="retain">Retain assignment content</option>
+                  <option value="delete">Delete assignment content</option>
                 </select>
               </label>
             </Show>

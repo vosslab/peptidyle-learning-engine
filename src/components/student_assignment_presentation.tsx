@@ -10,7 +10,7 @@ import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeed
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
 import type { QuestionPoolReuseRule } from "../../generated/api/QuestionPoolReuseRule";
-import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
+import type { AssignmentQuestionVariationRule } from "../../generated/api/AssignmentQuestionVariationRule";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export interface StudentAssignmentPresentationDelivery {
@@ -38,7 +38,7 @@ export interface StudentAssignmentPresentationData {
   readonly delivery: StudentAssignmentPresentationDelivery;
   readonly questionsPerRun: number;
   readonly questionPoolReuseRule?: QuestionPoolReuseRule;
-  readonly questionVariationRule?: QuestionVariationRule;
+  readonly questionVariationRule?: AssignmentQuestionVariationRule;
   readonly studentFeedbackReleaseRule?: StudentFeedbackReleaseRule;
 }
 
@@ -147,7 +147,7 @@ function formatLateStatus(value: StudentLateWorkStatus): string {
 
 function formatLaterAttemptRules(
   poolReuseRule: QuestionPoolReuseRule | undefined,
-  variationRule: QuestionVariationRule | undefined,
+  variationRule: AssignmentQuestionVariationRule | undefined,
 ): string {
   const selection =
     poolReuseRule === "reuseSelection"

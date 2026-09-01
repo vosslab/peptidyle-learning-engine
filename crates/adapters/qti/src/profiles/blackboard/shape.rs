@@ -35,7 +35,7 @@ pub(super) fn manifest_resources(root: &XmlNode) -> Option<Vec<QtiProfileResourc
         return None;
     }
     let lom = one(metadata, "lom")?;
-    // LOM is retained opaque archive provenance. Its nested vocabulary never
+    // LOM is retained opaque archive metadata. Its nested vocabulary never
     // participates in profile detection, mapping, or grading.
     if lom.namespace_uri() != Some("http://www.imsglobal.org/xsd/imsmd_v1p2") || !structural(lom) {
         return None;

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[serde(try_from = "String", into = "String")]
 pub struct AssignmentRevisionNumber(NonZeroU64);
 
-/// Positive compare-and-swap number for one replaceable Assignment Working Copy.
+/// Positive compare-and-swap number for one replaceable Assignment.
 ///
 /// This number is independent of [`AssignmentRevisionNumber`]: ordinary
 /// Instructor saves advance the edit number, while an Assignment Release
@@ -20,7 +20,7 @@ pub struct AssignmentRevisionNumber(NonZeroU64);
 pub struct AssignmentEditNumber(NonZeroU64);
 
 impl AssignmentEditNumber {
-    /// First edit number for a newly created Assignment Working Copy.
+    /// First edit number for a newly created Assignment.
     pub const INITIAL: Self = Self(NonZeroU64::MIN);
 
     /// Rebuilds a positive edit number that fits PostgreSQL `BIGINT`.
@@ -33,7 +33,7 @@ impl AssignmentEditNumber {
         self.0.get()
     }
 
-    /// Advances one successful Assignment Working Copy replacement.
+    /// Advances one successful Assignment replacement.
     pub fn checked_next(self) -> Option<Self> {
         Self::new(self.value().checked_add(1)?)
     }
@@ -78,7 +78,7 @@ impl std::fmt::Display for AssignmentEditNumber {
 }
 
 impl AssignmentRevisionNumber {
-    /// Initial immutable revision number for a newly persisted assignment definition.
+    /// Initial immutable revision number for newly persisted Assignment Content.
     pub const INITIAL: Self = Self(NonZeroU64::MIN);
 
     /// Rebuilds a positive revision that fits PostgreSQL `BIGINT`.

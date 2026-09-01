@@ -4,7 +4,8 @@ import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_Q
 import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionRevisionAvailability } from "../../../generated/api/QuestionRevisionAvailability";
-import type { License } from "../../../generated/api/License";
+import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
+import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
@@ -50,7 +51,7 @@ export const QUESTION_BACKENDS = [
 
 export const MAX_QUESTION_SEARCH_PAGE_ITEMS = MAX_CURSOR_PAGE_ITEMS;
 export const MAX_QUESTION_SEARCH_CAPABILITY_FACETS = CAPABILITIES.length;
-export const MAX_QUESTION_SEARCH_LICENSE_FACETS = 6;
+export const MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS = 3;
 export const MINIMUM_STATISTICS_COHORT_SIZE = 5;
 export const STATISTICS_DURATION_ESTIMATES_SECONDS = [
   1, 5, 15, 30, 60, 120, 300, 900, 3_600, 86_400,
@@ -249,32 +250,27 @@ export function decodeQuestionClassification(
   return decoded;
 }
 
-export function decodeLicense(value: unknown, path: string, strict = false): License {
+export function decodeQuestionLicense(value: unknown, path: string): QuestionLicense {
+  return decodeStringEnum<QuestionLicense>(value, path, ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"]);
+}
+
+export function decodeQuestionCitation(value: unknown, path: string): QuestionCitation {
   const record = decodeRecord(value, path);
-  const tag = kind(record, path);
-  switch (tag) {
-    case "allRightsReserved":
-    case "ccBy":
-    case "ccBySa":
-    case "ccByNc":
-    case "cc0":
-      if (strict) {
-        requireOnlyFields(record, path, ["kind"]);
-      }
-      return { kind: tag };
-    case "other": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "spdx"]);
-      }
-      const decoded = {
-        kind: tag,
-        spdx: decodeNonemptyString(field(record, "spdx", path), `${path}.spdx`),
-      } satisfies License;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known license kind");
+  requireOnlyFields(record, path, ["citationUrl", "citationText"]);
+  const citationUrl = decodeNullable(
+    field(record, "citationUrl", path),
+    `${path}.citationUrl`,
+    decodeNonemptyString,
+  );
+  const citationText = decodeNullable(
+    field(record, "citationText", path),
+    `${path}.citationText`,
+    decodeNonemptyString,
+  );
+  if (citationUrl === null && citationText === null) {
+    throw new DecodeError(path, "a Question Citation with Citation URL, Citation Text, or both");
   }
+  return { citationUrl, citationText };
 }
 
 export function decodeQuestionMetadata(
@@ -284,10 +280,22 @@ export function decodeQuestionMetadata(
 ): QuestionMetadata {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, ["title", "tags", "classifications", "license", "language"]);
+    requireOnlyFields(record, path, [
+      "title",
+      "questionDescription",
+      "tags",
+      "classifications",
+      "questionLicense",
+      "questionCitation",
+      "language",
+    ]);
   }
   const decoded = {
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    questionDescription: decodeNonemptyString(
+      field(record, "questionDescription", path),
+      `${path}.questionDescription`,
+    ),
     tags: decodeArray(field(record, "tags", path), `${path}.tags`, decodeString),
     classifications: decodeArray(
       field(record, "classifications", path),
@@ -295,7 +303,16 @@ export function decodeQuestionMetadata(
       (classification, classificationPath) =>
         decodeQuestionClassification(classification, classificationPath, strict),
     ),
-    license: decodeLicense(field(record, "license", path), `${path}.license`, strict),
+    questionLicense: decodeNullable(
+      field(record, "questionLicense", path),
+      `${path}.questionLicense`,
+      decodeQuestionLicense,
+    ),
+    questionCitation: decodeNullable(
+      field(record, "questionCitation", path),
+      `${path}.questionCitation`,
+      decodeQuestionCitation,
+    ),
     language: decodeNonemptyString(field(record, "language", path), `${path}.language`),
   } satisfies QuestionMetadata;
   return decoded;

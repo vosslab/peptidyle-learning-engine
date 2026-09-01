@@ -25,7 +25,7 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 
 - An Instructor account belongs to a real person manually approved by a Sysadmin.
 - Current approval grants the same global Instructor capabilities as every
-  other approved Instructor.
+  other active Instructor.
 - Current approval plus direct course membership grants teaching authority for that course.
 - A course may have multiple equal Teaching Team Members. Approval withdrawal closes global and
   course-Instructor capabilities; membership revocation closes that course's authority.
@@ -87,7 +87,7 @@ relationship, ordinary account flows derive authority from the authenticated
 account and current course membership.
 
 The implemented passwordless foundation, owned by migrations `2026082902` through
-`2026082905` and `2026082933`, issues one immutable account and session role. It confirms that
+`2026082904` and `2026082933`, issues one immutable account and session role. It confirms that
 every selected Student or Instructor membership matches that role, and a
 Sysadmin account cannot select a course membership. The operator assigns the
 Product Role at Account Creation; the application does not change it.
@@ -187,5 +187,5 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
 - The removed pre-SD1 role schema is historical evidence only. The fresh
   [global Account and session migration](../schemas/migrations/2026082902_global_account_authenticated_session.sql)
   owns fixed singular immutable Account and Authenticated Session role storage.
-  The [Instructor approval migration](../schemas/migrations/2026082905_instructor_approval.sql)
-  owns vetting, current approval predicates, and role agreement.
+  Sysadmin Instructor Vetting occurs before Account Creation; Product Role and Account State
+  then own the resulting Instructor Account authorization boundary.

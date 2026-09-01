@@ -49,7 +49,7 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
-/** A 409 content-save refusal that requires a successor Assignment Working Copy. */
+/** A 409 content-save refusal that requires a successor Assignment. */
 export class AssignmentSuccessorRevisionRequiredError extends ApiRequestError {
   declare public readonly status: 409;
   public readonly requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired;
@@ -80,7 +80,7 @@ export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentC
     return {
       kind: "successorRevisionRequired",
       message:
-        "Student work already pins this Assignment Revision. Create a successor Assignment Working Copy for structural question changes.",
+        "Student work already pins this Assignment Revision. Create a successor Assignment for structural question changes.",
     };
   }
   if (
@@ -134,16 +134,6 @@ export class PreviewPlaneConflictError extends ApiRequestError {
   }
 }
 
-/** A course-appearance save lost its exact strong-revision race. */
-export class CourseAppearanceConflictError extends ApiRequestError {
-  declare public readonly status: 412;
-
-  public constructor(path: string) {
-    super(412, path);
-    this.name = "CourseAppearanceConflictError";
-  }
-}
-
 /** A course-grade save lost its strong ETag race; the caller must retain its draft. */
 export class CourseGradeSchemeConflictError extends ApiRequestError {
   declare public readonly status: 412;
@@ -170,14 +160,6 @@ export class BlueprintCourseConflictError extends ApiRequestError {
   public constructor(path: string) {
     super(412, path);
     this.name = "BlueprintCourseConflictError";
-  }
-}
-
-/** A local banner cannot satisfy the bounded upload transport contract. */
-export class CourseAppearanceFileError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = "CourseAppearanceFileError";
   }
 }
 

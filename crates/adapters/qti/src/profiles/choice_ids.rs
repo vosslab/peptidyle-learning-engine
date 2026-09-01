@@ -1,13 +1,13 @@
-//! Deterministic vendor choice identifiers for the flat-question boundary.
+//! Deterministic vendor choice identifiers for the PLE Question JSON boundary.
 //!
-//! Vendor response identifiers are provenance, not presentation labels. This
+//! Vendor response identifiers are private import-mapping input, not presentation labels. This
 //! module keeps their PLE equivalents stable without exposing a parser's raw
 //! choice map in any browser-safe type.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use objects::Sha256Digest;
+use objects::Sha256Checksum;
 
 use super::QtiProfileId;
 
@@ -34,7 +34,7 @@ impl QtiChoiceIdMap {
         }
     }
 
-    /// Raw vendor identifier retained only for server-side provenance assembly.
+    /// Raw vendor identifier retained only for server-side import-mapping assembly.
     pub fn server_vendor_choice_id(&self) -> &str {
         &self.vendor_choice_id
     }
@@ -82,14 +82,14 @@ pub fn map_qti_choice_ids(
     item_identifier: &str,
     vendor_choice_ids: &[String],
 ) -> Result<Vec<QtiChoiceIdMap>, QtiChoiceIdMappingError> {
-    map_qti_choice_ids_with_digest(profile, item_identifier, vendor_choice_ids, sha256_digest)
+    map_qti_choice_ids_with_hash(profile, item_identifier, vendor_choice_ids, sha256_hash)
 }
 
-fn map_qti_choice_ids_with_digest(
+fn map_qti_choice_ids_with_hash(
     profile: QtiProfileId,
     item_identifier: &str,
     vendor_choice_ids: &[String],
-    digest: fn(&[u8]) -> [u8; 32],
+    hash: fn(&[u8]) -> [u8; 32],
 ) -> Result<Vec<QtiChoiceIdMap>, QtiChoiceIdMappingError> {
     if vendor_choice_ids.len() > 100 {
         return Err(QtiChoiceIdMappingError::TooManyChoices);
@@ -123,9 +123,9 @@ fn map_qti_choice_ids_with_digest(
         .filter(|identifier| !is_valid_ple_choice_id(identifier))
         .collect::<BTreeSet<_>>();
     for identifier in invalid {
-        let digest_input = choice_id_digest_input(profile, item_identifier, identifier)?;
-        let digest_hex = hex_digest(&digest(&digest_input));
-        let ple_choice_id = reserve_derived_choice_id(&digest_hex, &mut reserved)?;
+        let hash_input = choice_id_hash_input(profile, item_identifier, identifier)?;
+        let hash_hex = hex_hash(&hash(&hash_input));
+        let ple_choice_id = reserve_derived_choice_id(&hash_hex, &mut reserved)?;
         resolved.insert(identifier.clone(), ple_choice_id);
     }
 
@@ -141,7 +141,7 @@ fn map_qti_choice_ids_with_digest(
         .collect()
 }
 
-fn choice_id_digest_input(
+fn choice_id_hash_input(
     profile: QtiProfileId,
     item_identifier: &str,
     vendor_choice_id: &str,
@@ -194,11 +194,11 @@ fn is_valid_ple_choice_id(value: &str) -> bool {
         })
 }
 
-fn sha256_digest(bytes: &[u8]) -> [u8; 32] {
-    *Sha256Digest::compute(bytes).as_bytes()
+fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
+    *Sha256Checksum::compute(bytes).as_bytes()
 }
 
-fn hex_digest(bytes: &[u8; 32]) -> String {
+fn hex_hash(bytes: &[u8; 32]) -> String {
     let mut value = String::with_capacity(64);
     for byte in bytes {
         use std::fmt::Write as _;
@@ -258,14 +258,14 @@ mod tests {
             [0xab; 32]
         }
 
-        let first = map_qti_choice_ids_with_digest(
+        let first = map_qti_choice_ids_with_hash(
             QtiProfileId::BLACKBOARD,
             "item-1",
             &identifiers(&["bad two", "bad one"]),
             same_digest,
         )
         .expect("choice identifiers map");
-        let second = map_qti_choice_ids_with_digest(
+        let second = map_qti_choice_ids_with_hash(
             QtiProfileId::BLACKBOARD,
             "item-1",
             &identifiers(&["bad one", "bad two"]),
@@ -293,12 +293,7 @@ mod tests {
             .collect::<Vec<_>>();
         identifiers.push("bad id".to_string());
         assert!(matches!(
-            map_qti_choice_ids_with_digest(
-                QtiProfileId::CANVAS,
-                "item-1",
-                &identifiers,
-                same_digest
-            ),
+            map_qti_choice_ids_with_hash(QtiProfileId::CANVAS, "item-1", &identifiers, same_digest),
             Err(QtiChoiceIdMappingError::UnresolvableCollision)
         ));
     }

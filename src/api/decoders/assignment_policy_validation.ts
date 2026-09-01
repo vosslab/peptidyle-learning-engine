@@ -4,7 +4,7 @@ import type { AssignmentPoliciesValidationFailure } from "../../../generated/api
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentReleaseIssue } from "../../../generated/api/AssignmentReleaseIssue";
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
-import { decodeAssignmentWorkingCopyDefinitionValidationFailure } from "./assignment_teaching_delivery";
+import { decodeAssignmentAuthoredContentValidationFailure } from "./assignment_teaching_delivery";
 import {
   decodeBoundedArray,
   decodeCapability,
@@ -32,16 +32,16 @@ function decodePolicyValidationIssue(
 ): AssignmentPoliciesValidationIssue {
   const record = decodeRecord(value, path);
   const issueKind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
-    "assignmentWorkingCopyDefinition",
+    "assignmentAuthoredContent",
     "capability",
     "assignmentReleaseRequirements",
   ] as const);
   switch (issueKind) {
-    case "assignmentWorkingCopyDefinition":
+    case "assignmentAuthoredContent":
       requireOnlyFields(record, path, ["kind", "correction"]);
       return {
         kind: issueKind,
-        correction: decodeAssignmentWorkingCopyDefinitionValidationFailure(
+        correction: decodeAssignmentAuthoredContentValidationFailure(
           field(record, "correction", path),
           `${path}.correction`,
         ),

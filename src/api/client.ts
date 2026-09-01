@@ -10,11 +10,9 @@ import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage"
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
-import type { CourseAppearanceUpdate } from "../../generated/api/CourseAppearanceUpdate";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
-import type { CourseBannerCandidateReceipt } from "../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseBannerId } from "../../generated/api/CourseBannerId";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
@@ -24,17 +22,13 @@ import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptI
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionClassification } from "../../generated/api/QuestionClassification";
-import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
+import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { AccountApprovalView } from "../../generated/api/AccountApprovalView";
-import type { AccountReference } from "../../generated/api/AccountReference";
-import type { SysadminInstructorCandidateSearchPage } from "../../generated/api/SysadminInstructorCandidateSearchPage";
-import type { SysadminInstructorCandidateSearchRequest } from "../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { InstructorCourseInvitationCreateRequest } from "../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { CourseInvitationTargetSearchPage } from "../../generated/api/CourseInvitationTargetSearchPage";
-import type { CourseInvitationTargetSearchQuery } from "../../generated/api/CourseInvitationTargetSearchQuery";
+import type { TeachingAccountSearchQuery } from "../../generated/api/TeachingAccountSearchQuery";
 import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
 import type { CourseStudentMembershipsPage } from "../../generated/api/CourseStudentMembershipsPage";
@@ -76,7 +70,7 @@ import type {
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
   WorkspaceDraftDetail,
-  WorkspaceDraftPage,
+  DraftQuestionPage,
   QuestionPublicationReview,
   PublicationResult,
   PublicationRequest,
@@ -89,7 +83,7 @@ import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
 import type { QuestionCurationClient } from "./question_curation";
 import type { BlueprintCourseClient } from "./blueprint_course";
-import type { CurriculumAdoptionClient } from "./curriculum_adoption";
+import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
   GradingOperationActionId,
   GradingOperationActionReceipt,
@@ -107,8 +101,8 @@ import type {
 import type {
   GradebookSelectionQuery,
   GradebookSelectionResult,
-  SubmittedRunChoicesPage,
-  SubmittedRunChoicesQuery,
+  SubmittedAssignmentAttemptChoicesPage,
+  SubmittedAssignmentAttemptChoicesQuery,
 } from "./decoders/gradebook_selection";
 
 /** Instructor-only browser capability for answer-free automated-grading recovery metadata. */
@@ -145,26 +139,19 @@ export interface CalculatedGradebookClient {
     courseId: CourseId,
     query: GradebookSelectionQuery,
   ) => Promise<GradebookSelectionResult>;
-  readonly getSubmittedRunChoices: (
+  readonly getSubmittedAssignmentAttemptChoices: (
     courseId: CourseId,
     membership: CourseMembershipReference,
     assignment: AssignmentReference,
-    query?: SubmittedRunChoicesQuery,
-  ) => Promise<SubmittedRunChoicesPage>;
+    query?: SubmittedAssignmentAttemptChoicesQuery,
+  ) => Promise<SubmittedAssignmentAttemptChoicesPage>;
   readonly getInspectedStudentWork: (
     courseId: CourseId,
     membership: CourseMembershipReference,
     assignment: AssignmentReference,
-    run: AssignmentAttemptReference,
+    assignmentAttempt: AssignmentAttemptReference,
     operationRef?: InstructorGradingOperationReference,
   ) => Promise<InspectedStudentWorkDetail>;
-}
-
-/** Sysadmin-only discovery capability over generated public account references. */
-export interface SysadminInstructorCandidateClient {
-  readonly searchSysadminInstructorCandidates: (
-    request: SysadminInstructorCandidateSearchRequest,
-  ) => Promise<SysadminInstructorCandidateSearchPage>;
 }
 
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
@@ -173,7 +160,7 @@ export interface ApiClient
     CourseRosterClient,
     QuestionCurationClient,
     BlueprintCourseClient,
-    CurriculumAdoptionClient,
+    BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {
   readonly listCourseStudentTargets: (
@@ -228,14 +215,6 @@ export interface ApiClient
     revision: TeachingOperationRevision,
     assignmentEntryId: string,
   ) => Promise<QuestionPoolPreview>;
-  readonly approveInstructorAccount: (
-    account: AccountReference,
-    revision?: TeachingOperationRevision,
-  ) => Promise<AccountApprovalView>;
-  readonly revokeInstructorApproval: (
-    account: AccountReference,
-    revision: TeachingOperationRevision,
-  ) => Promise<AccountApprovalView>;
   readonly listInstructorCourseInvitations: (
     courseId: CourseId,
     cursor?: string,
@@ -243,7 +222,7 @@ export interface ApiClient
   ) => Promise<InstructorCourseInvitationsPage>;
   readonly searchInstructorCourseInvitationTargets: (
     courseId: CourseId,
-    query: CourseInvitationTargetSearchQuery,
+    query: TeachingAccountSearchQuery,
     cursor?: string,
     pageSize?: number,
   ) => Promise<CourseInvitationTargetSearchPage>;
@@ -309,11 +288,11 @@ export interface ApiClient
   readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
-  readonly listWorkspaceDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
+  readonly listWorkspaceDrafts: (cursor?: string) => Promise<DraftQuestionPage>;
   readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
   readonly saveWorkspaceDraft: (
     workspace: WorkspaceId,
-    draft: DraftQuestionRevision,
+    draft: DraftQuestionContent,
     revision?: string,
   ) => Promise<WorkspaceDraftDetail>;
   readonly deleteWorkspaceDraft: (workspace: WorkspaceId, revision: string) => Promise<void>;
@@ -344,17 +323,6 @@ export interface ApiClient
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the current authorized, browser-safe course appearance. */
   readonly getCourseAppearance: (courseId: CourseId) => Promise<CourseAppearance>;
-  /** Uploads opaque image bytes and returns only a course-bound temporary candidate identity. */
-  readonly uploadCourseBannerCandidate: (
-    courseId: CourseId,
-    image: Blob,
-  ) => Promise<CourseBannerCandidateReceipt>;
-  /** Atomically saves the complete appearance using the last observed strong revision. */
-  readonly saveCourseAppearance: (
-    courseId: CourseId,
-    update: CourseAppearanceUpdate,
-    revision: string,
-  ) => Promise<CourseAppearance>;
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
@@ -368,7 +336,7 @@ export interface ApiClient
     courseId: CourseId,
     assignmentId: AssignmentId,
   ) => Promise<AssignmentEditorDetail>;
-  /** Creates a persisted empty Draft with server-owned defaults. */
+  /** Creates a persisted empty Assignment with server-owned defaults. */
   readonly createAssignment: (
     courseId: CourseId,
     input: AssignmentCreateInput,
@@ -480,5 +448,4 @@ export interface ApiClient
 }
 
 /** The ordinary deployed browser composes HTTP capabilities without test-double transport. */
-export interface OrdinaryBrowserApiClient
-  extends ApiClient, LiveDemoClient, SysadminInstructorCandidateClient {}
+export interface OrdinaryBrowserApiClient extends ApiClient, LiveDemoClient {}

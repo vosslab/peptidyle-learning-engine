@@ -23,7 +23,7 @@ pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError
 
 use crate::QuestionRevisionReference;
 use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
-use crate::assignment_activity_rules::{QuestionPoolReuseRule, QuestionVariationRule};
+use crate::assignment_activity_rules::{AssignmentQuestionVariationRule, QuestionPoolReuseRule};
 use crate::generation::{QuestionGeneratorReference, QuestionSeed};
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
@@ -44,9 +44,9 @@ pub use identifiers::{
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
 )]
-pub struct ActivityTimestamp(i64);
+pub struct Timestamp(i64);
 
-impl ActivityTimestamp {
+impl Timestamp {
     /// Wraps server-supplied Unix milliseconds.
     pub fn from_unix_millis(value: i64) -> Self {
         Self(value)
@@ -87,24 +87,24 @@ pub struct AssignmentAttempt {
     pub student_record: StudentRecordId,
     /// Assignment that this Student Record attempts.
     pub assignment: AssignmentId,
-    /// Exact published Assignment Revision expanded into this Assignment Attempt.
+    /// Exact Released Assignment Revision expanded into this Assignment Attempt.
     ///
-    /// The stable Assignment identity groups revisions; this reference preserves
+    /// The stable Assignment identity has immutable revisions; this reference preserves
     /// the immutable authored definition and delivery rules used for this
     /// Student's work.
     pub assignment_revision: AssignmentRevisionReference,
     /// One-based attempt number for this Student Record and Assignment.
     pub attempt_number: u32,
     /// Server time at which the Assignment Attempt began.
-    pub started_at: ActivityTimestamp,
+    pub started_at: Timestamp,
     /// Server time at which derived completion was recorded, if complete.
-    pub completed_at: Option<ActivityTimestamp>,
+    pub completed_at: Option<Timestamp>,
     /// Score fraction recorded on completion, if complete.
     pub score: Option<f64>,
     /// Question Pool Reuse Rule applied when this Assignment Attempt was issued.
     pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Question Variation Rule applied when this Assignment Attempt was issued.
-    pub question_variation_rule: QuestionVariationRule,
+    pub question_variation_rule: AssignmentQuestionVariationRule,
 }
 
 /// The policy-selected course result for one Student Record and Assignment.
@@ -119,7 +119,7 @@ pub struct AssignmentGrade {
     /// Assignment whose policy selected this result.
     pub assignment: AssignmentId,
     /// First time an Assignment Attempt satisfied completion.
-    pub first_completed_at: Option<ActivityTimestamp>,
+    pub first_completed_at: Option<Timestamp>,
     /// Assignment Attempt currently selected by the grade rule.
     pub current_assignment_attempt: Option<AssignmentAttemptId>,
     /// Highest-scoring completed Assignment Attempt.
@@ -160,12 +160,12 @@ pub struct QuestionPoolSelection {
     /// Question Pool Assignment Entry that supplied the Items.
     pub question_pool_assignment_entry: AssignmentEntryId,
     /// Database-authoritative time at which the server selected these entries.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     /// Number of exact entries selected for this Assignment Attempt.
     ///
     /// This repeats the selected-entry-row cardinality so storage can reject an
     /// incomplete Selection at transaction commit without consulting mutable
-    /// Assignment Working Copy content.
+    /// Assignment content.
     pub selected_question_count: u32,
     /// Earlier Selection whose exact entries this later Assignment Attempt retained.
     ///
@@ -212,7 +212,7 @@ impl QuestionPoolSelection {
         id: QuestionPoolSelectionId,
         assignment_attempt: AssignmentAttemptId,
         question_pool_assignment_entry: AssignmentEntryId,
-        created_at: ActivityTimestamp,
+        created_at: Timestamp,
     ) -> Result<Self, QuestionPoolSelectionReuseError> {
         if question_pool_assignment_entry != self.question_pool_assignment_entry {
             return Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssignmentEntry);
@@ -243,8 +243,8 @@ pub struct IssuedQuestion {
     pub assignment_attempt: AssignmentAttemptId,
     /// Stable fixed-question or Question Pool Assignment Entry identity.
     pub assignment_entry: AssignmentEntryId,
-    /// Entry index in the assignment definition when the Assignment Attempt began.
-    pub definition_entry_index: u32,
+    /// Entry index in the Assignment Content when the Assignment Attempt began.
+    pub assignment_content_entry_index: u32,
     /// Expanded zero-based delivery order inside this run.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
@@ -269,11 +269,11 @@ pub struct IssuedQuestion {
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAttemptTiming {
     /// Server time at which the question became available.
-    pub issued_at: ActivityTimestamp,
+    pub issued_at: Timestamp,
     /// Server-owned base deadline before authorized pauses, or `None` when untimed.
-    pub deadline: Option<ActivityTimestamp>,
+    pub deadline: Option<Timestamp>,
     /// Server time at which the response arrived, if submitted.
-    pub submitted_at: Option<ActivityTimestamp>,
+    pub submitted_at: Option<Timestamp>,
 }
 
 /// Current operational state of one issued Question Attempt.
@@ -318,7 +318,7 @@ pub struct QuestionSubmission {
     /// Immutable Student Response accepted by the server.
     pub response: StudentResponse,
     /// Server time when the response was accepted.
-    pub submitted_at: ActivityTimestamp,
+    pub submitted_at: Timestamp,
     /// Present only after grading produced a result for this submission.
     pub grading_result: Option<GradingResult>,
 }
@@ -396,15 +396,15 @@ pub struct QuestionAttemptReproductionDetails {
 /// The database keeps the corresponding private presentation and grading
 /// payloads in dedicated protected columns. This tag binds their required or
 /// not-applicable shape to the attempt itself, so a damaged column cannot
-/// downgrade a flat or WeBWorK attempt into a current Question Library recovery path.
+/// downgrade a PLE Question JSON or WeBWorK attempt into a current Question Library recovery path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum IssuedAttemptCapability {
     /// A browser-safe `QuestionPresentation` with no format-specific
     /// private first-grade contract.
     PresentationEnvelope,
-    /// A PLE flat presentation and its required private grading contract.
-    FlatPresentation,
+    /// A PLE Question JSON presentation and its required private grading contract.
+    PleQuestionJsonPresentation,
     /// A WeBWorK presentation, immutable private definition, and replay map.
     WebworkPresentation,
     /// A QTI presentation and its copied per-attempt private grading payload.
@@ -503,7 +503,7 @@ pub struct AssignmentProgressRecord {
     /// Number of Question Attempts recorded across all Assignment Attempts.
     pub total_question_attempts: u64,
     /// Latest server-supplied Student Work timestamp.
-    pub last_activity_at: Option<ActivityTimestamp>,
+    pub last_activity_at: Option<Timestamp>,
 }
 
 /// Browser-safe status of the Student's aggregate assignment score.
@@ -546,7 +546,7 @@ pub struct AssignmentProgress {
     /// Number of recorded responses. This is not a score total.
     pub total_question_attempts: u64,
     /// Latest server-recorded activity time, if any.
-    pub last_activity_at: Option<ActivityTimestamp>,
+    pub last_activity_at: Option<Timestamp>,
     /// Current anonymous class statistics when the assignment policy permits
     /// their disclosure. Absent means the server withholds this projection.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -625,7 +625,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn assignment_attempt_binds_a_student_record_assignment_and_published_revision() {
+    fn assignment_attempt_binds_a_student_record_and_released_assignment_revision() {
         let attempt = AssignmentAttempt {
             id: AssignmentAttemptId::from_uuid(Uuid::from_u128(1)),
             reference: AssignmentAttemptReference::new(1).expect("valid attempt reference"),
@@ -636,11 +636,11 @@ mod tests {
                 revision_number: crate::AssignmentRevisionNumber::INITIAL,
             },
             attempt_number: 1,
-            started_at: ActivityTimestamp::from_unix_millis(1_000),
+            started_at: Timestamp::from_unix_millis(1_000),
             completed_at: None,
             score: None,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: QuestionVariationRule::NewVariation,
+            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
         };
 
         assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
@@ -660,7 +660,7 @@ mod tests {
             id: selection_id,
             assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(12)),
             question_pool_assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(13)),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
             selected_question_count: 1,
             reused_from_question_pool_selection: None,
             selected_items: vec![QuestionPoolSelectedItem {
@@ -672,7 +672,7 @@ mod tests {
             id: IssuedQuestionId::from_uuid(Uuid::from_u128(14)),
             assignment_attempt: selection.assignment_attempt,
             assignment_entry: selection.question_pool_assignment_entry,
-            definition_entry_index: 0,
+            assignment_content_entry_index: 0,
             issued_position: 0,
             reference,
             point_value: crate::AssignmentPointValue::from_whole(1),
@@ -694,7 +694,7 @@ mod tests {
                 QuestionPoolSelectionId::from_uuid(Uuid::from_u128(15)),
                 AssignmentAttemptId::from_uuid(Uuid::from_u128(16)),
                 selection.question_pool_assignment_entry,
-                ActivityTimestamp::from_unix_millis(2_000),
+                Timestamp::from_unix_millis(2_000),
             )
             .expect("same Question Pool may retain its exact entries");
         assert_eq!(
@@ -710,7 +710,7 @@ mod tests {
             id: QuestionPoolSelectionId::from_uuid(Uuid::from_u128(1)),
             assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(2)),
             question_pool_assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(3)),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
             selected_question_count: 1,
             reused_from_question_pool_selection: None,
             selected_items: Vec::new(),
@@ -721,7 +721,7 @@ mod tests {
                 QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
                 selection.assignment_attempt,
                 selection.question_pool_assignment_entry,
-                ActivityTimestamp::from_unix_millis(2_000),
+                Timestamp::from_unix_millis(2_000),
             ),
             Err(QuestionPoolSelectionReuseError::SameAssignmentAttempt),
         );
@@ -730,7 +730,7 @@ mod tests {
                 QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
                 AssignmentAttemptId::from_uuid(Uuid::from_u128(5)),
                 AssignmentEntryId::from_uuid(Uuid::from_u128(6)),
-                ActivityTimestamp::from_unix_millis(2_000),
+                Timestamp::from_unix_millis(2_000),
             ),
             Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssignmentEntry),
         );
@@ -896,7 +896,7 @@ mod tests {
             submission: None,
             state: QuestionAttemptState::Open,
             timing: QuestionAttemptTiming {
-                issued_at: ActivityTimestamp::from_unix_millis(4),
+                issued_at: Timestamp::from_unix_millis(4),
                 deadline: None,
                 submitted_at: None,
             },

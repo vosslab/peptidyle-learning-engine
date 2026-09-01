@@ -40,7 +40,7 @@ variant. Important mappings are:
 | Generation/grader keys and payloads                    | Server-only private records and any typed private object used by their owning worker     | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                              |
 | Course-record presentation asset                       | `CourseBanner`                                                                           | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                             |
 | Student work or protected artifact                     | `StudentRecord`                                                                          | `StudentRecords`; delivery rechecks exact Student ownership, course Instructor authority, or a narrow audited support capability.                                                                                                                            |
-| Processing candidate or scratch object                 | `CourseBannerCandidate`, `Temporary`                                                     | `TempProcessing`; never delivered, signed, or used as a public publication result.                                                                                                                                                                           |
+| Course Banner Upload or processing scratch object      | `CourseBannerUpload`, `Temporary`                                                        | `TempProcessing`; never delivered, signed, or used as a public publication result.                                                                                                                                                                           |
 
 Objects are immutable. A write to an existing typed Object Address is refused; replacement
 uses a new identity and, for published content, a new immutable version. The
@@ -138,7 +138,7 @@ publication atomically:
 
 The dedicated publisher subsequently claims only that job kind, re-reads each
 pending record and its exact private workspace source from PostgreSQL, verifies
-the source record and SHA-256, and writes the final public key. It uses
+the Source Object Reference and Source Object Checksum, and writes the final public key. It uses
 immutable creation semantics. A retry accepts an existing final key only when
 its exact record and checksum agree. Finally, a lease-conditional database
 function changes the complete batch from `Pending` to `Ready` and completes

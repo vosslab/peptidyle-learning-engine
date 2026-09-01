@@ -5,9 +5,9 @@ use std::fmt;
 
 use super::markup::MarkupLimits;
 use super::{
-    QtiMappedItem, QtiMappedPoints, QtiProfileDetection, QtiProfileDetectionEvidence,
-    QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemEvidence, QtiProfileReportDigestInput,
-    QtiPublicChoiceDigestInput, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
+    QtiImportResultChecksumInput, QtiMappedItem, QtiMappedPoints, QtiProfileDetection,
+    QtiProfileDetectionEvidence, QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemEvidence,
+    QtiPublicChoiceChecksumInput, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
     QtiSafeDiagnosticTemplate, QtiSafeItemReport, map_qti_choice_ids,
 };
 use crate::archive::read_bounded_archive;
@@ -69,8 +69,8 @@ impl BlackboardQtiPackage {
     /// Canonical answer-free report evidence for this exact mapped package.
     pub fn profile_report_digest_input(
         &self,
-    ) -> Result<QtiProfileReportDigestInput, super::QtiProfileContractError> {
-        super::digests::package_report_digest_input(
+    ) -> Result<QtiImportResultChecksumInput, super::QtiProfileContractError> {
+        super::checksums::package_import_result_checksum_input(
             QtiProfileId::BLACKBOARD,
             &self.evidence,
             &self.reports,
@@ -335,7 +335,7 @@ fn parse_item(
     let choices = choices
         .into_iter()
         .zip(&map)
-        .map(|(text_markdown, map)| QtiPublicChoiceDigestInput {
+        .map(|(text_markdown, map)| QtiPublicChoiceChecksumInput {
             ple_choice_id: map.ple_choice_id().to_string(),
             text_markdown,
         })

@@ -43,7 +43,7 @@ boundaries. This index gives those entries their product and architectural ratio
 ### Question agnosticism
 
 **Decision.** PLE is a learning engine, not a question-authoring language or a single renderer.
-Native flat questions, WeBWorK, bounded QTI import/runtime, and contracted external tools sit
+PLE Question JSON Questions, WeBWorK, bounded QTI import/runtime, and contracted external tools sit
 behind typed server-side adapters.
 
 **Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
@@ -135,11 +135,15 @@ acceptance evidence.
 
 ### Drafts and publications are different identities
 
-**Decision.** An Instructor's mutable draft belongs to a private authoring workspace owned by that
+**Decision.** Unpersisted Draft Question Content carries its private Authoring Workspace relationship
+without using that Workspace as Question identity. A persisted Draft Question Revision binds that content
+to one Draft Question lineage and positive revision number. The Authoring Workspace remains owned by its
 Instructor and shared only through an explicit workspace relationship. Publication mints one
-immutable QuestionRevision in the installation-wide Question Library under a stable QuestionId
-lineage. The Question stewardship decision below classifies whether a later change creates another
-version in that lineage or a fork with a new QuestionId. Every published Assignment pin remains
+immutable QuestionRevision in the installation-wide Question Library under a stable QuestionId.
+Private Draft Question and Question Source UUIDs belong only to the server persistence boundary;
+the browser receives an opaque Draft Question Reference when it must select one draft. The Question
+stewardship decision below classifies whether a later change creates another
+version in that lineage or a fork with a new QuestionId. Every Assignment's pinned Question Revision remains
 exactly resolvable in both Available and Archived states, with availability visible in the
 Instructor-safe Question Library view. Publication has one Question Library visibility contract.
 Selection eligibility is separate: Available versions appear in ordinary discovery and selection;
@@ -237,8 +241,8 @@ corrected QuestionRevision exists before a closed, immutable, privacy-safe
 version, reason (`security_flaw` or `critical_correctness_flaw`), affected bindings and evidence,
 and deterministic remediation. A Sysadmin alone approves the correction. Approval immediately
 stops new selection and issuance of the flawed version and atomically activates one authoritative
-correction mapping and generation. New resolution follows that mapping immediately. Bounded,
-idempotent, generation-fenced workers materialize the mapping as one logical correction across all
+correction mapping and Correction Generation. New resolution follows that mapping immediately. Bounded,
+idempotent, Correction-Generation-fenced workers materialize the mapping as one logical correction across all
 active BlueprintCourse, CourseInstance, assignment, pool, and future-issuance references and
 perform its remediation; the operation uses no unbounded cross-course SQL transaction. Every
 unissued binding passes a deterministic compatibility check recorded in the manifest. No
@@ -271,7 +275,7 @@ and `crates/domain/src/statistics.rs`.
 
 **Decision.** `AAA-BBBB` is the single human-facing Crockford Base32 Question ID. The first six
 characters are random and the seventh is an HMAC-SHA256 validation character. Instructors may copy
-it from the library, but assignment reuse and checklists are the preferred group workflow. UUIDs,
+it from the library, but assignment reuse and checklists are the preferred shared workflow. UUIDs,
 sequential numbers, and hidden snapshot versions remain internal.
 
 **Why.** An identifier shown to a person needs to support the work that person actually does:
@@ -304,17 +308,17 @@ a policy save from changing content or a content save from changing delivery rul
 
 **Consequence.** The server exposes exact nested reads at
 `/api/courses/{course}/assignments/{assignment}` and
-`.../student-view`, plus title-only Draft creation and focused `.../content` and `.../policies`
+`.../student-view`, plus title-only Assignment creation and focused `.../content` and `.../policies`
 mutations. Both mutations use the current `If-Match` revision, update their owned slice atomically,
 and return the complete authoritative assignment projection with one new revision. Structural
 content changes return a typed issued-student-work conflict after immutable work exists; a stale
 revision remains a retryable conflict. The browser preserves entered values and offers reload
 guidance for either case.
 
-An empty persisted Draft or Archived definition is valid and remains reloadable. Publication
-readiness is derived from the definition and blocks Published until it has an active deliverable
-position and valid policies. This makes an honest multi-page drafting workflow possible without
-browser-only state or a combined write.
+An empty persisted Unreleased or Archived Assignment is valid and remains reloadable. Assignment
+Release Requirements are derived from the Assignment and block Released status until it has an
+active deliverable position and valid policies. This makes an honest multi-page authoring workflow
+possible without browser-only state or a combined write.
 
 The Student-view route retains the Instructor identity and exact course authority, returns
 `Cache-Control: no-store`, and creates no enrollment, run, attempt, submission, receipt, grade, or
@@ -513,7 +517,7 @@ an error-detection and correspondence mechanism, never authentication or proof o
 matching side, blank, Hotspot Surface, or Hotspot Region to the exact public state the student saw.
 
 **Consequence.** PLE enforces uniqueness inside one presentation and maintains the authoritative
-mapping to durable semantic IDs server-side. A whole-presentation digest detects stale or
+mapping to durable semantic IDs server-side. A whole-presentation checksum detects stale or
 inconsistent render state; normal session, attempt, RLS, and idempotency controls remain the
 security boundary.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#rendered-item-ids) and
@@ -528,7 +532,7 @@ no current endpoint treats CRC16 as a bearer token.
 **Decision.** PLE is one installation with global accounts and one Question Library. Private drafts
 belong to an Instructor-owned workspace. Courses, memberships,
 assignments, Student work, grades, and audit evidence belong to an exact course; Student records
-also bind the Student owner. Every approved Instructor has the same product capabilities, while
+also bind the Student owner. Every active Instructor has the same product capabilities, while
 current direct course membership determines which FERPA records that Instructor may use.
 
 **Why.** Educational records need exact authorization, retention, and deletion. A shared question
@@ -584,12 +588,12 @@ closeout.
 
 **Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
 role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
-and Sysadmin accounts. Instructor approval requires real-person validation, and teaching requires
+and Sysadmin accounts. Instructor Vetting is real-person validation before Account Creation, and teaching requires
 direct Instructor membership. A Sysadmin creates a Course Instance only for an explicitly assigned
-approved Instructor account, which receives the initial membership; the Sysadmin receives none.
+active Instructor account, which receives the initial membership; the Sysadmin receives none.
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
 Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
-public-asset publisher is a service identity, not a person. Every approved Instructor has the same
+public-asset publisher is a service identity, not a person. Every active Instructor has the same
 product capabilities, including shared-problem discovery, collections, publication, reuse, and
 improvement workflows.
 
@@ -947,9 +951,9 @@ toy or forcing the full release corpus into every walkthrough.
 
 ## Content and grading formats
 
-### Flat JSON is the static-question authority
+### PLE Question JSON is the static-Question authority
 
-**Decision.** Versioned PLE flat-question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH,
+**Decision.** Versioned PLE Question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH,
 ORDER, and HOTSPOT. YAML may compile once into that contract; QTI is an import, export, and archival
 adapter rather than internal authority.
 
@@ -982,5 +986,5 @@ The settled identity, authentication, privacy, recovery, and Blueprint-collabora
 
 ## Focused operational decisions
 
-The focused local-stack, Gradebook, wire-contract, and curriculum-adoption
+The focused local-stack, Gradebook, wire-contract, and Blueprint-operation
 decisions are retained in `DESIGN_DECISIONS_OPERATIONS.md`.

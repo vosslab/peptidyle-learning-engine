@@ -5,7 +5,7 @@ BEGIN
     IF to_regclass('ple_data.assignment_revision_entry') IS NULL
        OR to_regclass('ple_data.assignment_revision_fixed_question') IS NULL
        OR to_regclass('ple_data.assignment_revision_question_pool') IS NULL
-       OR to_regclass('ple_data.assignment_revision_question_pool_entry') IS NULL THEN
+       OR to_regclass('ple_data.assignment_revision_question_pool_item') IS NULL THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot tables are missing';
     END IF;
     IF EXISTS (
@@ -28,7 +28,7 @@ BEGIN
     IF (SELECT count(*) FROM information_schema.columns
         WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision_entry'
         AND column_name IN (
-            'assignment_revision_id', 'assignment_entry_id', 'definition_entry_index',
+            'assignment_revision_id', 'assignment_entry_id', 'assignment_content_entry_index',
             'entry_kind', 'availability', 'scoring_rule', 'point_value'
         ) AND is_nullable = 'NO') <> 7 THEN
         RAISE EXCEPTION 'Assignment Revision Entry does not retain its exact released facts';
@@ -44,11 +44,11 @@ BEGIN
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conrelid = 'ple_data.assignment_revision_question_pool'::regclass
-          AND conname = 'assignment_revision_question_pool_entry_matches'
+          AND conname = 'assignment_revision_question_pool_assignment_entry_matches'
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'ple_data.assignment_revision_question_pool_entry'::regclass
-          AND conname = 'assignment_revision_question_pool_entry_pool_matches'
+        WHERE conrelid = 'ple_data.assignment_revision_question_pool_item'::regclass
+          AND conname = 'assignment_revision_question_pool_item_pool_matches'
     ) THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot relationships are incomplete';
     END IF;
@@ -58,7 +58,7 @@ BEGIN
         WHERE namespace.nspname = 'ple_data'
           AND relation.relname IN (
               'assignment_revision_entry', 'assignment_revision_fixed_question',
-              'assignment_revision_question_pool', 'assignment_revision_question_pool_entry'
+              'assignment_revision_question_pool', 'assignment_revision_question_pool_item'
           )
           AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
     ) THEN
@@ -71,7 +71,7 @@ BEGIN
         WHERE namespace.nspname = 'ple_data'
           AND relation.relname IN (
               'assignment_revision_entry', 'assignment_revision_fixed_question',
-              'assignment_revision_question_pool', 'assignment_revision_question_pool_entry'
+              'assignment_revision_question_pool', 'assignment_revision_question_pool_item'
           )
           AND privilege.grantee = 0
     ) THEN
@@ -82,17 +82,17 @@ BEGIN
             'ple_data.assignment_revision_entry'::regclass,
             'ple_data.assignment_revision_fixed_question'::regclass,
             'ple_data.assignment_revision_question_pool'::regclass,
-            'ple_data.assignment_revision_question_pool_entry'::regclass
+            'ple_data.assignment_revision_question_pool_item'::regclass
         )
           AND tgname IN (
               'assignment_revision_entry_is_immutable',
               'assignment_revision_fixed_question_is_immutable',
               'assignment_revision_question_pool_is_immutable',
-              'assignment_revision_question_pool_entry_is_immutable',
+              'assignment_revision_question_pool_item_is_immutable',
               'assignment_revision_entry_has_exact_shape',
               'assignment_revision_fixed_question_matches_entry_kind',
               'assignment_revision_question_pool_matches_entry_kind',
-              'assignment_revision_question_pool_entry_count_is_sufficient'
+              'assignment_revision_question_pool_item_count_is_sufficient'
           )
           AND NOT tgisinternal) <> 8 THEN
         RAISE EXCEPTION 'released Assignment Revision entry snapshot immutability or shape validation is missing';
@@ -100,12 +100,12 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_trigger
         WHERE tgrelid = 'ple_private.question_pool_selection'::regclass
-          AND tgname = 'question_pool_selection_matches_released_pool_entry'
+          AND tgname = 'question_pool_selection_matches_released_pool_assignment_entry'
           AND NOT tgisinternal
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_trigger
-        WHERE tgrelid = 'ple_private.question_pool_selected_entry'::regclass
-          AND tgname = 'question_pool_selected_entry_matches_released_pool_entry'
+        WHERE tgrelid = 'ple_private.question_pool_selected_item'::regclass
+          AND tgname = 'question_pool_selected_item_matches_released_pool_item'
           AND NOT tgisinternal
     ) OR NOT EXISTS (
         SELECT 1 FROM pg_trigger
@@ -148,11 +148,30 @@ INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('ABC-DEF0', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.question_revision (
     question_id, revision_number, backend, published_at, public_metadata
-) VALUES ('ABC-DEF0', 1, 'ple', '2026-01-01 00:00:00+00', '{}'::jsonb);
+) VALUES (
+    'ABC-DEF0', 1, 'ple', '2026-01-01 00:00:00+00',
+    jsonb_build_object('questionDescription', 'Instructor-facing Assignment Attempt fixture question.')
+);
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.published_question (question_id, created_at)
+        VALUES ('ABC-DEF1', '2026-01-01 00:00:00+00');
+        INSERT INTO ple_data.question_revision (
+            question_id, revision_number, backend, published_at, public_metadata
+        ) VALUES (
+            'ABC-DEF1', 1, 'ple', '2026-01-01 00:00:00+00',
+            jsonb_build_object('questionDescription', '   ')
+        );
+        RAISE EXCEPTION 'Question Revision accepted a blank Question Description';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
 INSERT INTO ple_data.blueprint_course (blueprint_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.blueprint_course_revision (
-    blueprint_revision_id, blueprint_id, revision, title, definition, created_at
+    blueprint_revision_id, blueprint_id, revision, title, blueprint_course_content, created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000103',
     1, 'Assignment Attempt fixture', '{}'::jsonb, '2026-01-01 00:00:00+00'
@@ -193,15 +212,26 @@ INSERT INTO ple_data.course_schedule_revision (
     '2026-01-01', '2026-12-31', 'America/Chicago', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.assignment (
-    assignment_id, course_id, source_blueprint_revision_id, created_at,
-    assignment_status, released_assignment_revision_id
+    assignment_id, course_id, source_blueprint_revision_id, created_at, updated_at,
+    assignment_edit_number, assignment_title, assignment_instructions,
+    available_at, due_at, closes_at, assignment_attempt_time_limit_seconds, attempt_limit,
+    late_work_rule, assignment_deadline_rule, assignment_completion_rule,
+    assignment_completion_score_threshold, assignment_attempt_grade_rule,
+    assignment_attempt_continuation_rule, max_additional_assignment_attempts,
+    question_pool_reuse_rule, question_variation_rule, assignment_attempt_resume_rule,
+    assignment_question_display_rule, assignment_navigation_rule,
+    assignment_question_order_rule, assignment_status, released_assignment_revision_id
 ) VALUES (
     '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000105',
-    '00000000-0000-0000-0000-000000000104', '2026-01-01 00:00:00+00', 'unreleased', NULL
+    '00000000-0000-0000-0000-000000000104', '2026-01-01 00:00:00+00',
+    '2026-01-01 00:00:00+00', 1, 'Assignment Attempt fixture', '',
+    NULL, NULL, NULL, NULL, NULL, 'accept', 'auto_submit', 'answer_all', NULL,
+    'highest', 'unlimited', NULL, 'reuse_selection', 'new_variation', 'resumable',
+    'all_questions', 'free_navigation', 'authored_order', 'unreleased', NULL
 );
 INSERT INTO ple_data.assignment_revision (
     assignment_revision_id, assignment_id, course_id, course_schedule_revision_id, revision_number,
-    authored_definition, assignment_title, assignment_instructions, available_at, due_at, closes_at,
+    assignment_title, assignment_instructions, available_at, due_at, closes_at,
     assignment_attempt_time_limit_seconds, attempt_limit, late_work_rule, assignment_deadline_rule,
     assignment_completion_rule, assignment_completion_score_threshold, assignment_attempt_grade_rule,
     assignment_attempt_continuation_rule, max_additional_assignment_attempts,
@@ -211,7 +241,7 @@ INSERT INTO ple_data.assignment_revision (
 ) VALUES (
     '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000110',
     '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000109', 1,
-    '{}'::jsonb, 'Assignment Attempt fixture', '', NULL, NULL, NULL, NULL, NULL, 'accept',
+    'Assignment Attempt fixture', '', NULL, NULL, NULL, NULL, NULL, 'accept',
     'auto_submit', 'answer_all', NULL, 'highest', 'unlimited', NULL, 'reuse_selection',
     'new_variation', 'resumable', 'all_questions', 'free_navigation', 'authored_order',
     '2026-01-01 00:00:00+00'
@@ -222,7 +252,7 @@ UPDATE ple_data.assignment
  WHERE assignment_id = '00000000-0000-0000-0000-000000000110';
 BEGIN;
 INSERT INTO ple_data.assignment_revision_entry (
-    assignment_revision_id, assignment_entry_id, definition_entry_index, entry_kind, availability,
+    assignment_revision_id, assignment_entry_id, assignment_content_entry_index, entry_kind, availability,
     scoring_rule, point_value
 ) VALUES (
     '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000112', 0,
@@ -270,7 +300,7 @@ BEGIN
               'question_id', 'ABC-DEF0',
               'revision_number', 1,
               'question_pool_selection_id', NULL,
-              'question_pool_entry_id', NULL
+              'question_pool_item_id', NULL
           ))
       );
     SELECT assignment_attempt_id, attempt_number, resumed

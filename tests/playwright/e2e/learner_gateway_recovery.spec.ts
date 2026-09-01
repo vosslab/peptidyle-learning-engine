@@ -1,7 +1,7 @@
 // A real student retry remains visible and durable while the owner recovers the gateway.
 //
 // Selector contract:
-// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
+// - src/features/ple_question_json_authoring/question_json_editor_page.tsx:535 owns question creation
 //   fields and publication controls used to seed the recovery journey.
 // - src/pages/course_list_page.tsx, course_assignments_page.tsx, assignment_workspace/, and
 //   course_roster_page.tsx own course, title-first assignment setup, and invitation controls.
@@ -36,7 +36,7 @@ const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErro
 
 async function createQuestion(page: Page, title: string, answer: string): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
-  await page.getByRole("button", { name: "Create flat question" }).click();
+  await page.getByRole("button", { name: "Create Question" }).click();
   await page.getByLabel("Question title").fill(title);
   await page
     .getByLabel("Student-facing prompt")
@@ -48,7 +48,6 @@ async function createQuestion(page: Page, title: string, answer: string): Promis
     .check();
   await page.getByRole("button", { name: "Save private draft" }).click();
   await page.getByRole("button", { name: "Review publication changes" }).click();
-  await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await expect(page.getByRole("heading", { name: "Published" })).toBeVisible();
   await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -95,7 +94,7 @@ async function createCourseAssignment(
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),

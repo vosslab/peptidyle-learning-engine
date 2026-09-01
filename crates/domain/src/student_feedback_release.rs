@@ -6,9 +6,9 @@
 //! reconstructs access decisions nor records a feedback-release receipt.
 
 use question_model::{
-    ActivityTimestamp, AssignmentScoringState, GradingResult, QuestionPostGradingContent,
-    StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
-    StudentResponseInspectionFeedback,
+    AssignmentScoringState, GradingResult, QuestionPostGradingContent, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback,
+    Timestamp,
 };
 
 use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
@@ -119,8 +119,8 @@ pub fn project_student_response_inspection_feedback(
 pub fn evaluate_student_feedback_release(
     rule: StudentFeedbackReleaseRule,
     effective_policy: &AssignmentAccessDecision,
-    now: ActivityTimestamp,
-    submitted_at: Option<ActivityTimestamp>,
+    now: Timestamp,
+    submitted_at: Option<Timestamp>,
 ) -> Option<StudentFeedbackReleaseDecision> {
     let AssignmentAccessDecision::Allowed { policy, .. } = effective_policy else {
         return None;
@@ -142,8 +142,8 @@ pub fn evaluate_student_feedback_release(
 pub fn evaluate_allowed_student_feedback_release(
     policy: &EffectiveAssignmentPolicy,
     rule: StudentFeedbackReleaseRule,
-    now: ActivityTimestamp,
-    submitted_at: Option<ActivityTimestamp>,
+    now: Timestamp,
+    submitted_at: Option<Timestamp>,
 ) -> StudentFeedbackReleaseDecision {
     StudentFeedbackReleaseDecision {
         score: timing_released(
@@ -193,10 +193,10 @@ pub fn evaluate_allowed_student_feedback_release(
 
 fn timing_released(
     timing: StudentFeedbackReleaseTiming,
-    now: ActivityTimestamp,
-    submitted_at: Option<ActivityTimestamp>,
-    due_at: Option<ActivityTimestamp>,
-    closes_at: Option<ActivityTimestamp>,
+    now: Timestamp,
+    submitted_at: Option<Timestamp>,
+    due_at: Option<Timestamp>,
+    closes_at: Option<Timestamp>,
 ) -> bool {
     match timing {
         StudentFeedbackReleaseTiming::DuringAttempt => true,

@@ -1,14 +1,14 @@
 // Strict runtime decoding for the answer-free Question Search facet DTO.
 
 import { MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS";
-import { MAX_QUESTION_SEARCH_BYLINE_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FACETS";
+import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
 import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
-import type { QuestionSearchBylineFacet } from "../../../generated/api/QuestionSearchBylineFacet";
+import type { QuestionSearchAuthorFacet } from "../../../generated/api/QuestionSearchAuthorFacet";
 import type { QuestionSearchCapabilityFacet } from "../../../generated/api/QuestionSearchCapabilityFacet";
 import type { QuestionStatisticsAvailabilityFacet } from "../../../generated/api/QuestionStatisticsAvailabilityFacet";
-import type { QuestionSearchLicenseFacet } from "../../../generated/api/QuestionSearchLicenseFacet";
-import type { QuestionSearchLicense } from "../../../generated/api/QuestionSearchLicense";
+import type { QuestionSearchQuestionLicenseFacet } from "../../../generated/api/QuestionSearchQuestionLicenseFacet";
+import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
@@ -23,7 +23,7 @@ import {
 } from "../decoder";
 import {
   MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
-  MAX_QUESTION_SEARCH_LICENSE_FACETS,
+  MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
   decodeBoundedArray,
   decodeCapability,
   decodeQuestionClassification,
@@ -62,11 +62,15 @@ function decodeQuestionSearchFacetText(value: unknown, path: string, maximum: nu
   return decoded;
 }
 
-function decodeQuestionSearchBylineFacet(value: unknown, path: string): QuestionSearchBylineFacet {
+function decodeQuestionSearchAuthorFacet(value: unknown, path: string): QuestionSearchAuthorFacet {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["byline", "count"]);
+  requireOnlyFields(record, path, ["authorName", "count"]);
   return {
-    byline: decodeQuestionSearchFacetText(field(record, "byline", path), `${path}.byline`, 120),
+    authorName: decodeQuestionSearchFacetText(
+      field(record, "authorName", path),
+      `${path}.authorName`,
+      120,
+    ),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
@@ -128,17 +132,17 @@ function decodeQuestionSearchCapabilityFacet(
   };
 }
 
-function decodeQuestionSearchLicenseFacet(
+function decodeQuestionSearchQuestionLicenseFacet(
   value: unknown,
   path: string,
-): QuestionSearchLicenseFacet {
+): QuestionSearchQuestionLicenseFacet {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["license", "count"]);
+  requireOnlyFields(record, path, ["questionLicense", "count"]);
   return {
-    license: decodeStringEnum<QuestionSearchLicense>(
-      field(record, "license", path),
-      `${path}.license`,
-      ["allRightsReserved", "ccBy", "ccBySa", "ccByNc", "cc0", "other"],
+    questionLicense: decodeStringEnum<QuestionLicense>(
+      field(record, "questionLicense", path),
+      `${path}.questionLicense`,
+      ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"],
     ),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
@@ -177,22 +181,22 @@ function decodeQuestionSearchCourseUseFacet(
 export function decodeQuestionSearchFacets(value: unknown, path: string): QuestionSearchFacets {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "bylines",
+    "authorNames",
     "backends",
     "tags",
     "questionTypes",
     "classifications",
     "capabilities",
-    "licenses",
+    "questionLicenses",
     "evidence",
     "usedInMyCourses",
   ]);
   return {
-    bylines: decodeBoundedArray(
-      field(record, "bylines", path),
-      `${path}.bylines`,
-      MAX_QUESTION_SEARCH_BYLINE_FACETS,
-      decodeQuestionSearchBylineFacet,
+    authorNames: decodeBoundedArray(
+      field(record, "authorNames", path),
+      `${path}.authorNames`,
+      MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
+      decodeQuestionSearchAuthorFacet,
     ),
     backends: decodeBoundedArray(
       field(record, "backends", path),
@@ -224,11 +228,11 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
       decodeQuestionSearchCapabilityFacet,
     ),
-    licenses: decodeBoundedArray(
-      field(record, "licenses", path),
-      `${path}.licenses`,
-      MAX_QUESTION_SEARCH_LICENSE_FACETS,
-      decodeQuestionSearchLicenseFacet,
+    questionLicenses: decodeBoundedArray(
+      field(record, "questionLicenses", path),
+      `${path}.questionLicenses`,
+      MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
+      decodeQuestionSearchQuestionLicenseFacet,
     ),
     evidence: decodeQuestionStatisticsAvailabilityFacet(
       field(record, "evidence", path),

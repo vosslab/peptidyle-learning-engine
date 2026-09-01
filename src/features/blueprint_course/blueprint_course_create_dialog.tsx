@@ -3,8 +3,8 @@
 import { useNavigate } from "@solidjs/router";
 import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
-import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { BlueprintAssignmentDefinitionInput } from "../../../generated/api/BlueprintAssignmentDefinitionInput";
+import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
+import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import {
   QuestionPicker,
@@ -13,7 +13,7 @@ import {
   type QuestionPickerSourceRepository,
 } from "../question_picker";
 import { createBlueprintCourseWhenReady } from "./blueprint_course_creation";
-import { appendPickedFixedEntries, emptyReusableDefinition } from "./blueprint_course_model";
+import { appendPickedFixedEntries, emptyReusableContent } from "./blueprint_course_model";
 
 export interface CurriculumCreateDialogProps {
   readonly client: BlueprintCourseClient;
@@ -32,8 +32,8 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("Untitled Blueprint Course");
   const [moduleLabel, setModuleLabel] = createSignal("Module 1");
-  const [definition, setDefinition] = createSignal<BlueprintAssignmentDefinitionInput>(
-    emptyReusableDefinition("Module 1 assignment"),
+  const [content, setContent] = createSignal<BlueprintAssignmentContentInput>(
+    emptyReusableContent("Module 1 assignment"),
   );
   const [showPicker, setShowPicker] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
@@ -49,22 +49,20 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
     props.onClose();
   }
 
-  function draft(): CreateBlueprintCourseDefinitionInput {
+  function draft(): CreateBlueprintCourseContentInput {
     return {
       title: title(),
       modules: [
         {
           label: moduleLabel(),
-          definitions: [
-            { ...definition(), title: definition().title.trim() || "Module 1 assignment" },
-          ],
+          assignments: [{ ...content(), title: content().title.trim() || "Module 1 assignment" }],
         },
       ],
     };
   }
 
   function chooseQuestions(selection: QuestionPickerSelection): void {
-    setDefinition((current) => appendPickedFixedEntries(current, selection));
+    setContent((current) => appendPickedFixedEntries(current, selection));
     setShowPicker(false);
     setMessage(
       `Added ${selection.questionIds.length} selected Question${selection.questionIds.length === 1 ? "" : "s"}. Review the draft, then create the Blueprint Course.`,
@@ -149,17 +147,17 @@ export function CurriculumCreateDialog(props: CurriculumCreateDialogProps): JSX.
       <label>
         First assignment title
         <input
-          value={definition().title}
+          value={content().title}
           maxlength="200"
           onInput={(event) =>
-            setDefinition((current) => ({ ...current, title: event.currentTarget.value }))
+            setContent((current) => ({ ...current, title: event.currentTarget.value }))
           }
         />
       </label>
       <p>
-        {definition().entries.length === 0
+        {content().entries.length === 0
           ? "No Questions selected yet."
-          : `${definition().entries.length} fixed Question${definition().entries.length === 1 ? "" : "s"} selected in order.`}
+          : `${content().entries.length} fixed Question${content().entries.length === 1 ? "" : "s"} selected in order.`}
       </p>
       <button
         type="button"

@@ -55,13 +55,13 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    IF NEW.draft_question_revision_id IS NOT NULL THEN
+    IF NEW.draft_question_revision_uuid IS NOT NULL THEN
         SELECT question.workspace_id
           INTO owner_workspace_id
           FROM ple_private.draft_question_revision AS revision
           JOIN ple_private.draft_question AS question
-            ON question.draft_question_id = revision.draft_question_id
-         WHERE revision.draft_question_revision_id = NEW.draft_question_revision_id;
+            ON question.draft_question_uuid = revision.draft_question_uuid
+         WHERE revision.draft_question_revision_uuid = NEW.draft_question_revision_uuid;
         expected_address := jsonb_build_object(
             'kind', 'workspaceQuestionSource',
             'workspace', owner_workspace_id,

@@ -67,7 +67,7 @@
   border-inline-start: 0.35rem solid var(--accent-color, #176b3a);
   background: var(--subtle-surface-color, #edf5ef);
 }
-.assignment-access-provenance {
+.assignment-access-policy-sources {
   padding-left: 1.5rem;
 }
 .assignment-access-error {

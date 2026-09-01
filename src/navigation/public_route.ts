@@ -6,6 +6,7 @@ import type { CourseMembershipReference } from "../../generated/api/CourseMember
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
+import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
@@ -19,12 +20,15 @@ export type AssignmentAttemptRouteReference = AssignmentAttemptReference &
   BrandedRouteReference<"assignmentAttempt">;
 export type AuthoringWorkspaceRouteReference = AuthoringWorkspaceReference &
   BrandedRouteReference<"authoringWorkspace">;
+export type DraftQuestionRouteReference = DraftQuestionReference &
+  BrandedRouteReference<"draftQuestion">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
   | CourseInstanceRouteReference
   | AssignmentRouteReference
-  | AuthoringWorkspaceRouteReference;
+  | AuthoringWorkspaceRouteReference
+  | DraftQuestionRouteReference;
 
 function parseExact<Kind extends string>(
   value: string,
@@ -56,6 +60,9 @@ export function parseAuthoringWorkspaceReference(
   value: string,
 ): AuthoringWorkspaceRouteReference | null {
   return parseExact<"authoringWorkspace">(value, "W");
+}
+export function parseDraftQuestionReference(value: string): DraftQuestionRouteReference | null {
+  return parseExact<"draftQuestion">(value, "D");
 }
 export function courseInstanceRouteReference(
   value: CourseInstanceReference,
@@ -90,12 +97,20 @@ export function authoringWorkspaceRouteReference(
   if (result === null) throw new Error("invalid Authoring Workspace Reference");
   return result;
 }
+export function draftQuestionRouteReference(
+  value: DraftQuestionReference,
+): DraftQuestionRouteReference {
+  const result = parseDraftQuestionReference(value);
+  if (result === null) throw new Error("invalid Draft Question Reference");
+  return result;
+}
 export function parsePublicRouteReference(value: string): PublicRouteReference | null {
   return (
     parseCourseInstanceReference(value) ??
     parseAssignmentReference(value) ??
     parseAssignmentAttemptReference(value) ??
-    parseAuthoringWorkspaceReference(value)
+    parseAuthoringWorkspaceReference(value) ??
+    parseDraftQuestionReference(value)
   );
 }
 export function questionRouteReference(questionId: QuestionId): QuestionRouteReference {

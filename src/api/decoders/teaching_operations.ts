@@ -5,11 +5,6 @@ import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/ap
 import { MAX_RETENTION_EXTENSION_DAYS } from "../../../generated/api/MAX_RETENTION_EXTENSION_DAYS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
-import type { AccountApprovalView } from "../../../generated/api/AccountApprovalView";
-import type { SysadminInstructorApprovalView } from "../../../generated/api/SysadminInstructorApprovalView";
-import type { SysadminInstructorCandidateSearchPage } from "../../../generated/api/SysadminInstructorCandidateSearchPage";
-import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
-import type { SysadminInstructorCandidateView } from "../../../generated/api/SysadminInstructorCandidateView";
 import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
 import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
@@ -417,81 +412,6 @@ function teachingAccount(value: unknown, path: string): TeachingAccountView {
   };
 }
 
-export function decodeAccountApprovalView(value: unknown, path = "response"): AccountApprovalView {
-  const record = closed(value, path, ["state", "revision"]);
-  return {
-    state: decodeStringEnum(record.state, `${path}.state`, ["approved", "revoked"] as const),
-    revision: revision(record.revision, `${path}.revision`),
-  };
-}
-
-function sysadminInstructorApproval(value: unknown, path: string): SysadminInstructorApprovalView {
-  const record = closed(value, path, ["state", "revision"]);
-  const state = decodeStringEnum(record.state, `${path}.state`, [
-    "unapproved",
-    "approved",
-    "revoked",
-  ] as const);
-  const candidateRevision = decodeNullable(record.revision, `${path}.revision`, revision);
-  if ((state === "unapproved") !== (candidateRevision === null)) {
-    throw new DecodeError(
-      path,
-      "an unapproved state with no revision or a recorded state with a revision",
-    );
-  }
-  return { state, revision: candidateRevision };
-}
-
-function sysadminInstructorCandidate(
-  value: unknown,
-  path: string,
-): SysadminInstructorCandidateView {
-  const record = closed(value, path, ["account", "approval"]);
-  return {
-    account: teachingAccount(record.account, `${path}.account`),
-    approval: sysadminInstructorApproval(record.approval, `${path}.approval`),
-  };
-}
-
-/** Decode the Sysadmin-only safe candidate page without accepting account identity or tenancy data. */
-export function decodeSysadminInstructorCandidateSearchPage(
-  value: unknown,
-  path = "response",
-): SysadminInstructorCandidateSearchPage {
-  const record = closed(value, path, ["candidates", "nextCursor"]);
-  const candidates = decodeBoundedArray(
-    record.candidates,
-    `${path}.candidates`,
-    MAX_TEACHING_PAGE_SIZE,
-    sysadminInstructorCandidate,
-  );
-  const references = candidates.map((candidate) => candidate.account.reference);
-  if (new Set(references).size !== references.length) {
-    throw new DecodeError(`${path}.candidates`, "unique account references");
-  }
-  return {
-    candidates,
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
-/** Decode the sole bounded display-label search input before Sysadmin URL serialization. */
-export function decodeSysadminInstructorCandidateSearchRequest(
-  value: unknown,
-  path = "request",
-): SysadminInstructorCandidateSearchRequest {
-  const record = closed(value, path, ["query", "after", "size"]);
-  const query = boundedTrimmedText(record.query, `${path}.query`, 100);
-  if (Array.from(query).length < 2) {
-    throw new DecodeError(`${path}.query`, "a trimmed search query of 2 to 100 Unicode scalars");
-  }
-  return {
-    query,
-    after: pageCursor(record.after, `${path}.after`),
-    size: positiveInteger(record.size, `${path}.size`, MAX_TEACHING_PAGE_SIZE),
-  };
-}
-
 export function decodeInstructorMembershipsPage(
   value: unknown,
   path = "response",
@@ -527,10 +447,9 @@ export function decodeInstructorCourseInvitationCreateRequest(
 }
 
 function courseInvitationTarget(value: unknown, path: string): CourseInvitationTargetView {
-  const record = closed(value, path, ["account", "approval"]);
+  const record = closed(value, path, ["account"]);
   return {
     account: teachingAccount(record.account, `${path}.account`),
-    approval: decodeAccountApprovalView(record.approval, `${path}.approval`),
   };
 }
 
@@ -700,16 +619,16 @@ function retentionNotification(value: unknown, path: string): RetentionNotificat
 
 export function decodeRetentionReadView(value: unknown, path = "response"): RetentionReadView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["state", "assignmentDefinitions", "revision", "notification"]);
+  requireOnlyFields(record, path, ["state", "assignmentContent", "revision", "notification"]);
   const notification =
     record.notification === undefined
       ? undefined
       : retentionNotification(record.notification, `${path}.notification`);
   return {
     state: retentionState(field(record, "state", path), `${path}.state`),
-    assignmentDefinitions: retentionDisposition(
-      field(record, "assignmentDefinitions", path),
-      `${path}.assignmentDefinitions`,
+    assignmentContent: retentionDisposition(
+      field(record, "assignmentContent", path),
+      `${path}.assignmentContent`,
     ),
     revision: revision(field(record, "revision", path), `${path}.revision`),
     ...(notification === undefined ? {} : { notification }),
@@ -720,12 +639,9 @@ export function decodeRetentionArchiveRequest(
   value: unknown,
   path = "request",
 ): RetentionArchiveRequest {
-  const record = closed(value, path, ["assignmentDefinitions"]);
+  const record = closed(value, path, ["assignmentContent"]);
   return {
-    assignmentDefinitions: retentionDisposition(
-      record.assignmentDefinitions,
-      `${path}.assignmentDefinitions`,
-    ),
+    assignmentContent: retentionDisposition(record.assignmentContent, `${path}.assignmentContent`),
   };
 }
 
@@ -747,13 +663,10 @@ export function decodeRetentionActionResponse(
   value: unknown,
   path = "response",
 ): RetentionActionResponse {
-  const record = closed(value, path, ["state", "assignmentDefinitions", "revision", "outcome"]);
+  const record = closed(value, path, ["state", "assignmentContent", "revision", "outcome"]);
   return {
     state: retentionState(record.state, `${path}.state`),
-    assignmentDefinitions: retentionDisposition(
-      record.assignmentDefinitions,
-      `${path}.assignmentDefinitions`,
-    ),
+    assignmentContent: retentionDisposition(record.assignmentContent, `${path}.assignmentContent`),
     revision: revision(record.revision, `${path}.revision`),
     outcome: decodeStringEnum(record.outcome, `${path}.outcome`, [
       "scheduled",

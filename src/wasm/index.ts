@@ -2,7 +2,7 @@
 
 import type { ResponseItemReference } from "../../generated/api/ResponseItemReference";
 import type { QuestionAssetRendition } from "../../generated/api/QuestionAssetRendition";
-import type { ActivityTimestamp } from "../../generated/api/ActivityTimestamp";
+import type { Timestamp } from "../../generated/api/Timestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
@@ -13,7 +13,7 @@ import type { QuestionPresentationToken } from "../../generated/api/QuestionPres
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
-import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
+import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
@@ -57,7 +57,7 @@ export type FormatValidator = (
 export interface QuestionAttemptTimingEvaluation {
   readonly policy: QuestionAttemptTimeLimit;
   readonly timing: QuestionAttemptTiming;
-  readonly evaluatedAt: ActivityTimestamp;
+  readonly evaluatedAt: Timestamp;
   readonly pauseExtensionMillis: number;
 }
 
@@ -94,7 +94,7 @@ export interface PleDraftPreviewRequest {
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly questionVariationDefinition: QuestionVariationDefinition;
+  readonly questionVariationRule: QuestionVariationRule;
 }
 
 /** Identity-free preview material returned only for local PLE Question Sources. */

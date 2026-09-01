@@ -4,7 +4,7 @@
 
 **Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
 global accounts, an Instructor-visible Question Library for every Published Question,
-private drafts, equal approved Instructors, multiple equal Teaching Team Members per course, and exact
+private drafts, equal active Instructors, multiple equal Teaching Team Members per course, and exact
 course/Student authorization for educational records. The active SD1 registry owns the domain,
 schema, Store, service, browser, live-demo, and documentation correction before the remaining
 package sequence resumes. Its fresh pre-production migration epoch is the authority for database
@@ -75,8 +75,9 @@ resolvable for history and evidence.
 `CourseStore::create_course_impl`, composed as `Store::create_course`, owns canonical blank-course
 creation. Its SD1 broker atomically obtains or creates the normal minimal BlueprintCourse revision,
 creates the non-null bound CourseInstance, and adds the first Instructor membership. This capability
-remains outside the closed seven-operation CurriculumAdoptionStore envelope: fork, assignment
-adoption, Blueprint instantiation, rollover, term shift, controlled update, and selected copy.
+remains outside the closed six-operation Blueprint operation boundary: Fork Blueprint Course, Create
+Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New
+Term, and Shift Course Dates.
 
 This is a clean pre-production cutover, not a compatibility layer. The SD1 sequence removes Alpha
 types, routes, schema branches, Store capabilities, generated aliases, and browser resource kinds;
@@ -465,7 +466,7 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Partitioning                 | Monthly range partitions on the four highest-volume append-only tables only                                                                    | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                                                    |
 | Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                                | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                                                 |
 | Content storage              | Split by role with a size backstop (below)                                                                                                     | Answers the owner's direct question                                                                                                                                                                                     |
-| Flat question source         | Versioned PLE flat-question JSON, compiled into separate public and grader-only values                                                         | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                    |
+| PLE Question JSON source     | Versioned PLE Question JSON, compiled into separate public and grader-only values                                                              | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                    |
 | Question Library table split | `question_revision` metadata separate from hash-partitioned `question_revision_payload`                                      | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                     |
 | Object storage               | S3 with four physical security domains; MinIO locally                                                                                          | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                    |
 | Asset delivery               | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records    | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                                 |
@@ -636,15 +637,15 @@ and history.
 The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
 (`BP-*`) and one Store/route/decoder/editor family; it removes Alpha types, route families, schema
 branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
-module/assignment projection of the same BlueprintCourse. Fork, assignment adoption, and whole-course
-instantiation are distinct operations selected by destination, with no live source tether.
+module/assignment projection of the same BlueprintCourse. Fork Blueprint Course, Copy Assignment from Blueprint, and
+Create Course from Blueprint are distinct operations selected by destination, with no live source tether.
 
 Question stewardship remains a shared dependency of both aggregates. Stable human-facing
 `QuestionId` lineage carries immutable `QuestionRevision` history; every BlueprintCourse and
 CourseInstance entry pins an exact version. Presentation/metadata, student-content, and grading-
 semantic changes use the closed semantic classes: the last class is a major change and mints a new
 QuestionId. Forks show lineage and remain creator-private drafts until complete publication
-validation. Active versions are ordinarily selectable; inactive/archived versions remain
+validation. Available Question Revisions are ordinarily selectable; Archived Question Revisions remain
 discoverable and resolvable for evidence and existing pins. One AccountId-owned Star provides a public
 bookmark and endorsement; vetted Instructors may see aggregate Star count and Star identities, while Students and
 anonymous users see neither identities nor private Watch state. Durable improvement events remain
@@ -777,7 +778,7 @@ What each stage touches:
 | Enrollments                          | Published problems and immutable versions                    |
 | Runs, question attempts, submissions | Question Library, Question Classifications, licensing        |
 | Grades and summary rows              | Instructor question drafts and workspaces                    |
-| Timer events and render traces       | Assignment definitions (instructor's choice at archive time) |
+| Timer events and render traces       | Assignment Content (Instructor's choice at archive time) |
 | Per-student analytics                | Backend capability metadata                                  |
 | Student-record bucket artifacts      | Anonymous question statistics (below)                        |
 
@@ -839,7 +840,7 @@ One human identity sits above three implementation identities with distinct jobs
 | `workspace_id`          | One Instructor's private authoring item  | Freely editable and deletable   | Private implementation identity         |
 | Question Revision Number | One immutable published Question Revision | Never changes after publication | Exact version evidence                  |
 
-Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
+Lifecycle: `draft -> validated -> published`; published Question Revisions then have Available or Archived Question Revision Availability.
 
 - A draft gets an internal UUID immediately so it can be referenced and collaborated on, but that
   UUID is never presented as a problem number.
@@ -862,26 +863,25 @@ Lifecycle: `draft -> validated -> published -> deprecated -> archived`.
   historical attempts remain reproducible.
 - Assignments and Issued Questions retain hidden exact `(question_id, revision_number)` snapshot evidence. No
   ordinary successor advances an Assignment, Issued Question, or grading evidence; an Instructor applies a
-  controlled update under the assignment's strong revision contract. A
+  Blueprint Update under the Assignment's strong revision contract. A
   `ForcedQuestionCorrection` follows its separately authorized, deterministic replacement and
   remediation contract.
-- Every published question remains discoverable and exactly resolvable to every approved Instructor
-  throughout its lifecycle, with the current lifecycle state and any deprecation/archive reason
-  visible in Question Library results and Question Details. `active` published questions are ordinarily selectable for
-  new assignments. `inactive` and `archived` questions remain discoverable and resolvable for
-  evidence, provenance, and history, but are excluded from ordinary new selection and new references.
-  Deprecation carries a stated reason, which is how an author signals that the published question
-  contains an error.
+- Every Published Question remains discoverable and exactly resolvable to every active Instructor
+  after publication, with its Question Revision Availability and any Archive reason
+  visible in Question Library results and Question Details. `Available` Question Revisions are ordinarily selectable for
+  new assignments. `Archived` Question Revisions remain discoverable and resolvable for
+  evidence and history, but are excluded from ordinary new selection and new references.
+  An Archive reason records why an Instructor no longer offers that Question Revision for new selection.
 
 ### Publication governance
 
 Who may publish into the Question Library is a product decision that shapes the data model, so it is
 settled here rather than discovered during M4.
 
-Publication has one shared Question Library state. Drafts remain private to their Question authoring workspace and
+Publication has one shared Question Library entry event. Drafts remain private to their Question authoring workspace and
 explicit collaborators until validation succeeds. A validated publication is discoverable and
-resolvable by every approved Instructor, regardless of course, with a visible lifecycle state. Active
-published questions are ordinarily selectable; deprecated and archived questions remain available for
+resolvable by every active Instructor, regardless of course, with visible Question Revision Availability. Available
+Question Revisions are ordinarily selectable; Archived Question Revisions remain available for
 evidence/history resolution but are excluded from ordinary new selection. Publication authority uses
 the approved-Instructor predicate; Sysadmin status alone is not a publication or course-creation
 authority.
@@ -940,7 +940,7 @@ Authoritative-versus-derived roles, settled per backend:
 | Backend            | Authoritative source_object_reference                      | Derived                                           |
 | ------------------ | ---------------------------------------------------------- | ------------------------------------------------- |
 | Native algorithmic | Generator id and version; parameters derived from the seed | Rendered output                                   |
-| Native static      | Canonical versioned PLE flat-question JSON source          | Public question model and private grader material |
+| PLE static         | Canonical versioned PLE Question JSON source               | Public Question model and private Question Grading Input |
 | WeBWorK            | PG source reference and version                            | Rendered HTML, images, cached renders             |
 | QTI                | Original ZIP in object storage                             | Parsed model in shared content, extracted assets  |
 | H5P                | Remote package reference                                   | Any imported internal representation              |
@@ -954,7 +954,7 @@ so they survive as data; preserve the original package so a later parser improve
 Determine every media type by sniffing the stored bytes, treating any supplied type as a hint to
 verify.
 
-PLE flat-question JSON follows the same source-preservation principle without
+PLE Question JSON follows the same source-preservation principle without
 copying QTI's interchange model. The bounded answer-bearing JSON is private in
 the workspace, is canonicalized and checksummed by the PLE Question Backend, and is
 promoted to an immutable non-signable `ProblemSource` object at publication.
@@ -962,7 +962,7 @@ The compiler writes an answer-free operational JSONB projection and separate
 grader-only key/feedback JSONB. Student rendering and grading read those compact
 database projections rather than fetching or reparsing the source object.
 
-The 2026-08-09 flat-question package implements that transition: a typed
+The PLE Question JSON package implements that transition: a typed
 compare-and-swap save atomically advances the workspace draft and source
 metadata; publication binds the copied canonical source, answer-free model, and
 typed private payload in one Question Library transition; and PLE runtime grading
@@ -970,14 +970,14 @@ uses an independently injected grader-only capability. The completed instructor
 editor uses the protected author-only canonical-source route as its narrow
 answer-bearing browser exception; student and public contracts remain
 answer-free. The bounded Canvas and Blackboard QTI profile mappings, Q3 pure
-PLE flat bridge, Q4 provenance contract, Q5/WP-QTI-7 schema/RLS/object-
+PLE Question JSON bridge, Q4 provenance contract, Q5/WP-QTI-7 schema/RLS/object-
 binding implementation, WP-QTI-8 Memory/PostgreSQL conversion boundary, and WP-QTI-9 server routes
 are complete. WP-QTI-8
 closes staged profile evidence, revalidates exact accepted-result `itemId` binding, and atomically
 commits the CAS revision, draft, canonical source, current private grading, and current origin under
 the frozen lock order. Ordinary saves stage current grading, publication promotes only the stored
 grading value after origin promotion, and PostgreSQL reaches private provenance and grading only
-through forced-RLS broker capabilities. Strict lowercase 64-hex `Sha256Digest` serialization keeps
+through forced-RLS broker capabilities. Strict lowercase 64-hex `Sha256Checksum` serialization keeps
 the evidence boundary exact. WP-QTI-9 adds deterministic private archive/job ingress, strict worker
 evidence, answer-free report review, strong-ETag atomic conversion, deterministic published archive
 copy, and a prepared-import draft-deletion fence with Memory/PostgreSQL parity. The route, worker,
@@ -990,10 +990,10 @@ PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and
-re-reviewed. PLE flat JSON v2 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
+re-reviewed. PLE Question JSON schema version 2 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
 source/runtime semantics based on the reviewed QTI Package Maker item models. Version 1 source is
 refused; version 2 is the sole PLE reader. Remaining acceptance is recorded in
-`docs/active_plans/active/flat_question_family_evolution_plan.md`; external QTI-JSONL is a separate
+`docs/active_plans/active/ple_question_json_schema_evolution_plan.md`; external QTI-JSONL is a separate
 future adapter concern. The course appearance package is accepted through WP-CA7/WP-RC1 and production-seam closure
 WP-RC2 is accepted; the shipped upstream WeBWorK implementation is historical WP-RC3 evidence. The dependency order and exact
 profiles, refusal semantics, provenance
@@ -1023,7 +1023,7 @@ settled here because discovering the answer during recovery or a decade-later mi
 
 ### Which source_object_reference defines a PLE Question
 
-The other backends have obvious authoritative artifacts; the native backend
+The other backends have obvious authoritative artifacts; the PLE Question Backend
 needed separate rulings for generated and static questions.
 
 For an algorithmic question, **the pinned generator identifier, generator
@@ -1039,7 +1039,7 @@ resolving to their exact evidence until an Instructor explicitly applies a contr
 update. Generator implementations are therefore additive-only while referenced by historical grading
 evidence.
 
-For a static flat question, **the canonical, versioned PLE flat-question JSON
+For a static Question, **the canonical, versioned PLE Question JSON
 source is authoritative.** Publication preserves it as a private immutable
 source object and compiles it into an answer-free public model plus separately
 granted grader-only material. The two compiled values carry checksums and a
@@ -1050,7 +1050,7 @@ semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 | Backend            | Authoritative                                           | Derived and regenerable                             |
 | ------------------ | ------------------------------------------------------- | --------------------------------------------------- |
 | Native algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                   |
-| Native static      | Canonical versioned PLE flat-question JSON source       | Public model and private grader material            |
+| PLE static         | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input |
 | WeBWorK            | PG source reference and version                         | Normalized model, rendered HTML, cached renders     |
 | QTI                | Original ZIP in object storage                          | Parsed model, extracted assets                      |
 | H5P                | Remote package reference                                | Any imported internal representation                |
@@ -1497,11 +1497,11 @@ substitution for a required production path.
 | MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                    | MOD-QM, MOD-ACTIVITY                                                       | n/a                                  | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
 | MOD-CAP                    | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                      | MOD-QM                                                                     | n/a                                  | Committed violation table                                                                                                                                                                                                                   |
 | MOD-GEN                    | Question Variation generation                                            | `generate(question_seed, definition)`                                               | MOD-QM                                                                     | n/a                                  | Question Seed parity (WP-C4)                                                                                                                                                                                                                |
-| MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed flat private integrity                   | MOD-QM, MOD-STATE                                                          | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
+| MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed PLE Question JSON private integrity                   | MOD-QM, MOD-STATE                                                          | n/a                                  | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                 | MOD-ID                                                                     | `MemoryObjectStore`                  | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
-| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                       | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque flat private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
+| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                       | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                        | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
 | MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                    | MOD-ID, MOD-ACTIVITY                                                       | n/a                                  | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
-| MOD-ADP-NAT                | PLE Question Backend                                                     | Algorithmic Question Types and strict PLE flat-question compiler                    | MOD-QM, MOD-GEN, MOD-GRD                                                   | n/a                                  | End-to-end generated Question Type; flat JSON public/private split and reproducible hash                                                                                                                                                    |
+| MOD-ADP-PLE                | PLE Question Backend                                                     | Algorithmic Question Types and strict PLE Question JSON compiler                    | MOD-QM, MOD-GEN, MOD-GRD                                                   | n/a                                  | End-to-end generated Question Type; PLE Question JSON public/private split and reproducible hash                                                                                                                                                    |
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                         | MOD-QM, MOD-OBJ                                                            | Recorded renderer fixtures           | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
 | MOD-ADP-QTI                | QTI adapter                                                              | Import pipeline, export                                                             | MOD-QM, MOD-OBJ                                                            | `MemoryObjectStore`                  | Hostile-ZIP fixture set rejected; unsupported features recorded                                                                                                                                                                             |
 | MOD-ADP-H5P                | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                                | MOD-QM                                                                     | n/a                                  | Capability honesty test; import path to internal model                                                                                                                                                                                      |
@@ -1591,9 +1591,9 @@ widget exist to build against.
 
 - Depends on: M1.
 - Deliverables: domain modules, run and scoring model, grading boundary with both gates, real object
-  storage, PostgreSQL store with RLS and partitions, PLE Question Backend including the PLE flat-question
+  storage, PostgreSQL store with RLS and partitions, PLE Question Backend including the PLE PLE Question JSON
   compiler and split persistence path, API route groups.
-- Lanes: (1) MOD-STATE, MOD-TIME, MOD-SCORE, MOD-CAP; (2) MOD-GEN, MOD-ADP-NAT; (3) MOD-GRD,
+- Lanes: (1) MOD-STATE, MOD-TIME, MOD-SCORE, MOD-CAP; (2) MOD-GEN, MOD-ADP-PLE; (3) MOD-GRD,
   MOD-WASM; (4) MOD-OBJ; (5) MOD-SCHEMA, MOD-STO; (6) the five API modules; (7) MOD-CLIENT.
 - Entry criteria: M1 exit criteria met.
 - Exit criteria: seed parity green on both targets; WASM allowlist and dependency assertion green;
@@ -1601,7 +1601,7 @@ widget exist to build against.
   AccountId, and revoked membership return zero rows;
   the student-facing role cannot read any answer-key table; an in-progress run resumes across restart
   and across replicas; a replayed submission returns the first result; every list endpoint uses a
-  cursor; flat JSON publication preserves the non-signable canonical source and binds grader-only
+  cursor; PLE Question JSON publication preserves the non-signable canonical source and binds grader-only
   material to the exact answer-free public model.
 - Parallel-plan ready: yes. Seven lanes.
 
@@ -1788,7 +1788,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 5. **Preview and accommodate.** Elena previews resolved schedule dates, then grants the enrolled
    Mary an accommodation. The preview shows the effective window and its source before she saves
    the assignment.
-6. **Deliver.** Mary enters the published assignment through the ordinary student workflow,
+6. **Deliver.** Mary enters the released Assignment through the ordinary student workflow,
    receives fixed and policy-selected pool items bound to the issued run, submits, and receives the
    deterministic grade, immutable receipt, and permitted disclosure. Elena inspects the same audited
    student work through the Instructor surface.
@@ -1969,7 +1969,7 @@ or implementer-authored specification is required.
 - Owner: `architect` coordinates the seven atomic owners defined in
   `docs/active_plans/decisions/course_appearance_plan.md`. Depends on: WP-QTI-12 plus the
   existing course, auth, object, Store, schema, client, and frontend contracts. WP-QTI-12 and
-  WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE flat JSON v2 for
+  WP-CA1 through WP-CA7/WP-RC1 are accepted. The current owner decision uses PLE Question JSON schema version 2 for
   PLE Question Source for every Question Type; external QTI-JSONL is a separate future adapter concern.
 - Touch points: focused `course_appearance` modules in `question_model`, `learning-data-access`,
   `server_core`, and Solid; typed course-banner object/delivery owners; one forward migration; route,
@@ -2001,15 +2001,15 @@ or implementer-authored specification is required.
   architecture, file structure, contracts, frontend/route docs, retention/object docs, and changelog
   boundary.
 
-### M3 flat-question type evolution package
+### M3 PLE Question JSON type evolution package
 
-#### Work package: WP-M3-FLAT-FAMILIES complete all flat Question Types
+#### Work package: WP-M3-PLE-QUESTION-JSON-TYPES complete all PLE Question JSON Types
 
 - Owner: `architect` coordinates the Question Type closeout in
-  `docs/active_plans/active/flat_question_family_evolution_plan.md`.
+  `docs/active_plans/active/ple_question_json_schema_evolution_plan.md`.
   Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure student-payload package, and
-  the existing PLE flat, grading, object, Store, schema, server, client, and frontend contracts.
-- Touch points: closed PLE flat JSON v2 source/compiler; public/private
+  the existing PLE Question JSON, grading, object, Store, schema, server, client, and frontend contracts.
+- Touch points: closed PLE Question JSON schema version 2 source/compiler; public/private
   compilation; Question Type-specific response/checker types; source-to-object bindings; persistence, author
   editors, student widgets, live evidence, and durable documentation.
 - Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
@@ -2183,12 +2183,12 @@ The current implementation and scope decisions are expanded into dispatchable pa
   MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
   provides verified-image selection, immutable version-scoped publication, exact issue-time asset
   binding, and the primary keyboard region-list workflow. Its integrated author-to-student
-  object-lifecycle acceptance remains open in the flat-question type plan.
+  object-lifecycle acceptance remains open in the PLE Question JSON type plan.
 - New assignments default to `highest`; new practice runs use `newSeeds` while resumed attempts keep
   their issued seed.
 - Retention defaults are notify at 30 days, archive at 100 days, student-record deletion at 365 days,
   and aggregate publication at k >= 5.
-- Course deletion retains assignment definitions by default.
+- Course deletion retains Assignment Content by default.
 - Existing normalized-payload hard ceilings remain strict refusal boundaries; oversized archival and
   binary source uses typed object storage.
 - Content-addressed deduplication is out of scope because it is an optimization, not an integrity or

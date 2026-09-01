@@ -46,7 +46,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | /curriculum/:blueprintRef                                              | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
 | /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                |
 | /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                |
-| /instructor/courses/:courseRef/assignments/new                         | New Assignment Working Copy                               | Current course Instructor                                                             |
+| /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                             |
 | /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                                                         |
 | /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                                                   |
 | /instructor/courses/:courseRef/assignments/:assignmentRef/policies     | Policies                                           | Assignment revision                                                                   |
@@ -102,36 +102,35 @@ of the same tree, not another source type. The editor keeps draft input locally,
 sends a complete definition with the observed revision, and preserves the local
 draft after a stale or invalid response.
 
-A published projection contains only answer-free definitions, reviewed byline,
+A published projection contains only answer-free definitions, reviewed Question Authorship,
 public Question IDs, safe Question Library summaries, current publication state, and
 disclosed evidence context. It contains no answer key, private source,
 response, grading payload, internal UUID, email, Student, or CourseInstance
 record.
 
-## CourseInstance adoption workflow
+## Blueprint-operation transport boundary
 
-The adoption client and feature are separate from the reusable source client:
+The Blueprint-operation transport is separate from the reusable source client:
 
-- src/api/curriculum_adoption.ts: source, destination, operation, preview, and
+- src/api/blueprint_operations.ts: source, destination, operation, preview, and
   receipt types.
-- src/api/http_client/curriculum_adoption.ts: no-store preview and idempotent
+- src/api/http_client/blueprint_operations.ts: no-store preview and idempotent
   apply requests.
-- src/api/decoders/curriculum_adoption/: strict preview, completed, inspection,
-  and recovery decoders.
-- src/features/curriculum_adoption/: staged operation and recovery UI.
-- src/pages/curriculum_adoption_live_page.tsx: exact course-route composition.
+- src/features/blueprint_operations/: the operation-workflow stylesheet.
 
-The page loads one BlueprintCourse source and asks the Instructor to choose the
-destination operation:
+No Blueprint-operation page or server route is mounted yet.
 
-| Operation                     | Result                                                            |
-| ----------------------------- | ----------------------------------------------------------------- |
-| Fork BlueprintCourse          | Independent AccountId-owned BlueprintCourse with source lineage   |
-| Instantiate assignment        | Selected nested assignment in an exact existing CourseInstance    |
-| Instantiate BlueprintCourse   | New CourseInstance with one immutable Blueprint parent/revision   |
-| Rollover CourseInstance       | New teaching instance without Student or issued state             |
-| Shift CourseInstance term     | Atomic date resolution when no issued work makes it ineligible    |
-| Fast-forward or selected copy | Update untouched import or create a new assignment when divergent |
+The future page loads one BlueprintCourse source and asks the Instructor to
+choose the destination operation:
+
+| Operation                      | Result                                                            |
+| ------------------------------ | ----------------------------------------------------------------- |
+| Fork BlueprintCourse           | Independent AccountId-owned BlueprintCourse with source lineage   |
+| Copy Assignment from Blueprint | Selected nested assignment in an exact existing Course Instance   |
+| Create Course from Blueprint   | New Course Instance with one immutable Blueprint parent/revision  |
+| Copy Course for New Term       | New teaching instance without Student or issued state             |
+| Shift Course Dates             | Atomic date resolution when no issued work makes it ineligible    |
+| Fast-forward or selected copy  | Update untouched import or create a new assignment when divergent |
 
 Every preview binds source reference, observed revision, target CourseId where
 applicable, term, time zone, and idempotency evidence. The server resolves
@@ -239,8 +238,8 @@ The browser evidence hierarchy is:
 1. Permanent TypeScript/Node checks for strict decoders, client behavior,
    route/reference binding, local draft preservation, and answer-free DTOs.
 2. Production HTTPS Playwright for visible BlueprintCourse authoring, nested
-   picker reuse, fork, assignment and whole-course instantiation, DST
-   correction, unreleased propagation and explicit release, controlled update,
+   picker reuse, Fork Blueprint Course, Copy Assignment from Blueprint, Create Course from Blueprint, DST
+   correction, unreleased propagation and explicit release, Apply Blueprint Update,
    and divergence recovery.
 3. Screenshot publication and semantic visual review for hierarchy, focus,
    contrast, privacy, recovery, and source/destination clarity.

@@ -1,12 +1,15 @@
 {
   "fixtureSchemaVersion": 4,
   "modelSchemaVersion": 1,
+  "sourceObjectReference": {
+    "object": "0198e000-0000-7000-8000-000000000015"
+  },
+  "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
   "catalogQuestion": {
     "questionId": "7K3-M9QP",
     "backend": "ple",
     "questionType": "multipleChoice",
     "capabilities": [
-      "algorithmicGeneration",
       "clientRendering",
       "serverGrading",
       "hints",
@@ -14,6 +17,7 @@
     ],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
+      "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
       "tags": ["biochemistry", "protein-structure"],
       "classifications": [
         {
@@ -22,13 +26,12 @@
           "name": "Peptide bond structure"
         }
       ],
-      "license": {
-        "kind": "ccBy"
-      },
+      "questionLicense": "CC-BY-4.0",
+      "questionCitation": null,
       "language": "en-US"
     },
-    "byline": {
-      "names": ["Fixture Instructor"]
+    "authorship": {
+      "authors": [{ "displayName": "Fixture Instructor" }]
     },
     "availability": {
       "availability": "available"
@@ -42,12 +45,12 @@
     "backendLocator": {
       "backend": "ple"
     },
-    "questionFormat": "pleAlgorithmic",
+    "questionFormat": "pleQuestionJson",
     "questionType": "multipleChoice",
     "prompt": [
       {
         "kind": "text",
-        "markdown": "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?"
+        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
       },
       {
         "kind": "image",
@@ -107,18 +110,8 @@
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
     },
-    "questionVariationDefinition": {
-      "kind": "seeded",
-      "generator": {
-        "id": "peptide-bond-choice",
-        "version": "1"
-      },
-      "parameters": {
-        "residue": {
-          "kind": "choice",
-          "options": ["glycine", "alanine", "proline"]
-        }
-      }
+    "questionVariationRule": {
+      "kind": "static"
     },
     "grading": {
       "mode": "allOrNothing",
@@ -126,6 +119,7 @@
     },
     "metadata": {
       "title": "Peptide bond resonance and planarity",
+      "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
       "tags": ["biochemistry", "protein-structure"],
       "classifications": [
         {
@@ -134,9 +128,8 @@
           "name": "Peptide bond structure"
         }
       ],
-      "license": {
-        "kind": "ccBy"
-      },
+      "questionLicense": "CC-BY-4.0",
+      "questionCitation": null,
       "language": "en-US"
     }
   },
@@ -145,12 +138,12 @@
     "backendLocator": {
       "backend": "ple"
     },
-    "questionFormat": "pleAlgorithmic",
+    "questionFormat": "pleQuestionJson",
     "questionType": "multipleChoice",
     "prompt": [
       {
         "kind": "text",
-        "markdown": "In the {{residue}} peptide example, which bond has restricted rotation because resonance gives it partial double-bond character?"
+        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
       },
       {
         "kind": "image",
@@ -210,18 +203,8 @@
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
     },
-    "questionVariationDefinition": {
-      "kind": "seeded",
-      "generator": {
-        "id": "peptide-bond-choice",
-        "version": "1"
-      },
-      "parameters": {
-        "residue": {
-          "kind": "choice",
-          "options": ["glycine", "alanine", "proline"]
-        }
-      }
+    "questionVariationRule": {
+      "kind": "static"
     },
     "grading": {
       "mode": "allOrNothing",
@@ -229,6 +212,7 @@
     },
     "metadata": {
       "title": "Draft: peptide resonance wording revision",
+      "questionDescription": "Instructor-facing discovery summary for a peptide-resonance wording revision.",
       "tags": ["biochemistry", "protein-structure"],
       "classifications": [
         {
@@ -237,9 +221,8 @@
           "name": "Peptide bond structure"
         }
       ],
-      "license": {
-        "kind": "ccBy"
-      },
+      "questionLicense": "CC-BY-4.0",
+      "questionCitation": null,
       "language": "en-US"
     }
   },
@@ -398,7 +381,7 @@
       "id": "0198e000-0000-7000-8000-000000000040",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000020",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
-      "definitionEntryIndex": 0,
+      "assignmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
@@ -408,13 +391,13 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolEntry": null
+      "questionPoolItem": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000041",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000021",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
-      "definitionEntryIndex": 0,
+      "assignmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
@@ -424,13 +407,13 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolEntry": null
+      "questionPoolItem": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000042",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000022",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
-      "definitionEntryIndex": 0,
+      "assignmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
@@ -440,13 +423,13 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolEntry": null
+      "questionPoolItem": null
     },
     {
       "id": "0198e000-0000-7000-8000-000000000043",
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000023",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
-      "definitionEntryIndex": 0,
+      "assignmentContentEntryIndex": 0,
       "issuedPosition": 0,
       "reference": {
         "questionId": "7K3-M9QP",
@@ -456,7 +439,7 @@
       "scoringRule": "normal",
       "statisticsEligible": true,
       "questionPoolSelection": null,
-      "questionPoolEntry": null
+      "questionPoolItem": null
     }
   ],
   "attempts": [
@@ -464,7 +447,7 @@
       "id": "0198e000-0000-7000-8000-000000000030",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
       "seed": 1001,
-      "parameterHash": "33c6a11b3eadacaac5d49a752148884e27c8815c803ace157c9f58ac9dbe416d",
+      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000001100,
@@ -477,11 +460,11 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": {
-          "id": "peptide-bond-choice",
-          "version": "1"
+        "generator": null,
+        "sourceObjectReference": {
+          "object": "0198e000-0000-7000-8000-000000000015"
         },
-        "sourceObjectReference": null,
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -490,9 +473,9 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "3fdae665e1eeda96b3e4768742b602e250ef4be51645beb8f486e0b36fc6ca8e"
+        "renderedQuestionSha256": "ca853bb76dd27c3fc9a36d671c12e2247888b93649e12f509cbb73d7de72d4ac"
       },
-      "issuedCapability": "flatPresentation",
+      "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
         "id": "0198e000-0000-7000-8000-000000000130",
         "questionAttempt": "0198e000-0000-7000-8000-000000000030",
@@ -512,7 +495,7 @@
       "id": "0198e000-0000-7000-8000-000000000031",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
       "seed": 1002,
-      "parameterHash": "5b19c155569205c9bda96ab6ca1058f70cd06121238e1ff198dd9d6cada2adce",
+      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000002100,
@@ -525,11 +508,11 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": {
-          "id": "peptide-bond-choice",
-          "version": "1"
+        "generator": null,
+        "sourceObjectReference": {
+          "object": "0198e000-0000-7000-8000-000000000015"
         },
-        "sourceObjectReference": null,
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -538,9 +521,9 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "113f7aae79bb5d7fb54799fd50b09e977192e10b991769d8ffe98400cc81fcf4"
+        "renderedQuestionSha256": "2cfd2bd5bb11ba987fee23452dbf166e1f445a206f1060b70ca4b52cb805bb75"
       },
-      "issuedCapability": "flatPresentation",
+      "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
         "id": "0198e000-0000-7000-8000-000000000131",
         "questionAttempt": "0198e000-0000-7000-8000-000000000031",
@@ -560,7 +543,7 @@
       "id": "0198e000-0000-7000-8000-000000000032",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
       "seed": 1003,
-      "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
+      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000003100,
@@ -573,11 +556,11 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": {
-          "id": "peptide-bond-choice",
-          "version": "1"
+        "generator": null,
+        "sourceObjectReference": {
+          "object": "0198e000-0000-7000-8000-000000000015"
         },
-        "sourceObjectReference": null,
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -586,9 +569,9 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "31c37f1795f23e5af996a399ec4ab8bc2f055ccc77d2c491363f4b873cedfbec"
+        "renderedQuestionSha256": "d4d56d6503a656d0d7383fde4c344aae2df9ae3caca2c54bdb0d86c3ebfa3c6b"
       },
-      "issuedCapability": "flatPresentation",
+      "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
         "id": "0198e000-0000-7000-8000-000000000132",
         "questionAttempt": "0198e000-0000-7000-8000-000000000032",
@@ -608,7 +591,7 @@
       "id": "0198e000-0000-7000-8000-000000000033",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000043",
       "seed": 1004,
-      "parameterHash": "fed7321b1bbd81c51f4bf57347c8bb535f2b7faf3eac5b50dd7267bd857d001a",
+      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "open",
       "timing": {
         "issuedAt": 1786000004100,
@@ -621,11 +604,11 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": {
-          "id": "peptide-bond-choice",
-          "version": "1"
+        "generator": null,
+        "sourceObjectReference": {
+          "object": "0198e000-0000-7000-8000-000000000015"
         },
-        "sourceObjectReference": null,
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
           "0198e000-0000-7000-8000-000000000011",
           "0198e000-0000-7000-8000-000000000013"
@@ -634,9 +617,9 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "7ea8ee640595eca6c8d43fabe44957c826d1571fa75c97f18c65771ffc890af8"
+        "renderedQuestionSha256": "4c45e4cc2624c10e07f4492ecbbc5fe2925802ebb6194fc2a771d9f68f967f8d"
       },
-      "issuedCapability": "flatPresentation",
+      "issuedCapability": "pleQuestionJsonPresentation",
       "submission": null
     }
   ],

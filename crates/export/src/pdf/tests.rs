@@ -230,7 +230,7 @@ fn bundled_font_name_hash_and_license_are_dejavu_consistent() {
     );
     assert!(String::from_utf8_lossy(&pdf).contains("/PLE+DejaVuSans"));
     assert_eq!(
-        objects::Sha256Digest::compute(DEJAVU_SANS_FONT).to_string(),
+        objects::Sha256Checksum::compute(DEJAVU_SANS_FONT).to_string(),
         "56d0092e2a6260d764e8a8a1a1b21a76a4e600d72af4ab2fafdb0f64f49c8742"
     );
     let license = include_str!("../../assets/LICENSE-DejaVuSansPLE.txt");

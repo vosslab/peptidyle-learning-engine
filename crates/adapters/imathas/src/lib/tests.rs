@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::classification::License;
-use question_model::generation::QuestionVariationDefinition;
+use question_model::classification::QuestionLicense;
+use question_model::generation::QuestionVariationRule;
 use question_model::{
     DraftQuestionBackendLocator, QuestionFormat, QuestionGradingRule, QuestionMetadata,
     QuestionRevision, QuestionType, WorkspaceId,
@@ -132,13 +132,15 @@ fn question() -> QuestionRevision {
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_definition: QuestionVariationDefinition::Static,
+        question_variation_rule: QuestionVariationRule::Static,
         grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded iMathAS question".into(),
+            question_description: "Instructor-facing recorded iMathAS fixture summary.".into(),
             tags: Vec::new(),
             classifications: Vec::new(),
-            license: License::CcBySa,
+            question_license: Some(QuestionLicense::CcBySa4_0),
+            question_citation: None,
             language: "en-US".into(),
         },
     }
@@ -146,7 +148,11 @@ fn question() -> QuestionRevision {
 
 async fn stored_source(
     store: &MemoryObjectStore,
-) -> (QuestionRevision, ImathasSource, SourceObjectReference) {
+) -> (
+    QuestionRevision,
+    ResolvedImathasQuestionSource,
+    SourceObjectReference,
+) {
     let snapshot = ObjectId::from_uuid(Uuid::from_u128(4));
     let question = question();
     let object = store
@@ -160,24 +166,20 @@ async fn stored_source(
             },
             bytes: b"{\"recorded\":true}".to_vec(),
             media_type: "application/json".into(),
-            created_at: ActivityTimestamp::from_unix_millis(1),
+            created_at: Timestamp::from_unix_millis(1),
         })
         .await
         .unwrap();
     let artifact = SourceObjectReference { object: snapshot };
-    let source = ImathasSource {
-        question_revision: QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        },
-        artifact: artifact.clone(),
-        source_object_checksum: SourceObjectChecksum::parse(object.sha256.to_string())
+    let source = ResolvedImathasQuestionSource::resolve(
+        store,
+        &question,
+        artifact.clone(),
+        SourceObjectChecksum::parse(object.sha256.to_string())
             .expect("stored checksum is canonical"),
-        provider: "recorded-provider".into(),
-        item_ref: "item-17".into(),
-        profile: "recorded-v1".into(),
-        bytes: b"{\"recorded\":true}".to_vec(),
-    };
+    )
+    .await
+    .expect("stored source should resolve");
     (question, source, artifact)
 }
 
@@ -249,7 +251,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
             &question,
             QuestionSeed::new(17),
             &source,
-            ActivityTimestamp::from_unix_millis(2),
+            Timestamp::from_unix_millis(2),
         )
         .await
         .unwrap();
@@ -258,7 +260,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
             &question,
             QuestionSeed::new(17),
             &source,
-            ActivityTimestamp::from_unix_millis(3),
+            Timestamp::from_unix_millis(3),
         )
         .await
         .unwrap();
@@ -302,7 +304,7 @@ async fn historical_invalid_metadata_title_is_refused_before_provider_or_cache()
                 &question,
                 QuestionSeed::new(17),
                 &source,
-                ActivityTimestamp::from_unix_millis(2),
+                Timestamp::from_unix_millis(2),
             )
             .await,
         Err(ImathasAdapterError::InvalidTitle(_))
@@ -353,7 +355,7 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
                 &question,
                 QuestionSeed::new(18),
                 &source,
-                ActivityTimestamp::from_unix_millis(2)
+                Timestamp::from_unix_millis(2)
             )
             .await,
         Err(ImathasAdapterError::Provider(ProviderFailure::Unavailable))
@@ -459,7 +461,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
             address: key,
             bytes: b"{malformed".to_vec(),
             media_type: "application/json".into(),
-            created_at: ActivityTimestamp::from_unix_millis(1),
+            created_at: Timestamp::from_unix_millis(1),
         })
         .await
         .unwrap();
@@ -470,7 +472,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
                 &question,
                 QuestionSeed::new(31),
                 &source,
-                ActivityTimestamp::from_unix_millis(2)
+                Timestamp::from_unix_millis(2)
             )
             .await
             .unwrap_err(),
@@ -511,13 +513,13 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
         &question,
         QuestionSeed::new(41),
         &source,
-        ActivityTimestamp::from_unix_millis(2),
+        Timestamp::from_unix_millis(2),
     );
     let second = adapter.issue(
         &question,
         QuestionSeed::new(41),
         &source,
-        ActivityTimestamp::from_unix_millis(2),
+        Timestamp::from_unix_millis(2),
     );
     let (first, second) = tokio::join!(first, second);
     let first = first.unwrap();

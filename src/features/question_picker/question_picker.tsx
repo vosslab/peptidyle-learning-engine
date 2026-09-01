@@ -67,13 +67,13 @@ function selectedCopy(
 function facetValues(
   state: QuestionPickerState,
   facet:
-    | "byline"
+    | "authorName"
     | "backend"
     | "tag"
     | "questionType"
     | "classification"
     | "capability"
-    | "license"
+    | "questionLicense"
     | "evidence"
     | "usedInMyCourses",
 ): ReadonlyArray<{ readonly value: string; readonly count: number }> {
@@ -239,13 +239,13 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           />
         </label>
         <label>
-          Byline
+          Question Author
           <select
-            value={query().byline ?? ""}
-            onChange={(event) => updateQuery({ byline: event.currentTarget.value || null })}
+            value={query().authorName ?? ""}
+            onChange={(event) => updateQuery({ authorName: event.currentTarget.value || null })}
           >
-            <option value="">All bylines</option>
-            <For each={facetValues(state(), "byline")}>
+            <option value="">All Question Authors</option>
+            <For each={facetValues(state(), "authorName")}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>
@@ -299,13 +299,15 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </select>
         </label>
         <label>
-          License
+          Question License
           <select
-            value={query().license ?? ""}
-            onChange={(event) => updateQuery({ license: event.currentTarget.value || null })}
+            value={query().questionLicense ?? ""}
+            onChange={(event) =>
+              updateQuery({ questionLicense: event.currentTarget.value || null })
+            }
           >
-            <option value="">All licenses</option>
-            <For each={facetValues(state(), "license")}>
+            <option value="">All Question Licenses</option>
+            <For each={facetValues(state(), "questionLicense")}>
               {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
             </For>
           </select>

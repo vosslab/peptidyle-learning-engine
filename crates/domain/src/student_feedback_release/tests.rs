@@ -2,9 +2,9 @@ use std::num::NonZeroU32;
 
 use question_model::envelope::QuestionContentBlock;
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule,
-    QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionPostGradingContent,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer,
+    QuestionAnswerExplanation, QuestionFeedback, QuestionPostGradingContent,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
 };
 
 use super::{
@@ -16,8 +16,8 @@ use crate::effective_assignment_policy::{
     EffectiveAssignmentPolicyValue, PolicySource, StudentLateWorkStatus,
 };
 
-fn stamp(value: i64) -> ActivityTimestamp {
-    ActivityTimestamp::from_unix_millis(value)
+fn stamp(value: i64) -> Timestamp {
+    Timestamp::from_unix_millis(value)
 }
 
 fn rule() -> StudentFeedbackReleaseRule {
@@ -31,10 +31,7 @@ fn rule() -> StudentFeedbackReleaseRule {
     }
 }
 
-fn allowed(
-    due_at: Option<ActivityTimestamp>,
-    closes_at: Option<ActivityTimestamp>,
-) -> AssignmentAccessDecision {
+fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> AssignmentAccessDecision {
     AssignmentAccessDecision::Allowed {
         policy: Box::new(EffectiveAssignmentPolicy {
             available_at: resolved(None),

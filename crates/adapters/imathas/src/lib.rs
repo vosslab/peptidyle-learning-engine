@@ -28,7 +28,9 @@ pub const GRADING_ID: &str = "imathas-verified-grader";
 /// Current compatible server verifier implementation.
 pub const GRADING_VERSION: &str = "1";
 
-pub use adapter::{ImathasAdapter, ImathasIssuedAttempt, ImathasSource, VerifiedGradeReceipt};
+pub use adapter::{
+    ImathasAdapter, ImathasIssuedAttempt, ResolvedImathasQuestionSource, VerifiedGradeReceipt,
+};
 pub use grade::{
     CorrelationIssuer, GradeBinding, ImathasAdapterError, PersistedCorrelation, ProviderFailure,
     ServerCorrelation, VerifiedProviderGrade,
@@ -58,9 +60,9 @@ use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    ActivityTimestamp, GradingResult, ObjectId, QuestionAttemptId, QuestionBackendLocator,
-    QuestionId, QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
-    SourceObjectReference,
+    GradingResult, ObjectId, QuestionAttemptId, QuestionBackendLocator, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 #[cfg(test)]
 use uuid::Uuid;

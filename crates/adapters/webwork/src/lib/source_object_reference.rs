@@ -1,6 +1,6 @@
 //! Trusted immutable PG-source resolution and binding checks.
 
-use objects::{ObjectAddress, ObjectStore};
+use objects::{ObjectStore, QuestionSourceResolutionError, ResolvedQuestionSource};
 use question_model::{
     QuestionBackendLocator, QuestionRevision, QuestionRevisionReference, SourceObjectChecksum,
     SourceObjectReference,
@@ -10,14 +10,11 @@ use super::WebworkAdapterError;
 
 /// Immutable PG source resolved from trusted object storage before adapter use.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WebworkSource {
-    pub(super) question_revision: QuestionRevisionReference,
-    pub(super) source_object_reference: SourceObjectReference,
-    pub(super) source_object_checksum: SourceObjectChecksum,
-    pub(super) pg_source: Vec<u8>,
+pub struct ResolvedWebworkQuestionSource {
+    resolved: ResolvedQuestionSource,
 }
 
-impl WebworkSource {
+impl ResolvedWebworkQuestionSource {
     /// Resolves PG source only from its exact immutable published Object Address.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
@@ -25,37 +22,37 @@ impl WebworkSource {
         source_object_reference: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, WebworkAdapterError> {
-        let expected_key = ObjectAddress::QuestionSource {
-            question_revision: question_revision.clone(),
-            object: source_object_reference.object,
-        };
-        let stored = store
-            .get(&expected_key)
-            .await
-            .map_err(WebworkAdapterError::ObjectStore)?;
-        if stored.record.address != expected_key
-            || stored.record.id != source_object_reference.object
-            || stored.record.question_revision != Some(question_revision.clone())
-            || stored.record.sha256.to_string() != source_object_checksum.as_str()
-        {
-            return Err(WebworkAdapterError::UntrustedSource);
-        }
-        Ok(Self {
+        let resolved = ResolvedQuestionSource::resolve(
+            store,
             question_revision,
             source_object_reference,
             source_object_checksum,
-            pg_source: stored.bytes,
-        })
+        )
+        .await
+        .map_err(|error| match error {
+            QuestionSourceResolutionError::ObjectStore(error) => {
+                WebworkAdapterError::ObjectStore(error)
+            }
+            QuestionSourceResolutionError::UntrustedObjectRecord => {
+                WebworkAdapterError::UntrustedSource
+            }
+        })?;
+        Ok(Self { resolved })
     }
 
     /// Immutable Source Object Reference carried into Question Attempt Reproduction Details.
     pub fn source_object_reference(&self) -> &SourceObjectReference {
-        &self.source_object_reference
+        self.resolved.source_object_reference()
     }
 
     /// SHA-256 evidence for the immutable source object bytes.
     pub fn source_object_checksum(&self) -> &SourceObjectChecksum {
-        &self.source_object_checksum
+        self.resolved.source_object_checksum()
+    }
+
+    /// Verified immutable PG source bytes for the renderer.
+    pub(super) fn pg_source(&self) -> &[u8] {
+        self.resolved.bytes()
     }
 }
 
@@ -74,9 +71,11 @@ pub(super) fn webwork_identity(
     }
 }
 
-pub(super) fn verify_source(source: &WebworkSource) -> Result<(), WebworkAdapterError> {
-    let actual = objects::Sha256Digest::compute(&source.pg_source).to_string();
-    if actual == source.source_object_checksum.as_str() {
+pub(super) fn verify_source(
+    source: &ResolvedWebworkQuestionSource,
+) -> Result<(), WebworkAdapterError> {
+    let actual = objects::Sha256Checksum::compute(source.pg_source()).to_string();
+    if actual == source.source_object_checksum().as_str() {
         Ok(())
     } else {
         Err(WebworkAdapterError::SourceChecksumMismatch)
@@ -84,10 +83,10 @@ pub(super) fn verify_source(source: &WebworkSource) -> Result<(), WebworkAdapter
 }
 
 pub(super) fn verify_source_binding(
-    source: &WebworkSource,
+    source: &ResolvedWebworkQuestionSource,
     question_revision: &QuestionRevisionReference,
 ) -> Result<(), WebworkAdapterError> {
-    if &source.question_revision == question_revision {
+    if source.resolved.question_revision() == question_revision {
         Ok(())
     } else {
         Err(WebworkAdapterError::SourceDoesNotMatchQuestion)

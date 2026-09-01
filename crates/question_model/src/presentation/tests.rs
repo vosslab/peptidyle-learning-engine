@@ -114,7 +114,7 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     let presentation = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
     let bytes = descriptor_bytes(&presentation).expect("descriptor");
-    let public = presentation.digest.public_token();
+    let public = presentation.checksum.public_token();
 
     assert!(bytes.starts_with(b"ple:presentation:v1\0\x01"));
     assert_eq!(
@@ -122,13 +122,19 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
         QuestionPresentationNonce::from_bytes([0x11; 16])
     );
     assert_eq!(presentation.item_bindings.len(), 2);
+    assert!(
+        presentation
+            .item_bindings
+            .iter()
+            .all(|binding| binding.response_item_reference.is_some())
+    );
     assert_ne!(
         presentation.item_bindings[0].rendered,
         presentation.item_bindings[1].rendered
     );
     assert_eq!(presentation.item_bindings[0].rendered.as_str(), "fe11");
     assert_eq!(
-        presentation.digest.as_bytes(),
+        presentation.checksum.as_bytes(),
         [
             0x28, 0x33, 0x29, 0xc9, 0x8f, 0x30, 0xab, 0x41, 0xdd, 0x46, 0x65, 0x10, 0x3c, 0xed,
             0x2d, 0xf3, 0xca, 0xb5, 0xec, 0x4c, 0x07, 0xb1, 0xbd, 0xf1, 0x61, 0x3b, 0x8d, 0x30,
@@ -141,18 +147,24 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
             .expect("public JSON")
             .contains("amine")
     );
-    verify_question_presentation(&presentation, presentation.digest, &public)
+    verify_question_presentation(&presentation, presentation.checksum, &public)
         .expect("matching descriptor");
     let public_rebuild = rebuild_public_question_presentation(&presentation.presentation, &[])
         .expect("public presentation should reproduce the server descriptor");
-    assert_eq!(public_rebuild.digest, presentation.digest);
+    assert_eq!(public_rebuild.checksum, presentation.checksum);
+    assert!(
+        public_rebuild
+            .item_bindings
+            .iter()
+            .all(|binding| binding.response_item_reference.is_none())
+    );
 
     let mut changed = fixture();
     changed.title.push('!');
     let mut changed_source = Nonces::new([[0x11; 16]]);
     let changed = build_question_presentation_with_nonce_source(&changed, &[], &mut changed_source)
         .expect("changed presentation");
-    assert_ne!(presentation.digest, changed.digest);
+    assert_ne!(presentation.checksum, changed.checksum);
 }
 
 #[test]
@@ -205,19 +217,19 @@ fn public_json_uses_rendered_ids_and_schema_kind_only() {
 }
 
 #[test]
-fn persisted_binding_is_strict_and_round_trips_full_digest() {
+fn persisted_binding_is_strict_and_round_trips_full_checksum() {
     let mut source = Nonces::new([[5; 16]]);
     let presentation = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("valid presentation");
     let binding = QuestionPresentationBinding::new(
         presentation.presentation.presentation_nonce,
-        presentation.digest,
+        presentation.checksum,
     );
     let json = serde_json::to_value(binding).expect("binding JSON");
 
     assert_eq!(json["descriptorVersion"], 1);
     assert_eq!(json["nonce"].as_str().expect("nonce").len(), 32);
-    assert_eq!(json["digest"].as_str().expect("digest").len(), 64);
+    assert_eq!(json["checksum"].as_str().expect("checksum").len(), 64);
     assert_eq!(
         serde_json::from_value::<QuestionPresentationBinding>(json.clone()).expect("binding"),
         binding

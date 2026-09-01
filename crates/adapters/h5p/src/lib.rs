@@ -10,6 +10,6 @@ pub mod import;
 
 pub use import::{
     ArchivedH5pPackage, H5pArchiveError, H5pArchiveResolver, H5pChoice, H5pImportError,
-    H5pImportRequest, H5pImporter, H5pSourceIdentity, H5pSourceReference, H5pUnsupportedFeature,
-    IMPORT_SCHEMA_VERSION, ImportedH5pQuestion,
+    H5pImportRequest, H5pImporter, H5pPackageImportFingerprint, H5pPackageImportReference,
+    H5pUnsupportedFeature, IMPORT_SCHEMA_VERSION, ImportedH5pQuestion,
 };

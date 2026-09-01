@@ -124,7 +124,7 @@ export function gradebookQueryForFilter(
 
 /**
  * Parses the closed detail query. It is deliberately narrower than Gradebook search:
- * an inspected run can retain one operation origin, or no extra context at all.
+ * an inspected Assignment Attempt can retain one operation origin, or no extra context at all.
  */
 export function parseInspectedStudentWorkRouteSearch(
   value: string | URLSearchParams,
@@ -165,9 +165,11 @@ function checkedMembership(value: CourseMembershipReference): CourseMembershipRo
   return result;
 }
 
-function checkedRun(value: AssignmentAttemptReference): AssignmentAttemptRouteReference {
+function checkedAssignmentAttempt(
+  value: AssignmentAttemptReference,
+): AssignmentAttemptRouteReference {
   const result = parseAssignmentAttemptReference(value);
-  if (result === null) throw new Error("invalid public run reference");
+  if (result === null) throw new Error("invalid public Assignment Attempt reference");
   return result;
 }
 
@@ -263,13 +265,13 @@ export function inspectedStudentWorkUrl(
   course: CourseInstanceReference,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: AssignmentAttemptReference,
+  assignmentAttempt: AssignmentAttemptReference,
   operation?: InstructorGradingOperationReference,
 ): string {
   const checkedCourseInstanceReference = checkedCourse(course);
   const checkedMembershipReference = checkedMembership(membership);
   const checkedAssignmentReference = checkedAssignment(assignment);
-  const checkedAssignmentAttemptReference = checkedRun(run);
+  const checkedAssignmentAttemptReference = checkedAssignmentAttempt(assignmentAttempt);
   const path = `/instructor/courses/${checkedCourseInstanceReference}/gradebook/students/${checkedMembershipReference}/assignments/${checkedAssignmentReference}/assignment-attempts/${checkedAssignmentAttemptReference}`;
   if (operation === undefined) return path;
   const operationReference = decodeInstructorGradingOperationReference(operation);

@@ -3,13 +3,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActivityTimestamp, AssignmentActivityRules, AssignmentDeadlineRule,
-    AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
-    AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord, AssignmentReference,
-    AssignmentScoringState, AssignmentTitle, CourseId, CourseInstanceReference, CourseTimeZone,
-    LateWorkRule, QuestionBackend, QuestionBackendCapabilities, QuestionId,
-    QuestionPoolItemAvailability, QuestionPoolItemId, QuestionPoolSelectionRule,
-    QuestionVariationRule, StudentFeedbackReleaseRule, StudentRecordId,
+    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryAvailability,
+    AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId, AssignmentInstructions,
+    AssignmentPointValue, AssignmentProgressRecord, AssignmentQuestionVariationRule,
+    AssignmentReference, AssignmentScoringState, AssignmentTitle, CourseId,
+    CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionBackend,
+    QuestionBackendCapabilities, QuestionId, QuestionPoolItemAvailability, QuestionPoolItemId,
+    QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -41,7 +41,7 @@ pub struct CourseSummary {
     pub role: CourseMembershipRole,
 }
 
-/// Browser-safe assignment definition.
+/// Browser-safe Assignment Content.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FixedQuestionAssignmentEntrySummary {
@@ -115,7 +115,7 @@ pub enum AssignmentEntrySummary {
     QuestionPool(QuestionPoolAssignmentEntrySummary),
 }
 
-/// Browser-safe assignment definition.
+/// Browser-safe Assignment Content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentSummary {
@@ -127,7 +127,7 @@ pub struct AssignmentSummary {
     pub course_id: CourseId,
     /// Human-facing assignment title.
     pub title: AssignmentTitle,
-    /// Ordered complete Assignment Entry definition.
+    /// Ordered complete Assignment Content Entry.
     pub entries: Vec<AssignmentEntrySummary>,
     /// Assignment-owned student-facing disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
@@ -139,7 +139,7 @@ pub struct AssignmentSummary {
 ///
 /// The ordinary student detail and an Instructor's stable-identity Student
 /// view use distinct envelopes, but they describe the same landing material.
-/// Routes build this projection once from the authoritative definition and
+/// Routes build this projection once from the authoritative Assignment Content and
 /// then use their role-appropriate envelope constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -155,12 +155,12 @@ pub struct AssignmentOverview {
     /// Student-visible Question Pool Reuse Rule.
     pub question_pool_reuse_rule: crate::QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
-    pub question_variation_rule: QuestionVariationRule,
+    pub question_variation_rule: AssignmentQuestionVariationRule,
     /// Student-visible disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
-/// Student-safe assignment definition.
+/// Student-safe Assignment Content.
 ///
 /// This projection deliberately omits course identities, run and
 /// disclosure policy, and other server authority inputs. Student routes use
@@ -196,11 +196,11 @@ pub enum StudentLateWorkStatus {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentAssignmentDelivery {
     /// Resolved first instant at which the assignment may be opened.
-    pub available_at: Option<ActivityTimestamp>,
+    pub available_at: Option<Timestamp>,
     /// Resolved ordinary due instant.
-    pub due_at: Option<ActivityTimestamp>,
+    pub due_at: Option<Timestamp>,
     /// Resolved hard instant after which new work closes.
-    pub closes_at: Option<ActivityTimestamp>,
+    pub closes_at: Option<Timestamp>,
     /// Resolved whole-run time limit when one applies.
     pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
     /// Resolved maximum number of runs when one applies.
@@ -233,7 +233,7 @@ pub struct StudentAssignmentDetail {
     pub time_zone: CourseTimeZone,
     /// Server-resolved delivery limits for this Student.
     pub delivery: StudentAssignmentDelivery,
-    /// Ordered complete Assignment Entry definition.
+    /// Ordered complete Assignment Content Entry.
     pub entries: Vec<AssignmentEntrySummary>,
 }
 
@@ -248,7 +248,7 @@ impl From<AssignmentSummary> for StudentAssignmentLandingSummary {
 }
 
 impl StudentAssignmentDetail {
-    /// Adds Student identity, resolved delivery, and the question-definition
+    /// Adds Student identity, resolved delivery, and the Question Content
     /// envelope to the shared answer-free landing presentation.
     pub fn from_landing(
         assignment: AssignmentSummary,
@@ -296,7 +296,7 @@ mod tests {
     use super::*;
     use crate::{
         AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule, AssignmentCompletionRule,
-        QuestionVariationRule,
+        AssignmentQuestionVariationRule,
     };
     use uuid::Uuid;
 
@@ -329,7 +329,7 @@ mod tests {
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: QuestionVariationRule::NewVariation,
+                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         };
@@ -355,7 +355,7 @@ mod tests {
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: QuestionVariationRule::NewVariation,
+                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         });
@@ -378,7 +378,7 @@ mod tests {
                 assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
                 assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: QuestionVariationRule::NewVariation,
+                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
                 ..AssignmentActivityRules::default()
             },
         };
@@ -391,13 +391,13 @@ mod tests {
                 time_zone: CourseTimeZone::parse("America/Chicago").expect("known zone"),
                 questions_per_run: 0,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: QuestionVariationRule::NewVariation,
+                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
             StudentAssignmentDelivery {
-                available_at: Some(ActivityTimestamp::from_unix_millis(1_000)),
-                due_at: Some(ActivityTimestamp::from_unix_millis(2_000)),
-                closes_at: Some(ActivityTimestamp::from_unix_millis(3_000)),
+                available_at: Some(Timestamp::from_unix_millis(1_000)),
+                due_at: Some(Timestamp::from_unix_millis(2_000)),
+                closes_at: Some(Timestamp::from_unix_millis(3_000)),
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::MarkLate,

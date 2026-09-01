@@ -117,7 +117,7 @@ Those aggregates apply the Question Statistics disclosure threshold and contain 
 grading payload, or private source.
 
 Assignments in a Blueprint Course and Course Instance remain pinned to their exact published Question ID and hidden
-exact version evidence until an Instructor explicitly adopts a controlled update. No assignment silently resolves the
+exact version evidence until an Instructor explicitly applies a Blueprint update. No assignment silently resolves the
 latest version, and a watched update does not alter existing Course Instance or Student work.
 
 ## Instructor perspective
@@ -127,7 +127,7 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Create courses.
 - Create assignments.
 - Create problems.
-- Use the Question Library to browse All Questions available to approved Instructors,
+- Use the Question Library to browse All Questions available to active Instructors,
   inspect Question Details and safe Question Statistics, save Question Searches, organize Question Folders, and select a Question for an
   assignment. Keep each unpublished Question in My Question Drafts until publication succeeds.
 - Star and watch a published question, confirm the vetted-Instructor star count and identities on its detail, and
@@ -172,8 +172,8 @@ The API retains grading and answer material on the server, and Student status,
 operation responses, and receipts do not contain answers, feedback internals,
 grading source, or score values.
 
-Instructors invite already-approved colleagues into their own teaching course. Sysadmins own global
-Instructor approval; an invitation grants only the accepted course membership.
+Instructors invite Active Instructor Accounts into their own teaching course. Sysadmins perform
+Instructor Vetting before Account Creation; an invitation grants only the accepted course membership.
 
 The current live-demo acceptance uses the seeded Elena Instructor through direct role entry. Passkey
 enrollment and reauthentication remain required follow-on acceptance once their fresh adapters are
@@ -247,11 +247,11 @@ global account identities; they are not PLE roles, course memberships, or author
 
 Selecting a seeded persona replaces only the normal identity-verification ceremony. The selector supplies only a
 known closed persona key. The server resolves the configured global Account, creates the ordinary Authenticated Session,
-and applies exact Course Membership, Student Record, Approved Instructor, and other authorization predicates from live
+and applies exact Course Membership, Student Record, Active Instructor, and other authorization predicates from live
 PLE state. The selector does not supply or grant a
 browser-controlled role, course, membership, or account claim.
 
-The browser selects only a known demo persona. Account identity, Instructor approval, exact course membership,
+The browser selects only a known demo persona. Account identity, Account State, exact course membership,
 Student ownership, Question Library visibility, and authorization continue to be derived by the server from normal PLE
 state.
 

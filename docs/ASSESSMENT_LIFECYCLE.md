@@ -108,14 +108,15 @@ checksum. The publication authorization and object rules are in
 
 ### 4. Build an assignment from versions
 
-An assignment stores ordered references to published versions, alongside its
-completion, grade, continued-practice, Question Variation Rule, disclosure, and one
-revisioned teaching-settings aggregate. New assignments are Draft. The
-instructor explicitly publishes the aggregate after setting instructions,
-availability/due/close, whole-run and attempt limits, late behavior, and
-deadline behavior. Course-local input is resolved by the server through the
-stored IANA zone; only the resulting absolute base policy is durable. These
-policies are intentionally independent in the domain model.
+An Assignment stores ordered references to Published Question Revisions,
+completion, grade, continued-practice, Question Variation Rule, disclosure, and
+its exact authored content and policies. New Assignments are Unreleased. The
+Instructor explicitly releases an Assignment after setting instructions,
+availability/due/close, whole-Assignment-Attempt and Question Attempt limits,
+late behavior, and deadline behavior. Course-local input is resolved by the
+server through the stored IANA zone; only the resulting absolute Base Assignment
+Policy is durable. These policies are intentionally independent in the domain
+model.
 The instructor UI can present teaching-oriented assignment types while storing
 their explicit policy values.
 
@@ -129,8 +130,9 @@ interchangeable.
 
 The server starts the initial run or resumes the one active run that belongs to
 the enrollment only after current S5 entitlement and S3 resolution. Stored
-Published lifecycle is the sole open G1 state; Draft, Closed, and Archived do
-not start student work. It assigns server timestamps, one-based run number, and
+Released Assignment Status is the sole Student-accessible G1 state; Unreleased,
+Closed, and Archived Assignments do not start Student work. It assigns server
+timestamps, one-based Assignment Attempt number, and
 the Question Variation Rule actually used. Completion is derived from attempt states;
 it is not a mutable Boolean that can disagree with the attempt history. Attempt
 limits count completed runs, so the final allowed active run remains resumable
@@ -171,7 +173,7 @@ upstream fields, storage locations, and grader state.
 
 An attempt-specific presentation binding protects against a valid but wrong
 render being submitted for the wrong attempt. Each selectable object has a
-small rendered-item ID; the full public descriptor has a presentation digest.
+small rendered-item ID; the full public descriptor has a presentation checksum.
 The digest is a consistency check, not an authentication mechanism or transport
 checksum. The exact wire contract, CRC16 collision rule, readiness requirement,
 and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
@@ -196,7 +198,7 @@ advance a run.
 ### 9. Submit the minimal response
 
 At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the presentation digest and a family-minimal answer;
+The request supplies only the presentation checksum and a Question-Type-minimal answer;
 a bounded idempotency key is in the request header. The server loads the
 authoritative attempt and therefore derives response shape, question revision,
 seed, assignment, backend, deadline, and student ownership rather than
@@ -217,7 +219,7 @@ correctness, component credit, partial-credit computation, and score selection
 stay server-side. The browser never submits a score, component weight, answer
 key, or correctness assertion for ordinary grading. The current tagged
 `StudentResponse` route accepts `kind`, but derives and validates the
-expected family from the issued attempt; it is not submission authority.
+expected Question Type from the issued attempt; it is not submission authority.
 
 Acceptance first commits the validated response, immutable issued-work witness,
 pending evaluation, execution record, and ready grading job as one transaction.
@@ -265,13 +267,13 @@ the same source format.
 
 | Question Backend | Publication authority                                                     | Render authority                                                | Grade authority                                      | Important recovery rule                                                                                                                                  |
 | ---------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key | PLE public renderer                                             | PLE Question Grader                                  | First grade uses the issued checksummed snapshot, private envelope, and flat grading contract; it never reloads a current published Question/grader view |
+| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key | PLE public renderer                                             | PLE Question Grader                                  | First grade uses the issued checksummed snapshot, private envelope, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
 | QTI           | PLE stages, reports, reviews, and promotes a supported profile atomically | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled       | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                 |
 | WeBWorK       | PLE copies licensed PG/PGML source and provenance into immutable storage  | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender            |
 | External tool | PLE publishes an answer-free marker plus trusted broker configuration     | Provider launch/session is server-mediated                      | Provider or broker under a separate trusted exchange | Generic attempt records carry no provider token, raw answer, or provider score                                                                           |
 
-Native flat questions use PLE's public `QuestionRevision` plus separate
-grader-only material. The exact flat authoring format is
+PLE Question JSON Questions use PLE's public `QuestionRevision` plus separate
+grader-only material. The exact PLE Question JSON authoring format is
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
 runtime model.
 
@@ -338,7 +340,7 @@ Use this lifecycle document to find the right detailed contract:
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
   timing, idempotency, completion, and summary projection.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
-  rendered IDs, presentation digest, minimal response, receipt, and prefetch.
+  rendered IDs, presentation checksum, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, run, asset, and retention security boundaries.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed Object Addresses, bucket roles,

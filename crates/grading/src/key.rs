@@ -51,7 +51,7 @@ pub enum AnswerKey {
         /// Expected identifiers from first to last.
         correct: Vec<ResponseItemReference>,
     },
-    /// Correct candidate regions on a hotspot surface.
+    /// Correct Hotspot Regions on a hotspot surface.
     Hotspot {
         /// Exact correct region set; geometry remains in the public definition.
         correct: BTreeSet<ResponseItemReference>,

@@ -172,7 +172,7 @@
   font-size: 0.8rem;
 }
 
-.gradebook-run-chooser {
+.gradebook-assignment-attempt-chooser {
   inline-size: min(42rem, calc(100vw - 2rem));
   max-block-size: min(42rem, calc(100vh - 2rem));
   overflow: auto;
@@ -184,11 +184,11 @@
   box-shadow: var(--ple-shadow);
 }
 
-.gradebook-run-chooser::backdrop {
+.gradebook-assignment-attempt-chooser::backdrop {
   background: color-mix(in srgb, var(--ple-ink) 38%, transparent);
 }
 
-.gradebook-run-choice-list {
+.gradebook-assignment-attempt-choice-list {
   display: grid;
   gap: 0.7rem;
   margin: 1rem 0;
@@ -196,7 +196,7 @@
   list-style: none;
 }
 
-.gradebook-run-choice-list li {
+.gradebook-assignment-attempt-choice-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -207,7 +207,7 @@
   background: var(--ple-surface-soft);
 }
 
-.gradebook-run-choice-list li > div {
+.gradebook-assignment-attempt-choice-list li > div {
   display: grid;
   gap: 0.2rem;
 }
@@ -218,7 +218,7 @@
 }
 
 @media (max-width: 48rem) {
-  .gradebook-run-choice-list li {
+  .gradebook-assignment-attempt-choice-list li {
     align-items: stretch;
     flex-direction: column;
   }

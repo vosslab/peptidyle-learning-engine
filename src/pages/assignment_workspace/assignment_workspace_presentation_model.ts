@@ -1,8 +1,8 @@
 // assignment_workspace_presentation_model.ts - Student-accessible state language for policies.
 
-import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
+import type { InstructorAssignmentAvailabilityView } from "../../../generated/api/InstructorAssignmentAvailabilityView";
 import type { AssignmentStatus } from "../../../generated/api/AssignmentStatus";
-import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
+import type { InstructorAssignmentAuthoredContentLocal } from "../../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
@@ -31,11 +31,11 @@ export interface AssignmentPolicySummaryItem {
 
 export interface AssignmentPolicyDraftSummaryInput {
   readonly assignmentStatus: AssignmentStatus;
-  readonly savedCurrentState: InstructorAssignmentCurrentState;
+  readonly savedAssignmentAvailability: InstructorAssignmentAvailabilityView;
   readonly policies: AssignmentActivityRules;
   readonly activityRuleDraft: AssignmentActivityRuleDraft;
   readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
-  readonly assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal;
+  readonly assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal;
   readonly assignmentAttemptTimeLimitSecondsDraft: string;
   readonly attemptLimitDraft: string;
 }
@@ -45,17 +45,17 @@ function displayCourseLocalTime(value: string): string {
 }
 
 /** Explains the current student-access state without exposing an implementation detail. */
-export function assignmentCurrentStateCopy(
+export function assignmentAvailabilityCopy(
   status: AssignmentStatus,
-  current: InstructorAssignmentCurrentState,
+  current: InstructorAssignmentAvailabilityView,
   timeZone: string,
 ): string {
-  if (current.state === "draft") return "Draft. Students cannot access this assignment.";
+  if (current.state === "unreleased") return "Unreleased. Students cannot access this assignment.";
   if (current.state === "archived") return "Archived. Students cannot access this assignment.";
   if (current.state === "scheduled") {
     return `Released, scheduled to open at ${displayCourseLocalTime(current.availableAt)} ${timeZone}.`;
   }
-  if (current.state === "open") return "Released, open now.";
+  if (current.state === "available") return "Released, available now.";
   if (status === "released" && current.closedAt !== null) {
     return `Released, closed since ${displayCourseLocalTime(current.closedAt)} ${timeZone}.`;
   }
@@ -109,7 +109,7 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
 }
 
 function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string {
-  const assignmentWorkingCopyDefinition = input.assignmentWorkingCopyDefinition;
+  const assignmentAuthoredContent = input.assignmentAuthoredContent;
   const timeLimit = optionalPositiveIntegerDraft(input.assignmentAttemptTimeLimitSecondsDraft);
   const attempts = optionalPositiveIntegerDraft(input.attemptLimitDraft);
   const timeLimitCopy = !timeLimit.valid
@@ -123,16 +123,16 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
       ? "unlimited attempts"
       : `${attempts.value} attempt${attempts.value === 1 ? "" : "s"}`;
   const lateCopy =
-    assignmentWorkingCopyDefinition.lateWorkRule === "accept"
+    assignmentAuthoredContent.lateWorkRule === "accept"
       ? "late work accepted"
-      : assignmentWorkingCopyDefinition.lateWorkRule === "markLate"
+      : assignmentAuthoredContent.lateWorkRule === "markLate"
         ? "late work accepted and marked"
         : "late work rejected";
   return [
-    `Course time zone ${assignmentWorkingCopyDefinition.timeZone}`,
-    `Available ${assignmentWorkingCopyDefinition.availableAt === null ? "now" : displayCourseLocalTime(assignmentWorkingCopyDefinition.availableAt)}`,
-    `due ${assignmentWorkingCopyDefinition.dueAt === null ? "not set" : displayCourseLocalTime(assignmentWorkingCopyDefinition.dueAt)}`,
-    `closes ${assignmentWorkingCopyDefinition.closesAt === null ? "not set" : displayCourseLocalTime(assignmentWorkingCopyDefinition.closesAt)}`,
+    `Course time zone ${assignmentAuthoredContent.timeZone}`,
+    `Available ${assignmentAuthoredContent.availableAt === null ? "now" : displayCourseLocalTime(assignmentAuthoredContent.availableAt)}`,
+    `due ${assignmentAuthoredContent.dueAt === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.dueAt)}`,
+    `closes ${assignmentAuthoredContent.closesAt === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.closesAt)}`,
     timeLimitCopy,
     attemptCopy,
     lateCopy,
@@ -168,10 +168,10 @@ export function assignmentPolicyDraftSummary(
     {
       key: "savedDelivery",
       label: "Current saved delivery",
-      value: assignmentCurrentStateCopy(
+      value: assignmentAvailabilityCopy(
         input.assignmentStatus,
-        input.savedCurrentState,
-        input.assignmentWorkingCopyDefinition.timeZone,
+        input.savedAssignmentAvailability,
+        input.assignmentAuthoredContent.timeZone,
       ),
     },
     {
@@ -207,11 +207,11 @@ export function assignmentPolicyDraftSummary(
     {
       key: "assignmentStatus",
       label: "Assignment status",
-      value: `${status[input.assignmentStatus]}; ${input.assignmentWorkingCopyDefinition.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
+      value: `${status[input.assignmentStatus]}; ${input.assignmentAuthoredContent.instructions.trim() === "" ? "no Student instructions" : "Student instructions included"}`,
     },
     {
       key: "scheduleLimits",
-      label: "Working Copy schedule and limits",
+      label: "Assignment schedule and limits",
       value: scheduleLimitsSummary(input),
     },
   ];

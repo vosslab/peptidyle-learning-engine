@@ -16,9 +16,11 @@ use question_model::ObjectId;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::definition::{QuestionBackendLocator, QuestionGradingRule, QuestionMetadata};
 use question_model::envelope::QuestionContentBlock;
-use question_model::generation::QuestionVariationDefinition;
+use question_model::generation::QuestionVariationRule;
+use question_model::question_content::{
+    QuestionBackendLocator, QuestionGradingRule, QuestionMetadata,
+};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
 
@@ -31,14 +33,14 @@ pub const IMPORT_SCHEMA_VERSION: u16 = 2;
 /// explicit importer.
 pub const MULTI_CHOICE_CONTENT_TYPE: &str = "H5P.MultiChoice";
 
-/// Provenance and archival identity for an H5P package.
+/// Archival identity and trusted import location for an H5P package.
 ///
 /// The object-store package is authoritative for re-import. The remote
-/// reference is provenance only and is intentionally kept out of the
+/// reference is import-location metadata only and is intentionally kept out of the
 /// browser-safe [`QuestionBackendLocator`].
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct H5pSourceReference {
+pub struct H5pPackageImportReference {
     /// H5P library name, such as `H5P.MultiChoice`.
     pub content_type: String,
     /// Original remote package reference supplied by the trusted importer.
@@ -51,7 +53,7 @@ pub struct H5pSourceReference {
     /// Immutable object-store record for the exact package bytes.
     ///
     /// This is mandatory for an accepted import. A mutable remote URL is
-    /// provenance only: the publication worker must be able to retrieve these
+    /// import-location metadata only: the publication worker must be able to retrieve these
     /// bytes after the remote host changes or disappears. Remote-only content
     /// may be displayed as a degraded draft preview, but cannot become an
     /// `ImportedH5pQuestion` or enter publication.
@@ -97,7 +99,7 @@ impl std::error::Error for H5pArchiveError {}
 ///
 /// The worker or storage layer implements this trait with object storage. It
 /// must resolve the same immutable object record, never fetch the mutable
-/// remote URL in [`H5pSourceReference`].
+/// remote URL in [`H5pPackageImportReference`].
 #[async_trait]
 pub trait H5pArchiveResolver: Send + Sync {
     /// Retrieves exactly the requested archival object.
@@ -114,9 +116,9 @@ pub trait H5pArchiveResolver: Send + Sync {
 /// separator appearing in a URI or content type.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
-pub struct H5pSourceIdentity(String);
+pub struct H5pPackageImportFingerprint(String);
 
-impl H5pSourceIdentity {
+impl H5pPackageImportFingerprint {
     /// Returns the hexadecimal SHA-256 source identity.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -164,8 +166,8 @@ pub struct H5pUnsupportedFeature {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct H5pImportRequest {
-    /// Remote source retained for deterministic re-import.
-    pub source: H5pSourceReference,
+    /// Archived package import retained for deterministic re-import.
+    pub package_import: H5pPackageImportReference,
     /// Browser-safe Question Library metadata.
     pub metadata: QuestionMetadata,
     /// Prompt in restricted Markdown.
@@ -195,8 +197,8 @@ pub struct H5pImportRequest {
 pub struct ImportedH5pQuestion {
     /// Version of the internal record shape used for this import.
     pub import_schema_version: u16,
-    /// Authoritative source record retained for re-import and provenance.
-    pub source_reference: H5pSourceReference,
+    /// Authoritative archived H5P package reference retained for re-import.
+    pub package_import: H5pPackageImportReference,
     /// The Question Backend source safe for downstream adapter dispatch.
     pub backend_locator: QuestionBackendLocator,
     /// Prompt ready for the browser-safe renderer.
@@ -208,13 +210,13 @@ pub struct ImportedH5pQuestion {
     /// The only timing policy currently supported by the adapter.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// H5P imports are static until a server-owned generator is selected.
-    pub question_variation_definition: QuestionVariationDefinition,
+    pub question_variation_rule: QuestionVariationRule,
     /// Always `Ungraded` for native H5P practice.
     pub grading: QuestionGradingRule,
     /// Browser-safe title, Question Classification, and licensing metadata.
     pub metadata: QuestionMetadata,
     /// Deterministic identity of the exact source package and reference.
-    pub source_identity: H5pSourceIdentity,
+    pub package_import_fingerprint: H5pPackageImportFingerprint,
 }
 
 /// H5P adapter boundary.  It advertises only capabilities that this adapter
@@ -239,9 +241,11 @@ impl H5pImporter {
     /// Fails closed for unsupported content types, malformed source identity
     /// inputs, unsupported timing, and invalid multiple-choice structure.
     pub fn import(&self, request: H5pImportRequest) -> Result<ImportedH5pQuestion, H5pImportError> {
-        let source = canonicalize_source(request.source)?;
-        if source.content_type != MULTI_CHOICE_CONTENT_TYPE {
-            return Err(H5pImportError::UnsupportedContentType(source.content_type));
+        let package_import = canonicalize_package_import(request.package_import)?;
+        if package_import.content_type != MULTI_CHOICE_CONTENT_TYPE {
+            return Err(H5pImportError::UnsupportedContentType(
+                package_import.content_type,
+            ));
         }
         if !request.unsupported_features.is_empty() {
             return Err(H5pImportError::UnsupportedFeatures(
@@ -259,12 +263,12 @@ impl H5pImporter {
         }
 
         let choices = normalize_choices(request.choices)?;
-        let source_identity = source_identity(&source);
+        let package_import_fingerprint = package_import_fingerprint(&package_import);
         Ok(ImportedH5pQuestion {
             import_schema_version: IMPORT_SCHEMA_VERSION,
-            source_reference: source.clone(),
+            package_import: package_import.clone(),
             backend_locator: QuestionBackendLocator::H5p {
-                content_type: source.content_type,
+                content_type: package_import.content_type,
             },
             prompt: vec![QuestionContentBlock::Text {
                 markdown: request.prompt_markdown,
@@ -275,10 +279,10 @@ impl H5pImporter {
             },
             question_attempt_limit: request.question_attempt_limit,
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_definition: QuestionVariationDefinition::Static,
+            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::Ungraded,
             metadata: request.metadata,
-            source_identity,
+            package_import_fingerprint,
         })
     }
 
@@ -298,37 +302,37 @@ impl H5pImporter {
     pub async fn reimport_from_archive<R, P>(
         &self,
         resolver: &R,
-        source: H5pSourceReference,
+        package_import: H5pPackageImportReference,
         parse_verified_package: P,
     ) -> Result<ImportedH5pQuestion, H5pImportError>
     where
         R: H5pArchiveResolver + ?Sized,
-        P: FnOnce(&[u8], H5pSourceReference) -> Result<H5pImportRequest, H5pImportError>,
+        P: FnOnce(&[u8], H5pPackageImportReference) -> Result<H5pImportRequest, H5pImportError>,
     {
-        let source = canonicalize_source(source)?;
+        let package_import = canonicalize_package_import(package_import)?;
         let archived = resolver
-            .get_archived_h5p(source.stored_package_object)
+            .get_archived_h5p(package_import.stored_package_object)
             .await
             .map_err(H5pImportError::Archive)?;
-        if archived.object != source.stored_package_object {
+        if archived.object != package_import.stored_package_object {
             return Err(H5pImportError::ArchiveObjectMismatch {
-                expected: source.stored_package_object,
+                expected: package_import.stored_package_object,
                 actual: archived.object,
             });
         }
 
         let actual_sha256 = sha256_hex(&archived.bytes);
-        if actual_sha256 != source.package_sha256 {
+        if actual_sha256 != package_import.package_sha256 {
             return Err(H5pImportError::ArchiveChecksumMismatch {
-                expected: source.package_sha256,
+                expected: package_import.package_sha256,
                 actual: actual_sha256,
             });
         }
 
-        let request = parse_verified_package(&archived.bytes, source.clone())?;
-        let parsed_source = canonicalize_source(request.source.clone())?;
-        if parsed_source != source {
-            return Err(H5pImportError::ReimportSourceMismatch);
+        let request = parse_verified_package(&archived.bytes, package_import.clone())?;
+        let parsed_package_import = canonicalize_package_import(request.package_import.clone())?;
+        if parsed_package_import != package_import {
+            return Err(H5pImportError::ReimportPackageImportMismatch);
         }
         self.import(request)
     }
@@ -341,21 +345,21 @@ pub enum H5pImportError {
     Archive(H5pArchiveError),
     /// A resolver returned a different object than the one requested.
     ArchiveObjectMismatch {
-        /// Immutable object identity retained by the source record.
+        /// Immutable object identity retained by the archived H5P package reference.
         expected: ObjectId,
         /// Object identity returned by the resolver.
         actual: ObjectId,
     },
     /// Retrieved bytes differ from the canonical package checksum retained by
-    /// the source record.
+    /// the archived H5P package reference.
     ArchiveChecksumMismatch {
         /// Canonical SHA-256 retained at accepted import.
         expected: String,
         /// Canonical SHA-256 recomputed from the retrieved archive bytes.
         actual: String,
     },
-    /// A re-import parser attempted to substitute a different source record.
-    ReimportSourceMismatch,
+    /// A re-import parser attempted to substitute a different archived H5P package.
+    ReimportPackageImportMismatch,
     /// The external package reference was absent or whitespace-only.
     EmptyRemotePackageReference,
     /// The package checksum was missing or was not a SHA-256 hexadecimal digest.
@@ -396,7 +400,7 @@ impl fmt::Display for H5pImportError {
                 formatter,
                 "archived H5P checksum mismatch: expected `{expected}`, got `{actual}`; preserve the original package and investigate storage integrity"
             ),
-            Self::ReimportSourceMismatch => write!(
+            Self::ReimportPackageImportMismatch => write!(
                 formatter,
                 "H5P re-import parser did not retain the verified archival source"
             ),
@@ -439,17 +443,17 @@ impl fmt::Display for H5pImportError {
 
 impl std::error::Error for H5pImportError {}
 
-fn canonicalize_source(
-    mut source: H5pSourceReference,
-) -> Result<H5pSourceReference, H5pImportError> {
-    if source.content_type.trim().is_empty() {
+fn canonicalize_package_import(
+    mut package_import: H5pPackageImportReference,
+) -> Result<H5pPackageImportReference, H5pImportError> {
+    if package_import.content_type.trim().is_empty() {
         return Err(H5pImportError::EmptyContentType);
     }
-    if source.remote_package_reference.trim().is_empty() {
+    if package_import.remote_package_reference.trim().is_empty() {
         return Err(H5pImportError::EmptyRemotePackageReference);
     }
-    if source.package_sha256.len() != 64
-        || !source
+    if package_import.package_sha256.len() != 64
+        || !package_import
             .package_sha256
             .as_bytes()
             .iter()
@@ -457,22 +461,24 @@ fn canonicalize_source(
     {
         return Err(H5pImportError::InvalidPackageSha256);
     }
-    source.package_sha256.make_ascii_lowercase();
-    Ok(source)
+    package_import.package_sha256.make_ascii_lowercase();
+    Ok(package_import)
 }
 
-fn source_identity(source: &H5pSourceReference) -> H5pSourceIdentity {
+fn package_import_fingerprint(
+    package_import: &H5pPackageImportReference,
+) -> H5pPackageImportFingerprint {
     let mut hasher = Sha256::new();
     hasher.update(b"ple-h5p-source-identity-v2");
     for value in [
-        &source.content_type,
-        &source.remote_package_reference,
-        &source.package_sha256,
+        &package_import.content_type,
+        &package_import.remote_package_reference,
+        &package_import.package_sha256,
     ] {
         hasher.update((value.len() as u64).to_be_bytes());
         hasher.update(value.as_bytes());
     }
-    let value = source.stored_package_object.to_string();
+    let value = package_import.stored_package_object.to_string();
     hasher.update((value.len() as u64).to_be_bytes());
     hasher.update(value.as_bytes());
     let digest = hasher.finalize();
@@ -482,7 +488,7 @@ fn source_identity(source: &H5pSourceReference) -> H5pSourceIdentity {
         hexadecimal.push(HEX[usize::from(byte >> 4)] as char);
         hexadecimal.push(HEX[usize::from(byte & 0x0f)] as char);
     }
-    H5pSourceIdentity(hexadecimal)
+    H5pPackageImportFingerprint(hexadecimal)
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -528,9 +534,9 @@ mod tests {
     use super::*;
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::capability::Capability;
-    use question_model::classification::License;
-    use question_model::definition::{QuestionBackendLocator, QuestionGradingRule};
+    use question_model::classification::QuestionLicense;
     use question_model::envelope::QuestionContentBlock;
+    use question_model::question_content::{QuestionBackendLocator, QuestionGradingRule};
     use uuid::Uuid;
 
     const ARCHIVE_BYTES: &[u8] = b"fixture h5p archive bytes";
@@ -551,7 +557,7 @@ mod tests {
 
     fn request() -> H5pImportRequest {
         H5pImportRequest {
-            source: H5pSourceReference {
+            package_import: H5pPackageImportReference {
                 content_type: MULTI_CHOICE_CONTENT_TYPE.to_string(),
                 remote_package_reference: "https://h5p.example.edu/content/peptide-bonds-1.h5p"
                     .to_string(),
@@ -561,9 +567,12 @@ mod tests {
             },
             metadata: QuestionMetadata {
                 title: "Peptide bonds practice".to_string(),
+                question_description: "Instructor-facing peptide-bond practice summary."
+                    .to_string(),
                 tags: Vec::new(),
                 classifications: Vec::new(),
-                license: License::CcBy,
+                question_license: Some(QuestionLicense::CcBy4_0),
+                question_citation: None,
                 language: "en-US".to_string(),
             },
             prompt_markdown: "Which linkage joins amino acids?".to_string(),
@@ -615,7 +624,7 @@ mod tests {
         );
         assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
-        assert_eq!(imported.source_reference, request().source);
+        assert_eq!(imported.package_import, request().package_import);
         assert_eq!(
             imported.question_attempt_time_limit,
             QuestionAttemptTimeLimit::Unlimited
@@ -634,35 +643,41 @@ mod tests {
     }
 
     #[test]
-    fn source_identity_is_deterministic_and_binds_exact_package_bytes() {
+    fn package_import_fingerprint_is_deterministic_and_binds_exact_package_bytes() {
         let importer = H5pImporter;
         let first = importer.import(request()).expect("first import");
         let repeat = importer.import(request()).expect("repeat import");
-        assert_eq!(first.source_identity, repeat.source_identity);
-        assert_eq!(first.source_identity.as_str().len(), 64);
+        assert_eq!(
+            first.package_import_fingerprint,
+            repeat.package_import_fingerprint
+        );
+        assert_eq!(first.package_import_fingerprint.as_str().len(), 64);
 
         let mut altered_bytes = request();
-        altered_bytes.source.package_sha256 =
+        altered_bytes.package_import.package_sha256 =
             "6af75b2ddb2dc6d40d11e1c184b10b2a695bc2ebf84b87d90b8c35f8a76d9dc5".to_string();
         let changed = importer
             .import(altered_bytes)
             .expect("same URL with different package bytes imports distinctly");
-        assert_ne!(first.source_identity, changed.source_identity);
+        assert_ne!(
+            first.package_import_fingerprint,
+            changed.package_import_fingerprint
+        );
     }
 
     #[test]
     fn accepted_import_requires_and_retains_the_ple_controlled_package_object() {
         let request = request();
-        let object = request.source.stored_package_object;
+        let object = request.package_import.stored_package_object;
         let imported = H5pImporter
             .import(request)
             .expect("stored H5P package imports");
-        assert_eq!(imported.source_reference.stored_package_object, object);
+        assert_eq!(imported.package_import.stored_package_object, object);
     }
 
     #[tokio::test]
     async fn reimport_retrieves_and_reverifies_the_archived_package_before_conversion() {
-        let source = request().source;
+        let source = request().package_import;
         let resolver = FixtureArchiveResolver {
             package: Some(ArchivedH5pPackage {
                 object: source.stored_package_object,
@@ -674,13 +689,13 @@ mod tests {
             .reimport_from_archive(&resolver, source.clone(), |bytes, verified_source| {
                 assert_eq!(bytes, ARCHIVE_BYTES);
                 let mut parsed = request();
-                parsed.source = verified_source;
+                parsed.package_import = verified_source;
                 Ok(parsed)
             })
             .await
             .expect("verified archive can be re-imported");
 
-        assert_eq!(imported.source_reference, source);
+        assert_eq!(imported.package_import, source);
         assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
     }
 
@@ -689,7 +704,7 @@ mod tests {
         let error = H5pImporter
             .reimport_from_archive(
                 &FixtureArchiveResolver { package: None },
-                request().source,
+                request().package_import,
                 |_bytes, _source| unreachable!("parser runs only after retrieval"),
             )
             .await
@@ -699,7 +714,7 @@ mod tests {
 
     #[tokio::test]
     async fn reimport_refuses_bytes_that_do_not_match_the_retained_checksum() {
-        let source = request().source;
+        let source = request().package_import;
         let error = H5pImporter
             .reimport_from_archive(
                 &FixtureArchiveResolver {
@@ -723,7 +738,7 @@ mod tests {
     #[test]
     fn unsupported_features_fail_explicitly_instead_of_being_silently_downgraded() {
         let mut unsupported_type = request();
-        unsupported_type.source.content_type = "H5P.DragText".to_string();
+        unsupported_type.package_import.content_type = "H5P.DragText".to_string();
         assert_eq!(
             H5pImporter.import(unsupported_type),
             Err(H5pImportError::UnsupportedContentType(
@@ -775,7 +790,7 @@ mod tests {
     #[test]
     fn malformed_package_checksum_is_rejected_with_a_recovery_action() {
         let mut malformed = request();
-        malformed.source.package_sha256 = "not-a-sha256".to_string();
+        malformed.package_import.package_sha256 = "not-a-sha256".to_string();
         let error = H5pImporter
             .import(malformed)
             .expect_err("checksum is a source-integrity boundary");

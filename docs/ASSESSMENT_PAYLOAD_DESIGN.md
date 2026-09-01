@@ -44,7 +44,7 @@ Browser                                      PLE
 
 The authenticated `QuestionAttemptId` in the route is the primary student-response binding. The
 server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
-`QuestionRevisionReference` plus seed before reading or mutating anything. A presentation digest checks that
+`QuestionRevisionReference` plus seed before reading or mutating anything. A presentation checksum checks that
 the browser answered the same render state PLE issued. Compact
 CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
 and Hotspot Regions within that presentation. Neither the digest nor CRC16 authenticates the student or proves
@@ -67,7 +67,7 @@ The protected read or write performs the relationship check and data operation i
 transaction.
 
 The attempt also carries a server-owned typed capability such as
-`IssuedAttemptCapability::FlatPresentation` or `WebworkPresentation`. Its matching private
+`IssuedAttemptCapability::PleQuestionJsonPresentation` or `WebworkPresentation`. Its matching private
 grading envelope, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
 `NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
 the same exact target from a locked typed lease. Provider metadata remains external protocol data
@@ -152,7 +152,8 @@ aggregate. Neither path reproduces a mutable issued envelope. Therefore the subm
 redundant. The attempt already determines the expected Question Type.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
-and its issued public snapshot Question Response Format, then select a closed, family-specific decoder for `answer`.
+and its issued public snapshot Question Response Format, then select a closed
+Question-Response-Format-specific decoder for `answer`.
 Unknown fields and shapes must continue to fail closed. Rich tagged Rust and TypeScript draft types
 may remain internal even though the public answer wire is type-free.
 
@@ -256,7 +257,7 @@ Every ordinary answer uses the same outer request:
 The attempt ID remains in the path and the idempotency key remains in the header. The server chooses
 the strict `answer` decoder from the attempt's issued Question Response Format.
 
-| Family            | Minimal `answer` representation                              |
+| Question Type     | Minimal `answer` representation                              |
 | ----------------- | ------------------------------------------------------------ |
 | Single choice     | `{ "selected": "4ef3" }`                                     |
 | Multiple answer   | `{ "selected": ["4ef3", "91c2"] }`                           |
@@ -358,7 +359,7 @@ it is compact and easy to inspect, not because it is collision-resistant or secr
 
 ## Presentation consistency
 
-### Whole-presentation digest
+### Whole-presentation checksum
 
 Fine-grained IDs say which rendered objects the student selected. A separate SHA-256 digest binds the
 complete public presentation:
@@ -380,7 +381,7 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 | Mechanism                         | Detects                                                                                                   | Does not prove                                                 |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
-| Presentation digest               | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
+| Presentation checksum             | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
 | Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                  | That the browser rendered every asset                          |
 | Idempotency record                | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
 
@@ -407,13 +408,13 @@ PLE must not silently issue a new seed, grade against the stale state, or discar
 repeatable mismatch after same-attempt refresh is a server defect or corrupt persisted binding and
 must fail closed for operator investigation.
 
-## Native flat grading
+## PLE Question JSON grading
 
-For PLE flat questions, PLE owns both immutable content and grading. The normal path is:
+For PLE Question JSON Questions, PLE owns both immutable content and grading. The normal path is:
 
 1. Load the authenticated active attempt.
-2. Load its checksummed issued flat grading contract, not a current published Question or grader view.
-3. Verify the stored and submitted presentation digest.
+2. Load its checksummed issued PLE Question JSON grading contract, not a current published Question or grader view.
+3. Verify the stored and submitted presentation checksum.
 4. Decode the type-free `answer` using the issued public Question Response Format.
 5. Map rendered IDs to durable internal IDs.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
@@ -504,7 +505,7 @@ need to submit the PLE Question Type. It computes partial credit server-side.
 
 ADAPT's simple multiple-choice answer can be one choice identifier, but some Question Types are more
 verbose than necessary. Matching submits complete mutated `termsToMatch` objects even though grading
-needs relationships between identifiers. No attempt ID, presentation digest, version token, or ETag
+needs relationships between identifiers. No attempt ID, presentation checksum, version token, or ETag
 was found on the inspected ADAPT submission boundary.
 
 ### ADAPT WeBWorK flow
@@ -528,7 +529,7 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | Partial credit      | Server computes it                                   | Preserve server-only scoring                             |
 | External context    | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE       |
 | Renderer result     | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt               |
-| Presentation check  | No ADAPT digest found                                | Bind the answer to a canonical PLE presentation digest   |
+| Presentation check  | No ADAPT digest found                                | Bind the answer to a canonical PLE presentation checksum |
 
 PLE should not copy ADAPT merely because ADAPT has more features. It should adopt the mature ideas
 that match PLE's goals and intentionally differ where an attempt-bound, server-mediated architecture
@@ -626,7 +627,7 @@ The security boundary is:
 - idempotency and atomic commit; and
 - server-only grading data and provider credentials.
 
-CRC16 and the presentation digest add useful consistency evidence. They do not replace any item in
+CRC16 and the presentation checksum add useful consistency evidence. They do not replace any item in
 that list. A malicious authenticated student can see every public choice and can submit any valid
 rendered ID; secrecy of distractor IDs is neither expected nor required. Correctness remains known
 only to the server-side grader.
@@ -668,7 +669,7 @@ easy to navigate without duplicating its exact migration and codec specification
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
-- Success: every family accepts its exact shape and rejects extras; exact replay returns the first
+- Success: each Question Type accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
   provenance crosses the active student route.
 - Validation: focused Axum and security tests, Question Type wire vectors, PLE regression, and independent
@@ -742,7 +743,7 @@ remove rebuild-only evidence once the maintained gate proves the final contract.
 
 ## Rollout decision
 
-The public contract changes atomically before WP-RC5 adds new flat Question Types. PLE must not maintain a
+The public contract changes atomically before WP-RC5 adds new PLE Question JSON Question Types. PLE must not maintain a
 long-lived mixed endpoint where some active attempts use tagged responses and others use type-free
 answers without an explicit contract version.
 

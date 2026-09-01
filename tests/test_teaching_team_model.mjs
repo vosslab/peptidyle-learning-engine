@@ -16,7 +16,7 @@ test("teaching-team pagination keeps existing rows and excludes overlapping curs
   assert.deepEqual(appendTeachingTeamPage(first, next), [first[0], next[1]]);
 });
 
-test("teaching-team copy keeps approval distinct from final-instructor course authority", () => {
+test("teaching-team copy keeps Account State distinct from final-instructor course authority", () => {
   assert.equal(invitationStateLabel("pending"), "Pending response");
   assert.equal(isPendingInvitation("expired"), false);
   assert.match(finalInstructorConflictCopy(), /keep one active instructor/u);

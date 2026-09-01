@@ -10,19 +10,19 @@ use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ActivityTimestamp, QuestionAttemptReproductionDetails, QuestionBackendLocator,
-    QuestionBackendVersion, QuestionGraderVersion, QuestionRendererVersion, QuestionRevision,
-    QuestionTitleError, QuestionVariationPresentation, StudentResponse,
+    QuestionAttemptReproductionDetails, QuestionBackendLocator, QuestionBackendVersion,
+    QuestionGraderVersion, QuestionRendererVersion, QuestionRevision, QuestionTitleError,
+    QuestionVariationPresentation, StudentResponse, Timestamp,
 };
 use sha2::{Digest, Sha256};
 #[cfg(test)]
 use std::cell::RefCell;
 
 use crate::renderer_contract::{
-    RenderRequest, RendererFailure, WebworkRenderer, WebworkReplayMappingV1,
+    RenderRequest, RendererFailure, WebworkQuestionAttemptReplayDetails, WebworkRenderer,
 };
 use crate::sanitizer::sanitize_webwork_html;
-use crate::source_object_reference::WebworkSource;
+use crate::source_object_reference::ResolvedWebworkQuestionSource;
 
 /// Stable Question Backend identifier recorded for WeBWorK attempts.
 pub const ADAPTER_ID: &str = "webwork-adapter";
@@ -66,7 +66,7 @@ pub struct WebworkIssuedAttempt {
     /// Private field/value mapping captured from the exact trusted render.
     /// It is persisted under the attempt's course boundary and is never part
     /// of the browser envelope or safe render cache.
-    pub replay: Option<WebworkReplayMappingV1>,
+    pub replay: Option<WebworkQuestionAttemptReplayDetails>,
     /// Whether this response came from object storage rather than the renderer.
     pub cache_hit: bool,
 }
@@ -91,7 +91,7 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
 pub enum WebworkAdapterError {
     /// A non-WeBWorK question reached this adapter.
     UnsupportedSource,
-    /// The trusted source bytes do not match the immutable source record.
+    /// The trusted source bytes do not match the immutable Question Source.
     SourceChecksumMismatch,
     /// Source was not resolved through its exact immutable published key.
     UntrustedSource,
@@ -114,7 +114,7 @@ impl std::fmt::Display for WebworkAdapterError {
         match self {
             Self::UnsupportedSource => formatter.write_str("question source is not WeBWorK"),
             Self::SourceChecksumMismatch => {
-                formatter.write_str("PG source bytes do not match source record")
+                formatter.write_str("PG source bytes do not match Question Source")
             }
             Self::UntrustedSource => formatter
                 .write_str("PG source does not match its immutable published object identity"),
@@ -228,8 +228,8 @@ where
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        source: &WebworkSource,
-        created_at: ActivityTimestamp,
+        source: &ResolvedWebworkQuestionSource,
+        created_at: Timestamp,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
         question
             .metadata
@@ -262,7 +262,7 @@ where
                 let mut untrusted = self
                     .renderer
                     .render(RenderRequest {
-                        pg_source: &source.pg_source,
+                        pg_source: source.pg_source(),
                         pg_path,
                         question_revision: &question_revision,
                         seed: seed.value(),
@@ -280,8 +280,8 @@ where
                 })?;
                 let rendered = crate::cache::CachedWebworkRender {
                     schema_version: crate::cache::CACHE_SCHEMA_VERSION,
-                    source_object_reference: source.source_object_reference.clone(),
-                    source_object_checksum: source.source_object_checksum.clone(),
+                    source_object_reference: source.source_object_reference().clone(),
+                    source_object_checksum: source.source_object_checksum().clone(),
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
                         envelope: untrusted.envelope,
                         sanitized_html: sanitize_webwork_html(&untrusted.html),
@@ -340,9 +340,9 @@ where
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        source: &WebworkSource,
+        source: &ResolvedWebworkQuestionSource,
         response: &StudentResponse,
-        replay: &WebworkReplayMappingV1,
+        replay: &WebworkQuestionAttemptReplayDetails,
     ) -> Result<grading::QuestionGradingOutcome, WebworkAdapterError> {
         crate::grade::grade(&self.renderer, question, seed, source, response, replay).await
     }
@@ -353,7 +353,7 @@ where
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        source: &WebworkSource,
+        source: &ResolvedWebworkQuestionSource,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
         question
             .metadata
@@ -384,16 +384,16 @@ where
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        source: &WebworkSource,
+        source: &ResolvedWebworkQuestionSource,
         pg_path: &str,
         cached: &crate::cache::CachedWebworkRender,
-    ) -> Result<WebworkReplayMappingV1, WebworkAdapterError> {
+    ) -> Result<WebworkQuestionAttemptReplayDetails, WebworkAdapterError> {
         let (question_revision, _) = crate::source_object_reference::webwork_identity(question)?;
         cache_witness("renderer_call");
         let mut rendered = self
             .renderer
             .render(RenderRequest {
-                pg_source: &source.pg_source,
+                pg_source: source.pg_source(),
                 pg_path,
                 question_revision: &question_revision,
                 seed: seed.value(),
@@ -409,8 +409,8 @@ where
         })?;
         let reproduced = crate::cache::CachedWebworkRender {
             schema_version: crate::cache::CACHE_SCHEMA_VERSION,
-            source_object_reference: source.source_object_reference.clone(),
-            source_object_checksum: source.source_object_checksum.clone(),
+            source_object_reference: source.source_object_reference().clone(),
+            source_object_checksum: source.source_object_checksum().clone(),
             rendered: crate::cache::SafeRenderedWebworkQuestion {
                 envelope: rendered.envelope,
                 sanitized_html: sanitize_webwork_html(&rendered.html),
@@ -429,8 +429,8 @@ where
         &self,
         rendered: crate::cache::CachedWebworkRender,
         seed: QuestionSeed,
-        source: &WebworkSource,
-        replay: Option<WebworkReplayMappingV1>,
+        source: &ResolvedWebworkQuestionSource,
+        replay: Option<WebworkQuestionAttemptReplayDetails>,
         cache_hit: bool,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
         let rendered_question_sha256 = crate::cache::rendered_hash(&rendered)?;
@@ -444,8 +444,8 @@ where
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(renderer_version),
                 generator: None,
-                source_object_reference: Some(source.source_object_reference.clone()),
-                source_object_checksum: Some(source.source_object_checksum.clone()),
+                source_object_reference: Some(source.source_object_reference().clone()),
+                source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader,
                 rendered_question_sha256,

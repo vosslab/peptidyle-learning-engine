@@ -15,7 +15,7 @@ import { createTeachingOperationsClient } from "./http_client/teaching_operation
 import { createPreviewPlaneClient } from "./http_client/preview_plane";
 import { createQuestionCurationClient } from "./http_client/question_curation";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
-import { createCurriculumAdoptionClient } from "./http_client/curriculum_adoption";
+import { createBlueprintOperationsClient } from "./http_client/blueprint_operations";
 import { createGradingOperationsClient } from "./http_client/grading_operations";
 import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
 
@@ -26,8 +26,6 @@ export {
   AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
   PreviewPlaneConflictError,
-  CourseAppearanceConflictError,
-  CourseAppearanceFileError,
   CourseGradeSchemeConflictError,
   QuestionCurationConflictError,
   BlueprintCourseConflictError,
@@ -60,7 +58,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createPreviewPlaneClient(fetchImplementation, basePath),
     createQuestionCurationClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
-    createCurriculumAdoptionClient(fetchImplementation, basePath),
+    createBlueprintOperationsClient(fetchImplementation, basePath),
     createGradingOperationsClient(fetchImplementation, basePath),
     createCalculatedGradebookClient(fetchImplementation, basePath),
     responses,

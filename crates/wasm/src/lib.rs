@@ -135,10 +135,10 @@ pub fn verify_presentation_descriptor(
     let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
     let expected = QuestionPresentationToken::parse(digest)
-        .map_err(|error| JsValue::from_str(&format!("invalid presentation digest: {error}")))?;
+        .map_err(|error| JsValue::from_str(&format!("invalid presentation checksum: {error}")))?;
     let presentation = rebuild_public_question_presentation(&envelope, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
-    Ok(presentation.digest.public_token() == expected)
+    Ok(presentation.checksum.public_token() == expected)
 }
 
 #[cfg(test)]
@@ -189,15 +189,15 @@ mod tests {
             &[],
         )
         .expect("descriptor");
-        let digest = rebuilt.digest.public_token();
-        assert_eq!(digest.as_str(), "pd1_q2fE1ezXCkT6_yd7zeqkCQ");
+        let checksum = rebuilt.checksum.public_token();
+        assert_eq!(checksum.as_str(), "pd1_q2fE1ezXCkT6_yd7zeqkCQ");
 
-        assert!(verify_presentation_descriptor(envelope, "[]", digest.as_str()).unwrap());
+        assert!(verify_presentation_descriptor(envelope, "[]", checksum.as_str()).unwrap());
         assert!(
             !verify_presentation_descriptor(
                 &envelope.replace("Peptide bond", "Changed title"),
                 "[]",
-                digest.as_str(),
+                checksum.as_str(),
             )
             .unwrap()
         );

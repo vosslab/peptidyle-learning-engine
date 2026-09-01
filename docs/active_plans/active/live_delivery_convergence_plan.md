@@ -50,7 +50,7 @@ state, visible mutations, and reset-to-seeded-baseline behavior remain unchanged
 WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 `2026081814`, and `2026081816` through `2026081820`, plus `2026081823`:
 
-- assignment and complete assignment-definition mutation with revision conflict checks;
+- Assignment and complete Assignment Content mutation with revision conflict checks;
 - course-group, entitlement, accommodation, and schedule-exception source authority;
 - immutable issued-question source and private execution snapshots for normal student work;
 - session-derived course creation and co-instructor invitation mutations;

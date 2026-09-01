@@ -36,7 +36,7 @@
 }
 
 .curriculum-card,
-.curriculum-definition-editor > fieldset,
+.curriculum-content-editor > fieldset,
 .curriculum-entry-section,
 .curriculum-module,
 .curriculum-inspection,
@@ -49,7 +49,7 @@
 }
 
 .curriculum-card,
-.curriculum-definition-editor,
+.curriculum-content-editor,
 .curriculum-inspection,
 .curriculum-create-dialog[open] {
   display: grid;
@@ -157,11 +157,11 @@
   width: 100%;
 }
 
-.curriculum-definition-editor > fieldset {
+.curriculum-content-editor > fieldset {
   margin: 0;
 }
 
-.curriculum-definition-editor legend {
+.curriculum-content-editor legend {
   padding-inline: 0.35rem;
   color: var(--ple-text);
   font-weight: 750;
@@ -239,7 +239,7 @@
   gap: var(--ple-section-gap);
 }
 
-.curriculum-definition-card {
+.curriculum-content-card {
   display: grid;
   gap: var(--ple-layout-gap);
   padding: var(--ple-panel-padding);

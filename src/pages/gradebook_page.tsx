@@ -34,10 +34,10 @@ import {
   type GradebookPageSelectionState,
   type GradebookPageState,
 } from "./gradebook_page_model";
-import { GradebookRunChooser } from "./gradebook_run_chooser";
+import { GradebookAssignmentAttemptChooser } from "./gradebook_assignment_attempt_chooser";
 import "./instructor_data_tables.css";
 
-interface RunChooserRequest {
+interface AssignmentAttemptChooserRequest {
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
   readonly operation?: InstructorGradingOperationReference;
@@ -108,20 +108,24 @@ function InspectionChoiceActions(props: {
   readonly inspectionChoice: AssignmentInspectionChoice;
   readonly studentLabel: string;
   readonly assignmentTitle: string;
-  readonly onChooseRun: (
-    request: Omit<RunChooserRequest, "trigger">,
+  readonly onChooseAssignmentAttempt: (
+    request: Omit<AssignmentAttemptChooserRequest, "trigger">,
     trigger: HTMLButtonElement,
   ) => void;
 }): JSX.Element {
-  const selectedRun = ():
-    Extract<AssignmentInspectionChoice, { readonly kind: "selectedRun" }> | undefined =>
-    props.inspectionChoice.kind === "selectedRun" ? props.inspectionChoice : undefined;
-  const chooseRun = ():
-    Extract<AssignmentInspectionChoice, { readonly kind: "chooseRun" }> | undefined =>
-    props.inspectionChoice.kind === "chooseRun" ? props.inspectionChoice : undefined;
+  const selectedAssignmentAttempt = ():
+    | Extract<AssignmentInspectionChoice, { readonly kind: "selectedAssignmentAttempt" }>
+    | undefined =>
+    props.inspectionChoice.kind === "selectedAssignmentAttempt"
+      ? props.inspectionChoice
+      : undefined;
+  const chooseAssignmentAttempt = ():
+    | Extract<AssignmentInspectionChoice, { readonly kind: "chooseAssignmentAttempt" }>
+    | undefined =>
+    props.inspectionChoice.kind === "chooseAssignmentAttempt" ? props.inspectionChoice : undefined;
   return (
     <>
-      <Show when={selectedRun()}>
+      <Show when={selectedAssignmentAttempt()}>
         {(choice) => (
           <A
             class="gradebook-inspection-link"
@@ -129,7 +133,7 @@ function InspectionChoiceActions(props: {
               props.course,
               props.membership,
               props.assignment,
-              choice().run,
+              choice().assignmentAttempt,
               props.operation,
             )}
           >
@@ -137,13 +141,13 @@ function InspectionChoiceActions(props: {
           </A>
         )}
       </Show>
-      <Show when={chooseRun()}>
+      <Show when={chooseAssignmentAttempt()}>
         {(choice) => (
           <button
-            class="quiet-action gradebook-choose-run"
+            class="quiet-action gradebook-choose-assignment-attempt"
             type="button"
             onClick={(event) =>
-              props.onChooseRun(
+              props.onChooseAssignmentAttempt(
                 {
                   membership: props.membership,
                   assignment: props.assignment,
@@ -155,11 +159,11 @@ function InspectionChoiceActions(props: {
               )
             }
           >
-            Choose one of {choice().completedRunCount} submitted runs
+            Choose one of {choice().completedAssignmentAttemptCount} submitted Assignment Attempts
           </button>
         )}
       </Show>
-      <Show when={props.inspectionChoice.kind === "noSubmittedRun"}>
+      <Show when={props.inspectionChoice.kind === "noSubmittedAssignmentAttempt"}>
         <span class="gradebook-cell-next-step">No submitted work</span>
       </Show>
     </>
@@ -170,8 +174,8 @@ function AssignmentCell(props: {
   readonly row: CalculatedGradebookRow;
   readonly cell: CalculatedAssignmentCell;
   readonly operation?: InstructorGradingOperationReference;
-  readonly onChooseRun: (
-    request: Omit<RunChooserRequest, "trigger">,
+  readonly onChooseAssignmentAttempt: (
+    request: Omit<AssignmentAttemptChooserRequest, "trigger">,
     trigger: HTMLButtonElement,
   ) => void;
 }): JSX.Element {
@@ -198,7 +202,7 @@ function AssignmentCell(props: {
         inspectionChoice={props.cell.inspectionChoice}
         studentLabel={props.row.displayLabel}
         assignmentTitle={props.cell.title}
-        onChooseRun={props.onChooseRun}
+        onChooseAssignmentAttempt={props.onChooseAssignmentAttempt}
       />
       <Show when={props.cell.assignmentScoringState === "failed"}>
         <A class="gradebook-operations-link" href={operationsHref()}>
@@ -221,7 +225,8 @@ function GradebookCoursePage(props: {
     operationSelection: { kind: "idle" },
   });
   const session = new GradebookPageSession(props.courseId, runtime.client, setPageState);
-  const [runChooser, setRunChooser] = createSignal<RunChooserRequest>();
+  const [assignmentAttemptChooser, setAssignmentAttemptChooser] =
+    createSignal<AssignmentAttemptChooserRequest>();
   const [announcement, setAnnouncement] = createSignal("");
   const routeSearch = createMemo(() => parseGradebookRouteSearch(location.search));
   const gradebook = createMemo(() => pageState().gradebook);
@@ -270,15 +275,15 @@ function GradebookCoursePage(props: {
     restoreHeadingFocus = true;
     session.reload();
   }
-  function openRunChooser(
-    request: Omit<RunChooserRequest, "trigger">,
+  function openAssignmentAttemptChooser(
+    request: Omit<AssignmentAttemptChooserRequest, "trigger">,
     trigger: HTMLButtonElement,
   ): void {
-    setRunChooser({ ...request, trigger });
+    setAssignmentAttemptChooser({ ...request, trigger });
   }
-  function dismissRunChooser(): void {
-    const current = runChooser();
-    setRunChooser(undefined);
+  function dismissAssignmentAttemptChooser(): void {
+    const current = assignmentAttemptChooser();
+    setAssignmentAttemptChooser(undefined);
     if (current?.trigger.isConnected)
       queueMicrotask(() => current.trigger.focus({ preventScroll: true }));
   }
@@ -342,7 +347,7 @@ function GradebookCoursePage(props: {
           inspectionChoice={inspectionChoice}
           studentLabel={visibleLabel}
           assignmentTitle={title}
-          onChooseRun={openRunChooser}
+          onChooseAssignmentAttempt={openAssignmentAttemptChooser}
         />
       </article>
     );
@@ -354,8 +359,9 @@ function GradebookCoursePage(props: {
         Gradebook
       </h1>
       <p class="page-lede">
-        Current course totals and assignment scores calculated by the server. Open a submitted run
-        to inspect the Student&apos;s exact response with permitted correctness and score.
+        Current course totals and assignment scores calculated by the server. Open a submitted
+        Assignment Attempt to inspect the Student&apos;s exact response with permitted correctness
+        and score.
       </p>
       <p class="gradebook-status" role="status" aria-live="polite" aria-atomic="true">
         {announcement()}
@@ -429,8 +435,8 @@ function GradebookCoursePage(props: {
                   <p class="eyebrow">Grading operation</p>
                   <h2 id="gradebook-selection-heading">Select Student work to inspect</h2>
                   <p>
-                    Choose one named Student and one exact submitted run for operation {operation()}
-                    .
+                    Choose one named Student and one exact submitted Assignment Attempt for
+                    operation {operation()}.
                   </p>
                   <Show when={operationSelection().kind === "loading"}>
                     <p class="loading-state">Loading affected Students...</p>
@@ -566,7 +572,7 @@ function GradebookCoursePage(props: {
                                 row={row}
                                 cell={cell}
                                 operation={selectedOperation()}
-                                onChooseRun={openRunChooser}
+                                onChooseAssignmentAttempt={openAssignmentAttemptChooser}
                               />
                             )}
                           </For>
@@ -602,9 +608,9 @@ function GradebookCoursePage(props: {
           </>
         )}
       </Show>
-      <Show when={runChooser()} keyed>
+      <Show when={assignmentAttemptChooser()} keyed>
         {(request) => (
-          <GradebookRunChooser
+          <GradebookAssignmentAttemptChooser
             client={runtime.client}
             courseId={props.courseId}
             course={props.courseReference}
@@ -613,7 +619,7 @@ function GradebookCoursePage(props: {
             operation={request.operation}
             studentLabel={request.studentLabel}
             assignmentTitle={request.assignmentTitle}
-            onDismiss={dismissRunChooser}
+            onDismiss={dismissAssignmentAttemptChooser}
           />
         )}
       </Show>

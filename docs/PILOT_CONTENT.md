@@ -5,8 +5,8 @@ and Biochemistry Chapter 1 each contain exactly:
 
 - one algorithmic WeBWorK multiple-choice question;
 - one algorithmic WeBWorK matching question;
-- one static PLE flat-question multiple-choice question; and
-- one static PLE flat-question matching question.
+- one static PLE PLE Question JSON multiple-choice question; and
+- one static PLE PLE Question JSON matching question.
 
 The authoritative human-readable inventory is
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
@@ -21,7 +21,7 @@ snapshots remain hidden for grading and provenance.
 
 The source material came from `vosslab/biology-problems-website` revision
 `11f9ff635bd20d8fa334c360a8cba86bb0ab6527`. The manifest records each copied file's checksum and,
-for the four static questions, the selected Blackboard source-item code and compiled PLE flat JSON
+for the four static Questions, the selected Blackboard source-item code and compiled PLE Question JSON
 checksum.
 
 Neil R. Voss is the named author and Roosevelt University is the named affiliation. Educational
@@ -43,8 +43,8 @@ cargo tools pilot-content
 ```
 
 It proves the durable eight-question matrix, unique human slugs, source and payload checksums,
-manifest-to-flat-payload title agreement, supported point values,
-selected MC/MATCH Blackboard record shape, strict PLE flat v2 compilation, CC BY metadata,
+manifest-to-PLE-Question-JSON-payload title agreement, supported point values,
+selected MC/MATCH Blackboard record shape, strict PLE Question JSON schema version 2 compilation, CC BY metadata,
 answer-free public definitions, private-key binding, and correct-versus-wrong server grading for
 all four static questions.
 

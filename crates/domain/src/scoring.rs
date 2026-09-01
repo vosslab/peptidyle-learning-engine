@@ -9,7 +9,7 @@
 use std::collections::HashSet;
 
 use question_model::{
-    ActivityTimestamp, AssignmentAttemptGradeRule, AssignmentAttemptId, AssignmentProgressRecord,
+    AssignmentAttemptGradeRule, AssignmentAttemptId, AssignmentProgressRecord, Timestamp,
 };
 
 use crate::assignment_activity::AssignmentActivityError;
@@ -232,12 +232,12 @@ pub enum AssignmentActivityTransition {
     /// A new Assignment Attempt began at the supplied server timestamp.
     Started {
         /// Authoritative server time for the transition.
-        at: ActivityTimestamp,
+        at: Timestamp,
     },
     /// One Student Response was recorded through its Question Submission.
     QuestionAttemptRecorded {
         /// Authoritative server time for the transition.
-        at: ActivityTimestamp,
+        at: Timestamp,
     },
     /// Derived completion was recorded with its final score.
     Completed {
@@ -245,7 +245,7 @@ pub enum AssignmentActivityTransition {
         /// Extra and negative credit may place it outside `0.0..=1.0`.
         score: f64,
         /// Authoritative server time for the transition.
-        at: ActivityTimestamp,
+        at: Timestamp,
     },
 }
 
@@ -299,7 +299,7 @@ pub fn project_summary(
 }
 
 /// Advances the activity timestamp without moving it backward.
-fn touch(summary: &mut AssignmentProgressRecord, at: ActivityTimestamp) {
+fn touch(summary: &mut AssignmentProgressRecord, at: Timestamp) {
     summary.last_activity_at = Some(
         summary
             .last_activity_at
@@ -342,7 +342,7 @@ mod tests {
                 &summary,
                 AssignmentActivityTransition::Completed {
                     score: completed.score,
-                    at: ActivityTimestamp::from_unix_millis(i64::from(completed.attempt_number)),
+                    at: Timestamp::from_unix_millis(i64::from(completed.attempt_number)),
                 },
                 rule,
             )
@@ -475,22 +475,19 @@ mod tests {
     fn summary_projection_preserves_instructor_choice_and_monotonic_activity() {
         let mut previous = empty_summary();
         previous.current_score = Some(0.5);
-        previous.last_activity_at = Some(ActivityTimestamp::from_unix_millis(10));
+        previous.last_activity_at = Some(Timestamp::from_unix_millis(10));
 
         let next = project_summary(
             &previous,
             AssignmentActivityTransition::Completed {
                 score: 0.9,
-                at: ActivityTimestamp::from_unix_millis(9),
+                at: Timestamp::from_unix_millis(9),
             },
             AssignmentAttemptGradeRule::InstructorSelected,
         )
         .expect("valid completion should project");
 
         assert_eq!(next.current_score, Some(0.5));
-        assert_eq!(
-            next.last_activity_at,
-            Some(ActivityTimestamp::from_unix_millis(10))
-        );
+        assert_eq!(next.last_activity_at, Some(Timestamp::from_unix_millis(10)));
     }
 }

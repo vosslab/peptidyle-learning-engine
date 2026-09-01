@@ -3,7 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
-import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
+import type { InstructorAssignmentAuthoredContentLocal } from "../../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import {
   ApiRequestError,
@@ -14,7 +14,7 @@ import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import { AssignmentWorkspacePolicyPanel } from "./assignment_workspace_policy_panel";
 import {
-  assignmentCurrentStateCopy,
+  assignmentAvailabilityCopy,
   assignmentPolicyDraftSummary,
 } from "./assignment_workspace_presentation_model";
 import {
@@ -43,7 +43,7 @@ function controlValue(value: string | null): string {
 
 function lateWorkRule(
   value: string,
-): InstructorAssignmentWorkingCopyDefinitionLocal["lateWorkRule"] | undefined {
+): InstructorAssignmentAuthoredContentLocal["lateWorkRule"] | undefined {
   if (value === "accept" || value === "markLate" || value === "reject") return value;
   return undefined;
 }
@@ -73,8 +73,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [studentFeedbackReleaseRule, setStudentFeedbackReleaseRule] = createSignal(
     workspace.assignment().studentFeedbackReleaseRule,
   );
-  const [assignmentWorkingCopyDefinition, setAssignmentWorkingCopyDefinition] = createSignal(
-    workspace.assignment().assignmentWorkingCopyDefinition,
+  const [assignmentAuthoredContent, setAssignmentAuthoredContent] = createSignal(
+    workspace.assignment().assignmentAuthoredContent,
   );
   const [busy, setBusy] = createSignal(false);
   const [feedback, setFeedback] = createSignal<AssignmentPolicyFeedback>();
@@ -84,9 +84,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     activityRuleDraftFromRules(policies()),
   );
   const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] =
-    createSignal(numberDraft(assignmentWorkingCopyDefinition().assignmentAttemptTimeLimitSeconds));
+    createSignal(numberDraft(assignmentAuthoredContent().assignmentAttemptTimeLimitSeconds));
   const [attemptLimitDraft, setAttemptLimitDraft] = createSignal(
-    numberDraft(assignmentWorkingCopyDefinition().attemptLimit),
+    numberDraft(assignmentAuthoredContent().attemptLimit),
   );
   const controls = new Map<PolicyFocusTarget, HTMLElement>();
   let saveButton!: HTMLButtonElement;
@@ -94,11 +94,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const policySummary = createMemo(() =>
     assignmentPolicyDraftSummary({
       assignmentStatus: workspace.assignment().assignmentStatus,
-      savedCurrentState: workspace.assignment().currentState,
+      savedAssignmentAvailability: workspace.assignment().assignmentAvailability,
       policies: policies(),
       activityRuleDraft: activityRuleDraft(),
       studentFeedbackReleaseRule: studentFeedbackReleaseRule(),
-      assignmentWorkingCopyDefinition: assignmentWorkingCopyDefinition(),
+      assignmentAuthoredContent: assignmentAuthoredContent(),
       assignmentAttemptTimeLimitSecondsDraft: assignmentAttemptTimeLimitSecondsDraft(),
       attemptLimitDraft: attemptLimitDraft(),
     }),
@@ -142,10 +142,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   });
 
   function updateTeaching(
-    next: Partial<InstructorAssignmentWorkingCopyDefinitionLocal>,
+    next: Partial<InstructorAssignmentAuthoredContentLocal>,
     control?: PolicyFocusTarget,
   ): void {
-    setAssignmentWorkingCopyDefinition((current) => ({ ...current, ...next }));
+    setAssignmentAuthoredContent((current) => ({ ...current, ...next }));
     if (control !== undefined) clearRecoveredControl(control);
   }
 
@@ -349,7 +349,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       const input = assignmentPoliciesInput(
         studentFeedbackReleaseRule(),
         policies(),
-        assignmentWorkingCopyDefinition(),
+        assignmentAuthoredContent(),
       );
       const saved = await workspace.client.saveAssignmentPolicies(
         workspace.courseId,
@@ -361,11 +361,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       workspace.replaceAssignment(saved);
       setPolicies(saved.policies);
       setStudentFeedbackReleaseRule(saved.studentFeedbackReleaseRule);
-      setAssignmentWorkingCopyDefinition(saved.assignmentWorkingCopyDefinition);
+      setAssignmentAuthoredContent(saved.assignmentAuthoredContent);
       setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(saved.assignmentWorkingCopyDefinition.assignmentAttemptTimeLimitSeconds),
+        numberDraft(saved.assignmentAuthoredContent.assignmentAttemptTimeLimitSeconds),
       );
-      setAttemptLimitDraft(numberDraft(saved.assignmentWorkingCopyDefinition.attemptLimit));
+      setAttemptLimitDraft(numberDraft(saved.assignmentAuthoredContent.attemptLimit));
       setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
       setNeedsReload(false);
       setFeedback({
@@ -404,11 +404,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       const latest = await workspace.reloadAssignment();
       setPolicies(latest.policies);
       setStudentFeedbackReleaseRule(latest.studentFeedbackReleaseRule);
-      setAssignmentWorkingCopyDefinition(latest.assignmentWorkingCopyDefinition);
+      setAssignmentAuthoredContent(latest.assignmentAuthoredContent);
       setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(latest.assignmentWorkingCopyDefinition.assignmentAttemptTimeLimitSeconds),
+        numberDraft(latest.assignmentAuthoredContent.assignmentAttemptTimeLimitSeconds),
       );
-      setAttemptLimitDraft(numberDraft(latest.assignmentWorkingCopyDefinition.attemptLimit));
+      setAttemptLimitDraft(numberDraft(latest.assignmentAuthoredContent.attemptLimit));
       setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
       setFailureField(undefined);
       setNeedsReload(false);
@@ -468,7 +468,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         class="assignment-workspace-policy-summary"
         aria-labelledby="assignment-policy-summary-heading"
       >
-        <h2 id="assignment-policy-summary-heading">Saved state and current draft</h2>
+        <h2 id="assignment-policy-summary-heading">Saved Assignment and unsaved edits</h2>
         <dl>
           <For each={policySummary()}>
             {(item) => (
@@ -551,14 +551,14 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           >
             <h2 id="assignment-delivery-policies-heading">Release and delivery</h2>
             <p class="assignment-editor-note" role="status">
-              {assignmentCurrentStateCopy(
+              {assignmentAvailabilityCopy(
                 workspace.assignment().assignmentStatus,
-                workspace.assignment().currentState,
-                workspace.assignment().assignmentWorkingCopyDefinition.timeZone,
+                workspace.assignment().assignmentAvailability,
+                workspace.assignment().assignmentAuthoredContent.timeZone,
               )}
             </p>
             <p class="assignment-editor-note">
-              Course time zone: {assignmentWorkingCopyDefinition().timeZone}.
+              Course time zone: {assignmentAuthoredContent().timeZone}.
             </p>
 
             <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--delivery">
@@ -568,7 +568,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 <textarea
                   ref={(element) => controls.set("instructions", element)}
                   rows="4"
-                  value={assignmentWorkingCopyDefinition().instructions}
+                  value={assignmentAuthoredContent().instructions}
                   aria-invalid={relevantField(failureField(), "instructions")}
                   aria-describedby={fieldErrorDescription(failureField(), "instructions")}
                   onInput={(event) =>
@@ -586,7 +586,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("availableAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentWorkingCopyDefinition().availableAt)}
+                  value={controlValue(assignmentAuthoredContent().availableAt)}
                   aria-invalid={relevantField(failureField(), "availableAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
                   onChange={(event) =>
@@ -605,7 +605,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("dueAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentWorkingCopyDefinition().dueAt)}
+                  value={controlValue(assignmentAuthoredContent().dueAt)}
                   aria-invalid={relevantField(failureField(), "dueAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
                   onChange={(event) =>
@@ -622,7 +622,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("closesAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentWorkingCopyDefinition().closesAt)}
+                  value={controlValue(assignmentAuthoredContent().closesAt)}
                   aria-invalid={relevantField(failureField(), "closesAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
                   onChange={(event) =>
@@ -697,7 +697,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               <label class="assignment-editor-field">
                 Late work
                 <select
-                  value={assignmentWorkingCopyDefinition().lateWorkRule}
+                  value={assignmentAuthoredContent().lateWorkRule}
                   onChange={(event) => {
                     const next = lateWorkRule(event.currentTarget.value);
                     if (next !== undefined) updateTeaching({ lateWorkRule: next }, "schedule");

@@ -1,4 +1,4 @@
-//! Extensible first-party Question Implementation contract (MOD-ADP-NAT).
+//! Extensible first-party Question Implementation contract (MOD-ADP-PLE).
 //!
 //! The adapter owns orchestration, reproducibility, and grading delegation.
 //! An implementation owns only the small piece that differs between PLE Question
@@ -9,10 +9,10 @@
 use domain::generator::QuestionVariationParameters;
 use grading::AnswerKey;
 use question_model::capability::QuestionBackendCapabilities;
-use question_model::definition::DraftQuestionRevision;
 use question_model::envelope::QuestionContentBlock;
 use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionGeneratorReference;
+use question_model::question_content::DraftQuestionContent;
 use question_model::{
     GradingResult, QuestionFormat, QuestionHint, QuestionPostGradingContent, QuestionRevision,
     QuestionType, StudentResponse,
@@ -46,7 +46,7 @@ pub struct PleQuestionImplementationRelease {
 ///
 /// Implement this trait to add a PLE Question Implementation without editing backend
 /// dispatch, persistence, API routes, or the browser. Implementations must be
-/// deterministic functions of the immutable definition and generated Question Variation Parameters.
+/// deterministic functions of immutable Question Content and generated Question Variation Parameters.
 pub trait PleQuestionImplementation: Send + Sync {
     /// Authored representation this implementation accepts.
     fn question_format(&self) -> QuestionFormat;
@@ -119,7 +119,7 @@ pub trait PleQuestionImplementation: Send + Sync {
     /// key or fabricating teaching material.
     fn derive_author_presentation(
         &self,
-        question: &DraftQuestionRevision,
+        question: &DraftQuestionContent,
         generated: &QuestionVariationParameters,
         prompt: &[QuestionContentBlock],
     ) -> Result<Option<AuthorPresentationContent>, PleQuestionBackendError> {

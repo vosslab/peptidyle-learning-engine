@@ -12,7 +12,7 @@ platform capability that applies to that operation. The Account and Authenticate
 Session storage boundary is implemented; service, database, and release acceptance
 remain separately incomplete.
 
-Every published assignment question is shared Instructor-visible Question Library
+Every Published Question used in an Assignment is shared Instructor-visible Question Library
 content. A private draft has no Question Library identity and remains visible only
 through its workspace relationship until validated publication creates a new
 immutable published question identity. Shared Question Library content is answer-free
@@ -55,13 +55,13 @@ former installation-scope model to these identities.
 | Product Role              | Implemented SD1 global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines roles.                               |
 | `SessionId`               | Global, durable session record       | Names one server-tracked login session, including expiry and revocation state.                                                                       |
 | `SessionTokenHash`        | Server-only session record           | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                   |
-| Approved-Instructor state | Global, revocable account state      | `approved_instructor(account_id, now)` establishes current Instructor product capabilities and is re-evaluated for protected operations.             |
+| Active Instructor Account | Global Account role and state         | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
 | `Sysadmin` Product Role   | Implemented SD1 global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support. |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
 with its global account and session identity. The browser receives only its own answer-free account/session
 projection. It never receives another person's `AccountId`, a raw session
-token, or an authority-bearing approval claim.
+token, or an authority-bearing Account-State claim.
 
 ### Session authority ownership
 
@@ -101,12 +101,12 @@ for SD1, not a second session or Account contract and not a global replacement i
 
 Under the binding pending SD1 product contract, the closed Sysadmin
 Course Instance Creation command binds an exact BlueprintCourse source and
-revision, an explicitly assigned approved Instructor account, and a
+revision, an explicitly assigned active Instructor account, and a
 server-reserved CourseInstance identity. One transaction creates the
 CourseInstance, that account's first ordinary Instructor membership, and an
 append-only audit event; it gives the Sysadmin account no membership. Every
 current Teaching Team Member has the same teaching and FERPA-read predicates. A
-current course Instructor may invite an approved Instructor account, and
+current course Instructor may invite an active Instructor account, and
 acceptance rechecks role agreement, approval, invitation state, and roster
 revision atomically.
 
@@ -122,7 +122,7 @@ reads; neither another course nor a visible record ID extends that authority.
 | `WorkspaceId`              | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                     |
 | Workspace relationship     | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                        |
 | `WorkspaceImportId`        | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                                  |
-| `QuestionId`               | Global immutable published question identity | Human-facing Question Library locator for one published question. Every published assignment question is discoverable by approved Instructors through the shared Question Library. |
+| `QuestionId`               | Global immutable Published Question identity | Human-facing Question Library locator for one Published Question. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
 | `QuestionRevisionReference` | Server-only immutable Question Revision       | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                       |
 | `QuestionAssetId`                  | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                |
 | `ObjectId`                 | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                            |
@@ -223,7 +223,7 @@ session account and the appropriate parent relationship before returning a recor
 
 Response Item Reference remains a server-side semantic identity for a Question Choice, slot, match
 endpoint, order item, or hotspot region. `QuestionSeed` plus generator version and the
-full stored presentation digest reproduce an issued variant. They are not
+full stored presentation checksum reproduce an issued variant. They are not
 student authority to select another variant or browser input to define grading.
 
 ## Credentials, capabilities, and answer boundaries

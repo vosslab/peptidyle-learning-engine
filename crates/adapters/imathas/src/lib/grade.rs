@@ -2,7 +2,7 @@
 
 use sha2::{Digest, Sha256};
 
-use objects::ObjectStoreError;
+use objects::{ObjectStoreError, QuestionSourceResolutionError};
 use question_model::generation::QuestionSeed;
 use question_model::{
     GradingResult, QuestionAttemptId, QuestionRevisionReference, QuestionTitleError,
@@ -227,6 +227,7 @@ pub enum ImathasAdapterError {
     VerificationRefused,
     Provider(ProviderFailure),
     ObjectStore(ObjectStoreError),
+    QuestionSourceResolution(QuestionSourceResolutionError),
 }
 
 impl std::fmt::Display for ImathasAdapterError {
@@ -251,6 +252,7 @@ impl std::fmt::Display for ImathasAdapterError {
             }
             Self::Provider(_) => f.write_str("iMathAS provider unavailable or rejected request"),
             Self::ObjectStore(value) => value.fmt(f),
+            Self::QuestionSourceResolution(value) => value.fmt(f),
         }
     }
 }

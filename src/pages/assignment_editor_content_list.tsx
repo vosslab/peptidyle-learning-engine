@@ -7,7 +7,7 @@ import {
   questionBackendLabel,
   type AssignmentQuestionRow,
   type AssignmentEditorEntry,
-  type AssignmentEditorQuestionPoolEntry,
+  type AssignmentEditorQuestionPoolAssignmentEntry,
 } from "./assignment_editor_model";
 import { AssignmentPoolEditor } from "./assignment_pool_editor";
 import type { QuestionPoolPreview } from "../api/contracts";
@@ -23,7 +23,10 @@ export interface AssignmentEditorContentListProps {
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
   readonly onReplace: (itemId: string) => void;
   readonly onRemoveFixed: (itemId: string) => void;
-  readonly onPoolChange: (entryIndex: number, entry: AssignmentEditorQuestionPoolEntry) => void;
+  readonly onPoolChange: (
+    entryIndex: number,
+    entry: AssignmentEditorQuestionPoolAssignmentEntry,
+  ) => void;
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
   readonly onPreviewPool: (assignmentEntryId: string) => void;

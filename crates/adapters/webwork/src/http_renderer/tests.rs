@@ -37,19 +37,19 @@ fn config() -> HttpWebworkRendererConfig {
     .expect("recorded private configuration is valid")
 }
 
-fn radio_replay() -> WebworkReplayMappingV1 {
-    WebworkReplayMappingV1::SingleChoice {
+fn radio_replay() -> WebworkQuestionAttemptReplayDetails {
+    WebworkQuestionAttemptReplayDetails::SingleChoice {
         controls: [
             (
                 opaque_choice_id(request(), 0).expect("fixed choice ID"),
-                UpstreamControlV1 {
+                WebworkUpstreamControl {
                     field: "AnSwEr0001".into(),
                     value: "0".into(),
                 },
             ),
             (
                 opaque_choice_id(request(), 1).expect("fixed choice ID"),
-                UpstreamControlV1 {
+                WebworkUpstreamControl {
                     field: "AnSwEr0001".into(),
                     value: "1".into(),
                 },
@@ -250,7 +250,7 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
     };
     assert!(prompt.contains("Which molecule is water?"));
     assert!(!prompt.contains("H2O") && !prompt.contains("CO2"));
-    let WebworkReplayMappingV1::SingleChoice { controls } = &parsed.replay else {
+    let WebworkQuestionAttemptReplayDetails::SingleChoice { controls } = &parsed.replay else {
         panic!("single-choice replay mapping")
     };
     assert_eq!(controls.len(), 2);
@@ -349,7 +349,7 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
             markdown: "Phosphate".into()
         }]
     );
-    let WebworkReplayMappingV1::Matching { prompts: replay } = &parsed.replay else {
+    let WebworkQuestionAttemptReplayDetails::Matching { prompts: replay } = &parsed.replay else {
         panic!("matching replay mapping")
     };
     assert_eq!(replay.len(), 2);

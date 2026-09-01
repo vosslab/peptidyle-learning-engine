@@ -164,7 +164,7 @@ pub struct StudentHotspotSelection {
     pub region: ResponseItemReference,
 }
 
-/// One public candidate region and its accessible student label.
+/// One public Hotspot Region and its accessible Student label.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HotspotRegion {
@@ -238,7 +238,7 @@ pub enum QuestionResponseFormat {
         surface: QuestionAssetReference,
         /// Text alternative describing the whole surface.
         description: String,
-        /// Public candidate regions; the correct region set remains private.
+        /// Public Hotspot Regions; the correct region set remains private.
         regions: Vec<HotspotRegion>,
         /// Number of regions the student must select.
         selection: ResponseSelectionRule,

@@ -273,7 +273,7 @@ metadata and receipts, not learner responses or answer keys.
 | Browser client                       | Solid routes for courses, assignments, attempt loop, summary, Library discovery, question authoring, the Overview/Questions/Policies/Grading operations/Student view assignment workspace, gradebook, reusable curricula, and Instructor curriculum adoption                                                      |
 | Curriculum adoption                  | Current BlueprintCourse/CourseInstance contract and Memory behavior cover preview, explicit adoption, rollover, term shifting, provenance, controlled updates, and divergence recovery. PostgreSQL/RLS, server, browser, and live acceptance remain SD1 cutover work.                                             |
 | PostgreSQL                           | Forward-only SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification                                                                                                                                                                                          |
-| Question engines                     | PLE flat-question JSON v2 implements all eight required PLE Question Types; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
+| Question engines                     | PLE Question JSON schema version 2 implements all eight required PLE Question Types; the external WeBWorK PG `/render-api` supports live PLE render, grading, cache, outage, and browser checks for its bounded RadioButtons contract; QTI profiles convert atomically; contracted iMathAS broker; H5P is ungraded only |
 | DOCX and PDF export                  | Deterministic student and answer-key artifact generation through the object-store boundary                                                                                                                                                                                                                        |
 | Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                             |
 | Worker runtime                       | Production attests seven Job Kinds: six generic queue Job Kinds plus sealed `GradeAcceptedSubmission`; reserved Render and generic Import work stays unclaimed until its complete implementation lands                                                                                                            |
@@ -287,14 +287,15 @@ The full architecture and milestone plan remain in
 
 ## Current limitations
 
-- Flat-question JSON v2 strictly parses, splits, publishes, renders, validates, and server-grades
+- PLE Question JSON schema version 2 strictly parses, splits, publishes, renders, validates, and server-grades
   multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical entry, matching,
   ordered list, and image hotspot; version 1 single choice remains compatible. The visual instructor
   editor still supports only version 1 single choice. Family-specific visual authoring, external
   QTI-JSONL adoption, hotspot pointer-overlay and media-upload workflows, and the Chapter 1 pilot
   content remain planned work.
-- QTI profile import is intentionally bounded to the reviewed Canvas and Blackboard subsets;
-  broader vendor compatibility, imported media, and optional exporters remain deferred.
+- QTI parsing is intentionally bounded to the reviewed Canvas and Blackboard subsets. A browser
+  import workflow awaits one Store-backed Workspace Import and service route; broader vendor
+  compatibility, imported media, and optional exporters remain deferred.
 - The live WeBWorK path intentionally supports only the licensed, user-authored single-radio PGML
   fixture in `content/pilot/webwork/`. Matching and broader problem compatibility need their own
   implementation and verification; this bounded renderer integration is not a general WeBWorK

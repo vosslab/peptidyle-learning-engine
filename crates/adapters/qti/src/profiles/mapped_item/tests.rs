@@ -5,13 +5,13 @@ use super::super::{
 use super::*;
 use crate::profiles::map_qti_choice_ids;
 
-fn choices() -> Vec<QtiPublicChoiceDigestInput> {
+fn choices() -> Vec<QtiPublicChoiceChecksumInput> {
     vec![
-        QtiPublicChoiceDigestInput {
+        QtiPublicChoiceChecksumInput {
             ple_choice_id: "blue".to_string(),
             text_markdown: "Blue".to_string(),
         },
-        QtiPublicChoiceDigestInput {
+        QtiPublicChoiceChecksumInput {
             ple_choice_id: "red".to_string(),
             text_markdown: "Red".to_string(),
         },
@@ -53,14 +53,14 @@ fn safe_report_is_bounded_exact_and_contains_no_private_binding() {
 #[test]
 fn mapped_item_produces_digest_inputs_and_server_parts_without_private_debug() {
     let item = mapped_item(QtiMappedPoints::BlackboardDefaulted);
-    assert_eq!(item.public_mapping_digest_input().points, "1.0");
+    assert_eq!(item.public_mapping_checksum_input().points, "1.0");
     let disposition = item
         .accepted_item_disposition()
         .expect("mapped item owns its accepted disposition");
     assert!(disposition.accepted);
-    assert!(disposition.public_mapping_sha256.is_some());
+    assert!(disposition.public_mapping_checksum.is_some());
     {
-        let _private_mapping = item.private_mapping_digest_input();
+        let _private_mapping = item.private_mapping_checksum_input();
     }
     let parts = item.into_server_parts();
     assert_eq!(parts.profile(), QtiProfileId::BLACKBOARD);
@@ -71,12 +71,12 @@ fn mapped_item_produces_digest_inputs_and_server_parts_without_private_debug() {
     assert_eq!(parts.server_ordered_choice_map().len(), 2);
     assert_eq!(
         parts.server_choice_map_payload().server_sha256(),
-        objects::Sha256Digest::compute(parts.server_choice_map_payload().server_bytes())
+        objects::Sha256Checksum::compute(parts.server_choice_map_payload().server_bytes())
     );
 }
 
 #[test]
-fn normalized_digest_is_owned_by_mapped_item_and_excludes_mapping_transport_fields() {
+fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport_fields() {
     let first = QtiMappedItem::new(
         QtiProfileId::CANVAS,
         "canvas/first.xml".to_string(),
@@ -99,11 +99,11 @@ fn normalized_digest_is_owned_by_mapped_item_and_excludes_mapping_transport_fiel
         "Favorite color".to_string(),
         "What is my favorite color?".to_string(),
         vec![
-            QtiPublicChoiceDigestInput {
+            QtiPublicChoiceChecksumInput {
                 ple_choice_id: "first_blue".to_string(),
                 text_markdown: "Blue".to_string(),
             },
-            QtiPublicChoiceDigestInput {
+            QtiPublicChoiceChecksumInput {
                 ple_choice_id: "second_red".to_string(),
                 text_markdown: "Red".to_string(),
             },
@@ -117,15 +117,18 @@ fn normalized_digest_is_owned_by_mapped_item_and_excludes_mapping_transport_fiel
     )
     .expect("second mapped item");
 
-    let first_digest = first.normalized_profile_item_sha256();
-    assert_eq!(first_digest, second.normalized_profile_item_sha256());
+    let first_fingerprint = first.normalized_qti_item_fingerprint();
+    assert_eq!(first_fingerprint, second.normalized_qti_item_fingerprint());
     assert_eq!(
-        first_digest,
-        first.into_server_parts().normalized_profile_item_sha256()
+        first_fingerprint,
+        first.into_server_parts().normalized_qti_item_fingerprint()
     );
 
     let blackboard = mapped_item(QtiMappedPoints::BlackboardDefaulted);
-    assert_ne!(first_digest, blackboard.normalized_profile_item_sha256());
+    assert_ne!(
+        first_fingerprint,
+        blackboard.normalized_qti_item_fingerprint()
+    );
 }
 
 #[test]
@@ -233,7 +236,7 @@ fn safe_report_constructor_refuses_values_beyond_its_visible_bounds() {
 }
 
 #[test]
-fn integrity_digests_refuse_a_report_owned_by_another_profile() {
+fn integrity_checksums_refuse_a_report_owned_by_another_profile() {
     let choice_map = map_qti_choice_ids(
         QtiProfileId::CANVAS,
         "item-1",
@@ -252,7 +255,7 @@ fn integrity_digests_refuse_a_report_owned_by_another_profile() {
         "blue".to_string(),
     )
     .expect("mapped item");
-    let report = QtiProfileReportDigestInput {
+    let report = QtiImportResultChecksumInput {
         profile: QtiProfileId::BLACKBOARD,
         profile_version: QtiProfileId::BLACKBOARD.version(),
         mapping_version: QtiMappingVersion::V1,
@@ -267,7 +270,7 @@ fn integrity_digests_refuse_a_report_owned_by_another_profile() {
         defaults: Vec::new(),
     };
     assert!(matches!(
-        item.compute_integrity_digests(&report),
+        item.compute_import_checksums(&report),
         Err(QtiProfileContractError::MappingOwnerMismatch)
     ));
 }

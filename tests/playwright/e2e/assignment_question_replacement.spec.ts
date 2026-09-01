@@ -1,7 +1,7 @@
 // Real-stack issued-work contract: visible replacement changes future runs, not issued work.
 //
 // Selector contract:
-// - src/features/flat_question_authoring/flat_question_editor_page.tsx:580-785 owns the
+// - src/features/ple_question_json_authoring/question_json_editor_page.tsx:580-785 owns the
 //   question authoring, publication, and field labels used to create source questions.
 // - src/pages/course_list_page.tsx:347-408 and src/pages/assignment_workspace/
 //   assignment_workspace_create_page.tsx:139 own course and assignment creation controls.
@@ -41,7 +41,7 @@ async function createPublishedQuestion(
   correctChoice: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
-  await page.getByRole("button", { name: "Create flat question", exact: true }).click();
+  await page.getByRole("button", { name: "Create Question", exact: true }).click();
   await page.getByLabel("Question title").fill(title);
   await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
@@ -51,7 +51,7 @@ async function createPublishedQuestion(
     .check();
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
-  await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
+  await page.getByLabel("Question Authors").fill("Dr. Elena Rivera");
   await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -66,7 +66,7 @@ async function createPublishedQuestion(
   return questionId;
 }
 
-async function createPublishedAssignmentAndInvitation(
+async function createReleasedAssignmentAndInvitation(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
@@ -101,7 +101,7 @@ async function createPublishedAssignmentAndInvitation(
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
@@ -264,7 +264,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
       await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       await createPublishedQuestion(elena, originalQuestionTitle, originalChoice);
       await createPublishedQuestion(elena, replacementQuestionTitle, replacementChoice);
-      const invitationUrl = await createPublishedAssignmentAndInvitation(
+      const invitationUrl = await createReleasedAssignmentAndInvitation(
         elena,
         courseTitle,
         assignmentTitle,

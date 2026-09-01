@@ -130,7 +130,7 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     selectedIds.size !== selected.length ||
     !selected.every((question) => entries.some((entry) => entry.questionId === question.questionId))
   )
-    throw new DecodeError(`${path}.selected`, "unique Question Pool Entry Question IDs");
+    throw new DecodeError(`${path}.selected`, "unique Question Pool Item Question IDs");
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),

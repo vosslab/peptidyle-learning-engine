@@ -174,8 +174,8 @@ them from a locked worker lease whose target is the same exact `CourseId`, `Stud
 predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and seed. No caller-supplied scope or provider
 metadata can widen that lease.
 
-Native-flat and WeBWorK reservations additionally retain their typed,
-checksummed first-grade contracts. Flat carries its private definition;
+PLE Question JSON and WeBWorK reservations additionally retain their typed,
+checksummed first-grade contracts. PLE Question JSON carries its private definition;
 WeBWorK carries its private definition and replay mapping. Promotion refuses a
 missing or mismatched required contract, so submit never consults a current
 published Question, grader, or renderer to recreate it.

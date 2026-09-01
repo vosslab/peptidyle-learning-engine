@@ -1,23 +1,20 @@
 // editor_live_pages.tsx - route composition for accepted workspace CRUD only.
 
 import { useLocation, useNavigate, useParams } from "@solidjs/router";
-import { Show, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createResource, type JSX } from "solid-js";
 
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import { useApplicationApi } from "../api/application_api";
 import { useWasmFacade } from "../wasm/context";
 import {
-  createFlatQuestionClient,
-  FlatQuestionRequestError,
-  type FlatQuestionRead,
-} from "../features/flat_question_authoring/flat_question_client";
-import { createDefaultFlatQuestionSource } from "../features/flat_question_authoring/flat_question_defaults";
-import { createFlatQuestionAssetClient } from "../features/flat_question_authoring/flat_question_asset_client";
-import { FlatQuestionEditorPage } from "../features/flat_question_authoring/flat_question_editor_page";
-import { createFlatQuestionRepository } from "../features/flat_question_authoring/flat_question_repository";
-import { createQtiProfileImportClient } from "../features/qti_profile_import/qti_profile_import_client";
-import type { QtiConversionDraftState } from "../features/qti_profile_import/qti_profile_import_model";
-import { QtiProfileImportPage } from "../features/qti_profile_import/qti_profile_import_page";
+  createPleQuestionJsonClient,
+  PleQuestionJsonRequestError,
+  type PleQuestionJsonRead,
+} from "../features/ple_question_json_authoring/question_json_client";
+import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
+import { createPleQuestionJsonAssetClient } from "../features/ple_question_json_authoring/question_json_asset_client";
+import { PleQuestionJsonEditorPage } from "../features/ple_question_json_authoring/question_json_editor_page";
+import { createPleQuestionJsonRepository } from "../features/ple_question_json_authoring/question_json_repository";
 import { WasmEditorPage } from "./editor_page";
 import { createInstructorPreviewClient } from "./editor_instructor_preview";
 import { createWorkspaceEditorRepository } from "./editor_workspace_repository";
@@ -28,19 +25,19 @@ import { resolveWorkspaceRoute } from "../navigation/resolved_route";
 export function WorkspaceListLivePage(): JSX.Element {
   const runtime = useApplicationApi();
   const navigate = useNavigate();
-  const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
-  async function createFlatQuestion(): Promise<void> {
+  const flatRepository = createPleQuestionJsonRepository(createPleQuestionJsonClient());
+  async function createPleQuestionJson(): Promise<void> {
     const workspace: WorkspaceId = globalThis.crypto.randomUUID();
-    await flatRepository.save(workspace, createDefaultFlatQuestionSource());
+    await flatRepository.save(workspace, createDefaultPleQuestionJsonSource());
     navigate("/workspace/new", { state: { workspace } });
   }
   return (
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
       onOpenDraft={(draft) =>
-        navigate(`/workspace/${authoringWorkspaceRouteReference(draft.reference)}`)
+        navigate(`/workspace/${authoringWorkspaceRouteReference(draft.authoringWorkspace)}`)
       }
-      onCreateFlatQuestion={createFlatQuestion}
+      onCreatePleQuestionJson={createPleQuestionJson}
     />
   );
 }
@@ -53,13 +50,8 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
   const runtime = useApplicationApi();
   const wasm = useWasmFacade();
   const workspace = props.workspace;
-  const flatRepository = createFlatQuestionRepository(createFlatQuestionClient());
-  const flatQuestionAssetClient = createFlatQuestionAssetClient();
-  const qtiClient = createQtiProfileImportClient();
-  const [focusConvertedDraft, setFocusConvertedDraft] = createSignal(false);
-  const [displayedDraft, setDisplayedDraft] = createSignal<QtiConversionDraftState | null>(null);
-  const [replacementPending, setReplacementPending] = createSignal(false);
-  const [replacementFlatRead, setReplacementFlatRead] = createSignal<FlatQuestionRead | null>(null);
+  const flatRepository = createPleQuestionJsonRepository(createPleQuestionJsonClient());
+  const pleQuestionJsonAssetClient = createPleQuestionJsonAssetClient();
   const [flatRead] = createResource(
     () => workspace,
     async (selected): Promise<Awaited<ReturnType<typeof flatRepository.load>> | null> =>
@@ -69,29 +61,14 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
     <WasmEditorPage
       repository={createWorkspaceEditorRepository(runtime.client, createInstructorPreviewClient())}
       initialWorkspace={workspace}
-      onDraftDisplayStateChange={setDisplayedDraft}
-      replacementPending={replacementPending()}
     />
   );
-  const displayedFlatRead = (): FlatQuestionRead | null => {
-    const replacement = replacementFlatRead();
-    if (replacement !== null) return replacement;
+  const displayedFlatRead = (): PleQuestionJsonRead | null => {
     if (flatRead.state !== "ready") return null;
     return flatRead() ?? null;
   };
   return (
     <>
-      <QtiProfileImportPage
-        workspace={workspace}
-        client={qtiClient}
-        draftState={displayedDraft}
-        onConversionHandoffChange={setReplacementPending}
-        onConverted={async () => {
-          setFocusConvertedDraft(true);
-          const converted = await flatRepository.load(workspace);
-          setReplacementFlatRead(converted);
-        }}
-      />
       <Show
         when={!flatRead.loading}
         fallback={
@@ -104,10 +81,11 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
           keyed
           when={displayedFlatRead()}
           fallback={
-            flatRead.error instanceof FlatQuestionRequestError && flatRead.error.status === 404 ? (
+            flatRead.error instanceof PleQuestionJsonRequestError &&
+            flatRead.error.status === 404 ? (
               fallback()
             ) : (
-              <section class="page" data-route-surface="flatQuestionLoadError" role="alert">
+              <section class="page" data-route-surface="pleQuestionJsonLoadError" role="alert">
                 <h1>Private question draft unavailable</h1>
                 <p>Refresh the page to retry loading this private draft.</p>
               </section>
@@ -115,17 +93,13 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
           }
         >
           {(initial) => (
-            <FlatQuestionEditorPage
+            <PleQuestionJsonEditorPage
               workspace={workspace}
               initial={initial}
               repository={flatRepository}
               api={runtime.client}
               responseValidator={wasm}
-              assetClient={flatQuestionAssetClient}
-              focusHeadingOnMount={focusConvertedDraft()}
-              onHeadingFocusDelivered={() => setFocusConvertedDraft(false)}
-              onDraftDisplayStateChange={setDisplayedDraft}
-              replacementPending={replacementPending()}
+              assetClient={pleQuestionJsonAssetClient}
             />
           )}
         </Show>

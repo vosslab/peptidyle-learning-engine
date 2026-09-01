@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use learning_data_access::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
 };
-use question_model::{AccountId, AccountRole, ActivityTimestamp};
+use question_model::{AccountId, AccountRole, Timestamp};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -38,10 +38,8 @@ impl SessionStore for MemorySessionStore {
             token_hash,
             account,
             role: AccountRole::Student,
-            created_at: ActivityTimestamp::from_unix_millis(0),
-            expires_at: ActivityTimestamp::from_unix_millis(
-                i64::from(lifetime.as_seconds()) * 1_000,
-            ),
+            created_at: Timestamp::from_unix_millis(0),
+            expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
         };
         records.insert(token_hash, record.clone());
         Ok(record)
@@ -83,10 +81,8 @@ async fn session_issuer_returns_the_product_role_derived_by_the_session_store() 
                 token_hash,
                 account,
                 role: AccountRole::Instructor,
-                created_at: ActivityTimestamp::from_unix_millis(0),
-                expires_at: ActivityTimestamp::from_unix_millis(
-                    i64::from(lifetime.as_seconds()) * 1_000,
-                ),
+                created_at: Timestamp::from_unix_millis(0),
+                expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
             })
         }
 

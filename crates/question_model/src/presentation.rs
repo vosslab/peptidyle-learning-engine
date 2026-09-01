@@ -20,7 +20,7 @@ pub use builder::{
     rebuild_public_question_presentation, reproduce_question_presentation,
 };
 pub use codec::{
-    CURRENT_DESCRIPTOR_VERSION, QuestionPresentationDigest, descriptor_bytes,
+    CURRENT_DESCRIPTOR_VERSION, QuestionPresentationChecksum, descriptor_bytes,
     verify_question_presentation,
 };
 pub use model::{

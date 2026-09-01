@@ -11,9 +11,9 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountReference, ActivityTimestamp, AssignmentDeadlineRule, CourseInvitationReference,
-    CourseLocalDateAndTime, CourseMembershipReference, CourseTimeZone, LateWorkRule,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    AccountReference, AssignmentDeadlineRule, CourseInvitationReference, CourseLocalDateAndTime,
+    CourseMembershipReference, CourseTimeZone, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
 mod assignment_policy_source;
@@ -27,13 +27,10 @@ pub use local_time::{project_teaching_preview_time_field, resolve_teaching_local
 pub use modifier_revision_response::TeachingOperationRevisionResponse;
 pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
-    AccountApprovalView, CourseInvitationTargetSearchPage, CourseInvitationTargetSearchQuery,
-    CourseInvitationTargetSearchRequest, CourseInvitationTargetView, InstructorApprovalStateView,
-    MAX_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
-    MIN_INSTRUCTOR_COURSE_INVITATION_TARGET_SEARCH_QUERY_UNICODE_SCALARS,
-    SysadminInstructorApprovalStateView, SysadminInstructorApprovalView,
-    SysadminInstructorCandidateSearchPage, SysadminInstructorCandidateSearchRequest,
-    SysadminInstructorCandidateView, TeachingAccountView,
+    CourseInvitationTargetSearchPage, CourseInvitationTargetSearchRequest,
+    CourseInvitationTargetView, MAX_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS,
+    MIN_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS, TeachingAccountSearchQuery,
+    TeachingAccountView,
 };
 
 /// Maximum Unicode scalar count for an authorized account or membership label.
@@ -413,8 +410,8 @@ pub struct InstructorCourseInvitationView {
     pub reference: CourseInvitationReference,
     pub target: CourseInvitationTargetView,
     pub state: CourseInvitationStateView,
-    pub created_at: ActivityTimestamp,
-    pub expires_at: ActivityTimestamp,
+    pub created_at: Timestamp,
+    pub expires_at: Timestamp,
     pub revision: TeachingOperationRevision,
 }
 
@@ -433,7 +430,7 @@ pub struct PendingCourseInvitationView {
     pub reference: CourseInvitationReference,
     pub course_label: TeachingDisplayLabel,
     pub state: CourseInvitationStateView,
-    pub expires_at: ActivityTimestamp,
+    pub expires_at: Timestamp,
     pub revision: TeachingOperationRevision,
 }
 
@@ -505,7 +502,7 @@ pub enum RetentionStateView {
     StudentRecordsDeleted,
 }
 
-/// Closed assignment-definition disposition for a retention action.
+/// Closed Assignment Content disposition for a retention action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RetentionDispositionView {
@@ -547,7 +544,7 @@ impl From<RetentionAdditionalDays> for u32 {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RetentionReadView {
     pub state: RetentionStateView,
-    pub assignment_definitions: RetentionDispositionView,
+    pub assignment_content: RetentionDispositionView,
     pub revision: TeachingOperationRevision,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notification: Option<RetentionNotificationView>,
@@ -558,7 +555,7 @@ pub struct RetentionReadView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RetentionNotificationView {
     pub intent: RetentionNotificationIntentView,
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     pub copy: String,
 }
 
@@ -575,7 +572,7 @@ pub enum RetentionNotificationIntentView {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RetentionArchiveRequest {
-    pub assignment_definitions: RetentionDispositionView,
+    pub assignment_content: RetentionDispositionView,
 }
 
 /// Exact JSON body for the existing retention extend endpoint.
@@ -599,7 +596,7 @@ pub enum RetentionActionOutcomeView {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RetentionActionResponse {
     pub state: RetentionStateView,
-    pub assignment_definitions: RetentionDispositionView,
+    pub assignment_content: RetentionDispositionView,
     pub revision: TeachingOperationRevision,
     pub outcome: RetentionActionOutcomeView,
 }
@@ -692,10 +689,10 @@ mod tests {
     fn retention_endpoint_bodies_and_notification_are_exact() {
         assert_eq!(
             serde_json::to_value(RetentionArchiveRequest {
-                assignment_definitions: RetentionDispositionView::Retain
+                assignment_content: RetentionDispositionView::Retain
             })
             .unwrap(),
-            serde_json::json!({"assignmentDefinitions":"retain"})
+            serde_json::json!({"assignmentContent":"retain"})
         );
         assert_eq!(
             serde_json::to_value(RetentionExtendRequest {
@@ -709,11 +706,11 @@ mod tests {
         );
         let notification = RetentionReadView {
             state: RetentionStateView::NotificationDue,
-            assignment_definitions: RetentionDispositionView::Retain,
+            assignment_content: RetentionDispositionView::Retain,
             revision: "7".parse().unwrap(),
             notification: Some(RetentionNotificationView {
                 intent: RetentionNotificationIntentView::Archive,
-                created_at: ActivityTimestamp::from_unix_millis(1),
+                created_at: Timestamp::from_unix_millis(1),
                 copy: "Server-owned copy".to_owned(),
             }),
         };
@@ -729,7 +726,7 @@ mod tests {
             reference: "CI-4".parse().unwrap(),
             course_label: TeachingDisplayLabel::try_from("Biochemistry".to_owned()).unwrap(),
             state: CourseInvitationStateView::Pending,
-            expires_at: ActivityTimestamp::from_unix_millis(2_592_000_000),
+            expires_at: Timestamp::from_unix_millis(2_592_000_000),
             revision: "3".parse().unwrap(),
         };
         let value = serde_json::to_value(row).unwrap();

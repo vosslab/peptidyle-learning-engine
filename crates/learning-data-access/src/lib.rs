@@ -35,8 +35,9 @@ pub use object_record::{
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use question_source::{
-    DraftQuestionRevisionId, DraftQuestionSourceInput, DraftQuestionSourceStore,
-    QuestionPublicBindingChecksum, QuestionSourceId,
+    DraftQuestionRevision, DraftQuestionRevisionNumber, DraftQuestionRevisionReference,
+    DraftQuestionSourceInput, DraftQuestionSourceStore, DraftQuestionUuid,
+    QuestionPublicBindingChecksum, QuestionSourceUuid,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

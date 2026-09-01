@@ -3,12 +3,11 @@
 use objects::memory::MemoryObjectStore;
 use objects::{
     ObjectAddress, ObjectDataClass, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
-    Sha256Digest,
+    Sha256Checksum,
 };
 use question_model::{
-    ActivityTimestamp, CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId,
-    QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, WorkspaceId,
-    WorkspaceImportId,
+    CourseBannerId, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, Timestamp, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -32,7 +31,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         address: key.clone(),
         bytes: b"published source".to_vec(),
         media_type: "application/zip".to_string(),
-        created_at: ActivityTimestamp::from_unix_millis(1_000),
+        created_at: Timestamp::from_unix_millis(1_000),
     };
 
     let record = store
@@ -47,7 +46,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
     assert_eq!(stored.record, record);
     assert_eq!(
         store
-            .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
+            .signed_url(&key, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ObjectStoreError::NotSignable),
         "answer-bearing source must remain server-only"
@@ -62,16 +61,16 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: archive_key.clone(),
             bytes: b"published import archive".to_vec(),
             media_type: "application/zip".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("published archive put should succeed");
     assert_eq!(
         store
-            .signed_url(&archive_key, ActivityTimestamp::from_unix_millis(2_000))
+            .signed_url(&archive_key, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ObjectStoreError::NotSignable),
-        "published import provenance must remain server-only"
+        "published import evidence must remain server-only"
     );
     let asset_key = ObjectAddress::QuestionAsset {
         question_revision: question_revision(2),
@@ -83,12 +82,12 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: asset_key.clone(),
             bytes: b"published asset".to_vec(),
             media_type: "image/png".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("published asset put should succeed");
     let signed = store
-        .signed_url(&asset_key, ActivityTimestamp::from_unix_millis(2_000))
+        .signed_url(&asset_key, Timestamp::from_unix_millis(2_000))
         .await
         .expect("published assets should be signable");
     assert_eq!(
@@ -109,12 +108,12 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: student_key.clone(),
             bytes: b"student export".to_vec(),
             media_type: "application/pdf".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("student record put should succeed");
     let student_signed = store
-        .signed_url(&student_key, ActivityTimestamp::from_unix_millis(2_000))
+        .signed_url(&student_key, Timestamp::from_unix_millis(2_000))
         .await
         .expect("student record should be signable");
     assert_eq!(
@@ -134,41 +133,38 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: temporary_key.clone(),
             bytes: b"temporary workspace".to_vec(),
             media_type: "application/octet-stream".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("temporary put should succeed");
 
-    let banner_candidate_key = ObjectAddress::CourseBannerCandidate {
+    let banner_upload_key = ObjectAddress::CourseBannerUpload {
         course: CourseId::from_uuid(id(51)),
-        candidate: CourseBannerCandidateId::from_uuid(id(52)),
+        upload: CourseBannerUploadReference::from_uuid(id(52)),
     };
-    let banner_candidate_record = store
+    let banner_upload_record = store
         .put(PutObject {
-            address: banner_candidate_key.clone(),
-            bytes: b"normalized candidate".to_vec(),
+            address: banner_upload_key.clone(),
+            bytes: b"normalized upload".to_vec(),
             media_type: "image/webp".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
-        .expect("course banner candidate put should succeed");
+        .expect("course banner upload put should succeed");
     assert_eq!(
-        banner_candidate_record.storage_area,
+        banner_upload_record.storage_area,
         ObjectStorageArea::TempProcessing
     );
     assert_eq!(
-        banner_candidate_record.data_class,
+        banner_upload_record.data_class,
         ObjectDataClass::CourseAppearance
     );
     assert_eq!(
         store
-            .signed_url(
-                &banner_candidate_key,
-                ActivityTimestamp::from_unix_millis(2_000)
-            )
+            .signed_url(&banner_upload_key, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ObjectStoreError::NotSignable),
-        "course banner candidates must never be delivery targets"
+        "Course Banner Uploads must never be delivery targets"
     );
 
     let course_banner_key = ObjectAddress::CourseBanner {
@@ -180,7 +176,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             address: course_banner_key.clone(),
             bytes: b"current course banner".to_vec(),
             media_type: "image/webp".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("course banner put should succeed");
@@ -193,10 +189,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         ObjectDataClass::CourseAppearance
     );
     store
-        .signed_url(
-            &course_banner_key,
-            ActivityTimestamp::from_unix_millis(2_000),
-        )
+        .signed_url(&course_banner_key, Timestamp::from_unix_millis(2_000))
         .await
         .expect("current course banners are signable after separate pointer authorization");
 
@@ -231,7 +224,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
                 address: key.clone(),
                 bytes: b"private workspace import".to_vec(),
                 media_type: "application/zip".to_string(),
-                created_at: ActivityTimestamp::from_unix_millis(1_000),
+                created_at: Timestamp::from_unix_millis(1_000),
             })
             .await
             .expect("workspace import put should succeed");
@@ -240,7 +233,7 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         assert_eq!(record.question_revision, None);
         assert_eq!(
             store
-                .signed_url(&key, ActivityTimestamp::from_unix_millis(2_000))
+                .signed_url(&key, Timestamp::from_unix_millis(2_000))
                 .await,
             Err(ObjectStoreError::NotSignable)
         );
@@ -258,19 +251,19 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
             store.put(request).await,
         ),
         (
-            Sha256Digest::compute(b"published source"),
+            Sha256Checksum::compute(b"published source"),
             ObjectStorageArea::PrivateContent,
             Some(question_revision(2)),
             16,
             b"published source".to_vec(),
-            ActivityTimestamp::from_unix_millis(3_602_000),
-            ActivityTimestamp::from_unix_millis(302_000),
+            Timestamp::from_unix_millis(3_602_000),
+            Timestamp::from_unix_millis(302_000),
             Err(ObjectStoreError::AlreadyExists),
         )
     );
     assert_eq!(
         store
-            .signed_url(&temporary_key, ActivityTimestamp::from_unix_millis(2_000))
+            .signed_url(&temporary_key, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ObjectStoreError::NotSignable)
     );
@@ -297,9 +290,9 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         .await
         .expect("temporary cleanup should succeed");
     store
-        .delete(&banner_candidate_key)
+        .delete(&banner_upload_key)
         .await
-        .expect("course banner candidate cleanup should succeed");
+        .expect("course banner upload cleanup should succeed");
     store
         .delete(&course_banner_key)
         .await

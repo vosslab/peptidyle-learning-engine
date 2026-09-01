@@ -59,22 +59,14 @@ The reusable and delivery aggregates have separate paths:
 ```text
 crates/question_model/src/
 +- blueprint_course.rs       BlueprintCourse tree and projections
-+- curriculum_adoption.rs       Source, target, preview, apply, and receipt contracts
-`- curriculum_adoption/          Focused adoption contract modules
-
-crates/learning-data-access/src/
-+- contracts/blueprint_course.rs       BlueprintCourseStore
-+- contracts/curriculum_adoption.rs       CurriculumAdoptionStore
-+- in_memory/blueprint_course.rs       Deterministic BlueprintCourse adapter
-+- in_memory/curriculum_adoption/         Adoption conformance adapter
-+- postgres/blueprint_course.rs        PostgreSQL BlueprintCourse adapter
-`- postgres/curriculum_adoption/         PostgreSQL adoption and bridge modules
++- blueprint_operations.rs    Source, target, preview, apply, and receipt contracts
+`- blueprint_operations/      Focused exact-operation contract modules
 ```
 
 BlueprintCourse is one ordered module/assignment tree with one aggregate
 revision. Its exact public question members resolve to immutable
 QuestionRevisionReference pins. CourseInstance is not another source tree: the
-adoption boundary materializes it under an exact CourseId, records the
+Blueprint-operation boundary materializes it under an exact CourseId, records the
 immutable Blueprint parent and applied revision, and owns private delivery
 state. New upstream assignments appear in daughter instances as unreleased.
 
@@ -89,30 +81,10 @@ broker/RLS/grant helpers at 2026082929-2026082932.
 
 ## Learning data access
 
-```text
-crates/learning-data-access/
-+- src/
-|  +- contracts/       Store and capability contracts
-|  |  +- blueprint_course.rs  One BlueprintCourse Store contract
-|  |  `- curriculum_adoption.rs  Separate source-to-instance operations
-|  +- in_memory/       Test-support-gated deterministic adapters
-|  |  +- blueprint_course.rs
-|  |  `- curriculum_adoption/
-|  |     +- state.rs, course_structure.rs, destination.rs
-|  |     `- receipt_evidence.rs
-|  +- postgres/        Production PostgreSQL adapters
-|  |  +- blueprint_course.rs
-|  |  `- curriculum_adoption/
-|  |     `- bridge/
-|  - lib.rs, in_memory.rs, postgres.rs
-- tests/              Conformance and disposable PostgreSQL suites
-```
-
-The reusable Store owns BlueprintCourse list, get, replacement, publication
-projection, and permitted deletion. The adoption Store owns fork, assignment
-instantiation, whole-course instantiation, rollover, term shift, controlled
-update, idempotency, receipts, and reconciliation. It never grants a public
-Blueprint reader access to a private CourseInstance.
+No Blueprint Course or Blueprint-operation Store implementation currently
+exists under `crates/learning-data-access/`. The future Store boundary will own
+the six exact operations, their idempotency, receipts, and reconciliation. It
+will never grant a public Blueprint reader access to a private CourseInstance.
 
 ## Server application
 
@@ -141,18 +113,18 @@ the exact destination course and current equal Teaching Team Member authority.
 src/
 +- api/
 |  +- blueprint_course.ts                 BlueprintCourse client contract
-|  +- curriculum_adoption.ts                 Adoption client contract
+|  +- blueprint_operations.ts              Blueprint-operation client contract
 |  +- http_client/blueprint_course.ts     Same-origin BlueprintCourse requests
-|  +- http_client/curriculum_adoption.ts     Preview/apply/receipt requests
+|  +- http_client/blueprint_operations.ts Preview/apply/receipt requests
 |  +- decoders/blueprint_course.ts        Strict BlueprintCourse DTO decoder
-|  `- decoders/curriculum_adoption/         Strict adoption DTO decoders
+|  `- decoders/                           Other strict DTO decoders
 +- features/
 |  +- blueprint_course/                    One BlueprintCourse workspace/editor
-|  `- curriculum_adoption/                  Destination-specific staged workflow
+|  `- blueprint_operations/                Blueprint-operation workflow stylesheet
 +- pages/
 |  +- curriculum_route_page.tsx               Workspace route composition
 |  +- curriculum_detail_route_page.tsx        Detail route composition
-|  `- curriculum_adoption_live_page.tsx     CourseInstance adoption route
+|  `- (no Blueprint-operation page is mounted)
 +- components/                                Shared answer-free and accessibility UI
 +`- routes.ts                                Executable route map
 ```
@@ -239,7 +211,7 @@ publisher are absent; a restored browser owner will own fresh visual evidence.
 
 - Add a reusable content rule to crates/question_model/src/blueprint_course.rs;
   update both reusable Store implementations and conformance cases.
-- Add source-to-instance behavior to curriculum_adoption with a typed preview,
+- Add source-to-instance behavior to blueprint_operations with a typed preview,
   command, authorization, and immutable receipt.
 - Add schema only through the status-owned allocation in
   active_plans/implementation_status.md; preserve applied migrations.

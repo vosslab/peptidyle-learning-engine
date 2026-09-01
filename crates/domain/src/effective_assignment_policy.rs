@@ -9,8 +9,9 @@ use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
 use question_model::{
-    ActivityTimestamp, AssignmentDeadlineRule, AssignmentStatus, CourseTerm, LateWorkRule,
+    AssignmentDeadlineRule, AssignmentStatus, CourseTerm, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
+    Timestamp,
 };
 
 /// Compatibility re-export for established policy-resolution callers.
@@ -105,9 +106,9 @@ pub struct EffectiveAssignmentPolicyValue<T> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectiveAssignmentPolicy {
-    pub available_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
-    pub due_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
-    pub closes_at: EffectiveAssignmentPolicyValue<Option<ActivityTimestamp>>,
+    pub available_at: EffectiveAssignmentPolicyValue<Option<Timestamp>>,
+    pub due_at: EffectiveAssignmentPolicyValue<Option<Timestamp>>,
+    pub closes_at: EffectiveAssignmentPolicyValue<Option<Timestamp>>,
     pub assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
     pub attempt_limit: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
     pub late_work_rule: EffectiveAssignmentPolicyValue<LateWorkRule>,
@@ -118,9 +119,9 @@ pub struct EffectiveAssignmentPolicy {
 /// deadline behavior remain Assignment policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AccommodationAdjustment {
-    pub available_at: AccommodationAdjustmentValue<ActivityTimestamp>,
-    pub due_at: AccommodationAdjustmentValue<ActivityTimestamp>,
-    pub closes_at: AccommodationAdjustmentValue<ActivityTimestamp>,
+    pub available_at: AccommodationAdjustmentValue<Timestamp>,
+    pub due_at: AccommodationAdjustmentValue<Timestamp>,
+    pub closes_at: AccommodationAdjustmentValue<Timestamp>,
     pub assignment_attempt_time_limit_seconds: AccommodationAdjustmentValue<NonZeroU32>,
     pub attempt_limit: AccommodationAdjustmentValue<NonZeroU32>,
 }
@@ -197,7 +198,7 @@ pub struct ResolveEffectivePolicyInput {
     pub assignment_status: AssignmentStatusGate,
     pub active_student_course_membership: ActiveStudentCourseMembershipDecision,
     pub authorization: AuthorizationGate,
-    pub now: ActivityTimestamp,
+    pub now: Timestamp,
     pub prior_run_count: u32,
     pub base: BaseAssignmentPolicy,
     pub accommodation: Option<Accommodation>,
@@ -208,7 +209,7 @@ pub struct ResolveSyntheticPreviewPolicyInput {
     pub assignment_status: AssignmentStatusGate,
     pub active_student_course_membership: SyntheticPreviewAdmissionDecision,
     pub authorization: AuthorizationGate,
-    pub now: ActivityTimestamp,
+    pub now: Timestamp,
     pub prior_run_count: u32,
     pub base: BaseAssignmentPolicy,
     pub hypothetical_accommodation: Option<HypotheticalAccommodation>,
@@ -294,7 +295,7 @@ pub fn validate_base_assignment_policy_for_course_term(
 
 fn validate_absolute_timestamp_in_course_term(
     field: PolicyField,
-    value: Option<ActivityTimestamp>,
+    value: Option<Timestamp>,
     term: &CourseTerm,
 ) -> Result<(), EffectivePolicyError> {
     let Some(value) = value else {
@@ -399,7 +400,7 @@ pub fn resolve_synthetic_preview_policy(
 }
 
 fn resolve_authorized_policy(
-    now: ActivityTimestamp,
+    now: Timestamp,
     prior_run_count: u32,
     base: BaseAssignmentPolicy,
     accommodation: Option<AccommodationAdjustmentInput>,
@@ -574,9 +575,9 @@ fn validate_schedule(policy: &EffectiveAssignmentPolicy) -> Result<(), Effective
 }
 
 fn validate_schedule_values(
-    available: Option<ActivityTimestamp>,
-    due: Option<ActivityTimestamp>,
-    closes: Option<ActivityTimestamp>,
+    available: Option<Timestamp>,
+    due: Option<Timestamp>,
+    closes: Option<Timestamp>,
 ) -> Result<(), EffectivePolicyError> {
     if available.zip(due).is_some_and(|(a, d)| a > d)
         || available.zip(closes).is_some_and(|(a, c)| a > c)
@@ -589,7 +590,7 @@ fn validate_schedule_values(
 
 fn assignment_start_decision(
     policy: &EffectiveAssignmentPolicy,
-    now: ActivityTimestamp,
+    now: Timestamp,
     prior_run_count: u32,
 ) -> AssignmentStartDecision {
     if policy.closes_at.value.is_some_and(|closes| now >= closes) {

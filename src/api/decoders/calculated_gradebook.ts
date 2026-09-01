@@ -156,7 +156,7 @@ export interface InspectedStudentWorkDetail {
   readonly course: CourseInstanceReference;
   readonly membership: CourseMembershipReference;
   readonly assignment: AssignmentReference;
-  readonly run: AssignmentAttemptReference;
+  readonly assignmentAttempt: AssignmentAttemptReference;
   /** Current roster presentation label; never immutable evidence or an audit fact. */
   readonly studentDisplayLabel: string;
   /** Current assignment presentation title; never immutable evidence or an audit fact. */
@@ -718,7 +718,7 @@ export function decodeInspectedStudentWorkDetail(
     "course",
     "membership",
     "assignment",
-    "run",
+    "assignmentAttempt",
     "studentDisplayLabel",
     "assignmentTitle",
     "submissions",
@@ -728,7 +728,11 @@ export function decodeInspectedStudentWorkDetail(
     course: publicReference(field(record, "course", path), `${path}.course`, "C"),
     membership: publicReference(field(record, "membership", path), `${path}.membership`, "M"),
     assignment: publicReference(field(record, "assignment", path), `${path}.assignment`, "A"),
-    run: publicReference(field(record, "run", path), `${path}.run`, "R"),
+    assignmentAttempt: publicReference(
+      field(record, "assignmentAttempt", path),
+      `${path}.assignmentAttempt`,
+      "R",
+    ),
     studentDisplayLabel: boundedDisplayLabel(
       field(record, "studentDisplayLabel", path),
       `${path}.studentDisplayLabel`,

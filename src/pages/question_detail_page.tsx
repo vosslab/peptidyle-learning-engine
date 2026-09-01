@@ -50,8 +50,17 @@ export function QuestionDetailPage(): JSX.Element {
             <article>
               <p class="eyebrow">Published question</p>
               <h1>{record().summary.metadata.title}</h1>
+              <section aria-label="Question Description">
+                <h2>Question Description</h2>
+                <p>{record().summary.metadata.questionDescription}</p>
+              </section>
               <CopyableQuestionId displayId={record().summary.questionId} />
-              <p aria-label="Published by">By {record().summary.byline.names.join(", ")}</p>
+              <p aria-label="Question Authors">
+                Authors:{" "}
+                {record()
+                  .summary.authorship.authors.map((author) => author.displayName)
+                  .join(", ")}
+              </p>
               <p>{`Backend: ${record().summary.backend}`}</p>
               <Show when={record().prompt.kind === "generatedExample"}>
                 <aside class="question-library-generated-example" aria-label="Generated example">

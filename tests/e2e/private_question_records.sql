@@ -13,6 +13,8 @@ DECLARE
         'question_revision_feedback',
         'question_revision_answer_explanation',
         'question_revision_grading_input',
+        'workspace_import',
+        'workspace_import_item_result',
         'workspace_import_grading_input'
     ];
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
         OR to_regclass('ple_private.draft_question_grading_material') IS NOT NULL
         OR to_regclass('ple_private.published_flat_question_grading') IS NOT NULL
         OR to_regclass('ple_private.published_qti_question_grading') IS NOT NULL
-        OR to_regclass('ple_private.workspace_qti_import_grading') IS NOT NULL THEN
+        OR to_regclass('ple_private.workspace_import_grading') IS NOT NULL THEN
         RAISE EXCEPTION 'generic private Question grading records remain in the baseline';
     END IF;
 
@@ -151,7 +153,8 @@ BEGIN
         'question_revision_feedback_is_immutable',
         'question_revision_answer_explanation_is_immutable',
         'question_revision_grading_input_is_immutable',
-        'workspace_import_grading_input_is_immutable_after_commit'
+        'workspace_import_grading_input_is_immutable_after_commit',
+        'workspace_import_item_result_is_immutable_after_commit'
     ] LOOP
         IF NOT EXISTS (
             SELECT 1 FROM pg_trigger
@@ -161,13 +164,61 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF EXISTS (
+        SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name = 'question_source'
+           AND column_definition.column_name IN (
+                'question_generator_id',
+                'question_generator_version'
+           )
+    ) THEN
+        RAISE EXCEPTION
+            'Question Source retains an independent generator identity beside its immutable source bytes';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint AS table_constraint
         WHERE table_constraint.conrelid = 'ple_private.workspace_import_grading_input'::regclass
           AND table_constraint.contype = 'f'
-          AND table_constraint.confrelid = 'ple_private.workspace_qti_import'::regclass
+          AND table_constraint.confrelid = 'ple_private.workspace_import'::regclass
     ) THEN
         RAISE EXCEPTION 'Workspace Import Question Grading Input is not import-bound';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns AS column_definition
+        WHERE column_definition.table_schema = 'ple_private'
+          AND column_definition.table_name = 'workspace_import'
+          AND column_definition.column_name = 'format_import_data'
+          AND column_definition.data_type = 'jsonb'
+          AND column_definition.is_nullable = 'NO'
+    ) OR EXISTS (
+        SELECT 1
+        FROM information_schema.columns AS column_definition
+        WHERE column_definition.table_schema = 'ple_private'
+          AND column_definition.table_name = 'workspace_import'
+          AND column_definition.column_name IN ('source_package_evidence', 'registry')
+    ) THEN
+        RAISE EXCEPTION 'Workspace Import must retain format-owned import data, not QTI-only fields';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns AS column_definition
+        WHERE column_definition.table_schema = 'ple_private'
+          AND column_definition.table_name = 'workspace_import'
+          AND column_definition.column_name = 'question_format'
+          AND column_definition.is_nullable = 'NO'
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_constraint AS table_constraint
+        WHERE table_constraint.conrelid = 'ple_private.workspace_import_item_result'::regclass
+          AND table_constraint.contype = 'f'
+          AND table_constraint.confrelid = 'ple_private.workspace_import'::regclass
+    ) THEN
+        RAISE EXCEPTION 'Workspace Import Item Result must bind one Question Format-owned import';
     END IF;
 END
 $$;
@@ -232,6 +283,27 @@ COMMIT;
 
 DO $$
 BEGIN
+    SET LOCAL ROLE ple_api_owner;
+    PERFORM ple_private.transfer_draft_question_source_to_question_revision(
+        '00000000-0000-0000-0000-000000000913',
+        '00000000-0000-0000-0000-000000000905', 2,
+        'SRC-0001', 1,
+        '00000000-0000-0000-0000-000000000914',
+        jsonb_build_object(
+            'kind', 'questionSource',
+            'questionRevision', jsonb_build_object('questionId', 'SRC-0001', 'revisionNumber', 1),
+            'object', '00000000-0000-0000-0000-000000000914'::uuid
+        ),
+        decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+    );
+    RAISE EXCEPTION 'Question Source publication accepted a nonexistent Draft Question Revision Number';
+EXCEPTION
+    WHEN check_violation THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
     IF (SELECT count(*) FROM ple_private.object_record
         WHERE object_id = '00000000-0000-0000-0000-000000000903') <> 1 THEN
         RAISE EXCEPTION 'Workspace Question Source Object registration did not persist exactly one immutable Object Record';
@@ -239,14 +311,14 @@ BEGIN
 END
 $$;
 
-INSERT INTO ple_private.draft_question (draft_question_id, workspace_id, created_at)
+INSERT INTO ple_private.draft_question (draft_question_uuid, workspace_id, created_at)
 VALUES (
     '00000000-0000-0000-0000-000000000905',
     '00000000-0000-0000-0000-000000000902',
     '2026-08-31T00:00:00Z'
 );
 INSERT INTO ple_private.draft_question_revision (
-    draft_question_revision_id, draft_question_id, revision_number, title, definition, created_at
+    draft_question_revision_uuid, draft_question_uuid, revision_number, title, question_content, created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000906',
     '00000000-0000-0000-0000-000000000905',
@@ -259,18 +331,18 @@ SELECT pg_catalog.set_config(
 );
 SELECT ple_api.register_draft_question_source(
     '00000000-0000-0000-0000-000000000907',
-    '00000000-0000-0000-0000-000000000906',
+    '00000000-0000-0000-0000-000000000905', 1,
     '00000000-0000-0000-0000-000000000902',
-    'ple', 'pleFlatQuestionV2', 'multipleChoice',
+    'ple', 'pleQuestionJson', 'multipleChoice',
     jsonb_build_object('backend', 'ple'),
     '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
 );
 -- A retry mints no second record and returns the established source identity.
 SELECT ple_api.register_draft_question_source(
     '00000000-0000-0000-0000-000000000908',
-    '00000000-0000-0000-0000-000000000906',
+    '00000000-0000-0000-0000-000000000905', 1,
     '00000000-0000-0000-0000-000000000902',
-    'ple', 'pleFlatQuestionV2', 'multipleChoice',
+    'ple', 'pleQuestionJson', 'multipleChoice',
     jsonb_build_object('backend', 'ple'),
     '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
 );
@@ -278,9 +350,9 @@ DO $$
 BEGIN
     PERFORM ple_api.register_draft_question_source(
         '00000000-0000-0000-0000-000000000908',
-        '00000000-0000-0000-0000-000000000906',
+        '00000000-0000-0000-0000-000000000905', 1,
         '00000000-0000-0000-0000-000000000902',
-        'ple', 'pleFlatQuestionV2', 'multipleChoice',
+        'ple', 'pleQuestionJson', 'multipleChoice',
         jsonb_build_object('backend', 'ple'),
         '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('cd', 32)
     );
@@ -293,9 +365,24 @@ DO $$
 BEGIN
     PERFORM ple_api.register_draft_question_source(
         '00000000-0000-0000-0000-000000000908',
-        '00000000-0000-0000-0000-000000000906',
+        '00000000-0000-0000-0000-000000000905', 2,
+        '00000000-0000-0000-0000-000000000902',
+        'ple', 'pleQuestionJson', 'multipleChoice',
+        jsonb_build_object('backend', 'ple'),
+        '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
+    );
+    RAISE EXCEPTION 'Draft Question Source registration accepted a nonexistent Draft Question Revision Number';
+EXCEPTION
+    WHEN check_violation THEN NULL;
+END
+$$;
+DO $$
+BEGIN
+    PERFORM ple_api.register_draft_question_source(
+        '00000000-0000-0000-0000-000000000908',
+        '00000000-0000-0000-0000-000000000905', 1,
         '00000000-0000-0000-0000-000000000909',
-        'ple', 'pleFlatQuestionV2', 'multipleChoice',
+        'ple', 'pleQuestionJson', 'multipleChoice',
         jsonb_build_object('backend', 'ple'),
         '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
     );
@@ -311,12 +398,96 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
          FROM ple_private.question_source
-         WHERE question_source_id = '00000000-0000-0000-0000-000000000907'
+         WHERE question_source_uuid = '00000000-0000-0000-0000-000000000907'
            AND backend_locator = jsonb_build_object('backend', 'ple')
            AND source_object_id = '00000000-0000-0000-0000-000000000903'
            AND source_object_checksum = repeat('ab', 32)
     ) THEN
         RAISE EXCEPTION 'Question Source did not retain its exact Source Object Reference and Source Object Checksum';
     END IF;
+END
+$$;
+
+INSERT INTO ple_data.published_question (question_id, created_at)
+VALUES ('SRC-0001', '2026-08-31T00:00:00Z');
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, published_at, public_metadata
+) VALUES (
+    'SRC-0001', 1, 'ple', '2026-08-31T00:00:00Z',
+    jsonb_build_object('questionDescription', 'Published object-backed source')
+);
+
+-- The publication coordinator records a new Revision-owned Object Record and
+-- source relationship only after the identical bytes have been copied.
+BEGIN;
+SET LOCAL ROLE ple_api_owner;
+SELECT ple_private.transfer_draft_question_source_to_question_revision(
+    '00000000-0000-0000-0000-000000000910',
+    '00000000-0000-0000-0000-000000000905', 1,
+    'SRC-0001', 1,
+    '00000000-0000-0000-0000-000000000911',
+    jsonb_build_object(
+        'kind', 'questionSource',
+        'questionRevision', jsonb_build_object('questionId', 'SRC-0001', 'revisionNumber', 1),
+        'object', '00000000-0000-0000-0000-000000000911'::uuid
+    ),
+    decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+-- A retry after copied-byte registration returns the established source identity.
+SELECT ple_private.transfer_draft_question_source_to_question_revision(
+    '00000000-0000-0000-0000-000000000912',
+    '00000000-0000-0000-0000-000000000905', 1,
+    'SRC-0001', 1,
+    '00000000-0000-0000-0000-000000000911',
+    jsonb_build_object(
+        'kind', 'questionSource',
+        'questionRevision', jsonb_build_object('questionId', 'SRC-0001', 'revisionNumber', 1),
+        'object', '00000000-0000-0000-0000-000000000911'::uuid
+    ),
+    decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+COMMIT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM ple_private.question_source AS source
+          JOIN ple_private.object_record AS object_record
+            ON object_record.object_id = source.source_object_id
+         WHERE source.question_id = 'SRC-0001'
+           AND source.revision_number = 1
+           AND source.question_source_uuid = '00000000-0000-0000-0000-000000000910'
+           AND source.source_object_checksum = repeat('ab', 32)
+           AND object_record.object_data_class = 'question-source'
+           AND object_record.object_address = jsonb_build_object(
+                'kind', 'questionSource',
+                'questionRevision', jsonb_build_object('questionId', 'SRC-0001', 'revisionNumber', 1),
+                'object', '00000000-0000-0000-0000-000000000911'::uuid
+           )
+    ) THEN
+        RAISE EXCEPTION 'Question Revision publication did not transfer exact Question Source bytes to its exact Object Address';
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    SET LOCAL ROLE ple_app;
+    PERFORM ple_private.transfer_draft_question_source_to_question_revision(
+        '00000000-0000-0000-0000-000000000913',
+        '00000000-0000-0000-0000-000000000905', 1,
+        'SRC-0001', 1,
+        '00000000-0000-0000-0000-000000000914',
+        jsonb_build_object(
+            'kind', 'questionSource',
+            'questionRevision', jsonb_build_object('questionId', 'SRC-0001', 'revisionNumber', 1),
+            'object', '00000000-0000-0000-0000-000000000914'::uuid
+        ),
+        decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
+    );
+    RAISE EXCEPTION 'Question Source publication helper was exposed to ple_app';
+EXCEPTION
+    WHEN insufficient_privilege THEN NULL;
 END
 $$;

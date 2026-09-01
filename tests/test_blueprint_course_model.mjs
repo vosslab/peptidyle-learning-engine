@@ -6,10 +6,10 @@ import {
   appendPickedFixedEntries,
   appendPickedPool,
   blueprintCourseContinuationPresentation,
-  emptyReusableDefinition,
+  emptyReusableContent,
   moveReusableEntry,
   updateReusableSchedule,
-  validateReusableDefinition,
+  validateReusableContent,
 } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
 function selection(...questionIds) {
@@ -17,7 +17,7 @@ function selection(...questionIds) {
 }
 
 test("reusable entries preserve fixed and Question Pool interleaving", () => {
-  const fixed = appendPickedFixedEntries(emptyReusableDefinition("Quiz"), selection("AAA-BBBB"));
+  const fixed = appendPickedFixedEntries(emptyReusableContent("Quiz"), selection("AAA-BBBB"));
   const pooled = appendPickedPool(fixed, selection("CCC-DDDD", "EEE-FFFF"));
   const reordered = moveReusableEntry(pooled, 1, -1);
 
@@ -28,25 +28,23 @@ test("reusable entries preserve fixed and Question Pool interleaving", () => {
   assert.equal(reordered.entries[0]?.kind === "pool" && reordered.entries[0].selection_count, 1);
 });
 
-test("Question Pool validation keeps selection count inside the selected candidate set", () => {
-  const definition = appendPickedPool(emptyReusableDefinition("Quiz"), selection("AAA-BBBB"));
-  const pool = definition.entries[0];
+test("Question Pool validation keeps selection count inside the selected Question Pool Item set", () => {
+  const content = appendPickedPool(emptyReusableContent("Quiz"), selection("AAA-BBBB"));
+  const pool = content.entries[0];
   const invalid =
-    pool?.kind === "pool"
-      ? { ...definition, entries: [{ ...pool, selection_count: 2 }] }
-      : definition;
+    pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 2 }] } : content;
 
-  assert.match(validateReusableDefinition(invalid).message ?? "", /selection count/);
+  assert.match(validateReusableContent(invalid).message ?? "", /selection count/);
 });
 
 test("relative schedule keeps a valid independently useful due moment", () => {
-  const scheduled = updateReusableSchedule(emptyReusableDefinition("Quiz"), "due_at", {
+  const scheduled = updateReusableSchedule(emptyReusableContent("Quiz"), "due_at", {
     day_offset: 7,
     local_time: "09:00:00.000",
   });
 
   assert.equal(
-    validateReusableDefinition({
+    validateReusableContent({
       ...scheduled,
       entries: [
         { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },

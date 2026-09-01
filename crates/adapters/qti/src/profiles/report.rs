@@ -262,7 +262,7 @@ impl QtiPleDefault {
     }
 }
 
-/// Exact points provenance permitted by the v1 profile contract.
+/// Exact source-points declaration permitted by the v1 profile contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum QtiMappedPoints {
     Declared(String),

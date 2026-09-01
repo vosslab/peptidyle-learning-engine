@@ -4,14 +4,14 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use async_trait::async_trait;
 use grading::{AnswerKey, QuestionGradingOutcome, grade};
 use objects::ObjectAddress;
-use objects::Sha256Digest;
+use objects::Sha256Checksum;
 use objects::memory::MemoryObjectStore;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
-use question_model::classification::License;
+use question_model::classification::QuestionLicense;
 use question_model::envelope::QuestionContentBlock;
-use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
+use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
@@ -22,7 +22,8 @@ use uuid::Uuid;
 
 use super::*;
 use crate::renderer_contract::{
-    GradeRequest, RenderedWebworkQuestion, UpstreamControlV1, WebworkReplayMappingV1,
+    GradeRequest, RenderedWebworkQuestion, WebworkQuestionAttemptReplayDetails,
+    WebworkUpstreamControl,
 };
 
 const OPL_FIXTURE: &str = concat!(
@@ -131,19 +132,19 @@ impl WebworkRenderer for RecordedRenderer {
     }
 }
 
-fn recorded_replay() -> WebworkReplayMappingV1 {
-    WebworkReplayMappingV1::SingleChoice {
+fn recorded_replay() -> WebworkQuestionAttemptReplayDetails {
+    WebworkQuestionAttemptReplayDetails::SingleChoice {
         controls: [
             (
                 ResponseItemReference::new("water"),
-                UpstreamControlV1 {
+                WebworkUpstreamControl {
                     field: "AnSwEr0001".into(),
                     value: "0".into(),
                 },
             ),
             (
                 ResponseItemReference::new("oxygen"),
-                UpstreamControlV1 {
+                WebworkUpstreamControl {
                     field: "AnSwEr0001".into(),
                     value: "1".into(),
                 },
@@ -182,24 +183,29 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
             max_attempts: Some(2),
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_definition: QuestionVariationDefinition::Static,
+        question_variation_rule: QuestionVariationRule::Static,
         grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded OPL selection".to_string(),
+            question_description: "Instructor-facing recorded OPL fixture summary.".to_string(),
             tags: Vec::new(),
             classifications: Vec::new(),
-            license: License::CcBySa,
+            question_license: Some(QuestionLicense::CcBySa4_0),
+            question_citation: None,
             language: "en-US".to_string(),
         },
     }
 }
 
-async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> WebworkSource {
+async fn source(
+    store: &MemoryObjectStore,
+    question: &QuestionRevision,
+) -> ResolvedWebworkQuestionSource {
     let source_object_reference = SourceObjectReference {
         object: ObjectId::from_uuid(Uuid::from_u128(4)),
     };
     let source_object_checksum =
-        SourceObjectChecksum::parse(Sha256Digest::compute(OPL_FIXTURE.as_bytes()).to_string())
+        SourceObjectChecksum::parse(Sha256Checksum::compute(OPL_FIXTURE.as_bytes()).to_string())
             .expect("computed checksum is canonical");
     store
         .put(PutObject {
@@ -212,11 +218,11 @@ async fn source(store: &MemoryObjectStore, question: &QuestionRevision) -> Webwo
             },
             bytes: OPL_FIXTURE.as_bytes().to_vec(),
             media_type: "text/x-wework-pg".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1),
+            created_at: Timestamp::from_unix_millis(1),
         })
         .await
         .expect("fixture source should be stored under its immutable key");
-    WebworkSource::resolve(
+    ResolvedWebworkQuestionSource::resolve(
         store,
         QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -241,7 +247,7 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
             &question,
             QuestionSeed::new(17),
             &source,
-            ActivityTimestamp::from_unix_millis(1),
+            Timestamp::from_unix_millis(1),
         )
         .await
         .expect("recorded OPL fixture should render");
@@ -285,7 +291,7 @@ async fn historical_invalid_title_is_refused_before_cache_or_renderer() {
                 &question,
                 QuestionSeed::new(17),
                 &source,
-                ActivityTimestamp::from_unix_millis(1),
+                Timestamp::from_unix_millis(1),
             )
             .await,
         Err(WebworkAdapterError::InvalidTitle(_))
@@ -305,7 +311,7 @@ async fn repeated_version_and_seed_are_served_without_a_renderer_call() {
             &question,
             QuestionSeed::new(18),
             &source,
-            ActivityTimestamp::from_unix_millis(1),
+            Timestamp::from_unix_millis(1),
         )
         .await
         .expect("first render should fill the cache");
@@ -338,7 +344,7 @@ fn cache_boundary_emits_one_renderer_call_then_one_cache_hit() {
                 &question,
                 QuestionSeed::new(181),
                 &source,
-                ActivityTimestamp::from_unix_millis(1),
+                Timestamp::from_unix_millis(1),
             )
             .await
             .expect("first render should fill the cache");
@@ -373,7 +379,7 @@ async fn renderer_outage_is_an_explicit_backend_local_failure() {
                 &question,
                 QuestionSeed::new(19),
                 &source,
-                ActivityTimestamp::from_unix_millis(1),
+                Timestamp::from_unix_millis(1),
             )
             .await,
         Err(WebworkAdapterError::Renderer(RendererFailure::TimedOut))
@@ -404,7 +410,7 @@ async fn renderer_markup_is_sanitized_before_cache_or_issued_envelope() {
             &question,
             QuestionSeed::new(20),
             &source,
-            ActivityTimestamp::from_unix_millis(1),
+            Timestamp::from_unix_millis(1),
         )
         .await
         .expect("untrusted renderer output should be sanitized server-side");
@@ -443,7 +449,7 @@ async fn cache_reuse_refuses_a_different_active_renderer_without_calling_it() {
             &question,
             QuestionSeed::new(21),
             &source,
-            ActivityTimestamp::from_unix_millis(1),
+            Timestamp::from_unix_millis(1),
         )
         .await
         .expect("first renderer should populate cache");
@@ -474,7 +480,7 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
     let wrong_checksum =
         SourceObjectChecksum::parse("00".repeat(32)).expect("fixed checksum is canonical");
     assert_eq!(
-        WebworkSource::resolve(
+        ResolvedWebworkQuestionSource::resolve(
             &store,
             question_revision(2),
             trusted.source_object_reference().clone(),
@@ -484,7 +490,7 @@ async fn source_resolution_refuses_digest_and_published_key_mismatches() {
         Err(WebworkAdapterError::UntrustedSource)
     );
     assert_eq!(
-        WebworkSource::resolve(
+        ResolvedWebworkQuestionSource::resolve(
             &store,
             QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
@@ -517,7 +523,7 @@ async fn source_from_another_published_question_is_refused_before_renderer_or_ca
                 &question,
                 QuestionSeed::new(22),
                 &foreign_source,
-                ActivityTimestamp::from_unix_millis(1),
+                Timestamp::from_unix_millis(1),
             )
             .await,
         Err(WebworkAdapterError::SourceDoesNotMatchQuestion)

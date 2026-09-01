@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use question_model::generation::QuestionGeneratorReference;
 use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionRevision, QuestionBackendLocator, QuestionRevision,
+    DraftQuestionBackendLocator, DraftQuestionContent, QuestionBackendLocator, QuestionRevision,
 };
 
 use crate::generator::PleQuestionImplementation;
@@ -59,7 +59,7 @@ impl PleQuestionBackend {
 
     pub(super) fn implementation_for_draft(
         &self,
-        question: &DraftQuestionRevision,
+        question: &DraftQuestionContent,
         generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
         if !matches!(question.backend_locator, DraftQuestionBackendLocator::Ple) {

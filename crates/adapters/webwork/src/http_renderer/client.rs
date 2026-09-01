@@ -36,8 +36,8 @@ use serde_json::{Map, Value};
 use super::response_shape::RESPONSE_KEYS;
 
 use crate::renderer_contract::{
-    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure, UpstreamControlV1,
-    WebworkRenderer, WebworkReplayMappingV1,
+    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure,
+    WebworkQuestionAttemptReplayDetails, WebworkRenderer, WebworkUpstreamControl,
 };
 
 const JSON_MEDIA_TYPE: &str = "application/json";
@@ -243,7 +243,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
         match (request.response, request.replay) {
             (
                 StudentResponse::MultipleChoice { selected },
-                WebworkReplayMappingV1::SingleChoice { controls },
+                WebworkQuestionAttemptReplayDetails::SingleChoice { controls },
             ) if selected.len() == 1 => {
                 let control = controls.get(&selected[0]).ok_or_else(|| {
                     RendererFailure::InvalidOutput(
@@ -254,7 +254,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
             }
             (
                 StudentResponse::Matching { matches },
-                WebworkReplayMappingV1::Matching { prompts },
+                WebworkQuestionAttemptReplayDetails::Matching { prompts },
             ) if matches.len() == prompts.len() => {
                 for pair in matches {
                     let prompt = prompts.get(&pair.prompt).ok_or_else(|| {
@@ -348,7 +348,7 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
 struct ParsedRender {
     envelope: QuestionVariationPresentation,
     html: String,
-    replay: WebworkReplayMappingV1,
+    replay: WebworkQuestionAttemptReplayDetails,
 }
 #[derive(Debug)]
 struct ExpectedEcho {
@@ -412,7 +412,7 @@ fn project_single_radio(
         });
         choice_fields.insert(
             id,
-            UpstreamControlV1 {
+            WebworkUpstreamControl {
                 field: control.name,
                 value: control.value,
             },
@@ -432,7 +432,7 @@ fn project_single_radio(
             },
         },
         html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
-        replay: WebworkReplayMappingV1::SingleChoice {
+        replay: WebworkQuestionAttemptReplayDetails::SingleChoice {
             controls: choice_fields,
         },
     })
@@ -470,7 +470,7 @@ fn project_matching(
         });
         replay_prompts.insert(
             id,
-            crate::renderer_contract::UpstreamMatchPromptV1 {
+            crate::renderer_contract::WebworkUpstreamMatchingPrompt {
                 field: prompt.field,
                 choices: choice_ids.iter().cloned().collect(),
             },
@@ -489,7 +489,7 @@ fn project_matching(
             response: QuestionResponseFormat::Matching { prompts, choices },
         },
         html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
-        replay: WebworkReplayMappingV1::Matching {
+        replay: WebworkQuestionAttemptReplayDetails::Matching {
             prompts: replay_prompts,
         },
     })

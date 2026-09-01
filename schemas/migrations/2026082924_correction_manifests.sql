@@ -15,14 +15,14 @@ CREATE TABLE ple_data.forced_question_correction (
     approved_by_account_id uuid NOT NULL,
     approver_role text NOT NULL DEFAULT 'sysadmin' CHECK (approver_role = 'sysadmin'),
     approved_at timestamp with time zone NOT NULL,
-    generation integer NOT NULL CHECK (generation > 0),
+    correction_generation integer NOT NULL CHECK (correction_generation > 0),
     reason text NOT NULL CHECK (reason IN ('security_flaw', 'critical_correctness_flaw')),
     CONSTRAINT forced_question_correction_revisions_differ CHECK (
         (flawed_question_id, flawed_revision_number) <> (replacement_question_id, replacement_revision_number)
     ),
     CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
         REFERENCES ple_private.account (account_id, role),
-    CONSTRAINT forced_question_correction_flawed_generation_is_unique UNIQUE (flawed_question_id, flawed_revision_number, generation),
+    CONSTRAINT forced_question_correction_flawed_correction_generation_is_unique UNIQUE (flawed_question_id, flawed_revision_number, correction_generation),
     CONSTRAINT forced_question_correction_flawed_revision_matches FOREIGN KEY (flawed_question_id, flawed_revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT forced_question_correction_replacement_revision_matches FOREIGN KEY (replacement_question_id, replacement_revision_number)
@@ -176,11 +176,11 @@ CREATE TABLE ple_audit.correction_recalculation_evidence (
     evidence_id uuid PRIMARY KEY,
     correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction (correction_id),
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
-    generation integer NOT NULL CHECK (generation > 0),
+    correction_generation integer NOT NULL CHECK (correction_generation > 0),
     recorded_at timestamp with time zone NOT NULL,
     outcome jsonb NOT NULL CHECK (jsonb_typeof(outcome) = 'object'),
     digest bytea NOT NULL CHECK (pg_catalog.octet_length(digest) = 32),
-    CONSTRAINT correction_recalculation_evidence_is_unique UNIQUE (correction_id, course_id, generation)
+    CONSTRAINT correction_recalculation_evidence_is_unique UNIQUE (correction_id, course_id, correction_generation)
 );
 ALTER TABLE ple_audit.forced_question_correction_assignment_target ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.forced_question_correction_assignment_target FORCE ROW LEVEL SECURITY;

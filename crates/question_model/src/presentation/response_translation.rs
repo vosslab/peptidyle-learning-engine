@@ -168,13 +168,15 @@ pub fn translate_rendered_response(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<StudentResponse, RenderedResponseTranslationError> {
-    let durable_id = |id: &ResponseItemReference, role| durable_id(id, role, presentation);
+    let response_item_reference = |id: &ResponseItemReference, role| {
+        translated_response_item_reference(id, role, presentation)
+    };
 
     match response {
         StudentResponse::MultipleChoice { selected } => Ok(StudentResponse::MultipleChoice {
             selected: selected
                 .iter()
-                .map(|id| durable_id(id, ResponseItemRole::QuestionChoice))
+                .map(|id| response_item_reference(id, ResponseItemRole::QuestionChoice))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::MultiBlank { answers } => Ok(StudentResponse::MultiBlank {
@@ -182,7 +184,10 @@ pub fn translate_rendered_response(
                 .iter()
                 .map(|answer| {
                     Ok(StudentTextEntry {
-                        slot: durable_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
+                        slot: response_item_reference(
+                            &answer.slot,
+                            ResponseItemRole::TextEntrySlot,
+                        )?,
                         text: answer.text.clone(),
                     })
                 })
@@ -193,8 +198,14 @@ pub fn translate_rendered_response(
                 .iter()
                 .map(|pair| {
                     Ok(StudentMatch {
-                        prompt: durable_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
-                        choice: durable_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
+                        prompt: response_item_reference(
+                            &pair.prompt,
+                            ResponseItemRole::MatchingPrompt,
+                        )?,
+                        choice: response_item_reference(
+                            &pair.choice,
+                            ResponseItemRole::MatchingChoice,
+                        )?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -202,7 +213,7 @@ pub fn translate_rendered_response(
         StudentResponse::Ordering { order } => Ok(StudentResponse::Ordering {
             order: order
                 .iter()
-                .map(|id| durable_id(id, ResponseItemRole::OrderingItem))
+                .map(|id| response_item_reference(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Numeric { value } => Ok(StudentResponse::Numeric { value: *value }),
@@ -214,7 +225,10 @@ pub fn translate_rendered_response(
                 .iter()
                 .map(|selection| {
                     Ok(StudentHotspotSelection {
-                        region: durable_id(&selection.region, ResponseItemRole::HotspotRegion)?,
+                        region: response_item_reference(
+                            &selection.region,
+                            ResponseItemRole::HotspotRegion,
+                        )?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -357,16 +371,15 @@ pub fn project_rendered_response_for_inspection(
     }
 }
 
-fn durable_id(
+fn translated_response_item_reference(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
 ) -> Result<ResponseItemReference, RenderedResponseTranslationError> {
-    Ok(ResponseItemReference::new(
-        rendered_binding(id, expected_role, presentation)?
-            .durable_id
-            .clone(),
-    ))
+    rendered_binding(id, expected_role, presentation)?
+        .response_item_reference
+        .clone()
+        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)
 }
 
 fn verified_rendered_id(
@@ -410,7 +423,7 @@ fn rendered_id(
     let mut bindings = presentation
         .item_bindings
         .iter()
-        .filter(|binding| binding.durable_id == durable.as_str());
+        .filter(|binding| binding.response_item_reference.as_ref() == Some(durable));
     let binding = bindings
         .next()
         .ok_or(RenderedResponseTranslationError::UnknownRenderedId)?;

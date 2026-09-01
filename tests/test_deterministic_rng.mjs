@@ -66,18 +66,18 @@ test("selection retries rejected tail values and permits the uint32 range bound"
 
 test("allocation and choice replay without mutating candidate order", () => {
   const candidates = ["MC", "MA", "FIB", "MATCH"];
-  const allocation_stream = create_named_stream(91, "family.allocation");
+  const allocation_stream = create_named_stream(91, "selection.allocation");
   const allocation = allocate_without_replacement(allocation_stream, candidates, 3);
   const replay = allocate_without_replacement(
-    create_named_stream(91, "family.allocation"),
+    create_named_stream(91, "selection.allocation"),
     candidates,
     3,
   );
-  const choice = choose_value(create_named_stream(91, "family.choice"), candidates);
+  const choice = choose_value(create_named_stream(91, "selection.choice"), candidates);
   assert.deepEqual(allocation, replay);
   assert.deepEqual(allocation, ["FIB", "MC", "MATCH"]);
   assert.equal(new Set(allocation).size, 3);
-  assert.equal(choice, "FIB");
+  assert.equal(choice, "MATCH");
   assert.deepEqual(candidates, ["MC", "MA", "FIB", "MATCH"]);
   const invalid_allocation = () => {
     return allocate_without_replacement(allocation_stream, candidates, 5);

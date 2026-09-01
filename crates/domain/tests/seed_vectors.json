@@ -6,7 +6,7 @@
         "id": "parameter-map",
         "version": "1"
       },
-      "definition": {
+      "rule": {
         "kind": "seeded",
         "generator": {
           "id": "parameter-map",

@@ -1,14 +1,14 @@
-# PLE flat-question JSON
+# PLE Question JSON
 
-Status: accepted v2-only source contract. Version 2 implements all eight required
-flat-question Question Types through strict parsing, answer-free compilation,
+Status: accepted schema-version-2 source contract. Schema version 2 implements all eight required
+PLE Question JSON Question Types through strict parsing, answer-free compilation,
 publication validation, student rendering, response validation, and isolated
 server grading.
 
 ## Decision
 
 Peptidyle uses its own small, versioned JSON source format for ordinary static
-questions. The contract is named **PLE flat-question JSON**, not QTI JSON. QTI
+questions. The contract is named **PLE Question JSON**, not QTI JSON. QTI
 is an import/export adapter and archival interchange format; it does not define
 the internal model.
 
@@ -17,7 +17,7 @@ expression trees, arbitrary response processing, or vendor extension containers.
 
 ## Required Question Type roadmap
 
-The complete product must support at least these eight flat-question Question Types:
+The complete product must support at least these eight PLE Question JSON Question Types:
 
 - multiple choice (MC), implemented by `singleChoice`;
 - multiple answer (MA);
@@ -43,7 +43,7 @@ must not silently reinterpret v2 source bytes.
 ## Stored example
 
 The complete accepted record lives in
-[flat_single_choice_v2.json](../crates/adapters/ple/tests/fixtures/flat_single_choice_v2.json).
+`crates/adapters/ple/tests/fixtures/ple_question_json_single_choice_schema_v2.json`.
 Parser and compiler tests load that stored Question data while executable source owns behavior.
 
 Choice IDs are semantic stable identifiers, not display labels such as `A`,
@@ -57,7 +57,7 @@ executable content.
 ## Teaching support and assets
 
 PLE follows the assessment meanings demonstrated by QTI v3 without importing
-QTI's general response-processing language into the flat-question format. QTI
+QTI's general response-processing language into the PLE Question JSON format. QTI
 uses response and outcome processing to select inline, block, or modal feedback.
 It represents a requested Hint through a distinct request response even though
 the displayed Hint content may live in a QTI feedback block. QTI represents
@@ -85,13 +85,13 @@ whose adaptive response processing cannot preserve these meanings remains in
 the QTI Question Format or produces an explicit unsupported-feature result. The
 adapter preserves the exact instructional meaning.
 
-The current flat-question v2 source implements Choice Feedback through
+The current PLE Question JSON schema-version-2 source implements Choice Feedback through
 `response.choices[].feedback`, Correct Feedback through `feedback.correct`, and
 Incorrect Feedback through `feedback.incorrect`. Its accepted-answer members
 compile into the Answer Key. A dedicated Question Answer output, authored
 Question Hint, and authored Question Answer Explanation are open migration
 tasks. Unknown members remain invalid; the dedicated runtime Question Hint
-capability stays separate from the flat-question v2 source contract until that
+capability stays separate from the PLE Question JSON schema-version-2 source contract until that
 migration lands.
 
 The current format supports one image-bearing source shape: the HOTSPOT
@@ -132,7 +132,7 @@ The eight exact response shapes are:
 | `numeric`        | `answer`, `tolerance`, optional `unit`                                     | numeric field, public tolerance rule, and unit                     |
 | `matching`       | `prompts`, `choices`, `matches`                                            | one accessible radio group per prompt                              |
 | `ordering`       | `items`, `correctOrder`                                                    | one reorderable list                                               |
-| `hotspot`        | `surface`, `regions`, `correctRegions`                                     | immutable image reference plus keyboard-operable candidate regions |
+| `hotspot`        | `surface`, `regions`, `correctRegions`                                     | immutable image reference plus keyboard-operable Hotspot Regions   |
 
 Choice, prompt, blank, ordering-item, and region identifiers use the same
 stable identifier grammar. They identify semantics, not
@@ -143,7 +143,7 @@ For example, a matching question is:
 
 ```json
 {
-  "format": "pleFlatQuestion",
+  "format": "pleQuestionJson",
   "version": 2,
   "title": "Nucleic-acid sugars",
   "prompt": "Match each nucleic acid with its sugar.",
@@ -169,7 +169,7 @@ For example, a matching question is:
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["nucleic-acids"],
   "classifications": [],
-  "license": { "kind": "ccBySa" },
+  "questionLicense": "CC-BY-SA-4.0",
   "language": "en-US"
 }
 ```
@@ -249,7 +249,7 @@ The native codec currently enforces these bounds:
 - the complete source is at most 256 KiB;
 - the exact format and schema version are required;
 - unknown and duplicate members are rejected, including nested policies,
-  Question Classifications, and licenses;
+  Question Classifications, and Question Licenses;
 - a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
@@ -259,7 +259,7 @@ The native codec currently enforces these bounds:
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
 
-The v2 contract additionally enforces exact family-specific bindings: accepted text
+The v2 contract additionally enforces exact Question-Type-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
@@ -277,23 +277,23 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 ## Evolution and QTI adapters
 
 Version 2 is the only current PLE Question Source and reader. Its closed shape is
-parsed exactly: no legacy PLE flat-question v1 reader, upcaster, source-byte
+parsed exactly: no legacy PLE Question JSON schema-version-1 reader, upcaster, source-byte
 fallback, or republishing path is retained. Additive optional members require
 review against the v2 contract; incompatible future semantics use a new explicit
 version with its own reader and migration plan rather than reinterpreting v2 bytes.
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
-adapter may map the supported flat subset into the same public/private compiler
+adapter may map the supported PLE Question JSON-supported subset into the same public/private compiler
 outputs, retain the original package for provenance, and record unsupported
-features. Vendor-specific XML is not copied into the PLE flat-question schema
+features. Vendor-specific XML is not copied into the PLE Question JSON schema
 merely because one exporter emits it.
 
 The native parser/compiler facade is
-`crates/adapters/ple/src/flat_question.rs`; version 2 family shapes and
-compilation live in `crates/adapters/ple/src/flat_question/v2.rs`.
-The persistence boundary is `crates/learning-data-access/src/flat_question.rs`
+`crates/adapters/ple/src/question_json.rs`; schema-version-2 shapes and
+compilation live in `crates/adapters/ple/src/question_json/schema_v2.rs`.
+The persistence boundary is `crates/learning-data-access/src/question_json.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
-`crates/server/src/flat_question_publication.rs`. The private source saves
+`crates/server/src/question_json_publication.rs`. The private source saves
 atomically with its typed draft, publication copies its exact canonical bytes
 to an immutable non-signable source object, and the runtime obtains private
 Answer Keys and Question Grading Input only through an injected grading

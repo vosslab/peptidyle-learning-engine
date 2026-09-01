@@ -3,10 +3,11 @@ use std::sync::{Arc, Mutex};
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
+use objects::{ObjectAddress, ObjectStore, PutObject, memory::MemoryObjectStore};
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::classification::License;
+use question_model::classification::QuestionLicense;
 use question_model::envelope::QuestionContentBlock;
-use question_model::generation::QuestionVariationDefinition;
+use question_model::generation::QuestionVariationRule;
 use question_model::{
     ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata, QuestionRevision,
     QuestionRevisionNumber, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
@@ -102,13 +103,12 @@ fn config() -> ContractedScoredEmbedConfig {
     .unwrap()
 }
 
-fn question_and_source() -> (QuestionRevision, ImathasSource) {
+async fn question_and_source() -> (QuestionRevision, ResolvedImathasQuestionSource) {
     let question_revision = QuestionRevisionReference {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     };
     let bytes = br#"{"recorded":true}"#.to_vec();
-    let digest = hex(Sha256::digest(&bytes).as_slice());
     let object = ObjectId::from_uuid(Uuid::from_u128(3));
     let source_object_reference = SourceObjectReference { object };
     let question = QuestionRevision {
@@ -126,26 +126,40 @@ fn question_and_source() -> (QuestionRevision, ImathasSource) {
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_definition: QuestionVariationDefinition::Static,
+        question_variation_rule: QuestionVariationRule::Static,
         grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded broker question".into(),
+            question_description: "Instructor-facing recorded broker fixture summary.".into(),
             tags: Vec::new(),
             classifications: Vec::new(),
-            license: License::CcBySa,
+            question_license: Some(QuestionLicense::CcBySa4_0),
+            question_citation: None,
             language: "en-US".into(),
         },
     };
-    let source = ImathasSource {
-        question_revision,
-        artifact: source_object_reference,
-        source_object_checksum: SourceObjectChecksum::parse(digest.clone())
+    let store = MemoryObjectStore::default();
+    let record = store
+        .put(PutObject {
+            address: ObjectAddress::QuestionSource {
+                question_revision: question_revision.clone(),
+                object,
+            },
+            bytes,
+            media_type: "application/json".into(),
+            created_at: Timestamp::from_unix_millis(1),
+        })
+        .await
+        .unwrap();
+    let source = ResolvedImathasQuestionSource::resolve(
+        &store,
+        &question,
+        source_object_reference,
+        SourceObjectChecksum::parse(record.sha256.to_string())
             .expect("stored checksum is canonical"),
-        provider: "self-hosted-imathas".into(),
-        item_ref: "17".into(),
-        profile: SCORED_EMBED_BROKER_PROFILE_ID.into(),
-        bytes,
-    };
+    )
+    .await
+    .unwrap();
     (question, source)
 }
 
@@ -186,7 +200,7 @@ fn result_token(session: &ContractedLaunchSession, score: f64) -> Vec<u8> {
 async fn launch(
     provider: &ContractedScoredEmbedProvider<RecordedTransport>,
     question: &QuestionRevision,
-    source: &ImathasSource,
+    source: &ResolvedImathasQuestionSource,
     nonce: u8,
 ) -> ContractedLaunchSession {
     provider
@@ -197,7 +211,7 @@ async fn launch(
             QuestionSeed::new(10_001),
             correlation(question, QuestionSeed::new(10_001)),
             ScoredEmbedNonce::from_server_random([nonce; 32]).unwrap(),
-            ActivityTimestamp::from_unix_millis(1_000),
+            Timestamp::from_unix_millis(1_000),
         )
         .await
         .unwrap()
@@ -207,12 +221,12 @@ async fn launch(
 async fn recorded_transport_launches_and_verifies_only_a_bound_result() {
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
-    let (question, source) = question_and_source();
+    let (question, source) = question_and_source().await;
     let mut session = launch(&provider, &question, &source, 7).await;
     *transport.result.lock().unwrap() = Ok(result_token(&session, 1.0));
     assert!(
         provider
-            .retrieve_and_verify(&mut session, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut session, Timestamp::from_unix_millis(2_000))
             .await
             .unwrap()
             .result
@@ -226,7 +240,7 @@ async fn recorded_transport_launches_and_verifies_only_a_bound_result() {
 
 #[tokio::test]
 async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
-    let (question, source) = question_and_source();
+    let (question, source) = question_and_source().await;
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
     *transport.snapshot.lock().unwrap() = Ok(b"changed".to_vec());
@@ -239,7 +253,7 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 QuestionSeed::new(10_001),
                 correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
-                ActivityTimestamp::from_unix_millis(1_000),
+                Timestamp::from_unix_millis(1_000),
             )
             .await
             .unwrap_err(),
@@ -255,7 +269,7 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
                 QuestionSeed::new(10_001),
                 correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
-                ActivityTimestamp::from_unix_millis(1_000),
+                Timestamp::from_unix_millis(1_000),
             )
             .await,
         Err(ImathasAdapterError::Provider(ProviderFailure::Unavailable))
@@ -266,7 +280,7 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
     *transport.result.lock().unwrap() = Ok(result_token(&second, 1.0));
     assert_eq!(
         provider
-            .retrieve_and_verify(&mut first, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut first, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ImathasAdapterError::VerificationRefused)
     );
@@ -274,7 +288,7 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
     let mut third = launch(&provider, &question, &source, 9).await;
     assert!(matches!(
         provider
-            .retrieve_and_verify(&mut third, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut third, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ImathasAdapterError::Provider(ProviderFailure::Timeout))
     ));
@@ -282,7 +296,7 @@ async fn mutation_outage_timeout_oversize_and_cross_binding_refuse() {
     let mut fourth = launch(&provider, &question, &source, 10).await;
     assert!(matches!(
         provider
-            .retrieve_and_verify(&mut fourth, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut fourth, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ImathasAdapterError::Provider(
             ProviderFailure::InvalidResponse
@@ -305,7 +319,7 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
     );
     assert!(transport.launches.lock().unwrap().is_empty());
 
-    let (mut question, mut source) = question_and_source();
+    let (mut question, mut source) = question_and_source().await;
     source.provider = "foreign-imathas".into();
     if let QuestionBackendLocator::Imathas { provider, .. } = &mut question.backend_locator {
         *provider = "foreign-imathas".into();
@@ -319,7 +333,7 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
                 QuestionSeed::new(10_001),
                 correlation(&question, QuestionSeed::new(10_001)),
                 ScoredEmbedNonce::from_server_random([7; 32]).unwrap(),
-                ActivityTimestamp::from_unix_millis(1_000),
+                Timestamp::from_unix_millis(1_000),
             )
             .await,
         Err(ImathasAdapterError::UnsupportedProfile)
@@ -331,7 +345,7 @@ async fn cross_provider_draft_and_published_sources_refuse_before_transport() {
 async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
-    let (question, source) = question_and_source();
+    let (question, source) = question_and_source().await;
     let session = launch(&provider, &question, &source, 7).await;
     let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();
     let expected = ContractedLaunchExpectation::new(
@@ -344,7 +358,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
             seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
-        source.source_object_checksum.to_string(),
+        source.source_object_checksum().to_string(),
     )
     .unwrap();
     let persisted = codec.seal(&session).unwrap();
@@ -356,7 +370,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
     *transport.result.lock().unwrap() = Ok(result_token(&restored, 1.0));
     assert!(
         provider
-            .retrieve_and_verify(&mut restored, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut restored, Timestamp::from_unix_millis(2_000))
             .await
             .unwrap()
             .result
@@ -395,7 +409,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
             ..expected.binding.clone()
         },
         "self-hosted-imathas",
-        source.source_object_checksum.to_string(),
+        source.source_object_checksum().to_string(),
     )
     .unwrap();
     assert!(codec.restore(&persisted, &wrong_version).is_err());
@@ -405,7 +419,7 @@ async fn launch_session_storage_is_replica_safe_and_hostile_input_refuses() {
 async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let transport = RecordedTransport::stable();
     let provider = ContractedScoredEmbedProvider::new(config(), transport.clone());
-    let (question, source) = question_and_source();
+    let (question, source) = question_and_source().await;
     let expected = ContractedLaunchExpectation::new(
         GradeBinding {
             attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
@@ -416,14 +430,14 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
             seed: QuestionSeed::new(10_001),
         },
         "self-hosted-imathas",
-        source.source_object_checksum.to_string(),
+        source.source_object_checksum().to_string(),
     )
     .unwrap();
     let codec = LaunchSessionCodec::from_server_secret([11; 32]).unwrap();
 
     let mut expired = launch(&provider, &question, &source, 7).await;
     let mut parts = expired.ledger.storage_parts();
-    parts.expires_at = ActivityTimestamp::from_unix_millis(999);
+    parts.expires_at = Timestamp::from_unix_millis(999);
     expired.ledger = ScoredEmbedLaunchLedger::from_storage_parts(parts).unwrap();
     let expired_blob = codec.seal(&expired).unwrap();
     let mut expired = codec.restore(&expired_blob, &expected).unwrap();
@@ -431,7 +445,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let before_blob = codec.seal(&expired).unwrap().to_storage_value();
     assert_eq!(
         provider
-            .retrieve_and_verify(&mut expired, ActivityTimestamp::from_unix_millis(1_000))
+            .retrieve_and_verify(&mut expired, Timestamp::from_unix_millis(1_000))
             .await,
         Err(ImathasAdapterError::InvalidCorrelation)
     );
@@ -444,7 +458,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let mut consumed = launch(&provider, &question, &source, 8).await;
     *transport.result.lock().unwrap() = Ok(result_token(&consumed, 1.0));
     provider
-        .retrieve_and_verify(&mut consumed, ActivityTimestamp::from_unix_millis(2_000))
+        .retrieve_and_verify(&mut consumed, Timestamp::from_unix_millis(2_000))
         .await
         .unwrap();
     let consumed_blob = codec.seal(&consumed).unwrap();
@@ -453,7 +467,7 @@ async fn restored_expired_or_consumed_sessions_do_not_fetch_provider_results() {
     let before_blob = codec.seal(&consumed).unwrap().to_storage_value();
     assert_eq!(
         provider
-            .retrieve_and_verify(&mut consumed, ActivityTimestamp::from_unix_millis(2_000))
+            .retrieve_and_verify(&mut consumed, Timestamp::from_unix_millis(2_000))
             .await,
         Err(ImathasAdapterError::InvalidCorrelation)
     );

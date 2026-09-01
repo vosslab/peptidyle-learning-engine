@@ -12,10 +12,13 @@ use std::path::{Component, Path, PathBuf};
 use adapter_ple::{PleQuestionBackend, QuestionAssetObjectReference};
 use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
-use question_model::definition::{DraftQuestionRevision, QuestionBackendLocator, QuestionRevision};
+use question_model::question_content::{
+    DraftQuestionContent, QuestionBackendLocator, QuestionRevision,
+};
 use question_model::{
     AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
-    IssuedQuestion, QuestionAttempt, QuestionRevisionReference, QuestionSummary, StudentRecordId,
+    IssuedQuestion, QuestionAttempt, QuestionFormat, QuestionRevisionReference, QuestionSummary,
+    SourceObjectChecksum, SourceObjectReference, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -50,9 +53,11 @@ struct FixtureAsset {
 struct StoredFixtureSet {
     fixture_schema_version: u32,
     model_schema_version: u32,
+    source_object_reference: SourceObjectReference,
+    source_object_checksum: SourceObjectChecksum,
     catalog_question: QuestionSummary,
     published_problem: QuestionRevision,
-    draft: DraftQuestionRevision,
+    draft: DraftQuestionContent,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
     assignment: AssignmentSummary,
@@ -278,8 +283,14 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
             attempt
                 .reproduction_details
                 .source_object_reference
-                .is_none(),
-            "PLE stored fixture must not claim an external source source_object_reference"
+                .as_ref()
+                == Some(&fixture_set.source_object_reference),
+            "PLE stored fixture must carry its exact Source Object Reference"
+        );
+        ensure!(
+            attempt.reproduction_details.source_object_checksum.as_ref()
+                == Some(&fixture_set.source_object_checksum),
+            "PLE stored fixture must carry its exact Source Object Checksum"
         );
         let envelope = adapter.reproduce(
             &fixture_set.published_problem,
@@ -298,6 +309,17 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
         );
 
         if let Some(submission) = &attempt.submission {
+            if fixture_set.published_problem.question_format == QuestionFormat::PleQuestionJson {
+                // Static PLE Question JSON keeps its Answer Key in the verified
+                // immutable source object. This fixture validates public
+                // reproduction here; the resolved-source adapter test validates
+                // private-key grading from those exact bytes.
+                ensure!(
+                    submission.grading_result.is_some(),
+                    "a static PLE Question JSON fixture submission must retain its recorded grade"
+                );
+                continue;
+            }
             let outcome = adapter.grade(
                 &fixture_set.published_problem,
                 attempt.seed,

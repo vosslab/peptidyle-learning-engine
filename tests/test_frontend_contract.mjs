@@ -17,10 +17,7 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   assert.equal(routeContractForPathname("/curriculum")?.id, "curriculum");
   assert.equal(routeContractForPathname("/curriculum/BP-7")?.id, "curriculumDetail");
   assert.equal(routeContractForPathname("/curriculum/BP-7/extra"), undefined);
-  assert.equal(
-    routeContractForPathname("/sysadmin/instructor-approval")?.id,
-    "sysadminInstructorApproval",
-  );
+  assert.equal(routeContractForPathname("/sysadmin/instructor-approval"), undefined);
   assert.equal(
     routeContractForPathname("/instructor/courses/C-1/assignments/A-1")?.id,
     "assignmentWorkspaceOverview",
@@ -59,8 +56,6 @@ test("route contracts fail closed and reserve authoring routes for teaching role
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "instructor"), true);
   assert.equal(accountRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
   assert.equal(accountRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("sysadminInstructorApproval", "instructor"), false);
-  assert.equal(accountRoleMayAccessRoute("sysadminInstructorApproval", "sysadmin"), true);
   assert.equal(accountRoleMayAccessRoute("curriculum", "student"), false);
   assert.equal(accountRoleMayAccessRoute("curriculum", "sysadmin"), false);
   assert.equal(accountRoleMayAccessRoute("curriculum", "instructor"), true);

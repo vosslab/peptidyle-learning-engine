@@ -1,6 +1,6 @@
 // assignment_workspace_policy_model.ts - policy-page request construction and local control values.
 
-import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
+import type { InstructorAssignmentAuthoredContentLocal } from "../../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
@@ -65,9 +65,9 @@ export function assignmentPolicyFeedbackNeedsQuestionRepair(
 export function assignmentPoliciesInput(
   studentFeedbackReleaseRule: AssignmentPoliciesInput["studentFeedbackReleaseRule"],
   policies: AssignmentPoliciesInput["policies"],
-  assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal,
+  assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal,
 ): AssignmentPoliciesInput {
-  return { studentFeedbackReleaseRule, policies, assignmentWorkingCopyDefinition };
+  return { studentFeedbackReleaseRule, policies, assignmentAuthoredContent };
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */
@@ -77,8 +77,8 @@ export function canonicalCourseLocalTime(value: string): string | null {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
 }
 
-function assignmentWorkingCopyDefinitionTarget(
-  field: AssignmentPoliciesValidationIssue & { kind: "assignmentWorkingCopyDefinition" },
+function assignmentAuthoredContentTarget(
+  field: AssignmentPoliciesValidationIssue & { kind: "assignmentAuthoredContent" },
 ): PolicyFocusTarget {
   const target = field.correction.field;
   if (target === "instructions") return "instructions";
@@ -90,8 +90,8 @@ function assignmentWorkingCopyDefinitionTarget(
   return "schedule";
 }
 
-function assignmentWorkingCopyDefinitionMessage(
-  reason: AssignmentPoliciesValidationIssue & { kind: "assignmentWorkingCopyDefinition" },
+function assignmentAuthoredContentMessage(
+  reason: AssignmentPoliciesValidationIssue & { kind: "assignmentAuthoredContent" },
 ): string {
   switch (reason.correction.reason) {
     case "courseTimeZoneMismatch":
@@ -140,11 +140,11 @@ function capabilityLabel(
 
 function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPolicySaveFeedback {
   switch (issue.kind) {
-    case "assignmentWorkingCopyDefinition":
+    case "assignmentAuthoredContent":
       return {
         kind: "error",
-        message: assignmentWorkingCopyDefinitionMessage(issue),
-        target: assignmentWorkingCopyDefinitionTarget(issue),
+        message: assignmentAuthoredContentMessage(issue),
+        target: assignmentAuthoredContentTarget(issue),
         details: [],
         questionRepairRequired: false,
       };

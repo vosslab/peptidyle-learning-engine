@@ -9,7 +9,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use objects::Sha256Digest;
+use crate::profiles::NormalizedQtiItemFingerprint;
+use objects::Sha256Checksum;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
 use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
@@ -70,7 +71,7 @@ impl QtiImporter {
                     item_results.push(QtiItemImportResult {
                         source_identifier: resource.identifier.clone(),
                         item_id: None,
-                        normalized_sha256: None,
+                        normalized_qti_item_fingerprint: None,
                         status: QtiItemImportStatus::Rejected,
                         warnings: vec![warning],
                     });
@@ -93,7 +94,7 @@ impl QtiImporter {
                     item_results.push(QtiItemImportResult {
                         source_identifier: resource.identifier.clone(),
                         item_id: None,
-                        normalized_sha256: None,
+                        normalized_qti_item_fingerprint: None,
                         status: QtiItemImportStatus::Rejected,
                         warnings: vec![warning],
                     });
@@ -117,7 +118,7 @@ impl QtiImporter {
                 item_results.push(QtiItemImportResult {
                     source_identifier: resource.identifier.clone(),
                     item_id: Some(item_id),
-                    normalized_sha256: None,
+                    normalized_qti_item_fingerprint: None,
                     status: QtiItemImportStatus::Rejected,
                     warnings: vec![warning],
                 });
@@ -126,7 +127,7 @@ impl QtiImporter {
             match parse_single_choice_item(href, &node, &entries, &mut assets) {
                 Ok((question, correct)) => {
                     let (normalized, presentation) =
-                        normalized_item_digests(href, &question, &correct)?;
+                        normalized_item_fingerprints(href, &question, &correct)?;
                     let normalized_text = normalized.to_string();
                     let presentation_text = presentation.to_string();
                     let mut warnings = Vec::new();
@@ -161,7 +162,7 @@ impl QtiImporter {
                     item_results.push(QtiItemImportResult {
                         source_identifier: resource.identifier.clone(),
                         item_id: Some(question.item_id.clone()),
-                        normalized_sha256: Some(normalized),
+                        normalized_qti_item_fingerprint: Some(normalized),
                         status: QtiItemImportStatus::Accepted,
                         warnings,
                     });
@@ -173,7 +174,7 @@ impl QtiImporter {
                     item_results.push(QtiItemImportResult {
                         source_identifier: resource.identifier.clone(),
                         item_id: None,
-                        normalized_sha256: None,
+                        normalized_qti_item_fingerprint: None,
                         status: QtiItemImportStatus::Rejected,
                         warnings: vec![feature],
                     });
@@ -194,7 +195,7 @@ impl QtiImporter {
         Ok(ImportedQtiPackage {
             original: ArchivedQtiPackage {
                 bytes: bytes.to_vec(),
-                sha256: Sha256Digest::compute(bytes).to_string(),
+                package_checksum: Sha256Checksum::compute(bytes).to_string(),
                 size_bytes: u64::try_from(bytes.len()).map_err(|_| {
                     QtiImportError::InvalidArchive("archive length overflow".into())
                 })?,
@@ -211,11 +212,11 @@ impl QtiImporter {
     }
 }
 
-fn normalized_item_digests(
+fn normalized_item_fingerprints(
     path: &str,
     question: &ImportedQtiQuestion,
     correct: &ResponseItemReference,
-) -> Result<(Sha256Digest, Sha256Digest), QtiImportError> {
+) -> Result<(NormalizedQtiItemFingerprint, Sha256Checksum), QtiImportError> {
     let presentation =
         serde_json::to_vec(&(&question.prompt, &question.response)).map_err(|_| {
             QtiImportError::InvalidXml {
@@ -231,8 +232,8 @@ fn normalized_item_digests(
             }
         })?;
     Ok((
-        Sha256Digest::compute(&exact),
-        Sha256Digest::compute(&presentation),
+        NormalizedQtiItemFingerprint::from_normalized_bytes(&exact),
+        Sha256Checksum::compute(&presentation),
     ))
 }
 
@@ -535,15 +536,15 @@ fn image_block(
     })
 }
 fn asset_object(source_path: String, bytes: Vec<u8>, media_type: String) -> QtiAssetObject {
-    let digest = Sha256Digest::compute(&bytes);
+    let checksum = Sha256Checksum::compute(&bytes);
     let mut raw = [0_u8; 16];
-    raw.copy_from_slice(&digest.as_bytes()[..16]);
+    raw.copy_from_slice(&checksum.as_bytes()[..16]);
     raw[6] = (raw[6] & 0x0f) | 0x40;
     raw[8] = (raw[8] & 0x3f) | 0x80;
     QtiAssetObject {
         asset: QuestionAssetId::from_uuid(Uuid::from_bytes(raw)),
         source_path,
-        sha256: digest.to_string(),
+        sha256: checksum.to_string(),
         media_type,
         bytes,
     }

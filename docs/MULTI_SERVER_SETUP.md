@@ -20,7 +20,7 @@ not a new authorization claim.
 | Record or capability                                   | Exact owner or scope                                        | Authorization                                                   |
 | ------------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | Account, email, passkey, session                       | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
-| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionRevisionNumber`   | Every approved Instructor                                       |
+| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionRevisionNumber`   | Every active Instructor                                       |
 | Draft Question or private curriculum workspace         | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                               | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
 | Course, roster, assignment, schedule                   | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
@@ -33,8 +33,8 @@ teaching and FERPA-read authority. Course creation creates the first ordinary
 Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
 is not a course or Question Library. The Question Library exposes only the reviewed,
-answer-free projection: every published lifecycle state is discoverable to an
-approved Instructor, while only `active` questions are ordinarily selectable.
+answer-free projection: every Published Question is discoverable to an
+active Instructor, while only `Available` Question Revisions are ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,

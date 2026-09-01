@@ -63,12 +63,12 @@ fn maps_the_frozen_canvas_fixture_and_keeps_correct_choice_private() {
     assert_eq!(parts.public_mapping().choices[0].ple_choice_id, "blue");
     assert_eq!(parts.server_correct_ple_choice_id(), "blue");
     assert_eq!(
-        parts.normalized_profile_item_sha256(),
+        parts.normalized_qti_item_fingerprint(),
         repeated
             .into_mapped_items()
             .pop()
             .expect("repeated mapped item")
-            .normalized_profile_item_sha256()
+            .normalized_qti_item_fingerprint()
     );
 }
 
@@ -81,12 +81,12 @@ fn package_owns_a_deterministic_answer_free_report_digest_input() {
 
     let report = package
         .profile_report_digest_input()
-        .expect("package constructs its report digest input");
+        .expect("package constructs its import-result checksum input");
     assert_eq!(
         report,
         repeated
             .profile_report_digest_input()
-            .expect("same package constructs the same report digest input")
+            .expect("same package constructs the same import-result checksum input")
     );
     assert_eq!(report.profile, QtiProfileId::CANVAS);
     assert!(matches!(
@@ -94,14 +94,15 @@ fn package_owns_a_deterministic_answer_free_report_digest_input() {
         [disposition]
             if disposition.source_identifier == "canvas-1"
                 && disposition.accepted
-                && disposition.public_mapping_sha256.is_some()
+                && disposition.public_mapping_checksum.is_some()
                 && disposition.diagnostics.is_empty()
     ));
     assert!(report.defaults.iter().all(|entry| {
         entry.code == QtiProfileDiagnosticCode::Policy && !entry.detail.trim().is_empty()
     }));
 
-    let encoded = serde_json::to_string(&report).expect("safe report digest input serializes");
+    let encoded =
+        serde_json::to_string(&report).expect("safe import-result checksum input serializes");
     assert!(!encoded.contains("blue"));
 }
 
@@ -132,14 +133,14 @@ fn zero_accepted_package_has_a_deterministic_canonical_report_digest() {
         .profile_report_digest_input()
         .expect("repeated rejected package owns canonical report input");
     assert!(first_report.items.iter().all(|item| {
-        !item.accepted && item.public_mapping_sha256.is_none() && !item.diagnostics.is_empty()
+        !item.accepted && item.public_mapping_checksum.is_none() && !item.diagnostics.is_empty()
     }));
     assert_eq!(
         first_report
-            .profile_report_sha256()
+            .import_result_checksum()
             .expect("zero-accepted report has a canonical digest"),
         second_report
-            .profile_report_sha256()
+            .import_result_checksum()
             .expect("repeated zero-accepted report has the same canonical digest")
     );
 }

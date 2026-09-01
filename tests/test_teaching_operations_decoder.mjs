@@ -10,8 +10,6 @@ import {
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
   decodeRetentionReadView,
-  decodeSysadminInstructorCandidateSearchPage,
-  decodeSysadminInstructorCandidateSearchRequest,
   decodeTeachingOperationRevisionResponse,
   decodeTeachingPreviewView,
 } from "../src/api/decoders.ts";
@@ -89,7 +87,6 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
     targets: [
       {
         account: { reference: "U-7", display: "Ada Lovelace" },
-        approval: { state: "approved", revision: "2" },
       },
     ],
     nextCursor: "after-7",
@@ -153,53 +150,10 @@ test("Instructor Course Invitation creation accepts only the Instructor-only ope
   );
 });
 
-test("Sysadmin candidate search keeps approval eligibility distinct from account authority", () => {
-  const candidates = {
-    candidates: [
-      {
-        account: { reference: "U-8", display: "Avery Student" },
-        approval: { state: "unapproved", revision: null },
-      },
-    ],
-    nextCursor: null,
-  };
-  assert.deepEqual(decodeSysadminInstructorCandidateSearchPage(candidates), candidates);
-  assert.deepEqual(
-    decodeSysadminInstructorCandidateSearchRequest({ query: "Avery", after: null, size: 25 }),
-    { query: "Avery", after: null, size: 25 },
-  );
-  assert.throws(
-    () =>
-      decodeSysadminInstructorCandidateSearchPage({
-        ...candidates,
-        candidates: [
-          {
-            ...candidates.candidates[0],
-            account: { ...candidates.candidates[0].account, privateScope: "private" },
-          },
-        ],
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeSysadminInstructorCandidateSearchPage({
-        ...candidates,
-        candidates: [
-          {
-            ...candidates.candidates[0],
-            approval: { state: "approved", revision: null },
-          },
-        ],
-      }),
-    DecodeError,
-  );
-});
-
 test("retention and empty removal contracts reject leaked or invented data", () => {
   const retention = {
     state: "notificationDue",
-    assignmentDefinitions: "retain",
+    assignmentContent: "retain",
     revision: "3",
     notification: { intent: "extend", createdAt: 1, copy: "Retention extended." },
   };

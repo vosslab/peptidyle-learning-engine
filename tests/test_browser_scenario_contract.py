@@ -75,19 +75,12 @@ def test_registry_rejects_duplicate_scenarios_and_unsafe_selection() -> None:
 		browser_scenario_contract.resolve_selection(None, "unsafe.spec.ts", None, registry)
 
 
-def test_namespace_and_repeat_safe_seed_transition_are_owner_bound() -> None:
-	"""Public namespaces and visible seed transitions stay closed and repeat-safe."""
+def test_namespace_and_seed_transition_policy_are_owner_bound() -> None:
+	"""Public namespaces and every visible seed transition stay closed and owner-defined."""
 	assert browser_scenario_contract.namespace_for("direct", "0123456789ab") == "bs1-0123456789ab-direct"
 	with pytest.raises(browser_scenario_contract.ScenarioContractError):
 		browser_scenario_contract.namespace_for("direct", "unsafe")
 	registry = browser_scenario_contract.scenario_contracts()
-	first = browser_scenario_contract.dataclasses.replace(
-		registry[0], seed_state_transitions=("avery_instructor_approval",)
-	)
-	second = browser_scenario_contract.dataclasses.replace(
-		registry[1], seed_state_transitions=("avery_instructor_approval",)
-	)
-	browser_scenario_contract.validate_registry((first, second, *registry[2:]))
 	unsafe = browser_scenario_contract.dataclasses.replace(
 		registry[0], seed_state_transitions=("caller_defined_transition",)
 	)

@@ -4,14 +4,14 @@ use std::collections::HashSet;
 use std::fmt::Write as _;
 use std::path::{Component, Path, PathBuf};
 
-use adapter_ple::flat_question::FlatQuestionDocument;
+use adapter_ple::question_json::PleQuestionJsonDocument;
 use anyhow::{Context, Result, bail};
 use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
 use question_model::{
     QuestionBackendLocator, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
-    WorkspaceId, classification::License,
+    WorkspaceId, classification::QuestionLicense,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -22,8 +22,8 @@ const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assignments.yaml";
 const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
     (Backend::Webwork, PilotQuestionType::MultipleChoice),
     (Backend::Webwork, PilotQuestionType::Matching),
-    (Backend::PleFlat, PilotQuestionType::MultipleChoice),
-    (Backend::PleFlat, PilotQuestionType::Matching),
+    (Backend::PleQuestionJson, PilotQuestionType::MultipleChoice),
+    (Backend::PleQuestionJson, PilotQuestionType::Matching),
 ];
 
 #[derive(Debug, Deserialize)]
@@ -82,7 +82,7 @@ pub(crate) struct Question {
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Backend {
     Webwork,
-    PleFlat,
+    PleQuestionJson,
 }
 
 /// The Question Types present in the deliberately small Pilot Question Set.
@@ -113,7 +113,9 @@ pub(super) fn run(args: &[String]) -> Result<()> {
         report.adapted_source_count
     );
     for chapter in report.chapters {
-        println!("- {chapter}: WeBWorK MC, WeBWorK MATCH, PLE flat MC, PLE flat MATCH");
+        println!(
+            "- {chapter}: WeBWorK MC, WeBWorK MATCH, PLE Question JSON MC, PLE Question JSON MATCH"
+        );
     }
     Ok(())
 }
@@ -226,7 +228,7 @@ fn validate_chapter(chapter: &Chapter) -> Result<()> {
         .collect::<HashSet<_>>();
     if shapes != HashSet::from(EXPECTED_QUESTION_SHAPES) {
         bail!(
-            "{} must contain one WeBWorK MC, WeBWorK MATCH, PLE flat MC, and PLE flat MATCH",
+            "{} must contain one WeBWorK MC, WeBWorK MATCH, PLE Question JSON MC, and PLE Question JSON MATCH",
             chapter.assignment_title
         );
     }
@@ -253,7 +255,7 @@ fn validate_question(
     validate_digest(&source, &question.source_sha256)?;
     match question.backend {
         Backend::Webwork => validate_webwork(question, &source),
-        Backend::PleFlat => validate_flat(root, chapter, question, &source, identity),
+        Backend::PleQuestionJson => validate_flat(root, chapter, question, &source, identity),
     }
 }
 
@@ -310,36 +312,38 @@ fn validate_flat(
     identity: u128,
 ) -> Result<()> {
     if question.upstream_sha256.is_some() || !question.changes.is_empty() {
-        bail!("PLE flat entries record adaptations in their reviewed payload, not as PGML changes");
+        bail!(
+            "PLE Question JSON entries record adaptations in their reviewed payload, not as PGML changes"
+        );
     }
     let source_item = question
         .source_item
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("PLE flat entry lacks its source item"))?;
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON entry lacks its source item"))?;
     validate_source_item(source, source_item, question.question_type)?;
     let payload_relative = question
         .payload
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("PLE flat entry lacks its payload"))?;
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON entry lacks its payload"))?;
     let payload_sha256 = question
         .payload_sha256
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("PLE flat entry lacks its payload checksum"))?;
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON entry lacks its payload checksum"))?;
     let payload = corpus_file(root, payload_relative)?;
     validate_digest(&payload, payload_sha256)?;
     let bytes = std::fs::read(&payload)
-        .with_context(|| format!("reading PLE flat payload {}", payload.display()))?;
-    let document = FlatQuestionDocument::parse(&bytes)
-        .with_context(|| format!("validating PLE flat payload {}", payload.display()))?;
+        .with_context(|| format!("reading PLE Question JSON payload {}", payload.display()))?;
+    let document = PleQuestionJsonDocument::parse(&bytes)
+        .with_context(|| format!("validating PLE Question JSON payload {}", payload.display()))?;
     let compiled = document
         .compile(WorkspaceId::from_uuid(Uuid::from_u128(identity)))
-        .with_context(|| format!("compiling PLE flat payload {}", payload.display()))?;
+        .with_context(|| format!("compiling PLE Question JSON payload {}", payload.display()))?;
     compiled.private().validate_for_draft(compiled.draft())?;
     if compiled.draft().metadata.title != question.title {
-        bail!("PLE flat pilot payload title differs from its manifest entry");
+        bail!("PLE Question JSON pilot payload title differs from its manifest entry");
     }
-    if compiled.draft().metadata.license != License::CcBy {
-        bail!("PLE flat pilot payload must retain the CC BY license");
+    if compiled.draft().metadata.question_license != Some(QuestionLicense::CcBy4_0) {
+        bail!("PLE Question JSON pilot payload must retain the CC BY license");
     }
     if !compiled
         .draft()
@@ -348,7 +352,7 @@ fn validate_flat(
         .iter()
         .any(|classification| classification.name == format!("{} Chapter 1", chapter.course))
     {
-        bail!("PLE flat pilot payload classification does not match its chapter");
+        bail!("PLE Question JSON pilot payload classification does not match its chapter");
     }
     let expected_question_type = match question.question_type {
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
@@ -358,18 +362,18 @@ fn validate_flat(
         compiled.draft().backend_locator,
         question_model::DraftQuestionBackendLocator::Ple
     ) {
-        bail!("PLE flat payload compiled to a non-PLE Question Source");
+        bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
     }
-    if compiled.draft().question_format != QuestionFormat::PleFlatQuestionV2
+    if compiled.draft().question_format != QuestionFormat::PleQuestionJson
         || compiled.draft().question_type != expected_question_type
     {
-        bail!("PLE flat payload question_type differs from its manifest entry");
+        bail!("PLE Question JSON payload question_type differs from its manifest entry");
     }
     validate_answer_separation(compiled.draft())?;
     validate_correct_and_wrong_grading(compiled, &bytes, question.question_type)
 }
 
-fn validate_answer_separation(draft: &question_model::DraftQuestionRevision) -> Result<()> {
+fn validate_answer_separation(draft: &question_model::DraftQuestionContent) -> Result<()> {
     let public = serde_json::to_string(draft)?;
     for private_key in [
         "\"correctChoice\":",
@@ -380,14 +384,14 @@ fn validate_answer_separation(draft: &question_model::DraftQuestionRevision) -> 
         "\"answers\":",
     ] {
         if public.contains(private_key) {
-            bail!("compiled PLE flat student definition exposes {private_key}");
+            bail!("compiled PLE Question JSON student definition exposes {private_key}");
         }
     }
     Ok(())
 }
 
 fn validate_correct_and_wrong_grading(
-    compiled: adapter_ple::flat_question::CompiledFlatQuestion,
+    compiled: adapter_ple::question_json::CompiledPleQuestionJson,
     source: &[u8],
     question_type: PilotQuestionType,
 ) -> Result<()> {
@@ -395,14 +399,14 @@ fn validate_correct_and_wrong_grading(
     let response = value
         .get("response")
         .and_then(Value::as_object)
-        .ok_or_else(|| anyhow::anyhow!("PLE flat payload lacks its response object"))?;
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON payload lacks its response object"))?;
     let (correct, wrong) = source_responses(response, question_type)?;
-    let (draft, private) = compiled.into_parts();
+    let (draft, private, _question_hint) = compiled.into_parts();
     if !matches!(
         draft.backend_locator,
         question_model::DraftQuestionBackendLocator::Ple
     ) {
-        bail!("PLE flat payload compiled to a non-PLE Question Source");
+        bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
     }
     let published = QuestionRevision::from_draft(
         draft,
@@ -413,13 +417,13 @@ fn validate_correct_and_wrong_grading(
     let correct_result = private.evaluate(&published, &correct)?;
     let wrong_result = private.evaluate(&published, &wrong)?;
     let grading::QuestionGradingOutcome::Graded(correct_result) = correct_result.outcome else {
-        bail!("PLE flat correct response did not produce a grade");
+        bail!("PLE Question JSON correct response did not produce a grade");
     };
     let grading::QuestionGradingOutcome::Graded(wrong_result) = wrong_result.outcome else {
-        bail!("PLE flat wrong response did not produce a grade");
+        bail!("PLE Question JSON wrong response did not produce a grade");
     };
     if !correct_result.correct || wrong_result.correct {
-        bail!("PLE flat pilot payload did not distinguish correct and wrong responses");
+        bail!("PLE Question JSON pilot payload did not distinguish correct and wrong responses");
     }
     Ok(())
 }
@@ -440,7 +444,9 @@ fn source_responses(
                         (id != correct).then_some(id)
                     })
                 })
-                .ok_or_else(|| anyhow::anyhow!("PLE flat MC payload lacks a wrong choice"))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("PLE Question JSON MC payload lacks a wrong choice")
+                })?;
             Ok((
                 StudentResponse::MultipleChoice {
                     selected: vec![ResponseItemReference::new(correct)],
@@ -454,14 +460,14 @@ fn source_responses(
             let matches = response
                 .get("matches")
                 .and_then(Value::as_array)
-                .ok_or_else(|| anyhow::anyhow!("PLE flat MATCH payload lacks matches"))?;
+                .ok_or_else(|| anyhow::anyhow!("PLE Question JSON MATCH payload lacks matches"))?;
             let correct = matches
                 .iter()
                 .map(student_match)
                 .collect::<Result<Vec<_>>>()?;
             let mut wrong = correct.clone();
             if wrong.len() < 2 {
-                bail!("PLE flat MATCH payload needs at least two matches");
+                bail!("PLE Question JSON MATCH payload needs at least two matches");
             }
             let first = wrong[0].choice.clone();
             wrong[0].choice = wrong[1].choice.clone();
@@ -477,7 +483,7 @@ fn source_responses(
 fn student_match(value: &Value) -> Result<StudentMatch> {
     let record = value
         .as_object()
-        .ok_or_else(|| anyhow::anyhow!("PLE flat match is not an object"))?;
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON match is not an object"))?;
     Ok(StudentMatch {
         prompt: ResponseItemReference::new(string_field(record, "prompt")?),
         choice: ResponseItemReference::new(string_field(record, "choice")?),
@@ -488,7 +494,7 @@ fn string_field<'a>(record: &'a serde_json::Map<String, Value>, name: &str) -> R
     record
         .get(name)
         .and_then(Value::as_str)
-        .ok_or_else(|| anyhow::anyhow!("PLE flat response lacks string field {name}"))
+        .ok_or_else(|| anyhow::anyhow!("PLE Question JSON response lacks string field {name}"))
 }
 
 fn validate_source_item(source: &Path, item: &str, question_type: PilotQuestionType) -> Result<()> {

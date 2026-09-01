@@ -47,13 +47,6 @@
   border-bottom: 1px solid var(--ple-border);
 }
 
-.sysadmin-instructor-approval {
-  max-width: 52rem;
-}
-.sysadmin-instructor-approval .teaching-operations-list li > div {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
 .teaching-operations-form label,
 .teaching-operations-policy label,
 .teaching-operations-retention label {

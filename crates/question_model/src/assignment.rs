@@ -14,16 +14,16 @@ mod teaching_settings_local;
 pub use point_value::AssignmentPointValue;
 pub use revision::{AssignmentEditNumber, AssignmentRevisionNumber, AssignmentRevisionNumberError};
 pub use teaching_settings_local::{
-    AssignmentWorkingCopyDefinitionFailureCode, AssignmentWorkingCopyDefinitionFailureReason,
-    AssignmentWorkingCopyDefinitionField, AssignmentWorkingCopyDefinitionLocalError,
-    AssignmentWorkingCopyDefinitionValidationFailure, CourseLocalDateAndTime,
-    CourseLocalDateAndTimeError, InstructorAssignmentCurrentState,
-    InstructorAssignmentWorkingCopyDefinitionLocal, derive_instructor_assignment_current_state,
+    AssignmentAuthoredContentFailureCode, AssignmentAuthoredContentFailureReason,
+    AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
+    AssignmentAuthoredContentValidationFailure, CourseLocalDateAndTime,
+    CourseLocalDateAndTimeError, InstructorAssignmentAuthoredContentLocal,
+    InstructorAssignmentAvailabilityView, derive_instructor_assignment_availability,
 };
 
 use crate::{
-    ActivityTimestamp, AssignmentActivityRules, AssignmentEntryId, QuestionPoolItemId,
-    QuestionRevisionReference,
+    AssignmentActivityRules, AssignmentEntryId, QuestionPoolItemId, QuestionRevisionReference,
+    Timestamp,
 };
 
 /// Maximum Unicode scalar values in one human-facing Assignment Title.
@@ -32,13 +32,13 @@ pub const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS: usize = 200;
 /// Largest accepted assignment-instructions length, measured in Unicode scalars.
 pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
 
-/// Maximum fixed-or-pool entries in one ordered assignment definition.
+/// Maximum fixed-or-pool entries in one ordered Assignment Content record.
 pub const MAX_ASSIGNMENT_ORDERED_ENTRIES: usize = 1_024;
 
 /// Maximum Question Pool Items in one Question Pool Assignment Entry.
 pub const MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY: usize = 1_024;
 
-/// Maximum Question Pool Items across one complete Assignment definition.
+/// Maximum Question Pool Items across one complete Assignment Content record.
 pub const MAX_ASSIGNMENT_QUESTION_POOL_ITEMS: usize = 8_192;
 
 /// Instructor-controlled stable status for one Assignment.
@@ -257,11 +257,11 @@ pub enum AssignmentDeadlineRule {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BaseAssignmentPolicy {
     /// First instant when the assignment may be opened.
-    pub available_at: Option<ActivityTimestamp>,
+    pub available_at: Option<Timestamp>,
     /// Ordinary due instant.
-    pub due_at: Option<ActivityTimestamp>,
+    pub due_at: Option<Timestamp>,
     /// Hard instant after which new work is closed.
-    pub closes_at: Option<ActivityTimestamp>,
+    pub closes_at: Option<Timestamp>,
     /// Whole-run time limit when one applies.
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of runs when one applies.
@@ -286,10 +286,10 @@ impl Default for BaseAssignmentPolicy {
     }
 }
 
-/// Replaceable Instructor-authored definition for one Assignment Working Copy.
+/// Replaceable Instructor-authored Assignment Content.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentWorkingCopyDefinition {
+pub struct AssignmentAuthoredContent {
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// Base policy supplied to the effective-policy resolver.
@@ -408,7 +408,7 @@ pub struct QuestionPoolAssignmentEntry {
     pub items: Vec<QuestionPoolItem>,
 }
 
-/// One ordered Assignment Entry in the complete Assignment definition.
+/// One ordered Assignment Entry in the complete Assignment Content record.
 ///
 /// Collection order is the authored delivery order. Fixed Questions and
 /// Question Pools deliberately share one identity and one top-level sequence.
@@ -444,8 +444,8 @@ mod tests {
         available_at: Option<CourseLocalDateAndTime>,
         due_at: Option<CourseLocalDateAndTime>,
         closes_at: Option<CourseLocalDateAndTime>,
-    ) -> InstructorAssignmentWorkingCopyDefinitionLocal {
-        InstructorAssignmentWorkingCopyDefinitionLocal::new(
+    ) -> InstructorAssignmentAuthoredContentLocal {
+        InstructorAssignmentAuthoredContentLocal::new(
             CourseTimeZone::parse(time_zone).expect("known zone"),
             AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
@@ -503,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn assignment_edit_numbers_are_distinct_canonical_working_copy_preconditions() {
+    fn assignment_edit_numbers_are_distinct_canonical_assignment_preconditions() {
         let edit: AssignmentEditNumber = "43".parse().expect("canonical edit number");
         assert_eq!(serde_json::json!(edit), serde_json::json!("43"));
         assert_eq!(
@@ -567,10 +567,10 @@ mod tests {
     }
 
     #[test]
-    fn assignment_working_copy_definition_is_strict_and_uses_direct_cutover_defaults() {
+    fn assignment_authored_content_is_strict_and_uses_direct_cutover_defaults() {
         assert_eq!(
-            AssignmentWorkingCopyDefinition::default(),
-            AssignmentWorkingCopyDefinition {
+            AssignmentAuthoredContent::default(),
+            AssignmentAuthoredContent {
                 instructions: AssignmentInstructions::default(),
                 base_policy: BaseAssignmentPolicy {
                     late_work_rule: LateWorkRule::Accept,
@@ -581,7 +581,7 @@ mod tests {
             }
         );
         assert!(
-            serde_json::from_value::<AssignmentWorkingCopyDefinition>(serde_json::json!({
+            serde_json::from_value::<AssignmentAuthoredContent>(serde_json::json!({
                 "instructions": "",
                 "basePolicy": {
                     "availableAt": null,
@@ -609,15 +609,15 @@ mod tests {
     }
 
     #[test]
-    fn local_assignment_working_copy_definition_round_trips_exact_milliseconds() {
-        let timestamp = ActivityTimestamp::from_unix_millis(
+    fn local_assignment_authored_content_round_trips_exact_milliseconds() {
+        let timestamp = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
                 .single()
                 .expect("valid UTC time")
                 .timestamp_millis()
                 + 123,
         );
-        let settings = AssignmentWorkingCopyDefinition {
+        let settings = AssignmentAuthoredContent {
             instructions: AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
             base_policy: BaseAssignmentPolicy {
@@ -638,11 +638,9 @@ mod tests {
                 ..AssignmentActivityRules::default()
             },
         };
-        let utc = InstructorAssignmentWorkingCopyDefinitionLocal::from_absolute(
-            &course_term("UTC"),
-            &settings,
-        )
-        .expect("UTC projection");
+        let utc =
+            InstructorAssignmentAuthoredContentLocal::from_absolute(&course_term("UTC"), &settings)
+                .expect("UTC projection");
         assert_eq!(
             utc.available_at
                 .as_ref()
@@ -655,7 +653,7 @@ mod tests {
             settings
         );
 
-        let chicago = InstructorAssignmentWorkingCopyDefinitionLocal::from_absolute(
+        let chicago = InstructorAssignmentAuthoredContentLocal::from_absolute(
             &course_term("America/Chicago"),
             &settings,
         )
@@ -676,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn local_assignment_working_copy_definition_refuses_dst_gap_ambiguity_and_mismatch() {
+    fn local_assignment_authored_content_refuses_dst_gap_ambiguity_and_mismatch() {
         let term = course_term("America/Chicago");
         let gap = local_settings(
             "America/Chicago",
@@ -686,11 +684,9 @@ mod tests {
         );
         assert_eq!(
             gap.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(
-                AssignmentWorkingCopyDefinitionLocalError::NonexistentLocalTime(
-                    AssignmentWorkingCopyDefinitionField::AvailableAt
-                )
-            )
+            Err(AssignmentAuthoredContentLocalError::NonexistentLocalTime(
+                AssignmentAuthoredContentField::AvailableAt
+            ))
         );
         let ambiguity = local_settings(
             "America/Chicago",
@@ -700,25 +696,23 @@ mod tests {
         );
         assert_eq!(
             ambiguity.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(
-                AssignmentWorkingCopyDefinitionLocalError::AmbiguousLocalTime(
-                    AssignmentWorkingCopyDefinitionField::AvailableAt
-                )
-            )
+            Err(AssignmentAuthoredContentLocalError::AmbiguousLocalTime(
+                AssignmentAuthoredContentField::AvailableAt
+            ))
         );
         let mismatch = local_settings("UTC", Some(local("2026-09-01T15:04:05.123")), None, None);
         assert_eq!(
             mismatch.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(AssignmentWorkingCopyDefinitionLocalError::CourseTimeZoneMismatch)
+            Err(AssignmentAuthoredContentLocalError::CourseTimeZoneMismatch)
         );
     }
 
     #[test]
-    fn local_assignment_working_copy_definition_is_strict_and_validates_bounds() {
+    fn local_assignment_authored_content_is_strict_and_validates_bounds() {
         assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04").is_err());
         assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04:05.12").is_err());
         assert_eq!(
-            InstructorAssignmentWorkingCopyDefinitionLocal::new(
+            InstructorAssignmentAuthoredContentLocal::new(
                 CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentInstructions::default(),
                 Some(local("2026-09-01T10:05:00.000")),
@@ -729,10 +723,10 @@ mod tests {
                 LateWorkRule::Accept,
                 AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentWorkingCopyDefinitionLocalError::ScheduleOutOfOrder)
+            Err(AssignmentAuthoredContentLocalError::ScheduleOutOfOrder)
         );
         assert_eq!(
-            InstructorAssignmentWorkingCopyDefinitionLocal::new(
+            InstructorAssignmentAuthoredContentLocal::new(
                 CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentInstructions::default(),
                 None,
@@ -743,59 +737,55 @@ mod tests {
                 LateWorkRule::Accept,
                 AssignmentDeadlineRule::AutoSubmit,
             ),
-            Err(AssignmentWorkingCopyDefinitionLocalError::AttemptLimitOutOfRange)
+            Err(AssignmentAuthoredContentLocalError::AttemptLimitOutOfRange)
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentWorkingCopyDefinitionLocal>(
-                serde_json::json!({
-                    "timeZone": "UTC",
-                    "instructions": "",
-                    "availableAt": null,
-                    "dueAt": null,
-                    "closesAt": null,
-                    "assignmentAttemptTimeLimitSeconds": 0,
-                    "attemptLimit": null,
-                    "lateWorkRule": "accept",
-                    "assignmentDeadlineRule": "autoSubmit"
-                })
-            )
+            serde_json::from_value::<InstructorAssignmentAuthoredContentLocal>(serde_json::json!({
+                "timeZone": "UTC",
+                "instructions": "",
+                "availableAt": null,
+                "dueAt": null,
+                "closesAt": null,
+                "assignmentAttemptTimeLimitSeconds": 0,
+                "attemptLimit": null,
+                "lateWorkRule": "accept",
+                "assignmentDeadlineRule": "autoSubmit"
+            }))
             .is_err()
         );
         assert!(
-            serde_json::from_value::<InstructorAssignmentWorkingCopyDefinitionLocal>(
-                serde_json::json!({
-                    "timeZone": "UTC",
-                    "instructions": "",
-                    "availableAt": null,
-                    "dueAt": null,
-                    "closesAt": null,
-                    "assignmentAttemptTimeLimitSeconds": null,
-                    "attemptLimit": null,
-                    "lateWorkRule": "accept",
-                    "assignmentDeadlineRule": "autoSubmit",
-                    "unexpected": true
-                })
-            )
+            serde_json::from_value::<InstructorAssignmentAuthoredContentLocal>(serde_json::json!({
+                "timeZone": "UTC",
+                "instructions": "",
+                "availableAt": null,
+                "dueAt": null,
+                "closesAt": null,
+                "assignmentAttemptTimeLimitSeconds": null,
+                "attemptLimit": null,
+                "lateWorkRule": "accept",
+                "assignmentDeadlineRule": "autoSubmit",
+                "unexpected": true
+            }))
             .is_err()
         );
     }
 
     #[test]
-    fn instructor_current_state_uses_authoritative_time_at_exact_boundaries() {
+    fn instructor_assignment_availability_uses_authoritative_time_at_exact_boundaries() {
         let term = course_term("UTC");
-        let available = ActivityTimestamp::from_unix_millis(
+        let available = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 10, 0, 0)
                 .single()
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let closes = ActivityTimestamp::from_unix_millis(
+        let closes = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0)
                 .single()
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let settings = AssignmentWorkingCopyDefinition {
+        let settings = AssignmentAuthoredContent {
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
                 available_at: Some(available),
@@ -806,51 +796,51 @@ mod tests {
         };
 
         assert_eq!(
-            derive_instructor_assignment_current_state(
+            derive_instructor_assignment_availability(
                 &term,
                 AssignmentStatus::Released,
                 &settings,
-                ActivityTimestamp::from_unix_millis(available.as_unix_millis() - 1),
+                Timestamp::from_unix_millis(available.as_unix_millis() - 1),
             )
             .expect("scheduled state"),
-            InstructorAssignmentCurrentState::Scheduled {
+            InstructorAssignmentAvailabilityView::Scheduled {
                 available_at: local("2026-09-01T10:00:00.000"),
             }
         );
         assert_eq!(
-            derive_instructor_assignment_current_state(
+            derive_instructor_assignment_availability(
                 &term,
                 AssignmentStatus::Released,
                 &settings,
                 available,
             )
             .expect("open state"),
-            InstructorAssignmentCurrentState::Open
+            InstructorAssignmentAvailabilityView::Available
         );
         assert_eq!(
-            derive_instructor_assignment_current_state(
+            derive_instructor_assignment_availability(
                 &term,
                 AssignmentStatus::Released,
                 &settings,
                 closes,
             )
             .expect("closed state"),
-            InstructorAssignmentCurrentState::Closed {
+            InstructorAssignmentAvailabilityView::Closed {
                 closed_at: Some(local("2026-09-01T12:00:00.000")),
             }
         );
     }
 
     #[test]
-    fn instructor_current_state_honors_due_rejection_and_stored_intent() {
+    fn instructor_assignment_availability_honors_due_rejection_and_stored_intent() {
         let term = course_term("UTC");
-        let due = ActivityTimestamp::from_unix_millis(
+        let due = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 11, 0, 0)
                 .single()
                 .expect("valid time")
                 .timestamp_millis(),
         );
-        let settings = AssignmentWorkingCopyDefinition {
+        let settings = AssignmentAuthoredContent {
             instructions: AssignmentInstructions::default(),
             base_policy: BaseAssignmentPolicy {
                 due_at: Some(due),
@@ -860,14 +850,14 @@ mod tests {
             activity_rules: AssignmentActivityRules::default(),
         };
         assert_eq!(
-            derive_instructor_assignment_current_state(
+            derive_instructor_assignment_availability(
                 &term,
                 AssignmentStatus::Released,
                 &settings,
                 due,
             )
             .expect("due-date closure"),
-            InstructorAssignmentCurrentState::Closed {
+            InstructorAssignmentAvailabilityView::Closed {
                 closed_at: Some(local("2026-09-01T11:00:00.000")),
             }
         );
@@ -875,19 +865,19 @@ mod tests {
         for (status, expected) in [
             (
                 AssignmentStatus::Unreleased,
-                InstructorAssignmentCurrentState::Draft,
+                InstructorAssignmentAvailabilityView::Unreleased,
             ),
             (
                 AssignmentStatus::Closed,
-                InstructorAssignmentCurrentState::Closed { closed_at: None },
+                InstructorAssignmentAvailabilityView::Closed { closed_at: None },
             ),
             (
                 AssignmentStatus::Archived,
-                InstructorAssignmentCurrentState::Archived,
+                InstructorAssignmentAvailabilityView::Archived,
             ),
         ] {
             assert_eq!(
-                derive_instructor_assignment_current_state(&term, status, &settings, due)
+                derive_instructor_assignment_availability(&term, status, &settings, due)
                     .expect("stored assignment status"),
                 expected
             );

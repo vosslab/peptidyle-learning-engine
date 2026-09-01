@@ -1,0 +1,166 @@
+/* blueprint_operations_page.css - desktop-first, answer-free Blueprint-operation workflow. */
+
+.blueprint-operations-page,
+.blueprint-operations-workflow,
+.blueprint-operations-summary,
+.blueprint-operations-form,
+.blueprint-operations-preview,
+.blueprint-operations-recovery,
+.blueprint-operations-receipt,
+.blueprint-operations-imports {
+  display: grid;
+  gap: var(--ple-layout-gap);
+}
+
+.blueprint-operations-page > header {
+  max-width: 76ch;
+}
+
+.blueprint-operations-status {
+  min-height: 1.5rem;
+  margin: 0;
+  color: var(--ple-muted);
+  font-weight: 650;
+}
+
+.blueprint-operations-status[role="alert"] {
+  color: var(--ple-danger, #a11d2f);
+}
+
+.blueprint-operations-form,
+.blueprint-operations-preview,
+.blueprint-operations-recovery,
+.blueprint-operations-receipt,
+.blueprint-operations-imports,
+.blueprint-operations-summary {
+  min-width: 0;
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-card-surface);
+}
+
+.blueprint-operations-form fieldset {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.blueprint-operations-form legend {
+  margin-bottom: 0.3rem;
+  font-weight: 760;
+}
+
+.blueprint-operations-operation-grid,
+.blueprint-operations-source-grid,
+.blueprint-operations-term-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.blueprint-operations-operation,
+.blueprint-operations-source {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--ple-border);
+  border-radius: 0.55rem;
+  color: var(--ple-ink);
+  cursor: pointer;
+}
+
+.blueprint-operations-operation:has(input:checked),
+.blueprint-operations-source:has(input:checked) {
+  border-color: var(--ple-accent);
+  background: color-mix(in srgb, var(--ple-accent) 10%, var(--ple-card-surface));
+}
+
+.blueprint-operations-operation input,
+.blueprint-operations-source input {
+  margin: 0;
+}
+
+.blueprint-operations-operation strong,
+.blueprint-operations-source strong {
+  font-size: 0.95rem;
+}
+
+.blueprint-operations-operation span,
+.blueprint-operations-source span,
+.blueprint-operations-help,
+.blueprint-operations-preview p,
+.blueprint-operations-receipt p,
+.blueprint-operations-imports p {
+  color: var(--ple-muted);
+}
+
+.blueprint-operations-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+  font-weight: 680;
+}
+
+.blueprint-operations-field input,
+.blueprint-operations-field select {
+  width: 100%;
+}
+
+.blueprint-operations-actions,
+.blueprint-operations-receipt-actions,
+.blueprint-operations-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.blueprint-operations-actions {
+  justify-content: space-between;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--ple-border);
+}
+
+.blueprint-operations-primary {
+  margin-left: auto;
+}
+
+.blueprint-operations-manifest,
+.blueprint-operations-import-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.blueprint-operations-manifest li,
+.blueprint-operations-import-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--ple-border);
+}
+
+.blueprint-operations-manifest li:last-child,
+.blueprint-operations-import-list li:last-child {
+  border-bottom: 0;
+}
+
+.blueprint-operations-recovery {
+  border-color: color-mix(in srgb, var(--ple-warning, #a15c00) 55%, var(--ple-border));
+}
+
+@media (max-width: 70rem) {
+  .blueprint-operations-operation-grid,
+  .blueprint-operations-source-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

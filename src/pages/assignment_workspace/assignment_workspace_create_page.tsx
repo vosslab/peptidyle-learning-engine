@@ -1,4 +1,4 @@
-// assignment_workspace_create_page.tsx - title-only persisted draft creation for the assignment workspace.
+// assignment_workspace_create_page.tsx - title-only Assignment creation for the workspace.
 
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { Show, createSignal, type JSX } from "solid-js";
@@ -22,7 +22,7 @@ import {
 
 type CreateState = "ready" | "saving" | "unavailable";
 
-/** Creates one real Draft before the Instructor begins the Questions workflow. */
+/** Creates one real Assignment before the Instructor begins the Questions workflow. */
 export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
@@ -50,7 +50,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     );
   };
 
-  async function createDraft(): Promise<void> {
+  async function createAssignment(): Promise<void> {
     const currentCourse = course();
     const reference = courseReference();
     if (currentCourse === undefined || reference === null || !mayCreate()) {
@@ -58,7 +58,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
       return;
     }
     if (title().trim() === "") {
-      setMessage("Enter an assignment title to create the draft.");
+      setMessage("Enter an Assignment Title to create the Assignment.");
       return;
     }
     setState("saving");
@@ -111,13 +111,13 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
           aria-busy={state() === "saving"}
           onSubmit={(event) => {
             event.preventDefault();
-            void createDraft();
+            void createAssignment();
           }}
         >
-          <label class="assignment-editor-field" for="assignment-draft-title">
+          <label class="assignment-editor-field" for="assignment-title">
             Assignment title
             <input
-              id="assignment-draft-title"
+              id="assignment-title"
               ref={(element) => (titleInput = element)}
               autofocus
               value={title()}

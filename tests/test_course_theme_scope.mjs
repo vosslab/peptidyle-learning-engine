@@ -176,8 +176,7 @@ test("only course-owned executable routes request a theme scope", () => {
     courseReference: course,
   });
   assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/appearance`), {
-    kind: "course",
-    courseReference: course,
+    kind: "global",
   });
   assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${run}`), {
     kind: "assignmentAttempt",

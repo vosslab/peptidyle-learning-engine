@@ -24,7 +24,7 @@ PostgreSQL/RLS/profile-to-PLE acceptance.
 - Conversion requires a strong draft ETag plus the report revision and acknowledgement tokens. It
   rereads the retained archive, reparses and remaps the selected item, recompiles through the native
   bridge, and uses the WP-QTI-8 atomic Store command. Refused requests do not mutate the draft.
-- Flat publication copies the exact source archive to deterministic non-signable
+- PLE Question JSON publication copies the exact source archive to deterministic non-signable
   `PublishedImportArchive` provenance. Manually authored questions retain no import origin.
 - Memory and PostgreSQL serialize draft deletion and prepared profile work. Deletion either prevents
   preparation or removes prepared state before a workspace identity can be reused.

@@ -214,7 +214,7 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
             <p>
               {props.canCreateAssignment
                 ? "Build the first practice assignment from published questions."
-                : "Your instructor has not published an assignment for this course yet."}
+                : "Your instructor has not released an Assignment for this course yet."}
             </p>
             <Show when={props.canCreateAssignment}>
               <A

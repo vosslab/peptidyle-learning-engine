@@ -3,8 +3,8 @@
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
-use objects::Sha256Digest;
-use question_model::{AccountId, AccountRole, ActivityTimestamp};
+use objects::Sha256Checksum;
+use question_model::{AccountId, AccountRole, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -40,7 +40,7 @@ pub struct SessionTokenHash([u8; 32]);
 impl SessionTokenHash {
     /// Hashes raw session-token bytes for persistence and lookup.
     pub fn compute(token: &[u8]) -> Self {
-        Self(*Sha256Digest::compute(token).as_bytes())
+        Self(*Sha256Checksum::compute(token).as_bytes())
     }
 
     /// Parses the lowercase hexadecimal database representation.
@@ -113,9 +113,9 @@ pub struct SessionRecord {
     /// Immutable product role of the authenticated account.
     pub role: AccountRole,
     /// Database-authoritative creation time.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     /// Database-authoritative exclusive expiration time.
-    pub expires_at: ActivityTimestamp,
+    pub expires_at: Timestamp,
 }
 
 impl SessionRecord {

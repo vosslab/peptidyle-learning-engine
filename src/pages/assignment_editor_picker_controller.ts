@@ -7,7 +7,7 @@ import type { CourseId } from "../../generated/api/CourseId";
 import {
   appendFixedEntries,
   type AssignmentQuestionRow,
-  type AssignmentEditorDraft,
+  type AssignmentEditorState,
 } from "./assignment_editor_model";
 import {
   assignmentPickerMaximum,
@@ -29,10 +29,10 @@ export interface AssignmentEditorPickerControllerProps {
   readonly repository: AssignmentEditorRepository;
   readonly courseId: CourseId;
   readonly mode: AssignmentPickerMode;
-  readonly currentDraft: () => AssignmentEditorDraft | undefined;
+  readonly currentDraft: () => AssignmentEditorState | undefined;
   readonly editorBusy: () => boolean;
   readonly setBusy: (value: boolean) => void;
-  readonly onDraftChange: (draft: AssignmentEditorDraft) => void;
+  readonly onDraftChange: (draft: AssignmentEditorState) => void;
   readonly onReplacementPrepared: (row: AssignmentQuestionRow, itemId: string) => void;
   readonly onMessage: (message: string) => void;
   readonly onError: (error: unknown, fallback: string) => void;
@@ -105,21 +105,18 @@ export function createAssignmentEditorPickerController(
     const draft = props.currentDraft();
     const entry = draft?.entries[entryIndex];
     if (draft === undefined || entry === undefined || entry.kind !== "questionPool") return;
-    const known = new Set(entry.entries.map((entry) => entry.questionId));
-    const addedPoolEntries = [
-      ...entry.entries,
-      ...rows.filter((row) => !known.has(row.questionId)),
-    ];
-    if (addedPoolEntries.length === entry.entries.length) {
-      props.onMessage("Every selected Question ID is already an entry in this pool.");
+    const known = new Set(entry.items.map((item) => item.questionId));
+    const addedPoolItems = [...entry.items, ...rows.filter((row) => !known.has(row.questionId))];
+    if (addedPoolItems.length === entry.items.length) {
+      props.onMessage("Every selected Question ID is already a Question Pool Item in this pool.");
       return;
     }
     const assignmentEntries = [...draft.entries];
-    assignmentEntries[entryIndex] = { ...entry, entries: addedPoolEntries };
+    assignmentEntries[entryIndex] = { ...entry, items: addedPoolItems };
     props.onDraftChange({ ...draft, entries: assignmentEntries });
-    const added = addedPoolEntries.length - entry.entries.length;
+    const added = addedPoolItems.length - entry.items.length;
     props.onMessage(
-      `${added} entry Question ID${added === 1 ? "" : "s"} added to this Question Pool. Set its selection count, then save the Assignment.`,
+      `${added} Question Pool Item ID${added === 1 ? "" : "s"} added to this Question Pool. Set its selection count, then save the Assignment.`,
     );
   }
 

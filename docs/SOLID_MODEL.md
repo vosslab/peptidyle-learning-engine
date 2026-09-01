@@ -13,10 +13,8 @@ complete inventory of every route-local signal.
 | Shared key-free Wasm facade          | Resource and context                          | `WasmRuntimeProvider`    | One startup resource loads the facade before widgets mount. Consumers read context; fallback validation stays behind the same facade.                                                                 |
 | Course route identity and appearance | Route `createAsync` resource and context      | `CourseThemeScope`       | One route-owned query loads the authorized course projection for course, run, and summary paths. Descendants consume it without a second transport request.                                           |
 | Course-theme CSS variables           | JSX-derived token functions                   | `CourseThemeScope`       | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                                  |
-| Appearance settings                  | Independent signals plus pure model functions | `CourseAppearancePage`   | `current`, editable `draft`, selected `File`, preview URL, candidate receipt, phase, errors, and messages remain separate so a failure preserves local work.                                          |
-| PLE flat-question draft              | Signals, memos, effects, and `<For>`          | `FlatQuestionEditorPage` | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                                      |
-| Student-equivalent author preview    | Signal and answer-free projection             | `FlatQuestionPreview`    | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check.           |
-| QTI profile review and conversion    | Signals, memos, effects, and `<For>`          | `QtiProfileImportPage`   | The selected archive remains component memory. The UI displays only the server's answer-free report, preserves it across refresh failure, and locks the visible draft during replacement and refetch. |
+| PLE PLE Question JSON draft              | Signals, memos, effects, and `<For>`          | `PleQuestionJsonEditorPage` | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                                      |
+| Student-equivalent author preview    | Signal and answer-free projection             | `PleQuestionJsonPreview`    | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check.           |
 | External-tool launch                 | Signals, refs, effect, and lifecycle cleanup  | `ExternalToolResponse`   | The browser receives a same-origin broker path only after activation. Readiness is presentation state; it cannot provide a score, provider identity, or grading input.                                |
 | Route-local screens                  | Signals or router `createAsync` resources     | Owning route             | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                                       |
 
@@ -48,8 +46,7 @@ function.
 
 The app owns one Wasm loader resource at startup. Route components read the shared facade from
 context; they do not instantiate modules independently. The same ownership rule applies to the API
-runtime and session bootstrap. `CourseAppearancePage` owns its local preview URL and revokes it on
-cleanup. `ExternalToolResponse` installs the same-origin `message` listener at mount and removes it
+runtime and session bootstrap. `ExternalToolResponse` installs the same-origin `message` listener at mount and removes it
 on disposal; a request counter rejects late launch results after a new attempt or disposal.
 
 ## Routing and async data
@@ -61,27 +58,22 @@ keyed `createResource` for its private draft read.
 
 `CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseId)` for course
 and instructor-course routes, `assignmentAttemptScreen(assignmentAttemptId)` for an attempt, and `assignmentAttemptSummary(assignmentAttemptId)` for a
-summary. The context exposes the authorized course projection to the course entry identity, theme,
-and appearance settings; the scope is below the persistent shell and therefore cannot leak a prior
+summary. The context exposes the authorized course projection to the course entry identity and theme;
+the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 
-The appearance form starts from that route projection but keeps its own editable draft and upload
-candidate. Save revalidates the route-owned course query, allowing the outer scope to reflect the
-new server revision without creating another appearance owner. A stale revision or request failure
-does not discard the local file, theme, alternative text, or recovery message.
+The workspace editor is browser authoring groundwork, not a mounted server capability. Its route
+guard limits the interface to Instructors and its keyed resource models a private-draft read, but
+the current `server_core` mounts no Authoring Workspace Store or editor HTTP route. The upcoming
+service must resolve the route-selected opaque Draft Question Reference under Authoring Workspace
+access before it returns any draft. The answer-free preview remains separate, and private author
+source does not enter Student components, URLs, browser storage, or diagnostics.
 
-The workspace route is an implemented authoring slice, not a hypothetical preview. It authorizes
-the instructor role, loads exactly the route-selected private draft, and mounts the native
-flat-question editor. The student-equivalent preview uses the answer-free projection; the separate
-instructor check is deliberately named and contained in the author surface. Private author source
-does not enter student components, URLs, browser storage, or diagnostics.
-
-QTI profile import is composed on the same workspace route above the native editor. A selected ZIP
-is uploaded for server-side review, then the browser receives queued, processing, failed,
-unsupported-profile, or answer-free ready-report state. The supported conversion profiles are
-bounded; the browser does not parse ZIP/XML, choose a conversion result, or persist provenance.
-Conversion requires a reviewed accepted item and a clean visible draft, then the route temporarily
-makes the editor inert while the server replaces and the browser refetches that private draft.
+QTI profile import is composed with the same browser editor model. Its future server route accepts
+opaque ZIP bytes for review and returns queued, processing, failed, unsupported-profile, or
+answer-free ready-report state. The supported conversion profiles are bounded; the browser does
+not parse ZIP/XML, choose a conversion result, or persist provenance. The mounted implementation
+must require a reviewed accepted item and a clean visible draft before conversion and refetch.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
 Reference slices must show loading, error/recovery, empty where applicable, and ready states rather
@@ -119,7 +111,7 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                        |
 | Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                  |
-| Native author editing state and local QTI archive selection                      | Flat-source persistence, publication review, correctness, points, and feedback disclosure                                  |
+| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                    |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, provenance, and atomic draft replacement |
 | External iframe presentation and same-origin readiness status                    | Broker launch authorization, provider configuration, correlation, verification, correctness, and grade recording           |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                       |
@@ -138,7 +130,6 @@ Reference-slice tests must prove observable behavior rather than only constructi
 - changing one selected response updates its control and live status without recreating the widget;
 - `<For>` keeps identity for choices, draft rows, and QTI report items;
 - a course route loads one authorized theme projection and drops it on navigation;
-- a course-appearance failure preserves the editable draft and revokes its preview URL on disposal;
 - the native preview remains answer-free until an instructor explicitly opens the protected check;
 - QTI conversion rejects a dirty or unavailable draft and leaves the editor locked only during the
   replacement/refetch handoff;

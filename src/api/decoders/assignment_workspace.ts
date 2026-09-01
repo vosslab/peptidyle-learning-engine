@@ -5,8 +5,8 @@ import type { AssignmentReleaseValidation } from "../../../generated/api/Assignm
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
 import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
 import {
-  decodeInstructorAssignmentCurrentState,
-  decodeInstructorAssignmentWorkingCopyDefinitionLocal,
+  decodeInstructorAssignmentAvailabilityView,
+  decodeInstructorAssignmentAuthoredContentLocal,
 } from "./assignment_teaching_delivery";
 import { decodeAssignmentReference, decodeAssignmentSummary } from "./question_library";
 import {
@@ -18,7 +18,7 @@ import {
 } from "./shared";
 
 /**
- * Decodes the Assignment editor's deliberately narrow Working Copy projection.
+ * Decodes the Assignment editor's deliberately narrow editable Assignment projection.
  * It never carries question source material or other server-only policy.
  */
 export function decodeAssignmentEditorDetail(
@@ -35,18 +35,18 @@ export function decodeAssignmentEditorDetail(
     "studentFeedbackReleaseRule",
     "policies",
     "assignmentStatus",
-    "assignmentWorkingCopyDefinition",
-    "currentState",
+    "assignmentAuthoredContent",
+    "assignmentAvailability",
     "assignmentReleaseValidation",
   ]);
   const summary = decodeAssignmentSummary(record, path, false);
-  const assignmentWorkingCopyDefinition = decodeInstructorAssignmentWorkingCopyDefinitionLocal(
-    field(record, "assignmentWorkingCopyDefinition", path),
-    `${path}.assignmentWorkingCopyDefinition`,
+  const assignmentAuthoredContent = decodeInstructorAssignmentAuthoredContentLocal(
+    field(record, "assignmentAuthoredContent", path),
+    `${path}.assignmentAuthoredContent`,
   );
-  const currentState = decodeInstructorAssignmentCurrentState(
-    field(record, "currentState", path),
-    `${path}.currentState`,
+  const assignmentAvailability = decodeInstructorAssignmentAvailabilityView(
+    field(record, "assignmentAvailability", path),
+    `${path}.assignmentAvailability`,
   );
   const assignmentReleaseValidation = decodeAssignmentReleaseValidation(
     field(record, "assignmentReleaseValidation", path),
@@ -57,7 +57,7 @@ export function decodeAssignmentEditorDetail(
     `${path}.assignmentStatus`,
     ["unreleased", "released", "closed", "archived"] as const,
   );
-  assertCurrentStateMatchesStatus(assignmentStatus, currentState, path);
+  assertAssignmentAvailabilityMatchesStatus(assignmentStatus, assignmentAvailability, path);
   const decoded = {
     id: summary.id,
     reference: summary.reference,
@@ -67,14 +67,14 @@ export function decodeAssignmentEditorDetail(
     studentFeedbackReleaseRule: summary.studentFeedbackReleaseRule,
     policies: summary.policies,
     assignmentStatus,
-    assignmentWorkingCopyDefinition,
-    currentState,
+    assignmentAuthoredContent,
+    assignmentAvailability,
     assignmentReleaseValidation,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
   return decoded;
 }
 
-/** Decodes the exact 409 body requiring a successor Assignment Working Copy. */
+/** Decodes the exact 409 body requiring a successor Assignment. */
 export function decodeSuccessorAssignmentRevisionRequired(
   value: unknown,
   path = "response",
@@ -102,23 +102,25 @@ export function decodeSuccessorAssignmentRevisionRequired(
   return decoded;
 }
 
-function assertCurrentStateMatchesStatus(
+function assertAssignmentAvailabilityMatchesStatus(
   status: AssignmentEditorDetail["assignmentStatus"],
-  currentState: AssignmentEditorDetail["currentState"],
+  assignmentAvailability: AssignmentEditorDetail["assignmentAvailability"],
   path: string,
 ): void {
   const currentMatchesIntent =
-    (status === "unreleased" && currentState.state === "draft") ||
-    (status === "archived" && currentState.state === "archived") ||
-    (status === "closed" && currentState.state === "closed" && currentState.closedAt === null) ||
+    (status === "unreleased" && assignmentAvailability.state === "unreleased") ||
+    (status === "archived" && assignmentAvailability.state === "archived") ||
+    (status === "closed" &&
+      assignmentAvailability.state === "closed" &&
+      assignmentAvailability.closedAt === null) ||
     (status === "released" &&
-      (currentState.state === "scheduled" ||
-        currentState.state === "open" ||
-        (currentState.state === "closed" && currentState.closedAt !== null)));
+      (assignmentAvailability.state === "scheduled" ||
+        assignmentAvailability.state === "available" ||
+        (assignmentAvailability.state === "closed" && assignmentAvailability.closedAt !== null)));
   if (!currentMatchesIntent) {
     throw new DecodeError(
-      `${path}.currentState`,
-      "a server-derived state consistent with the stable Assignment Status",
+      `${path}.assignmentAvailability`,
+      "a server-derived Assignment Availability View consistent with the stable Assignment Status",
     );
   }
 }

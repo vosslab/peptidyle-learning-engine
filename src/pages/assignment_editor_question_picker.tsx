@@ -15,7 +15,7 @@ export interface AssignmentEditorQuestionPickerProps {
 function pickerTitle(
   intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
 ): string {
-  if (intent.kind === "pool") return "Choose pool candidates";
+  if (intent.kind === "pool") return "Choose Questions for pool";
   if (intent.kind === "replacement") return "Choose a replacement question";
   return "Choose assignment questions";
 }
@@ -23,7 +23,7 @@ function pickerTitle(
 function pickerConfirmLabel(
   intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
 ): string {
-  if (intent.kind === "pool") return "Add selected candidates";
+  if (intent.kind === "pool") return "Add selected Questions to pool";
   if (intent.kind === "replacement") return "Select replacement";
   return "Add selected questions";
 }

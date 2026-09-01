@@ -24,12 +24,12 @@ use base64::Engine;
 #[cfg(feature = "s3")]
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 #[cfg(feature = "s3")]
-use question_model::ActivityTimestamp;
+use question_model::Timestamp;
 
 #[cfg(feature = "s3")]
 use crate::{
     ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
-    Sha256Digest, SignedUrl, StoredObject,
+    Sha256Checksum, SignedUrl, StoredObject,
 };
 
 #[cfg(feature = "s3")]
@@ -52,7 +52,7 @@ const IMMUTABLE_PUBLICATION_TAG_QUERY: &str = "ple-published-immutable=true";
 pub struct BucketNames {
     /// CDN-readable immutable student-public assets only.
     pub public_assets: String,
-    /// Private authoring, provenance, render, and course-content bytes.
+    /// Private authoring, import evidence, render, and course-content bytes.
     pub private_content: String,
     /// Course-owned educational-record bucket.
     pub student_records: String,
@@ -264,7 +264,7 @@ impl ObjectStore for S3ObjectStore {
             storage_area: request.address.storage_area(),
             data_class: request.address.data_class(),
             address: request.address.clone(),
-            sha256: Sha256Digest::compute(&request.bytes),
+            sha256: Sha256Checksum::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
             question_revision: request.address.question_revision().cloned(),
@@ -363,7 +363,7 @@ impl ObjectStore for S3ObjectStore {
     async fn signed_url(
         &self,
         key: &ObjectAddress,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
         if !key.may_issue_signed_url() {
             return Err(ObjectStoreError::NotSignable);
@@ -391,7 +391,7 @@ impl ObjectStore for S3ObjectStore {
             .map_err(|error| ObjectStoreError::Unavailable(error.to_string()))?;
         Ok(SignedUrl {
             url: request.uri().to_string(),
-            expires_at: ActivityTimestamp::from_unix_millis(expires_millis),
+            expires_at: Timestamp::from_unix_millis(expires_millis),
         })
     }
 }
@@ -443,7 +443,7 @@ fn decode_record(
 #[cfg(feature = "s3")]
 fn verify_bytes(record: ObjectRecord, bytes: Vec<u8>) -> Result<StoredObject, ObjectStoreError> {
     let size_bytes = u64::try_from(bytes.len()).map_err(|_| ObjectStoreError::NumericOverflow)?;
-    if size_bytes != record.size_bytes || Sha256Digest::compute(&bytes) != record.sha256 {
+    if size_bytes != record.size_bytes || Sha256Checksum::compute(&bytes) != record.sha256 {
         return Err(ObjectStoreError::ChecksumMismatch);
     }
     Ok(StoredObject { record, bytes })
@@ -461,7 +461,7 @@ fn signed_url_lifetime(storage_area: ObjectStorageArea) -> Result<Duration, Obje
 }
 
 #[cfg(feature = "s3")]
-fn system_time(timestamp: ActivityTimestamp) -> Result<SystemTime, ObjectStoreError> {
+fn system_time(timestamp: Timestamp) -> Result<SystemTime, ObjectStoreError> {
     let millis = timestamp.as_unix_millis();
     let offset = Duration::from_millis(millis.unsigned_abs());
     if millis.is_negative() {
@@ -534,11 +534,11 @@ mod tests {
             storage_area: key.storage_area(),
             data_class: key.data_class(),
             address: key,
-            sha256: Sha256Digest::compute(b"source"),
+            sha256: Sha256Checksum::compute(b"source"),
             size_bytes: 6,
             media_type: "application/zip".to_string(),
             question_revision: Some(question_revision()),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         }
     }
 

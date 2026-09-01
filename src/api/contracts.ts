@@ -18,10 +18,11 @@ import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { DraftQuestionRevision } from "../../generated/api/DraftQuestionRevision";
-import type { WorkspaceDraftSummary } from "../../generated/api/WorkspaceDraftSummary";
+import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
+import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { License } from "../../generated/api/License";
+import type { QuestionLicense } from "../../generated/api/QuestionLicense";
+import type { QuestionCitation } from "../../generated/api/QuestionCitation";
 import type { QuestionClassification } from "../../generated/api/QuestionClassification";
 import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
@@ -29,8 +30,8 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { AccountRole } from "../../generated/api/AccountRole";
 import type { CourseAppearance } from "../../generated/api/CourseAppearance";
-import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
-import type { InstructorAssignmentCurrentState } from "../../generated/api/InstructorAssignmentCurrentState";
+import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
+import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
@@ -50,9 +51,9 @@ export type {
 };
 export type { CreateAssignmentRequest as AssignmentCreateInput };
 
-/** The HTTP client adds the exact current Assignment Working Copy edit precondition. */
+/** The HTTP client adds the exact current Assignment edit precondition. */
 export type AssignmentPoliciesInput = Omit<ReplaceAssignmentPoliciesRequest, "baseEditNumber">;
-/** The HTTP client adds the exact current Assignment Working Copy edit precondition. */
+/** The HTTP client adds the exact current Assignment edit precondition. */
 export type ReplaceAssignmentFixedItemInput = Omit<
   ReplaceAssignmentFixedItemRequest,
   "baseEditNumber"
@@ -82,10 +83,10 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
   /** Stable Assignment Status; release selection stays outside editable content. */
   readonly assignmentStatus: AssignmentStatus;
   /** Course-local instructor projection; the server owns time-zone resolution. */
-  readonly assignmentWorkingCopyDefinition: InstructorAssignmentWorkingCopyDefinitionLocal;
-  /** Server-derived current state at the response's authoritative instant. */
-  readonly currentState: InstructorAssignmentCurrentState;
-  /** Closed, server-derived release blockers for this Assignment Working Copy. */
+  readonly assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal;
+  /** Server-derived Assignment Availability View at the response's authoritative instant. */
+  readonly assignmentAvailability: InstructorAssignmentAvailabilityView;
+  /** Closed, server-derived release blockers for this Assignment. */
   readonly assignmentReleaseValidation: AssignmentReleaseValidation;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
@@ -120,7 +121,7 @@ export interface QuestionPoolPreview {
 }
 
 /**
- * One public, ordered assignment-definition entry. The browser sends compact Question IDs only;
+ * One public, ordered Assignment Content entry. The browser sends compact Question IDs only;
  * the server resolves immutable publications and owns all internal identities and selection mechanics.
  */
 export type AssignmentEditorEntryInput =
@@ -192,7 +193,7 @@ export interface QuestionPoolSelectionPosition {
 /**
  * Browser-safe Issued Question identity and exact published Question Revision.
  *
- * The durable source selection and Question Pool Entry stay in server-held Student Work
+ * The durable source selection and Question Pool Item stay in server-held Student Work
  * records. Student delivery identifies pooled work only through
  * QuestionPoolSelectionPosition.
  */
@@ -200,7 +201,7 @@ export interface StudentIssuedQuestion {
   readonly id: IssuedQuestionId;
   readonly assignmentAttempt: AssignmentAttemptId;
   readonly assignmentEntry: AssignmentEntryId;
-  readonly definitionEntryIndex: number;
+  readonly assignmentContentEntryIndex: number;
   readonly issuedPosition: number;
   readonly reference: QuestionRevisionReference;
   readonly statisticsEligible: boolean;
@@ -248,7 +249,7 @@ export type QuestionSubmissionAcknowledgement =
       readonly nextAction: "check_status";
     };
 
-/** Safe binding for a newly active next attempt; no source record or source material leaks. */
+/** Safe binding for a newly active next attempt; no Question Source reference or source bytes leak. */
 export interface NextIssuedAttempt {
   readonly id: QuestionAttemptId;
   readonly issuedQuestion: StudentIssuedQuestion;
@@ -263,7 +264,7 @@ export interface PrefetchedNextQuestion {
   readonly issuedQuestion: StudentIssuedQuestion;
   readonly seed: number;
   readonly renderedQuestionSha256: string;
-  /** Same safe ordinal provenance used when this cached successor becomes current. */
+  /** Same safe Question Pool Selection Position used when this cached successor becomes current. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
   readonly envelope: QuestionVariationPresentation;
 }
@@ -293,11 +294,11 @@ export interface FeedbackReleaseResponse {
 
 /** Strong ETag issued by the workspace route; pass it back byte-for-byte on an update. */
 export interface WorkspaceDraftDetail {
-  readonly draft: DraftQuestionRevision;
+  readonly draft: DraftQuestionContent;
   readonly revision: string;
 }
 
-export type WorkspaceDraftPage = CursorPage<WorkspaceDraftSummary>;
+export type DraftQuestionPage = CursorPage<DraftQuestionSummary>;
 
 export interface PublicationViolation {
   readonly workspace: string;
@@ -324,9 +325,9 @@ export type PublicationValidationResponse =
     }
   | QuestionPublicationValidationUnavailable;
 
-/** Answer-free review of the saved Question Working Copy proposed for publication. */
+/** Answer-free review of the saved Draft Question Revision proposed for publication. */
 export interface QuestionPublicationReview {
-  readonly workingCopyEditNumber: number;
+  readonly draftQuestionRevisionNumber: number;
   readonly revision: string;
   readonly baseQuestion: "newQuestion";
   readonly current: QuestionPublicationReviewSummary;
@@ -337,7 +338,7 @@ export interface QuestionPublicationReview {
     | "response"
     | "questionAttemptLimit"
     | "questionAttemptTimeLimit"
-    | "questionVariationDefinition"
+    | "questionVariationRule"
     | "metadata"
   >;
 }
@@ -353,11 +354,13 @@ export interface QuestionPublicationReviewSummary {
   };
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly questionVariationDefinition: { readonly kind: "static" | "seeded" };
+  readonly questionVariationRule: { readonly kind: "static" | "seeded" };
   readonly metadata: {
+    readonly questionDescription: string;
     readonly tags: ReadonlyArray<string>;
     readonly classifications: ReadonlyArray<QuestionClassification>;
-    readonly license: License;
+    readonly questionLicense: QuestionLicense | null;
+    readonly questionCitation: QuestionCitation | null;
     readonly language: string;
   };
 }
@@ -378,7 +381,7 @@ export interface PublicationResult {
 }
 
 export interface PublicationRequest {
-  readonly byline: QuestionSummary["byline"];
+  readonly authorship: QuestionSummary["authorship"];
 }
 
 /**

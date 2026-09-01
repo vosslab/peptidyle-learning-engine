@@ -30,6 +30,6 @@ This companion to [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) keeps implementatio
 
 **Decision.** PLE-owned serialized fields and portable discriminants use `snake_case`; direct generated DTOs reflect Serde while registered protocols retain their owner spelling.
 
-### Curriculum adoption authorization
+### Blueprint-operation authorization
 
-**Decision.** Course creation owns normal minimal Blueprint creation. Curriculum adoption is closed to its defined operations and resolves its authenticated Account only through `SessionRecord`.
+**Decision.** Course creation owns normal minimal Blueprint creation. The Blueprint-operation transport is closed to its six defined operations and resolves its authenticated Account only through `SessionRecord`.

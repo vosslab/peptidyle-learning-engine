@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/wasm/context.tsx:46 owns the WebAssembly runtime status label and data attribute.
-// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns the editor fields,
+// - src/features/ple_question_json_authoring/question_json_editor_page.tsx:535 owns the editor fields,
 //   publication buttons, and published status.
 // - src/pages/library_page.tsx:117 and src/pages/question_detail_page.tsx:24 own library search,
 //   question cards, and prompt regions.
@@ -86,7 +86,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(
         elena.getByRole("heading", { name: "Draft, preview, and publish a learning question" }),
       ).toBeVisible();
-      await elena.getByRole("button", { name: "Create flat question" }).click();
+      await elena.getByRole("button", { name: "Create Question" }).click();
       await expect(elena.getByLabel("Question title")).toBeVisible();
       await elena.getByLabel("Question title").fill(questionTitle);
       await elena.getByLabel("Student-facing prompt").fill(prompt);
@@ -109,7 +109,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toBeVisible();
       await expect(studentPreview).not.toContainText("Correct answer");
       await elena.getByRole("button", { name: "Review publication changes" }).click();
-      await elena.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
+      await elena.getByLabel("Question Authors").fill("Dr. Elena Rivera");
       await elena.getByRole("button", { name: "Confirm and publish" }).click();
       await expect(elena.getByRole("heading", { name: "Published" })).toBeVisible();
       const publicationResult = elena.getByRole("status").filter({ hasText: questionTitle });
@@ -160,7 +160,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(elena.getByText("Add at least one question.", { exact: true })).toBeVisible();
       await elena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-      await elena.getByLabel("Lifecycle").selectOption("published");
+      await elena.getByLabel("Lifecycle").selectOption("released");
       await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
       const addQuestionRecovery = elena.getByRole("link", {
         name: "Add at least one question",
@@ -195,20 +195,20 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toBeVisible();
       await elena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-      await expect(elena.getByLabel("Lifecycle")).toHaveValue("draft");
+      await expect(elena.getByLabel("Lifecycle")).toHaveValue("unreleased");
       await captureInstructorState(
         elena,
         scenarioInput,
         "instructor_authoring_assignment_policies",
       );
-      await elena.getByLabel("Lifecycle").selectOption("published");
+      await elena.getByLabel("Lifecycle").selectOption("released");
       await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
       const publishedResult = elena
         .getByRole("status")
         .filter({ hasText: "Assignment policies saved." });
       await expect(publishedResult).toBeVisible();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-      await expect(elena.getByLabel("Lifecycle")).toHaveValue("published");
+      await expect(elena.getByLabel("Lifecycle")).toHaveValue("released");
 
       await elena.getByRole("link", { name: "Student view", exact: true }).click();
       await expect(
@@ -319,7 +319,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
         freshElena.getByRole("heading", { name: assignmentTitle, exact: true }),
       ).toBeVisible();
       await freshElena.getByRole("link", { name: "Policies", exact: true }).click();
-      await expect(freshElena.getByLabel("Lifecycle")).toHaveValue("published");
+      await expect(freshElena.getByLabel("Lifecycle")).toHaveValue("released");
       await freshElena.getByRole("link", { name: "Students" }).click();
       await expect(freshElena.getByRole("heading", { name: "Pending invitations" })).toBeVisible();
       const persistedInvitation = freshElena.getByRole("row").filter({ hasText: rosterId });

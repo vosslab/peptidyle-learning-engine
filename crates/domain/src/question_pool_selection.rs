@@ -33,7 +33,7 @@ pub enum QuestionPoolSelectionError {
     InsufficientAvailableEntries {
         /// Instructor-requested Question Pool Selection Count.
         selection_count: u32,
-        /// Available Question Pool Entry count at selection time.
+        /// Available Question Pool Item count at selection time.
         available_entry_count: usize,
     },
 }
@@ -57,11 +57,11 @@ impl std::error::Error for QuestionPoolSelectionError {}
 /// Selects the exact entries for one new Question Pool Selection.
 ///
 /// Entry membership is sampled without replacement. Entry Order
-/// restores the saved Question Pool Entry order after membership selection; Random Order
+/// restores the saved Question Pool Item order after membership selection; Random Order
 /// keeps the sampled order. The returned values carry immutable Question
 /// Revision References and are suitable for a server-held Question Pool
 /// Selection record.
-pub fn select_question_pool_entries(
+pub fn select_question_pool_items(
     question_pool: &QuestionPoolAssignmentEntry,
     entropy: QuestionPoolSelectionEntropy,
 ) -> Result<Vec<QuestionPoolSelectedItem>, QuestionPoolSelectionError> {
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn question_pool_order_selects_available_entries_without_replacement_in_source_order() {
-        let selection = select_question_pool_entries(
+        let selection = select_question_pool_items(
             &question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder),
             QuestionPoolSelectionEntropy::from_bytes([7; 32]),
         )
@@ -192,8 +192,8 @@ mod tests {
         let entropy = QuestionPoolSelectionEntropy::from_bytes([9; 32]);
 
         assert_eq!(
-            select_question_pool_entries(&pool, entropy),
-            select_question_pool_entries(&pool, entropy),
+            select_question_pool_items(&pool, entropy),
+            select_question_pool_items(&pool, entropy),
         );
     }
 
@@ -203,7 +203,7 @@ mod tests {
         pool.selection_count = 4;
 
         assert_eq!(
-            select_question_pool_entries(&pool, QuestionPoolSelectionEntropy::from_bytes([1; 32])),
+            select_question_pool_items(&pool, QuestionPoolSelectionEntropy::from_bytes([1; 32])),
             Err(QuestionPoolSelectionError::InsufficientAvailableEntries {
                 selection_count: 4,
                 available_entry_count: 3,

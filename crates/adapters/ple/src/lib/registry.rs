@@ -9,7 +9,6 @@ use question_model::{
 };
 
 use crate::generator::PleQuestionImplementation;
-use crate::peptide_bond_geometry::PeptideBondGeometryV1;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, PleQuestionBackend,
     PleQuestionBackendError,
@@ -69,14 +68,11 @@ impl PleQuestionBackend {
     /// Builds the production registry with reviewed built-in implementations.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
-        for implementation in crate::flat_question::FLAT_V2_IMPLEMENTATIONS {
-            adapter
-                .register_implementation(implementation)
-                .expect("each built-in version 2 flat implementation registration is unique");
+        for implementation in crate::question_json::PLE_QUESTION_JSON_IMPLEMENTATIONS {
+            adapter.register_implementation(implementation).expect(
+                "each built-in schema-version-2 PLE Question JSON implementation is unique",
+            );
         }
-        adapter
-            .register_implementation(PeptideBondGeometryV1)
-            .expect("the built-in implementation registration is unique");
         adapter
     }
 

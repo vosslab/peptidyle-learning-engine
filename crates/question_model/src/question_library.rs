@@ -2,20 +2,20 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::classification::{License, QuestionClassification, Tag};
+use crate::classification::{QuestionClassification, QuestionLicense, Tag};
 use crate::{
-    ActivityTimestamp, CourseInstanceReference, DraftQuestionBackendLocator,
-    QuestionBackendCapabilities, QuestionBackendLocator, QuestionMetadata, QuestionRevisionNumber,
+    CourseInstanceReference, DraftQuestionBackendLocator, QuestionBackendCapabilities,
+    QuestionBackendLocator, QuestionMetadata, QuestionRevisionNumber, Timestamp,
 };
 
 pub use crate::question_search::{
-    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_BYLINE_FACETS,
-    MAX_QUESTION_SEARCH_BYLINE_FILTERS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchBylineFacet, QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
+    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
     QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
-    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchLicense, QuestionSearchLicenseFacet,
+    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
     QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
     QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
 };
@@ -172,7 +172,7 @@ pub enum QuestionRevisionAvailability {
     /// Discoverable historical content, ineligible for ordinary new selection,
     /// and retained for authorized stable-ID and exact-pin resolution.
     Archived {
-        /// Original deprecation explanation retained for the record.
+        /// Archived-availability explanation retained for the record.
         reason: String,
     },
 }
@@ -193,9 +193,9 @@ impl QuestionRevisionAvailability {
     /// Whether a stable Question ID can resolve this publication for an
     /// authorized read.
     ///
-    /// Published, deprecated, and archived publications remain resolvable by
-    /// their stable identity. Resolution does not make non-Published content
-    /// eligible for ordinary new selection.
+    /// Published Question Revisions remain resolvable by their stable identity.
+    /// Resolution does not make an Archived Question Revision eligible for
+    /// ordinary new selection.
     pub fn is_resolvable_by_stable_question_id(&self) -> bool {
         matches!(self, Self::Available | Self::Archived { .. })
     }
@@ -275,15 +275,15 @@ pub struct QuestionSummary {
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: QuestionBackendCapabilities,
-    /// Shared metadata used for title, Question Classification, license, and language facets.
+    /// Shared metadata used for title, Question Classification, Question License, and language facets.
     pub metadata: QuestionMetadata,
-    /// Immutable reviewed publication attribution; never account authority.
-    pub byline: crate::PublicByline,
+    /// Immutable reviewed Question Authorship display snapshot; never Question Owner authority.
+    pub authorship: crate::QuestionAuthorship,
     /// Current availability for ordinary new selection; publication itself is
     /// separate immutable history.
     pub availability: QuestionRevisionAvailability,
     /// Database-authoritative publication time.
-    pub published_at: ActivityTimestamp,
+    pub published_at: Timestamp,
 }
 
 impl QuestionSummary {
@@ -297,9 +297,9 @@ impl QuestionSummary {
         &self.metadata.classifications
     }
 
-    /// License facet for reuse decisions.
-    pub fn license(&self) -> &License {
-        &self.metadata.license
+    /// Question License facet for reuse decisions.
+    pub fn question_license(&self) -> Option<&QuestionLicense> {
+        self.metadata.question_license.as_ref()
     }
 }
 
@@ -336,7 +336,7 @@ pub enum QuestionStatistics {
         #[serde(skip_serializing_if = "Option::is_none")]
         discrimination_index: Option<f64>,
         /// Database-authoritative time at which this evidence was computed.
-        evidence_at: ActivityTimestamp,
+        evidence_at: Timestamp,
     },
 }
 
@@ -549,7 +549,7 @@ mod tests {
     fn question_search_normalizes_equivalent_filters_and_bounds_hostile_input() {
         let query = QuestionSearchRequest {
             text: Some("  Peptide\tBond  ".to_string()),
-            bylines: vec![
+            author_names: vec![
                 "  Dr. Ada  Lovelace ".to_string(),
                 "dr. ada lovelace".to_string(),
             ],
@@ -570,19 +570,19 @@ mod tests {
                 },
             ],
             capabilities: vec![Capability::Hints, Capability::Hints],
-            licenses: vec![QuestionSearchLicense::CcBy, QuestionSearchLicense::CcBy],
+            question_licenses: vec![QuestionLicense::CcBy4_0, QuestionLicense::CcBy4_0],
             ..QuestionSearchRequest::default()
         }
         .normalized()
         .expect("equivalent filters normalize");
         assert_eq!(query.text.as_deref(), Some("peptide bond"));
-        assert_eq!(query.bylines, vec!["dr. ada lovelace"]);
+        assert_eq!(query.author_names, vec!["dr. ada lovelace"]);
         assert_eq!(query.backends, vec![QuestionBackend::Ple]);
         assert_eq!(query.tags, vec!["protein structure"]);
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.classifications.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
-        assert_eq!(query.licenses, vec![QuestionSearchLicense::CcBy]);
+        assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
         assert!(
             QuestionSearchRequest {
                 text: Some("x".repeat(257)),
@@ -603,18 +603,23 @@ mod tests {
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
                     title: "Safe detail".to_string(),
+                    question_description: "Instructor-facing safe detail fixture summary."
+                        .to_string(),
                     tags: Vec::new(),
                     classifications: Vec::new(),
-                    license: License::Cc0,
+                    question_license: Some(QuestionLicense::Cc0_1_0),
+                    question_citation: None,
                     language: "en".to_string(),
                 },
-                byline: crate::PublicByline::new(vec![
-                    crate::PublicAuthorName::new("Fixture Author".to_string())
-                        .expect("valid byline"),
-                ])
-                .expect("valid byline"),
+                authorship: crate::QuestionAuthorship::new(vec![crate::QuestionAuthor {
+                    display_name: crate::QuestionAuthorDisplayName::new(
+                        "Fixture Author".to_string(),
+                    )
+                    .expect("valid Question Author"),
+                }])
+                .expect("valid Question Authorship"),
                 availability: QuestionRevisionAvailability::Available,
-                published_at: ActivityTimestamp::from_unix_millis(0),
+                published_at: Timestamp::from_unix_millis(0),
             },
             prompt: QuestionPromptProjection::Static { blocks: Vec::new() },
             evidence: QuestionStatistics::InsufficientEvidence,
@@ -632,7 +637,7 @@ mod tests {
         let wire = serde_json::to_value(detail).expect("detail serializes");
         assert!(wire.get("source").is_none());
         assert!(wire.get("response").is_none());
-        assert!(wire.get("questionVariationDefinition").is_none());
+        assert!(wire.get("questionVariationRule").is_none());
         assert!(wire.get("seed").is_none());
         assert!(wire.get("grading").is_none());
         assert!(wire.get("answerKey").is_none());
@@ -654,7 +659,7 @@ mod tests {
                 attempts_mean: 1.2,
                 time_median_seconds_estimate: 30,
                 discrimination_index: None,
-                evidence_at: ActivityTimestamp::from_unix_millis(0),
+                evidence_at: Timestamp::from_unix_millis(0),
             })
             .expect("available evidence serializes"),
             serde_json::json!({

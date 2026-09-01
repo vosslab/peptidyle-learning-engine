@@ -7,9 +7,9 @@ use async_trait::async_trait;
 
 use crate::{
     ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
-    Sha256Digest, SignedUrl, StoredObject,
+    Sha256Checksum, SignedUrl, StoredObject,
 };
-use question_model::ActivityTimestamp;
+use question_model::Timestamp;
 
 /// Object backend used by contract tests and lanes waiting for MinIO.
 #[derive(Debug, Clone, Default)]
@@ -27,7 +27,7 @@ impl ObjectStore for MemoryObjectStore {
             storage_area: request.address.storage_area(),
             data_class: request.address.data_class(),
             question_revision: request.address.question_revision().cloned(),
-            sha256: Sha256Digest::compute(&request.bytes),
+            sha256: Sha256Checksum::compute(&request.bytes),
             size_bytes,
             media_type: request.media_type,
             created_at: request.created_at,
@@ -57,7 +57,7 @@ impl ObjectStore for MemoryObjectStore {
             .get(address)
             .cloned()
             .ok_or(ObjectStoreError::NotFound)?;
-        if Sha256Digest::compute(&stored.bytes) != stored.record.sha256 {
+        if Sha256Checksum::compute(&stored.bytes) != stored.record.sha256 {
             return Err(ObjectStoreError::ChecksumMismatch);
         }
         Ok(stored)
@@ -75,7 +75,7 @@ impl ObjectStore for MemoryObjectStore {
     async fn signed_url(
         &self,
         address: &ObjectAddress,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<SignedUrl, ObjectStoreError> {
         if !address.may_issue_signed_url() {
             return Err(ObjectStoreError::NotSignable);
@@ -100,7 +100,7 @@ impl ObjectStore for MemoryObjectStore {
             .as_unix_millis()
             .checked_add(lifetime_millis)
             .ok_or(ObjectStoreError::NumericOverflow)?;
-        let expires_at = ActivityTimestamp::from_unix_millis(expires_millis);
+        let expires_at = Timestamp::from_unix_millis(expires_millis);
         Ok(SignedUrl {
             url: format!(
                 "memory://{}/{}?expires={expires_millis}",
@@ -129,7 +129,7 @@ mod tests {
                 address: key.clone(),
                 bytes: b"original".to_vec(),
                 media_type: "application/octet-stream".to_string(),
-                created_at: ActivityTimestamp::from_unix_millis(1),
+                created_at: Timestamp::from_unix_millis(1),
             })
             .await
             .expect("put should succeed");

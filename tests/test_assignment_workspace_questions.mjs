@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMasteryAssignmentDraft } from "./support/assignment_editor_test_support.ts";
+import { createMasteryAssignmentEditorState } from "./support/assignment_editor_test_support.ts";
 import { assignmentContentInput } from "../src/pages/assignment_editor_model.ts";
 import {
   assignmentWorkspaceCreateErrorMessage,
@@ -15,9 +15,9 @@ import {
   parseCourseInstanceReference,
 } from "../src/navigation/public_route.ts";
 
-test("Questions save owns only the title and ordered public definition", () => {
+test("Questions save owns only the title and ordered public Assignment Content", () => {
   const draft = {
-    ...createMasteryAssignmentDraft("course-1"),
+    ...createMasteryAssignmentEditorState("course-1"),
     title: "Protein bonds",
     entries: [
       {

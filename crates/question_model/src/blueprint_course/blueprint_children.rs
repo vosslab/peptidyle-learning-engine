@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    BlueprintAssignmentDefinitionInput, BlueprintAssignmentDefinitionView,
+    BlueprintAssignmentContentInput, BlueprintAssignmentContentView,
     BlueprintCourseValidationError, validate_blueprint_course_title,
 };
 use crate::MAX_ASSIGNMENT_ORDERED_ENTRIES;
@@ -24,7 +24,7 @@ pub struct BlueprintModuleId(Uuid);
 /// Opaque stable identity for one retained assignment in a BlueprintCourse lineage.
 ///
 /// Vector position remains authored order; this identifier is the immutable
-/// lineage key used by snapshots, controlled updates, and audit evidence.
+/// lineage key used by snapshots, Blueprint updates, and audit evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintAssignmentId(Uuid);
@@ -104,10 +104,10 @@ impl std::error::Error for BlueprintChildIdError {}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateBlueprintCourseModuleInput {
-    /// Week or module label visible to approved Instructor readers.
+    /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Reusable definitions in authored order.
-    pub definitions: Vec<BlueprintAssignmentDefinitionInput>,
+    /// Blueprint Assignments in authored order.
+    pub assignments: Vec<BlueprintAssignmentContentInput>,
 }
 
 /// Complete submitted meaning for a newly created BlueprintCourse.
@@ -116,14 +116,14 @@ pub struct CreateBlueprintCourseModuleInput {
 /// stable module or assignment lineage identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CreateBlueprintCourseDefinitionInput {
+pub struct CreateBlueprintCourseContentInput {
     /// Instructor-visible course title.
     pub title: String,
     /// Ordered labelled curriculum modules.
     pub modules: Vec<CreateBlueprintCourseModuleInput>,
 }
 
-impl CreateBlueprintCourseDefinitionInput {
+impl CreateBlueprintCourseContentInput {
     /// Validates the complete ordered BlueprintCourse tree.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         validate_blueprint_course_title(&self.title)
@@ -134,13 +134,13 @@ impl CreateBlueprintCourseDefinitionInput {
         for module in &self.modules {
             validate_blueprint_course_title(&module.label)
                 .map_err(|_| BlueprintCourseValidationError::InvalidModuleLabel)?;
-            if module.definitions.is_empty()
-                || module.definitions.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
+            if module.assignments.is_empty()
+                || module.assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
             {
-                return Err(BlueprintCourseValidationError::InvalidModuleDefinitionCount);
+                return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
             }
-            for definition in &module.definitions {
-                definition.validate()?;
+            for content in &module.assignments {
+                content.validate()?;
             }
         }
         Ok(())
@@ -196,7 +196,7 @@ pub struct BlueprintCourseAssignmentReplacementInput {
     /// Explicit retained/new identity choice for this ordered assignment node.
     pub handle: BlueprintAssignmentEditHandle,
     /// Complete assignment meaning for this revision snapshot.
-    pub definition: BlueprintAssignmentDefinitionInput,
+    pub content: BlueprintAssignmentContentInput,
 }
 
 /// One module in a complete BlueprintCourse edit.
@@ -205,23 +205,23 @@ pub struct BlueprintCourseAssignmentReplacementInput {
 pub struct BlueprintCourseModuleReplacementInput {
     /// Explicit retained/new identity choice for this ordered module node.
     pub handle: BlueprintModuleEditHandle,
-    /// Week or module label visible to approved Instructor readers.
+    /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Complete reusable definitions in authored order.
-    pub definitions: Vec<BlueprintCourseAssignmentReplacementInput>,
+    /// Complete Blueprint Assignments in authored order.
+    pub assignments: Vec<BlueprintCourseAssignmentReplacementInput>,
 }
 
 /// Complete submitted meaning for a replacement of one BlueprintCourse head.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReplaceBlueprintCourseDefinitionInput {
+pub struct ReplaceBlueprintCourseContentInput {
     /// Instructor-visible course title.
     pub title: String,
     /// Ordered labelled curriculum modules for the next complete snapshot.
     pub modules: Vec<BlueprintCourseModuleReplacementInput>,
 }
 
-impl ReplaceBlueprintCourseDefinitionInput {
+impl ReplaceBlueprintCourseContentInput {
     /// Validates complete tree meaning and rejects duplicate retained handles.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         validate_blueprint_course_title(&self.title)
@@ -239,18 +239,18 @@ impl ReplaceBlueprintCourseDefinitionInput {
             }
             validate_blueprint_course_title(&module.label)
                 .map_err(|_| BlueprintCourseValidationError::InvalidModuleLabel)?;
-            if module.definitions.is_empty()
-                || module.definitions.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
+            if module.assignments.is_empty()
+                || module.assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
             {
-                return Err(BlueprintCourseValidationError::InvalidModuleDefinitionCount);
+                return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
             }
-            for assignment in &module.definitions {
+            for assignment in &module.assignments {
                 if let Some(assignment_id) = assignment.handle.retained_id()
                     && !retained_assignments.insert(assignment_id)
                 {
                     return Err(BlueprintCourseValidationError::DuplicateRetainedAssignmentHandle);
                 }
-                assignment.definition.validate()?;
+                assignment.content.validate()?;
             }
         }
         Ok(())
@@ -260,11 +260,11 @@ impl ReplaceBlueprintCourseDefinitionInput {
 /// One answer-free Blueprint Assignment with its stable BlueprintCourse handle.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintCourseAssignmentDefinitionView {
+pub struct BlueprintCourseAssignmentContentView {
     /// Stable opaque handle retained by an edit of this assignment.
     pub assignment_id: BlueprintAssignmentId,
     /// Current answer-free assignment meaning.
-    pub definition: BlueprintAssignmentDefinitionView,
+    pub content: BlueprintAssignmentContentView,
 }
 
 /// One answer-free BlueprintCourse module in retained aggregate-owned order.
@@ -273,8 +273,8 @@ pub struct BlueprintCourseAssignmentDefinitionView {
 pub struct BlueprintCourseModuleView {
     /// Stable opaque handle retained by an edit of this module.
     pub module_id: BlueprintModuleId,
-    /// Week or module label visible to approved Instructor readers.
+    /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Reusable definitions in retained aggregate-owned order.
-    pub definitions: Vec<BlueprintCourseAssignmentDefinitionView>,
+    /// Blueprint Assignments in retained aggregate-owned order.
+    pub assignments: Vec<BlueprintCourseAssignmentContentView>,
 }

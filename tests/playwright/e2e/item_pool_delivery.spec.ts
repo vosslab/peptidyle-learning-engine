@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
-// - src/pages/assignment_pool_editor.tsx:109 owns candidate, draw, ordering, and preview controls.
+// - src/pages/assignment_pool_editor.tsx:109 owns Question Pool Item, selection, ordering, and preview controls.
 // - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
 // - src/pages/assignment_attempt_page.tsx owns issued student questions, feedback, and completion surfaces.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -57,7 +57,7 @@ async function createPublishedQuestion(
   correctChoice: string,
 ): Promise<PublishedQuestion> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
-  await page.getByRole("button", { name: "Create flat question", exact: true }).click();
+  await page.getByRole("button", { name: "Create Question", exact: true }).click();
   await page.getByLabel("Question title").fill(title);
   await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
@@ -67,7 +67,7 @@ async function createPublishedQuestion(
     .check();
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
-  await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
+  await page.getByLabel("Question Authors").fill("Dr. Elena Rivera");
   await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
 
@@ -88,7 +88,7 @@ async function createCourseWithMixedPool(
   courseTitle: string,
   assignmentTitle: string,
   fixed: PublishedQuestion,
-  candidates: ReadonlyArray<PublishedQuestion>,
+  questionPoolItems: ReadonlyArray<PublishedQuestion>,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
@@ -119,17 +119,18 @@ async function createCourseWithMixedPool(
 
   const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
   await expect(pool).toBeVisible();
-  await pool.getByRole("button", { name: "Choose candidates", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: "Choose pool candidates", exact: true });
+  await pool.getByRole("button", { name: "Choose Questions for pool", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose Questions for pool", exact: true });
   await expect(picker).toBeVisible();
-  for (const candidate of candidates) {
-    await picker.getByLabel("Search questions", { exact: true }).fill(candidate.title);
+  for (const questionPoolItem of questionPoolItems) {
+    await picker.getByLabel("Search questions", { exact: true }).fill(questionPoolItem.title);
     await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-    await picker.getByRole("checkbox", { name: new RegExp(candidate.title) }).check();
+    await picker.getByRole("checkbox", { name: new RegExp(questionPoolItem.title) }).check();
   }
-  await picker.getByRole("button", { name: "Add selected candidates", exact: true }).click();
+  await picker.getByRole("button", { name: "Add selected Questions to pool", exact: true }).click();
   await expect(picker).toHaveCount(0);
-  for (const candidate of candidates) await expect(pool).toContainText(candidate.title);
+  for (const questionPoolItem of questionPoolItems)
+    await expect(pool).toContainText(questionPoolItem.title);
   await pool.getByLabel("Selection count").fill("2");
   await pool.getByLabel("Points per selected Question").fill("2");
   await pool.getByLabel("Selected Question order").selectOption("questionPoolOrder");
@@ -145,7 +146,7 @@ async function createCourseWithMixedPool(
     .getByRole("heading", { name: "Server-sampled draw", exact: true })
     .locator("..");
   await expect(preview).toBeVisible();
-  const previewCandidates = await preview
+  const previewQuestionPoolItems = await preview
     .getByRole("list")
     .nth(0)
     .getByRole("listitem")
@@ -155,11 +156,11 @@ async function createCourseWithMixedPool(
     .nth(1)
     .getByRole("listitem")
     .allTextContents();
-  expect(previewCandidates).toHaveLength(candidates.length);
+  expect(previewQuestionPoolItems).toHaveLength(questionPoolItems.length);
   expect(previewSample).toHaveLength(2);
   expect(new Set(previewSample).size).toBe(2);
   for (const sample of previewSample) {
-    expect(previewCandidates).toContain(sample);
+    expect(previewQuestionPoolItems).toContain(sample);
   }
   await preview.scrollIntoViewIfNeeded();
   await captureRealStackScreenshot(page, scenarioInput, "item_pool_delivery_pool_preview");
@@ -173,7 +174,7 @@ async function createCourseWithMixedPool(
 
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
@@ -195,7 +196,7 @@ async function completeDeliveredPoolRun(
   courseTitle: string,
   assignmentTitle: string,
   fixed: PublishedQuestion,
-  candidates: ReadonlyArray<PublishedQuestion>,
+  questionPoolItems: ReadonlyArray<PublishedQuestion>,
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   await chooseSeededIdentity(page, /Mary Okafor/u);
@@ -209,7 +210,7 @@ async function completeDeliveredPoolRun(
   await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
   await startOrContinuePractice(page);
 
-  const byTitle = new Map(candidates.map((candidate) => [candidate.title, candidate]));
+  const itemsByTitle = new Map(questionPoolItems.map((item) => [item.title, item]));
   await expect(page.getByRole("heading", { name: fixed.title, exact: true })).toBeVisible();
   await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveCount(0);
   await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
@@ -218,18 +219,18 @@ async function completeDeliveredPoolRun(
   await expect(fixedFeedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
   await advanceToNextIssuedQuestion(page);
 
-  const deliveredCandidateIndexes: number[] = [];
+  const deliveredQuestionPoolItemIndexes: number[] = [];
   const questionHeading = page.locator(".run-header h1");
   for (let position = 0; position < 2; position += 1) {
     await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
       `Server-selected Question Pool item ${position + 1} of 2 for this Assignment Attempt.`,
     );
     const title = await questionHeading.innerText();
-    const candidate = byTitle.get(title);
-    expect(candidate).toBeDefined();
-    const candidateIndex = candidates.findIndex((item) => item.title === title);
-    expect(candidateIndex).toBeGreaterThanOrEqual(0);
-    deliveredCandidateIndexes.push(candidateIndex);
+    const questionPoolItem = itemsByTitle.get(title);
+    expect(questionPoolItem).toBeDefined();
+    const questionPoolItemIndex = questionPoolItems.findIndex((item) => item.title === title);
+    expect(questionPoolItemIndex).toBeGreaterThanOrEqual(0);
+    deliveredQuestionPoolItemIndexes.push(questionPoolItemIndex);
     if (position === 0) {
       await captureRealStackScreenshot(
         page,
@@ -237,11 +238,11 @@ async function completeDeliveredPoolRun(
         "item_pool_delivery_learner_delivered_pool",
       );
     }
-    await page.getByRole("radio", { name: candidate!.correctChoice, exact: true }).check();
+    await page.getByRole("radio", { name: questionPoolItem!.correctChoice, exact: true }).check();
     await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-    const candidateFeedback = await waitForAutomatedFeedback(page);
+    const questionPoolItemFeedback = await waitForAutomatedFeedback(page);
     await expect(
-      candidateFeedback.getByRole("heading", { name: "Correct", exact: true }),
+      questionPoolItemFeedback.getByRole("heading", { name: "Correct", exact: true }),
     ).toBeVisible();
     if (position === 0) {
       await advanceToNextIssuedQuestion(page);
@@ -249,7 +250,9 @@ async function completeDeliveredPoolRun(
       await page.getByRole("button", { name: "View completed run", exact: true }).click();
     }
   }
-  expect(deliveredCandidateIndexes).toEqual([...deliveredCandidateIndexes].sort((a, b) => a - b));
+  expect(deliveredQuestionPoolItemIndexes).toEqual(
+    [...deliveredQuestionPoolItemIndexes].sort((a, b) => a - b),
+  );
   const summary = page.locator(".attempt-summary");
   await expect(summary.getByText("Your completed run is recorded.")).toBeVisible();
   await expect(summary.getByRole("region", { name: "Assignment score" })).toContainText("100%");
@@ -356,9 +359,9 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         "Peptide Bond Geometry",
         "Peptide bonds are usually planar",
       );
-      const candidates: PublishedQuestion[] = [];
+      const questionPoolItems: PublishedQuestion[] = [];
       for (const label of ["one", "two", "three"]) {
-        candidates.push(
+        questionPoolItems.push(
           await createPublishedQuestion(
             elena,
             `Peptide Bond Variation ${label}`,
@@ -371,7 +374,7 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         courseTitle,
         assignmentTitle,
         fixed,
-        candidates,
+        questionPoolItems,
         scenarioInput,
       );
       await completeDeliveredPoolRun(
@@ -380,7 +383,7 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         courseTitle,
         assignmentTitle,
         fixed,
-        candidates,
+        questionPoolItems,
         scenarioInput,
       );
       await inspectPostIssueEdits(inspectingElena, courseTitle, assignmentTitle);

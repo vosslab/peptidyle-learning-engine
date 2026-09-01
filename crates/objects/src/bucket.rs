@@ -2,13 +2,13 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerCandidateId, CourseBannerId, CourseId, ObjectId, QuestionAssetId,
+    CourseBannerId, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
     QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::Sha256Digest;
+use crate::Sha256Checksum;
 
 /// One of the four Object Storage Areas with a distinct access, encryption, and
 /// delivery policy.
@@ -18,7 +18,7 @@ pub enum ObjectStorageArea {
     /// Immutable student-facing renditions. This is the only CDN-readable
     /// domain and therefore contains only [`ObjectAddress::QuestionAsset`] bytes.
     PublicAssets,
-    /// Private authoring, provenance, grading, rendering, and course content.
+    /// Private authoring, import evidence, grading, rendering, and course content.
     PrivateContent,
     /// Student-specific exports, uploads, and annotations.
     StudentRecords,
@@ -54,7 +54,7 @@ pub enum ObjectDataClass {
     QuestionAsset,
     /// A deterministic answer-free Question render.
     QuestionRender,
-    /// A Course banner or pending banner upload.
+    /// A Course Banner Upload or saved Course Banner.
     CourseAppearance,
     /// FERPA-bearing bytes owned by one Student record.
     StudentRecord,
@@ -86,7 +86,7 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// Canonical private flat-question source for one workspace.
+    /// Canonical private PLE Question JSON source for one workspace.
     ///
     /// This is an authored, private source payload distinct from staged import
     /// packages.
@@ -113,7 +113,7 @@ pub enum ObjectAddress {
     /// A logical asset authored directly for a private workspace question.
     ///
     /// This private-content object is intentionally distinct from
-    /// [`Self::WorkspaceAsset`]: it has no import provenance and is never a
+    /// [`Self::WorkspaceAsset`]: it has no Workspace Import relationship and is never a
     /// Question Library asset or direct-delivery candidate.
     WorkspaceQuestionAsset {
         /// Private authoring workspace.
@@ -132,7 +132,7 @@ pub enum ObjectAddress {
     },
     /// The immutable original archive retained with a published imported version.
     ///
-    /// This is provenance, not student-facing content: the archive checksum is
+    /// This is private import evidence, not student-facing content: the archive checksum is
     /// part of the semantic key, and the object is never
     /// eligible for a signed delivery URL.
     PublishedImportArchive {
@@ -175,15 +175,15 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// Normalized banner bytes awaiting one authorized appearance save.
+    /// Validated banner bytes awaiting one authorized appearance save.
     ///
-    /// Candidate bytes are short-lived, non-signable, and scoped to one
+    /// Upload bytes are short-lived, non-signable, and scoped to one
     /// course before persistence adds Account and expiry ownership.
-    CourseBannerCandidate {
-        /// Course whose authorized appearance flow created the candidate.
+    CourseBannerUpload {
+        /// Course whose authorized appearance flow created the upload.
         course: CourseId,
-        /// Opaque candidate identity returned to the authorized browser.
-        candidate: CourseBannerCandidateId,
+        /// Opaque upload reference returned to the authorized browser.
+        upload: CourseBannerUploadReference,
     },
     /// Immutable current-or-retained course banner bytes.
     ///
@@ -223,7 +223,7 @@ impl ObjectAddress {
             | Self::QuestionRender { .. }
             | Self::CourseBanner { .. } => ObjectStorageArea::PrivateContent,
             Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
-            Self::CourseBannerCandidate { .. } => ObjectStorageArea::TempProcessing,
+            Self::CourseBannerUpload { .. } => ObjectStorageArea::TempProcessing,
             Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
             Self::Temporary { .. } => ObjectStorageArea::TempProcessing,
         }
@@ -243,7 +243,7 @@ impl ObjectAddress {
                 ObjectDataClass::QuestionAsset
             }
             Self::QuestionRender { .. } => ObjectDataClass::QuestionRender,
-            Self::CourseBannerCandidate { .. } | Self::CourseBanner { .. } => {
+            Self::CourseBannerUpload { .. } | Self::CourseBanner { .. } => {
                 ObjectDataClass::CourseAppearance
             }
             Self::StudentRecord { .. } => ObjectDataClass::StudentRecord,
@@ -320,8 +320,8 @@ impl ObjectAddress {
                 question_revision.revision_number,
                 seed.value()
             ),
-            Self::CourseBannerCandidate { course, candidate } => format!(
-                "courses/{course}/banners/candidates/{candidate}/{}",
+            Self::CourseBannerUpload { course, upload } => format!(
+                "courses/{course}/banners/uploads/{upload}/{}",
                 self.object_id()
             ),
             Self::CourseBanner { course, banner } => {
@@ -348,8 +348,8 @@ impl ObjectAddress {
             | Self::QuestionRender { object, .. }
             | Self::StudentRecord { object, .. }
             | Self::Temporary { object } => *object,
-            Self::CourseBannerCandidate { course, candidate } => {
-                course_banner_candidate_object_id(*course, *candidate)
+            Self::CourseBannerUpload { course, upload } => {
+                course_banner_upload_object_id(*course, *upload)
             }
             Self::CourseBanner { course, banner } => course_banner_object_id(*course, *banner),
         }
@@ -377,7 +377,7 @@ impl ObjectAddress {
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceAsset { .. }
             | Self::WorkspaceQuestionAsset { .. }
-            | Self::CourseBannerCandidate { .. }
+            | Self::CourseBannerUpload { .. }
             | Self::CourseBanner { .. }
             | Self::StudentRecord { .. }
             | Self::Temporary { .. } => None,
@@ -418,14 +418,14 @@ impl ObjectAddress {
     }
 }
 
-/// Derives the immutable physical identity for one banner candidate.
-pub fn course_banner_candidate_object_id(
+/// Derives the immutable physical identity for one Course Banner Upload.
+pub fn course_banner_upload_object_id(
     course: CourseId,
-    candidate: CourseBannerCandidateId,
+    upload: CourseBannerUploadReference,
 ) -> ObjectId {
     domain_separated_object_id(
-        b"ple:course-banner-candidate:v1\0",
-        [course.as_uuid(), candidate.as_uuid(), uuid::Uuid::nil()],
+        b"ple:course-banner-upload:v1\0",
+        [course.as_uuid(), upload.as_uuid(), uuid::Uuid::nil()],
     )
 }
 
@@ -482,7 +482,7 @@ pub fn workspace_qti_archive_object_id(
 pub fn published_import_archive_object_id(
     question_revision: &QuestionRevisionReference,
     import: WorkspaceImportId,
-    archive_sha256: Sha256Digest,
+    archive_sha256: Sha256Checksum,
 ) -> ObjectId {
     let mut hasher = Sha256::new();
     hasher.update(b"ple:published-import-archive:v1\0");
@@ -597,28 +597,28 @@ mod tests {
     #[test]
     fn course_banner_keys_bind_scope_classification_and_signing() {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
-        let candidate_id = CourseBannerCandidateId::from_uuid(Uuid::from_u128(3));
+        let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
         let banner_id = CourseBannerId::from_uuid(Uuid::from_u128(4));
-        let candidate = ObjectAddress::CourseBannerCandidate {
+        let upload = ObjectAddress::CourseBannerUpload {
             course,
-            candidate: candidate_id,
+            upload: upload_reference,
         };
         let banner = ObjectAddress::CourseBanner {
             course,
             banner: banner_id,
         };
 
-        assert_eq!(candidate.storage_area(), ObjectStorageArea::TempProcessing);
-        assert_eq!(candidate.question_revision(), None);
-        assert!(!candidate.may_issue_signed_url());
+        assert_eq!(upload.storage_area(), ObjectStorageArea::TempProcessing);
+        assert_eq!(upload.question_revision(), None);
+        assert!(!upload.may_issue_signed_url());
         assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
         assert_eq!(banner.question_revision(), None);
         assert!(banner.may_issue_signed_url());
-        assert!(candidate.path().contains(&course.to_string()));
-        assert!(candidate.path().contains(&candidate_id.to_string()));
+        assert!(upload.path().contains(&course.to_string()));
+        assert!(upload.path().contains(&upload_reference.to_string()));
         assert!(banner.path().contains(&course.to_string()));
         assert!(banner.path().contains(&banner_id.to_string()));
-        assert_ne!(candidate.object_id(), banner.object_id());
+        assert_ne!(upload.object_id(), banner.object_id());
     }
 
     #[test]
@@ -718,7 +718,7 @@ mod tests {
         let actual = published_import_archive_object_id(
             &question_revision(3),
             WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-            Sha256Digest::compute(b"archive fixture"),
+            Sha256Checksum::compute(b"archive fixture"),
         );
 
         assert_eq!(
@@ -726,7 +726,7 @@ mod tests {
             published_import_archive_object_id(
                 &question_revision(3),
                 WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-                Sha256Digest::compute(b"archive fixture"),
+                Sha256Checksum::compute(b"archive fixture"),
             )
         );
     }
@@ -752,7 +752,7 @@ mod tests {
     fn every_archive_identity_input_changes_the_object_id() {
         let reference = question_revision(3);
         let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
-        let archive = Sha256Digest::compute(b"archive fixture");
+        let archive = Sha256Checksum::compute(b"archive fixture");
         let base = published_import_archive_object_id(&reference, import, archive);
         assert_ne!(
             base,
@@ -783,7 +783,7 @@ mod tests {
             published_import_archive_object_id(
                 &reference,
                 import,
-                Sha256Digest::compute(b"different archive")
+                Sha256Checksum::compute(b"different archive")
             )
         );
     }

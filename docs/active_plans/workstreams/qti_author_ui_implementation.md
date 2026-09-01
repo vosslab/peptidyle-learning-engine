@@ -3,6 +3,11 @@
 > **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
 > dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
 > and [implementation status](../implementation_status.md).
+>
+> **Current-state correction.** The browser-only QTI review/conversion surface described below
+> was removed during `WP-SD1-A-TERM-01`: the current server has no matching Workspace Import
+> Store or route. The retained QTI adapter is still the strict registered-format boundary. A
+> future browser surface must be introduced together with its generic Workspace Import service.
 
 Status: complete and independently accepted on 2026-08-09. WP-QTI-11 and WP-QTI-12 subsequently
 passed as well.
@@ -10,7 +15,7 @@ passed as well.
 ## Scope
 
 WP-QTI-10 adds the author-side review and conversion surface for the accepted WP-QTI-9 routes. It
-uses the existing `/workspace/:workspaceId` route and existing flat editor rather than creating a
+uses the existing `/workspace/:workspaceId` route and existing PLE Question JSON editor rather than creating a
 second authoring route.
 
 ## Delivered behavior
@@ -27,7 +32,7 @@ second authoring route.
 - Conversion requires an acknowledged current report, selected accepted item, and the displayed clean
   strong draft revision. A 409/428 report or draft conflict preserves safe context and asks the author
   to refresh and review again.
-- Successful conversion refetches the existing workspace route and focuses the existing flat editor.
+- Successful conversion refetches the existing workspace route and focuses the existing PLE Question JSON editor.
   The stale editor is inert from conversion through refetch. If refetch fails after conversion commits,
   it remains locked and the panel offers a repeatable `Reload converted draft` action. That recovery
   neither repeats conversion nor creates a new import; the editor unlocks and receives focus only

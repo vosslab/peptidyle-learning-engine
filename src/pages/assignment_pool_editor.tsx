@@ -3,22 +3,25 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import type { QuestionPoolPreview } from "../api/contracts";
-import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
 
 import type {
   AssignmentQuestionRow,
-  AssignmentEditorQuestionPoolEntry,
+  AssignmentEditorQuestionPoolAssignmentEntry,
 } from "./assignment_editor_model";
-import { parseExactQuestionIds, validateQuestionPoolEntry } from "./assignment_editor_model";
+import {
+  parseExactQuestionIds,
+  validateQuestionPoolAssignmentEntry,
+} from "./assignment_editor_model";
 
 export interface AssignmentPoolEditorProps {
-  readonly entry: AssignmentEditorQuestionPoolEntry;
+  readonly entry: AssignmentEditorQuestionPoolAssignmentEntry;
   readonly entryIndex: number;
   readonly entryCount: number;
   readonly resolveEntries: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
-  readonly onChange: (entry: AssignmentEditorQuestionPoolEntry) => void;
+  readonly onChange: (entry: AssignmentEditorQuestionPoolAssignmentEntry) => void;
   readonly onMove: (direction: -1 | 1) => void;
   readonly onRemove: () => void;
   readonly onMessage: (message: string) => void;
@@ -37,14 +40,14 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
   const [entryError, setEntryError] = createSignal("");
   const [entryBusy, setEntryBusy] = createSignal(false);
 
-  function update(next: Partial<AssignmentEditorQuestionPoolEntry>): void {
+  function update(next: Partial<AssignmentEditorQuestionPoolAssignmentEntry>): void {
     const entry = { ...props.entry, ...next };
-    const error = validateQuestionPoolEntry(entry);
+    const error = validateQuestionPoolAssignmentEntry(entry);
     setEntryError(error ?? "");
     props.onChange(entry);
     props.onMessage(
       error === null
-        ? "Pool updated. Review its entries, then save the complete assignment definition."
+        ? "Pool updated. Review its entries, then save the complete Assignment Content."
         : `${error} Correct this pool before saving.`,
     );
   }
@@ -55,41 +58,41 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       questionIds = parseExactQuestionIds(entryText());
     } catch (error: unknown) {
       setEntryError(
-        error instanceof Error ? error.message : "Question Pool Entry Question IDs are invalid.",
+        error instanceof Error ? error.message : "Question Pool Item Question IDs are invalid.",
       );
       return;
     }
-    const existing = new Set(props.entry.entries.map((entry) => entry.questionId));
+    const existing = new Set(props.entry.items.map((item) => item.questionId));
     if (questionIds.some((questionId) => existing.has(questionId))) {
       setEntryError("Each entry Question ID can appear only once in a pool.");
       return;
     }
     if (
-      props.entry.entries.length + questionIds.length >
-      MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY
+      props.entry.items.length + questionIds.length >
+      MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY
     ) {
       setEntryError(
-        `Keep this pool to ${MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY} Question Pool Entry Question IDs or fewer, then check and add entries.`,
+        `Keep this pool to ${MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY} Question Pool Item Question IDs or fewer, then check and add Items.`,
       );
       return;
     }
     setEntryBusy(true);
     try {
-      const entries = await props.resolveEntries(questionIds);
-      const nextEntries = [...props.entry.entries, ...entries];
-      const entry = { ...props.entry, entries: nextEntries };
-      const error = validateQuestionPoolEntry(entry);
+      const items = await props.resolveEntries(questionIds);
+      const nextItems = [...props.entry.items, ...items];
+      const entry = { ...props.entry, items: nextItems };
+      const error = validateQuestionPoolAssignmentEntry(entry);
       setEntryError(error ?? "");
       props.onChange(entry);
       setEntryText("");
       props.onMessage(
-        `Added ${entries.length} entry Question ID${entries.length === 1 ? "" : "s"}. Set the selection count, then save the Assignment.`,
+        `Added ${items.length} Question Pool Item ID${items.length === 1 ? "" : "s"}. Set the selection count, then save the Assignment.`,
       );
     } catch (error: unknown) {
       setEntryError(
         error instanceof Error
-          ? `${error.message} Your Question Pool Entry Question IDs are still here.`
-          : "Question Pool Entries could not be checked. Your Question Pool Entry Question IDs are still here.",
+          ? `${error.message} Your Question Pool Item Question IDs are still here.`
+          : "Question Pool Items could not be checked. Your Question Pool Item Question IDs are still here.",
       );
     } finally {
       setEntryBusy(false);
@@ -97,8 +100,8 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
   }
 
   function removeEntry(questionId: string): void {
-    const entries = props.entry.entries.filter((entry) => entry.questionId !== questionId);
-    update({ entries });
+    const items = props.entry.items.filter((item) => item.questionId !== questionId);
+    update({ items });
   }
   function updateSelectedQuestionOrder(value: string): void {
     if (value !== "questionPoolOrder" && value !== "randomOrder") return;
@@ -113,7 +116,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
       <div>
         <h3>Question pool</h3>
         <p>
-          The server selects from the Question Pool Entry Question IDs and records each
+          The server selects from the Question Pool Item Question IDs and records each
           Student&apos;s exact Question Pool Selection as immutable evidence.
         </p>
       </div>
@@ -154,7 +157,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           <input
             type="number"
             min="1"
-            max={props.entry.entries.length || undefined}
+            max={props.entry.items.length || undefined}
             value={props.entry.selectionCount}
             onInput={(event) => update({ selectionCount: Number(event.currentTarget.value) })}
           />
@@ -173,7 +176,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
             value={props.entry.selectionRule.selectedQuestionOrder}
             onChange={(event) => updateSelectedQuestionOrder(event.currentTarget.value)}
           >
-            <option value="questionPoolOrder">Question Pool Entry order</option>
+            <option value="questionPoolOrder">Question Pool Item order</option>
             <option value="randomOrder">Random order</option>
           </select>
         </label>
@@ -189,7 +192,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
               Selected {preview().selectionCount} in {preview().selectionRule.selectedQuestionOrder}
               .
             </p>
-            <h5>Question Pool Entries</h5>
+            <h5>Question Pool Items</h5>
             <ul>
               <For each={preview().entries}>
                 {(entry) => (
@@ -219,13 +222,12 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
         class="assignment-editor-pool-entries"
         aria-labelledby={`pool-entries-${props.entryIndex}`}
       >
-        <h4 id={`pool-entries-${props.entryIndex}`}>Question Pool Entry Question IDs</h4>
+        <h4 id={`pool-entries-${props.entryIndex}`}>Question Pool Item Question IDs</h4>
         <p class="assignment-editor-note">
-          Add entries in the order you want preserved when delivery order is Question Pool Entry
-          order.
+          Add Items in the order you want preserved when delivery order is Question Pool Item order.
         </p>
         <ul>
-          <For each={props.entry.entries} fallback={<li>No entries yet.</li>}>
+          <For each={props.entry.items} fallback={<li>No Items yet.</li>}>
             {(entry) => (
               <li>
                 <span>
@@ -244,7 +246,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           </For>
         </ul>
         <label class="assignment-editor-field">
-          Add Question Pool Entry Question IDs
+          Add Question Pool Item Question IDs
           <textarea
             rows="2"
             value={entryText()}
@@ -259,7 +261,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
         </label>
         <p id={`pool-entry-help-${props.entryIndex}`} class="assignment-editor-note">
           Paste canonical Question IDs separated by commas or lines. The library checks each one
-          before it becomes a entry.
+          before it becomes a Question Pool Item.
         </p>
         <button
           class="quiet-action"
@@ -267,7 +269,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           disabled={entryBusy()}
           onClick={() => void addEntries()}
         >
-          Check and add entries
+          Check and add Question Pool Items
         </button>
         <button
           class="quiet-action"
@@ -275,7 +277,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           disabled={entryBusy()}
           onClick={(event) => props.onChooseEntries(event.currentTarget)}
         >
-          Choose entries
+          Choose Questions for pool
         </button>
         <Show when={entryError()}>
           {(error) => (

@@ -22,18 +22,20 @@ they establish only their exact membership, workspace, course, or worker authori
 
 ## Authority relationships
 
-`approved_instructor(account_id, now)` is the one current, manually approved Instructor predicate. It
-authorizes global Instructor capabilities: course creation, publication, Question Library discovery,
-Question Folders, Question Stars, Question Watches, Saved Question Searches, reuse, and improvement. Approval withdrawal closes each of
-those capabilities in the protected transaction.
+An Active Instructor Account has Product Role `instructor` and Account State `active`.
+Sysadmin vetting occurs before that Account is created; it does not create a second
+authorization predicate. An Active Instructor Account authorizes global Instructor capabilities:
+course creation, publication, Question Library discovery, Question Folders, Question Stars,
+Question Watches, Saved Question Searches, reuse, and improvement. Account deactivation closes
+each capability in the protected transaction.
 
-The `sysadmin` platform role does not satisfy `approved_instructor`. A Sysadmin
-must complete the explicit operator-led Instructor approval path before creating
-or teaching a course. Course creation then atomically creates the first ordinary
+The `sysadmin` Product Role does not satisfy the Instructor Account predicate. A Sysadmin
+creates an Instructor Account after Instructor Vetting; a person who needs both roles uses
+separate Accounts. Course creation then atomically creates the first ordinary
 Instructor membership; Sysadmin status does not add creator authority.
 
-`current_course_instructor(account_id, course_id, now)` requires both current `approved_instructor`
-and a current direct Instructor membership for that exact course. Course creation atomically creates
+`current_course_instructor(account_id, course_id)` requires a current direct Instructor membership
+for that exact course. The membership foreign key requires an Instructor Account. Course creation atomically creates
 the first ordinary Instructor membership. It does not create a creator, owner, or privileged
 course-authority row. Every current Teaching Team Member receives the same teaching mutation and FERPA-read
 decision for equivalent state; audit rows identify the authenticated account without changing authority.
@@ -42,9 +44,9 @@ Student work requires the exact course relationship and Student ownership of the
 record. A private authoring input requires its current Authoring Workspace owner or Workspace
 Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
 relationship. A published question has exactly one Instructor-visible Question Library
-state: every approved Instructor can discover and reuse its safe projection while its visible
-lifecycle is `active`, `deprecated`, or `archived`. Selection eligibility is separate: only `active`
-questions are eligible for ordinary new selection; deprecated and archived questions remain available
+state: every active Instructor can discover and reuse its safe projection while its visible
+lifecycle is Question Revision Availability `Available` or `Archived`. Selection eligibility is separate: only `Available`
+Question Revisions are eligible for ordinary new selection; Archived Question Revisions remain available
 for discovery and exact historical references but are excluded from ordinary new selection. Drafts
 remain private until successful validated publication.
 
@@ -54,28 +56,28 @@ only through a narrow, audited support capability or an ordinary current Instruc
 | Durable target                          | Database authority                               | Boundary that remains private                            |
 | --------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
 | Account, session, passkey               | Exact global account/session                     | Credentials and authentication evidence                  |
-| Published Question                      | `approved_instructor`                            | Answer keys, private grading, source, and credentials    |
+| Published Question                      | Active Instructor Account                         | Answer keys, private grading, source, and credentials    |
 | Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
 | Draft Blueprint Revision contribution   | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
 | Course, roster, assignment              | `current_course_instructor`                      | Other courses and former memberships                     |
 | Run, attempt, response, grade, artifact | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
 | Job, export, object, provider state     | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
 
-Lifecycle does not narrow approved-Instructor discovery. The Question Library safely
-returns the lifecycle state on every published question. Assignment creation
-and other ordinary new-selection operations require `active`; exact historical
-resolution and retained assignment references may resolve `deprecated` or
-`archived` questions without making them newly selectable.
+Question Revision Availability does not narrow Active Instructor Account discovery. The Question Library safely
+returns Question Revision Availability on every Published Question. Assignment creation
+and other ordinary new-selection operations require `Available`; exact historical
+resolution and retained assignment references may resolve `Archived` Question
+Revisions without making them newly selectable.
 
 ## Course relationships
 
 Current Course Membership episodes represent only Student and Instructor participation. Their
 Active or Ended state derives from immutable Course Membership Events. Course Invitation acceptance
-verifies the target's current Instructor Approval, exact Invitation state, and membership transition
-in one transaction. A revoked approval or ended membership closes course-Instructor operations
+verifies the target's Instructor Product Role, exact Invitation state, and membership transition
+in one transaction. A deactivated Account or ended membership closes course-Instructor operations
 immediately in the protected transaction.
 
-Course Observer access uses the distinct Course Observer Relationship. It binds an Approved
+Course Observer access uses the distinct Course Observer Relationship. It binds an Active
 Instructor Account to one exact Course Instance for its closed answer-free read scope and never
 satisfies Student-owner, Teaching Team, Gradebook, response, export, Assignment-write, or worker
 predicates. Student Observer and Grader relationships remain separate future product designs.
@@ -140,7 +142,7 @@ restores inherit the highest label of their inputs.
 | Course analysis                       | `course_assignment_analysis`, `assignment_item_analysis`, `course_analysis_evidence`                                                                                                               |
 | Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                          |
 | Course and attempt linkage            | `course_instance`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records |
-| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery`, exact Object Delivery owner relationships, `object_delivery_access_event`, `worker_job`                               |
+| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, `object_delivery`, exact Object Delivery owner relationships, `object_delivery_access_event`, `job`                               |
 | Retention evidence                    | `course_retention_plan`, `retention_lifecycle_event`                                                                                                                                               |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
@@ -153,7 +155,7 @@ radioactive because small cohorts can be identifiable.
 Retention keeps shared published Question Library content and private drafts outside course-record deletion.
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
 Student-facing records, exports, external-tool records, and course-record assets as archive or
-deletion starts. Authorized current Instructors may retain course and assignment definitions without
+deletion starts. Authorized current Instructors may retain course and Assignment Content without
 restoring student records. A retention broker uses the exact course/stage/generation manifest and a
 renewed lease, so stale work cannot commit after a newer retention generation.
 

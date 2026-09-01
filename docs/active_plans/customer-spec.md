@@ -131,7 +131,7 @@ interface QuestionRevision {
   responseFormat: QuestionResponseFormat;
   questionAttemptLimit: QuestionAttemptLimit;
   timingPolicy: TimingPolicy;
-  questionVariationDefinition?: QuestionVariationDefinition;
+  questionVariationRule?: QuestionVariationRule;
   grading: QuestionGradingRule;
   metadata: QuestionMetadata;
 }

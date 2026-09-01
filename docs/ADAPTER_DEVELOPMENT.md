@@ -66,14 +66,14 @@ Use the following sequence for a question-agnostic adapter.
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
    public rendered IDs through the protected grading envelope, and use retained immutable source
-   provenance where a private grader needs it. A family that needs private first-grade material
+   provenance where a private grader needs it. A Question Backend that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
    correlation, source, seed, or upstream response fields; do not rerender a receipt-era attempt.
 6. Register the backend through the server run boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
-The PLE flat adapter is the small reference: it compiles answer-bearing PLE flat-question JSON v2
+The PLE Question JSON adapter is the small reference: it compiles answer-bearing PLE Question JSON schema version 2
 into a public Question Revision and separate private material. Its closed v2 `singleChoice` Question Type is one of
 the eight PLE Question Types; new semantics require their own reviewed contract rather than an
 ad hoc adapter widening. See
@@ -115,7 +115,7 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 | Adapter     | Implemented behavior                                                                                                                                       | Current boundary and status                                                                                                                                                             |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native flat | PLE flat JSON v2 compilation, client rendering, and server grading for all eight runtime Question Types                                                    | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
+| PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                    | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                             |
 | QTI         | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, PLE conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                  |
 | H5P         | Supported static multiple-choice import into an answer-free internal question                                                                              | Native H5P declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
 | iMathAS     | Immutable server snapshot, profile-pinned safe render cache, server-brokered verified-result design, and contracted backend                                | Implemented contracted boundary. Generic hosted execution and browser-trusted launch/score flows are refused; live provider acceptance is not claimed.                                  |

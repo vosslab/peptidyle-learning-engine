@@ -7,12 +7,12 @@
 
 use question_model::{
     ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
-    ActiveStudentCourseMembershipOutcome, ActivityTimestamp, AssignmentPolicySourceKind,
-    AssignmentWorkingCopyDefinitionField, CourseLocalDateAndTime, CourseTerm,
-    EffectiveAssignmentPolicyView, PreviewAssignmentDeadlineRuleField, PreviewDenialReason,
-    PreviewDisclosureFlags, PreviewDisclosureMoment, PreviewDisclosureUnavailableReason,
-    PreviewLateWorkRuleField, PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseView,
+    ActiveStudentCourseMembershipOutcome, AssignmentAuthoredContentField,
+    AssignmentPolicySourceKind, CourseLocalDateAndTime, CourseTerm, EffectiveAssignmentPolicyView,
+    PreviewAssignmentDeadlineRuleField, PreviewDenialReason, PreviewDisclosureFlags,
+    PreviewDisclosureMoment, PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField,
+    PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseView, Timestamp,
 };
 
 use crate::{
@@ -42,19 +42,15 @@ pub fn project_preview_policy(
         time(
             &policy.available_at,
             term,
-            AssignmentWorkingCopyDefinitionField::AvailableAt,
+            AssignmentAuthoredContentField::AvailableAt,
         )
         .map_err(|_| "invalid local preview time")?,
-        time(
-            &policy.due_at,
-            term,
-            AssignmentWorkingCopyDefinitionField::DueAt,
-        )
-        .map_err(|_| "invalid local preview time")?,
+        time(&policy.due_at, term, AssignmentAuthoredContentField::DueAt)
+            .map_err(|_| "invalid local preview time")?,
         time(
             &policy.closes_at,
             term,
-            AssignmentWorkingCopyDefinitionField::ClosesAt,
+            AssignmentAuthoredContentField::ClosesAt,
         )
         .map_err(|_| "invalid local preview time")?,
         limit(&policy.assignment_attempt_time_limit_seconds),
@@ -64,12 +60,10 @@ pub fn project_preview_policy(
     )
 }
 fn time(
-    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
-        Option<ActivityTimestamp>,
-    >,
+    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<Option<Timestamp>>,
     term: &CourseTerm,
-    kind: AssignmentWorkingCopyDefinitionField,
-) -> Result<PreviewTimeField, question_model::AssignmentWorkingCopyDefinitionLocalError> {
+    kind: AssignmentAuthoredContentField,
+) -> Result<PreviewTimeField, question_model::AssignmentAuthoredContentLocalError> {
     Ok(PreviewTimeField {
         value: field
             .value
@@ -113,23 +107,18 @@ fn deadline(
 pub fn project_preview_schedule(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
-) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentWorkingCopyDefinitionLocalError>
-{
+) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentAuthoredContentLocalError> {
     Ok(EffectiveAssignmentPolicyView {
         available_at: time(
             &policy.available_at,
             term,
-            AssignmentWorkingCopyDefinitionField::AvailableAt,
+            AssignmentAuthoredContentField::AvailableAt,
         )?,
-        due_at: time(
-            &policy.due_at,
-            term,
-            AssignmentWorkingCopyDefinitionField::DueAt,
-        )?,
+        due_at: time(&policy.due_at, term, AssignmentAuthoredContentField::DueAt)?,
         closes_at: time(
             &policy.closes_at,
             term,
-            AssignmentWorkingCopyDefinitionField::ClosesAt,
+            AssignmentAuthoredContentField::ClosesAt,
         )?,
         assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
         attempt_limit: limit(&policy.attempt_limit),
@@ -161,8 +150,8 @@ pub fn project_preview_student_feedback_release(
     effective: &AssignmentAccessDecision,
     rule: StudentFeedbackReleaseRule,
     moment: PreviewDisclosureMoment,
-    now: ActivityTimestamp,
-    submitted_at: Option<ActivityTimestamp>,
+    now: Timestamp,
+    submitted_at: Option<Timestamp>,
 ) -> StudentFeedbackReleaseView {
     let boundary = match moment {
         PreviewDisclosureMoment::Now => Some(now),
@@ -262,11 +251,11 @@ mod tests {
             assignment_status: AssignmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
-            now: ActivityTimestamp::from_unix_millis(10),
+            now: Timestamp::from_unix_millis(10),
             prior_run_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
-                due_at: Some(ActivityTimestamp::from_unix_millis(20)),
+                due_at: Some(Timestamp::from_unix_millis(20)),
                 closes_at: None,
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
@@ -292,7 +281,7 @@ mod tests {
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Now,
-                ActivityTimestamp::from_unix_millis(10),
+                Timestamp::from_unix_millis(10),
                 None
             ),
             StudentFeedbackReleaseView::Available { .. }
@@ -302,7 +291,7 @@ mod tests {
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Due,
-                ActivityTimestamp::from_unix_millis(10),
+                Timestamp::from_unix_millis(10),
                 None
             ),
             StudentFeedbackReleaseView::Available { .. }
@@ -312,7 +301,7 @@ mod tests {
                 &effective,
                 disclosure,
                 PreviewDisclosureMoment::Close,
-                ActivityTimestamp::from_unix_millis(10),
+                Timestamp::from_unix_millis(10),
                 None
             ),
             StudentFeedbackReleaseView::Unavailable {
@@ -360,7 +349,7 @@ mod tests {
     fn project_preview_policy_and_schedule_project_course_local_values_and_all_sources() {
         let student = StudentRecordId::from_uuid(id(9));
         let at = |hour| {
-            ActivityTimestamp::from_unix_millis(
+            Timestamp::from_unix_millis(
                 chrono::Utc
                     .with_ymd_and_hms(2026, 8, 20, hour, 0, 0)
                     .unwrap()
@@ -475,7 +464,7 @@ mod tests {
             assignment_status: AssignmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
-            now: ActivityTimestamp::from_unix_millis(10),
+            now: Timestamp::from_unix_millis(10),
             prior_run_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
@@ -515,7 +504,7 @@ mod tests {
                     &effective,
                     StudentFeedbackReleaseRule::default(),
                     moment,
-                    ActivityTimestamp::from_unix_millis(10),
+                    Timestamp::from_unix_millis(10),
                     None,
                 ),
                 StudentFeedbackReleaseView::Unavailable {
@@ -534,11 +523,11 @@ mod tests {
                 source: PolicySource::Base,
             },
             due_at: EffectiveAssignmentPolicyValue {
-                value: Some(ActivityTimestamp::from_unix_millis(20)),
+                value: Some(Timestamp::from_unix_millis(20)),
                 source: PolicySource::Base,
             },
             closes_at: EffectiveAssignmentPolicyValue {
-                value: Some(ActivityTimestamp::from_unix_millis(30)),
+                value: Some(Timestamp::from_unix_millis(30)),
                 source: PolicySource::Base,
             },
             assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
@@ -590,7 +579,7 @@ mod tests {
                     &effective,
                     disclosure,
                     moment,
-                    ActivityTimestamp::from_unix_millis(10),
+                    Timestamp::from_unix_millis(10),
                     None,
                 ),
                 StudentFeedbackReleaseView::Available {

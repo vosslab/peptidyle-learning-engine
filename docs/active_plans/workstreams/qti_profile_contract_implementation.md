@@ -9,7 +9,7 @@
 Complete. WP-QTI-1 passed its focused gates and independent P0/P1 re-review on 2026-08-09.
 
 This package freezes the identities and evidence contract that the Canvas and Blackboard parsers
-must satisfy. It does not parse vendor items, create flat-question source, change persistence, or
+must satisfy. It does not parse vendor items, create PLE Question JSON source, change persistence, or
 add browser routes.
 
 ## Implemented boundary
@@ -39,7 +39,7 @@ add browser routes.
 - `crates/adapters/qti/src/profiles.rs`: closed identities, evidence, outcomes, diagnostics, and
   contract errors.
 - `crates/adapters/qti/src/profiles/matrix.rs`: sole vendor matrix and exact graph/path validation.
-- `crates/adapters/qti/src/profiles/digests.rs`: public and server-only canonical digest inputs.
+- `crates/adapters/qti/src/profiles/checksums.rs`: public and server-only deterministic checksum inputs.
 - `crates/adapters/qti/tests/fixtures/profiles/`: readable detection fixtures derived from retained
   Canvas and Blackboard syntax.
 

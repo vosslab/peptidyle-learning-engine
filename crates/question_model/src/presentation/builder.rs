@@ -16,7 +16,7 @@ use super::assets::{
 };
 use super::binding::QuestionPresentationBinding;
 use super::codec::{
-    QuestionPresentationDigest, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
+    QuestionPresentationChecksum, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
 };
 use super::model::{
     PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
@@ -58,10 +58,10 @@ pub struct ResponseItemBinding {
     pub rendered: PresentationResponseItemReference,
     pub role: ResponseItemRole,
     pub ordinal: u32,
-    pub durable_id: String,
+    /// Exact authored Response Item for issued bindings; absent during public verification.
+    pub response_item_reference: Option<ResponseItemReference>,
     pub(super) basis: ResponseItemBasis,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResponseItemBasis {
     pub role: ResponseItemRole,
@@ -88,7 +88,7 @@ pub(super) struct PendingHotspotRegionGeometry {
 struct PendingResponseItem {
     role: ResponseItemRole,
     ordinal: u32,
-    durable_id: String,
+    response_item_reference: ResponseItemReference,
     basis: ResponseItemBasis,
 }
 
@@ -97,7 +97,7 @@ pub struct IssuedQuestionPresentation {
     pub presentation: QuestionPresentation,
     pub question_asset_renditions: Vec<QuestionAssetRendition>,
     pub item_bindings: Vec<ResponseItemBinding>,
-    pub digest: QuestionPresentationDigest,
+    pub checksum: QuestionPresentationChecksum,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -178,7 +178,7 @@ impl QuestionPresentationNonceSource for PersistedNonceSource {
     }
 }
 
-/// Rebuilds one server-issued presentation from its durable nonce and digest.
+/// Rebuilds one server-issued presentation from its durable nonce and checksum.
 ///
 /// This is the canonical server-side reproduction path. It recomputes every
 /// rendered-item ID and the full descriptor rather than trusting stored or
@@ -194,14 +194,13 @@ pub fn reproduce_question_presentation(
         question_asset_renditions,
         &mut nonce,
     )?;
-    if presentation.digest != binding.digest() {
+    if presentation.checksum != binding.checksum() {
         return Err(PresentationBuildError::InvalidPublicContent(
-            "presentation digest does not reproduce",
+            "presentation checksum does not reproduce",
         ));
     }
     Ok(presentation)
 }
-
 /// Builds one presentation using an injected nonce source.
 pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonceSource>(
     envelope: &QuestionVariationPresentation,
@@ -240,9 +239,10 @@ pub fn rebuild_public_question_presentation(
         presentation: envelope.clone(),
         question_asset_renditions: assets,
         item_bindings,
-        digest: QuestionPresentationDigest::zero(),
+        checksum: QuestionPresentationChecksum::zero(),
     };
-    presentation.digest = QuestionPresentationDigest::compute(&descriptor_bytes(&presentation)?);
+    presentation.checksum =
+        QuestionPresentationChecksum::compute(&descriptor_bytes(&presentation)?);
     Ok(presentation)
 }
 
@@ -293,7 +293,7 @@ where
                 rendered,
                 role: item.role,
                 ordinal: item.ordinal,
-                durable_id: item.durable_id.clone(),
+                response_item_reference: Some(item.response_item_reference.clone()),
                 basis: item.basis.clone(),
             });
         }
@@ -305,10 +305,10 @@ where
             presentation: public,
             question_asset_renditions: assets.clone(),
             item_bindings: bindings,
-            digest: QuestionPresentationDigest::zero(),
+            checksum: QuestionPresentationChecksum::zero(),
         };
         let bytes = descriptor_bytes(&presentation)?;
-        presentation.digest = QuestionPresentationDigest::compute(&bytes);
+        presentation.checksum = QuestionPresentationChecksum::compute(&bytes);
         return Ok(presentation);
     }
     Err(PresentationBuildError::RenderedIdCollision)
@@ -342,7 +342,7 @@ fn rendered_id_input(
     bytes.extend_from_slice(&envelope.variation.seed.value().to_be_bytes());
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
-    push_bytes(&mut bytes, item.durable_id.as_bytes())?;
+    push_bytes(&mut bytes, item.response_item_reference.as_str().as_bytes())?;
     bytes.extend_from_slice(&Sha256::digest(basis_bytes));
     Ok(bytes)
 }
@@ -517,13 +517,13 @@ fn push_choices<T: PresentedResponseItem>(
 fn push_item(
     target: &mut Vec<PendingResponseItem>,
     role: ResponseItemRole,
-    durable_id: &str,
+    response_item_reference: &str,
     content: Vec<QuestionContentBlock>,
     assets: &[QuestionAssetRendition],
     hotspot_dimensions: Option<(u32, u32)>,
     hotspot_regions: Vec<PendingHotspotRegionGeometry>,
 ) -> Result<(), PresentationBuildError> {
-    if durable_id.is_empty() {
+    if response_item_reference.is_empty() {
         return Err(PresentationBuildError::InvalidPublicContent(
             "presentation item has an empty durable identity",
         ));
@@ -533,7 +533,7 @@ fn push_item(
     target.push(PendingResponseItem {
         role,
         ordinal,
-        durable_id: durable_id.to_owned(),
+        response_item_reference: ResponseItemReference::new(response_item_reference),
         basis: ResponseItemBasis {
             role,
             ordinal,
@@ -862,7 +862,7 @@ fn push_public_item(
         rendered,
         role,
         ordinal,
-        durable_id: String::new(),
+        response_item_reference: None,
         basis: ResponseItemBasis {
             role,
             ordinal,

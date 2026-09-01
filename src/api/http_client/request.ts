@@ -2,10 +2,7 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
-import type { CourseAppearance } from "../../../generated/api/CourseAppearance";
-import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
-import type { CourseBannerCandidateReceipt } from "../../../generated/api/CourseBannerCandidateReceipt";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
@@ -13,7 +10,7 @@ import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
-import { isPublicByline } from "../public_byline";
+import { isQuestionAuthorship } from "../question_authorship";
 import type {
   AssignmentEditorDetail,
   AssignmentContentInput,
@@ -35,14 +32,12 @@ import {
   decodeAssignmentPoliciesValidationFailure,
   decodeAssignmentAttempt,
   decodeCapabilityViolations,
-  decodeCourseAppearance,
   decodeCourseGradeSchemeView,
   decodeCourseGradeSchemeUpdateView,
-  decodeCourseBannerCandidateReceipt,
   decodeCourseCreateInput,
   decodeCourseSummary,
   decodeCourseTermValidationFailure,
-  decodeDraftQuestionRevision,
+  decodeDraftQuestionContent,
   decodeFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
   decodeQuestionPublicationValidationUnavailable,
@@ -65,8 +60,6 @@ import {
   AssignmentConflictError,
   AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
-  CourseAppearanceConflictError,
-  CourseAppearanceFileError,
   CourseGradeSchemeConflictError,
   CourseTermValidationError,
   PublicationValidationError,
@@ -195,7 +188,7 @@ function validRevision(value: string): boolean {
   return /^"[1-9][0-9]*"$/u.test(value) && BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
 }
 
-/** Converts the transport ETag into the exact Assignment Working Copy edit precondition. */
+/** Converts the transport ETag into the exact Assignment edit precondition. */
 function assignmentEditPrecondition(assignmentEditEtag: string): string {
   if (!validRevision(assignmentEditEtag))
     throw new ApiProtocolError("assignment edit number must be one positive strong numeric ETag");
@@ -207,23 +200,11 @@ function workspaceRevision(response: Response, path: string): string {
     throw new ApiProtocolError(`API response ${path} must include one strong numeric ETag`);
   return value;
 }
-function appearancePath(courseId: CourseId): string {
-  return `/api/courses/${encodedId(courseId)}/appearance`;
-}
-function strongAppearanceRevision(value: string): string {
-  if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n)
-    throw new ApiProtocolError("Course appearance needs a canonical positive revision");
-  return `"${value}"`;
-}
 function assignmentPath(courseId: CourseId, assignmentId?: AssignmentId): string {
   const course = encodedId(courseId);
   return assignmentId === undefined
     ? `/api/courses/${course}/assignments`
     : `/api/courses/${course}/assignments/${encodedId(assignmentId)}`;
-}
-
-function assignmentDraftPath(courseId: CourseId): string {
-  return `${assignmentPath(courseId)}/drafts`;
 }
 
 export function studentAttemptPath(
@@ -278,7 +259,7 @@ async function workspaceDraft(
       `API response ${path} must contain 1 to ${MAX_RESPONSE_CHARACTERS} JSON characters`,
     );
   return {
-    draft: decodeDraftQuestionRevision(decodeJson(text, path), "response"),
+    draft: decodeDraftQuestionContent(decodeJson(text, path), "response"),
     revision: workspaceRevision(response, path),
   };
 }
@@ -394,8 +375,6 @@ export function createRequestClient(
   | "deleteWorkspaceDraft"
   | "validateWorkspacePublication"
   | "publishWorkspace"
-  | "uploadCourseBannerCandidate"
-  | "saveCourseAppearance"
   | "saveCourseGradeScheme"
   | "createCourseGradeExport"
   | "createCourse"
@@ -539,8 +518,8 @@ export function createRequestClient(
       request: PublicationRequest,
       revision: string,
     ): Promise<PublicationResult> => {
-      if (!isPublicByline(request.byline))
-        throw new ApiProtocolError("publication requires one to sixteen reviewed author names");
+      if (!isQuestionAuthorship(request.authorship))
+        throw new ApiProtocolError("publication requires one to sixteen reviewed Question Authors");
       if (!validRevision(revision))
         throw new ApiProtocolError("publication revision must be one positive strong numeric ETag");
       const path = `/api/questions/${encodedId(workspace)}/publish`;
@@ -569,53 +548,6 @@ export function createRequestClient(
       if (!response.ok) throw new ApiRequestError(response.status, path);
       return decodePublicationResult(value, "response");
     },
-    uploadCourseBannerCandidate: async (courseId, image): Promise<CourseBannerCandidateReceipt> => {
-      if (image.size <= 0) throw new CourseAppearanceFileError("Course banner image is empty");
-      if (image.size > 2 * 1_024 * 1_024)
-        throw new CourseAppearanceFileError("Course banner image exceeds 2 MiB");
-      if (!["image/jpeg", "image/png", "image/webp"].includes(image.type))
-        throw new CourseAppearanceFileError("Course banner must be JPEG, PNG, or WebP");
-      const path = `${appearancePath(courseId)}/banner-candidates`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: { accept: "application/json", "content-type": image.type },
-        body: image,
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (response.status !== 201) {
-        if (!response.ok) throw new ApiRequestError(response.status, path);
-        throw new ApiProtocolError(`API response ${path} must use status 201`);
-      }
-      return decodeCourseBannerCandidateReceipt(await boundedResponseJson(response, path));
-    },
-    saveCourseAppearance: async (
-      courseId,
-      update: CourseAppearanceUpdate,
-      revision: string,
-    ): Promise<CourseAppearance> => {
-      const path = appearancePath(courseId);
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "PUT",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-          "if-match": strongAppearanceRevision(revision),
-        },
-        body: JSON.stringify(update),
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (response.status === 412) throw new CourseAppearanceConflictError(path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const appearance = decodeCourseAppearance(await boundedResponseJson(response, path));
-      if (response.headers.get("etag") !== strongAppearanceRevision(appearance.revision))
-        throw new ApiProtocolError(
-          `API response ${path} ETag does not match its appearance revision`,
-        );
-      return appearance;
-    },
     createCourse: (input): Promise<CourseSummary> =>
       requestCourseCreate(fetchImplementation, basePath, decodeCourseCreateInput(input, "request")),
     getAssignmentWorkspace: (courseId, assignmentId) =>
@@ -630,13 +562,11 @@ export function createRequestClient(
       input: AssignmentCreateInput,
     ): ReturnType<ApiClient["createAssignment"]> => {
       if (typeof input.title !== "string" || input.title.trim().length === 0)
-        return Promise.reject(
-          new ApiProtocolError("Assignment Working Copy needs a nonempty title"),
-        );
+        return Promise.reject(new ApiProtocolError("Assignment needs a nonempty title"));
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,
-        assignmentDraftPath(courseId),
+        assignmentPath(courseId),
         { courseId },
         { method: "POST", body: { title: input.title } },
       );

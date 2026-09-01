@@ -118,6 +118,33 @@ impl AssignmentAttemptStart {
                 ));
             }
         }
+        for selection in &self.question_pool_selections {
+            for selected_item in &selection.selected_items {
+                let issued_count = self
+                    .issued_questions
+                    .iter()
+                    .filter(|question| {
+                        matches!(
+                            question,
+                            PreparedIssuedQuestion::QuestionPoolItem {
+                                assignment_entry,
+                                question_pool_item,
+                                reference,
+                                ..
+                            } if assignment_entry == &selection.question_pool_assignment_entry
+                                && question_pool_item == &selected_item.question_pool_item
+                                && reference == &selected_item.reference
+                        )
+                    })
+                    .count();
+                if issued_count != 1 {
+                    return Err(StoreError::InvalidRecord(
+                        "each selected Question Pool Item must produce exactly one matching Issued Question"
+                            .to_string(),
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -183,6 +210,41 @@ mod tests {
         assert!(matches!(
             start.validate(),
             Err(StoreError::InvalidRecord(_))
+        ));
+    }
+
+    #[test]
+    fn each_selected_question_pool_item_must_be_issued_once() {
+        let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(2));
+        let start = AssignmentAttemptStart {
+            student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
+            assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
+            question_pool_selections: vec![PreparedQuestionPoolSelection {
+                question_pool_assignment_entry: entry,
+                reused_from_question_pool_selection: None,
+                selected_items: vec![
+                    QuestionPoolSelectedItem {
+                        question_pool_item: QuestionPoolItemId::from_uuid(Uuid::from_u128(4)),
+                        reference: reference(),
+                    },
+                    QuestionPoolSelectedItem {
+                        question_pool_item: QuestionPoolItemId::from_uuid(Uuid::from_u128(5)),
+                        reference: reference(),
+                    },
+                ],
+            }],
+            issued_questions: vec![PreparedIssuedQuestion::QuestionPoolItem {
+                assignment_entry: entry,
+                question_pool_selection_index: 0,
+                question_pool_item: QuestionPoolItemId::from_uuid(Uuid::from_u128(4)),
+                reference: reference(),
+            }],
+        };
+
+        assert!(matches!(
+            start.validate(),
+            Err(StoreError::InvalidRecord(message))
+                if message == "each selected Question Pool Item must produce exactly one matching Issued Question"
         ));
     }
 }

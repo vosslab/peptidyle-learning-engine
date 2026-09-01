@@ -32,27 +32,31 @@ const bridge = await import(bridgePath);
 // One committed, answer-free fixture set drives the native Rust, generated Node,
 // and real-browser Wasm checks. It belongs to the Wasm package instead of
 // `tests/fixtures/` because it is part of this boundary's durable contract.
-const { cases: flatV2ParityCases } = JSON.parse(
+const { cases: pleQuestionJsonParityCases } = JSON.parse(
   fs.readFileSync(
-    path.join(repoRoot, "crates", "wasm", "flat_v2_response_format_corpus.json"),
+    path.join(repoRoot, "crates", "wasm", "ple_question_json_response_format_corpus.json"),
     "utf8",
   ),
 );
 
-for (const parityCase of flatV2ParityCases) {
+for (const parityCase of pleQuestionJsonParityCases) {
   const report = JSON.parse(
     bridge.validate_response_format(
       JSON.stringify(parityCase.definition),
       JSON.stringify(parityCase.response),
     ),
   );
-  assert.deepEqual(report, parityCase.expectedReport, `flat-v2 Node parity: ${parityCase.name}`);
+  assert.deepEqual(
+    report,
+    parityCase.expectedReport,
+    `ple-question-json-v2 Node parity: ${parityCase.name}`,
+  );
 }
 
-const repeatedCase = flatV2ParityCases.find(
-  ({ name }) => name === "flat-v2-matching-full-permutation",
+const repeatedCase = pleQuestionJsonParityCases.find(
+  ({ name }) => name === "ple-question-json-v2-matching-full-permutation",
 );
-assert.ok(repeatedCase, "flat-v2 repeated-call test case is present");
+assert.ok(repeatedCase, "ple-question-json-v2 repeated-call test case is present");
 const firstRepeatedReport = bridge.validate_response_format(
   JSON.stringify(repeatedCase.definition),
   JSON.stringify(repeatedCase.response),
@@ -61,7 +65,11 @@ const secondRepeatedReport = bridge.validate_response_format(
   JSON.stringify(repeatedCase.definition),
   JSON.stringify(repeatedCase.response),
 );
-assert.equal(secondRepeatedReport, firstRepeatedReport, "flat-v2 format validation is stateless");
+assert.equal(
+  secondRepeatedReport,
+  firstRepeatedReport,
+  "ple-question-json-v2 format validation is stateless",
+);
 
 assert.throws(
   () => bridge.validate_response_format("{", "{}"),
@@ -141,7 +149,7 @@ const draftPreview = JSON.parse(
       title: "Fixture",
       prompt: [{ kind: "text", markdown: "Value {{value}}" }],
       response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
-      questionVariationDefinition: {
+      questionVariationRule: {
         kind: "seeded",
         generator: { id: "fixture", version: "1" },
         parameters: { value: { kind: "fixed", value: "safe" } },

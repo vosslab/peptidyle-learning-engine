@@ -18,7 +18,7 @@ function questionLibraryEntry(questionId, title) {
   };
 }
 
-function definition() {
+function content() {
   return {
     entries: [
       {
@@ -42,13 +42,13 @@ function definition() {
 
 const query = {
   search: "",
-  byline: null,
+  authorName: null,
   backend: null,
   tag: null,
   questionType: null,
   classification: null,
   capability: null,
-  license: null,
+  questionLicense: null,
   evidence: null,
   usedInMyCourses: null,
   authorship: "any",
@@ -61,7 +61,7 @@ function course(revision = "2") {
     modules: [
       {
         module_id: "module-7",
-        definitions: [{ assignment_id: "assignment-7", definition: definition() }],
+        assignments: [{ assignment_id: "assignment-7", content: content() }],
       },
     ],
   };

@@ -1,6 +1,6 @@
 -- Authenticated atomic Assignment Attempt start and resume.
 --
--- The API accepts only server-prepared Question Pool entries and exact
+-- The API accepts only server-prepared Question Pool Items and exact
 -- Question Revision pins. PostgreSQL derives the released Assignment Revision,
 -- policy, attempt number, clock time, issued scoring facts, and statistics
 -- eligibility in the same transaction.
@@ -151,12 +151,12 @@ BEGIN
               question_pool_selection_id uuid,
               assignment_entry_id uuid,
               reused_from_question_pool_selection_id uuid,
-              selected_entries jsonb
+              selected_items jsonb
           )
-         WHERE jsonb_typeof(input.selected_entries) <> 'array'
+         WHERE jsonb_typeof(input.selected_items) <> 'array'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'each prepared Question Pool Selection requires a entry array';
+            MESSAGE = 'each prepared Question Pool Selection requires an Item array';
     END IF;
 
     IF EXISTS (
@@ -169,7 +169,7 @@ BEGIN
                question_pool_selection_id uuid,
                assignment_entry_id uuid,
                reused_from_question_pool_selection_id uuid,
-               selected_entries jsonb
+               selected_items jsonb
            ))
         UNION ALL
         (SELECT input.assignment_entry_id
@@ -177,7 +177,7 @@ BEGIN
                question_pool_selection_id uuid,
                assignment_entry_id uuid,
                reused_from_question_pool_selection_id uuid,
-               selected_entries jsonb
+               selected_items jsonb
            )
          EXCEPT
          SELECT question_pool.assignment_entry_id
@@ -195,10 +195,10 @@ BEGIN
               question_pool_selection_id uuid,
               assignment_entry_id uuid,
               reused_from_question_pool_selection_id uuid,
-              selected_entries jsonb
+              selected_items jsonb
           ) ON input.assignment_entry_id = question_pool.assignment_entry_id
          WHERE question_pool.assignment_revision_id = v_assignment_revision_id
-           AND jsonb_array_length(input.selected_entries) <> question_pool.selection_count
+           AND jsonb_array_length(input.selected_items) <> question_pool.selection_count
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'prepared Question Pool Selection count must match its Released Assignment Entry';
@@ -209,29 +209,29 @@ BEGIN
         created_at, selected_question_count, reused_from_question_pool_selection_id
     )
     SELECT input.question_pool_selection_id, p_assignment_attempt_id, input.assignment_entry_id,
-           v_now, jsonb_array_length(input.selected_entries),
+           v_now, jsonb_array_length(input.selected_items),
            input.reused_from_question_pool_selection_id
       FROM jsonb_to_recordset(p_question_pool_selections) AS input (
           question_pool_selection_id uuid,
           assignment_entry_id uuid,
           reused_from_question_pool_selection_id uuid,
-          selected_entries jsonb
+          selected_items jsonb
       );
 
-    INSERT INTO ple_private.question_pool_selected_entry (
-        question_pool_selection_id, question_pool_entry_id, selection_position,
+    INSERT INTO ple_private.question_pool_selected_item (
+        question_pool_selection_id, question_pool_item_id, selection_position,
         question_id, revision_number
     )
-    SELECT input.question_pool_selection_id, entry.question_pool_entry_id,
-           entry.selection_position, entry.question_id, entry.revision_number
+    SELECT input.question_pool_selection_id, item.question_pool_item_id,
+           item.selection_position, item.question_id, item.revision_number
       FROM jsonb_to_recordset(p_question_pool_selections) AS input (
           question_pool_selection_id uuid,
           assignment_entry_id uuid,
           reused_from_question_pool_selection_id uuid,
-          selected_entries jsonb
+          selected_items jsonb
       )
-      CROSS JOIN LATERAL jsonb_to_recordset(input.selected_entries) AS entry (
-          question_pool_entry_id uuid,
+      CROSS JOIN LATERAL jsonb_to_recordset(input.selected_items) AS item (
+          question_pool_item_id uuid,
           selection_position integer,
           question_id text,
           revision_number integer
@@ -240,13 +240,13 @@ BEGIN
     INSERT INTO ple_private.issued_question (
         issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
         revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
-        question_pool_selection_id, question_pool_entry_id
+        question_pool_selection_id, question_pool_item_id
     )
     SELECT input.issued_question_id, p_assignment_attempt_id, input.assignment_entry_id,
            input.question_id, input.revision_number, input.issued_position,
            entry.point_value, entry.scoring_rule,
            entry.scoring_rule = 'normal' AND entry.point_value > 0,
-           input.question_pool_selection_id, input.question_pool_entry_id
+           input.question_pool_selection_id, input.question_pool_item_id
       FROM jsonb_to_recordset(p_issued_questions) AS input (
           issued_question_id uuid,
           assignment_entry_id uuid,
@@ -254,7 +254,7 @@ BEGIN
           question_id text,
           revision_number integer,
           question_pool_selection_id uuid,
-          question_pool_entry_id uuid
+          question_pool_item_id uuid
       )
       JOIN ple_data.assignment_revision_entry AS entry
         ON entry.assignment_revision_id = v_assignment_revision_id
@@ -266,19 +266,19 @@ BEGIN
          WHERE issued_question.assignment_attempt_id = p_assignment_attempt_id
     ) OR EXISTS (
         WITH expected AS (
-            SELECT fixed_question.assignment_entry_id, NULL::uuid AS question_pool_entry_id,
+            SELECT fixed_question.assignment_entry_id, NULL::uuid AS question_pool_item_id,
                    fixed_question.question_id, fixed_question.revision_number
               FROM ple_data.assignment_revision_fixed_question AS fixed_question
              WHERE fixed_question.assignment_revision_id = v_assignment_revision_id
             UNION ALL
-            SELECT selection.assignment_entry_id, entry.question_pool_entry_id,
-                   entry.question_id, entry.revision_number
+            SELECT selection.assignment_entry_id, item.question_pool_item_id,
+                   item.question_id, item.revision_number
               FROM ple_private.question_pool_selection AS selection
-              JOIN ple_private.question_pool_selected_entry AS entry
-                ON entry.question_pool_selection_id = selection.question_pool_selection_id
+              JOIN ple_private.question_pool_selected_item AS item
+                ON item.question_pool_selection_id = selection.question_pool_selection_id
              WHERE selection.assignment_attempt_id = p_assignment_attempt_id
         ), actual AS (
-            SELECT issued.assignment_entry_id, issued.question_pool_entry_id,
+            SELECT issued.assignment_entry_id, issued.question_pool_item_id,
                    issued.question_id, issued.revision_number
               FROM ple_private.issued_question AS issued
              WHERE issued.assignment_attempt_id = p_assignment_attempt_id
@@ -291,7 +291,7 @@ BEGIN
           ) AS difference
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Issued Questions must cover the exact fixed pins and selected Question Pool entries';
+            MESSAGE = 'Issued Questions must cover the exact fixed pins and selected Question Pool Items';
     END IF;
 
     RETURN QUERY SELECT p_assignment_attempt_id, v_attempt_number, false;

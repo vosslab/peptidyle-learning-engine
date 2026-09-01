@@ -6,9 +6,9 @@ import type { AssignmentEntrySummary } from "../../generated/api/AssignmentEntry
 import type { Capability } from "../../generated/api/Capability";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
-import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ITEMS";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type {
@@ -31,14 +31,14 @@ export type AssignmentEditorFixedQuestionEntry = FixedQuestionAssignmentEntrySum
 
 /**
  * Browser-owned pool state deliberately names only public Question IDs.
- * The server mints and preserves Question Pool entry/entry identities when it saves this definition.
+ * The server mints Question Pool Assignment Entry and Question Pool Item identities when it saves this Assignment Content.
  */
-export interface AssignmentEditorQuestionPoolEntry {
+export interface AssignmentEditorQuestionPoolAssignmentEntry {
   readonly kind: "questionPool";
   readonly id?: string;
   readonly availability: "available" | "retired";
   readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
-  readonly entries: ReadonlyArray<AssignmentQuestionRow>;
+  readonly items: ReadonlyArray<AssignmentQuestionRow>;
   readonly selectionCount: number;
   readonly pointsPerItem: string;
   readonly selectionRule: {
@@ -47,20 +47,20 @@ export interface AssignmentEditorQuestionPoolEntry {
 }
 
 export type AssignmentEditorEntry =
-  AssignmentEditorFixedQuestionEntry | AssignmentEditorQuestionPoolEntry;
+  AssignmentEditorFixedQuestionEntry | AssignmentEditorQuestionPoolAssignmentEntry;
 
-export interface AssignmentEditorDraft {
+export interface AssignmentEditorState {
   readonly id: string;
   readonly courseId: string;
   readonly title: string;
-  /** One ordered definition, shared by fixed questions and Question Pools. */
+  /** One ordered Assignment Content record, shared by fixed Questions and Question Pools. */
   readonly entries: ReadonlyArray<AssignmentEditorEntry>;
   readonly policies: AssignmentActivityRules;
   readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
   readonly revision: string;
 }
 
-export function assignmentEditorDraftFrom(detail: AssignmentEditorDetail): AssignmentEditorDraft {
+export function assignmentEditorStateFrom(detail: AssignmentEditorDetail): AssignmentEditorState {
   return {
     id: detail.id,
     courseId: detail.courseId,
@@ -78,18 +78,18 @@ export function fixedQuestionEntry(
   return { ...entry, kind: "fixedQuestion" };
 }
 
-export function questionPoolEntry(
+export function questionPoolAssignmentEntry(
   entry: QuestionPoolAssignmentEntrySummary,
-): AssignmentEditorQuestionPoolEntry {
+): AssignmentEditorQuestionPoolAssignmentEntry {
   return {
     kind: "questionPool",
     id: entry.id,
     availability: entry.availability,
     scoringRule: entry.scoringRule,
-    entries: entry.entries.map((entry) => ({
-      questionId: entry.questionId,
-      title: entry.title,
-      backend: entry.backend,
+    items: entry.items.map((item) => ({
+      questionId: item.questionId,
+      title: item.title,
+      backend: item.backend,
     })),
     selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
@@ -99,11 +99,11 @@ export function questionPoolEntry(
 
 export function assignmentEditorEntryFrom(entry: AssignmentEntrySummary): AssignmentEditorEntry {
   if (entry.kind === "fixedQuestion") return fixedQuestionEntry(entry);
-  return questionPoolEntry(entry);
+  return questionPoolAssignmentEntry(entry);
 }
 
 export function fixedEntries(
-  draft: AssignmentEditorDraft,
+  draft: AssignmentEditorState,
 ): ReadonlyArray<AssignmentEditorFixedQuestionEntry> {
   return draft.entries.filter(
     (entry): entry is AssignmentEditorFixedQuestionEntry => entry.kind === "fixedQuestion",
@@ -111,10 +111,10 @@ export function fixedEntries(
 }
 
 export function moveAssignmentEntry(
-  draft: AssignmentEditorDraft,
+  draft: AssignmentEditorState,
   entryIndex: number,
   direction: -1 | 1,
-): AssignmentEditorDraft {
+): AssignmentEditorState {
   const nextIndex = entryIndex + direction;
   if (entryIndex < 0 || nextIndex < 0 || nextIndex >= draft.entries.length) return draft;
   const entries = [...draft.entries];
@@ -127,9 +127,9 @@ export function moveAssignmentEntry(
 }
 
 export function appendFixedEntries(
-  draft: AssignmentEditorDraft,
+  draft: AssignmentEditorState,
   rows: ReadonlyArray<AssignmentQuestionRow>,
-): AssignmentEditorDraft {
+): AssignmentEditorState {
   const known = new Set(fixedEntries(draft).map((item) => item.questionId));
   const fresh = rows.filter((row) => !known.has(row.questionId));
   if (fresh.length === 0) return draft;
@@ -151,10 +151,10 @@ export function appendFixedEntries(
   return { ...draft, entries };
 }
 
-export function appendQuestionPool(draft: AssignmentEditorDraft): AssignmentEditorDraft {
-  const questionPool: AssignmentEditorQuestionPoolEntry = {
+export function appendQuestionPool(draft: AssignmentEditorState): AssignmentEditorState {
+  const questionPool: AssignmentEditorQuestionPoolAssignmentEntry = {
     kind: "questionPool",
-    entries: [],
+    items: [],
     availability: "available",
     scoringRule: "normal",
     selectionCount: 1,
@@ -176,7 +176,7 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
   }
   return {
     kind: "questionPool",
-    questionIds: entry.entries.map((entry) => entry.questionId),
+    questionIds: entry.items.map((item) => item.questionId),
     availability: entry.availability,
     scoringRule: entry.scoringRule,
     selectionCount: entry.selectionCount,
@@ -185,22 +185,24 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
   };
 }
 
-/** Questions owns only the visible title and ordered fixed-or-pool definition. */
-export function assignmentContentInput(draft: AssignmentEditorDraft): AssignmentContentInput {
+/** Questions owns only the visible title and ordered fixed-or-pool Assignment Content. */
+export function assignmentContentInput(draft: AssignmentEditorState): AssignmentContentInput {
   return {
     title: draft.title,
     entries: draft.entries.map(entryInput),
   };
 }
 
-export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEntry): string | null {
-  if (entry.entries.length === 0) return "Add at least one Question ID to this Question Pool.";
-  if (entry.entries.length > MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY)
-    return `Keep this Question Pool to ${MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY} Question IDs or fewer.`;
+export function validateQuestionPoolAssignmentEntry(
+  entry: AssignmentEditorQuestionPoolAssignmentEntry,
+): string | null {
+  if (entry.items.length === 0) return "Add at least one Question ID to this Question Pool.";
+  if (entry.items.length > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY)
+    return `Keep this Question Pool to ${MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY} Question IDs or fewer.`;
   if (entry.selectionCount < 1) return "Selection count must be at least one.";
-  if (entry.selectionCount > entry.entries.length)
+  if (entry.selectionCount > entry.items.length)
     return "Selection count cannot exceed the number of Question IDs in this Question Pool.";
-  if (new Set(entry.entries.map((entry) => entry.questionId)).size !== entry.entries.length)
+  if (new Set(entry.items.map((item) => item.questionId)).size !== entry.items.length)
     return "Each Question ID can appear only once in a Question Pool.";
   return null;
 }
@@ -209,18 +211,18 @@ export function validateQuestionPoolEntry(entry: AssignmentEditorQuestionPoolEnt
  * Mirrors the server-owned pool bounds so the Instructor receives a recovery
  * path before a save request. Rust and PostgreSQL remain authoritative.
  */
-export function validateAssignmentEditorDraft(draft: AssignmentEditorDraft): string | null {
+export function validateAssignmentEditorState(draft: AssignmentEditorState): string | null {
   if (draft.entries.length > MAX_ASSIGNMENT_ORDERED_ENTRIES)
     return `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer.`;
-  let totalQuestionPoolEntries = 0;
+  let totalQuestionPoolItems = 0;
   for (const entry of draft.entries) {
     if (entry.kind !== "questionPool") continue;
-    const entryError = validateQuestionPoolEntry(entry);
+    const entryError = validateQuestionPoolAssignmentEntry(entry);
     if (entryError !== null)
       return `Question pool ${draft.entries.indexOf(entry) + 1}: ${entryError}`;
-    totalQuestionPoolEntries += entry.entries.length;
-    if (totalQuestionPoolEntries > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
-      return `Keep all Question Pools to ${MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES} Question IDs or fewer.`;
+    totalQuestionPoolItems += entry.items.length;
+    if (totalQuestionPoolItems > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
+      return `Keep all Question Pools to ${MAX_ASSIGNMENT_QUESTION_POOL_ITEMS} Question IDs or fewer.`;
   }
   return null;
 }

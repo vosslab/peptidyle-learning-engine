@@ -76,7 +76,7 @@ fn report_digest_input_preserves_accepted_and_rejected_source_order() {
         .expect("one valid root proves the profile");
     let report = package
         .profile_report_digest_input()
-        .expect("package constructs its report digest input");
+        .expect("package constructs its import-result checksum input");
 
     assert_eq!(report.profile, QtiProfileId::BLACKBOARD);
     assert!(matches!(
@@ -84,10 +84,10 @@ fn report_digest_input_preserves_accepted_and_rejected_source_order() {
         [accepted, rejected]
             if accepted.source_identifier == "bb-1"
                 && accepted.accepted
-                && accepted.public_mapping_sha256.is_some()
+                && accepted.public_mapping_checksum.is_some()
                 && rejected.source_identifier == "bb-2"
                 && !rejected.accepted
-                && rejected.public_mapping_sha256.is_none()
+                && rejected.public_mapping_checksum.is_none()
                 && rejected.item_id.is_none()
                 && rejected.diagnostics.iter().all(|diagnostic| {
                     !diagnostic.location.trim().is_empty() && !diagnostic.detail.trim().is_empty()
@@ -99,7 +99,7 @@ fn report_digest_input_preserves_accepted_and_rejected_source_order() {
         .pop()
         .expect("accepted item remains package-owned after report projection");
     mapped
-        .compute_integrity_digests(&report)
+        .compute_import_checksums(&report)
         .expect("ordered accepted disposition binds the package mapping");
 }
 
@@ -149,12 +149,12 @@ fn maps_the_frozen_blackboard_pool_with_defaulted_points() {
     assert_eq!(parts.public_mapping().points, "1.0");
     assert_eq!(parts.server_correct_ple_choice_id(), "blue");
     assert_eq!(
-        parts.normalized_profile_item_sha256(),
+        parts.normalized_qti_item_fingerprint(),
         repeated
             .into_mapped_items()
             .pop()
             .expect("repeated mapped item")
-            .normalized_profile_item_sha256()
+            .normalized_qti_item_fingerprint()
     );
 }
 
@@ -179,7 +179,7 @@ fn accepts_the_observed_inert_score_declaration() {
     );
     assert_eq!(
         import_blackboard_qti21(&archive(&with_score), QtiImportLimits::default())
-            .expect("observed inert score declaration is provenance only")
+            .expect("observed inert score declaration is import metadata only")
             .accepted_count(),
         1
     );

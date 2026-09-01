@@ -297,7 +297,7 @@ function StudentWorkCoursePage(props: {
         detail.course !== props.courseReference ||
         detail.membership !== request.membership ||
         detail.assignment !== request.assignment ||
-        detail.run !== request.assignmentAttempt
+        detail.assignmentAttempt !== request.assignmentAttempt
       ) {
         throw new Error("Inspected work does not match the requested route");
       }
@@ -373,7 +373,8 @@ function StudentWorkCoursePage(props: {
               <p class="eyebrow">Audited Student work</p>
               <h1>{ready.detail.assignmentTitle}</h1>
               <p class="page-lede">
-                {ready.detail.studentDisplayLabel} · submitted run {ready.detail.run}
+                {ready.detail.studentDisplayLabel} · submitted Assignment Attempt{" "}
+                {ready.detail.assignmentAttempt}
               </p>
               <section class="student-work-boundary" aria-label="Inspection privacy boundary">
                 This view contains the Student's submitted responses, visible question content, and
@@ -384,7 +385,10 @@ function StudentWorkCoursePage(props: {
                 fallback={
                   <section class="gradebook-empty">
                     <h2>No submitted responses</h2>
-                    <p>The selected run has no immutable completed responses to inspect.</p>
+                    <p>
+                      The selected Assignment Attempt has no immutable completed responses to
+                      inspect.
+                    </p>
                   </section>
                 }
               >

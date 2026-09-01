@@ -50,23 +50,26 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend              | Current authority                                                        | Browser response                                           | Server grading authority                            | Current scope                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE flat             | Immutable PLE flat source and private flat grading payload               | Typed PLE response                                         | PLE Question Backend plus isolated flat grader      | All eight PLE flat JSON v2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
+| PLE Question JSON    | Immutable PLE Question Source and private Question Grading Input          | Typed PLE Question JSON response                            | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
 | QTI profile          | Immutable staged/published archive plus profile conversion evidence      | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                  |
 | WeBWorK              | Immutable licensed PGML source and private renderer                      | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                        |
 | iMathAS              | Immutable server snapshot and deployment-selected provider profile       | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                                  |
 | External-tool broker | Exact course/Student attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                                                         |
 
-## Native flat questions
+## PLE Question JSON Questions
 
 ### Source and render
 
-**Current.** The PLE Question Backend compiles versioned PLE flat JSON into two products: an answer-free
-`QuestionRevision`/`QuestionPresentation` and private Answer Key, Question
+**Current.** The PLE Question Backend compiles versioned PLE Question JSON into three separate products: an answer-free
+draft for Question Revision/Question Presentation, private Answer Key, Question
 Feedback, Question Answer Explanation, and format-specific Question Grading
-Input. The trusted server bridge
+Input, plus an optional private Question Hint. The Hint is bounded authored
+pre-response teaching content, not Question Feedback or grading content. Its
+Draft Question Revision/Question Revision persistence and issued-Question
+delivery binding remain open. The trusted server bridge
 resolves immutable published-Question Asset References before issue, replay, or grade. The browser receives prompt
 blocks, public Question Response Format, asset references, version, and seed. It returns only the PLE
-response shape; it does not return source bytes, a private key, asset-object binding, implementation
+response shape; it does not return source bytes, a private key, Question Hint, asset-object binding, implementation
 version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
@@ -74,14 +77,14 @@ multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, mat
 registered PLE Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the Assignment Attempt model type-specific. The protected visual author
 editor exposes all eight v2 Question Types. Its instructor route is a convenience surface only: the server
 re-resolves source and Question Asset References at save and publication, and the student contract remains
-answer-free. Integrated author-to-publication-to-student acceptance for every family, including the
+answer-free. Integrated author-to-publication-to-student acceptance for every Question Type, including the
 hotspot lifecycle, remains open.
 
 ### Grade, replay, and cache
 
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
-References before generic grading or isolated flat grading. First flat grade reads only the issued
-checksummed flat grading contract; ordinary published-Question and browser paths cannot read that material or
+References before generic grading or isolated PLE Question JSON grading. First PLE Question JSON grade reads only the issued
+checksummed PLE Question JSON grading contract; ordinary published-Question and browser paths cannot read that material or
 replace it with a current Question Grader view. Provenance names the PLE Question Backend and
 Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
@@ -126,7 +129,7 @@ single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, i
 embedded execution, and broad QTI interchange are refused rather than partially interpreted.
 
 **Planned.** Broader QTI Question Types and external QTI-JSONL interchange require new profile decisions,
-conversion semantics, private key handling, and independent live acceptance. Flat JSON v2 alone does
+conversion semantics, private key handling, and independent live acceptance. PLE Question JSON schema version 2 alone does
 not enable them.
 
 ## WeBWorK private renderer

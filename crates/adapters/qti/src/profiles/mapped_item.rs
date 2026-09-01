@@ -3,10 +3,10 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
-use objects::Sha256Digest;
-
 use super::choice_map_payload::QtiChoiceMapPayload;
-use super::normalized_digest::{NormalizedProfileItemInput, normalized_profile_item_sha256};
+use super::normalized_fingerprint::{
+    NormalizedQtiItemFingerprintInput, normalized_qti_item_fingerprint,
+};
 use super::report::{
     MAX_CHOICE_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_SAFE_DIAGNOSTICS,
     MAX_SAFE_SOURCE_IDENTIFIER_CHARS, MAX_SAFE_SOURCE_LOCATION_CHARS, MAX_SAFE_TITLE_CHARS,
@@ -15,10 +15,10 @@ use super::report::{
 };
 use super::server_parts::QtiMappedItemServerParts;
 use super::{
-    QtiChoiceIdMap, QtiImportIntegrityDigests, QtiMappingVersion, QtiPrivateChoiceMapDigestInput,
-    QtiPrivateMappingDigestInput, QtiProfileContractError, QtiProfileId, QtiProfileItemDisposition,
-    QtiProfileReportDigestInput, QtiProfileVersion, QtiPublicChoiceDigestInput,
-    QtiPublicMappingDigestInput,
+    QtiChoiceIdMap, QtiImportChecksums, QtiImportResultChecksumInput, QtiMappingVersion,
+    QtiPrivateChoiceMapChecksumInput, QtiPrivateMappingChecksumInput, QtiProfileContractError,
+    QtiProfileId, QtiProfileItemDisposition, QtiProfileVersion, QtiPublicChoiceChecksumInput,
+    QtiPublicMappingChecksumInput,
 };
 
 #[allow(dead_code)]
@@ -47,7 +47,7 @@ pub enum QtiMappedItemError {
     ChoiceMapMismatch,
     ChoiceMapOrderMismatch,
     UnsafeDiagnostic,
-    DigestEncoding,
+    FingerprintEncoding,
 }
 
 impl fmt::Display for QtiMappedItemError {
@@ -85,7 +85,9 @@ impl fmt::Display for QtiMappedItemError {
                 "QTI mapped item private choice map does not preserve public choice order"
             }
             Self::UnsafeDiagnostic => "QTI item diagnostic is not safe for an instructor report",
-            Self::DigestEncoding => "QTI mapped item normalized digest could not be encoded",
+            Self::FingerprintEncoding => {
+                "QTI mapped item normalized fingerprint could not be encoded"
+            }
         };
         formatter.write_str(message)
     }
@@ -112,9 +114,9 @@ pub struct QtiMappedItem {
     profile: QtiProfileId,
     profile_version: QtiProfileVersion,
     mapping_version: QtiMappingVersion,
-    public_mapping: QtiPublicMappingDigestInput,
-    private_mapping: QtiPrivateMappingDigestInput,
-    normalized_profile_item_sha256: Sha256Digest,
+    public_mapping: QtiPublicMappingChecksumInput,
+    private_mapping: QtiPrivateMappingChecksumInput,
+    normalized_qti_item_fingerprint: super::NormalizedQtiItemFingerprint,
     correct_ple_choice_id: String,
     choice_map: Vec<QtiChoiceIdMap>,
     safe_report: QtiSafeItemReport,
@@ -129,7 +131,7 @@ impl QtiMappedItem {
         source_identifier: String,
         title: String,
         prompt_markdown: String,
-        choices: Vec<QtiPublicChoiceDigestInput>,
+        choices: Vec<QtiPublicChoiceChecksumInput>,
         points: QtiMappedPoints,
         choice_map: Vec<QtiChoiceIdMap>,
         correct_vendor_choice_id: String,
@@ -168,8 +170,8 @@ impl QtiMappedItem {
                 )
             })
             .collect::<Vec<_>>();
-        let normalized_profile_item_sha256 =
-            normalized_profile_item_sha256(&NormalizedProfileItemInput {
+        let normalized_qti_item_fingerprint =
+            normalized_qti_item_fingerprint(&NormalizedQtiItemFingerprintInput {
                 profile,
                 profile_version: profile.version(),
                 title: &title,
@@ -179,7 +181,7 @@ impl QtiMappedItem {
                 canonical_points: &points,
                 blackboard_defaulted_points,
             })
-            .map_err(|_| QtiMappedItemError::DigestEncoding)?;
+            .map_err(|_| QtiMappedItemError::FingerprintEncoding)?;
 
         let defaults: Vec<_> = QtiPleDefault::ALL
             .into_iter()
@@ -189,7 +191,7 @@ impl QtiMappedItem {
             .into_iter()
             .map(QtiPleDefault::safe_diagnostic)
             .collect();
-        let public_mapping = QtiPublicMappingDigestInput {
+        let public_mapping = QtiPublicMappingChecksumInput {
             source_location,
             source_identifier: source_identifier.clone(),
             title: title.clone(),
@@ -205,13 +207,13 @@ impl QtiMappedItem {
             .expect("validated correct vendor choice exists")
             .ple_choice_id()
             .to_string();
-        let private_mapping = QtiPrivateMappingDigestInput::new(
+        let private_mapping = QtiPrivateMappingChecksumInput::new(
             correct_vendor_choice_id.clone(),
             correct_ple_choice_id.clone(),
             choice_map
                 .iter()
                 .map(|entry| {
-                    QtiPrivateChoiceMapDigestInput::new(
+                    QtiPrivateChoiceMapChecksumInput::new(
                         entry.server_vendor_choice_id().to_string(),
                         entry.ple_choice_id().to_string(),
                     )
@@ -233,7 +235,7 @@ impl QtiMappedItem {
             mapping_version: QtiMappingVersion::V1,
             public_mapping,
             private_mapping,
-            normalized_profile_item_sha256,
+            normalized_qti_item_fingerprint,
             correct_ple_choice_id,
             choice_map,
             safe_report,
@@ -309,45 +311,45 @@ impl QtiMappedItem {
         &self.safe_report
     }
 
-    /// Public digest input used by the server's committed import contract.
-    pub fn public_mapping_digest_input(&self) -> &QtiPublicMappingDigestInput {
+    /// Public checksum input used by the server's committed import contract.
+    pub fn public_mapping_checksum_input(&self) -> &QtiPublicMappingChecksumInput {
         &self.public_mapping
     }
 
-    /// Private digest input used only by the server's committed import contract.
-    pub fn private_mapping_digest_input(&self) -> &QtiPrivateMappingDigestInput {
+    /// Private mapping input used only by the server's committed import contract.
+    pub fn private_mapping_checksum_input(&self) -> &QtiPrivateMappingChecksumInput {
         &self.private_mapping
     }
 
-    /// Opaque normalized source-item fingerprint for later provenance binding.
-    pub fn normalized_profile_item_sha256(&self) -> Sha256Digest {
-        self.normalized_profile_item_sha256
+    /// Opaque normalized source-item fingerprint for later QTI import binding.
+    pub fn normalized_qti_item_fingerprint(&self) -> super::NormalizedQtiItemFingerprint {
+        self.normalized_qti_item_fingerprint
     }
 
-    /// Computes digests only when report and mapped item share one profile owner.
-    pub fn compute_integrity_digests(
+    /// Computes integrity checksums only when report and mapped item share one profile owner.
+    pub fn compute_import_checksums(
         &self,
-        report: &QtiProfileReportDigestInput,
-    ) -> Result<QtiImportIntegrityDigests, QtiProfileContractError> {
+        report: &QtiImportResultChecksumInput,
+    ) -> Result<QtiImportChecksums, QtiProfileContractError> {
         if report.profile != self.profile
             || report.profile_version != self.profile_version
             || report.mapping_version != self.mapping_version
         {
             return Err(QtiProfileContractError::MappingOwnerMismatch);
         }
-        QtiImportIntegrityDigests::compute(report, &self.public_mapping, &self.private_mapping)
+        QtiImportChecksums::compute(report, &self.public_mapping, &self.private_mapping)
     }
 
-    /// Returns this mapped item's accepted disposition without exposing a detached digest API.
+    /// Returns this mapped item's accepted disposition without exposing a detached checksum API.
     pub fn accepted_item_disposition(
         &self,
     ) -> Result<QtiProfileItemDisposition, QtiProfileContractError> {
-        let public_mapping_sha256 = self.public_mapping.digest()?;
+        let public_mapping_sha256 = self.public_mapping.checksum()?;
         Ok(QtiProfileItemDisposition {
             source_identifier: self.public_mapping.source_identifier.clone(),
             item_id: Some(self.public_mapping.source_identifier.clone()),
             accepted: true,
-            public_mapping_sha256: Some(public_mapping_sha256),
+            public_mapping_checksum: Some(public_mapping_sha256),
             diagnostics: Vec::new(),
         })
     }
@@ -360,7 +362,7 @@ impl QtiMappedItem {
             mapping_version: self.mapping_version,
             public_mapping: self.public_mapping,
             private_mapping: self.private_mapping,
-            normalized_profile_item_sha256: self.normalized_profile_item_sha256,
+            normalized_qti_item_fingerprint: self.normalized_qti_item_fingerprint,
             correct_ple_choice_id: self.correct_ple_choice_id,
             choice_map_payload: QtiChoiceMapPayload::from_ordered_map(&self.choice_map)
                 .expect("mapped item validates choice-map bounds before server extraction"),
@@ -381,7 +383,7 @@ fn validate_required(
 }
 
 #[allow(dead_code)]
-fn validate_choices(choices: &[QtiPublicChoiceDigestInput]) -> Result<(), QtiMappedItemError> {
+fn validate_choices(choices: &[QtiPublicChoiceChecksumInput]) -> Result<(), QtiMappedItemError> {
     if !(2..=MAX_SAFE_ITEMS).contains(&choices.len()) {
         return Err(QtiMappedItemError::ChoiceCount);
     }
@@ -405,7 +407,7 @@ fn validate_choices(choices: &[QtiPublicChoiceDigestInput]) -> Result<(), QtiMap
 
 #[allow(dead_code)]
 fn validate_choice_map(
-    choices: &[QtiPublicChoiceDigestInput],
+    choices: &[QtiPublicChoiceChecksumInput],
     choice_map: &[QtiChoiceIdMap],
     correct_vendor_choice_id: &str,
 ) -> Result<(), QtiMappedItemError> {

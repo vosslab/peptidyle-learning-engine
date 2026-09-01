@@ -1,8 +1,8 @@
 // Strict Student delivery and focused assignment-policy transport decoders.
 
-import type { AssignmentWorkingCopyDefinitionValidationFailure } from "../../../generated/api/AssignmentWorkingCopyDefinitionValidationFailure";
-import type { InstructorAssignmentWorkingCopyDefinitionLocal } from "../../../generated/api/InstructorAssignmentWorkingCopyDefinitionLocal";
-import type { InstructorAssignmentCurrentState } from "../../../generated/api/InstructorAssignmentCurrentState";
+import type { AssignmentAuthoredContentValidationFailure } from "../../../generated/api/AssignmentAuthoredContentValidationFailure";
+import type { InstructorAssignmentAuthoredContentLocal } from "../../../generated/api/InstructorAssignmentAuthoredContentLocal";
+import type { InstructorAssignmentAvailabilityView } from "../../../generated/api/InstructorAssignmentAvailabilityView";
 import type { StudentAssignmentDetail } from "../../../generated/api/StudentAssignmentDetail";
 import type { StudentAssignmentLandingSummary } from "../../../generated/api/StudentAssignmentLandingSummary";
 import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
@@ -42,8 +42,8 @@ export function decodeStudentAssignmentLandingSummary(
 const LATE_POLICIES = ["accept", "markLate", "reject"] as const;
 const ASSIGNMENT_DEADLINE_RULES = ["autoSubmit"] as const;
 const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
-const ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_FIELDS = [
-  "assignmentWorkingCopyDefinition",
+const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
+  "assignmentAuthoredContent",
   "timeZone",
   "availableAt",
   "dueAt",
@@ -53,7 +53,7 @@ const ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_FIELDS = [
   "attemptLimit",
   "instructions",
 ] as const;
-const ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_REASONS = [
+const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_REASONS = [
   "invalidInput",
   "courseTimeZoneMismatch",
   "outsideCourseTerm",
@@ -91,34 +91,34 @@ function decodePolicyLimit(value: unknown, path: string): number | null {
   });
 }
 
-export function decodeAssignmentWorkingCopyDefinitionValidationFailure(
+export function decodeAssignmentAuthoredContentValidationFailure(
   value: unknown,
   path = "response",
-): AssignmentWorkingCopyDefinitionValidationFailure {
+): AssignmentAuthoredContentValidationFailure {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["error", "field", "reason", "message"]);
   return {
     error: decodeStringEnum(field(record, "error", path), `${path}.error`, [
-      "assignmentWorkingCopyDefinitionInvalid",
+      "assignmentAuthoredContentInvalid",
     ] as const),
     field: decodeStringEnum(
       field(record, "field", path),
       `${path}.field`,
-      ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_FIELDS,
+      ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS,
     ),
     reason: decodeStringEnum(
       field(record, "reason", path),
       `${path}.reason`,
-      ASSIGNMENT_WORKING_COPY_DEFINITION_FAILURE_REASONS,
+      ASSIGNMENT_AUTHORED_CONTENT_FAILURE_REASONS,
     ),
     message: decodeNonemptyString(field(record, "message", path), `${path}.message`),
   };
 }
 
-export function decodeInstructorAssignmentWorkingCopyDefinitionLocal(
+export function decodeInstructorAssignmentAuthoredContentLocal(
   value: unknown,
   path = "response",
-): InstructorAssignmentWorkingCopyDefinitionLocal {
+): InstructorAssignmentAuthoredContentLocal {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "timeZone",
@@ -159,15 +159,15 @@ export function decodeInstructorAssignmentWorkingCopyDefinitionLocal(
   };
 }
 
-export function decodeInstructorAssignmentCurrentState(
+export function decodeInstructorAssignmentAvailabilityView(
   value: unknown,
   path = "response",
-): InstructorAssignmentCurrentState {
+): InstructorAssignmentAvailabilityView {
   const record = decodeRecord(value, path);
   const state = decodeStringEnum(field(record, "state", path), `${path}.state`, [
-    "draft",
+    "unreleased",
     "scheduled",
-    "open",
+    "available",
     "closed",
     "archived",
   ] as const);

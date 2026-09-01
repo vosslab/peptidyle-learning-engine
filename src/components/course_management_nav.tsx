@@ -13,7 +13,6 @@ export type CourseManagementSection =
   | "students"
   | "gradebook"
   | "gradeSettings"
-  | "appearance"
   | "teachingOperations"
   | "curriculumAdoption";
 
@@ -68,12 +67,6 @@ export function CourseManagementNav(props: CourseManagementNavProps): JSX.Elemen
         aria-current={current(props.active === "gradeSettings")}
       >
         Grade settings
-      </A>
-      <A
-        href={`/instructor/courses/${reference}/appearance`}
-        aria-current={current(props.active === "appearance")}
-      >
-        Appearance
       </A>
     </nav>
   );

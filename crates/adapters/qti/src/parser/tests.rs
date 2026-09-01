@@ -391,7 +391,7 @@ fn import_handoff_keeps_archive_assets_and_grading_server_only() {
         imported.worker_original_size_bytes() as usize,
         fixture(VALID_PACKAGE).len()
     );
-    assert_eq!(imported.worker_original_sha256().len(), 64);
+    assert_eq!(imported.worker_original_package_checksum().len(), 64);
     assert!(imported.worker_assets().is_empty());
     let item_id = &imported.questions[0].item_id;
     assert_eq!(
@@ -436,7 +436,7 @@ fn reports_partial_success_and_normalized_duplicate_warnings() {
             .expect("resource result")
     };
     assert_eq!(result("accepted").status, QtiItemImportStatus::Accepted);
-    assert!(result("accepted").normalized_sha256.is_some());
+    assert!(result("accepted").normalized_qti_item_fingerprint.is_some());
     assert!(result("accepted").warnings.is_empty());
     assert_eq!(result("exact-copy").status, QtiItemImportStatus::Accepted);
     assert!(

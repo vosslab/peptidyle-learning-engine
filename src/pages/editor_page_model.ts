@@ -3,15 +3,17 @@
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
-import type { QuestionVariationDefinition } from "../../generated/api/QuestionVariationDefinition";
+import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
-import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
+import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSummary";
 import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
-import type { PublicByline } from "../../generated/api/PublicByline";
+import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
 import type { InstructorPreviewResult } from "./editor_instructor_preview";
+
+export type { DraftQuestionSummary };
 
 /**
  * The editor's deliberate browser projection of a workspace draft.
@@ -27,7 +29,7 @@ export interface EditorDraft {
   readonly response: QuestionResponseFormat;
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly questionVariationDefinition: QuestionVariationDefinition;
+  readonly questionVariationRule: QuestionVariationRule;
 }
 
 export interface EditorDraftDisplayState {
@@ -35,15 +37,8 @@ export interface EditorDraftDisplayState {
   readonly dirty: boolean;
 }
 
-export interface WorkspaceDraftSummary {
-  readonly workspace: WorkspaceId;
-  readonly reference: AuthoringWorkspaceReference;
-  readonly title: string;
-  readonly questionBackend: DraftQuestionBackendLocator["backend"];
-}
-
-export interface WorkspaceDraftPage {
-  readonly items: ReadonlyArray<WorkspaceDraftSummary>;
+export interface DraftQuestionPage {
+  readonly items: ReadonlyArray<DraftQuestionSummary>;
   readonly nextCursor: string | null;
 }
 
@@ -68,7 +63,7 @@ export interface QuestionPublicationReviewSection {
   readonly after: string;
 }
 
-/** A server-computed, browser-safe review of one saved Question Working Copy. */
+/** A server-computed, browser-safe review of one saved Draft Question Revision. */
 export interface QuestionPublicationReview {
   /** Exact strong ETag returned with the server-computed review. */
   readonly revision: string;
@@ -96,7 +91,7 @@ export type PublishOutcome =
 
 /** Injected workspace boundary supplied by the active runtime composition. */
 export interface EditorRepository {
-  readonly listDrafts: (cursor?: string) => Promise<WorkspaceDraftPage>;
+  readonly listDrafts: (cursor?: string) => Promise<DraftQuestionPage>;
   readonly getDraft: (workspace: WorkspaceId) => Promise<EditorDraft>;
   readonly saveDraft: (draft: EditorDraft) => Promise<EditorDraft>;
   readonly validateCapabilities: (
@@ -107,7 +102,7 @@ export interface EditorRepository {
   /** Publishes only the exact revision represented by a previously reviewed server result. */
   readonly publish: (
     draft: EditorDraft,
-    request: { readonly byline: PublicByline },
+    request: { readonly authorship: QuestionAuthorship },
     reviewedRevision: string,
   ) => Promise<PublishOutcome>;
   /** Only completed server contracts are enabled by a live repository. */

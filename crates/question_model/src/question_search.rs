@@ -3,20 +3,20 @@
 use serde::{Deserialize, Serialize};
 
 use crate::Capability;
-use crate::classification::{License, QuestionClassification};
+use crate::classification::{QuestionClassification, QuestionLicense};
 use crate::question_library::{
     MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS, QuestionBackend, QuestionId,
 };
 use crate::response::QuestionType;
 
-/// Maximum public byline selections accepted in one Question Search query.
-pub const MAX_QUESTION_SEARCH_BYLINE_FILTERS: usize = 16;
+/// Maximum Question Author name selections accepted in one Question Search query.
+pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
 
 /// Maximum free-form tag selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
-/// Maximum reviewed public bylines returned in one Question Search facet snapshot.
-pub const MAX_QUESTION_SEARCH_BYLINE_FACETS: usize = 64;
+/// Maximum reviewed Question Author names returned in one Question Search facet snapshot.
+pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS: usize = 64;
 
 /// Maximum backend values returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_BACKEND_FACETS: usize = QuestionBackend::ALL.len();
@@ -55,12 +55,12 @@ pub enum QuestionSearchAuthorship {
     AuthoredByCurrentAccount,
 }
 
-/// Server-computed count for one exact reviewed public author display name.
+/// Server-computed count for one exact reviewed Question Author display name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchBylineFacet {
-    /// Exact reviewed public display value, never an account identifier.
-    pub byline: String,
+pub struct QuestionSearchAuthorFacet {
+    /// Exact reviewed Question Author display value, never an Account Reference.
+    pub author_name: String,
     /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
@@ -116,54 +116,6 @@ pub struct QuestionSearchClassificationFilter {
     pub code: String,
 }
 
-/// Reuse-license values accepted by Question Search.
-///
-/// `Other` means the supported other-SPDX class, rather than accepting an
-/// arbitrary browser-provided SPDX string as a query primitive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionSearchLicense {
-    /// All rights reserved.
-    AllRightsReserved,
-    /// Creative Commons Attribution.
-    CcBy,
-    /// Creative Commons Attribution-ShareAlike.
-    CcBySa,
-    /// Creative Commons Attribution-NonCommercial.
-    CcByNc,
-    /// Public-domain dedication.
-    Cc0,
-    /// A named SPDX license outside the common set.
-    Other,
-}
-
-impl QuestionSearchLicense {
-    /// Whether this value describes one metadata license.
-    pub fn matches(self, license: &License) -> bool {
-        matches!(
-            (self, license),
-            (Self::AllRightsReserved, License::AllRightsReserved)
-                | (Self::CcBy, License::CcBy)
-                | (Self::CcBySa, License::CcBySa)
-                | (Self::CcByNc, License::CcByNc)
-                | (Self::Cc0, License::Cc0)
-                | (Self::Other, License::Other { .. })
-        )
-    }
-
-    /// Classifies metadata without exposing an SPDX value as a facet key.
-    pub fn from_license(license: &License) -> Self {
-        match license {
-            License::AllRightsReserved => Self::AllRightsReserved,
-            License::CcBy => Self::CcBy,
-            License::CcBySa => Self::CcBySa,
-            License::CcByNc => Self::CcByNc,
-            License::Cc0 => Self::Cc0,
-            License::Other { .. } => Self::Other,
-        }
-    }
-}
-
 /// Availability filter for disclosed, validity-governed evidence.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -187,8 +139,8 @@ pub enum QuestionStatisticsAvailability {
 pub struct QuestionSearchRequest {
     /// Optional full-text-like text query over Question Library summary metadata.
     pub text: Option<String>,
-    /// Reviewed public author names; any normalized name may match.
-    pub bylines: Vec<String>,
+    /// Reviewed Question Author display names; any normalized name may match.
+    pub author_names: Vec<String>,
     /// Accepted Question Backends; any supplied backend may match.
     pub backends: Vec<QuestionBackend>,
     /// Free-form metadata tags; any normalized tag may match.
@@ -199,8 +151,8 @@ pub struct QuestionSearchRequest {
     pub classifications: Vec<QuestionSearchClassificationFilter>,
     /// Required adapter capabilities; every supplied capability must be present.
     pub capabilities: Vec<Capability>,
-    /// Accepted license classes; any supplied value may match.
-    pub licenses: Vec<QuestionSearchLicense>,
+    /// Accepted exact Question Licenses; any supplied value may match.
+    pub question_licenses: Vec<QuestionLicense>,
     /// Whether disclosed independent student observations must be available.
     pub evidence: QuestionStatisticsAvailability,
     /// Whether a current Account-visible course use is required.
@@ -225,13 +177,13 @@ pub struct QuestionSearchRequest {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct QuestionSearchFilter {
     pub text: Option<String>,
-    pub bylines: Vec<String>,
+    pub author_names: Vec<String>,
     pub backends: Vec<QuestionBackend>,
     pub tags: Vec<String>,
     pub question_types: Vec<QuestionType>,
     pub classifications: Vec<QuestionSearchClassificationFilter>,
     pub capabilities: Vec<Capability>,
-    pub licenses: Vec<QuestionSearchLicense>,
+    pub question_licenses: Vec<QuestionLicense>,
     pub evidence: QuestionStatisticsAvailability,
     pub used_in_my_courses: QuestionSearchCourseUse,
     pub authorship: QuestionSearchAuthorship,
@@ -248,13 +200,13 @@ impl QuestionSearchFilter {
         let query = query.normalized()?;
         Ok(Self {
             text: query.text,
-            bylines: query.bylines,
+            author_names: query.author_names,
             backends: query.backends,
             tags: query.tags,
             question_types: query.question_types,
             classifications: query.classifications,
             capabilities: query.capabilities,
-            licenses: query.licenses,
+            question_licenses: query.question_licenses,
             evidence: query.evidence,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
@@ -271,13 +223,13 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
     fn from(filter: QuestionSearchFilter) -> Self {
         Self {
             text: filter.text,
-            bylines: filter.bylines,
+            author_names: filter.author_names,
             backends: filter.backends,
             tags: filter.tags,
             question_types: filter.question_types,
             classifications: filter.classifications,
             capabilities: filter.capabilities,
-            licenses: filter.licenses,
+            question_licenses: filter.question_licenses,
             evidence: filter.evidence,
             used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
@@ -291,13 +243,13 @@ impl Default for QuestionSearchRequest {
     fn default() -> Self {
         Self {
             text: None,
-            bylines: Vec::new(),
+            author_names: Vec::new(),
             backends: Vec::new(),
             tags: Vec::new(),
             question_types: Vec::new(),
             classifications: Vec::new(),
             capabilities: Vec::new(),
-            licenses: Vec::new(),
+            question_licenses: Vec::new(),
             evidence: QuestionStatisticsAvailability::Any,
             used_in_my_courses: QuestionSearchCourseUse::Any,
             authorship: QuestionSearchAuthorship::Any,
@@ -340,12 +292,12 @@ impl QuestionSearchRequest {
 
     /// Produces the canonical query used for both rows and facet aggregates.
     ///
-    /// Text, public bylines, and tags use lowercased, whitespace-collapsed
+    /// Text, Question Author display names, and tags use lowercased, whitespace-collapsed
     /// Unicode text. Controlled terms retain durable case after trimming.
     /// Text, every active metadata filter, Account-bound filters, and
     /// `authorship`
-    /// combine with every other active filter using AND. Within bylines,
-    /// backends, tags, Question Types, and licenses, values combine using
+    /// combine with every other active filter using AND. Within Question Author names,
+    /// backends, tags, Question Types, and Question Licenses, values combine using
     /// OR. Question Classifications and capabilities retain every-value-matches semantics.
     pub fn normalized(mut self) -> Result<Self, QuestionSearchRequestError> {
         self.text = self
@@ -353,7 +305,11 @@ impl QuestionSearchRequest {
             .map(|text| normalize_text(text, 256))
             .transpose()?
             .filter(|text| !text.is_empty());
-        normalize_text_filters(&mut self.bylines, MAX_QUESTION_SEARCH_BYLINE_FILTERS, 120)?;
+        normalize_text_filters(
+            &mut self.author_names,
+            MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+            120,
+        )?;
         normalize_text_filters(&mut self.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
         for classification in &mut self.classifications {
             classification.system = classification.system.trim().to_string();
@@ -369,7 +325,7 @@ impl QuestionSearchRequest {
         }
         if self.classifications.len() > MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS
             || self.capabilities.len() > Capability::ALL.len()
-            || self.licenses.len() > 6
+            || self.question_licenses.len() > 3
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.question_types.len() > MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS
         {
@@ -379,8 +335,8 @@ impl QuestionSearchRequest {
         self.classifications.dedup();
         self.capabilities.sort();
         self.capabilities.dedup();
-        self.licenses.sort();
-        self.licenses.dedup();
+        self.question_licenses.sort();
+        self.question_licenses.dedup();
         self.backends.sort();
         self.backends.dedup();
         self.question_types.sort();
@@ -446,12 +402,12 @@ pub struct QuestionSearchCapabilityFacet {
     pub count: u64,
 }
 
-/// Server-computed count for one license class.
+/// Server-computed count for one exact Question License.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchLicenseFacet {
-    /// License class represented by the count.
-    pub license: QuestionSearchLicense,
+pub struct QuestionSearchQuestionLicenseFacet {
+    /// Exact Question License represented by the count.
+    pub question_license: QuestionLicense,
     /// Number of matching discoverable publications in the query snapshot.
     pub count: u64,
 }
@@ -470,8 +426,8 @@ pub struct QuestionStatisticsAvailabilityFacet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSearchFacets {
-    /// Exact reviewed public byline counts.
-    pub bylines: Vec<QuestionSearchBylineFacet>,
+    /// Exact reviewed Question Author display-name counts.
+    pub author_names: Vec<QuestionSearchAuthorFacet>,
     /// Closed Question Backend counts.
     pub backends: Vec<QuestionSearchBackendFacet>,
     /// Exact stored public tag counts.
@@ -482,8 +438,8 @@ pub struct QuestionSearchFacets {
     pub classifications: Vec<QuestionSearchClassificationFacet>,
     /// Adapter capability counts.
     pub capabilities: Vec<QuestionSearchCapabilityFacet>,
-    /// Reuse-license counts.
-    pub licenses: Vec<QuestionSearchLicenseFacet>,
+    /// Exact Question License counts.
+    pub question_licenses: Vec<QuestionSearchQuestionLicenseFacet>,
     /// Validity-governed evidence availability counts.
     pub evidence: QuestionStatisticsAvailabilityFacet,
     /// Account-specific current-course-use count.

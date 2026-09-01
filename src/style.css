@@ -279,7 +279,7 @@ nav a.active::after {
 .page:is(
   [data-route-surface="assignmentWorkspace"],
   [data-route-surface="workspaceEditor"],
-  [data-route-surface="flatQuestionEditor"],
+  [data-route-surface="pleQuestionJsonEditor"],
   [data-route-surface="courseRoster"],
   [data-route-surface="gradebook"],
   [data-route-surface="courseAppearance"],

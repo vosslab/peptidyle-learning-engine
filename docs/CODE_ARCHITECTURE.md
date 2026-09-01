@@ -62,7 +62,7 @@ scope under forced row-level security.
 ### BlueprintCourse
 
 `crates/question_model/src/blueprint_course.rs` owns the reusable meaning.
-The aggregate contains a title, reviewed byline/publication state, one strong
+The aggregate contains a title, reviewed Question Authorship/publication state, one strong
 revision, ordered modules, ordered Blueprint Assignments, policy defaults,
 relative schedule defaults, evidence context, and public Question ID members.
 The Store resolves each public Question ID to an exact immutable publication pin
@@ -76,10 +76,10 @@ CourseInstance to a moving source.
 
 ### CourseInstance
 
-`CourseInstance` is created or updated through the separate adoption boundary.
-`crates/question_model/src/curriculum_adoption.rs` owns source observations,
+`CourseInstance` is created or updated through the separate Blueprint-operation boundary.
+`crates/question_model/src/blueprint_operations.rs` owns source observations,
 target-term schedule resolution, previews, commands, provenance, receipts, and
-controlled update semantics. A whole-course instantiation copies reusable
+Apply Blueprint Update semantics. Create Course from Blueprint copies reusable
 definitions, policy/theme defaults, reviewed offsets, and normalized manifests
 into an exact destination `CourseId`; it never copies Students, invitations,
 groups containing Students, accommodations, runs, responses, grades, or issued
@@ -90,7 +90,7 @@ unreleased definitions. An Instructor explicitly releases each new delivery
 assignment through the CourseInstance boundary. Delivery edits remain private
 to the instance. Untouched imports may fast-forward before issued work;
 divergent assignments require explicit selected copying or a new source-derived
-assignment. Rollover and term shift are separate CourseInstance operations.
+assignment. Copy Course for New Term and Shift Course Dates are separate Course Instance operations.
 
 ## Major components
 
@@ -106,7 +106,7 @@ assignment. Rollover and term shift are separate CourseInstance operations.
 | Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                               |
 | Browser             | `src/`                                                  | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions.                |
 | Object storage      | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.               |
-| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, H5P, iMathAS, and WeBWorK Question Backends behind declared capabilities.                                                        |
+| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, H5P, iMathAS, and WeBWorK Question Backends behind declared capabilities.                                                       |
 
 The server composition root is `crates/server/src/composition/`. It selects
 PostgreSQL, object storage, identity, adapters, worker capabilities, and the
@@ -123,13 +123,10 @@ is `crates/learning-data-access/src/postgres/blueprint_course.rs`, with SQL
 decoding, complete-tree validation, cursor paging, and authorization-aware
 projections.
 
-`crates/learning-data-access/src/contracts/curriculum_adoption.rs` is separate
-because adoption changes a destination CourseInstance and creates immutable
-provenance. Its Memory implementation is under
-`crates/learning-data-access/src/in_memory/curriculum_adoption/`; the PostgreSQL
-implementation is under `crates/learning-data-access/src/postgres/curriculum_adoption/`
-and its bridge modules. Adoption receipts and the repairable current import
-projection are separate. Reconciliation may repair only the derived projection.
+The current Question Model owns the Blueprint-operation transport contracts;
+there is no mounted learning-data-access Store implementation yet. A future
+Store must preserve immutable operation receipts separately from repairable
+current projections. Reconciliation may repair only the derived projection.
 
 The fresh SD1 migration epoch is owned by the allocation in
 [implementation_status.md](active_plans/implementation_status.md). The
@@ -158,7 +155,7 @@ Instructor creates or edits BlueprintCourse
 
 The picker selects a nested Blueprint assignment by typed reference plus module
 and assignment positions. Assignment instantiation targets an existing exact
-CourseInstance; whole-course instantiation creates a new CourseInstance. Forking
+CourseInstance; Create Course from Blueprint creates a new CourseInstance. Forking
 creates an independent BlueprintCourse with immutable source lineage. None of
 these operations grants private CourseInstance or FERPA authority to a public
 Blueprint projection.
@@ -208,8 +205,8 @@ Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
   vetted-Instructor published reads, workspace and CourseInstance privacy,
   exact source revision and CourseId binding, rollback, and idempotency.
 - Production HTTPS Playwright proves visible authoring, nested picker reuse,
-  fork, assignment and whole-course instantiation, DST correction, explicit
-  release of propagated assignments, controlled update, and divergence recovery.
+  Fork Blueprint Course, Copy Assignment from Blueprint, Create Course from Blueprint, DST correction, explicit
+  release of propagated assignments, Apply Blueprint Update, and divergence recovery.
 - Graphify, source inventories, migration registration, generated-file
   regeneration, and screenshot publication are one-time implementation
   evidence. They are not recurring pytest or Node gates.
@@ -247,7 +244,7 @@ after the owning implementation is coherent.
 
 - Add reusable course meaning in the Rust question-model BlueprintCourse
   contracts, then update both Store implementations and conformance behavior.
-- Add a delivery operation in `curriculum_adoption` with an explicit source,
+- Add a delivery operation in `blueprint_operations` with an explicit source,
   destination, revision, authorization, preview, apply, and receipt contract.
 - Add PostgreSQL schema only through the status-owned forward migration
   allocation; preserve applied migrations as history.

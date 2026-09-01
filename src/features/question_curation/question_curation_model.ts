@@ -294,7 +294,7 @@ export function questionSearchFilterFromLibraryQuery(
   }
   return {
     text: normalized.search === "" ? null : normalized.search,
-    bylines: normalized.byline === null ? [] : [normalized.byline],
+    author_names: normalized.authorName === null ? [] : [normalized.authorName],
     backends:
       normalized.backend === null ? [] : ([normalized.backend] as QuestionSearchFilter["backends"]),
     tags: normalized.tag === null ? [] : [normalized.tag],
@@ -315,8 +315,10 @@ export function questionSearchFilterFromLibraryQuery(
       normalized.capability === null
         ? []
         : ([normalized.capability] as QuestionSearchFilter["capabilities"]),
-    licenses:
-      normalized.license === null ? [] : ([normalized.license] as QuestionSearchFilter["licenses"]),
+    question_licenses:
+      normalized.questionLicense === null
+        ? []
+        : ([normalized.questionLicense] as QuestionSearchFilter["question_licenses"]),
     evidence:
       normalized.evidence === null
         ? "any"
@@ -334,7 +336,7 @@ export function libraryQueryFromSavedSearch(search: SavedQuestionSearchView): Qu
   return {
     ...EMPTY_QUESTION_SEARCH_QUERY,
     search: filter.text ?? "",
-    byline: filter.bylines[0] ?? null,
+    authorName: filter.author_names[0] ?? null,
     backend: filter.backends[0] ?? null,
     tag: filter.tags[0] ?? null,
     questionType: filter.question_types[0] ?? null,
@@ -343,7 +345,7 @@ export function libraryQueryFromSavedSearch(search: SavedQuestionSearchView): Qu
         ? null
         : `${filter.classifications[0].system}:${filter.classifications[0].code}`,
     capability: filter.capabilities[0] ?? null,
-    license: filter.licenses[0] ?? null,
+    questionLicense: filter.question_licenses[0] ?? null,
     evidence: filter.evidence === "any" ? null : filter.evidence,
     usedInMyCourses: filter.used_in_my_courses === "any" ? null : filter.used_in_my_courses,
     authorship: filter.authorship,

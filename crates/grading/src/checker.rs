@@ -345,9 +345,9 @@ mod tests {
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
-    use question_model::classification::License;
+    use question_model::classification::QuestionLicense;
     use question_model::envelope::QuestionContentBlock;
-    use question_model::generation::QuestionVariationDefinition;
+    use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
         QuestionBackendLocator, QuestionFormat, QuestionId, QuestionMetadata,
@@ -386,13 +386,15 @@ mod tests {
             question_type: QuestionType::MultipleChoice,
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_definition: QuestionVariationDefinition::Static,
+            question_variation_rule: QuestionVariationRule::Static,
             grading,
             metadata: QuestionMetadata {
                 title: "Grading fixture".to_string(),
+                question_description: "Instructor-facing grading fixture summary.".to_string(),
                 tags: Vec::new(),
                 classifications: Vec::new(),
-                license: License::CcBySa,
+                question_license: Some(QuestionLicense::CcBySa4_0),
+                question_citation: None,
                 language: "en-US".to_string(),
             },
         }

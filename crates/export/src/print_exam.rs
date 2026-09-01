@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use objects::Sha256Digest;
+use objects::Sha256Checksum;
 use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::{
     Capability, QuestionAssetId, QuestionBackendCapabilities, QuestionResponseFormat,
@@ -221,7 +221,7 @@ fn resolve_question_assets(
                 asset.asset, resolved.media_type
             ));
         }
-        if Sha256Digest::compute(&resolved.bytes).to_string() != asset.checksum {
+        if Sha256Checksum::compute(&resolved.bytes).to_string() != asset.checksum {
             return Err(format!(
                 "figure {} bytes do not match its published checksum",
                 asset.asset
@@ -541,7 +541,7 @@ mod tests {
         Assets(map)
     }
     fn set_asset_checksums(question: &mut QuestionRevision) {
-        let checksum = Sha256Digest::compute(&png()).to_string();
+        let checksum = Sha256Checksum::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
@@ -583,7 +583,7 @@ mod tests {
     #[test]
     fn four_artifacts_embed_figure_and_accessible_alternative() {
         let mut question = fixture_question();
-        let checksum = Sha256Digest::compute(&png()).to_string();
+        let checksum = Sha256Checksum::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
@@ -613,7 +613,7 @@ mod tests {
         question.metadata.title =
             "\u{03b2}-sheet: \u{03bc}M at 37\u{00b0}C \u{2192} caf\u{00e9}; x\u{00b2} + H\u{2082}O"
                 .to_string();
-        let checksum = Sha256Digest::compute(&png()).to_string();
+        let checksum = Sha256Checksum::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn every_supported_response_shape_builds_four_readable_artifacts() {
         let mut base = fixture_question();
-        let checksum = Sha256Digest::compute(&png()).to_string();
+        let checksum = Sha256Checksum::compute(&png()).to_string();
         for block in &mut base.prompt {
             if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();
@@ -770,7 +770,7 @@ mod tests {
     #[ignore = "opt-in external PDF/DOCX reader acceptance"]
     fn independent_readers_accept_all_four_artifacts() {
         let mut question = fixture_question();
-        let checksum = Sha256Digest::compute(&png()).to_string();
+        let checksum = Sha256Checksum::compute(&png()).to_string();
         for block in &mut question.prompt {
             if let QuestionContentBlock::Image { asset, .. } = block {
                 asset.checksum = checksum.clone();

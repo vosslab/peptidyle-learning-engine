@@ -69,8 +69,8 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 
 - Owner: architect.
 - Outcome: the ledger allocates every matrix-identified Axum producer, every public serializable
-  question-model source closure, each PLE query family, Wasm/adapter PLE bridges, and every durable
-  record/artifact family.
+  question-model source closure, each PLE query boundary, Wasm/adapter PLE bridges, and every durable
+  record or artifact type.
 - Evidence: Graphify navigation followed by current-source verification, durable disposition
   review, naming-convention review, and independent acceptance. These are one-time receipts.
 - Exit: achieved 2026-08-28; fresh independent v3 review accepted the revised ledger.
@@ -167,10 +167,10 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 
 | Package | Atomic child families                                                                                                                                                                                       |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1      | Calculated Gradebook, Student/operation selection, submitted-run chooser, audited detail, roster, roster import, roster score CSV export                                                                    |
+| C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                     |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                               |
 | C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                                                                  |
-| C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; flat assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
+| C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                       |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                            |
 

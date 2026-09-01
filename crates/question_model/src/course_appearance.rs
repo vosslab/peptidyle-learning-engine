@@ -217,14 +217,14 @@ pub struct CourseBannerId(Uuid);
 
 impl_banner_route_id!(CourseBannerId);
 
-/// Opaque identity returned after an authorized candidate upload.
+/// Opaque reference returned after an authorized Course Banner Upload.
 ///
 /// The server binds it to the course, Account, and expiry before accepting
 /// it in an appearance update. It reveals no physical storage identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct CourseBannerCandidateId(Uuid);
+pub struct CourseBannerUploadReference(Uuid);
 
-impl_banner_route_id!(CourseBannerCandidateId);
+impl_banner_route_id!(CourseBannerUploadReference);
 
 /// Validated informative text for one course banner.
 ///
@@ -288,12 +288,12 @@ pub struct CourseBannerPresentation {
     pub alternative_text: CourseBannerAlternativeText,
 }
 
-/// Safe receipt returned after an authorized banner candidate upload.
+/// Safe receipt returned after an authorized Course Banner Upload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct CourseBannerCandidateReceipt {
-    /// Opaque candidate accepted by a later atomic appearance update.
-    pub candidate: CourseBannerCandidateId,
+pub struct CourseBannerUploadReceipt {
+    /// Opaque upload accepted by a later atomic appearance update.
+    pub upload: CourseBannerUploadReference,
 }
 
 /// Complete browser-safe course appearance projection.
@@ -324,10 +324,10 @@ pub enum CourseBannerMutation {
     },
     /// Make the course have no current banner.
     Remove,
-    /// Promote one Account-bound candidate and use it as the current banner.
+    /// Promote one Account-bound upload and use it as the current banner.
     Replace {
-        /// Opaque candidate returned by the authorized upload operation.
-        candidate: CourseBannerCandidateId,
+        /// Opaque upload returned by the authorized upload operation.
+        upload: CourseBannerUploadReference,
         /// Explicit decorative or informative treatment for the replacement.
         alternative_text: CourseBannerAlternativeText,
     },
@@ -431,25 +431,25 @@ mod tests {
     }
 
     #[test]
-    fn candidate_receipt_exposes_only_the_route_bound_identity() {
-        let receipt = CourseBannerCandidateReceipt {
-            candidate: CourseBannerCandidateId::from_uuid(Uuid::from_u128(8)),
+    fn upload_receipt_exposes_only_the_route_bound_reference() {
+        let receipt = CourseBannerUploadReceipt {
+            upload: CourseBannerUploadReference::from_uuid(Uuid::from_u128(8)),
         };
         assert_eq!(
-            serde_json::to_value(receipt).expect("candidate receipt should serialize"),
+            serde_json::to_value(receipt).expect("upload receipt should serialize"),
             serde_json::json!({
-                "candidate": "00000000-0000-0000-0000-000000000008"
+                "upload": "00000000-0000-0000-0000-000000000008"
             })
         );
     }
 
     #[test]
     fn update_body_is_strict_and_route_bound() {
-        let candidate = CourseBannerCandidateId::from_uuid(Uuid::from_u128(9));
+        let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(9));
         let update = CourseAppearanceUpdate {
             theme: CourseThemeId::Forest,
             banner: CourseBannerMutation::Replace {
-                candidate,
+                upload,
                 alternative_text: CourseBannerAlternativeText::Informative {
                     text: CourseBannerAltText::try_from("Forest canopy".to_string())
                         .expect("alt text should validate"),

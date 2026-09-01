@@ -91,7 +91,7 @@ import {
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
   "presentationEnvelope",
-  "flatPresentation",
+  "pleQuestionJsonPresentation",
   "webworkPresentation",
   "notApplicable",
 ] as const satisfies ReadonlyArray<IssuedAttemptCapability>;
@@ -136,7 +136,7 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "id",
     "assignmentAttempt",
     "assignmentEntry",
-    "definitionEntryIndex",
+    "assignmentContentEntryIndex",
     "issuedPosition",
     "reference",
     "statisticsEligible",
@@ -153,9 +153,9 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "assignmentEntry", path),
       `${path}.assignmentEntry`,
     ),
-    definitionEntryIndex: decodeNonnegativeInteger(
-      field(record, "definitionEntryIndex", path),
-      `${path}.definitionEntryIndex`,
+    assignmentContentEntryIndex: decodeNonnegativeInteger(
+      field(record, "assignmentContentEntryIndex", path),
+      `${path}.assignmentContentEntryIndex`,
     ),
     issuedPosition: decodeNonnegativeInteger(
       field(record, "issuedPosition", path),

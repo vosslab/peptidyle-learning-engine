@@ -19,9 +19,9 @@ const HOTSPOT_COORDINATE_MAXIMUM: u32 = 10_000;
 
 /// Full SHA-256 binding retained by server persistence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct QuestionPresentationDigest([u8; 32]);
+pub struct QuestionPresentationChecksum([u8; 32]);
 
-impl QuestionPresentationDigest {
+impl QuestionPresentationChecksum {
     pub(crate) fn zero() -> Self {
         Self([0; 32])
     }
@@ -31,7 +31,7 @@ impl QuestionPresentationDigest {
         Self(Sha256::digest(bytes).into())
     }
 
-    /// Restores a validated persisted digest.
+    /// Restores a validated persisted checksum.
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
@@ -58,13 +58,13 @@ impl QuestionPresentationDigest {
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         {
-            return Err("presentation digest must be 64 lowercase hexadecimal characters");
+            return Err("presentation checksum must be 64 lowercase hexadecimal characters");
         }
         let mut bytes = [0_u8; 32];
         for (index, chunk) in value.as_bytes().as_chunks::<2>().0.iter().enumerate() {
-            let text = std::str::from_utf8(chunk).map_err(|_| "invalid presentation digest")?;
+            let text = std::str::from_utf8(chunk).map_err(|_| "invalid presentation checksum")?;
             bytes[index] =
-                u8::from_str_radix(text, 16).map_err(|_| "invalid presentation digest")?;
+                u8::from_str_radix(text, 16).map_err(|_| "invalid presentation checksum")?;
         }
         Ok(Self(bytes))
     }
@@ -114,18 +114,18 @@ pub fn descriptor_bytes(
     Ok(encoder.finish())
 }
 
-/// Verifies both the full persisted digest and the public prefix.
+/// Verifies both the full persisted checksum and the public prefix.
 pub fn verify_question_presentation(
     presentation: &IssuedQuestionPresentation,
-    expected: QuestionPresentationDigest,
+    expected: QuestionPresentationChecksum,
     public: &QuestionPresentationToken,
 ) -> Result<(), PresentationBuildError> {
-    let actual = QuestionPresentationDigest::compute(&descriptor_bytes(presentation)?);
+    let actual = QuestionPresentationChecksum::compute(&descriptor_bytes(presentation)?);
     if actual == expected && actual.public_token() == *public {
         Ok(())
     } else {
         Err(PresentationBuildError::InvalidPublicContent(
-            "presentation digest does not match the descriptor",
+            "presentation checksum does not match the descriptor",
         ))
     }
 }

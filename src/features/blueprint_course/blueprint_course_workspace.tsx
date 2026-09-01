@@ -5,7 +5,7 @@ import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid
 
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
+import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import type { BlueprintCourseClient, BlueprintCourseEtag } from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
@@ -13,10 +13,10 @@ import { CurriculumCreateDialog } from "./blueprint_course_create_dialog";
 import {
   appendBlueprintCoursePage,
   blueprintCourseContinuationPresentation,
-  replacementDefinitionFromBlueprintCourse,
-  validateReusableDefinition,
+  replacementContentFromBlueprintCourse,
+  validateReusableContent,
 } from "./blueprint_course_model";
-import { ReusableDefinitionEditor } from "./blueprint_course_definition_editor";
+import { BlueprintAssignmentContentEditor } from "./blueprint_assignment_content_editor";
 import "./blueprint_course.css";
 
 type LoadState = "loading" | "ready" | "error";
@@ -30,7 +30,7 @@ interface Notice {
 interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
   readonly etag: BlueprintCourseEtag;
-  readonly draft: ReplaceBlueprintCourseDefinitionInput;
+  readonly draft: ReplaceBlueprintCourseContentInput;
 }
 
 export interface CurriculumWorkspaceProps {
@@ -57,7 +57,7 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
 
-/** Lists every Blueprint Course available to the current approved Instructor. */
+/** Lists every Blueprint Course available to the current active Instructor. */
 export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [courses, setCourses] = createSignal<ReadonlyArray<BlueprintCourseSummaryView>>([]);
@@ -143,7 +143,7 @@ export function CurriculumWorkspace(props: CurriculumWorkspaceProps): JSX.Elemen
             <div class="curriculum-section-heading">
               <div>
                 <h2 id="blueprint-courses-heading">Available Blueprint Courses</h2>
-                <p>Every approved Instructor can inspect reusable question structure.</p>
+                <p>Every active Instructor can inspect reusable question structure.</p>
               </div>
               <button
                 type="button"
@@ -240,7 +240,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
         draft:
           keepDraft && prior !== undefined
             ? prior.draft
-            : replacementDefinitionFromBlueprintCourse(result.blueprintCourse),
+            : replacementContentFromBlueprintCourse(result.blueprintCourse),
       });
       if (!keepDraft) setDirty(false);
       setConflict(false);
@@ -261,7 +261,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
     }
   }
 
-  function changeDraft(next: ReplaceBlueprintCourseDefinitionInput, text: string): void {
+  function changeDraft(next: ReplaceBlueprintCourseContentInput, text: string): void {
     const loaded = current();
     if (loaded === undefined) return;
     setCurrent({ ...loaded, draft: next });
@@ -272,17 +272,17 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
   function changeAssignment(
     moduleIndex: number,
     assignmentIndex: number,
-    definition: import("../../../generated/api/BlueprintAssignmentDefinitionInput").BlueprintAssignmentDefinitionInput,
+    content: import("../../../generated/api/BlueprintAssignmentContentInput").BlueprintAssignmentContentInput,
     text: string,
   ): void {
     const loaded = current();
     const module = loaded?.draft.modules[moduleIndex];
-    const assignment = module?.definitions[assignmentIndex];
+    const assignment = module?.assignments[assignmentIndex];
     if (loaded === undefined || module === undefined || assignment === undefined) return;
     const modules = [...loaded.draft.modules];
-    const definitions = [...module.definitions];
-    definitions[assignmentIndex] = { ...assignment, definition };
-    modules[moduleIndex] = { ...module, definitions };
+    const assignments = [...module.assignments];
+    assignments[assignmentIndex] = { ...assignment, content };
+    modules[moduleIndex] = { ...module, assignments };
     changeDraft({ ...loaded.draft, modules }, text);
   }
 
@@ -290,8 +290,8 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
     const loaded = current();
     if (loaded === undefined) return;
     for (const module of loaded.draft.modules) {
-      for (const assignment of module.definitions) {
-        const validation = validateReusableDefinition(assignment.definition);
+      for (const assignment of module.assignments) {
+        const validation = validateReusableContent(assignment.content);
         if (!validation.valid) {
           setNotice({
             kind: "alert",
@@ -311,7 +311,7 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
       setCurrent({
         view: saved.blueprintCourse,
         etag: saved.etag,
-        draft: replacementDefinitionFromBlueprintCourse(saved.blueprintCourse),
+        draft: replacementContentFromBlueprintCourse(saved.blueprintCourse),
       });
       setDirty(false);
       setConflict(false);
@@ -376,16 +376,16 @@ export function CurriculumDetailWorkspace(props: CurriculumDetailWorkspaceProps)
                   {(module, moduleIndex) => (
                     <section class="curriculum-module">
                       <h2>{module.label}</h2>
-                      <For each={module.definitions}>
+                      <For each={module.assignments}>
                         {(assignment, assignmentIndex) => (
-                          <section class="curriculum-definition-card">
-                            <ReusableDefinitionEditor
-                              definition={assignment.definition}
+                          <section class="curriculum-content-card">
+                            <BlueprintAssignmentContentEditor
+                              content={assignment.content}
                               editable={loaded.view.access === "owner"}
                               pickerRepository={props.pickerRepository}
                               pickerSources={props.pickerSources}
-                              onChange={(definition, text) =>
-                                changeAssignment(moduleIndex(), assignmentIndex(), definition, text)
+                              onChange={(content, text) =>
+                                changeAssignment(moduleIndex(), assignmentIndex(), content, text)
                               }
                             />
                           </section>

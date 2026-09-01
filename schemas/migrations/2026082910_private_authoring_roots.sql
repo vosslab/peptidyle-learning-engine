@@ -14,7 +14,7 @@ CREATE TABLE ple_private.authoring_workspace (
     revoked_at timestamp with time zone,
     CONSTRAINT authoring_workspace_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= created_at),
     CONSTRAINT authoring_workspace_reference_is_bounded CHECK (
-        reference_number > 0 AND reference_number <= 4294967295
+        reference_number > 0 AND reference_number <= 2147483647
     )
 );
 CREATE TABLE ple_private.authoring_workspace_collaborator_event (
@@ -54,17 +54,12 @@ BEGIN
            OR NEW.collaborator_account_id = workspace_owner_account_id
            OR NOT EXISTS (
                SELECT 1
-                 FROM LATERAL (
-                     SELECT approval.event_kind
-                       FROM ple_private.instructor_approval_event AS approval
-                      WHERE approval.instructor_account_id = NEW.collaborator_account_id
-                      ORDER BY approval.occurred_at DESC, approval.instructor_approval_event_id DESC
-                      LIMIT 1
-                 ) AS latest_approval
-                WHERE latest_approval.event_kind = 'approved'
+                 FROM ple_private.account AS account
+                WHERE account.account_id = NEW.collaborator_account_id
+                  AND account.role = 'instructor'
            ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'only the Authoring Workspace Owner may start a Workspace Collaborator relationship for an Approved Instructor';
+                MESSAGE = 'only the Authoring Workspace Owner may start a Workspace Collaborator relationship for an Instructor Account';
         END IF;
     ELSIF NOT EXISTS (
         SELECT 1
@@ -94,19 +89,22 @@ CREATE TRIGGER authoring_workspace_collaborator_event_is_immutable
 BEFORE UPDATE OR DELETE ON ple_private.authoring_workspace_collaborator_event
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_authoring_workspace_collaborator_event_change();
 CREATE TABLE ple_private.draft_question (
-    draft_question_id uuid PRIMARY KEY,
+    draft_question_uuid uuid PRIMARY KEY,
+    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT draft_question_workspace_identity_is_unique UNIQUE (draft_question_id, workspace_id)
+    CONSTRAINT draft_question_reference_is_bounded
+        CHECK (reference_number > 0 AND reference_number <= 2147483647),
+    CONSTRAINT draft_question_workspace_identity_is_unique UNIQUE (draft_question_uuid, workspace_id)
 );
 CREATE TABLE ple_private.draft_question_revision (
-    draft_question_revision_id uuid PRIMARY KEY,
-    draft_question_id uuid NOT NULL REFERENCES ple_private.draft_question (draft_question_id),
+    draft_question_revision_uuid uuid PRIMARY KEY,
+    draft_question_uuid uuid NOT NULL REFERENCES ple_private.draft_question (draft_question_uuid),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     title text NOT NULL CHECK (char_length(btrim(title)) BETWEEN 1 AND 500),
-    definition jsonb NOT NULL CHECK (jsonb_typeof(definition) = 'object'),
+    question_content jsonb NOT NULL CHECK (jsonb_typeof(question_content) = 'object'),
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT draft_question_revision_number_is_unique UNIQUE (draft_question_id, revision_number)
+    CONSTRAINT draft_question_revision_number_is_unique UNIQUE (draft_question_uuid, revision_number)
 );
 CREATE FUNCTION ple_private.reject_draft_question_revision_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
@@ -114,20 +112,18 @@ BEGIN RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Draft Question Revisio
 $$;
 CREATE TRIGGER draft_question_revision_is_immutable BEFORE UPDATE OR DELETE ON ple_private.draft_question_revision FOR EACH ROW EXECUTE FUNCTION ple_private.reject_draft_question_revision_change();
 CREATE TABLE ple_private.question_source (
-    question_source_id uuid PRIMARY KEY,
-    draft_question_revision_id uuid UNIQUE REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
+    question_source_uuid uuid PRIMARY KEY,
+    draft_question_revision_uuid uuid UNIQUE REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     question_id text,
     revision_number integer,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'h5p', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleFlatQuestionV2', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     question_type text NOT NULL CHECK (question_type IN (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
         'numeric', 'matching', 'ordering', 'hotspot'
     )),
-    question_generator_id text,
-    question_generator_version text,
     backend_locator jsonb NOT NULL CHECK (jsonb_typeof(backend_locator) = 'object'),
     source_data jsonb CHECK (source_data IS NULL OR jsonb_typeof(source_data) = 'object'),
     source_object_id uuid,
@@ -143,8 +139,8 @@ CREATE TABLE ple_private.question_source (
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
     CONSTRAINT question_source_has_one_owner CHECK (
-        (draft_question_revision_id IS NOT NULL AND question_id IS NULL AND revision_number IS NULL)
-        OR (draft_question_revision_id IS NULL AND question_id IS NOT NULL AND revision_number IS NOT NULL)
+        (draft_question_revision_uuid IS NOT NULL AND question_id IS NULL AND revision_number IS NULL)
+        OR (draft_question_revision_uuid IS NULL AND question_id IS NOT NULL AND revision_number IS NOT NULL)
     ),
     CONSTRAINT question_source_revision_is_unique UNIQUE (question_id, revision_number),
     CONSTRAINT question_source_revision_matches FOREIGN KEY (question_id, revision_number)
@@ -156,14 +152,7 @@ CREATE TABLE ple_private.question_source (
     CONSTRAINT question_source_stores_data_or_an_object CHECK (
         source_data IS NOT NULL OR source_object_id IS NOT NULL
     ),
-    CONSTRAINT question_source_timestamps_are_ordered CHECK (updated_at >= created_at),
-    CONSTRAINT question_source_generator_is_complete CHECK (
-        (question_generator_id IS NULL AND question_generator_version IS NULL)
-        OR (
-            char_length(btrim(question_generator_id)) BETWEEN 1 AND 200
-            AND char_length(btrim(question_generator_version)) BETWEEN 1 AND 200
-        )
-    )
+    CONSTRAINT question_source_timestamps_are_ordered CHECK (updated_at >= created_at)
 );
 CREATE FUNCTION ple_private.validate_question_source_backend()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -186,7 +175,7 @@ CREATE TRIGGER question_source_backend_matches_question_revision
 BEFORE INSERT OR UPDATE ON ple_private.question_source
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_backend();
 CREATE TABLE ple_private.draft_question_answer_key (
-    draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
+    draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     public_binding_sha256 text NOT NULL CHECK (
         public_binding_sha256 ~ '^[0-9a-f]{64}$'
@@ -196,24 +185,24 @@ CREATE TABLE ple_private.draft_question_answer_key (
     created_at timestamp with time zone NOT NULL
 );
 CREATE TABLE ple_private.draft_question_feedback (
-    draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
+    draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     question_feedback jsonb NOT NULL CHECK (jsonb_typeof(question_feedback) = 'object'),
     question_feedback_sha256 text NOT NULL CHECK (question_feedback_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL
 );
 CREATE TABLE ple_private.draft_question_answer_explanation (
-    draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
+    draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     answer_explanation jsonb NOT NULL CHECK (jsonb_typeof(answer_explanation) = 'array'),
     answer_explanation_sha256 text NOT NULL CHECK (answer_explanation_sha256 ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL
 );
 CREATE TABLE ple_private.draft_question_grading_input (
-    draft_question_revision_id uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_id),
+    draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleFlatQuestionV2', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
@@ -226,8 +215,8 @@ BEGIN
         SELECT 1
           FROM ple_private.draft_question_revision AS revision
           JOIN ple_private.draft_question AS question
-            ON question.draft_question_id = revision.draft_question_id
-         WHERE revision.draft_question_revision_id = NEW.draft_question_revision_id
+            ON question.draft_question_uuid = revision.draft_question_uuid
+         WHERE revision.draft_question_revision_uuid = NEW.draft_question_revision_uuid
            AND question.workspace_id = NEW.workspace_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -301,7 +290,7 @@ CREATE TABLE ple_private.question_revision_grading_input (
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     question_format text NOT NULL CHECK (question_format IN (
-        'pleFlatQuestionV2', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
@@ -310,21 +299,39 @@ CREATE TABLE ple_private.question_revision_grading_input (
     CONSTRAINT question_revision_grading_input_version_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number)
 );
-CREATE TABLE ple_private.workspace_qti_import (
+CREATE TABLE ple_private.workspace_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid NOT NULL,
-    source_record jsonb NOT NULL CHECK (jsonb_typeof(source_record) = 'object'),
-    registry jsonb NOT NULL CHECK (jsonb_typeof(registry) = 'object'),
-    registry_sha256 text NOT NULL CHECK (registry_sha256 ~ '^[0-9a-f]{64}$'),
-    grading_bindings_sha256 text NOT NULL CHECK (grading_bindings_sha256 ~ '^[0-9a-f]{64}$'),
-    state text NOT NULL CHECK (state IN ('prepared', 'committed')),
-    prepared_at timestamp with time zone NOT NULL,
+    question_format text NOT NULL CHECK (question_format IN (
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+    )),
+    format_import_data jsonb NOT NULL CHECK (jsonb_typeof(format_import_data) = 'object'),
+    format_import_data_sha256 text NOT NULL CHECK (format_import_data_sha256 ~ '^[0-9a-f]{64}$'),
+    item_registry jsonb NOT NULL CHECK (jsonb_typeof(item_registry) = 'object'),
+    item_registry_sha256 text NOT NULL CHECK (item_registry_sha256 ~ '^[0-9a-f]{64}$'),
+    grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
+    state text NOT NULL CHECK (state IN ('staged', 'committed')),
+    staged_at timestamp with time zone NOT NULL,
     committed_at timestamp with time zone,
     PRIMARY KEY (workspace_id, import_id),
-    CONSTRAINT workspace_qti_import_commit_is_ordered CHECK (
-        (state = 'prepared' AND committed_at IS NULL)
-        OR (state = 'committed' AND committed_at >= prepared_at)
+    CONSTRAINT workspace_import_commit_is_ordered CHECK (
+        (state = 'staged' AND committed_at IS NULL)
+        OR (state = 'committed' AND committed_at >= staged_at)
     )
+);
+CREATE TABLE ple_private.workspace_import_item_result (
+    workspace_id uuid NOT NULL,
+    import_id uuid NOT NULL,
+    source_item_reference text NOT NULL CHECK (
+        char_length(btrim(source_item_reference)) BETWEEN 1 AND 500
+    ),
+    item_result text NOT NULL CHECK (item_result IN ('accepted', 'rejected')),
+    format_item_data jsonb NOT NULL CHECK (jsonb_typeof(format_item_data) = 'object'),
+    format_item_data_sha256 text NOT NULL CHECK (format_item_data_sha256 ~ '^[0-9a-f]{64}$'),
+    recorded_at timestamp with time zone NOT NULL,
+    PRIMARY KEY (workspace_id, import_id, source_item_reference),
+    CONSTRAINT workspace_import_item_result_parent_matches FOREIGN KEY (workspace_id, import_id)
+        REFERENCES ple_private.workspace_import (workspace_id, import_id) ON DELETE CASCADE
 );
 CREATE FUNCTION ple_private.reject_question_revision_private_record_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
@@ -351,17 +358,20 @@ CREATE TABLE ple_private.workspace_import_grading_input (
     created_at timestamp with time zone NOT NULL,
     PRIMARY KEY (workspace_id, import_id, item_id),
     CONSTRAINT workspace_import_grading_input_parent_matches FOREIGN KEY (workspace_id, import_id)
-        REFERENCES ple_private.workspace_qti_import (workspace_id, import_id) ON DELETE CASCADE
+        REFERENCES ple_private.workspace_import (workspace_id, import_id) ON DELETE CASCADE
 );
 CREATE FUNCTION ple_private.reject_committed_workspace_import_grading_input_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM ple_private.workspace_qti_import
+        SELECT 1 FROM ple_private.workspace_import
         WHERE workspace_id = OLD.workspace_id AND import_id = OLD.import_id AND state = 'committed'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'Committed Workspace Import Question Grading Input is immutable';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
     END IF;
     RETURN NEW;
 END
@@ -369,6 +379,25 @@ $$;
 CREATE TRIGGER workspace_import_grading_input_is_immutable_after_commit
 BEFORE UPDATE OR DELETE ON ple_private.workspace_import_grading_input
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_committed_workspace_import_grading_input_change();
+CREATE FUNCTION ple_private.reject_committed_workspace_import_item_result_change()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_private.workspace_import
+        WHERE workspace_id = OLD.workspace_id AND import_id = OLD.import_id AND state = 'committed'
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Committed Workspace Import Item Result is immutable';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER workspace_import_item_result_is_immutable_after_commit
+BEFORE UPDATE OR DELETE ON ple_private.workspace_import_item_result
+FOR EACH ROW EXECUTE FUNCTION ple_private.reject_committed_workspace_import_item_result_change();
 ALTER TABLE ple_private.authoring_workspace ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.authoring_workspace FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.authoring_workspace_collaborator_event ENABLE ROW LEVEL SECURITY;
@@ -395,8 +424,10 @@ ALTER TABLE ple_private.question_revision_answer_explanation ENABLE ROW LEVEL SE
 ALTER TABLE ple_private.question_revision_answer_explanation FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_revision_grading_input ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_revision_grading_input FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.workspace_qti_import ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.workspace_qti_import FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.workspace_import ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.workspace_import FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.workspace_import_item_result ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.workspace_import_item_result FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.workspace_import_grading_input ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.workspace_import_grading_input FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.authoring_workspace,
@@ -406,11 +437,11 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.authoring_workspace,
     ple_private.draft_question_answer_explanation, ple_private.draft_question_grading_input,
     ple_private.question_revision_answer_key, ple_private.question_revision_feedback,
     ple_private.question_revision_answer_explanation, ple_private.question_revision_grading_input,
-    ple_private.workspace_qti_import,
+    ple_private.workspace_import, ple_private.workspace_import_item_result,
     ple_private.workspace_import_grading_input FROM PUBLIC;
 COMMENT ON TABLE ple_private.authoring_workspace IS 'Private owner-scoped draft-authoring root; no Question Library visibility.';
 COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS
-    'Immutable start or end evidence for one Approved Instructor Workspace Collaborator relationship.';
+    'Immutable start or end evidence for one Instructor Account Workspace Collaborator relationship.';
 COMMENT ON TABLE ple_private.draft_question IS 'Private Draft Question lineage inside one Authoring Workspace.';
 COMMENT ON TABLE ple_private.draft_question_revision IS 'Immutable complete private Draft Question Revision with no published Question identity.';
 COMMENT ON TABLE ple_private.question_source IS
@@ -423,6 +454,10 @@ COMMENT ON TABLE ple_private.question_revision_answer_key IS 'Private immutable 
 COMMENT ON TABLE ple_private.question_revision_feedback IS 'Private immutable Question Feedback keyed by one exact Question Revision.';
 COMMENT ON TABLE ple_private.question_revision_answer_explanation IS 'Private immutable Question Answer Explanation keyed by one exact Question Revision.';
 COMMENT ON TABLE ple_private.question_revision_grading_input IS 'Private immutable format-specific Question Grading Input keyed by one exact Question Revision.';
-COMMENT ON TABLE ple_private.workspace_qti_import IS 'Private QTI registry keyed by the authoring workspace and immutable import identity.';
-COMMENT ON TABLE ple_private.workspace_import_grading_input IS 'Private QTI Question Grading Input bound to one exact Workspace Import item.';
+COMMENT ON TABLE ple_private.workspace_import IS
+    'Private staged Workspace Import with an exact Question Format, format-owned data, and item registry.';
+COMMENT ON TABLE ple_private.workspace_import_item_result IS
+    'Private accepted or rejected Workspace Import item result with format-owned item data.';
+COMMENT ON TABLE ple_private.workspace_import_grading_input IS
+    'Private format-specific Question Grading Input bound to one exact Workspace Import item.';
 RESET ROLE;

@@ -54,15 +54,16 @@ transition.
 
 `IssuedQuestionId` is the one idempotent exception: the server derives it as a
 UUIDv5 from the opaque Assignment Attempt, exact Assignment Entry, and the
-optional frozen Question Pool Entry. A resume therefore resolves the same
+optional frozen Question Pool Item. A resume therefore resolves the same
 Issued Question without selecting again. The value remains a durable server
 record identity, not browser authority.
 
-Every Assignment Attempt also retains its exact Published Assignment Revision
+Every Assignment Attempt also retains its exact Released Assignment Revision
 Reference. The stable Assignment groups later revisions; the retained revision
 is the immutable definition and delivery policy expanded into that Student's
-Issued Questions. A Student cannot begin an Assignment Attempt from a Draft,
-Closed, or Archived Assignment Revision.
+Issued Questions. A Student cannot begin an Assignment Attempt unless the
+stable Assignment is Released and selects that exact revision; Closed and
+Archived Assignments also refuse new access.
 
 UUIDs name durable records; they are not credentials, authorization evidence,
 or browser-facing choice codes. A submission places its `QuestionAttemptId`
@@ -114,7 +115,7 @@ allowed same-lineage correction or compatible improvement under the existing
 Question ID. A grading-semantic correction records an impact and starts a
 controlled recalculation operation; it never silently rewrites issued evidence.
 Major objective, task, or Question Type changes require a fork and new
-identity. Any approved Instructor may create a fork draft, but that draft is
+identity. Any active Instructor may create a fork draft, but that draft is
 private to its creator until validation succeeds. The published fork is global,
 records exact Question ID and version ancestry, and preserves the improvement
 thread without granting the fork author access to edit the source.
@@ -138,7 +139,7 @@ Existing assignments pin their exact Question ID and `QuestionRevisionReference`
 Future availability changes only through an explicit, revision-checked
 assignment update; publication, correction, lifecycle work, and recalculation
 never advance an assignment automatically. Star is one vetted-Instructor-visible
-endorsement per Question ID; approved Instructors may see its count and the
+endorsement per Question ID; active Instructors may see its count and the
 identities of vetted Instructors who starred. Students and anonymous callers
 see neither the identity list nor Star state. Watch is a private notification
 subscription for versions, forks, improvements, and impact events. Neither
@@ -180,8 +181,8 @@ issuance resolve to the replacement. The old version is preserved solely as
 immutable historical evidence and is never edited or deleted.
 
 Replacement publication requires validated content and a closed, privacy-safe
-impact manifest. The resulting correction generation is handed to bounded
-idempotent, generation-fenced workers for active-binding and remediation
+impact manifest. The resulting Correction Generation is handed to bounded
+idempotent, Correction-Generation-fenced workers for active-binding and remediation
 materialization across every active Blueprint, CourseInstance, assignment,
 selection-pool, and future-issuance reference. A deterministic compatibility
 check governs reissue or excuse for in-progress work. Issued or graded evidence
@@ -197,8 +198,8 @@ event is append-only audited.
 `Sysadmin` is a Product Role, never a Course Membership Role; it cannot
 replace direct Instructor membership for general FERPA access or view the
 Question ID Star identity list or any private Watch state. `CourseSummary`
-and `AssignmentSummary` are Rust-owned browser projections. Their item and
-selection-candidate summaries carry Question IDs and safe display metadata,
+and `AssignmentSummary` are Rust-owned browser projections. Their Question Pool
+selection summaries carry Question IDs and safe display metadata,
 never an opaque `QuestionRevisionReference` or question payload.
 
 ### Capabilities
@@ -254,9 +255,9 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `response`                    | `QuestionResponseFormat`      | Accepted Student Response shape and constraints                                |
 | `questionAttemptLimit`        | `QuestionAttemptLimit`        | Retry bound for this Question                                                  |
 | `questionAttemptTimeLimit`    | `QuestionAttemptTimeLimit`    | Time limits, with grace                                                        |
-| `questionVariationDefinition` | `QuestionVariationDefinition` | Static or seeded definition for how this Question varies                       |
+| `questionVariationRule`       | `QuestionVariationRule`       | Static or seeded rule for how this Question varies                             |
 | `grading`                     | `QuestionGradingRule`         | How a response is judged                                                       |
-| `metadata`                    | `QuestionMetadata`            | Title, tags, Question Classifications, license, language                       |
+| `metadata`                    | `QuestionMetadata`            | Title, tags, Question Classifications, Question License, language              |
 
 ### Response shapes
 
@@ -304,7 +305,7 @@ server-minted nonce, title, prompt, and an answer-free
 `QuestionPresentationResponseFormat`. It is the issued projection of the durable
 Question Response Format: it replaces durable response-item references with
 rendered IDs while preserving the exact response shape. The schema currently
-covers the eight PLE flat Question Types:
+covers the eight PLE Question JSON Question Types:
 
 | `QuestionPresentationResponseFormat` | Shared Question Response Format |
 | -------------------------------- | ------------------------------- |
@@ -398,36 +399,36 @@ without a combined mode hiding either decision.
 
 Each top-level Fixed Question or Question Pool has Assignment Entry Availability:
 Available includes it in future Assignment Attempts and Retired preserves historical
-Issued Questions without future delivery. Each Question Pool Entry has its own
-Question Pool Entry Availability, separate from the owning pool's availability.
+Issued Questions without future delivery. Each Question Pool Item has its own
+Question Pool Item Availability, separate from the owning pool's availability.
 Each top-level entry also carries its Assignment Entry Scoring Rule: Normal,
 Full Credit, Extra Credit, or Excluded. An Issued Question freezes the rule and
 point value from its source entry.
-Question Pool Selection Rule combines the reviewed candidate-selection algorithm
+Question Pool Selection Rule combines the reviewed selection algorithm
 and output ordering for one pool. Question Variation Rule separately controls
 whether later Assignment Attempts reuse or redraw pool selections.
 
-Assignment Working Copy editing is a separate closed contract.
-`AssignmentWorkingCopyDefinition` carries validated plain-text
-`AssignmentInstructions` and the absolute `BaseAssignmentPolicy` for the one
-replaceable Assignment Working Copy. `AssignmentStatus` belongs to the stable
-Assignment and selects a Released Assignment Revision only after Assignment
-Release. `AssignmentTitle` is the separate validated short name for the
-working copy or released revision, rather than generic text at a shared
-contract boundary.
+Assignment editing is a direct, closed Assignment contract.
+`AssignmentAuthoredContent` carries validated plain-text
+`AssignmentInstructions` and the absolute `BaseAssignmentPolicy` for the
+editable Assignment. `AssignmentStatus` belongs to that Assignment and selects
+a Released Assignment Revision only after Assignment Release.
+`AssignmentTitle` is the separate validated short name for the Assignment or
+released revision, rather than generic text at a shared contract boundary.
 Every Questions, Policies, and fixed-question replacement request carries its
 reviewed `AssignmentEditNumber` as `baseEditNumber`; the HTTP strong ETag is
-the transport concurrency condition for that exact working copy.
+the transport concurrency condition for that exact Assignment.
 New Assignments default to Unreleased and therefore are not Student-visible
 until an Instructor explicitly releases one immutable Assignment Revision. The
-Instructor transport uses `InstructorAssignmentWorkingCopyDefinitionLocal`:
+Instructor transport uses `InstructorAssignmentAuthoredContentLocal`:
 local timestamps include
 milliseconds and the exact course IANA zone, but the server performs every
 DST, term, ordering, and integer-bound conversion before storage.
-`InstructorAssignmentCurrentState` is a separate closed server projection for
-Draft, scheduled, open, closed, or archived at one authoritative instant. Its
-scheduled and clock-closed variants carry only the matching course-local
-boundary, so a browser displays current state without inferring it.
+`InstructorAssignmentAvailabilityView` is a separate closed server projection
+for Unreleased, Scheduled, Available, Closed, or Archived at one authoritative
+instant. Its scheduled and clock-closed variants carry only the matching
+course-local boundary, so a browser displays Assignment availability without
+inferring it.
 
 Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
 delivery values are already resolved from exact assignment entitlement and omit
@@ -439,7 +440,7 @@ numeric Student score, Grading Result, and disclosed point value.
 
 ### Generation
 
-`Question Seed` plus `QuestionVariationDefinition` fully determine a Question
+`Question Seed` plus `QuestionVariationRule` fully determine a Question
 Variation. A seeded
 definition pins a `QuestionGeneratorReference` containing both the generator ID and its
 additive version. Changing generator behavior therefore creates a new generator
@@ -579,9 +580,9 @@ renames the _variants_, while `rename_all_fields` renames the fields _inside_
 variants. Both move with their complete type closure so fields and portable values become snake_case
 together; WN1-B does not change their effective Serde spelling.
 
-### Flat-question authoring source
+### PLE Question JSON authoring source
 
-[PLE flat-question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
+[PLE Question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
 authoring format for ordinary static questions. It is not another public
 question model. The PLE Question Backend compiles it into this crate's answer-free
 `DraftQuestionRevision` plus separate grader-only material. Published browser
@@ -589,7 +590,7 @@ and Question Library browser projections therefore continue to use the shared qu
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
 
-The former flat-question v1 `singleChoice` reader and source contract are
+The former PLE Question JSON schema version 1 `singleChoice` reader and source contract are
 retired and unsupported. There is no v1 compatibility reader, source-byte
 fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,

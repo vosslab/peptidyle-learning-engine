@@ -49,10 +49,12 @@ version = "26.8.0"
 dependencies = [
  "domain",
  "grading",
+ "objects",
  "question_model",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tokio",
  "uuid",
 ]
 

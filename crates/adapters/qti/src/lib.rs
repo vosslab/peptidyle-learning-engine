@@ -18,11 +18,11 @@ pub use crate::parser::{
     QtiManifest, QtiResource, UnsupportedFeature, qti_question_asset_checksums,
 };
 pub use crate::profiles::{
-    QTI_PROFILE_MATRIX, QtiImportIntegrityDigests, QtiMappingVersion,
-    QtiPrivateChoiceMapDigestInput, QtiPrivateFeedbackDigestInput, QtiPrivateMappingDigestInput,
-    QtiProfileContractError, QtiProfileDetection, QtiProfileDetectionEvidence,
-    QtiProfileDiagnostic, QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemDisposition,
-    QtiProfileItemEvidence, QtiProfileMatrixDetail, QtiProfileReportDigestInput,
-    QtiProfileResourceEvidence, QtiProfileVersion, QtiPublicChoiceDigestInput,
-    QtiPublicMappingDigestInput, detect_qti_profile,
+    QTI_PROFILE_MATRIX, QtiImportChecksums, QtiImportResultChecksumInput, QtiMappingVersion,
+    QtiPrivateChoiceMapChecksumInput, QtiPrivateFeedbackChecksumInput,
+    QtiPrivateMappingChecksumInput, QtiProfileContractError, QtiProfileDetection,
+    QtiProfileDetectionEvidence, QtiProfileDiagnostic, QtiProfileDiagnosticCode, QtiProfileId,
+    QtiProfileItemDisposition, QtiProfileItemEvidence, QtiProfileMatrixDetail,
+    QtiProfileResourceEvidence, QtiProfileVersion, QtiPublicChoiceChecksumInput,
+    QtiPublicMappingChecksumInput, detect_qti_profile,
 };

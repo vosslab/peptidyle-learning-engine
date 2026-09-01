@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createBlueprintCourseWhenReady } from "../src/features/blueprint_course/blueprint_course_creation.ts";
-import { emptyReusableDefinition } from "../src/features/blueprint_course/blueprint_course_model.ts";
+import { emptyReusableContent } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
-function draft(definition) {
+function draft(content) {
   return {
     title: "Local Blueprint Course",
-    modules: [{ label: "Module 1", definitions: [definition] }],
+    modules: [{ label: "Module 1", assignments: [content] }],
   };
 }
 
@@ -22,7 +22,7 @@ test("incomplete Blueprint Course drafts remain local", async () => {
 
   const result = await createBlueprintCourseWhenReady(
     client,
-    draft(emptyReusableDefinition("Local draft")),
+    draft(emptyReusableContent("Local draft")),
   );
 
   assert.equal(result.kind, "invalid");
@@ -37,11 +37,11 @@ test("complete Blueprint Course meaning invokes its one live create capability",
       return { blueprintCourse: { reference: "BP-created" }, etag: "etag" };
     },
   };
-  const definition = emptyReusableDefinition("Ready assignment");
+  const content = emptyReusableContent("Ready assignment");
   const result = await createBlueprintCourseWhenReady(
     client,
     draft({
-      ...definition,
+      ...content,
       entries: [
         { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
       ],

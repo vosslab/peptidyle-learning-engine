@@ -2,24 +2,24 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::codec::{CURRENT_DESCRIPTOR_VERSION, QuestionPresentationDigest};
+use super::codec::{CURRENT_DESCRIPTOR_VERSION, QuestionPresentationChecksum};
 use super::model::QuestionPresentationNonce;
 
 /// Physical descriptor columns stored with an attempt or prefetch row.
 ///
 /// This type is serialized only inside trusted persistence payloads. The
 /// student receives the nonce in the presentation envelope and only the
-/// truncated `pd1_` digest token in its minimal attempt descriptor.
+/// truncated `pd1_` checksum token in its minimal attempt descriptor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QuestionPresentationBinding {
     nonce: QuestionPresentationNonce,
-    digest: QuestionPresentationDigest,
+    checksum: QuestionPresentationChecksum,
 }
 
 impl QuestionPresentationBinding {
-    /// Binds the exact nonce and full digest computed by the v1 codec.
-    pub fn new(nonce: QuestionPresentationNonce, digest: QuestionPresentationDigest) -> Self {
-        Self { nonce, digest }
+    /// Binds the exact nonce and full checksum computed by the v1 codec.
+    pub fn new(nonce: QuestionPresentationNonce, checksum: QuestionPresentationChecksum) -> Self {
+        Self { nonce, checksum }
     }
 
     /// Closed physical descriptor version.
@@ -32,9 +32,9 @@ impl QuestionPresentationBinding {
         self.nonce
     }
 
-    /// Exact 32 bytes persisted in the digest column.
-    pub fn digest(self) -> QuestionPresentationDigest {
-        self.digest
+    /// Exact 32 bytes persisted in the checksum column.
+    pub fn checksum(self) -> QuestionPresentationChecksum {
+        self.checksum
     }
 }
 
@@ -43,7 +43,7 @@ impl QuestionPresentationBinding {
 struct QuestionPresentationBindingWire {
     descriptor_version: u8,
     nonce: String,
-    digest: String,
+    checksum: String,
 }
 
 impl Serialize for QuestionPresentationBinding {
@@ -51,7 +51,7 @@ impl Serialize for QuestionPresentationBinding {
         QuestionPresentationBindingWire {
             descriptor_version: CURRENT_DESCRIPTOR_VERSION,
             nonce: self.nonce.to_hex(),
-            digest: self.digest.to_hex(),
+            checksum: self.checksum.to_hex(),
         }
         .serialize(serializer)
     }
@@ -67,8 +67,8 @@ impl<'de> Deserialize<'de> for QuestionPresentationBinding {
         }
         let nonce =
             QuestionPresentationNonce::parse(&wire.nonce).map_err(serde::de::Error::custom)?;
-        let digest = QuestionPresentationDigest::parse_hex(&wire.digest)
+        let checksum = QuestionPresentationChecksum::parse_hex(&wire.checksum)
             .map_err(serde::de::Error::custom)?;
-        Ok(Self::new(nonce, digest))
+        Ok(Self::new(nonce, checksum))
     }
 }

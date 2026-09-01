@@ -9,11 +9,11 @@ export interface QuestionSearchResult {
   readonly displayId: string;
   readonly title: string;
   readonly summary: string;
-  /** Reviewed publication-time attribution; never an account or ownership identity. */
-  readonly byline: ReadonlyArray<string>;
+  /** Reviewed Question Author display names; never Account or Question Owner identity. */
+  readonly authorNames: ReadonlyArray<string>;
   readonly classifications: ReadonlyArray<string>;
   readonly capabilities: ReadonlyArray<string>;
-  readonly license: string;
+  readonly questionLicense: string | null;
   /** Server-disclosed learning evidence for this exact immutable publication. */
   readonly evidence: QuestionSearchEvidence;
 }
@@ -38,13 +38,13 @@ export type QuestionSearchEvidence =
 /** Server-computed count for the exact active query; never derived from loaded rows. */
 export interface QuestionSearchFacetAggregate {
   readonly facet:
-    | "byline"
+    | "authorName"
     | "backend"
     | "tag"
     | "questionType"
     | "classification"
     | "capability"
-    | "license"
+    | "questionLicense"
     | "evidence"
     | "usedInMyCourses";
   readonly value: string;
@@ -53,13 +53,13 @@ export interface QuestionSearchFacetAggregate {
 
 export interface QuestionSearchQuery {
   readonly search: string;
-  readonly byline: string | null;
+  readonly authorName: string | null;
   readonly backend: string | null;
   readonly tag: string | null;
   readonly questionType: string | null;
   readonly classification: string | null;
   readonly capability: string | null;
-  readonly license: string | null;
+  readonly questionLicense: string | null;
   readonly evidence: string | null;
   readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
@@ -128,6 +128,14 @@ function boundedText(value: unknown, path: string, maxLength = MAX_TEXT_LENGTH):
   return value;
 }
 
+function decodeNullableQuestionLicense(value: unknown, path: string): string | null {
+  if (value === null) return null;
+  if (value !== "CC0-1.0" && value !== "CC-BY-4.0" && value !== "CC-BY-SA-4.0") {
+    throw new Error(`${path} must be an exact Question License or null`);
+  }
+  return value;
+}
+
 function stringList(value: unknown, path: string): ReadonlyArray<string> {
   if (!Array.isArray(value) || value.length > MAX_QUESTION_SEARCH_AGGREGATES) {
     throw new Error(`${path} must be an array`);
@@ -139,10 +147,10 @@ function decodeRow(value: unknown, path: string): QuestionSearchResult {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
-      "byline",
+      "authorNames",
       "capabilities",
       "displayId",
-      "license",
+      "questionLicense",
       "summary",
       "classifications",
       "title",
@@ -160,10 +168,13 @@ function decodeRow(value: unknown, path: string): QuestionSearchResult {
     displayId,
     title: boundedText(value["title"], `${path}.title`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
-    byline: stringList(value["byline"], `${path}.byline`),
+    authorNames: stringList(value["authorNames"], `${path}.authorNames`),
     classifications: stringList(value["classifications"], `${path}.classifications`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
-    license: boundedText(value["license"], `${path}.license`),
+    questionLicense: decodeNullableQuestionLicense(
+      value["questionLicense"],
+      `${path}.questionLicense`,
+    ),
     evidence,
   };
 }
@@ -247,13 +258,13 @@ function decodeAggregate(value: unknown, path: string): QuestionSearchFacetAggre
   }
   const facet = value["facet"];
   if (
-    facet !== "byline" &&
+    facet !== "authorName" &&
     facet !== "backend" &&
     facet !== "tag" &&
     facet !== "questionType" &&
     facet !== "classification" &&
     facet !== "capability" &&
-    facet !== "license" &&
+    facet !== "questionLicense" &&
     facet !== "evidence" &&
     facet !== "usedInMyCourses"
   ) {
@@ -304,13 +315,13 @@ export function decodeQuestionSearchPage(value: unknown): QuestionSearchPage {
 
 export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
   search: "",
-  byline: null,
+  authorName: null,
   backend: null,
   tag: null,
   questionType: null,
   classification: null,
   capability: null,
-  license: null,
+  questionLicense: null,
   evidence: null,
   usedInMyCourses: null,
   authorship: "any",
@@ -319,13 +330,13 @@ export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
 export function normalizeQuestionSearchQuery(query: QuestionSearchQuery): QuestionSearchQuery {
   return {
     search: query.search.trim().replace(/\s+/g, " "),
-    byline: query.byline,
+    authorName: query.authorName,
     backend: query.backend,
     tag: query.tag,
     questionType: query.questionType,
     classification: query.classification,
     capability: query.capability,
-    license: query.license,
+    questionLicense: query.questionLicense,
     evidence: query.evidence,
     usedInMyCourses: query.usedInMyCourses,
     authorship: query.authorship,

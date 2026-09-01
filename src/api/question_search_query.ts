@@ -1,7 +1,7 @@
 // question_search_query.ts - one strict Question Library search boundary for the production client and tests.
 
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
-import { MAX_QUESTION_SEARCH_BYLINE_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FILTERS";
+import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
@@ -18,14 +18,7 @@ const QUESTION_SEARCH_CAPABILITIES = [
   "printExport",
   "offlinePreview",
 ] as const;
-const QUESTION_SEARCH_LICENSES = [
-  "allRightsReserved",
-  "ccBy",
-  "ccBySa",
-  "ccByNc",
-  "cc0",
-  "other",
-] as const;
+const QUESTION_LICENSES = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"] as const;
 const QUESTION_SEARCH_BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
 const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
@@ -39,13 +32,13 @@ const QUESTION_SEARCH_QUESTION_TYPES = [
 ] as const;
 const QUESTION_SEARCH_QUERY_FIELDS = [
   "text",
-  "bylines",
+  "author_names",
   "backends",
   "tags",
   "question_types",
   "classifications",
   "capabilities",
-  "licenses",
+  "question_licenses",
   "evidence",
   "used_in_my_courses",
   "authorship",
@@ -53,14 +46,18 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "page_size",
 ] as const;
 
-function catalogEnum(value: string, allowed: ReadonlyArray<string>, fieldName: string): string {
+function questionSearchEnum(
+  value: string,
+  allowed: ReadonlyArray<string>,
+  fieldName: string,
+): string {
   if (!allowed.includes(value)) {
     throw new Error(`${fieldName} must be a supported Question Library value`);
   }
   return value;
 }
 
-function catalogFilterText(value: string, fieldName: string, maximum: number): string {
+function questionSearchFilterText(value: string, fieldName: string, maximum: number): string {
   if (value.trim().length === 0 || Array.from(value).length > maximum) {
     throw new Error(
       `${fieldName} must contain non-whitespace text no longer than ${maximum} characters`,
@@ -69,7 +66,11 @@ function catalogFilterText(value: string, fieldName: string, maximum: number): s
   return value;
 }
 
-function normalizedCatalogFilterText(value: string, fieldName: string, maximum: number): string {
+function normalizedQuestionSearchFilterText(
+  value: string,
+  fieldName: string,
+  maximum: number,
+): string {
   const normalized = value.trim().split(/\s+/u).join(" ").toLowerCase();
   if (normalized.length === 0 || Array.from(normalized).length > maximum) {
     throw new Error(
@@ -79,7 +80,7 @@ function normalizedCatalogFilterText(value: string, fieldName: string, maximum: 
   return normalized;
 }
 
-function boundedCatalogFilterValues(
+function boundedQuestionSearchFilterValues(
   values: ReadonlyArray<string>,
   maximum: number,
   fieldName: string,
@@ -89,7 +90,7 @@ function boundedCatalogFilterValues(
   }
 }
 
-function catalogCursor(value: string): string {
+function questionSearchCursor(value: string): string {
   if (value.length === 0) {
     throw new Error("Question Library cursor must not be empty");
   }
@@ -112,25 +113,25 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   if (query.text !== null) {
     parameters.set(
       "text",
-      catalogFilterText(
+      questionSearchFilterText(
         query.text,
         "Question Library text",
         MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS,
       ),
     );
   }
-  boundedCatalogFilterValues(
-    query.bylines,
-    MAX_QUESTION_SEARCH_BYLINE_FILTERS,
-    "Question Library bylines",
+  boundedQuestionSearchFilterValues(
+    query.author_names,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    "Question Library author names",
   );
-  for (const byline of query.bylines) {
+  for (const authorName of query.author_names) {
     parameters.append(
-      "bylines",
-      normalizedCatalogFilterText(byline, "Question Library byline", 120),
+      "author_names",
+      normalizedQuestionSearchFilterText(authorName, "Question Library author name", 120),
     );
   }
-  boundedCatalogFilterValues(
+  boundedQuestionSearchFilterValues(
     query.backends,
     QUESTION_SEARCH_BACKENDS.length,
     "Question Library backends",
@@ -138,14 +139,18 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   for (const backend of query.backends) {
     parameters.append(
       "backends",
-      catalogEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"),
+      questionSearchEnum(backend, QUESTION_SEARCH_BACKENDS, "Question Library backend"),
     );
   }
-  boundedCatalogFilterValues(query.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, "Question Library tags");
+  boundedQuestionSearchFilterValues(
+    query.tags,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library tags",
+  );
   for (const tag of query.tags) {
-    parameters.append("tags", normalizedCatalogFilterText(tag, "Question Library tag", 256));
+    parameters.append("tags", normalizedQuestionSearchFilterText(tag, "Question Library tag", 256));
   }
-  boundedCatalogFilterValues(
+  boundedQuestionSearchFilterValues(
     query.question_types,
     QUESTION_SEARCH_QUESTION_TYPES.length,
     "Question Library question_types",
@@ -153,7 +158,11 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   for (const questionType of query.question_types) {
     parameters.append(
       "question_types",
-      catalogEnum(questionType, QUESTION_SEARCH_QUESTION_TYPES, "Question Library Question Type"),
+      questionSearchEnum(
+        questionType,
+        QUESTION_SEARCH_QUESTION_TYPES,
+        "Question Library Question Type",
+      ),
     );
   }
   if (query.classifications.length > MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS) {
@@ -162,12 +171,12 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     );
   }
   for (const classification of query.classifications) {
-    const system = catalogFilterText(
+    const system = questionSearchFilterText(
       classification.system,
       "Question Library classification system",
       128,
     );
-    const code = catalogFilterText(
+    const code = questionSearchFilterText(
       classification.code,
       "Question Library classification code",
       128,
@@ -182,19 +191,19 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   for (const capability of query.capabilities) {
     parameters.append(
       "capabilities",
-      catalogEnum(capability, QUESTION_SEARCH_CAPABILITIES, "Question Library capability"),
+      questionSearchEnum(capability, QUESTION_SEARCH_CAPABILITIES, "Question Library capability"),
     );
   }
-  if (query.licenses.length > QUESTION_SEARCH_LICENSES.length) {
-    throw new Error("Question Library licenses must contain at most the supported license count");
+  if (query.question_licenses.length > QUESTION_LICENSES.length) {
+    throw new Error("Question Library Question Licenses must contain at most the supported count");
   }
-  for (const license of query.licenses) {
+  for (const questionLicense of query.question_licenses) {
     parameters.append(
-      "licenses",
-      catalogEnum(license, QUESTION_SEARCH_LICENSES, "Question Library license"),
+      "question_licenses",
+      questionSearchEnum(questionLicense, QUESTION_LICENSES, "Question Library Question License"),
     );
   }
-  const evidence = catalogEnum(
+  const evidence = questionSearchEnum(
     query.evidence,
     ["any", "available", "unavailable"],
     "Question Library evidence",
@@ -202,7 +211,7 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   if (evidence !== "any") {
     parameters.set("evidence", evidence);
   }
-  const usedInMyCourses = catalogEnum(
+  const usedInMyCourses = questionSearchEnum(
     query.used_in_my_courses,
     ["any", "used"],
     "Question Library used_in_my_courses",
@@ -210,7 +219,7 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   if (usedInMyCourses !== "any") {
     parameters.set("used_in_my_courses", usedInMyCourses);
   }
-  const authorship = catalogEnum(
+  const authorship = questionSearchEnum(
     query.authorship,
     ["any", "authoredByCurrentAccount"],
     "Question Library authorship scope",
@@ -219,7 +228,7 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   // `any` is a closed scope, not an omitted identity fallback.
   parameters.set("authorship", authorship);
   if (query.cursor !== null) {
-    parameters.set("cursor", catalogCursor(query.cursor));
+    parameters.set("cursor", questionSearchCursor(query.cursor));
   }
   if (query.page_size !== null) {
     if (

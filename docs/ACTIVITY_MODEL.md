@@ -102,7 +102,7 @@ the server records the completion timestamp and score as a transition.
 An Issued Question freezes the selected Question Revision, Assignment Entry,
 delivery order, applied point value, scoring rule, and Question Pool selection
 evidence for one Assignment Attempt. It is the immutable bridge between a live
-Assignment definition and a Student's individual tries.
+Assignment Content and a Student's individual tries.
 
 `QuestionAttempt` belongs directly to one Issued Question and records:
 
@@ -348,10 +348,10 @@ versions selected on Questions. A teaching-oriented
 activity-type chooser is planned as a UI layer that writes those same explicit
 values. It is not evidence that the four labels below are current API values:
 
-The Policies surface saves one revisioned assignment teaching-settings
-aggregate: Draft/Published/Closed/Archived lifecycle, plain-text student
+The Policies surface saves the Assignment's current teaching settings:
+Unreleased/Released/Closed/Archived Assignment Status, plain-text Student
 instructions, availability/due/close schedule, whole-Assignment-Attempt and Question Attempt limits,
-Late Work Rule, and Assignment Deadline Rule. Only Published opens lifecycle gate G1.
+Late Work Rule, and Assignment Deadline Rule. Only Released opens lifecycle gate G1.
 Course-local wall-clock input is converted by the server through the course
 IANA zone; the browser never derives an authoritative instant. An active Assignment Attempt
 does not consume its own attempt-limit slot: completed Assignment Attempts determine whether

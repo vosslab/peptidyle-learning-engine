@@ -2,16 +2,16 @@
 
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
-import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
+import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
+import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { ApiClient } from "../client";
 import type { CursorPage } from "../contracts";
 import {
   decodeBlueprintCoursePage,
   decodeBlueprintCourseView,
-  decodeCreateBlueprintCourseDefinitionInput,
+  decodeCreateBlueprintCourseContentInput,
   decodeBlueprintCourseReference,
-  decodeReplaceBlueprintCourseDefinitionInput,
+  decodeReplaceBlueprintCourseContentInput,
 } from "../decoders/blueprint_course";
 import type {
   BlueprintCourseClient,
@@ -142,7 +142,7 @@ export function createBlueprintCourseClient(
       };
     },
     createBlueprintCourse: async (
-      definition: CreateBlueprintCourseDefinitionInput,
+      content: CreateBlueprintCourseContentInput,
     ): Promise<RevisionedBlueprintCourse> => {
       const path = "/api/course-blueprints";
       const result = await curriculumJson(
@@ -152,7 +152,7 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         {
           method: "POST",
-          body: decodeCreateBlueprintCourseDefinitionInput(definition),
+          body: decodeCreateBlueprintCourseContentInput(content),
           expectedStatus: 201,
         },
       );
@@ -163,7 +163,7 @@ export function createBlueprintCourseClient(
     },
     replaceBlueprintCourse: async (
       reference,
-      definition: ReplaceBlueprintCourseDefinitionInput,
+      content: ReplaceBlueprintCourseContentInput,
       etag,
     ): Promise<RevisionedBlueprintCourse> => {
       const path = blueprintPath(reference);
@@ -174,7 +174,7 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         {
           method: "PUT",
-          body: decodeReplaceBlueprintCourseDefinitionInput(definition),
+          body: decodeReplaceBlueprintCourseContentInput(content),
           etag,
           expectedStatus: 200,
         },

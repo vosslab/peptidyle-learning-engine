@@ -28,7 +28,7 @@ student, replaces TLS, or makes a client-side grade authoritative.
 ## Immutable identity
 
 Published question identity is the pair of durable problem and immutable
-version IDs. A seeded `QuestionVariationDefinition` additionally carries a
+version IDs. A seeded `QuestionVariationRule` additionally carries a
 `QuestionGeneratorReference` with a stable generator ID and additive generator
 version. A changed generator implementation therefore requires a new generator
 version and a new published question revision; historical definitions remain
@@ -50,7 +50,7 @@ The authoritative types are in
 ## Seeded generation
 
 `domain::generator::generate` is a pure function of a `QuestionSeed` and a
-`QuestionVariationDefinition`. The implementation makes these compatibility
+`QuestionVariationRule`. The implementation makes these compatibility
 choices explicit:
 
 - `ChaCha20Rng` receives a 256-bit key derived from the domain separator
@@ -81,14 +81,14 @@ JSON values and returns serialized safe reports. Malformed public JSON becomes
 a JavaScript string error; a structurally invalid but well-formed response
 returns a report. No export accepts an answer key or produces correctness.
 
-Flat v2 source is answer-bearing, so its parser and compiler remain in the
+PLE Question JSON schema version 2 source is answer-bearing, so its parser and compiler remain in the
 server-only PLE Question Backend. Browser parity therefore covers the actual public
 boundary: answer-free `QuestionResponseFormat` values compiled from the current
-flat v2 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
+PLE Question JSON schema version 2 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
 generated-Node, and headless-browser cases cover valid selections and matching
 permutations, empty-response boundaries, malformed JSON errors, and repeated
 calls. They compare serialized reports exactly. This is a behavior test, not a
-second flat-source reader or a persisted fixture contract.
+second PLE Question JSON source reader or a persisted fixture contract.
 
 The release plan does not currently define a browser bundle-size or startup
 budget. The release build remains the source_object_reference under inspection, but a measured
@@ -182,24 +182,25 @@ does not call adapter `reproduce`, read the safe-render cache, call the
 renderer, or emit either witness. This distinction is important for latency
 estimates and operational evidence.
 
-The Store persists a bounded `WebworkGradeReplayStateV1`: immutable
-problem/version/source/seed/Question Renderer Version, presentation digest, and a
-redacted mapping from presentation-scoped rendered item IDs to upstream fields and values. The
-mapping is course-owned, validated, RLS-protected, and never serialized to the
-browser or cache.
+During issuance, the adapter holds bounded `WebworkQuestionAttemptReplayDetails`:
+immutable problem/version/source/seed/Question Renderer Version, presentation
+checksum, and a redacted mapping from presentation-scoped rendered item IDs to
+upstream fields and values. The mapping is never serialized to the browser or
+cache. A course-owned, validated, RLS-protected durable Attempt record is
+required before a mounted WeBWorK delivery or grading route can rely on it.
 
-Issued PLE-flat and WeBWorK attempts also retain checksummed, server-only
+Issued PLE Question JSON and WeBWorK attempts also retain checksummed, server-only
 first-grade contracts. A first grade validates its family-owned contract and
 fails unavailable if required material is absent or corrupt; it does not reread
-a current published Question Revision, private flat grader, or renderer to repair an
+a current published Question Revision, private PLE Question JSON grader, or renderer to repair an
 earlier issuance.
 
-The normal run route threads that private mapping from
-`WebworkIssuedAttempt` through `IssuedAttemptMetadata`, prefetch promotion, and
-attempt persistence. It stores a checksummed public presentation snapshot and
-matching server-only grading envelope, then translates browser-rendered IDs
-through that protected envelope before one private grade RPC. Submitted reads
-and retries cross-check those persisted artifacts against their owning attempt;
+The future delivery route will thread that private mapping from
+`WebworkIssuedAttempt` through attempted-work persistence. It must store a
+checksummed public presentation snapshot and matching server-only Question
+Grading Input, then translate browser-rendered IDs through that protected
+record before one private grade RPC. Submitted reads and retries must
+cross-check those persisted artifacts against their owning Attempt;
 they do not reproduce a safe envelope or call a renderer. Successful
 submission and terminal instructor action delete the replay row in the same
 Store transaction.
@@ -248,8 +249,8 @@ cargo test -p domain --test test_determinism -- --nocapture
 # Presentation descriptor, nonce, collision, and public-rebuild rules.
 cargo test -p question_model presentation
 
-# Native and generated-Node execution of the shared answer-free flat-v2 response corpus.
-cargo test -p wasm_bridge --test flat_v2_response_format_native
+# Native and generated-Node execution of the shared answer-free ple-question-json-v2 response corpus.
+cargo test -p wasm_bridge --test ple_question_json_response_format_native
 ./pipeline/build_wasm.sh
 node tests/e2e/e2e_wasm_bridge.mjs
 
@@ -258,7 +259,7 @@ node tests/e2e/e2e_wasm_bridge.mjs
 ./run_playwright_tests.sh --scenario instructor_authoring
 ```
 
-The fixed corpus is `crates/wasm/flat_v2_response_format_corpus.json`; native Rust,
+The fixed corpus is `crates/wasm/ple_question_json_response_format_corpus.json`; native Rust,
 generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
 prove generated-parameter and key-free public-response parity; the canonical instructor scenario
 proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.

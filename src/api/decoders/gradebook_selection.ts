@@ -1,4 +1,4 @@
-// Strict browser contracts for Gradebook Student and submitted-run selection.
+// Strict browser contracts for Gradebook Student and submitted Assignment Attempt selection.
 
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
@@ -22,17 +22,22 @@ import {
   requireOnlyFields,
 } from "./shared";
 
-const RUN_SELECTION_BASES = ["first", "latest", "highest", "instructorSelected"] as const;
+const ASSIGNMENT_ATTEMPT_SELECTION_BASES = [
+  "first",
+  "latest",
+  "highest",
+  "instructorSelected",
+] as const;
 
 export type AssignmentInspectionChoice =
   | {
-      readonly kind: "selectedRun";
-      readonly basis: (typeof RUN_SELECTION_BASES)[number];
-      readonly run: AssignmentAttemptReference;
+      readonly kind: "selectedAssignmentAttempt";
+      readonly basis: (typeof ASSIGNMENT_ATTEMPT_SELECTION_BASES)[number];
+      readonly assignmentAttempt: AssignmentAttemptReference;
       readonly submittedAt: number;
     }
-  | { readonly kind: "chooseRun"; readonly completedRunCount: number }
-  | { readonly kind: "noSubmittedRun" };
+  | { readonly kind: "chooseAssignmentAttempt"; readonly completedAssignmentAttemptCount: number }
+  | { readonly kind: "noSubmittedAssignmentAttempt" };
 
 export type GradebookSelectionFilter =
   | { readonly kind: "assignment"; readonly assignment: AssignmentReference }
@@ -64,22 +69,22 @@ export type GradebookSelectionResult =
       readonly nextCursor: string | null;
     };
 
-export interface SubmittedRunChoice {
-  readonly run: AssignmentAttemptReference;
+export interface SubmittedAssignmentAttemptChoice {
+  readonly assignmentAttempt: AssignmentAttemptReference;
   readonly submittedAt: number;
   readonly scoreSelected: boolean;
 }
 
-export interface SubmittedRunChoicesQuery {
+export interface SubmittedAssignmentAttemptChoicesQuery {
   readonly cursor?: string;
   readonly pageSize?: number;
   readonly operationRef?: InstructorGradingOperationReference;
 }
 
-export interface SubmittedRunChoicesPage {
+export interface SubmittedAssignmentAttemptChoicesPage {
   readonly rosterRevision: number;
   readonly nextCursor: string | null;
-  readonly rows: ReadonlyArray<SubmittedRunChoice>;
+  readonly rows: ReadonlyArray<SubmittedAssignmentAttemptChoice>;
 }
 
 function closed(
@@ -135,24 +140,32 @@ export function decodeAssignmentInspectionChoice(
   const record = decodeRecord(value, path);
   const choiceKind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (choiceKind) {
-    case "selectedRun":
-      requireOnlyFields(record, path, ["kind", "basis", "run", "submittedAt"]);
+    case "selectedAssignmentAttempt":
+      requireOnlyFields(record, path, ["kind", "basis", "assignmentAttempt", "submittedAt"]);
       return {
         kind: choiceKind,
-        basis: decodeStringEnum(field(record, "basis", path), `${path}.basis`, RUN_SELECTION_BASES),
-        run: publicReference(field(record, "run", path), `${path}.run`, "R"),
+        basis: decodeStringEnum(
+          field(record, "basis", path),
+          `${path}.basis`,
+          ASSIGNMENT_ATTEMPT_SELECTION_BASES,
+        ),
+        assignmentAttempt: publicReference(
+          field(record, "assignmentAttempt", path),
+          `${path}.assignmentAttempt`,
+          "R",
+        ),
         submittedAt: decodeTimestamp(field(record, "submittedAt", path), `${path}.submittedAt`),
       };
-    case "chooseRun":
-      requireOnlyFields(record, path, ["kind", "completedRunCount"]);
+    case "chooseAssignmentAttempt":
+      requireOnlyFields(record, path, ["kind", "completedAssignmentAttemptCount"]);
       return {
         kind: choiceKind,
-        completedRunCount: positiveSafeInteger(
-          field(record, "completedRunCount", path),
-          `${path}.completedRunCount`,
+        completedAssignmentAttemptCount: positiveSafeInteger(
+          field(record, "completedAssignmentAttemptCount", path),
+          `${path}.completedAssignmentAttemptCount`,
         ),
       };
-    case "noSubmittedRun":
+    case "noSubmittedAssignmentAttempt":
       requireOnlyFields(record, path, ["kind"]);
       return { kind: choiceKind };
     default:
@@ -213,19 +226,26 @@ export function decodeGradebookSelectionResult(
   };
 }
 
-function decodeSubmittedRunChoice(value: unknown, path: string): SubmittedRunChoice {
-  const record = closed(value, path, ["run", "submittedAt", "scoreSelected"]);
+function decodeSubmittedAssignmentAttemptChoice(
+  value: unknown,
+  path: string,
+): SubmittedAssignmentAttemptChoice {
+  const record = closed(value, path, ["assignmentAttempt", "submittedAt", "scoreSelected"]);
   return {
-    run: publicReference(field(record, "run", path), `${path}.run`, "R"),
+    assignmentAttempt: publicReference(
+      field(record, "assignmentAttempt", path),
+      `${path}.assignmentAttempt`,
+      "R",
+    ),
     submittedAt: decodeTimestamp(field(record, "submittedAt", path), `${path}.submittedAt`),
     scoreSelected: decodeBoolean(field(record, "scoreSelected", path), `${path}.scoreSelected`),
   };
 }
 
-export function decodeSubmittedRunChoicesPage(
+export function decodeSubmittedAssignmentAttemptChoicesPage(
   value: unknown,
   path = "response",
-): SubmittedRunChoicesPage {
+): SubmittedAssignmentAttemptChoicesPage {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["rosterRevision", "nextCursor", "rows"]);
   const nextCursor = optionalField(record, "nextCursor");
@@ -239,7 +259,7 @@ export function decodeSubmittedRunChoicesPage(
       field(record, "rows", path),
       `${path}.rows`,
       MAX_CURSOR_PAGE_ITEMS,
-      decodeSubmittedRunChoice,
+      decodeSubmittedAssignmentAttemptChoice,
     ),
   };
 }

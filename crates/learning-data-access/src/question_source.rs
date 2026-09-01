@@ -7,34 +7,91 @@
 
 use async_trait::async_trait;
 use question_model::{
-    DraftQuestionBackendLocator, QuestionBackend, QuestionFormat, QuestionType,
+    AuthoringWorkspaceReference, DraftQuestionBackendLocator, DraftQuestionContent,
+    DraftQuestionReference, DraftQuestionSummary, QuestionBackend, QuestionFormat, QuestionType,
     SourceObjectChecksum, SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Server-only identity of one immutable Draft Question Revision record.
+/// Server-only UUID identity for one private Draft Question lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DraftQuestionRevisionId(Uuid);
+pub struct DraftQuestionUuid(Uuid);
 
-impl DraftQuestionRevisionId {
-    /// Wraps the private database identity returned by an authorized boundary.
+impl DraftQuestionUuid {
+    /// Wraps a Draft Question UUID read from private persistence.
     pub const fn from_uuid(value: Uuid) -> Self {
         Self(value)
     }
 
-    /// Returns the storage identity for a parameterized persistence call.
+    /// Returns the private persistence UUID.
     pub const fn as_uuid(self) -> Uuid {
         self.0
     }
 }
 
-/// Server-only identity of one immutable Question Source record.
+/// Positive revision number within one private Draft Question lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct QuestionSourceId(Uuid);
+pub struct DraftQuestionRevisionNumber(u32);
 
-impl QuestionSourceId {
+impl DraftQuestionRevisionNumber {
+    /// Creates one positive Draft Question Revision Number.
+    pub fn new(value: u32) -> Result<Self, StoreError> {
+        if value == 0 {
+            return Err(StoreError::InvalidRecord(
+                "Draft Question Revision Number must be positive".to_string(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    /// Returns the persisted positive revision number.
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+/// Exact private persistence identity for one immutable Draft Question Revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DraftQuestionRevisionReference {
+    /// Private UUID for the Draft Question lineage.
+    pub draft_question_uuid: DraftQuestionUuid,
+    /// Positive revision within that lineage.
+    pub revision_number: DraftQuestionRevisionNumber,
+}
+
+/// Server-held immutable private Draft Question revision.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DraftQuestionRevision {
+    /// Exact private persistence identity.
+    pub reference: DraftQuestionRevisionReference,
+    /// Authored content accepted into this revision.
+    pub content: DraftQuestionContent,
+}
+
+impl DraftQuestionRevision {
+    /// Builds the answer-free browser summary with opaque public locators only.
+    pub fn summary(
+        &self,
+        draft_question: DraftQuestionReference,
+        authoring_workspace: AuthoringWorkspaceReference,
+    ) -> DraftQuestionSummary {
+        DraftQuestionSummary {
+            draft_question,
+            workspace: self.content.workspace,
+            authoring_workspace,
+            title: self.content.metadata.title.clone(),
+            question_backend: QuestionBackend::from(&self.content.backend_locator),
+        }
+    }
+}
+
+/// Server-only identity of one immutable Question Source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct QuestionSourceUuid(Uuid);
+
+impl QuestionSourceUuid {
     /// Wraps the private database identity returned by an authorized boundary.
     pub const fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -70,7 +127,7 @@ impl QuestionPublicBindingChecksum {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DraftQuestionSourceInput {
     /// Existing private authored state that owns the source.
-    pub draft_question_revision: DraftQuestionRevisionId,
+    pub draft_question_revision: DraftQuestionRevisionReference,
     /// Workspace authorizing that private authored state.
     pub workspace: WorkspaceId,
     /// Exact interpreter for the source bytes.
@@ -101,7 +158,7 @@ impl DraftQuestionSourceInput {
             (self.question_backend, self.question_format),
             (
                 QuestionBackend::Ple,
-                QuestionFormat::PleFlatQuestionV2 | QuestionFormat::PleAlgorithmic
+                QuestionFormat::PleQuestionJson | QuestionFormat::PleAlgorithmic
             ) | (QuestionBackend::Webwork, QuestionFormat::WebworkPg)
                 | (QuestionBackend::Qti, QuestionFormat::Qti)
                 | (QuestionBackend::H5p, QuestionFormat::H5p)
@@ -124,7 +181,7 @@ pub trait DraftQuestionSourceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: DraftQuestionSourceInput,
-    ) -> Result<QuestionSourceId, StoreError>;
+    ) -> Result<QuestionSourceUuid, StoreError>;
 }
 
 #[cfg(test)]
@@ -135,10 +192,14 @@ mod tests {
 
     fn input() -> DraftQuestionSourceInput {
         DraftQuestionSourceInput {
-            draft_question_revision: DraftQuestionRevisionId::from_uuid(Uuid::from_u128(1)),
+            draft_question_revision: DraftQuestionRevisionReference {
+                draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
+                revision_number: DraftQuestionRevisionNumber::new(1)
+                    .expect("positive revision number"),
+            },
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
             question_backend: QuestionBackend::Ple,
-            question_format: QuestionFormat::PleFlatQuestionV2,
+            question_format: QuestionFormat::PleQuestionJson,
             question_type: QuestionType::MultipleChoice,
             backend_locator: DraftQuestionBackendLocator::Ple,
             source_object_reference: SourceObjectReference {

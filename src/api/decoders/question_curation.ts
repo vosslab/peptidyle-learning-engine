@@ -1,6 +1,6 @@
 // Strict browser decoding for private Instructor Question Curation APIs.
 
-import { MAX_QUESTION_SEARCH_BYLINE_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_BYLINE_FILTERS";
+import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { MAX_QUESTION_FOLDER_MEMBERS } from "../../../generated/api/MAX_QUESTION_FOLDER_MEMBERS";
 import { MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS";
@@ -82,13 +82,13 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "text",
-    "bylines",
+    "author_names",
     "backends",
     "tags",
     "question_types",
     "classifications",
     "capabilities",
-    "licenses",
+    "question_licenses",
     "evidence",
     "used_in_my_courses",
     "authorship",
@@ -97,10 +97,10 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
     text: decodeNullable(field(record, "text", path), `${path}.text`, (entry, entryPath) =>
       decodeFilterText(entry, entryPath, MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS),
     ),
-    bylines: decodeBoundedArray(
-      field(record, "bylines", path),
-      `${path}.bylines`,
-      MAX_QUESTION_SEARCH_BYLINE_FILTERS,
+    author_names: decodeBoundedArray(
+      field(record, "author_names", path),
+      `${path}.author_names`,
+      MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
       (entry, entryPath) => decodeFilterText(entry, entryPath, 120),
     ),
     backends: decodeBoundedArray(
@@ -170,19 +170,12 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
           "offlinePreview",
         ]),
     ),
-    licenses: decodeBoundedArray(
-      field(record, "licenses", path),
-      `${path}.licenses`,
-      6,
+    question_licenses: decodeBoundedArray(
+      field(record, "question_licenses", path),
+      `${path}.question_licenses`,
+      3,
       (entry, entryPath) =>
-        decodeStringEnum(entry, entryPath, [
-          "allRightsReserved",
-          "ccBy",
-          "ccBySa",
-          "ccByNc",
-          "cc0",
-          "other",
-        ]),
+        decodeStringEnum(entry, entryPath, ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"]),
     ),
     evidence: decodeStringEnum(field(record, "evidence", path), `${path}.evidence`, [
       "any",

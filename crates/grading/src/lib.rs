@@ -6,10 +6,10 @@
 
 /// Answer checking implementations.
 pub mod checker;
-/// Integrity contract and private material for the built-in flat Question Format.
-pub mod flat_question;
 /// Gated access to Answer Keys and other private Question grading records.
 pub mod key;
+/// Integrity contract and private material for the built-in PLE Question JSON Format.
+pub mod ple_question_json;
 
 pub use crate::checker::{
     GradingError, QuestionGradingOutcome, grade, question_statistics_observation,

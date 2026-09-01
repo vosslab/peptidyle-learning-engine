@@ -113,7 +113,7 @@ CREATE TABLE ple_private.object_storage_check (
 CREATE TABLE ple_private.object_cleanup_manifest (
     object_cleanup_manifest_id uuid PRIMARY KEY,
     object_storage_check_id uuid NOT NULL REFERENCES ple_private.object_storage_check (object_storage_check_id),
-    job_id uuid NOT NULL UNIQUE REFERENCES ple_private.worker_job (job_id),
+    job_id uuid NOT NULL UNIQUE REFERENCES ple_private.job (job_id),
     authorized_at timestamp with time zone NOT NULL,
     permitted_disposition text NOT NULL CHECK (permitted_disposition IN ('deleted', 'already_absent', 'retained')),
     UNIQUE (object_cleanup_manifest_id, permitted_disposition)

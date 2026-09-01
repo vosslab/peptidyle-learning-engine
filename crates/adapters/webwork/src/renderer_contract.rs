@@ -14,14 +14,14 @@ use std::collections::BTreeMap;
 
 /// One private upstream form control/value pair for a visible item.
 #[derive(Clone, PartialEq, Eq)]
-pub struct UpstreamControlV1 {
+pub struct WebworkUpstreamControl {
     pub field: String,
     pub value: String,
 }
 
 /// One private matching prompt and its visible-choice value map.
 #[derive(Clone, PartialEq, Eq)]
-pub struct UpstreamMatchPromptV1 {
+pub struct WebworkUpstreamMatchingPrompt {
     pub field: String,
     pub choices: BTreeMap<ResponseItemReference, String>,
 }
@@ -31,12 +31,12 @@ pub struct UpstreamMatchPromptV1 {
 /// This contains form field names and visible option values, never the
 /// correct response, session key, password, source, or renderer credential.
 #[derive(Clone, PartialEq, Eq)]
-pub enum WebworkReplayMappingV1 {
+pub enum WebworkQuestionAttemptReplayDetails {
     SingleChoice {
-        controls: BTreeMap<ResponseItemReference, UpstreamControlV1>,
+        controls: BTreeMap<ResponseItemReference, WebworkUpstreamControl>,
     },
     Matching {
-        prompts: BTreeMap<ResponseItemReference, UpstreamMatchPromptV1>,
+        prompts: BTreeMap<ResponseItemReference, WebworkUpstreamMatchingPrompt>,
     },
 }
 
@@ -59,7 +59,7 @@ pub struct RenderedWebworkQuestion {
     pub renderer_version: QuestionRendererVersion,
     /// Private issuance-only mapping excluded from every serialized form.
     #[serde(skip)]
-    pub replay: Option<WebworkReplayMappingV1>,
+    pub replay: Option<WebworkQuestionAttemptReplayDetails>,
 }
 
 impl std::fmt::Debug for RenderedWebworkQuestion {
@@ -156,7 +156,7 @@ pub struct GradeRequest<'a> {
     /// Browser-submitted response, never an answer key.
     pub response: &'a StudentResponse,
     /// Exact issuance mapping already bound to the persisted attempt.
-    pub replay: &'a WebworkReplayMappingV1,
+    pub replay: &'a WebworkQuestionAttemptReplayDetails,
     /// The published all-or-nothing score ceiling. The renderer returns only
     /// a normalized score and never chooses the assignment's point value.
     pub points_possible: f64,

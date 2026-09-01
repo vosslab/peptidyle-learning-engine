@@ -66,7 +66,7 @@ ALTER TABLE ple_private.sysadmin_support_capability FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.course_observer_relationship_event,
     ple_private.sysadmin_support_capability FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_private TO ple_api_owner;
-GRANT SELECT ON TABLE ple_private.account, ple_private.instructor_approval_event,
+GRANT SELECT ON TABLE ple_private.account,
     ple_private.authoring_workspace,
     ple_private.authoring_workspace_collaborator_event,
     ple_private.course_observer_relationship_event,
@@ -188,13 +188,9 @@ AS $$
     SELECT EXISTS (
         SELECT 1
         FROM ple_private.course_observer_relationship_event AS relationship
-        JOIN LATERAL (
-            SELECT approval.event_kind
-            FROM ple_private.instructor_approval_event AS approval
-            WHERE approval.instructor_account_id = relationship.course_observer_account_id
-            ORDER BY approval.occurred_at DESC, approval.instructor_approval_event_id DESC
-            LIMIT 1
-        ) AS approval ON approval.event_kind = 'approved'
+        JOIN ple_private.account AS account
+          ON account.account_id = relationship.course_observer_account_id
+         AND account.role = 'instructor'
         WHERE relationship.course_id = p_course_id
           AND relationship.course_observer_account_id = ple_api.current_session_account_id()
           AND relationship.event_kind = 'started'

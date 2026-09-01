@@ -403,12 +403,14 @@ test.describe("question curation on the production PLE stack", () => {
         const firstPool = workspace
           .getByRole("listitem", { name: /Question pool at position/u })
           .first();
-        await firstPool.getByRole("button", { name: "Choose candidates", exact: true }).click();
+        await firstPool
+          .getByRole("button", { name: "Choose Questions for pool", exact: true })
+          .click();
         await selectQuestionInPicker(
           elena,
           privateTitle,
           privateFolderQuestionTitle,
-          "Add selected candidates",
+          "Add selected Questions to pool",
         );
         await expect(firstPool).toContainText(privateFolderQuestionTitle);
 
@@ -416,14 +418,16 @@ test.describe("question curation on the production PLE stack", () => {
         const secondPool = workspace
           .getByRole("listitem", { name: /Question pool at position/u })
           .nth(1);
-        await secondPool.getByRole("button", { name: "Choose candidates", exact: true }).click();
+        await secondPool
+          .getByRole("button", { name: "Choose Questions for pool", exact: true })
+          .click();
         const myPublishedPicker = elena.getByRole("dialog");
         await expect(myPublishedPicker.getByLabel("Question source")).toContainText("My Questions");
         await selectQuestionInPicker(
           elena,
           "My Questions",
           pleQuestionTitle,
-          "Add selected candidates",
+          "Add selected Questions to pool",
           async (picker) => {
             await captureLaptop(elena, scenarioInput, picker, pickerArtifacts);
           },
@@ -440,7 +444,7 @@ test.describe("question curation on the production PLE stack", () => {
         await expect(
           workspace.getByRole("heading", { name: "Policies", exact: true }),
         ).toBeVisible();
-        await elena.getByLabel("Lifecycle").selectOption("published");
+        await elena.getByLabel("Lifecycle").selectOption("released");
         await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
         await expect(
           workspace.getByRole("status").filter({ hasText: "Assignment policies saved." }),

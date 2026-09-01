@@ -24,7 +24,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"fresh_session_score",
 				"instructor_active_roster",
 				"instructor_gradebook",
-				"appearance_saved",
 				"access_preview_allowed",
 				"access_preview_denied",
 			),

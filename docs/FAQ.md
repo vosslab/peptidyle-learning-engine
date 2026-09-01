@@ -36,21 +36,21 @@ the source revision, assignment manifest, question replacements, and resolved sc
 or overwrites instance-owned delivery changes. Divergent work uses an explicit selected copy or new
 assignment action; PLE does not perform an implicit merge.
 
-## What are fork, publish, rollover, and term shift?
+## What are fork, publish, Copy Course for New Term, and Shift Course Dates?
 
 - **Fork Blueprint** creates an independently editable Blueprint with immutable source-lineage
   evidence and no live tether.
 - **Publish Blueprint** makes a reviewed draft revision reusable by all vetted Instructors.
-- **Rollover Course Instance** creates a new teaching instance for a target term without Students,
+- **Copy Course for New Term** creates a new teaching instance for a target term without Students,
   invitations, attempts, responses, grades, retention state, or issued evidence.
-- **Shift Course Instance term** changes an existing instance's unissued schedules after a full
+- **Shift Course Dates** changes an existing instance's unissued schedules after a full
   preview. Every relative date resolves in the target IANA time zone; DST gaps and ambiguities need
-  correction. An instance with issued student work uses rollover instead.
+  correction. An instance with issued Student work uses Copy Course for New Term instead.
 
 ## Is PLE tied to one format?
 
 No. PLE gives Instructors one learning and assignment model while adapters bring different question
-sources into it. PLE flat-question JSON supports multiple choice, multiple answer,
+sources into it. PLE Question JSON supports multiple choice, multiple answer,
 fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots. The
 current external WeBWorK path supports the four reviewed Chapter 1 MC/MATCH PGML sources; QTI, H5P,
 and iMathAS each have their own documented runtime boundary. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
@@ -89,10 +89,10 @@ fall back to local grading. A Student submission is graded on the server, and an
 Instructor Gradebook reads the resulting server-owned record. See [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
 and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
-## Is PLE flat-question JSON QTI?
+## Is PLE Question JSON QTI?
 
-No. PLE flat-question JSON is the small, versioned, answer-bearing authoring format for ordinary
-static questions. The PLE Question Backend compiles it into an answer-free public question model and
+No. PLE Question JSON is the small, versioned, answer-bearing authoring format for ordinary
+static Questions. The PLE Question Backend compiles it into an answer-free public Question model and
 separate grader-only material. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current
@@ -202,7 +202,7 @@ session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS
 
 A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
 question revision, seed, timing state, and grading backend. The browser therefore sends only that
-attempt's route identity, an idempotency key, and the student's answer. Presentation digests and
+attempt's route identity, an idempotency key, and the student's answer. Presentation checksums and
 compact rendered-item IDs detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 

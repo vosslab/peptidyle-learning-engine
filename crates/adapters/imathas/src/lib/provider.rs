@@ -146,7 +146,7 @@ impl PreparedSnapshot {
         &self.bytes
     }
 
-    /// Pinned digest to put into the published source record.
+    /// Pinned digest to put into the published Question Source.
     pub fn sha256(&self) -> &str {
         &self.sha256
     }

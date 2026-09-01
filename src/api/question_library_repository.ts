@@ -3,7 +3,7 @@
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { Capability } from "../../generated/api/Capability";
-import type { QuestionSearchLicense } from "../../generated/api/QuestionSearchLicense";
+import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
 import type { ApiClient } from "./client";
 import type {
@@ -24,14 +24,11 @@ const CAPABILITIES = [
   "printExport",
   "offlinePreview",
 ] as const satisfies ReadonlyArray<Capability>;
-const LICENSES = [
-  "allRightsReserved",
-  "ccBy",
-  "ccBySa",
-  "ccByNc",
-  "cc0",
-  "other",
-] as const satisfies ReadonlyArray<QuestionSearchLicense>;
+const QUESTION_LICENSES = [
+  "CC0-1.0",
+  "CC-BY-4.0",
+  "CC-BY-SA-4.0",
+] as const satisfies ReadonlyArray<QuestionLicense>;
 const BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
 const QUESTION_TYPES = [
   "multipleChoice",
@@ -55,13 +52,13 @@ function selectedCapability(value: string | null): Array<Capability> {
   return [selected];
 }
 
-function selectedLicense(value: string | null): Array<QuestionSearchLicense> {
+function selectedQuestionLicense(value: string | null): Array<QuestionLicense> {
   if (value === null) {
     return [];
   }
-  const selected = LICENSES.find((candidate) => candidate === value);
+  const selected = QUESTION_LICENSES.find((candidate) => candidate === value);
   if (selected === undefined) {
-    throw new Error("Question Library license selection is invalid");
+    throw new Error("Question Library Question License selection is invalid");
   }
   return [selected];
 }
@@ -104,9 +101,9 @@ function facets(
   page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
 ): ReadonlyArray<QuestionSearchFacetAggregate> {
   return [
-    ...page.facets.bylines.map((facet) => ({
-      facet: "byline" as const,
-      value: facet.byline,
+    ...page.facets.authorNames.map((facet) => ({
+      facet: "authorName" as const,
+      value: facet.authorName,
       count: facet.count,
     })),
     ...page.facets.backends.map((facet) => ({
@@ -134,9 +131,9 @@ function facets(
       value: facet.capability,
       count: facet.count,
     })),
-    ...page.facets.licenses.map((facet) => ({
-      facet: "license" as const,
-      value: facet.license,
+    ...page.facets.questionLicenses.map((facet) => ({
+      facet: "questionLicense" as const,
+      value: facet.questionLicense,
       count: facet.count,
     })),
     { facet: "evidence" as const, value: "available", count: page.facets.evidence.available },
@@ -157,13 +154,13 @@ export function questionSearchRequest(
 ): QuestionSearchRequest {
   return {
     text: query.search === "" ? null : query.search,
-    bylines: selectedPublicText(query.byline),
+    author_names: selectedPublicText(query.authorName),
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
     question_types: selectedQuestionType(query.questionType),
     classifications: classificationFilter(query.classification),
     capabilities: selectedCapability(query.capability),
-    licenses: selectedLicense(query.license),
+    question_licenses: selectedQuestionLicense(query.questionLicense),
     evidence: evidenceFilter(query.evidence),
     used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
@@ -185,13 +182,13 @@ export function createQuestionLibraryRepository(
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
           title: item.summary.metadata.title,
-          summary: `Published ${item.summary.backend} Question.`,
-          byline: item.summary.byline.names,
+          summary: item.summary.metadata.questionDescription,
+          authorNames: item.summary.authorship.authors.map((author) => author.displayName),
           classifications: item.summary.metadata.classifications.map(
             (classification) => `${classification.system}:${classification.code}`,
           ),
           capabilities: item.summary.capabilities,
-          license: item.summary.metadata.license.kind,
+          questionLicense: item.summary.metadata.questionLicense,
           evidence:
             item.evidence.state === "available"
               ? {

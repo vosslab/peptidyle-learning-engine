@@ -17,7 +17,7 @@ const draft = {
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
   questionAttemptLimit: { maxAttempts: null },
   questionAttemptTimeLimit: { kind: "unlimited" },
-  questionVariationDefinition: { kind: "static" },
+  questionVariationRule: { kind: "static" },
 };
 
 function keyFreePreview(seed = 17) {
@@ -58,7 +58,7 @@ test("editor preview projects the exact draft and seed through the WASM facade",
         title: draft.title,
         prompt: draft.prompt,
         response: draft.response,
-        questionVariationDefinition: draft.questionVariationDefinition,
+        questionVariationRule: draft.questionVariationRule,
       },
       seed: 17,
     },

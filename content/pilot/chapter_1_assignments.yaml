@@ -36,26 +36,26 @@ chapters:
           - Replaced apostrophe escapes with PG-translator-safe q literals.
           - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
           - Kept partial-credit scores numeric in the renderer JSON contract.
-      - slug: genetics-disorders-flat-mc
+      - slug: genetics-disorders-ple-question-json-mc
         title: "Genetics Chapter 1: Phenylalanine metabolism"
-        backend: pleFlat
+        backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
         source: sources/genetics/bbq-WOMC-genetic_disorders-questions.txt
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
         source_item: 8894_6964
-        payload: flat/genetics-disorders-mc.json
-        payload_sha256: 17972ca10672d12c3932b7179a37dd92e200cbd8bc1b320e7072c9531d8f22d2
-      - slug: genetics-disorders-flat-matching
+        payload: ple_question_json/genetics-disorders-mc.json
+        payload_sha256: 739bea8a9457d7e66b440e3df3fe3736ea44d885d75bcfb4173a33be09eade8f
+      - slug: genetics-disorders-ple-question-json-matching
         title: "Genetics Chapter 1: Genetic disorder matching"
-        backend: pleFlat
+        backend: pleQuestionJson
         question_type: matching
         points: 4
         source: sources/genetics/bbq-MATCH-genetic_disorders-questions.txt
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
         source_item: ce62_fc20
-        payload: flat/genetics-disorders-matching.json
-        payload_sha256: 49b2f3b2a36948ba0fbb024bc84cd65478b431f1468a315556028c6c42b7c431
+        payload: ple_question_json/genetics-disorders-matching.json
+        payload_sha256: d53095b18bd0b20770db3b43f7526681f5a839f55e598f5e2db1bde2ece59e4c
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
@@ -89,23 +89,23 @@ chapters:
           - Removed wording that incorrectly implied seven displayed matches.
           - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
           - Kept partial-credit scores numeric in the renderer JSON contract.
-      - slug: biochemistry-functional-groups-flat-mc
+      - slug: biochemistry-functional-groups-ple-question-json-mc
         title: "Biochemistry Chapter 1: Charged functional groups"
-        backend: pleFlat
+        backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
         source: sources/biochemistry/bbq-WOMC-biochemical_functional_groups-questions.txt
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
         source_item: 1138_f177
-        payload: flat/biochemistry-functional-groups-mc.json
-        payload_sha256: 0daf04034773cf62dd9271a257dc1493ce720f03b88cb35598378c1d940f245c
-      - slug: biochemistry-functional-groups-flat-matching
+        payload: ple_question_json/biochemistry-functional-groups-mc.json
+        payload_sha256: 379448367cb915fc0d0da4cce704812507811a95da422f97b14b335fcc7a2e1a
+      - slug: biochemistry-functional-groups-ple-question-json-matching
         title: "Biochemistry Chapter 1: Functional group matching"
-        backend: pleFlat
+        backend: pleQuestionJson
         question_type: matching
         points: 4
         source: sources/biochemistry/bbq-MATCH-biochemical_functional_groups-questions.txt
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
         source_item: c4c1_c919
-        payload: flat/biochemistry-functional-groups-matching.json
-        payload_sha256: 75cb9197d501b417708348f147009ca3a006947b763b0eae0d7858d9d5a94999
+        payload: ple_question_json/biochemistry-functional-groups-matching.json
+        payload_sha256: 94786710bc9a5b8a65598d8bdbbacd8c0b2e90aa8319622339674212115489dd

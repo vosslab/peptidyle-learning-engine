@@ -42,7 +42,7 @@ RESOURCE_KINDS = frozenset(
 		"teaching_invitation",
 	}
 )
-SEED_STATE_TRANSITIONS = frozenset({"avery_instructor_approval"})
+SEED_STATE_TRANSITIONS = frozenset()
 SERVICE_RECEIPTS = frozenset({"renderer_delivery"})
 FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
 REQUIRED_ROLE_SECURITY_SCENARIOS = {
@@ -54,7 +54,7 @@ REQUIRED_ROLE_SECURITY_SCENARIOS = {
 	"auth_authorization": (
 		"tests/playwright/e2e/auth_authorization.spec.ts",
 		"elena_instructor",
-		"instructor_passkey_reauthentication_and_seeded_sessions_avery_approval_and_course_boundaries",
+		"instructor_passkey_reauthentication_and_seeded_sessions_and_course_boundaries",
 	),
 }
 

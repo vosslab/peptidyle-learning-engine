@@ -88,7 +88,7 @@ test("Questions content save gives issued Student work a successor-revision reco
       assert.deepEqual(resolveAssignmentContentSaveFailure(error), {
         kind: "successorRevisionRequired",
         message:
-          "Student work already pins this Assignment Revision. Create a successor Assignment Working Copy for structural question changes.",
+          "Student work already pins this Assignment Revision. Create a successor Assignment for structural question changes.",
       });
       return true;
     },

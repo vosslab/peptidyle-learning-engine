@@ -7,8 +7,8 @@
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
-use objects::Sha256Digest;
-use question_model::{AccountId, AccountRole, ActivityTimestamp};
+use objects::Sha256Checksum;
+use question_model::{AccountId, AccountRole, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -36,12 +36,12 @@ impl AuthenticationCeremonyLifetime {
 
 /// One-way hash of a browser-bound secret or credential proof.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AuthenticationSecretHash(Sha256Digest);
+pub struct AuthenticationSecretHash(Sha256Checksum);
 
 impl AuthenticationSecretHash {
     /// Computes the persisted hash without retaining the raw secret.
     pub fn compute(value: &[u8]) -> Self {
-        Self(Sha256Digest::compute(value))
+        Self(Sha256Checksum::compute(value))
     }
 
     /// Returns the verified fixed-width storage form.
@@ -95,9 +95,9 @@ pub struct EmailAuthenticationChallenge {
     /// One-way binding to the initiating browser.
     pub browser_binding_hash: AuthenticationSecretHash,
     /// Database-authoritative creation time.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     /// Database-authoritative exclusive expiration time.
-    pub expires_at: ActivityTimestamp,
+    pub expires_at: Timestamp,
 }
 
 impl std::fmt::Debug for EmailAuthenticationChallenge {
@@ -166,9 +166,9 @@ pub struct Passkey {
     /// One-way lookup hash for the authenticator credential ID.
     pub credential_id_hash: AuthenticationSecretHash,
     /// Database-authoritative registration time.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     /// Revocation time, if the credential is no longer usable.
-    pub revoked_at: Option<ActivityTimestamp>,
+    pub revoked_at: Option<Timestamp>,
 }
 
 impl std::fmt::Debug for Passkey {

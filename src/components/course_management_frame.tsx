@@ -38,8 +38,6 @@ export function courseManagementSectionForRoute(
       return "gradebook";
     case "courseGradeSettings":
       return "gradeSettings";
-    case "courseAppearance":
-      return "appearance";
     default:
       return undefined;
   }

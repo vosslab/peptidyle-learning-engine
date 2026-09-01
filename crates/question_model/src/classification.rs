@@ -1,7 +1,7 @@
 //! Question Classifications, Tags, and licensing (WP-C1).
 //!
 //! Shared content carries no deployment partition: one published Question carries
-//! one set of tags for every approved Instructor. That is what lets a single
+//! one set of tags for every active Instructor. That is what lets a single
 //! published Question serve thousands of instructors without copying.
 //!
 //! Licensing travels with the content because imported material (Open Problem
@@ -34,7 +34,7 @@ impl Tag {
 /// Distinct from [`Tag`] because a Question Classification preserves its
 /// external system and code through import and export. Bloom's revised
 /// framework uses its dedicated two-axis Question Bloom Classification contract.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionClassification {
     /// The external or institutional system that owns the code.
@@ -45,34 +45,22 @@ pub struct QuestionClassification {
     pub name: String,
 }
 
-/// The terms under which content may be reused.
+/// The exact versioned SPDX grant under which one Question Revision may be reused.
 ///
-/// An enum rather than a free string so an export can decide, in code, whether
-/// a redistribution is permitted. `Other` carries an SPDX identifier for terms
-/// this list does not name, which keeps unusual licenses representable without
-/// pretending they are one of the common ones.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum License {
-    /// All rights reserved by the author; no redistribution.
-    AllRightsReserved,
-    /// Creative Commons Attribution.
-    CcBy,
-    /// Creative Commons Attribution-ShareAlike.
-    CcBySa,
-    /// Creative Commons Attribution-NonCommercial.
-    CcByNc,
-    /// Public domain dedication.
-    Cc0,
-    /// Anything else, named by its SPDX identifier.
-    Other {
-        /// SPDX license identifier, for example `MIT` or `GPL-3.0-or-later`.
-        spdx: String,
-    },
+/// Question Library publication requires an adaptation-permitting Creative
+/// Commons grant. The closed value set keeps draft validation, search, export,
+/// and the database publication rule in agreement.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum QuestionLicense {
+    /// Creative Commons public-domain dedication 1.0.
+    #[serde(rename = "CC0-1.0")]
+    Cc0_1_0,
+    /// Creative Commons Attribution 4.0.
+    #[serde(rename = "CC-BY-4.0")]
+    CcBy4_0,
+    /// Creative Commons Attribution-ShareAlike 4.0.
+    #[serde(rename = "CC-BY-SA-4.0")]
+    CcBySa4_0,
 }
 
 #[cfg(test)]
@@ -85,17 +73,15 @@ mod tests {
     }
 
     #[test]
-    fn licenses_serialize_with_a_discriminant() {
-        let json = serde_json::to_string(&License::CcBySa).expect("serialization should succeed");
-        assert_eq!(json, r#"{"kind":"ccBySa"}"#);
+    fn question_license_serializes_as_an_exact_spdx_expression() {
+        let json = serde_json::to_string(&QuestionLicense::CcBySa4_0)
+            .expect("serialization should succeed");
+        assert_eq!(json, r#""CC-BY-SA-4.0""#);
     }
 
     #[test]
-    fn an_unusual_license_keeps_its_spdx_identifier() {
-        let license = License::Other {
-            spdx: "GPL-3.0-or-later".to_string(),
-        };
-        let json = serde_json::to_string(&license).expect("serialization should succeed");
-        assert!(json.contains("GPL-3.0-or-later"));
+    fn question_license_refuses_an_incompatible_or_unversioned_expression() {
+        let decoded = serde_json::from_str::<QuestionLicense>(r#""CC-BY""#);
+        assert!(decoded.is_err());
     }
 }

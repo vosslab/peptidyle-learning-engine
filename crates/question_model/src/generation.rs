@@ -94,7 +94,7 @@ pub enum QuestionGeneratorParameter {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum QuestionVariationDefinition {
+pub enum QuestionVariationRule {
     /// Every student sees identical content.
     ///
     /// The honest declaration for imported questions that carry no generator.
@@ -134,14 +134,14 @@ mod tests {
                 options: vec!["Na".to_string(), "K".to_string()],
             },
         );
-        let definition = QuestionVariationDefinition::Seeded {
+        let rule = QuestionVariationRule::Seeded {
             generator: QuestionGeneratorReference {
                 id: "molar_mass".to_string(),
                 version: "1".to_string(),
             },
             parameters,
         };
-        let json = serde_json::to_string(&definition).expect("serialization should succeed");
+        let json = serde_json::to_string(&rule).expect("serialization should succeed");
         // BTreeMap orders keys, so "element" precedes "mass" on every machine.
         // The quotes matter: a bare "mass" also matches inside "molar_mass".
         let element_at = json.find(r#""element""#).expect("element key present");

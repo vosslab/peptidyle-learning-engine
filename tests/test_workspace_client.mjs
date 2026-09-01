@@ -11,12 +11,16 @@ import {
   WorkspaceConflictError,
   PublicationValidationError,
 } from "../src/api/http_client.ts";
-import { decodeQuestionPublicationReview, decodeWorkspaceDraftPage } from "../src/api/decoders.ts";
-import { decodePublicByline, parseReviewedPublicByline } from "../src/api/public_byline.ts";
+import { decodeQuestionPublicationReview, decodeDraftQuestionPage } from "../src/api/decoders.ts";
+import {
+  decodeQuestionAuthorship,
+  parseReviewedQuestionAuthorship,
+} from "../src/api/question_authorship.ts";
 import { createWorkspaceEditorRepository } from "../src/pages/editor_workspace_repository.ts";
 
 const draft = publishedProblemFixture.draft;
 const workspace = draft.workspace;
+const draftQuestion = "D-901";
 
 function jsonResponse(value, options = {}) {
   return new Response(JSON.stringify(value), {
@@ -40,11 +44,13 @@ function semanticProjection(definition) {
     response: { kind: response.kind, optionCount },
     questionAttemptLimit: definition.questionAttemptLimit,
     questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    questionVariationDefinition: { kind: definition.questionVariationDefinition.kind },
+    questionVariationRule: { kind: definition.questionVariationRule.kind },
     metadata: {
+      questionDescription: definition.metadata.questionDescription,
       tags: definition.metadata.tags,
       classifications: definition.metadata.classifications,
-      license: definition.metadata.license,
+      questionLicense: definition.metadata.questionLicense,
+      questionCitation: definition.metadata.questionCitation,
       language: definition.metadata.language,
     },
   };
@@ -53,7 +59,7 @@ function semanticProjection(definition) {
 test("Question Publication Review admits only safe review summaries and a consistent base", () => {
   const current = semanticProjection(draft);
   const first = {
-    workingCopyEditNumber: 1,
+    draftQuestionRevisionNumber: 1,
     baseQuestion: "newQuestion",
     current,
     changed: [],
@@ -73,7 +79,7 @@ test("Question Publication Review admits only safe review summaries and a consis
   }
 });
 
-test("publication transport uses a bodyless validation request and an explicit reviewed byline", async () => {
+test("publication transport uses a bodyless validation request and explicit Question Authorship", async () => {
   const calls = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -84,7 +90,7 @@ test("publication transport uses a bodyless validation request and an explicit r
       if (String(input).endsWith("question-publication-review")) {
         return jsonResponse(
           {
-            workingCopyEditNumber: 1,
+            draftQuestionRevisionNumber: 1,
             baseQuestion: "newQuestion",
             current: semanticProjection(draft),
             changed: [],
@@ -97,7 +103,10 @@ test("publication transport uses a bodyless validation request and an explicit r
   });
   await client.validateWorkspacePublication(workspace);
   await client.getQuestionPublicationReview(workspace);
-  const request = { scope: "public", byline: { names: ["Fixture Instructor"] } };
+  const request = {
+    scope: "public",
+    authorship: { authors: [{ displayName: "Fixture Instructor" }] },
+  };
   await client.publishWorkspace(workspace, request, '"1"');
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.body, undefined);
@@ -106,34 +115,35 @@ test("publication transport uses a bodyless validation request and an explicit r
   assert.equal(calls[2].init.headers["content-type"], "application/json");
 });
 
-test("reviewed bylines share strict line-based author input and wire decoding", async () => {
-  assert.deepEqual(parseReviewedPublicByline("  Ada Lovelace  \nGrace Hopper"), {
-    names: ["Ada Lovelace", "Grace Hopper"],
+test("Question Authorship shares strict line-based author input and wire decoding", async () => {
+  assert.deepEqual(parseReviewedQuestionAuthorship("  Ada Lovelace  \nGrace Hopper"), {
+    authors: [{ displayName: "Ada Lovelace" }, { displayName: "Grace Hopper" }],
   });
   for (const text of ["", "Ada\nAda", "Ada\u0007", "😀".repeat(121)]) {
-    assert.equal(parseReviewedPublicByline(text), null);
+    assert.equal(parseReviewedQuestionAuthorship(text), null);
   }
-  assert.deepEqual(decodePublicByline({ names: ["Ada Lovelace"] }, "response.byline"), {
-    names: ["Ada Lovelace"],
-  });
+  assert.deepEqual(
+    decodeQuestionAuthorship({ authors: [{ displayName: "Ada Lovelace" }] }, "response.authorship"),
+    { authors: [{ displayName: "Ada Lovelace" }] },
+  );
   for (const value of [
-    { names: [] },
-    { names: ["Ada Lovelace", "Ada Lovelace"] },
-    { names: ["Ada\u0007"] },
-    { names: ["Ada Lovelace"], extra: true },
+    { authors: [] },
+    { authors: [{ displayName: "Ada Lovelace" }, { displayName: "Ada Lovelace" }] },
+    { authors: [{ displayName: "Ada\u0007" }] },
+    { authors: [{ displayName: "Ada Lovelace" }], extra: true },
   ]) {
-    assert.throws(() => decodePublicByline(value, "response.byline"));
+    assert.throws(() => decodeQuestionAuthorship(value, "response.authorship"));
   }
 
   const client = createHttpApiClient({
     fetch: async () => {
-      throw new Error("invalid bylines must not reach fetch");
+      throw new Error("invalid Question Authorship must not reach fetch");
     },
   });
   await assert.rejects(
     client.publishWorkspace(
       workspace,
-      { scope: "public", byline: { names: ["Ada\u0007"] } },
+      { scope: "public", authorship: { authors: [{ displayName: "Ada\u0007" }] } },
       '"1"',
     ),
     ApiProtocolError,
@@ -172,7 +182,7 @@ test("publication 422 shapes keep validation unavailability distinct from comple
   await assert.rejects(
     capabilityFailure.publishWorkspace(
       workspace,
-      { scope: "public", byline: { names: ["Fixture Instructor"] } },
+      { scope: "public", authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
       '"1"',
     ),
     (error) =>
@@ -187,7 +197,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
     fetch: async () =>
       jsonResponse(
         {
-          workingCopyEditNumber: 2,
+          draftQuestionRevisionNumber: 2,
           baseQuestion: "newQuestion",
           current: semanticProjection(draft),
           changed: [],
@@ -204,7 +214,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
       () =>
         publish.publishWorkspace(
           workspace,
-          { scope: "public", byline: { names: ["Fixture Instructor"] } },
+          { scope: "public", authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
           revision,
         ),
       /revision|arguments/u,
@@ -213,7 +223,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
   await assert.rejects(
     publish.publishWorkspace(
       workspace,
-      { scope: "public", byline: { names: ["Fixture Instructor"] } },
+      { scope: "public", authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
       '"1"',
     ),
     WorkspaceConflictError,
@@ -231,8 +241,9 @@ test("workspace CRUD uses no-store, exact ETags, and never permits a path/body m
         return jsonResponse({
           items: [
             {
+              draftQuestion,
               workspace,
-              reference: "W-1",
+              authoringWorkspace: "W-1",
               title: draft.metadata.title,
               questionBackend: draft.backendLocator.backend,
             },
@@ -295,11 +306,27 @@ test("workspace boundaries reject foreign failures, oversized errors, and contam
 
   assert.throws(
     () =>
-      decodeWorkspaceDraftPage({
+      decodeDraftQuestionPage({
         items: [{ workspace, title: draft.metadata.title, sourceBackend: "ple" }],
         nextCursor: null,
       }),
     /allowed by this response contract/u,
+  );
+  assert.throws(
+    () =>
+      decodeDraftQuestionPage({
+        items: [
+          {
+            draftQuestion: "00000000-0000-0000-0000-000000000901",
+            workspace,
+            authoringWorkspace: "W-1",
+            title: draft.metadata.title,
+            questionBackend: "ple",
+          },
+        ],
+        nextCursor: null,
+      }),
+    /D- reference/u,
   );
   const contaminated = { ...draft, problem: "00000000-0000-0000-0000-000000000099" };
   const client = createHttpApiClient({

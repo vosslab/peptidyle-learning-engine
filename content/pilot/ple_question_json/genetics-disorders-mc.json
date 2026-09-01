@@ -1,0 +1,31 @@
+{
+  "format": "pleQuestionJson",
+  "version": 2,
+  "title": "Genetics Chapter 1: Phenylalanine metabolism",
+  "questionDescription": "Instructor-facing discovery summary for phenylalanine-metabolism question practice.",
+  "prompt": "Which genetic disorder is caused by impaired phenylalanine metabolism, leading to phenylalanine accumulation?",
+  "response": {
+    "kind": "singleChoice",
+    "choices": [
+      { "id": "cystic-fibrosis", "text": "Cystic fibrosis" },
+      { "id": "galactosemia", "text": "Galactosemia" },
+      { "id": "patau-syndrome", "text": "Patau syndrome" },
+      { "id": "phenylketonuria", "text": "Phenylketonuria (PKU)" }
+    ],
+    "correctChoice": "phenylketonuria"
+  },
+  "feedback": {
+    "correct": "Correct. PKU impairs phenylalanine metabolism, so phenylalanine can accumulate.",
+    "incorrect": "Review which inherited metabolic disorder affects phenylalanine breakdown."
+  },
+  "points": 1.0,
+  "questionAttemptLimit": { "maxAttempts": null },
+  "questionAttemptTimeLimit": { "kind": "unlimited" },
+  "tags": ["genetics", "genetic-disorders", "chapter-1"],
+  "classifications": [
+    { "system": "Peptidyle", "code": "GENETICS.CHAPTER_1", "name": "Genetics Chapter 1" }
+  ],
+  "questionLicense": "CC-BY-4.0",
+  "questionCitation": null,
+  "language": "en-US"
+}

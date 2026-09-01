@@ -4,7 +4,7 @@ Peptidyle is one installation with global accounts and a shared Question Library
 separates reusable learning content from course-owned educational records. A `BlueprintCourse`
 is the reusable, answer-free course definition; it has no Students, enrollments, deadlines, or
 retention state. A `CourseInstance` is the exact teaching `CourseId` created from one immutable
-BlueprintCourse parent and applied revision. It owns copied assignment definitions, Students,
+BlueprintCourse parent and applied revision. It owns copied Assignment Content, Students,
 deadlines, releases, delivery settings, and the resulting educational records.
 
 Retention targets one exact `CourseInstance`. A published question, its immutable versions, the
@@ -64,7 +64,7 @@ or wrong-kind capability and a missing, foreign, archived, or revoked
 CourseInstance/Student relationship fail closed and are concealed. A request
 never supplies Account, course, Student, role, or support-capability authority.
 
-The retention API exposes only a coarse lifecycle state, assignment-definition disposition, a strong
+The retention API exposes only a coarse lifecycle state, Assignment Content disposition, a strong
 revision ETag, and the fixed notification projection. It never exposes student identities, policy
 deadlines, object IDs, Object Addresses, queue jobs, leases, or generations.
 
@@ -140,7 +140,7 @@ The deleted student graph includes:
 - prefetch, provider replay, idempotency, scoring, and per-student statistics receipts;
 - student-record audit events, exports, protected deliveries, and external-tool sessions and
   transcripts; and
-- CourseInstance assignment definitions only when the archive-time disposition is `delete`.
+- CourseInstance Assignment Content only when the archive-time disposition is `delete`.
 
 The purge retains:
 
@@ -148,15 +148,15 @@ The purge retains:
   Classifications, and
   licensing;
 - the Question Library and every `BlueprintCourse`, including its reusable
-  assignment definitions and immutable revisions;
+  Assignment Content and immutable revisions;
 - instructor drafts and private workspaces;
 - backend capability metadata;
 - anonymous question-statistics aggregates; and
-- CourseInstance assignment definitions when the frozen disposition is `retain`, the default.
+- CourseInstance Assignment Content when the frozen disposition is `retain`, the default.
 
 Deletion never follows a CourseInstance assignment's immutable problem references into shared
 content or into its BlueprintCourse parent. The owner default is to retain those CourseInstance
-assignment definitions when Student records are archived or deleted; the closed archive disposition
+Assignment Content when Student records are archived or deleted; the closed archive disposition
 is the only explicit choice that can change that treatment.
 
 ## Aggregate survival and disclosure

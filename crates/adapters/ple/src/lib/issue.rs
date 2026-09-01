@@ -4,15 +4,18 @@ use domain::draft_preview::materialize_prompt;
 use domain::generator::generate;
 use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionSeed;
-use question_model::{DraftQuestionRevision, QuestionAttemptReproductionDetails, QuestionRevision};
+use question_model::{
+    DraftQuestionContent, QuestionAttemptReproductionDetails, QuestionRevision,
+    SourceObjectChecksum, SourceObjectReference,
+};
 use sha2::{Digest, Sha256};
 
 use crate::generator::AuthorPresentationContent;
 use crate::registry::PleQuestionExecution;
 use crate::reproduction::resolve_question_asset_objects;
 use crate::{
-    MaterializedNativeQuestion, PleDraftAuthorPresentation, PleIssuedQuestion, PleQuestionBackend,
-    PleQuestionBackendError, PreparedNativeQuestion, QuestionAssetObjectReference,
+    MaterializedPleQuestion, PleDraftAuthorPresentation, PleIssuedQuestion, PleQuestionBackend,
+    PleQuestionBackendError, PreparedPleQuestion, QuestionAssetObjectReference,
 };
 
 impl PleQuestionBackend {
@@ -24,6 +27,8 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
+        source_object_reference: &SourceObjectReference,
+        source_object_checksum: &SourceObjectChecksum,
         question_asset_object_references: &[QuestionAssetObjectReference],
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
         let prepared = self.prepare(question, seed)?;
@@ -33,8 +38,8 @@ impl PleQuestionBackend {
             backend: self.current_backend.clone(),
             renderer_version: None,
             generator: prepared.generated.generator.clone(),
-            source_object_reference: None,
-            source_object_checksum: None,
+            source_object_reference: Some(source_object_reference.clone()),
+            source_object_checksum: Some(source_object_checksum.clone()),
             asset_objects,
             grader: self.current_grader.clone(),
             rendered_question_sha256: prepared.rendered_question_sha256,
@@ -52,23 +57,19 @@ impl PleQuestionBackend {
     /// presentation. Callers surface that state rather than serializing a key.
     pub fn author_presentation(
         &self,
-        question: &DraftQuestionRevision,
+        question: &DraftQuestionContent,
         seed: QuestionSeed,
     ) -> Result<Option<PleDraftAuthorPresentation>, PleQuestionBackendError> {
         question
             .metadata
             .validate_title()
             .map_err(PleQuestionBackendError::InvalidTitle)?;
-        let generated = generate(seed, &question.question_variation_definition)
+        let generated = generate(seed, &question.question_variation_rule)
             .map_err(PleQuestionBackendError::Generation)?;
         let implementation =
             self.implementation_for_draft(question, generated.generator.as_ref())?;
-        let prompt = materialize_prompt(
-            &question.prompt,
-            seed,
-            &question.question_variation_definition,
-        )
-        .map_err(PleQuestionBackendError::Presentation)?;
+        let prompt = materialize_prompt(&question.prompt, seed, &question.question_variation_rule)
+            .map_err(PleQuestionBackendError::Presentation)?;
         let Some(AuthorPresentationContent {
             question_answer,
             question_answer_explanation,
@@ -90,35 +91,31 @@ impl PleQuestionBackend {
         question: &QuestionRevision,
         seed: QuestionSeed,
         execution: &PleQuestionExecution,
-    ) -> Result<PreparedNativeQuestion, PleQuestionBackendError> {
+    ) -> Result<PreparedPleQuestion, PleQuestionBackendError> {
         question
             .metadata
             .validate_title()
             .map_err(PleQuestionBackendError::InvalidTitle)?;
-        let generated = generate(seed, &question.question_variation_definition)
+        let generated = generate(seed, &question.question_variation_rule)
             .map_err(PleQuestionBackendError::Generation)?;
         let implementation =
             self.implementation_for_question(question, generated.generator.as_ref())?;
         let parameter_hash = generated
             .sha256()
             .map_err(PleQuestionBackendError::Generation)?;
-        let prompt = materialize_prompt(
-            &question.prompt,
-            seed,
-            &question.question_variation_definition,
-        )
-        .map_err(PleQuestionBackendError::Presentation)?;
-        let materialized = MaterializedNativeQuestion {
+        let prompt = materialize_prompt(&question.prompt, seed, &question.question_variation_rule)
+            .map_err(PleQuestionBackendError::Presentation)?;
+        let materialized = MaterializedPleQuestion {
             prompt,
             answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
         let envelope = QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::from_question_variation_definition(
+            variation: question_model::QuestionVariation::from_question_variation_rule(
                 question_model::QuestionRevisionReference {
                     question_id: question.question_id.clone(),
                     revision_number: question.revision_number,
                 },
-                &question.question_variation_definition,
+                &question.question_variation_rule,
                 seed,
             ),
             title: question.metadata.title.clone(),
@@ -126,7 +123,7 @@ impl PleQuestionBackend {
             response: question.response.clone(),
         };
         let rendered_question_sha256 = hash_json(&envelope)?;
-        Ok(PreparedNativeQuestion {
+        Ok(PreparedPleQuestion {
             generated,
             materialized,
             envelope,
@@ -139,7 +136,7 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-    ) -> Result<PreparedNativeQuestion, PleQuestionBackendError> {
+    ) -> Result<PreparedPleQuestion, PleQuestionBackendError> {
         let execution = self.backend_execution_for(&self.current_backend)?;
         self.prepare_with_execution(question, seed, execution)
     }

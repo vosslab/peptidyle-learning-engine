@@ -77,7 +77,7 @@ the same Application Shell and Ribbon architecture with a completely distinct me
 
 | Ribbon Scope       | Instructor                                                                             | Student     | Sysadmin                      |
 | ------------------ | -------------------------------------------------------------------------------------- | ----------- | ----------------------------- |
-| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses, Instructor Approvals |
+| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses                       |
 | Course Instance    | Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, Course Setup | Assignments | Teaching Operations           |
 | Assignment Attempt | None                                                                                   | Attempt     | None                          |
 

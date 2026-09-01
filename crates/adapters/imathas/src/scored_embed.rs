@@ -8,7 +8,7 @@
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::{ActivityTimestamp, GradingResult, QuestionRevisionReference};
+use question_model::{GradingResult, QuestionRevisionReference, Timestamp};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
@@ -159,7 +159,7 @@ pub struct ScoredEmbedLaunchLedger {
     source_digest: String,
     profile: String,
     provider_seed: u16,
-    expires_at: ActivityTimestamp,
+    expires_at: Timestamp,
     correlation: ServerCorrelation,
     nonce: ScoredEmbedNonce,
     binding_digest: String,
@@ -196,7 +196,7 @@ impl ScoredEmbedLaunchLedger {
         binding: GradeBinding,
         provider_question_id: impl Into<String>,
         source_digest: impl Into<String>,
-        expires_at: ActivityTimestamp,
+        expires_at: Timestamp,
         correlation: ServerCorrelation,
         nonce: ScoredEmbedNonce,
     ) -> Result<Self, ScoredEmbedFailure> {
@@ -258,10 +258,7 @@ impl ScoredEmbedLaunchLedger {
         &self.correlation
     }
 
-    pub(crate) fn ensure_eligible_at(
-        &self,
-        now: ActivityTimestamp,
-    ) -> Result<(), ScoredEmbedFailure> {
+    pub(crate) fn ensure_eligible_at(&self, now: Timestamp) -> Result<(), ScoredEmbedFailure> {
         if self.consumed {
             return Err(ScoredEmbedFailure::DuplicateResult);
         }
@@ -347,7 +344,7 @@ pub(crate) struct LaunchLedgerStorageParts {
     pub(crate) source_digest: String,
     pub(crate) profile: String,
     pub(crate) provider_seed: u16,
-    pub(crate) expires_at: ActivityTimestamp,
+    pub(crate) expires_at: Timestamp,
     pub(crate) correlation: String,
     pub(crate) nonce: [u8; 32],
     pub(crate) binding_digest: String,
@@ -416,7 +413,7 @@ pub struct ExternalQuestionProviderCacheEntry {
     provider_seed: u16,
     profile: String,
     payload_digest: String,
-    expires_at: ActivityTimestamp,
+    expires_at: Timestamp,
 }
 
 impl std::fmt::Debug for ExternalQuestionProviderCacheEntry {
@@ -473,7 +470,7 @@ impl ScoredEmbedResultVerifier {
         &self,
         ledger: &mut ScoredEmbedLaunchLedger,
         result_token: &str,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<VerifiedProviderGrade, ScoredEmbedFailure> {
         if !self.profile.allows_published_server_grading()
             || ledger.provider_key != self.profile.provider_key
@@ -749,7 +746,7 @@ mod tests {
             binding,
             "17",
             source_digest,
-            ActivityTimestamp::from_unix_millis(expires_at),
+            Timestamp::from_unix_millis(expires_at),
             correlation,
             ScoredEmbedNonce::from_server_random(nonce).unwrap(),
         )
@@ -837,18 +834,14 @@ mod tests {
             .verify_result(
                 &mut ledger,
                 &first_result,
-                ActivityTimestamp::from_unix_millis(10_000),
+                Timestamp::from_unix_millis(10_000),
             )
             .unwrap();
         assert_eq!(result.result.points_earned, 0.75);
         assert!(!result.result.correct);
         let replay = bound_token(&ledger, 1.0, "", secret);
         assert_eq!(
-            verifier.verify_result(
-                &mut ledger,
-                &replay,
-                ActivityTimestamp::from_unix_millis(10_000),
-            ),
+            verifier.verify_result(&mut ledger, &replay, Timestamp::from_unix_millis(10_000),),
             Err(ScoredEmbedFailure::DuplicateResult)
         );
         assert!(!format!("{result:?}").contains("student answer"));
@@ -864,7 +857,7 @@ mod tests {
             verifier.verify_result(
                 &mut ledger(20_000),
                 &valid,
-                ActivityTimestamp::from_unix_millis(12_000)
+                Timestamp::from_unix_millis(12_000)
             ),
             Err(ScoredEmbedFailure::StaleLedger)
         );
@@ -872,7 +865,7 @@ mod tests {
             verifier.verify_result(
                 &mut ledger(20_000),
                 &token(r#"{"id":"17","score":1.0}"#, secret),
-                ActivityTimestamp::from_unix_millis(10_000),
+                Timestamp::from_unix_millis(10_000),
             ),
             Err(ScoredEmbedFailure::MissingLaunchBinding)
         );
@@ -883,7 +876,7 @@ mod tests {
                     r#"{"id":"99","score":1.0,"ple_nonce":"BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc","ple_binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#,
                     secret,
                 ),
-                ActivityTimestamp::from_unix_millis(10_000),
+                Timestamp::from_unix_millis(10_000),
             ),
             Err(ScoredEmbedFailure::WrongQuestion)
         );
@@ -891,7 +884,7 @@ mod tests {
             verifier.verify_result(
                 &mut ledger(20_000),
                 &bound_token(&ledger(20_000), 1.0, "", b"wrong-secret"),
-                ActivityTimestamp::from_unix_millis(10_000),
+                Timestamp::from_unix_millis(10_000),
             ),
             Err(ScoredEmbedFailure::InvalidSignature)
         );
@@ -905,11 +898,7 @@ mod tests {
         let result = bound_token(&exact, 1.0, "", secret);
         assert!(
             verifier
-                .verify_result(
-                    &mut exact,
-                    &result,
-                    ActivityTimestamp::from_unix_millis(10_000)
-                )
+                .verify_result(&mut exact, &result, Timestamp::from_unix_millis(10_000))
                 .is_ok()
         );
 
@@ -929,11 +918,7 @@ mod tests {
         ] {
             let mut other = ledger_with(changed, "a".repeat(64), [8; 32], 20_000);
             assert_eq!(
-                verifier.verify_result(
-                    &mut other,
-                    &result,
-                    ActivityTimestamp::from_unix_millis(10_000)
-                ),
+                verifier.verify_result(&mut other, &result, Timestamp::from_unix_millis(10_000)),
                 Err(ScoredEmbedFailure::WrongLaunchBinding)
             );
         }
@@ -942,7 +927,7 @@ mod tests {
             verifier.verify_result(
                 &mut source_changed,
                 &result,
-                ActivityTimestamp::from_unix_millis(10_000)
+                Timestamp::from_unix_millis(10_000)
             ),
             Err(ScoredEmbedFailure::WrongLaunchBinding)
         );

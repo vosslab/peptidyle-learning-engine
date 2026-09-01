@@ -19,7 +19,7 @@ export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 /** A stable browser locator for a curation aggregate owned by a later server route. */
 export type QuestionFolderReference = string;
 
-/** A stable browser locator for one retained course definition. */
+/** A stable browser locator for one retained course content. */
 export interface RetainedAssignmentReference {
   readonly course: string;
   readonly assignment: string;
@@ -242,16 +242,15 @@ function reusableQuestionLibraryRow(item: {
     readonly questionId: string;
     readonly metadata: {
       readonly title: string;
+      readonly questionDescription: string;
       readonly classifications: ReadonlyArray<{
         readonly system: string;
         readonly code: string;
         readonly name: string;
       }>;
-      readonly license:
-        | { readonly kind: "allRightsReserved" | "ccBy" | "ccBySa" | "ccByNc" | "cc0" }
-        | { readonly kind: "other"; readonly spdx: string };
+      readonly questionLicense: "CC0-1.0" | "CC-BY-4.0" | "CC-BY-SA-4.0" | null;
     };
-    readonly byline: { readonly names: ReadonlyArray<string> };
+    readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
     readonly capabilities: ReadonlyArray<string>;
   };
   readonly evidence:
@@ -278,16 +277,13 @@ function reusableQuestionLibraryRow(item: {
   return {
     displayId: summary.questionId,
     title: summary.metadata.title,
-    summary: summary.metadata.title,
-    byline: summary.byline.names,
+    summary: summary.metadata.questionDescription,
+    authorNames: summary.authorship.authors.map((author) => author.displayName),
     classifications: summary.metadata.classifications.map(
       (classification) => `${classification.system}:${classification.code}`,
     ),
     capabilities: summary.capabilities,
-    license:
-      summary.metadata.license.kind === "other"
-        ? summary.metadata.license.spdx
-        : summary.metadata.license.kind,
+    questionLicense: summary.metadata.questionLicense,
     evidence,
   };
 }
@@ -297,24 +293,24 @@ function selectedBlueprintAssignment(
   course: Awaited<ReturnType<BlueprintCourseClient["getBlueprintCourse"]>>["blueprintCourse"],
 ): Awaited<
   ReturnType<BlueprintCourseClient["getBlueprintCourse"]>
->["blueprintCourse"]["modules"][number]["definitions"][number] {
+>["blueprintCourse"]["modules"][number]["assignments"][number] {
   if (course.reference !== source.reference || course.revision !== source.revision) {
     throw new Error(
       "The selected Blueprint Course changed. Choose a current Blueprint Assignment.",
     );
   }
   for (const module of course.modules) {
-    const definition = module.definitions.find(
+    const content = module.assignments.find(
       (assignment) => assignment.assignment_id === source.assignment_id,
     );
-    if (definition !== undefined) return definition;
+    if (content !== undefined) return content;
   }
   throw new Error(
     "The selected Blueprint Assignment is no longer available in this Blueprint Course.",
   );
 }
 
-function definitionRows(definition: {
+function contentRows(content: {
   readonly entries: ReadonlyArray<
     | {
         readonly kind: "fixed";
@@ -331,12 +327,12 @@ function definitionRows(definition: {
   >;
 }): ReadonlyArray<QuestionSearchResult> {
   const rows: QuestionSearchResult[] = [];
-  for (const assignmentEntry of definition.entries) {
+  for (const assignmentEntry of content.entries) {
     if (assignmentEntry.kind === "fixed")
       rows.push(reusableQuestionLibraryRow(assignmentEntry.question.question_library));
     else
-      for (const questionPoolEntry of assignmentEntry.entries)
-        rows.push(reusableQuestionLibraryRow(questionPoolEntry.question_library));
+      for (const questionPoolItem of assignmentEntry.entries)
+        rows.push(reusableQuestionLibraryRow(questionPoolItem.question_library));
   }
   return rows;
 }
@@ -350,7 +346,7 @@ function sourceRowsMatchQuery(
   return rows.filter((row) => `${row.title}\n${row.summary}`.toLocaleLowerCase().includes(needle));
 }
 
-/** Connects reusable definitions to the established picker without creating a second row model. */
+/** Connects reusable assignments to the established picker without creating a second row model. */
 export function blueprintCourseQuestionPickerRepository(
   client: BlueprintCourseClient,
 ): QuestionPickerSourceRepository {
@@ -360,8 +356,8 @@ export function blueprintCourseQuestionPickerRepository(
       let rows: ReadonlyArray<QuestionSearchResult>;
       if (request.source.kind === "blueprintCourseAssignment") {
         const observed = await client.getBlueprintCourse(request.source.source.reference);
-        rows = definitionRows(
-          selectedBlueprintAssignment(request.source.source, observed.blueprintCourse).definition,
+        rows = contentRows(
+          selectedBlueprintAssignment(request.source.source, observed.blueprintCourse).content,
         );
       } else {
         throw new Error("Choose a Blueprint Course source for this picker composition.");

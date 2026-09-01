@@ -82,7 +82,7 @@ async function createCourseAssignmentAndInvitation(
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
   await page.getByLabel("Completion requirement").selectOption("answerAll");
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),

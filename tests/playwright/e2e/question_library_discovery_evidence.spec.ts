@@ -86,7 +86,7 @@ async function expectUsageOnlyInCourse(page: Page, allowedCourse: string): Promi
   await expect(usage.getByRole("link", { name: otherCourse, exact: true })).toHaveCount(0);
 }
 
-async function createPublishedGeneticsAssignment(
+async function createReleasedGeneticsAssignment(
   page: Page,
   questionId: string,
   assignmentTitle: string,
@@ -114,7 +114,7 @@ async function createPublishedGeneticsAssignment(
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
@@ -249,7 +249,7 @@ async function verifyLibraryFilters(page: Page): Promise<void> {
   const library = page.locator('[data-route-surface="library"]');
   await expect(library).toBeVisible();
   await page.getByLabel("Search published questions").fill(pleQuestionTitle);
-  await page.getByLabel("Byline").selectOption("Dr. Elena Rivera");
+  await page.getByLabel("Question Author").selectOption("Dr. Elena Rivera");
   await page.getByLabel("Backend").selectOption("ple");
   await page.getByLabel("Tag").selectOption("peptide-bond");
   await page.getByLabel("Question Type").selectOption("multipleChoice");
@@ -352,7 +352,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await chooseSeededIdentity(morgan, /Morgan Reyes/u);
         await selectVisibleCourse(morgan, geneticsCourseTitle);
         const questionId = await libraryQuestionId(morgan);
-        await createPublishedGeneticsAssignment(morgan, questionId, geneticsAssignmentTitle);
+        await createReleasedGeneticsAssignment(morgan, questionId, geneticsAssignmentTitle);
         await morgan.getByRole("link", { name: "Library", exact: true }).click();
         await morgan.getByLabel("Search published questions").fill(pleQuestionTitle);
         await openLibraryDetail(morgan);
@@ -401,7 +401,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await completeAssignment(avery, geneticsAssignmentTitle);
       });
 
-      await test.step("Elena claims Genetics as a student and completes its published assignment", async () => {
+      await test.step("Elena claims Genetics as a student and completes its released Assignment", async () => {
         await claimInvitation(elena, /Elena Rivera/u, elenaGeneticsInvitation, geneticsCourseTitle);
         await completeAssignment(elena, geneticsAssignmentTitle);
       });

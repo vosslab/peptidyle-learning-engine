@@ -136,13 +136,13 @@ Use one explicit path for each kind of change:
   replacements, and resolved schedule before **Apply proposal**. New assignments remain unreleased.
   Divergent instance work is preserved; use the explicit selected-copy or new-assignment action
   instead of an implicit merge.
-- **Rollover Course Instance:** choose **Rollover course**, select the target term, and review the
+- **Copy Course for New Term:** choose **Copy course for new term**, select the target term, and review the
   manifest. The new Course Instance receives reusable definitions but no Student memberships,
   invitations, attempts, responses, grades, retention state, or issued evidence.
-- **Shift Course Instance term:** choose **Shift course term** only for an existing instance with
+- **Shift Course Dates:** choose **Shift course dates** only for an existing instance with
   no issued Student work. Preview every resolved date in the target IANA time zone, correct any DST
   gap or ambiguity, and apply the witnessed proposal atomically. If work has been issued, use
-  rollover instead; issued evidence keeps its original term context.
+  Copy Course for New Term instead; issued evidence keeps its original term context.
 
 Use **Check receipt evidence** after applying a proposal. An incomplete receipt refuses reconciliation
 and requires operator recovery. Course Instance deadlines, releases, accommodations, grades, and

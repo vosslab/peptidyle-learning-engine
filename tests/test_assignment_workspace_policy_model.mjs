@@ -36,7 +36,7 @@ const policies = {
   assignmentQuestionOrderRule: "authoredOrder",
 };
 
-const assignmentWorkingCopyDefinition = {
+const assignmentAuthoredContent = {
   timeZone: "America/Chicago",
   instructions: "Use a clear structural drawing.",
   availableAt: null,
@@ -52,13 +52,10 @@ test("focused policy input preserves direct delivery settings", () => {
   const input = assignmentPoliciesInput(
     studentFeedbackReleaseRule,
     policies,
-    assignmentWorkingCopyDefinition,
+    assignmentAuthoredContent,
   );
 
-  assert.equal(
-    input.assignmentWorkingCopyDefinition.instructions,
-    "Use a clear structural drawing.",
-  );
+  assert.equal(input.assignmentAuthoredContent.instructions, "Use a clear structural drawing.");
 });
 
 test("policy local-time normalization accepts only explicit course wall-clock values", () => {

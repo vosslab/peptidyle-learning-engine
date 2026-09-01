@@ -15,12 +15,12 @@ import {
 } from "../decoders/calculated_gradebook";
 import {
   decodeGradebookSelectionResult,
-  decodeSubmittedRunChoicesPage,
+  decodeSubmittedAssignmentAttemptChoicesPage,
   type GradebookSelectionFilter,
   type GradebookSelectionQuery,
   type GradebookSelectionResult,
-  type SubmittedRunChoicesPage,
-  type SubmittedRunChoicesQuery,
+  type SubmittedAssignmentAttemptChoicesPage,
+  type SubmittedAssignmentAttemptChoicesQuery,
 } from "../decoders/gradebook_selection";
 import { decodeInstructorGradingOperationReference } from "../decoders/grading_operations";
 import { decodeCursor, decodeIdentifier } from "../decoders/shared";
@@ -113,11 +113,11 @@ function gradebookSelectionPath(courseId: CourseId, request: GradebookSelectionQ
   return `/api/courses/${encodedId(course)}/gradebook/selection?${query.toString()}`;
 }
 
-function submittedRunChoicesPath(
+function submittedAssignmentAttemptChoicesPath(
   courseId: CourseId,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  request: SubmittedRunChoicesQuery,
+  request: SubmittedAssignmentAttemptChoicesQuery,
 ): string {
   const course = decodeIdentifier(courseId, "course");
   const checkedMembership = canonicalReference(
@@ -138,7 +138,7 @@ function inspectionPath(
   courseId: CourseId,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: AssignmentAttemptReference,
+  assignmentAttempt: AssignmentAttemptReference,
   operationRef: InstructorGradingOperationReference | undefined,
 ): string {
   const course = decodeIdentifier(courseId, "course");
@@ -148,14 +148,18 @@ function inspectionPath(
     parseCourseMembershipReference,
   );
   const checkedAssignment = canonicalReference(assignment, "assignment", parseAssignmentReference);
-  const checkedRun = canonicalReference(run, "Assignment Attempt", parseAssignmentAttemptReference);
+  const checkedAssignmentAttempt = canonicalReference(
+    assignmentAttempt,
+    "Assignment Attempt",
+    parseAssignmentAttemptReference,
+  );
   const query =
     operationRef === undefined
       ? ""
       : `?${new URLSearchParams({
           operationRef: decodeInstructorGradingOperationReference(operationRef),
         }).toString()}`;
-  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts/${encodedId(checkedRun)}${query}`;
+  return `/api/courses/${encodedId(course)}/gradebook/students/${encodedId(checkedMembership)}/assignments/${encodedId(checkedAssignment)}/assignment-attempts/${encodedId(checkedAssignmentAttempt)}${query}`;
 }
 
 async function noStoreJson<T>(
@@ -192,10 +196,14 @@ function verifyInspectionIdentity(
   detail: InspectedStudentWorkDetail,
   membership: CourseMembershipReference,
   assignment: AssignmentReference,
-  run: AssignmentAttemptReference,
+  assignmentAttempt: AssignmentAttemptReference,
   operationRef: InstructorGradingOperationReference | undefined,
 ): InspectedStudentWorkDetail {
-  if (detail.membership !== membership || detail.assignment !== assignment || detail.run !== run) {
+  if (
+    detail.membership !== membership ||
+    detail.assignment !== assignment ||
+    detail.assignmentAttempt !== assignmentAttempt
+  ) {
     throw new ApiProtocolError("Inspected Student work does not match its requested route");
   }
   const context = detail.returnContext;
@@ -219,7 +227,7 @@ export function createCalculatedGradebookClient(
   ApiClient,
   | "getCalculatedGradebook"
   | "getGradebookSelection"
-  | "getSubmittedRunChoices"
+  | "getSubmittedAssignmentAttemptChoices"
   | "getInspectedStudentWork"
 > {
   return {
@@ -246,30 +254,47 @@ export function createCalculatedGradebookClient(
       );
       return verifySelectionIdentity(result, query.filter);
     },
-    getSubmittedRunChoices: (
+    getSubmittedAssignmentAttemptChoices: (
       courseId,
       membership,
       assignment,
-      query: SubmittedRunChoicesQuery = {},
-    ): Promise<SubmittedRunChoicesPage> => {
-      const path = submittedRunChoicesPath(courseId, membership, assignment, query);
-      return noStoreJson(fetchImplementation, basePath, path, decodeSubmittedRunChoicesPage);
+      query: SubmittedAssignmentAttemptChoicesQuery = {},
+    ): Promise<SubmittedAssignmentAttemptChoicesPage> => {
+      const path = submittedAssignmentAttemptChoicesPath(courseId, membership, assignment, query);
+      return noStoreJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeSubmittedAssignmentAttemptChoicesPage,
+      );
     },
     getInspectedStudentWork: async (
       courseId,
       membership,
       assignment,
-      run,
+      assignmentAttempt,
       operationRef,
     ): Promise<InspectedStudentWorkDetail> => {
-      const path = inspectionPath(courseId, membership, assignment, run, operationRef);
+      const path = inspectionPath(
+        courseId,
+        membership,
+        assignment,
+        assignmentAttempt,
+        operationRef,
+      );
       const detail = await noStoreJson(
         fetchImplementation,
         basePath,
         path,
         decodeInspectedStudentWorkDetail,
       );
-      return verifyInspectionIdentity(detail, membership, assignment, run, operationRef);
+      return verifyInspectionIdentity(
+        detail,
+        membership,
+        assignment,
+        assignmentAttempt,
+        operationRef,
+      );
     },
   };
 }

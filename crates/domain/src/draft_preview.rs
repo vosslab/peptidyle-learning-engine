@@ -6,7 +6,7 @@
 
 use question_model::capability::Capability;
 use question_model::envelope::QuestionContentBlock;
-use question_model::generation::{QuestionSeed, QuestionVariationDefinition};
+use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::question_library::QuestionBackend;
 use question_model::{DraftQuestionBackendLocator, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ use crate::generator::{GenerationError, QuestionVariationParameterValue, generat
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
 ///
-/// This deliberately does not reuse `DraftQuestionRevision`: preview needs
+/// This deliberately does not reuse `DraftQuestionContent`: preview needs
 /// neither grading policy nor publication-only validation data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,7 +31,7 @@ pub struct DraftPreviewRequest {
     /// Browser-safe response shape.
     pub response: QuestionResponseFormat,
     /// Deterministic authored parameter specification.
-    pub question_variation_definition: QuestionVariationDefinition,
+    pub question_variation_rule: QuestionVariationRule,
 }
 
 /// Identity-free prompt presentation for one draft and seed.
@@ -118,11 +118,7 @@ pub fn preview_ple_draft(
             capability: Capability::OfflinePreview,
         });
     }
-    let prompt = materialize_prompt(
-        &request.prompt,
-        seed,
-        &request.question_variation_definition,
-    )?;
+    let prompt = materialize_prompt(&request.prompt, seed, &request.question_variation_rule)?;
     Ok(DraftPreviewResult::Ready {
         preview: DraftQuestionPreview {
             workspace: request.workspace,
@@ -143,10 +139,10 @@ pub fn preview_ple_draft(
 pub fn materialize_prompt(
     prompt: &[QuestionContentBlock],
     seed: QuestionSeed,
-    question_variation_definition: &QuestionVariationDefinition,
+    question_variation_rule: &QuestionVariationRule,
 ) -> Result<Vec<QuestionContentBlock>, PresentationError> {
     let generated =
-        generate(seed, question_variation_definition).map_err(PresentationError::Generation)?;
+        generate(seed, question_variation_rule).map_err(PresentationError::Generation)?;
     prompt
         .iter()
         .map(|block| materialize_block(block, &generated.parameters))
@@ -267,7 +263,7 @@ mod tests {
                 match_mode: TextResponseMatchRule::Normalized,
                 max_length: 20,
             },
-            question_variation_definition: QuestionVariationDefinition::Seeded {
+            question_variation_rule: QuestionVariationRule::Seeded {
                 generator: QuestionGeneratorReference {
                     id: "fixture".to_string(),
                     version: "1".to_string(),

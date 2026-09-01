@@ -2,7 +2,7 @@
 
 import type { GradingResult } from "../../../generated/api/GradingResult";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
-import type { DraftQuestionRevision } from "../../../generated/api/DraftQuestionRevision";
+import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionContent";
 import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
 import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -36,7 +36,7 @@ import {
   decodeDraftQuestionBackendLocator,
   decodeQuestionGradingRule,
   decodeQuestionBackendLocator,
-  decodeQuestionVariationDefinition,
+  decodeQuestionVariationRule,
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
   decodeQuestionType,
@@ -88,9 +88,9 @@ function decodeQuestionContent(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationDefinition: decodeQuestionVariationDefinition(
-      field(record, "questionVariationDefinition", path),
-      `${path}.questionVariationDefinition`,
+    questionVariationRule: decodeQuestionVariationRule(
+      field(record, "questionVariationRule", path),
+      `${path}.questionVariationRule`,
       true,
     ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
@@ -98,10 +98,10 @@ function decodeQuestionContent(
   } satisfies Omit<QuestionRevision, "questionId" | "revisionNumber">;
 }
 
-function decodeDraftQuestionContent(
+function decodeDraftQuestionContentRecord(
   record: Record<string, unknown>,
   path: string,
-): DraftQuestionRevision {
+): DraftQuestionContent {
   const response = decodeQuestionResponseFormat(
     field(record, "response", path),
     `${path}.response`,
@@ -142,14 +142,14 @@ function decodeDraftQuestionContent(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationDefinition: decodeQuestionVariationDefinition(
-      field(record, "questionVariationDefinition", path),
-      `${path}.questionVariationDefinition`,
+    questionVariationRule: decodeQuestionVariationRule(
+      field(record, "questionVariationRule", path),
+      `${path}.questionVariationRule`,
       true,
     ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
-  } satisfies DraftQuestionRevision;
+  } satisfies DraftQuestionContent;
 }
 
 export function decodeQuestionRevision(value: unknown, path = "response"): QuestionRevision {
@@ -165,7 +165,7 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationDefinition",
+    "questionVariationRule",
     "grading",
     "metadata",
   ]);
@@ -181,10 +181,10 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
 }
 
 /** Strictly decodes editable content, which cannot carry published IDs. */
-export function decodeDraftQuestionRevision(
+export function decodeDraftQuestionContent(
   value: unknown,
   path = "response",
-): DraftQuestionRevision {
+): DraftQuestionContent {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "workspace",
@@ -195,11 +195,11 @@ export function decodeDraftQuestionRevision(
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationDefinition",
+    "questionVariationRule",
     "grading",
     "metadata",
   ]);
-  return decodeDraftQuestionContent(record, path);
+  return decodeDraftQuestionContentRecord(record, path);
 }
 
 export function decodePublicationResult(value: unknown, path = "response"): PublicationResult {

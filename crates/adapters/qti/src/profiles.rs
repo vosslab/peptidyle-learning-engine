@@ -12,31 +12,32 @@ use serde::{Deserialize, Serialize};
 
 mod blackboard;
 mod canvas;
+mod checksums;
 mod choice_ids;
 mod choice_map_payload;
-mod digests;
 mod mapped_item;
 #[allow(dead_code)] // The next profile parsers consume this shared, crate-private boundary.
 mod markup;
 mod matrix;
-mod normalized_digest;
+mod normalized_fingerprint;
 mod report;
 mod server_parts;
 
 pub use blackboard::{BlackboardQtiImportError, BlackboardQtiPackage, import_blackboard_qti21};
 pub use canvas::{CanvasQtiImportError, CanvasQtiPackage, import_canvas_qti12};
+pub use checksums::{
+    QtiImportChecksums, QtiImportResultChecksumInput, QtiPrivateChoiceMapChecksumInput,
+    QtiPrivateFeedbackChecksumInput, QtiPrivateMappingChecksumInput, QtiProfileItemDisposition,
+    QtiPublicChoiceChecksumInput, QtiPublicMappingChecksumInput,
+};
 pub use choice_ids::{QtiChoiceIdMap, QtiChoiceIdMappingError, map_qti_choice_ids};
 pub use choice_map_payload::QtiChoiceMapPayload;
-pub use digests::{
-    QtiImportIntegrityDigests, QtiPrivateChoiceMapDigestInput, QtiPrivateFeedbackDigestInput,
-    QtiPrivateMappingDigestInput, QtiProfileItemDisposition, QtiProfileReportDigestInput,
-    QtiPublicChoiceDigestInput, QtiPublicMappingDigestInput,
-};
 pub use mapped_item::{QtiMappedItem, QtiMappedItemError};
 pub use matrix::{
     BLACKBOARD_ITEM_NAMESPACE, CANVAS_ITEM_NAMESPACE, IMS_CONTENT_PACKAGING_NAMESPACE,
     QTI_PROFILE_MATRIX, QtiProfileMatrixDetail,
 };
+pub use normalized_fingerprint::NormalizedQtiItemFingerprint;
 pub use report::{
     QtiMappedPoints, QtiPleDefault, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
     QtiSafeDiagnosticTemplate, QtiSafeItemReport, QtiSafeItemStatus,
@@ -320,9 +321,9 @@ pub enum QtiProfileContractError {
     Serialization(String),
     ProfileVersionMismatch,
     DetectionMismatch,
-    ItemDigestDisposition,
+    ItemChecksumDisposition,
     SourceItemNotAccepted,
-    PublicMappingDigestMismatch,
+    PublicMappingChecksumMismatch,
     PrivateBindingMissing,
     MappingOwnerMismatch,
 }
@@ -338,15 +339,18 @@ impl fmt::Display for QtiProfileContractError {
             Self::DetectionMismatch => {
                 write!(formatter, "QTI detection evidence and report disagree")
             }
-            Self::ItemDigestDisposition => {
-                write!(formatter, "QTI item digest contradicts its disposition")
+            Self::ItemChecksumDisposition => {
+                write!(formatter, "QTI item checksum contradicts its disposition")
             }
             Self::SourceItemNotAccepted => write!(
                 formatter,
                 "QTI public mapping does not name an accepted item"
             ),
-            Self::PublicMappingDigestMismatch => {
-                write!(formatter, "QTI public mapping digest does not match report")
+            Self::PublicMappingChecksumMismatch => {
+                write!(
+                    formatter,
+                    "QTI public mapping checksum does not match report"
+                )
             }
             Self::PrivateBindingMissing => write!(
                 formatter,

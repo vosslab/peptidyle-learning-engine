@@ -1,4 +1,4 @@
-// assignment_workspace_questions_page.tsx - Questions-owned assignment title and ordered definition.
+// assignment_workspace_questions_page.tsx - Questions-owned Assignment title and ordered Assignment Content.
 
 import { A } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
@@ -11,15 +11,15 @@ import {
   appendFixedEntries,
   appendQuestionPool,
   assignmentContentInput,
-  assignmentEditorDraftFrom,
+  assignmentEditorStateFrom,
   fixedEntries,
   moveAssignmentEntry,
   parseExactQuestionIds,
   questionBackendLabel,
-  validateAssignmentEditorDraft,
+  validateAssignmentEditorState,
   type AssignmentQuestionRow,
-  type AssignmentEditorDraft,
-  type AssignmentEditorQuestionPoolEntry,
+  type AssignmentEditorState,
+  type AssignmentEditorQuestionPoolAssignmentEntry,
 } from "../assignment_editor_model";
 import { AssignmentEditorQuestionPicker } from "../assignment_editor_question_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
@@ -41,11 +41,11 @@ function previewRevision(revision: string): TeachingOperationRevision {
   return value;
 }
 
-/** Keeps Questions edits local until the Instructor explicitly saves the complete ordered definition. */
+/** Keeps Questions edits local until the Instructor explicitly saves the complete ordered Assignment Content. */
 export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
-  const [draft, setDraft] = createSignal<AssignmentEditorDraft>(
-    assignmentEditorDraftFrom(workspace.assignment()),
+  const [draft, setDraft] = createSignal<AssignmentEditorState>(
+    assignmentEditorStateFrom(workspace.assignment()),
   );
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
@@ -76,21 +76,24 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
    * while local edits continue so another action cannot submit the same stale revision. The
    * explicit reload is the deliberate, visible choice that replaces the local draft.
    */
-  function update(next: AssignmentEditorDraft, nextMessage: string): void {
+  function update(next: AssignmentEditorState, nextMessage: string): void {
     setDraft(next);
     setPoolPreview(undefined);
     setHasUnsavedContent(true);
-    const failure = validateAssignmentEditorDraft(next);
+    const failure = validateAssignmentEditorState(next);
     setValidationMessage(failure === null ? "" : `${failure} Correct the questions, then save.`);
     setMessage(nextMessage);
   }
 
-  function replacePool(entryIndex: number, entry: AssignmentEditorQuestionPoolEntry): void {
+  function replacePool(
+    entryIndex: number,
+    entry: AssignmentEditorQuestionPoolAssignmentEntry,
+  ): void {
     const entries = [...draft().entries];
     entries[entryIndex] = entry;
     update(
       { ...draft(), entries },
-      "Pool updated. Review its Question Pool Entries, then save questions and order.",
+      "Pool updated. Review its Question Pool Items, then save questions and order.",
     );
   }
 
@@ -98,7 +101,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     const entries = draft().entries.filter((_entry, index) => index !== entryIndex);
     update(
       { ...draft(), entries },
-      "Question removed. Save questions and order when the definition is ready.",
+      "Question removed. Save Questions and order when the Assignment Content is ready.",
     );
   }
 
@@ -111,7 +114,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     update(
       appendQuestionPool(draft()),
-      "Question Pool added. Add Question Pool Entry Question IDs, set its selection count, then save questions and order.",
+      "Question Pool added. Add Question Pool Item Question IDs, set its selection count, then save questions and order.",
     );
   }
 
@@ -127,7 +130,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     if (!hasUnsavedContent() && !needsReload() && !successorRevisionRequired()) return false;
     if (successorRevisionRequired()) {
       setMessage(
-        "A successor Assignment Working Copy is required before structural question changes can be saved.",
+        "A successor Assignment is required before structural question changes can be saved.",
       );
     } else if (needsReload()) {
       setMessage(
@@ -139,7 +142,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
     } else {
       setMessage(
-        "Save questions and order before replacing a question. The selected replacement is not committed with the full definition.",
+        "Save Questions and order before replacing a Question. The selected replacement is not committed with the full Assignment Content.",
       );
     }
     focusReplacementRecovery();
@@ -185,7 +188,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     const current = fixedEntries(draft()).find((entry) => entry.id === itemId);
     if (current === undefined) {
       setMessage(
-        "That question is no longer in the local definition. Reload the assignment to continue.",
+        "That Question is no longer in the local Assignment Content. Reload the Assignment to continue.",
       );
       return;
     }
@@ -208,7 +211,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         workspace.assignment().revision,
       );
       workspace.replaceAssignment(saved);
-      setDraft(assignmentEditorDraftFrom(saved));
+      setDraft(assignmentEditorStateFrom(saved));
       setPoolPreview(undefined);
       setHasUnsavedContent(false);
       setNeedsReload(false);
@@ -311,7 +314,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     }
     if (successorRevisionRequired()) {
       setMessage(
-        "Create a successor Assignment Working Copy to use these structural question changes. Existing Student work remains pinned to this revision.",
+        "Create a successor Assignment to use these structural question changes. Existing Student work remains pinned to this revision.",
       );
       return false;
     }
@@ -325,7 +328,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setValidationMessage("Enter an assignment title before saving questions and order.");
       return false;
     }
-    const failure = validateAssignmentEditorDraft(current);
+    const failure = validateAssignmentEditorState(current);
     if (failure !== null) {
       setValidationMessage(`${failure} Correct the questions, then save.`);
       return false;
@@ -340,7 +343,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         current.revision,
       );
       workspace.replaceAssignment(saved);
-      setDraft(assignmentEditorDraftFrom(saved));
+      setDraft(assignmentEditorStateFrom(saved));
       setPoolPreview(undefined);
       setHasUnsavedContent(false);
       setNeedsReload(false);
@@ -369,7 +372,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     let reloaded = false;
     try {
       const latest = await workspace.reloadAssignment();
-      setDraft(assignmentEditorDraftFrom(latest));
+      setDraft(assignmentEditorStateFrom(latest));
       setPoolPreview(undefined);
       setHasUnsavedContent(false);
       setNeedsReload(false);
@@ -396,7 +399,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   async function previewPool(assignmentEntryId: string): Promise<void> {
-    const failure = validateAssignmentEditorDraft(draft());
+    const failure = validateAssignmentEditorState(draft());
     if (failure !== null) {
       setValidationMessage(
         `${failure} Correct the questions, then preview a Question Pool selection.`,
@@ -498,7 +501,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
         <section class="inline-error" role="alert">
           <p>
             Student work already pins this Assignment Revision. Your local question changes remain
-            here, and a successor Assignment Working Copy is required for structural changes.
+            here, and a successor Assignment is required for structural changes.
           </p>
           <button
             class="quiet-action"
@@ -563,7 +566,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
               Add question pool
             </button>
             <p class="assignment-editor-note">
-              A Question Pool selects its configured number of Question Pool Entries with the
+              A Question Pool selects its configured number of Question Pool Items with the
               server&apos;s current selection implementation.
             </p>
             <Show

@@ -1,6 +1,6 @@
-import type { AssignmentEditorDraft } from "../../src/pages/assignment_editor_model.ts";
+import type { AssignmentEditorState } from "../../src/pages/assignment_editor_model.ts";
 
-export function createMasteryAssignmentDraft(courseId: string): AssignmentEditorDraft {
+export function createMasteryAssignmentEditorState(courseId: string): AssignmentEditorState {
   return {
     id: "",
     courseId,

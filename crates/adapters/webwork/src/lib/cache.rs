@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::WebworkAdapterError;
-use crate::WebworkSource;
+use crate::ResolvedWebworkQuestionSource;
 
 pub(super) const CACHE_SCHEMA_VERSION: u8 = 1;
 
@@ -66,18 +66,19 @@ pub(super) fn validate_cached(
     cached: &CachedWebworkRender,
     question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
-    source: &WebworkSource,
+    source: &ResolvedWebworkQuestionSource,
     title: &str,
     active_renderer_version: &QuestionRendererVersion,
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
-        || cached.source_object_reference != source.source_object_reference
-        || cached.source_object_checksum != source.source_object_checksum
+        || cached.source_object_reference != *source.source_object_reference()
+        || cached.source_object_checksum != *source.source_object_checksum()
         || cached.rendered.renderer_version.name.is_empty()
         || cached.rendered.renderer_version.version.is_empty()
     {
         return Err(WebworkAdapterError::InvalidCache(
-            "cache source record is incomplete or does not match the published source".to_string(),
+            "cached Question Source is incomplete or does not match the published Question Source"
+                .to_string(),
         ));
     }
     if &cached.rendered.renderer_version != active_renderer_version {

@@ -6,7 +6,7 @@ PLE is one installation with global accounts. The implemented SD1 Account and
 Authenticated Session boundary carries exactly one immutable Student, Instructor,
 or Sysadmin role; a person needing multiple roles uses separate accounts. Full
 service, database, and release acceptance remains incomplete. The installation has one
-immutable shared Question Library of published assignment questions, private Instructor
+immutable shared Question Library of Published Questions used in Assignments, private Instructor
 authoring workspaces, and course-scoped Student educational records. It has no
 institution selector, publication-visibility tier, or creator-owned course
 authority.
@@ -56,28 +56,28 @@ worker, and grader roles are least-privilege roles and do not bypass RLS.
 
 ## Canonical predicates
 
-All global Instructor capability checks use one canonical predicate:
+All global Instructor capability checks require one Active Instructor Account:
 
 ```text
-approved_instructor(account_id, now)
+account.role = instructor AND account state = active
 ```
 
-It is true only for a current, manually approved Instructor account. It
+Sysadmin vetting occurs before Account creation; it is not a second Account
+lifecycle. The resulting Active Instructor Account
 authorizes Question Library discovery, Question Folders, Stars, Watches, and Saved Question
-Searches, course creation, publication, reuse, and improvement. Every approved
+Searches, course creation, publication, reuse, and improvement. Every active
 Instructor has the same global product capabilities.
 
-Sysadmin status alone never satisfies `approved_instructor`. A Sysadmin creates a
-Course Instance only for an explicitly assigned approved Instructor account; it receives no
-course membership. A person who needs teaching authority uses an approved Instructor
+Sysadmin status alone does not create Instructor authority. A Sysadmin creates a
+Course Instance only for an explicitly assigned active Instructor account; it receives no
+course membership. A person who needs teaching authority uses an active Instructor
 account.
 
 Every course-teaching operation uses one canonical predicate:
 
 ```text
-current_course_instructor(account_id, course, now) =
-    approved_instructor(account_id, now)
-    AND current direct Instructor membership(account_id, course, now)
+current_course_instructor(account_id, course) =
+    current direct Instructor membership(account_id, course)
 ```
 
 The predicate authorizes the complete registered course-Instructor operation
@@ -86,11 +86,11 @@ gradebook, permitted Student-work inspection, exports, and course-record
 assets. Course creation atomically creates the first ordinary Instructor
 membership; it creates no additional creator or owner power.
 
-Approval withdrawal takes effect immediately for global Instructor operations
-and for all course-Instructor operations. Membership revocation takes effect
-immediately for the affected course. Each protected transaction locks or
-otherwise safely evaluates the current approval and membership state before it
-commits, so a previously authorized request cannot win a concurrent revocation.
+Account deactivation takes effect immediately for global Instructor operations,
+and Membership revocation takes effect immediately for the affected course. Each
+protected transaction locks or otherwise safely evaluates the current Account
+and Membership state before it commits, so a previously authorized request
+cannot win a concurrent revocation.
 Past membership and audit evidence remain durable records; they do not retain
 active authority.
 
@@ -105,13 +105,13 @@ entries retain the acting `AccountId` and distinguish who performed the action.
 | Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student projection in own course | No general course authority                                 |
 | Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                      | No general FERPA authority                                  |
 | Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
-| Create or publish a question                                    | Allow if `approved_instructor`            | Allow if `approved_instructor`            | No                                             | Platform operation only when separately authorized          |
+| Create or publish a question                                    | Allow for active Instructor Account        | Allow for active Instructor Account        | No                                             | Platform operation only when separately authorized          |
 
 Course Invitation, acceptance, update, and revocation are atomic,
 audited course-membership operations. Invitation acceptance verifies the target
-Instructor account's matching role and current `approved_instructor` status.
-Approval withdrawal closes a Teaching Team Member's course authority without changing
-the durable membership history. A Sysadmin receives course-record access only
+Instructor account's matching Product Role and active Account State.
+Account deactivation closes a Teaching Team Member's course authority without
+changing the durable membership history. A Sysadmin receives course-record access only
 through a separately defined, narrow audited support
 operation; platform status is not ambient FERPA authority.
 
@@ -170,7 +170,7 @@ its first direct Instructor membership.
 #### `assignment_content_support`
 
 - Supports course assignment content, structure, release, and delivery settings.
-- Projects assignment definitions and release state only.
+- Projects Assignment Content and release state only.
 - Appends `sysadmin_support.assignment_content`.
 
 #### `deterministic_delivery_recovery`
@@ -239,7 +239,7 @@ visibility of any published question they reference.
 ## Shared publication and Instructor DTO contract
 
 Every published question has one stable Question ID lineage and immutable
-QuestionRevisions, visible to every approved Instructor through exactly one shared
+QuestionRevisions, visible to every active Instructor through exactly one shared
 Question Library state. A publication mints a new Question ID only for a new lineage,
 after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionRevision under the existing Question ID. An
@@ -264,11 +264,11 @@ The caller projections are closed:
 | Anonymous caller                           | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure.                                 |
 
 Lifecycle state is visible and does not change discovery authority. Every
-published question remains discoverable to every approved Instructor while its
-state is `active`, `deprecated`, or `archived`; Question Search and Question Details expose
-that state. Selection eligibility is a separate rule: only `active` questions
-may be selected for an ordinary new assignment. `deprecated` and `archived`
-questions remain resolvable for exact historical references and retained
+Published Question remains discoverable to every active Instructor. Question
+Search and Question Details expose its Question Revision Availability as
+`Available` or `Archived`. Selection eligibility is a separate rule: only
+`Available` Question Revisions may be selected for an ordinary new assignment.
+`Archived` Question Revisions remain resolvable for exact historical references and retained
 assignments, but are excluded from ordinary new selection.
 
 Same-lineage publication is limited to the closed semantic classes: presentation,
@@ -320,7 +320,7 @@ camelCase contracts and reject unknown fields:
 
 | Data object            | Browser fields                                                                                                                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuestionSummary`      | `questionId`, `backend`, `questionType`, `capabilities`, `metadata`, `byline`, `availability`, `publishedAt`                                                                                                                           |
+| `QuestionSummary`      | `questionId`, `backend`, `questionType`, `capabilities`, `metadata`, `authorship`, `availability`, `publishedAt`                                                                                                                       |
 | `QuestionStatistics`   | Insufficient: `state`; available: `state`, `formulaVersion`, `observedCourseCount`, `independentLearnerObservationCount`, `difficultyIndex`, `attemptsMean`, `timeMedianSecondsEstimate`, optional `discriminationIndex`, `evidenceAt` |
 | `QuestionSearchResult` | `summary`, `evidence`                                                                                                                                                                                                                  |
 | `QuestionUseSummary`   | `globalCourseCount`, `globalAssignmentCount`, `ownCourseCount`, `ownAssignmentCount`                                                                                                                                                   |
@@ -328,7 +328,7 @@ camelCase contracts and reject unknown fields:
 | `QuestionSearchPage`   | `items`, optional `nextCursor`, `facets`                                                                                                                                                                                               |
 | `QuestionDetails`      | `summary`, answer-free `prompt`, `evidence`, `usage`                                                                                                                                                                                   |
 
-Question Classifications, license, byline, lifecycle, facets, and prompt blocks have
+Question Classifications, Question License, Question Authorship, lifecycle, facets, and prompt blocks have
 their closed shapes defined by the single-installation plan. Evidence is
 released only after its formula-versioned disclosure threshold is satisfied.
 Facet counts are published-question metadata counts. Usage is
@@ -415,7 +415,7 @@ forbidden result for a known action category, such as assignment creation in
 that Student's own course.
 
 Audit records capture the authenticated account, action, durable scope, result, and time for
-authentication events, authorization denials, Instructor approval changes,
+authentication events, authorization denials, Account State changes,
 membership and relationship changes, sensitive course-record reads, export,
 retention, protected delivery, and broker/lease transitions. They exclude
 session credentials, signed URLs, raw Student responses, grades where an audit

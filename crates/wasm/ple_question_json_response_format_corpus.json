@@ -1,0 +1,78 @@
+{
+  "cases": [
+    {
+      "name": "ple-question-json-v2-single-choice-one-selection",
+      "definition": {
+        "kind": "multipleChoice",
+        "choices": [
+          { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
+          {
+            "id": "phenylketonuria",
+            "body": [{ "kind": "text", "markdown": "Phenylketonuria (PKU)" }]
+          }
+        ],
+        "selection": { "kind": "exactlyOne" }
+      },
+      "response": { "kind": "multipleChoice", "selected": ["phenylketonuria"] },
+      "expectedReport": { "violations": [] }
+    },
+    {
+      "name": "ple-question-json-v2-single-choice-empty-selection",
+      "definition": {
+        "kind": "multipleChoice",
+        "choices": [
+          { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
+          {
+            "id": "phenylketonuria",
+            "body": [{ "kind": "text", "markdown": "Phenylketonuria (PKU)" }]
+          }
+        ],
+        "selection": { "kind": "exactlyOne" }
+      },
+      "response": { "kind": "multipleChoice", "selected": [] },
+      "expectedReport": {
+        "violations": [
+          { "kind": "selectionCount", "expected": { "kind": "exactlyOne" }, "actual": 0 }
+        ]
+      }
+    },
+    {
+      "name": "ple-question-json-v2-matching-full-permutation",
+      "definition": {
+        "kind": "matching",
+        "prompts": [
+          { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },
+          { "id": "hydrocarbon", "body": [{ "kind": "text", "markdown": "Written as -CH3" }] }
+        ],
+        "choices": [
+          { "id": "carboxyl", "body": [{ "kind": "text", "markdown": "Carboxyl" }] },
+          { "id": "methyl", "body": [{ "kind": "text", "markdown": "Methyl" }] }
+        ]
+      },
+      "response": {
+        "kind": "matching",
+        "matches": [
+          { "prompt": "cooh", "choice": "methyl" },
+          { "prompt": "hydrocarbon", "choice": "carboxyl" }
+        ]
+      },
+      "expectedReport": { "violations": [] }
+    },
+    {
+      "name": "ple-question-json-v2-matching-empty-response",
+      "definition": {
+        "kind": "matching",
+        "prompts": [
+          { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },
+          { "id": "hydrocarbon", "body": [{ "kind": "text", "markdown": "Written as -CH3" }] }
+        ],
+        "choices": [
+          { "id": "carboxyl", "body": [{ "kind": "text", "markdown": "Carboxyl" }] },
+          { "id": "methyl", "body": [{ "kind": "text", "markdown": "Methyl" }] }
+        ]
+      },
+      "response": { "kind": "matching", "matches": [] },
+      "expectedReport": { "violations": [{ "kind": "matchingPromptsMismatch" }] }
+    }
+  ]
+}

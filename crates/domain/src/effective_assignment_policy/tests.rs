@@ -15,8 +15,8 @@ fn student_record(value: u128) -> StudentRecordId {
     StudentRecordId::from_uuid(id(value))
 }
 
-fn stamp(value: i64) -> ActivityTimestamp {
-    ActivityTimestamp::from_unix_millis(value)
+fn stamp(value: i64) -> Timestamp {
+    Timestamp::from_unix_millis(value)
 }
 
 fn base() -> BaseAssignmentPolicy {

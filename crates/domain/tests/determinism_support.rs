@@ -4,8 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use domain::generator::{QuestionVariationParameterValue, generate};
 use question_model::generation::{
-    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed,
-    QuestionVariationDefinition,
+    QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed, QuestionVariationRule,
 };
 use serde::Deserialize;
 
@@ -20,11 +19,11 @@ struct SeedCorpus {
     generators: Vec<GeneratorCorpus>,
 }
 
-/// One generator definition and its committed expected hashes.
+/// One generator rule and its committed expected hashes.
 #[derive(Debug, Deserialize)]
 struct GeneratorCorpus {
     generator: QuestionGeneratorReference,
-    definition: QuestionVariationDefinition,
+    rule: QuestionVariationRule,
     vectors: Vec<SeedVector>,
 }
 
@@ -113,19 +112,19 @@ pub fn assert_committed_seed_vectors() {
 
 /// Verifies coverage and hashes, stopping at the first divergent seed.
 fn assert_generator_corpus(corpus: &GeneratorCorpus) {
-    let QuestionVariationDefinition::Seeded {
+    let QuestionVariationRule::Seeded {
         generator,
         parameters,
-    } = &corpus.definition
+    } = &corpus.rule
     else {
         panic!(
-            "{}@{}: corpus definition must be seeded",
+            "{}@{}: corpus rule must be seeded",
             corpus.generator.id, corpus.generator.version
         );
     };
     assert_eq!(
         generator, &corpus.generator,
-        "fixture generator must match its definition"
+        "fixture generator must match its rule"
     );
     let generator_label = format!("{}@{}", corpus.generator.id, corpus.generator.version);
     assert!(
@@ -145,7 +144,7 @@ fn assert_generator_corpus(corpus: &GeneratorCorpus) {
     for vector in &corpus.vectors {
         assert_hash_shape(&generator_label, vector);
         let output =
-            generate(QuestionSeed::new(vector.seed), &corpus.definition).unwrap_or_else(|error| {
+            generate(QuestionSeed::new(vector.seed), &corpus.rule).unwrap_or_else(|error| {
                 panic!(
                     "generator `{}` first divergent seed {}: generation failed: {error}",
                     generator_label, vector.seed
@@ -165,7 +164,7 @@ fn assert_generator_corpus(corpus: &GeneratorCorpus) {
         for (name, value) in output.parameters {
             observed
                 .get_mut(&name)
-                .expect("generated parameter must come from the definition")
+                .expect("generated parameter must come from the rule")
                 .insert(observed_value(value));
         }
     }
@@ -198,7 +197,7 @@ fn assert_hash_shape(generator: &str, vector: &SeedVector) {
     );
 }
 
-/// Inspects the authored definition so every implementation branch is required.
+/// Inspects the authored rule so every implementation branch is required.
 fn parameter_coverage(
     parameters: &BTreeMap<String, QuestionGeneratorParameter>,
 ) -> ParameterCoverage {

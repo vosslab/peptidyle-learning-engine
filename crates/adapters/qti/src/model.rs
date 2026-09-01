@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use objects::Sha256Digest;
+use crate::profiles::NormalizedQtiItemFingerprint;
 use question_model::QuestionAssetId;
 use question_model::QuestionResponseFormat;
 use question_model::envelope::QuestionContentBlock;
@@ -40,7 +40,7 @@ impl Default for QtiImportLimits {
 #[derive(Clone, PartialEq)]
 pub(crate) struct ArchivedQtiPackage {
     pub(crate) bytes: Vec<u8>,
-    pub(crate) sha256: String,
+    pub(crate) package_checksum: String,
     pub(crate) size_bytes: u64,
 }
 
@@ -83,7 +83,7 @@ pub enum QtiItemImportStatus {
 pub struct QtiItemImportResult {
     pub source_identifier: String,
     pub item_id: Option<String>,
-    pub normalized_sha256: Option<Sha256Digest>,
+    pub normalized_qti_item_fingerprint: Option<NormalizedQtiItemFingerprint>,
     pub status: QtiItemImportStatus,
     pub warnings: Vec<UnsupportedFeature>,
 }
@@ -249,10 +249,10 @@ impl ImportedQtiPackage {
         &self.original.bytes
     }
 
-    /// Checksummed archive metadata used by the import worker before it
+    /// Immutable package checksum used by the import worker before it
     /// records a private workspace source object.
-    pub fn worker_original_sha256(&self) -> &str {
-        &self.original.sha256
+    pub fn worker_original_package_checksum(&self) -> &str {
+        &self.original.package_checksum
     }
 
     /// Exact archive size used by the worker's durable metadata record.

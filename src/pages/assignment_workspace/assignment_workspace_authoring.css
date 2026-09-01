@@ -174,7 +174,7 @@
 }
 
 .assignment-editor-pool-fields,
-.assignment-editor-pool-candidates {
+.assignment-editor-pool-entries {
   grid-column: 1 / -1;
 }
 
@@ -184,18 +184,18 @@
   gap: var(--ple-compact-gap, 0.35rem);
 }
 
-.assignment-editor-pool-candidates {
+.assignment-editor-pool-entries {
   margin-top: 0.5rem;
   padding: 0.6rem;
   border-radius: var(--ple-radius-control, 0.45rem);
   background: color-mix(in srgb, var(--ple-theme-primary) 7%, var(--ple-card-surface));
 }
 
-.assignment-editor-pool-candidates h4 {
+.assignment-editor-pool-entries h4 {
   margin: 0;
 }
 
-.assignment-editor-pool-candidates ul {
+.assignment-editor-pool-entries ul {
   display: grid;
   gap: 0.25rem;
   margin: 0.45rem 0;
@@ -203,7 +203,7 @@
   list-style: none;
 }
 
-.assignment-editor-pool-candidates li {
+.assignment-editor-pool-entries li {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;

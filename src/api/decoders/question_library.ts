@@ -1,11 +1,11 @@
 // Question Library, course, and assignment browser-visible API DTOs.
 
 import type { AssignmentEntryAvailability } from "../../../generated/api/AssignmentEntryAvailability";
-import type { QuestionPoolEntryAvailability } from "../../../generated/api/QuestionPoolEntryAvailability";
+import type { QuestionPoolItemAvailability } from "../../../generated/api/QuestionPoolItemAvailability";
 import type { FixedQuestionAssignmentEntrySummary as FixedQuestionAssignmentEntry } from "../../../generated/api/FixedQuestionAssignmentEntrySummary";
 import type { AssignmentEntrySummary } from "../../../generated/api/AssignmentEntrySummary";
 import type { AssignmentEntryScoringRule } from "../../../generated/api/AssignmentEntryScoringRule";
-import type { QuestionPoolEntrySummary as QuestionPoolEntry } from "../../../generated/api/QuestionPoolEntrySummary";
+import type { QuestionPoolItemSummary as QuestionPoolItem } from "../../../generated/api/QuestionPoolItemSummary";
 import type { QuestionPoolAssignmentEntrySummary as QuestionPoolAssignmentEntry } from "../../../generated/api/QuestionPoolAssignmentEntrySummary";
 import type { AssignmentSummary } from "../../../generated/api/AssignmentSummary";
 import type { QuestionStatistics } from "../../../generated/api/QuestionStatistics";
@@ -24,7 +24,7 @@ import type {
   AssignmentRouteReference,
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
-import { decodePublicByline } from "../public_byline";
+import { decodeQuestionAuthorship } from "../question_authorship";
 import {
   parseAssignmentReference,
   parseCourseInstanceReference,
@@ -65,9 +65,9 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ITEMS";
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
@@ -99,7 +99,7 @@ export { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 export {
   decodeCourseAppearance,
   decodeCourseAppearanceUpdate,
-  decodeCourseBannerCandidateReceipt,
+  decodeCourseBannerUploadReceipt,
 } from "./course_appearance";
 
 export function decodeQuestionSummary(
@@ -117,7 +117,7 @@ export function decodeQuestionSummary(
       "metadata",
       "availability",
       "publishedAt",
-      "byline",
+      "authorship",
     ]);
   }
   const decoded = {
@@ -144,7 +144,7 @@ export function decodeQuestionSummary(
       `${path}.capabilities`,
     ),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, strict),
-    byline: decodePublicByline(field(record, "byline", path), `${path}.byline`),
+    authorship: decodeQuestionAuthorship(field(record, "authorship", path), `${path}.authorship`),
     availability: decodeQuestionRevisionAvailability(
       field(record, "availability", path),
       `${path}.availability`,
@@ -161,7 +161,7 @@ export function decodeQuestionSummary(
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
  */
-export function isAvailableNativeQuestionSummary(summary: QuestionSummary): boolean {
+export function isAvailablePleQuestionSummary(summary: QuestionSummary): boolean {
   return summary.backend === "ple" && summary.availability.availability === "available";
 }
 
@@ -692,7 +692,7 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   const questionIds = decodeBoundedArray(
     field(record, "questionIds", path),
     `${path}.questionIds`,
-    MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
     decodeQuestionId,
   );
   if (new Set(questionIds).size !== questionIds.length)
@@ -704,7 +704,7 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
   if (selectionCount > questionIds.length)
     throw new DecodeError(
       `${path}.selectionCount`,
-      "a value no greater than the Question Pool Entry count",
+      "a value no greater than the Question Pool Item count",
     );
   return {
     kind: "questionPool",
@@ -741,14 +741,14 @@ function decodeAssignmentContentEntries(
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
     decodeAssignmentContentEntry,
   );
-  const questionPoolEntryCount = entries.reduce(
+  const questionPoolItemCount = entries.reduce(
     (total, entry) => total + (entry.kind === "questionPool" ? entry.questionIds.length : 0),
     0,
   );
-  if (questionPoolEntryCount > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
+  if (questionPoolItemCount > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
     throw new DecodeError(
       path,
-      `no more than ${MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES} Question Pool Entry Question IDs`,
+      `no more than ${MAX_ASSIGNMENT_QUESTION_POOL_ITEMS} Question Pool Item Question IDs`,
     );
   return entries;
 }
@@ -766,7 +766,7 @@ export function decodeAssignmentContentInput(
   };
 }
 
-function decodeQuestionPoolEntry(value: unknown, path: string): QuestionPoolEntry {
+function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
@@ -794,7 +794,7 @@ function decodeQuestionPoolEntry(value: unknown, path: string): QuestionPoolEntr
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
       "retired",
-    ] as const satisfies ReadonlyArray<QuestionPoolEntryAvailability>),
+    ] as const satisfies ReadonlyArray<QuestionPoolItemAvailability>),
   };
 }
 
@@ -826,7 +826,7 @@ function decodeQuestionPoolAssignmentEntry(
     "selectionCount",
     "pointsPerItem",
     "selectionRule",
-    "entries",
+    "items",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -852,11 +852,7 @@ function decodeQuestionPoolAssignmentEntry(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,
     ),
-    entries: decodeArray(
-      field(record, "entries", path),
-      `${path}.entries`,
-      decodeQuestionPoolEntry,
-    ),
+    items: decodeArray(field(record, "items", path), `${path}.items`, decodeQuestionPoolItem),
   };
 }
 
@@ -906,8 +902,8 @@ export function decodeAssignmentSummary(
 
 /** Decode the student transport, which deliberately excludes authority inputs. */
 export {
-  decodeAssignmentWorkingCopyDefinitionValidationFailure,
-  decodeInstructorAssignmentWorkingCopyDefinitionLocal,
+  decodeAssignmentAuthoredContentValidationFailure,
+  decodeInstructorAssignmentAuthoredContentLocal,
   decodeStudentAssignmentDetail,
   decodeStudentAssignmentLandingSummary,
 } from "./assignment_teaching_delivery";

@@ -14,7 +14,7 @@ unknown fields and whitespace-only titles are rejected before persistence.
 - The browser submits only `{ "title": string }` through a strict request
   decoder; the server accepts the same exact, non-whitespace request shape and
   returns only a strict public course summary response.
-- Only sessions with the approved Instructor or Sysadmin role render the
+- Only sessions with the active Instructor or Sysadmin role render the
   native labelled form and Create course button.
 - A direct student POST receives `403` and persists no course.
 - A recoverable error retains the typed title and announces recovery status.

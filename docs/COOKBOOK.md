@@ -72,8 +72,7 @@ creates a new revision and does not silently mutate existing Course Instances.
 ## Exercise Sysadmin operations
 
 1. Start the disposable stack and select the seeded **Sysadmin** persona.
-2. Use the ordinary teaching-operations surfaces to review pending Instructor approval and
-   course operations when the seeded state exposes them.
+2. Use the ordinary course-operation surfaces when the seeded state exposes them.
 
 The fresh email-code and passkey adapters are not mounted in this build. The visible seeded
 Sysadmin selector provides the current disposable-demo entry while those ordinary authentication
@@ -89,7 +88,7 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 1. In a Course Instance, open **Assignments**, choose **New assignment**, enter a title, and select
    **Create Assignment**.
 2. In **Questions**, use the saved-assignment picker or question library to add published questions.
-   Arrange fixed Questions, add Question Pools with candidate IDs and selection counts, and choose **Save questions
+   Arrange fixed Questions, add Question Pools with Question IDs and selection counts, and choose **Save questions
    and order**. Pool samples create no Student work.
 3. Open **Policies**. Enter Student instructions, availability and due/close times in the Course
    Instance time zone, run limits, completion and continued-practice rules, late behavior, and
@@ -100,7 +99,7 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
 5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
    Instructor session and creates no Student run or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course
-   Instance and published assignment, choose **Start assignment**, answer, and submit.
+   Instance and released assignment, choose **Start assignment**, answer, and submit.
 7. If **Response received** appears, use **Check grading status** until feedback and **View completed
    run** appear. If attention is required, use the currently enabled action in **Grading operations**.
 8. Return to the Instructor session and confirm the score and authorized evidence in **Gradebook**.
@@ -113,7 +112,7 @@ questions. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) and
 ## Apply a blueprint update
 
 1. Revise the Blueprint Course and publish the new revision explicitly.
-2. In an affected Course Instance, open **Curriculum adoption** and choose **Prepare update proposal**.
+2. In an affected Course Instance, open **Blueprint operations** and choose **Prepare update proposal**.
 3. Review the source revision, assignment manifest, exact question replacements, and every resolved
    schedule. Correct any DST gap or ambiguity before preparing again.
 4. Choose **Apply proposal**. A newly added Blueprint assignment arrives **Unreleased**; current
@@ -125,16 +124,16 @@ If instance work diverged, choose the explicit selected-copy or new-assignment a
 perform an implicit merge, and instance deadlines, releases, accommodations, grades, and other
 delivery settings remain instance-owned.
 
-## Fork, roll over, or shift a term
+## Fork a Blueprint, copy a Course for a new term, or shift Course Dates
 
 - **Fork Blueprint:** from a published Blueprint detail, choose **Fork Blueprint**. The copy is
   independently editable, retains immutable source-lineage evidence, and has no live tether.
-- **Rollover Course Instance:** choose **Rollover course**, select a target term, and review the
+- **Copy Course for New Term:** choose **Copy course for new term**, select a target term, and review the
   manifest. The destination starts without Students, invitations, attempts, responses, grades,
   retention state, or issued evidence.
-- **Shift Course Instance term:** choose **Shift course term** only when no Student work has been
+- **Shift Course Dates:** choose **Shift course dates** only when no Student work has been
   issued. Preview every resolved date in the target IANA time zone and apply the witnessed proposal
-  atomically. If work has been issued, use rollover instead.
+  atomically. If work has been issued, use Copy Course for New Term instead.
 
 ## Review learning and export grades
 
@@ -157,7 +156,7 @@ browser does not recompute either. See [API_CONTRACTS.md](API_CONTRACTS.md) and 
 ## Match canonical browser journeys
 
 The production browser suite covers role entry and authorization; Blueprint authoring and publication;
-Course Instance creation and controlled updates; assignment authoring, preview, question replacement,
+Course Instance creation and Apply Blueprint Update; assignment authoring, preview, question replacement,
 pools, and grade settings; Student delivery, gateway recovery, and automated-grading recovery;
 WebWork delivery; catalog discovery and question curation; rollover and term scheduling; and QTI
 profile import. These are live workflows, not mock or fixture walkthroughs. Use [E2E_TESTS.md](E2E_TESTS.md)

@@ -2,18 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { publishedProblemFixture } from "./fixtures/published_problem.ts";
-import { createMasteryAssignmentDraft } from "./support/assignment_editor_test_support.ts";
+import { createMasteryAssignmentEditorState } from "./support/assignment_editor_test_support.ts";
 import {
   assignmentContentInput,
   moveAssignmentEntry,
   parseExactQuestionIds,
-  validateAssignmentEditorDraft,
-  validateQuestionPoolEntry,
+  validateAssignmentEditorState,
+  validateQuestionPoolAssignmentEntry,
 } from "../src/pages/assignment_editor_model.ts";
 import { assignmentPickerMaximum } from "../src/pages/assignment_editor_picker_model.ts";
 
 test("assignment Questions payload uses Question IDs as its only question identity", () => {
-  const draft = createMasteryAssignmentDraft("course-1");
+  const draft = createMasteryAssignmentEditorState("course-1");
   const item = publishedProblemFixture.assignment.entries[0];
   assert.ok(item);
   const configured = { ...draft, title: "Practice", entries: [{ ...item, kind: "fixedQuestion" }] };
@@ -33,7 +33,7 @@ test("ordinary editing preserves a fixed question while changing shared entry or
   const second = { ...first, id: "item-2", questionId: "7K4-M9QP" };
   const moved = moveAssignmentEntry(
     {
-      ...createMasteryAssignmentDraft("course-1"),
+      ...createMasteryAssignmentEditorState("course-1"),
       entries: [
         { ...first, kind: "fixedQuestion" },
         { ...second, kind: "fixedQuestion" },
@@ -52,16 +52,16 @@ test("ordinary editing preserves a fixed question while changing shared entry or
   );
 });
 
-test("Question Pool editor encodes public entry Question IDs in entry order", () => {
+test("Question Pool editor encodes public Item Question IDs in Item order", () => {
   const draft = {
-    ...createMasteryAssignmentDraft("course-1"),
+    ...createMasteryAssignmentEditorState("course-1"),
     entries: [
       { ...publishedProblemFixture.assignment.entries[0], kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        entries: [
-          { questionId: "7K4-M9QP", title: "Entry one", backend: "ple" },
-          { questionId: "7K5-M9QP", title: "Entry two", backend: "ple" },
+        items: [
+          { questionId: "7K4-M9QP", title: "Item one", backend: "ple" },
+          { questionId: "7K5-M9QP", title: "Item two", backend: "ple" },
         ],
         availability: "available",
         scoringRule: "normal",
@@ -92,24 +92,24 @@ test("Question Pool editor encodes public entry Question IDs in entry order", ()
 test("pool validation keeps an actionable correction path", () => {
   const invalid = {
     kind: "questionPool",
-    entries: [{ questionId: "7K4-M9QP", title: "Entry", backend: "ple" }],
+    items: [{ questionId: "7K4-M9QP", title: "Item", backend: "ple" }],
     availability: "available",
     selectionCount: 2,
     pointsPerItem: "1",
     selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   };
   assert.equal(
-    validateQuestionPoolEntry(invalid),
+    validateQuestionPoolAssignmentEntry(invalid),
     "Selection count cannot exceed the number of Question IDs in this Question Pool.",
   );
 });
 
 test("pool authoring reports shared cardinality recovery paths before save", () => {
-  const entry = { questionId: "7K4-M9QP", title: "Entry", backend: "ple" };
+  const item = { questionId: "7K4-M9QP", title: "Item", backend: "ple" };
   const overfullPool = {
     kind: "questionPool",
-    entries: Array.from({ length: 1025 }, (_value, index) => ({
-      ...entry,
+    items: Array.from({ length: 1025 }, (_value, index) => ({
+      ...item,
       questionId: `${index.toString(16).padStart(3, "0").toUpperCase()}-0000`,
     })),
     availability: "available",
@@ -118,12 +118,12 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   };
   assert.equal(
-    validateQuestionPoolEntry(overfullPool),
+    validateQuestionPoolAssignmentEntry(overfullPool),
     "Keep this Question Pool to 1024 Question IDs or fewer.",
   );
 
-  const overfullDefinition = {
-    ...createMasteryAssignmentDraft("course-1"),
+  const overfullAssignmentContent = {
+    ...createMasteryAssignmentEditorState("course-1"),
     entries: Array.from({ length: 1025 }, (_value, entryIndex) => ({
       ...publishedProblemFixture.assignment.entries[0],
       kind: "fixedQuestion",
@@ -131,14 +131,14 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     })),
   };
   assert.equal(
-    validateAssignmentEditorDraft(overfullDefinition),
+    validateAssignmentEditorState(overfullAssignmentContent),
     "Keep this assignment to 1024 ordered entries or fewer.",
   );
 
-  const pool = (entryIndex, candidateCount) => ({
+  const pool = (entryIndex, itemCount) => ({
     kind: "questionPool",
-    entries: Array.from({ length: candidateCount }, (_value, index) => ({
-      ...entry,
+    items: Array.from({ length: itemCount }, (_value, index) => ({
+      ...item,
       questionId: `${entryIndex.toString(16).padStart(2, "0").toUpperCase()}${index
         .toString(16)
         .padStart(1, "0")}-0000`,
@@ -148,15 +148,15 @@ test("pool authoring reports shared cardinality recovery paths before save", () 
     pointsPerItem: "1",
     selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
   });
-  const tooManyCandidates = {
-    ...createMasteryAssignmentDraft("course-1"),
+  const tooManyQuestionPoolItems = {
+    ...createMasteryAssignmentEditorState("course-1"),
     entries: [
       ...Array.from({ length: 8 }, (_value, entryIndex) => pool(entryIndex, 1024)),
       pool(8, 1),
     ],
   };
   assert.equal(
-    validateAssignmentEditorDraft(tooManyCandidates),
+    validateAssignmentEditorState(tooManyQuestionPoolItems),
     "Keep all Question Pools to 8192 Question IDs or fewer.",
   );
 });
@@ -165,12 +165,12 @@ test("shared picker caps each assignment destination before the dialog opens", (
   const fixed = publishedProblemFixture.assignment.entries[0];
   assert.ok(fixed);
   const draft = {
-    ...createMasteryAssignmentDraft("course-1"),
+    ...createMasteryAssignmentEditorState("course-1"),
     entries: [
       { ...fixed, kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        entries: [{ questionId: "7K4-M9QP", title: "Entry", backend: "ple" }],
+        items: [{ questionId: "7K4-M9QP", title: "Item", backend: "ple" }],
         availability: "available",
         selectionCount: 1,
         pointsPerItem: "1",

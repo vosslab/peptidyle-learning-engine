@@ -2,13 +2,13 @@
 
 use std::collections::BTreeSet;
 
-use objects::{ObjectStore, ObjectStoreError, PutObject};
+use objects::{ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ActivityTimestamp, GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails,
-    QuestionBackendLocator, QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
-    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference,
+    GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionBackendLocator,
+    QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
+    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -26,33 +26,75 @@ use crate::{
 
 /// Exact immutable source loaded through trusted storage.
 #[derive(Clone)]
-pub struct ImathasSource {
-    pub(crate) question_revision: QuestionRevisionReference,
-    pub(crate) artifact: SourceObjectReference,
-    pub(crate) source_object_checksum: SourceObjectChecksum,
+pub struct ResolvedImathasQuestionSource {
+    resolved: ResolvedQuestionSource,
     pub(crate) provider: String,
     pub(crate) item_ref: String,
     pub(crate) profile: String,
-    pub(crate) bytes: Vec<u8>,
 }
 
-impl std::fmt::Debug for ImathasSource {
+impl std::fmt::Debug for ResolvedImathasQuestionSource {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("ImathasSource")
+            .debug_struct("ResolvedImathasQuestionSource")
             .field("source", &"[SERVER-ONLY]")
             .finish_non_exhaustive()
     }
 }
 
-impl ImathasSource {
+impl ResolvedImathasQuestionSource {
+    /// Resolves an iMathAS Question Source from its exact immutable object.
+    pub async fn resolve<S: ObjectStore>(
+        store: &S,
+        question: &QuestionRevision,
+        source_object_reference: SourceObjectReference,
+        source_object_checksum: SourceObjectChecksum,
+    ) -> Result<Self, ImathasAdapterError> {
+        let QuestionBackendLocator::Imathas {
+            provider,
+            item_ref,
+            integration_profile,
+        } = &question.backend_locator
+        else {
+            return Err(ImathasAdapterError::UnsupportedSource);
+        };
+        let question_revision = QuestionRevisionReference {
+            question_id: question.question_id.clone(),
+            revision_number: question.revision_number,
+        };
+        let resolved = ResolvedQuestionSource::resolve(
+            store,
+            question_revision,
+            source_object_reference,
+            source_object_checksum,
+        )
+        .await
+        .map_err(ImathasAdapterError::QuestionSourceResolution)?;
+        Ok(Self {
+            resolved,
+            provider: provider.clone(),
+            item_ref: item_ref.clone(),
+            profile: integration_profile.clone(),
+        })
+    }
+
     pub fn artifact(&self) -> &SourceObjectReference {
-        &self.artifact
+        self.resolved.source_object_reference()
+    }
+
+    /// Exact Question Revision that owns the immutable iMathAS snapshot.
+    pub fn question_revision(&self) -> &QuestionRevisionReference {
+        self.resolved.question_revision()
     }
 
     /// SHA-256 evidence for the immutable source bytes.
     pub fn source_object_checksum(&self) -> &SourceObjectChecksum {
-        &self.source_object_checksum
+        self.resolved.source_object_checksum()
+    }
+
+    /// Immutable iMathAS snapshot bytes verified by the Object Store.
+    pub fn bytes(&self) -> &[u8] {
+        self.resolved.bytes()
     }
 }
 
@@ -162,8 +204,8 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        source: &ImathasSource,
-        created_at: ActivityTimestamp,
+        source: &ResolvedImathasQuestionSource,
+        created_at: Timestamp,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
         question
             .metadata
@@ -190,7 +232,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         let safe = self
             .provider
             .render(ProviderRenderRequest {
-                snapshot: &source.bytes,
+                snapshot: source.bytes(),
                 profile: &source.profile,
                 question_revision: question_revision.clone(),
                 seed,
@@ -202,8 +244,8 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         }
         let record = CachedRender {
             schema: 1,
-            source: source.artifact.clone(),
-            source_object_checksum: source.source_object_checksum.clone(),
+            source: source.artifact().clone(),
+            source_object_checksum: source.source_object_checksum().clone(),
             provider: source.provider.clone(),
             profile: source.profile.clone(),
             envelope: QuestionVariationPresentation {
@@ -246,7 +288,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     fn issued(
         &self,
         cached: CachedRender,
-        source: &ImathasSource,
+        source: &ResolvedImathasQuestionSource,
         cache_hit: bool,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
         let hash = hex(Sha256::digest(
@@ -262,8 +304,8 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                     version: source.profile.clone(),
                 }),
                 generator: None,
-                source_object_reference: Some(source.artifact.clone()),
-                source_object_checksum: Some(source.source_object_checksum.clone()),
+                source_object_reference: Some(source.artifact().clone()),
+                source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: grader_version(GRADING_ID, GRADING_VERSION),
                 rendered_question_sha256: hash,
@@ -277,7 +319,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     pub async fn grade(
         &self,
         question: &QuestionRevision,
-        source: &ImathasSource,
+        source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
         correlation: &ServerCorrelation,
@@ -290,7 +332,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         let verdict = self
             .provider
             .verify_grade(ProviderGradeRequest {
-                snapshot: &source.bytes,
+                snapshot: source.bytes(),
                 profile: &source.profile,
                 attempt,
                 question_revision: question_revision.clone(),
@@ -335,12 +377,12 @@ where
     pub async fn begin_contracted_launch(
         &self,
         question: &QuestionRevision,
-        source: &ImathasSource,
+        source: &ResolvedImathasQuestionSource,
         attempt: QuestionAttemptId,
         seed: QuestionSeed,
         correlation: ServerCorrelation,
         nonce: crate::scored_embed::ScoredEmbedNonce,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<external_question_provider::ContractedLaunchSession, ImathasAdapterError> {
         self.provider
             .begin_launch(question, source, attempt, seed, correlation, nonce, now)
@@ -350,7 +392,7 @@ where
     pub async fn retrieve_contracted_grade(
         &self,
         session: &mut external_question_provider::ContractedLaunchSession,
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<VerifiedProviderGrade, ImathasAdapterError> {
         self.provider.retrieve_and_verify(session, now).await
     }
@@ -360,7 +402,7 @@ where
         session: &external_question_provider::ContractedLaunchSession,
         method: external_question_provider::ProxyMethod,
         body: &[u8],
-        now: ActivityTimestamp,
+        now: Timestamp,
     ) -> Result<external_question_provider::ProxyResponse, ImathasAdapterError> {
         self.provider
             .proxy_activity(session, method, body, now)

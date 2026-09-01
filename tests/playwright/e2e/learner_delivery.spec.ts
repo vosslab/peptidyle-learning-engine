@@ -2,7 +2,7 @@
 //
 // Selector contract:
 // - src/pages/course_assignments_page.tsx:324 owns the assignments surface and assignment links.
-// - src/features/flat_question_authoring/flat_question_editor_page.tsx:535 owns question creation
+// - src/features/ple_question_json_authoring/question_json_editor_page.tsx:535 owns question creation
 //   fields and publication controls used to seed the journey.
 // - src/pages/course_list_page.tsx, src/pages/assignment_workspace/, and
 //   src/pages/course_roster_page.tsx own course, assignment, and invitation controls.
@@ -32,53 +32,6 @@ const maryEmail = "mary.okafor@live-demo.ple.example";
 const journeyTimeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
-
-async function createDeterministicBannerPng(page: Page): Promise<Buffer> {
-  const encoded = await page.evaluate(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1_200;
-    canvas.height = 328;
-    const context = canvas.getContext("2d");
-    if (context === null) {
-      throw new Error("browser canvas is unavailable for the synthetic banner fixture");
-    }
-
-    const background = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-    background.addColorStop(0, "#123f35");
-    background.addColorStop(0.55, "#26745b");
-    background.addColorStop(1, "#8bad63");
-    context.fillStyle = background;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    context.lineWidth = 10;
-    context.strokeStyle = "rgba(235, 245, 218, 0.72)";
-    context.fillStyle = "rgba(18, 63, 53, 0.88)";
-    const points = [
-      [160, 190],
-      [370, 105],
-      [600, 205],
-      [835, 100],
-      [1_050, 185],
-    ] as const;
-    context.beginPath();
-    context.moveTo(points[0][0], points[0][1]);
-    for (const [x, y] of points.slice(1)) {
-      context.lineTo(x, y);
-    }
-    context.stroke();
-    for (const [x, y] of points) {
-      context.beginPath();
-      context.arc(x, y, 35, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-    }
-
-    const base64 = canvas.toDataURL("image/png").split(",", 2)[1];
-    if (base64 === undefined) throw new Error("browser canvas produced an invalid PNG data URL");
-    return base64;
-  });
-  return Buffer.from(encoded, "base64");
-}
 
 function configureContext(context: BrowserContext): void {
   context.setDefaultTimeout(actionTimeoutMs);
@@ -112,25 +65,6 @@ async function captureVisibleState(
   await captureRealStackScreenshot(page, scenarioInput, artifactId);
 }
 
-async function assertLoadedSameOriginBlobImage(page: Page, image: Locator): Promise<void> {
-  await expect(image).toBeVisible();
-  await expect
-    .poll(async () =>
-      image.evaluate((element) => {
-        if (!(element instanceof HTMLImageElement)) return false;
-        return element.complete && element.naturalWidth > 0;
-      }),
-    )
-    .toBe(true);
-  const source = await image.evaluate((element) =>
-    element instanceof HTMLImageElement ? element.currentSrc : "",
-  );
-  if (source === "") throw new Error("the persisted banner image has no current source");
-  const sourceUrl = new URL(source);
-  expect(sourceUrl.protocol).toBe("blob:");
-  expect(sourceUrl.origin).toBe(new URL(page.url()).origin);
-}
-
 async function restoreViewportOrigin(page: Page): Promise<void> {
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect
@@ -153,7 +87,7 @@ async function createPublishedQuestion(
   correctChoice: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
-  await page.getByRole("button", { name: "Create flat question" }).click();
+  await page.getByRole("button", { name: "Create Question" }).click();
   await page.getByLabel("Question title").fill(title);
   await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
@@ -166,7 +100,7 @@ async function createPublishedQuestion(
     .check();
   await page.getByRole("button", { name: "Save private draft" }).click();
   await page.getByRole("button", { name: "Review publication changes" }).click();
-  await page.getByLabel("Reviewed public byline").fill("Dr. Elena Rivera");
+  await page.getByLabel("Question Authors").fill("Dr. Elena Rivera");
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await expect(page.getByRole("heading", { name: "Published" })).toBeVisible();
 
@@ -182,7 +116,7 @@ async function createPublishedQuestion(
   return questionId;
 }
 
-async function createPublishedCourseAssignment(
+async function createReleasedCourseAssignment(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
@@ -221,7 +155,7 @@ async function createPublishedCourseAssignment(
   ).toBeVisible();
   await page.getByRole("link", { name: "Policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("published");
+  await page.getByLabel("Lifecycle").selectOption("released");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
@@ -421,7 +355,9 @@ async function observeInstructorOutcomesAndAccess(
     inspectedWork.getByRole("heading", { name: assignmentTitle, exact: true }),
   ).toBeVisible();
   await expect(inspectedWork.locator(".page-lede")).toContainText("Mary Okafor");
-  await expect(inspectedWork.locator(".page-lede")).toContainText(/submitted run R-[1-9]\d*/u);
+  await expect(inspectedWork.locator(".page-lede")).toContainText(
+    /submitted Assignment Attempt R-[1-9]\d*/u,
+  );
   await expect(inspectedWork.getByRole("region", { name: "Student response" })).toContainText(
     submittedResponse,
   );
@@ -439,39 +375,6 @@ async function observeInstructorOutcomesAndAccess(
   await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
   await expect(page).toHaveURL(/#gradebook-cell-M-[1-9]\d*-A-[1-9]\d*$/u);
   await expect(assignmentCell).toBeFocused();
-
-  await page.getByRole("link", { name: "Appearance" }).click();
-  await expect(page.locator("[data-route-surface=courseAppearance]")).toBeVisible();
-  await page.getByRole("radio", { name: "Forest" }).check();
-  const deterministicBannerPng = await createDeterministicBannerPng(page);
-  await page.getByLabel(/Choose a banner image/u).setInputFiles({
-    name: "student-delivery-banner.png",
-    mimeType: "image/png",
-    buffer: deterministicBannerPng,
-  });
-  await expect(page.getByText("Selected: student-delivery-banner.png")).toBeVisible();
-  await page.getByRole("button", { name: "Save appearance" }).click();
-  const appearanceSaved = page.getByText("Course appearance saved.");
-  await expect(appearanceSaved).toBeVisible();
-  await expect(page.locator("img.course-appearance-banner")).toHaveCount(2);
-  const savedBannerPreview = page.locator("figure.course-appearance-preview").first();
-  await assertLoadedSameOriginBlobImage(
-    page,
-    savedBannerPreview.locator("img.course-appearance-banner"),
-  );
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_appearance_saved",
-    appearanceSaved,
-  );
-  await page.reload();
-  await expect(page.locator("[data-route-surface=courseAppearance]")).toBeVisible();
-  await expect(page.getByRole("radio", { name: "Forest", exact: true })).toBeChecked();
-  await expect(page.locator("img.course-appearance-banner")).toHaveCount(2);
-  const renderedBannerPreview = page.locator("figure.course-appearance-preview").first();
-  const renderedBanner = renderedBannerPreview.locator("img.course-appearance-banner");
-  await assertLoadedSameOriginBlobImage(page, renderedBanner);
 
   await openCourseAssignments(page);
   const assignmentCard = page
@@ -558,7 +461,7 @@ test("student delivery: Mary completes and revisits an instructor-created assign
     await chooseSeededIdentity(elena, /Elena Rivera/u);
     await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
     const questionId = await createPublishedQuestion(elena, questionTitle, correctChoice);
-    const invitationUrl = await createPublishedCourseAssignment(
+    const invitationUrl = await createReleasedCourseAssignment(
       elena,
       courseTitle,
       assignmentTitle,

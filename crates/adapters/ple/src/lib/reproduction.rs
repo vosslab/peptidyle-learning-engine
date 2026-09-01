@@ -7,8 +7,7 @@ use question_model::{
 };
 
 use crate::{
-    PleQuestionBackend, PleQuestionBackendError, PreparedNativeQuestion,
-    QuestionAssetObjectReference,
+    PleQuestionBackend, PleQuestionBackendError, PreparedPleQuestion, QuestionAssetObjectReference,
 };
 
 impl PleQuestionBackend {
@@ -37,7 +36,7 @@ impl PleQuestionBackend {
 }
 
 pub(super) fn verify_record(
-    prepared: &PreparedNativeQuestion,
+    prepared: &PreparedPleQuestion,
     recorded_parameter_hash: &str,
     recorded: &QuestionAttemptReproductionDetails,
     expected_asset_objects: &[ObjectId],
@@ -52,8 +51,12 @@ pub(super) fn verify_record(
         "generator",
     )?;
     verify_equal(
-        recorded.source_object_reference.is_none(),
+        recorded.source_object_reference.is_some(),
         "sourceObjectReference",
+    )?;
+    verify_equal(
+        recorded.source_object_checksum.is_some(),
+        "sourceObjectChecksum",
     )?;
     verify_equal(
         recorded.asset_objects.as_slice() == expected_asset_objects,

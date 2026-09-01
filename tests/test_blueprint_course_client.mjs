@@ -13,7 +13,7 @@ import { publishedProblemFixture } from "./fixtures/published_problem.ts";
 const { scope: _retiredPublicationScope, ...publishedQuestion } =
   publishedProblemFixture.publishedQuestion;
 
-function definitionInput() {
+function contentInput() {
   return {
     title: "Peptide fundamentals",
     instructions: "Use your course notes to explain each choice.",
@@ -64,11 +64,11 @@ function blueprint(revision = "7") {
       {
         module_id: "module-7",
         label: "Week one",
-        definitions: [
+        assignments: [
           {
             assignment_id: "assignment-7",
-            definition: {
-              ...definitionInput(),
+            content: {
+              ...contentInput(),
               entries: [
                 {
                   kind: "fixed",
@@ -94,7 +94,7 @@ function blueprint(revision = "7") {
 function creationInput() {
   return {
     title: "Biochemistry sequence",
-    modules: [{ label: "Week one", definitions: [definitionInput()] }],
+    modules: [{ label: "Week one", assignments: [contentInput()] }],
   };
 }
 
@@ -105,10 +105,10 @@ function replacementInput() {
       {
         handle: { kind: "retained", module_id: "module-7" },
         label: "Week one",
-        definitions: [
+        assignments: [
           {
             handle: { kind: "retained", assignment_id: "assignment-7" },
-            definition: definitionInput(),
+            content: contentInput(),
           },
         ],
       },
@@ -130,7 +130,7 @@ function noStoreJson(value, etag, status = 200) {
 test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fields", () => {
   assert.equal(decodeBlueprintCourseView(blueprint()).reference, "BP-7");
   const hostile = structuredClone(blueprint());
-  hostile.modules[0].definitions[0].definition.entries[0].question.answerKey = "secret";
+  hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
 });
 
@@ -164,7 +164,10 @@ test("B1 client uses canonical Blueprint Course commands and matching ETags", as
     ApiProtocolError,
   );
   await assert.rejects(
-    client.createBlueprintCourse({ ...creationInput(), creator_byline: { names: ["forged"] } }),
+    client.createBlueprintCourse({
+      ...creationInput(),
+      unrecognizedCreator: { displayName: "forged" },
+    }),
     DecodeError,
   );
 });

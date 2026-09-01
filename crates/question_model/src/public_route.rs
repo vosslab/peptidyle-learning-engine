@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "G", "U", "M", "CI", "QC", "QS", "BP", "GO",
+    "C", "A", "R", "W", "D", "G", "U", "M", "CI", "QC", "QS", "BP", "GO",
 ];
 
 macro_rules! impl_reference {
@@ -87,6 +87,10 @@ pub struct AssignmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AuthoringWorkspaceReference(NonZeroU32);
+/// An authorized locator for one private Draft Question lineage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct DraftQuestionReference(NonZeroU32);
 /// An authorized locator for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -128,6 +132,7 @@ impl_reference!(
     "W",
     "Authoring Workspace reference"
 );
+impl_reference!(DraftQuestionReference, "D", "Draft Question reference");
 impl_reference!(AccountReference, "U", "account reference");
 impl_reference!(
     CourseMembershipReference,

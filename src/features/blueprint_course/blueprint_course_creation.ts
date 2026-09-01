@@ -1,8 +1,8 @@
 // Guarded Blueprint Course creation from a complete local draft.
 
-import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
+import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import { validateBlueprintCourseDefinition } from "./blueprint_course_model";
+import { validateBlueprintCourseContent } from "./blueprint_course_model";
 
 export type BlueprintCourseCreationResult<Created> =
   | { readonly kind: "invalid"; readonly message: string }
@@ -11,16 +11,16 @@ export type BlueprintCourseCreationResult<Created> =
 /** Validates a complete Blueprint Course draft before its one live create request. */
 export async function createBlueprintCourseWhenReady(
   client: BlueprintCourseClient,
-  definition: CreateBlueprintCourseDefinitionInput,
+  content: CreateBlueprintCourseContentInput,
 ): Promise<
   BlueprintCourseCreationResult<Awaited<ReturnType<BlueprintCourseClient["createBlueprintCourse"]>>>
 > {
-  const validation = validateBlueprintCourseDefinition(definition);
+  const validation = validateBlueprintCourseContent(content);
   if (!validation.valid) {
     return {
       kind: "invalid",
       message: validation.message ?? "Complete the Blueprint Course before creating it.",
     };
   }
-  return { kind: "created", value: await client.createBlueprintCourse(definition) };
+  return { kind: "created", value: await client.createBlueprintCourse(content) };
 }

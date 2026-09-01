@@ -57,8 +57,8 @@ pub trait WorkspaceQuestionSourceObjectRecordStore: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use objects::{ObjectDataClass, ObjectStorageArea, Sha256Digest};
-    use question_model::{ActivityTimestamp, ObjectId};
+    use objects::{ObjectDataClass, ObjectStorageArea, Sha256Checksum};
+    use question_model::{ObjectId, Timestamp};
     use uuid::Uuid;
 
     use super::*;
@@ -74,11 +74,11 @@ mod tests {
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::AuthoringContent,
             address,
-            sha256: Sha256Digest::compute(b"Question Source"),
+            sha256: Sha256Checksum::compute(b"Question Source"),
             size_bytes: 15,
             media_type: "application/json".to_string(),
             question_revision: None,
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         }
     }
 

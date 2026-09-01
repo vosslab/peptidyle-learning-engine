@@ -11,10 +11,10 @@
 use objects::memory::MemoryObjectStore;
 use objects::{
     ObjectAddress, ObjectRecord, ObjectStorageArea, ObjectStore, ObjectStoreError, PutObject,
-    Sha256Digest, published_import_archive_object_id,
+    Sha256Checksum, published_import_archive_object_id,
 };
 use question_model::{
-    ActivityTimestamp, ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, Timestamp,
     WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
@@ -40,7 +40,7 @@ fn is_exact_published_archive_replay(record: &ObjectRecord, candidate: &PutObjec
         && record.storage_area == candidate.address.storage_area()
         && record.media_type == candidate.media_type
         && record.size_bytes == candidate.bytes.len() as u64
-        && record.sha256 == Sha256Digest::compute(&candidate.bytes)
+        && record.sha256 == Sha256Checksum::compute(&candidate.bytes)
 }
 
 #[tokio::test]
@@ -61,7 +61,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
             address: workspace_key.clone(),
             bytes: archive_bytes.clone(),
             media_type: "application/zip".to_string(),
-            created_at: ActivityTimestamp::from_unix_millis(1_000),
+            created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
         .expect("workspace archive fixture should be stored");
@@ -87,7 +87,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         },
         bytes: verified_workspace_archive.bytes,
         media_type: verified_workspace_archive.record.media_type,
-        created_at: ActivityTimestamp::from_unix_millis(2_000),
+        created_at: Timestamp::from_unix_millis(2_000),
     };
 
     // Step 2: an exact typed candidate is immutable and carries only source metadata.
@@ -104,13 +104,10 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
     assert!(!first_record.address.may_issue_signed_url());
     assert_eq!(
         store
-            .signed_url(
-                &candidate.address,
-                ActivityTimestamp::from_unix_millis(3_000)
-            )
+            .signed_url(&candidate.address, Timestamp::from_unix_millis(3_000))
             .await,
         Err(ObjectStoreError::NotSignable),
-        "published import provenance must remain server-only"
+        "published import evidence must remain server-only"
     );
 
     // Step 3: exact replays receive `AlreadyExists`, then must re-read and compare the record.
@@ -142,7 +139,7 @@ async fn published_import_archive_candidate_is_deterministic_non_signable_and_ex
         ..replay.record.clone()
     };
     let mismatched_digest = ObjectRecord {
-        sha256: Sha256Digest::compute(b"different archive bytes"),
+        sha256: Sha256Checksum::compute(b"different archive bytes"),
         ..replay.record
     };
     for mismatch in [

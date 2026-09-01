@@ -6,7 +6,6 @@ export interface RouteContract {
   readonly id:
     | "courses"
     | "courseAssignments"
-    | "sysadminInstructorApproval"
     | "assignmentOverview"
     | "assignmentAttempt"
     | "assignmentAttemptSummary"
@@ -25,7 +24,6 @@ export interface RouteContract {
     | "gradebook"
     | "studentWorkInspection"
     | "courseGradeSettings"
-    | "courseAppearance"
     | "signIn"
     | "courseRoster"
     | "teachingOperations"
@@ -63,12 +61,6 @@ export const ROUTE_CONTRACT = [
     path: "/courses/:courseRef",
     surface: "Assignment list with progress and Assignment Attempt counts",
     requiredRoles: [],
-  },
-  {
-    id: "sysadminInstructorApproval",
-    path: "/sysadmin/instructor-approval",
-    surface: "Sysadmin Instructor approval workspace",
-    requiredRoles: ["sysadmin"],
   },
   {
     id: "assignmentOverview",
@@ -127,7 +119,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "assignmentCreate",
     path: "/instructor/courses/:courseRef/assignments/new",
-    surface: "Create persisted Assignment Working Copy and enter Questions",
+    surface: "Create persisted Assignment and enter Questions",
     requiredRoles: ["instructor"],
   },
   {
@@ -189,12 +181,6 @@ export const ROUTE_CONTRACT = [
     id: "courseGradeSettings",
     path: "/instructor/courses/:courseRef/grade-settings",
     surface: "Course grade settings and projected totals",
-    requiredRoles: ["instructor"],
-  },
-  {
-    id: "courseAppearance",
-    path: "/instructor/courses/:courseRef/appearance",
-    surface: "Course theme and entry-banner settings",
     requiredRoles: ["instructor"],
   },
   {

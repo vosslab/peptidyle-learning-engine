@@ -12,9 +12,11 @@ import {
   parsePublicRouteReference,
   parseAssignmentAttemptReference,
   parseAuthoringWorkspaceReference,
+  parseDraftQuestionReference,
   questionRouteReference,
   assignmentAttemptRouteReference,
   authoringWorkspaceRouteReference,
+  draftQuestionRouteReference,
 } from "../src/navigation/public_route.ts";
 import {
   resolveAssignmentRoute,
@@ -29,13 +31,14 @@ test("human route references are compact, typed, and bounded", () => {
   assert.equal(assignmentRouteReference("A-2147483647"), "A-2147483647");
   assert.equal(assignmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
+  assert.equal(draftQuestionRouteReference("D-50"), "D-50");
   assert.equal(questionRouteReference("7K3-M9QP"), "7K3-M9QP");
   assert.equal(isCourseInstanceReference("C-1"), true);
   assert.equal(isCourseInstanceReference("A-1"), false);
   assert.equal(isAssignmentReference("A-1"), true);
   assert.equal(isAssignmentReference("C-1"), false);
 
-  for (const reference of ["C-1", "A-20", "R-30", "W-40"]) {
+  for (const reference of ["C-1", "A-20", "R-30", "W-40", "D-50"]) {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
   for (const [parser, prefix] of [
@@ -43,6 +46,7 @@ test("human route references are compact, typed, and bounded", () => {
     [parseAssignmentReference, "A"],
     [parseAssignmentAttemptReference, "R"],
     [parseAuthoringWorkspaceReference, "W"],
+    [parseDraftQuestionReference, "D"],
   ]) {
     assert.equal(parser(`${prefix}-1`), `${prefix}-1`);
     for (const rejected of [

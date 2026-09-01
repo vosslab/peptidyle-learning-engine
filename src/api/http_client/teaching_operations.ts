@@ -1,12 +1,9 @@
 // Strict same-origin browser transport for WP-INST-T2 teaching operations.
 
-import type { AccountApprovalView } from "../../../generated/api/AccountApprovalView";
-import type { SysadminInstructorCandidateSearchPage } from "../../../generated/api/SysadminInstructorCandidateSearchPage";
-import type { SysadminInstructorCandidateSearchRequest } from "../../../generated/api/SysadminInstructorCandidateSearchRequest";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseInvitationReference } from "../../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
-import type { CourseInvitationTargetSearchQuery } from "../../../generated/api/CourseInvitationTargetSearchQuery";
+import type { TeachingAccountSearchQuery } from "../../../generated/api/TeachingAccountSearchQuery";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { RetentionActionResponse } from "../../../generated/api/RetentionActionResponse";
 import type { RetentionArchiveRequest } from "../../../generated/api/RetentionArchiveRequest";
@@ -14,9 +11,8 @@ import type { RetentionExtendRequest } from "../../../generated/api/RetentionExt
 import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { TeachingOperationRevisionResponse } from "../../../generated/api/TeachingOperationRevisionResponse";
-import type { ApiClient, SysadminInstructorCandidateClient } from "../client";
+import type { ApiClient } from "../client";
 import {
-  decodeAccountApprovalView,
   decodeInstructorCourseInvitationCreateRequest,
   decodeCourseInvitationTerminalActionRequest,
   decodeCourseInvitationTargetSearchPage,
@@ -31,8 +27,6 @@ import {
   decodeRetentionArchiveRequest,
   decodeRetentionExtendRequest,
   decodeRetentionReadView,
-  decodeSysadminInstructorCandidateSearchPage,
-  decodeSysadminInstructorCandidateSearchRequest,
   decodeTeachingPreviewView,
   decodeTeachingOperationRevisionResponse,
 } from "../decoders";
@@ -69,7 +63,7 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
 
 function instructorInvitationTargetSearchPath(
   courseId: CourseId,
-  query: CourseInvitationTargetSearchQuery,
+  query: TeachingAccountSearchQuery,
   cursor: string | undefined,
   pageSize: number | undefined,
 ): string {
@@ -81,14 +75,6 @@ function instructorInvitationTargetSearchPath(
   if (request.after !== null) parameters.set("after", request.after);
   if (pageSize !== undefined) parameters.set("size", String(request.size));
   return `/api/courses/${encodedId(courseId)}/instructor-course-invitation-targets?${parameters.toString()}`;
-}
-
-function sysadminCandidateSearchPath(request: SysadminInstructorCandidateSearchRequest): string {
-  const decoded = decodeSysadminInstructorCandidateSearchRequest(request, "request");
-  const parameters = new URLSearchParams({ query: decoded.query });
-  if (decoded.after !== null) parameters.set("after", decoded.after);
-  parameters.set("size", String(decoded.size));
-  return `/api/teaching/instructor-approval-candidates?${parameters.toString()}`;
 }
 
 async function teachingJson<T>(
@@ -232,14 +218,11 @@ export function createTeachingOperationsClient(
   fetchImplementation: ApiFetch,
   basePath: string,
 ): Pick<
-  ApiClient & SysadminInstructorCandidateClient,
+  ApiClient,
   | "listCourseStudentTargets"
   | "putAccommodation"
   | "deleteAccommodation"
   | "getTeachingPreview"
-  | "approveInstructorAccount"
-  | "revokeInstructorApproval"
-  | "searchSysadminInstructorCandidates"
   | "listInstructorCourseInvitations"
   | "searchInstructorCourseInvitationTargets"
   | "createInstructorCourseInvitation"
@@ -286,50 +269,6 @@ export function createTeachingOperationsClient(
         `/api/courses/${encodedId(courseId)}/assignments/${encodedId(assignmentId)}/policy-preview/${encodeURIComponent(student)}`,
         decodeTeachingPreviewView,
       ).then((result) => result.body),
-    approveInstructorAccount: async (account, revision): Promise<AccountApprovalView> => {
-      const path = `/api/teaching/instructor-approvals/${encodeURIComponent(account)}`;
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAccountApprovalView,
-        {
-          method: "PUT",
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    revokeInstructorApproval: async (account, revision): Promise<AccountApprovalView> => {
-      const path = `/api/teaching/instructor-approvals/${encodeURIComponent(account)}`;
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeAccountApprovalView,
-        {
-          method: "DELETE",
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    searchSysadminInstructorCandidates: async (
-      request,
-    ): Promise<SysadminInstructorCandidateSearchPage> => {
-      const path = sysadminCandidateSearchPath(request);
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeSysadminInstructorCandidateSearchPage,
-      );
-      return result.body;
-    },
     listInstructorCourseInvitations: (courseId, cursor, pageSize) =>
       teachingJson(
         fetchImplementation,

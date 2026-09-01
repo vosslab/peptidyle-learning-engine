@@ -1,15 +1,15 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES";
+import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ITEMS";
 import { MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
-import type { CreateBlueprintCourseDefinitionInput } from "../../../generated/api/CreateBlueprintCourseDefinitionInput";
-import type { ReplaceBlueprintCourseDefinitionInput } from "../../../generated/api/ReplaceBlueprintCourseDefinitionInput";
+import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
+import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -266,7 +266,7 @@ function assignmentEntry(
   const entries = decodeBoundedArray(
     field(record, "entries", path),
     `${path}.entries`,
-    MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
     questionId,
   );
   const selectionCount = decodePositiveInteger(
@@ -298,7 +298,7 @@ function selectionRule(value: unknown, path: string): void {
   );
 }
 
-function assignmentDefinition(value: unknown, path: string): unknown {
+function assignmentContent(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults", "schedule"]);
   const instructions = decodeString(field(record, "instructions", path), `${path}.instructions`);
@@ -311,11 +311,11 @@ function assignmentDefinition(value: unknown, path: string): unknown {
     assignmentEntry,
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one ordered entry");
-  const questionPoolEntryCount = entries.reduce((total, entry) => total + entry.entries.length, 0);
-  if (questionPoolEntryCount > MAX_ASSIGNMENT_QUESTION_POOL_ENTRIES)
+  const questionPoolItemCount = entries.reduce((total, entry) => total + entry.entries.length, 0);
+  if (questionPoolItemCount > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
     throw new DecodeError(
       `${path}.entries`,
-      "Question Pool Entries within the Assignment total bound",
+      "Question Pool Items within the Assignment total bound",
     );
   defaults(field(record, "defaults", path), `${path}.defaults`);
   schedule(field(record, "schedule", path), `${path}.schedule`);
@@ -324,23 +324,23 @@ function assignmentDefinition(value: unknown, path: string): unknown {
 
 function createModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["label", "definitions"]);
-  const definitions = decodeBoundedArray(
-    field(record, "definitions", path),
-    `${path}.definitions`,
+  requireOnlyFields(record, path, ["label", "assignments"]);
+  const assignments = decodeBoundedArray(
+    field(record, "assignments", path),
+    `${path}.assignments`,
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    assignmentDefinition,
+    assignmentContent,
   );
-  if (definitions.length === 0)
-    throw new DecodeError(`${path}.definitions`, "at least one definition");
+  if (assignments.length === 0)
+    throw new DecodeError(`${path}.assignments`, "at least one content");
   text(field(record, "label", path), `${path}.label`);
   return value;
 }
 
-export function decodeCreateBlueprintCourseDefinitionInput(
+export function decodeCreateBlueprintCourseContentInput(
   value: unknown,
   path = "request",
-): CreateBlueprintCourseDefinitionInput {
+): CreateBlueprintCourseContentInput {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "modules"]);
   const modules = decodeBoundedArray(
@@ -351,7 +351,7 @@ export function decodeCreateBlueprintCourseDefinitionInput(
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
   text(field(record, "title", path), `${path}.title`);
-  return value as CreateBlueprintCourseDefinitionInput;
+  return value as CreateBlueprintCourseContentInput;
 }
 
 function replacementHandle(value: unknown, path: string, idField: string): void {
@@ -363,37 +363,34 @@ function replacementHandle(value: unknown, path: string, idField: string): void 
 
 function replacementModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["handle", "label", "definitions"]);
+  requireOnlyFields(record, path, ["handle", "label", "assignments"]);
   replacementHandle(field(record, "handle", path), `${path}.handle`, "module_id");
   text(field(record, "label", path), `${path}.label`);
-  const definitions = decodeBoundedArray(
-    field(record, "definitions", path),
-    `${path}.definitions`,
+  const assignments = decodeBoundedArray(
+    field(record, "assignments", path),
+    `${path}.assignments`,
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    (definitionValue, definitionPath) => {
-      const definition = decodeRecord(definitionValue, definitionPath);
-      requireOnlyFields(definition, definitionPath, ["handle", "definition"]);
+    (contentValue, contentPath) => {
+      const content = decodeRecord(contentValue, contentPath);
+      requireOnlyFields(content, contentPath, ["handle", "content"]);
       replacementHandle(
-        field(definition, "handle", definitionPath),
-        `${definitionPath}.handle`,
+        field(content, "handle", contentPath),
+        `${contentPath}.handle`,
         "assignment_id",
       );
-      assignmentDefinition(
-        field(definition, "definition", definitionPath),
-        `${definitionPath}.definition`,
-      );
-      return definitionValue;
+      assignmentContent(field(content, "content", contentPath), `${contentPath}.content`);
+      return contentValue;
     },
   );
-  if (definitions.length === 0)
-    throw new DecodeError(`${path}.definitions`, "at least one definition");
+  if (assignments.length === 0)
+    throw new DecodeError(`${path}.assignments`, "at least one content");
   return value;
 }
 
-export function decodeReplaceBlueprintCourseDefinitionInput(
+export function decodeReplaceBlueprintCourseContentInput(
   value: unknown,
   path = "request",
-): ReplaceBlueprintCourseDefinitionInput {
+): ReplaceBlueprintCourseContentInput {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "modules"]);
   const modules = decodeBoundedArray(
@@ -404,7 +401,7 @@ export function decodeReplaceBlueprintCourseDefinitionInput(
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
   text(field(record, "title", path), `${path}.title`);
-  return value as ReplaceBlueprintCourseDefinitionInput;
+  return value as ReplaceBlueprintCourseContentInput;
 }
 
 function questionView(value: unknown, path: string): void {
@@ -439,7 +436,7 @@ function questionView(value: unknown, path: string): void {
   );
 }
 
-function definitionView(value: unknown, path: string): void {
+function contentView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults", "schedule"]);
   text(field(record, "title", path), `${path}.title`);
@@ -476,7 +473,7 @@ function definitionView(value: unknown, path: string): void {
         decodeBoundedArray(
           field(entry, "entries", entryPath),
           `${entryPath}.entries`,
-          MAX_QUESTION_POOL_ENTRIES_PER_ASSIGNMENT_ENTRY,
+          MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
           questionView,
         );
       }
@@ -494,7 +491,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     revision: revision(field(record, "revision", path), `${path}.revision`),
     access: decodeStringEnum(field(record, "access", path), `${path}.access`, [
       "owner",
-      "approved_instructor",
+      "active_instructor",
     ]),
   };
 }
@@ -508,25 +505,22 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
     (moduleValue, modulePath) => {
       const module = decodeRecord(moduleValue, modulePath);
-      requireOnlyFields(module, modulePath, ["module_id", "label", "definitions"]);
+      requireOnlyFields(module, modulePath, ["module_id", "label", "assignments"]);
       decodeNonemptyString(field(module, "module_id", modulePath), `${modulePath}.module_id`);
       text(field(module, "label", modulePath), `${modulePath}.label`);
       decodeBoundedArray(
-        field(module, "definitions", modulePath),
-        `${modulePath}.definitions`,
+        field(module, "assignments", modulePath),
+        `${modulePath}.assignments`,
         MAX_ASSIGNMENT_ORDERED_ENTRIES,
-        (definitionValue, definitionPath) => {
-          const definition = decodeRecord(definitionValue, definitionPath);
-          requireOnlyFields(definition, definitionPath, ["assignment_id", "definition"]);
+        (contentValue, contentPath) => {
+          const content = decodeRecord(contentValue, contentPath);
+          requireOnlyFields(content, contentPath, ["assignment_id", "content"]);
           decodeNonemptyString(
-            field(definition, "assignment_id", definitionPath),
-            `${definitionPath}.assignment_id`,
+            field(content, "assignment_id", contentPath),
+            `${contentPath}.assignment_id`,
           );
-          definitionView(
-            field(definition, "definition", definitionPath),
-            `${definitionPath}.definition`,
-          );
-          return definitionValue;
+          contentView(field(content, "content", contentPath), `${contentPath}.content`);
+          return contentValue;
         },
       );
       return moduleValue;
@@ -538,7 +532,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     revision: revision(field(record, "revision", path), `${path}.revision`),
     access: decodeStringEnum(field(record, "access", path), `${path}.access`, [
       "owner",
-      "approved_instructor",
+      "active_instructor",
     ]),
     modules: modules as BlueprintCourseView["modules"],
   };

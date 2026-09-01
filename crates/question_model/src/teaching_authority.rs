@@ -1,4 +1,4 @@
-//! Shared, internal approval and target-bound Course Invitation facts.
+//! Shared, internal target-bound Course Invitation facts.
 //!
 //! These are persistence contracts, not browser projections. Later HTTP
 //! contracts must expose only authorized, opaque course-scoped actions and use
@@ -6,31 +6,7 @@
 
 use uuid::Uuid;
 
-use crate::{AccountId, ActivityTimestamp, CourseId, CourseMembershipId, CourseMembershipRole};
-
-/// One immutable Sysadmin-authorized global Instructor eligibility transition.
-///
-/// The latest event derives current approval. The event remains separate from
-/// both Product Role and direct Course Membership, so it grants no course
-/// authority by itself.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InstructorApprovalEvent {
-    /// Existing Instructor Account whose eligibility changes.
-    pub account: AccountId,
-    /// Sysadmin Account that authorized the transition.
-    pub authorized_by: AccountId,
-    /// Closed eligibility transition.
-    pub kind: InstructorApprovalEventKind,
-    /// Authoritative event time.
-    pub occurred_at: ActivityTimestamp,
-}
-
-/// Closed transitions in an Instructor Approval history.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InstructorApprovalEventKind {
-    Approved,
-    Revoked,
-}
+use crate::{AccountId, CourseId, CourseMembershipId, CourseMembershipRole, Timestamp};
 
 /// Stable internal identifier for one target-bound Course Invitation.
 ///
@@ -71,7 +47,7 @@ pub struct CourseInvitationEvent {
     /// Account that performed the transition.
     pub performed_by: AccountId,
     /// Authoritative transition time.
-    pub occurred_at: ActivityTimestamp,
+    pub occurred_at: Timestamp,
 }
 
 /// Closed terminal transitions for a Course Invitation.
@@ -100,9 +76,9 @@ pub struct CourseInvitation {
     /// Existing account invited to this exact course with that exact role.
     pub target: AccountId,
     /// Authoritative creation time.
-    pub created_at: ActivityTimestamp,
+    pub created_at: Timestamp,
     /// Required authoritative expiry, exactly 30 days after creation.
-    pub expires_at: ActivityTimestamp,
+    pub expires_at: Timestamp,
     /// The one persisted terminal event, if a transition occurred.
     ///
     /// Its absence derives Pending or Expired from `expires_at`; it is not a

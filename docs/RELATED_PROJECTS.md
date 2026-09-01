@@ -125,7 +125,7 @@ current acceptance status remains in
   Upload text into Canvas, Blackboard, HTML self-test, and other teaching formats.
 - Evidence: the project's official README documents its conversion workflow, while
   [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) records the reviewed item semantics used by
-  PLE flat-question JSON v2.
+  PLE Question JSON schema version 2.
 - Notes: QTI Package Maker is an interoperability and interaction oracle, not a PLE runtime
   dependency or a Rust porting target.
 

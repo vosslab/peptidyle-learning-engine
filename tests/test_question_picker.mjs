@@ -14,10 +14,10 @@ function row(displayId, title = "Question") {
     displayId,
     title,
     summary: "Answer-free summary.",
-    byline: ["Published author"],
+    authorNames: ["Published author"],
     classifications: ["biology:protein"],
     capabilities: [],
-    license: "ccBy",
+    questionLicense: "CC-BY-4.0",
     evidence: { state: "insufficientEvidence" },
   };
 }
@@ -141,13 +141,13 @@ test("pagination failure retains loaded rows while external selection remains us
 function emptyQuery() {
   return {
     search: "",
-    byline: null,
+    authorName: null,
     backend: null,
     tag: null,
     questionType: null,
     classification: null,
     capability: null,
-    license: null,
+    questionLicense: null,
     evidence: null,
     usedInMyCourses: null,
   };

@@ -5,7 +5,7 @@ import { assignmentPolicyDraftSummary } from "../src/pages/assignment_workspace/
 
 const baseInput = {
   assignmentStatus: "released",
-  savedCurrentState: { state: "open" },
+  savedAssignmentAvailability: { state: "available" },
   policies: {
     assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
     assignmentAttemptGradeRule: "instructorSelected",
@@ -26,7 +26,7 @@ const baseInput = {
     question_answer_explanation: "after_close",
     class_statistics: "never",
   },
-  assignmentWorkingCopyDefinition: {
+  assignmentAuthoredContent: {
     timeZone: "America/Chicago",
     instructions: "Use a clear structural drawing.",
     availableAt: "2026-09-01T09:00:00.000",
@@ -41,7 +41,7 @@ const baseInput = {
   attemptLimitDraft: "2",
 };
 
-test("current-draft summary covers every Policies-owned decision in readable copy", () => {
+test("Assignment policy summary covers every Policies-owned decision in readable copy", () => {
   const summary = assignmentPolicyDraftSummary(baseInput);
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
@@ -50,7 +50,7 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   assert.match(valueFor("assignmentAttemptContinuationRule"), /2 additional Assignment Attempts/);
   assert.match(valueFor("questionPoolReuseRule"), /Select Questions again/);
   assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
-  assert.match(valueFor("savedDelivery"), /open now/);
+  assert.match(valueFor("savedDelivery"), /available now/);
   assert.match(valueFor("assignmentStatus"), /Released/);
   assert.match(valueFor("assignmentStatus"), /Student instructions included/);
   const schedule = valueFor("scheduleLimits");
@@ -72,7 +72,7 @@ test("current-draft summary covers every Policies-owned decision in readable cop
   }
 });
 
-test("current-draft summary surfaces invalid unsaved limits without stale values", () => {
+test("Assignment policy summary surfaces invalid unsaved limits without stale values", () => {
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
     activityRuleDraft: { completionFraction: "1.2", additionalRuns: "-1" },
@@ -93,10 +93,10 @@ test("current-draft summary surfaces invalid unsaved limits without stale values
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);
 });
 
-test("summary keeps saved effective state distinct from Assignment Status", () => {
+test("summary keeps saved Assignment Availability distinct from Assignment Status", () => {
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
-    savedCurrentState: {
+    savedAssignmentAvailability: {
       state: "scheduled",
       availableAt: "2026-09-01T09:00:00.000",
     },

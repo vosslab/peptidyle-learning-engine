@@ -5,7 +5,7 @@ use super::{
     ResultTransportRequest, ScoredEmbedFailure, ScoredEmbedTransport, map_transport,
 };
 use crate::{ProviderFailure, VerifiedProviderGrade};
-use question_model::ActivityTimestamp;
+use question_model::Timestamp;
 
 /// Fetches only the broker-held provider result and gives it directly to the
 /// sealed verifier. Browser messages never enter this path.
@@ -13,7 +13,7 @@ pub(super) async fn retrieve_and_verify<T: ScoredEmbedTransport>(
     transport: &T,
     config: &ContractedScoredEmbedConfig,
     session: &mut ContractedLaunchSession,
-    now: ActivityTimestamp,
+    now: Timestamp,
 ) -> Result<VerifiedProviderGrade, ImathasAdapterError> {
     session
         .ledger

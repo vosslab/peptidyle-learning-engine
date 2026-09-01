@@ -103,8 +103,8 @@ impl_student_work_identifier!(QuestionSubmissionId);
 impl IssuedQuestionId {
     /// Derives the stable identity for one frozen Assignment Attempt entry.
     ///
-    /// A Question Pool candidate distinguishes pooled issued questions. A fixed
-    /// Question has no candidate, so its explicit discriminator prevents a
+    /// A Question Pool Item distinguishes pooled Issued Questions. A fixed
+    /// Question has no Question Pool Item, so its explicit discriminator prevents a
     /// collision with a pooled value containing all-zero UUID bytes.
     pub fn for_frozen_content(
         assignment_attempt: AssignmentAttemptId,
@@ -114,9 +114,9 @@ impl IssuedQuestionId {
         let mut name = [0_u8; 49];
         name[..16].copy_from_slice(assignment_attempt.as_uuid().as_bytes());
         name[16..32].copy_from_slice(assignment_entry.as_uuid().as_bytes());
-        if let Some(candidate) = question_pool_item {
+        if let Some(question_pool_item) = question_pool_item {
             name[32] = 1;
-            name[33..].copy_from_slice(candidate.as_uuid().as_bytes());
+            name[33..].copy_from_slice(question_pool_item.as_uuid().as_bytes());
         }
         Self(Uuid::new_v5(&ISSUED_QUESTION_NAMESPACE, &name))
     }
@@ -130,9 +130,9 @@ mod tests {
     fn issued_question_identity_is_stable_and_distinguishes_frozen_content() {
         let attempt = AssignmentAttemptId::from_uuid(Uuid::from_u128(1));
         let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(2));
-        let candidate = QuestionPoolItemId::from_uuid(Uuid::from_u128(3));
+        let question_pool_item = QuestionPoolItemId::from_uuid(Uuid::from_u128(3));
         let fixed = IssuedQuestionId::for_frozen_content(attempt, entry, None);
-        let pooled = IssuedQuestionId::for_frozen_content(attempt, entry, Some(candidate));
+        let pooled = IssuedQuestionId::for_frozen_content(attempt, entry, Some(question_pool_item));
 
         assert_eq!(
             fixed,

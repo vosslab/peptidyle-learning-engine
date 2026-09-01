@@ -207,7 +207,7 @@ generation still equals that row's generation. A superseded job completes as
 superseded rather than overwriting a newer projection.
 
 This dual fence prevents an old calculation from becoming current after an
-assignment-definition change, accepted-submission completion, authorized
+Assignment Content change, accepted-submission completion, authorized
 attempt support, or a timer adjustment. The future scoring and auto-submit
 Stores must enforce the same generation check.
 
@@ -240,16 +240,16 @@ caller/operator outcome and repair actions are in
 [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and the storage identity contract
 is [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
 
-### Required candidate promotion
+### Planned Course Banner Upload promotion
 
-Course-banner candidate promotion writes normalized, checksummed bytes under a
-temporary non-signable identity first. Promotion records a server-owned future
-object identity and uses a revision-checked mutation only after the source is
-available. The durable row remembers whether it was consumed and whether its
-temporary object was deleted. Bounded cleanup claims the candidate before
-deleting bytes, so competing cleaners do not delete another course's object or
-undo a current pointer. [OBJECT_STORAGE.md](OBJECT_STORAGE.md) records the
-durable storage boundary.
+The future Course Banner Upload capability writes normalized, checksummed bytes
+under a temporary non-signable identity first. Its Store must bind the upload to
+one Course Instance, Account, expiry, and Object Reference before a
+revision-checked promotion can save a current Course Banner. The durable record
+will remember consumption and cleanup state so competing cleaners cannot delete
+another Course's object or undo a current pointer. [OBJECT_STORAGE.md](OBJECT_STORAGE.md)
+records the current typed-object boundary; it does not claim that durable
+promotion exists today.
 
 ### Planned reconciliation fence
 

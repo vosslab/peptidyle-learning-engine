@@ -7,7 +7,7 @@ use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseThemeId;
 use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 use crate::generation::QuestionSeed;
-use crate::student_work::{ActivityTimestamp, AssignmentId, CourseId, QuestionAttemptId};
+use crate::student_work::{AssignmentId, CourseId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -117,7 +117,7 @@ impl From<QuestionPresentationNonce> for String {
     }
 }
 
-/// Public 128-bit prefix of a full presentation SHA-256 digest.
+/// Public 128-bit prefix of a full presentation SHA-256 checksum.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionPresentationToken(String);
@@ -128,19 +128,19 @@ impl QuestionPresentationToken {
         Self(format!("pd1_{encoded}"))
     }
 
-    /// Parses and validates the exact version-one public digest token.
+    /// Parses and validates the exact version-one public checksum token.
     pub fn parse(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
         let encoded = value
             .strip_prefix("pd1_")
-            .ok_or("presentation digest lacks the pd1_ prefix")?;
+            .ok_or("presentation checksum lacks the pd1_ prefix")?;
         let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(encoded)
-            .map_err(|_| "presentation digest is not base64url")?;
+            .map_err(|_| "presentation checksum is not base64url")?;
         if bytes.len() != 16
             || base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes) != encoded
         {
-            return Err("presentation digest must contain one canonical 128-bit prefix");
+            return Err("presentation checksum must contain one canonical 128-bit prefix");
         }
         Ok(Self(value))
     }
@@ -246,7 +246,7 @@ pub struct PresentedTextEntrySlot {
     pub max_characters: u32,
 }
 
-/// One public hotspot candidate used by both pointer and no-mouse controls.
+/// One public Hotspot Region used by both pointer and no-mouse controls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotRegion {
@@ -328,7 +328,7 @@ pub struct QuestionPresentation {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentAttemptDescriptor {
     pub id: QuestionAttemptId,
-    pub deadline: Option<ActivityTimestamp>,
+    pub deadline: Option<Timestamp>,
     pub presentation_digest: QuestionPresentationToken,
 }
 
