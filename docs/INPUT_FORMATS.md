@@ -47,7 +47,7 @@ The public runtime receives only the PLE Question projection. See
 
 ## Private server source
 
-PLE can publish a private immutable PG or PGML source source_object_reference to the configured external
+PLE can publish a private immutable PG or PGML Question Source through a Source Object Reference to the configured external
 `webwork-pg-renderer`. This is not a Student upload, browser renderer file, WebWork2 import, or
 general Open Problem Library route. The server sends source, path, seed, display policy, and
 resolved answer to `/render-api`; the browser receives only the typed PLE presentation envelope

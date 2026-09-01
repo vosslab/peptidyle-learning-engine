@@ -195,14 +195,14 @@ pub enum ObjectAddress {
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerId,
     },
-    /// A course-owned student-record source_object_reference.
+    /// A course-owned Student Record Object.
     StudentRecord {
         /// Exact course whose protected record owns this object.
         course: CourseId,
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// A short-lived processing source_object_reference that is never served.
+    /// A short-lived processing Object that is never served.
     Temporary {
         /// Physical object-record identity.
         object: ObjectId,

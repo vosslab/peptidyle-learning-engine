@@ -65,7 +65,7 @@ generation behavior, source revision, renderer compatibility version, or
 authored edit requires a new immutable published question with a fresh Question
 ID and hidden exact evidence rather than cache deletion or overwriting an
 existing entry. A changed object is refused by its
-checksum, typed key, schema, source-source_object_reference binding, version, seed, title,
+checksum, typed key, schema, Source Object Reference binding, version, seed, title,
 and backend-specific validation.
 
 This gives cache invalidation a simple rule:
@@ -104,7 +104,7 @@ without an envelope remain explicitly `NotApplicable`.
 ### WeBWorK
 
 The WeBWorK adapter stores a safe cache object containing the answer-free
-envelope, sanitized HTML, published source-source_object_reference binding, and renderer
+envelope, sanitized HTML, published Source Object Reference binding, and renderer
 identity. It validates all of those fields before serving it and records a
 non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness for
 adapter cache work. The raw PG source, renderer password, upstream URL, hidden
@@ -136,7 +136,7 @@ mappings in the public render cache; they are server-only Question Grading Input
 ### iMathAS
 
 The iMathAS adapter uses the same immutable `ProblemRender` shape for an
-answer-free external-tool envelope. It validates the pinned source source_object_reference,
+answer-free external-tool envelope. It validates the pinned Source Object Reference,
 provider, integration profile, version, seed, and response shape on every
 read. A cache miss asks the configured verified provider for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable

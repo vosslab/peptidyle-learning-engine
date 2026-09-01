@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acceptance-runtime"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "libc",
  "serde",
@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "adapter_h5p"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "async-trait",
  "question_model",
@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "adapter_imathas"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "adapter_ple"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "domain",
  "grading",
@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "adapter_qti"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "base64 0.23.1",
  "domain",
@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "adapter_webwork"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -768,7 +768,7 @@ dependencies = [
 
 [[package]]
 name = "browser-api-contract"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "serde",
 ]
@@ -1159,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "export_crate"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "flate2",
  "objects",
@@ -1480,7 +1480,7 @@ dependencies = [
 
 [[package]]
 name = "grading"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "domain",
  "question_model",
@@ -1980,7 +1980,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "learning-data-access"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "acceptance-runtime",
  "adapter_ple",
@@ -2267,7 +2267,7 @@ dependencies = [
 
 [[package]]
 name = "objects"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "acceptance-runtime",
  "async-trait",
@@ -2533,7 +2533,7 @@ dependencies = [
 
 [[package]]
 name = "project-tools"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "acceptance-runtime",
  "adapter_ple",
@@ -2568,7 +2568,7 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "question_model"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "server_core"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "acceptance-runtime",
  "adapter_imathas",
@@ -4125,7 +4125,7 @@ dependencies = [
 
 [[package]]
 name = "wasm_bridge"
-version = "26.8.0"
+version = "26.9.0"
 dependencies = [
  "domain",
  "question_model",

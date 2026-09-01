@@ -166,9 +166,9 @@ other internal identities remain server-side.
 
 The WeBWorK adapter caches only safe rendered output in content object storage.
 Its key is deterministic from `(problem, version, seed)` and validates cache
-schema, immutable source source_object_reference, version, seed, student title, and nonempty
+schema, immutable Source Object Reference, version, seed, student title, and nonempty
 renderer identity. Cached bytes contain an answer-free shared envelope,
-sanitized markup, source-source_object_reference binding, and renderer identity. They never
+sanitized markup, Source Object Reference binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
 
 The cache is a reproducibility optimization, not a promise that no renderer

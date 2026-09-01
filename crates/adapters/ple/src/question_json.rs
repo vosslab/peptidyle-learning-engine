@@ -292,7 +292,7 @@ impl PleQuestionJsonDocument {
     /// identity substituted for the private workspace image identity.
     ///
     /// The returned source remains answer-bearing and canonical, so the
-    /// published source source_object_reference, public definition, and server-only key can
+    /// published Source Object Reference, public definition, and server-only key can
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,

@@ -10,7 +10,7 @@ LLM reviewer feedback
 3. Decide which source_object_reference is authoritative for each backend. For example, QTI ZIP, parsed QTI model, WeBWorK source, generated question instance, and rendered output should each have a clear source-of-truth role.
 4. Add immutable object identity early. Use checksums, version IDs, content type, size, ownership, license, and provenance for every stored source_object_reference, including text stored in PostgreSQL.
 5. Reconsider storing large XML, JSON, and source payloads directly in operational tables. Metadata and searchable fields belong in PostgreSQL. Immutable source packages and large versioned payloads may fit better in object storage.
-6. Define reproducibility as a requirement. A historical attempt should identify the exact question revision, source source_object_reference, renderer version, seed, parameters, assets, and grading implementation.
+6. Define reproducibility as a requirement. A historical attempt should identify the exact Question Revision, Source Object Reference, renderer version, seed, parameters, assets, and grading implementation.
 7. Make secure rendering a first-class service boundary. The student-facing application should receive only the minimum rendered content and attempt token needed for the active question.
 8. The rewritten plan should convert these decisions into explicit tasks with files or components, expected behavior, success conditions, and validation cases before implementation begins.
 

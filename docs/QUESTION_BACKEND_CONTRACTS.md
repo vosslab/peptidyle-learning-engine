@@ -122,7 +122,7 @@ answer binding.
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
 asset mapping, or private binding no longer reproduces. The Question Attempt Reproduction Details records private-profile adapter,
-source source_object_reference, bound assets, QTI private grader, and rendered envelope hash.
+Source Object Reference, bound assets, QTI private grader, and rendered envelope hash.
 
 When explicitly configured, QTI declares `serverGrading`. Current accepted import profiles are static
 single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, interaction types,

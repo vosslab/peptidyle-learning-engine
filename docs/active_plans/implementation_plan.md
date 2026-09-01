@@ -446,7 +446,7 @@ Three weaknesses neither review named, each becoming a requirement here:
   uniquely indexes `(account_id, directory, filename)`.
 - **Signed URLs live seven days.** `temporaryUrl(..., Carbon::now()->addDays(7))`
   (`QuestionMediaController.php:279`). A leaked URL grants a week of access, which for a
-  student-record source_object_reference is a FERPA-relevant exposure. This plan uses minutes.
+  Student Record Object is a FERPA-relevant exposure. This plan uses minutes.
 
 ## Resolved decisions
 
