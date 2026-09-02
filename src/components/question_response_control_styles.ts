@@ -30,8 +30,8 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .response-widget .format-status.ready { border-color: var(--ple-success); background: color-mix(in srgb, var(--ple-success) 7%, white); color: var(--ple-success); }
   .response-widget .format-status.error { border-color: var(--ple-danger); background: color-mix(in srgb, var(--ple-danger) 7%, white); color: var(--ple-danger); font-weight: 700; }
   .response-widget .status-spinner { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; border: 2px solid currentcolor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  .response-widget .response-actions, .response-widget .remote-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .response-widget .remote-question-backend-frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }
+  .response-widget .response-actions, .response-widget .imathas-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .response-widget .imathas-question-backend-frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }
   @media (max-width: 360px) {
     .response-widget .ordering-row { grid-template-columns: minmax(0, 1fr) 44px 44px; }
     .response-widget .choice-card { padding-inline: 0.4rem; }

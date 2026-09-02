@@ -409,7 +409,7 @@ export interface ApiClient
     attemptId: QuestionAttemptId,
     signal?: AbortSignal,
   ) => Promise<PrefetchedNextQuestion | null>;
-  /** Creates a broker launch by same-origin POST, then returns its inert shell route. */
+  /** Creates an iMathAS Question Backend launch by same-origin POST, then returns its inert shell route. */
   readonly beginImathasQuestionBackendLaunch: (
     courseId: CourseId,
     assignmentId: AssignmentId,

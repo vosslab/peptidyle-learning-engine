@@ -216,7 +216,7 @@ first-party session contract.
 Every unsafe cookie-authenticated request must present the exact canonical
 HTTPS `Host` and same `Origin`; duplicate or malformed cookie inputs are
 rejected. The API does not grant credentialed cross-origin CORS. These checks
-supplement, rather than replace, `SameSite=Lax`. No Remote Question Backend browser
+supplement, rather than replace, `SameSite=Lax`. No iMathAS Question Backend browser
 cookie or cross-origin exception is mounted.
 
 Passwordless email and passkey ceremonies persist only hashed/serialized
@@ -246,13 +246,13 @@ blanket-encrypt public published content in the application: immutable public
 objects need CDN delivery and integrity comes from their canonical SHA-256
 binding, publication authority, and object-store immutability. Application
 encryption is selective: AEAD protects secrets that must be stored and later
-used, such as Remote Question Backend launch state. Keys, database URLs, SMTP credentials,
+used, such as iMathAS Question Backend Launch state. Keys, database URLs, SMTP credentials,
 and Question Backend credentials stay in deployment secret storage and least-privilege
 runtime roles, never tracked configuration or browser DTOs.
 
-## Remote Question Backend Session
+## iMathAS Question Backend Session
 
-Question Model owns `ImathasQuestionBackendBinding`; LDA persists that binding and owns the server-only Remote Question Backend Session, typed Reference,
+Question Model owns `ImathasQuestionBackendBinding`; LDA persists that binding and owns the server-only iMathAS Question Backend Session, typed Reference,
 preparation/restore/lease/verified-Result-Exchange Store boundary, and backend-state
 protection. The stored state uses XChaCha20-Poly1305 with a key identifier,
 fresh nonce, associated exact session facts, bounded ciphertext, and key
@@ -262,44 +262,44 @@ protocol verification. The binding pins `imathas_remote_grading_v1`. `2026090102
 half-open validity, immutable binding, forward revocation, Exchange-only
 consumption, and RLS/least-privilege SECURITY DEFINER functions.
 
-LDA mints the one immutable 256-bit Remote Question Backend Session Challenge with the OS
+LDA mints the one immutable 256-bit iMathAS Session Challenge with the OS
 CSPRNG, retries all-zero output, and reconstructs it only from validated private
 storage. It expires with its Session and is accepted once only through verified
 Exchange. iMathAS carries and verifies the signed `ple_launch_challenge` claim;
 the PostgreSQL oracle directly proves `ple_api_owner` cannot mutate it.
 
-LDA also owns the private, redacted, non-Serde Remote Question Backend Grading Context:
+LDA also owns the private, redacted, non-Serde iMathAS Grading Context:
 exact Question Attempt ID, Question Revision Reference, and Question Seed. It
 inherits Student, Course, and Assignment authority from the owning Session and
 Question Attempt, and expires with that Session. Its accepted
 `authentication_payload_v1` bytes differ from the content-derived Qualified
-Launch Binding Digest, Challenge, Result Token, and Remote Question Backend
+Launch Binding Digest, Challenge, iMathAS Result Token, and iMathAS
 Result. The direct `question_attempt_id` schema cutover and live four-axis
 mismatch cases protect every member; the browser receives no Context DTO.
 
-LDA owns the bounded `1..=8192` opaque Remote Question Backend Result Token and
+LDA owns the bounded `1..=8192` opaque iMathAS Result Token and
 its redacted non-Serde checksum. iMathAS receives raw bytes server-to-server,
 verifies the iMathAS protocol, and derives the checksum only after success.
 Raw bytes never reach browser state, generated contracts, durable records,
 logs, or Debug output. The checksum is written only as
-`remote_question_backend_result_token_sha256` on the verified Result Exchange in the atomic consume
-transition; it is absent from the Launch Session and verification state.
+`imathas_result_token_sha256` on the verified iMathAS Result Exchange in the atomic consume
+transition; it is absent from the iMathAS Question Backend Session and verification state.
 
-The Result Exchange exclusively owns the immutable server-only Remote Question Backend Result.
+The iMathAS Result Exchange exclusively owns the immutable server-only iMathAS Result.
 Its first profile has only a validated finite `[0,1]` normalized score with one
 accepted zero representation; LDA derives, rather than accepts, its checksum
-from `ple:remote-question-backend-result:v1\\0` followed by the score's IEEE-754 binary64
+from `ple:imathas-result:v1\\0` followed by the score's IEEE-754 binary64
 bytes. That checksum is never the Result Token checksum and neither
-belongs on a Grading Result. `RemoteQuestionBackendGradingContext` remains exactly its
+belongs on a Grading Result. `ImathasGradingContext` remains exactly its
 three identity fields; the required `QuestionGradingRule` is a separate
-issue-time Launch Session fact. Authenticated staging consumes the Session and
-creates the marker `StudentResponse::RemoteQuestionBackend {}` Question Submission,
+issue-time iMathAS Question Backend Session fact. Authenticated staging consumes the Session and
+creates the marker `StudentResponse::ImathasQuestionBackend {}` Question Submission,
 pending Question Submission Grading, and ready typed Job with ready Result Exchange
 evidence. Only a worker holding that Job's lease can atomically recheck the
 lineage, derive the PLE Grading Result, write its Automated Grading Receipt,
 and commit the Result Exchange. Lease expiry enables a later claim; final execution
 failure is the Job/Question Submission Grading's `instructor_attention`, not a
-rewrite of the immutable evidence. No Remote Question Backend Result DTO or raw result
+rewrite of the immutable evidence. No iMathAS Result DTO or raw result
 is generated or exposed to the browser. LTI remains future registered-protocol planning
 with no current schema path.
 
@@ -344,7 +344,7 @@ Student records are FERPA data and treated as radioactive: course-scoped,
 Student-owned where applicable, minimized, and excluded from general logs and analytics;
 reusable published content is not. Every
 student-facing Store and PostgreSQL path checks the same course-retention access predicate, so
-archive cannot be bypassed through runs, summaries, feedback, exports, Remote Question Backend operations, or protected
+archive cannot be bypassed through runs, summaries, feedback, exports, iMathAS Question Backend operations, or protected
 StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
 lifecycle, fixed notification copy, and a strong revision-not student, object,
 job, lease, or generation identity. This payload-free lifecycle authority is
@@ -603,7 +603,7 @@ Run reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
 `StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
-prefetch, feedback-release, issuance, submission, and Remote Question Backend paths.
+prefetch, feedback-release, issuance, submission, and iMathAS Question Backend paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record projection after removal;
@@ -663,9 +663,9 @@ points, but never an answer key, expected value, private rubric, or checker
 state. Full teaching feedback uses an explicit sanitized disclosure DTO; it
 never serializes the server-only key as a shortcut.
 
-## Remote Question Backend indeterminate-effect boundary
+## iMathAS Question Backend indeterminate-effect boundary
 
-An untrusted Remote Question Backend operation can be effectful. Before PLE
+An untrusted iMathAS Question Backend operation can be effectful. Before PLE
 dispatches a backend `POST`, the Store atomically records a pre-dispatch
 marker tied to the current, unexpired activity-lease token. Only a valid
 iMathAS response can clear that exact marker. A timeout, I/O failure, process

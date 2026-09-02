@@ -20,8 +20,7 @@ use crate::imathas_question_backend;
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, ImathasAdapterError,
     ImathasQuestionLocation, ImathasRenderRequest, ImathasResultRequest, PreparedSnapshot,
-    QuestionBackend, SupportedImathasProfile, VerifiedImathasQuestionBackendResult, hex,
-    verify_binding,
+    QuestionBackend, SupportedImathasProfile, VerifiedImathasResult, hex, verify_binding,
 };
 
 /// Exact immutable source loaded through trusted storage.
@@ -289,13 +288,13 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     }
 
     /// Accepts only an iMathAS-verifier result matching every server-held binding.
-    pub async fn verify_imathas_question_backend_result(
+    pub async fn verify_imathas_result(
         &self,
         question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
-        grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+        grading_context: &learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
+    ) -> Result<VerifiedImathasResult, ImathasAdapterError> {
         verify_binding(question, source)?;
         let question_revision = QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -350,12 +349,12 @@ where
             .await
     }
 
-    pub async fn retrieve_verified_imathas_question_backend_result(
+    pub async fn retrieve_verified_imathas_result(
         &self,
         validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
         imathas_launch_state: &imathas_question_backend::ImathasLaunchState,
         now: Timestamp,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
+    ) -> Result<VerifiedImathasResult, ImathasAdapterError> {
         self.question_backend
             .retrieve_and_verify(validation, imathas_launch_state, now)
             .await

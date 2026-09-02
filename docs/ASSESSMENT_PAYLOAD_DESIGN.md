@@ -759,7 +759,7 @@ The pre-production cutover:
 6. rejects retired route/body usage with stable `410 contract_retired`.
 
 Historical records remain available through bounded history and summary projections. Production data
-is never deleted or recreated as a shortcut. Remote Question Backend submission contracts stay out of this v1
+is never deleted or recreated as a shortcut. iMathAS Question Backend submission contracts stay out of this v1
 cutover because they require their own backend-session design.
 
 ## Final decisions

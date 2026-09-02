@@ -35,10 +35,10 @@ mod launch_session_bridge {
     use base64::Engine as _;
     use hmac::{Hmac, KeyInit, Mac};
     use learning_data_access::{
-        ImathasQuestionBackendResponseChecksum, ImathasQuestionBackendSessionPreparationContext,
+        ImathasQuestionBackendSessionPreparationContext,
         ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
         ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
-        MemoryImathasQuestionBackendSessionStore, SessionTokenHash,
+        ImathasResponseChecksum, MemoryImathasQuestionBackendSessionStore, SessionTokenHash,
     };
     use objects::memory::MemoryObjectStore;
     use objects::{ObjectAddress, ObjectStore, PutObject};
@@ -60,8 +60,8 @@ mod launch_session_bridge {
         recorded_imathas_question_backend_with_transport,
     };
     use crate::{
-        ImathasAdapter, ImathasAdapterError, ImathasLaunchSessionAuthenticationCodec,
-        ImathasQuestionBackendFailure, ResolvedImathasQuestionSource,
+        ImathasAdapter, ImathasAdapterError, ImathasQuestionBackendFailure,
+        ImathasSessionAuthenticationCodec, ResolvedImathasQuestionSource,
     };
 
     fn now() -> Timestamp {
@@ -76,7 +76,7 @@ mod launch_session_bridge {
         ImathasQuestionBackendBinding::new(
             ImathasDeploymentReference::new("self-hosted-imathas").expect("deployment"),
             ImathasItemReference::new("item17").expect("item"),
-            ImathasProfile::new(crate::result_verification::IMATHAS_REMOTE_GRADING_PROFILE_ID)
+            ImathasProfile::new(crate::result_verification::IMATHAS_GRADING_PROFILE_ID)
                 .expect("profile"),
         )
     }
@@ -90,10 +90,8 @@ mod launch_session_bridge {
                 binding: ImathasQuestionBackendBinding::new(
                     ImathasDeploymentReference::new("self-hosted-imathas").expect("deployment"),
                     ImathasItemReference::new("item17").expect("item"),
-                    ImathasProfile::new(
-                        crate::result_verification::IMATHAS_REMOTE_GRADING_PROFILE_ID,
-                    )
-                    .expect("profile"),
+                    ImathasProfile::new(crate::result_verification::IMATHAS_GRADING_PROFILE_ID)
+                        .expect("profile"),
                 ),
             },
             question_format: question_model::QuestionFormat::Imathas,
@@ -165,26 +163,27 @@ mod launch_session_bridge {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
         };
-        let grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+        let grading_context = learning_data_access::ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
             revision,
             QuestionSeed::new(11),
         );
         let challenge = learning_data_access::ImathasQuestionBackendSessionChallenge::generate()
             .expect("challenge");
-        let authentication = ImathasLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+        let authentication = ImathasSessionAuthenticationCodec::from_server_secret([9; 32])
             .expect("codec")
             .authenticate_for_lda(&grading_context, &challenge);
+        let imathas_question_backend_binding = lda_imathas_backend();
         ImathasQuestionBackendSessionPreparationContext::new(
             AccountId::from_uuid(Uuid::from_u128(1)),
             CourseId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
             grading_context,
             question.grading.clone(),
-            imathas_binding(),
+            imathas_question_backend_binding,
             artifact.clone(),
             source.source_object_checksum().clone(),
-            ImathasQuestionBackendResponseChecksum::from_bytes([4; 32]),
+            ImathasResponseChecksum::from_bytes([4; 32]),
             challenge,
             authentication,
             Timestamp::from_unix_millis(10),
@@ -197,25 +196,26 @@ mod launch_session_bridge {
         question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
         artifact: &SourceObjectReference,
-        grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+        grading_context: learning_data_access::ImathasGradingContext,
         authentication_secret: [u8; 32],
     ) -> ImathasQuestionBackendSessionPreparationContext {
         let challenge = learning_data_access::ImathasQuestionBackendSessionChallenge::generate()
             .expect("challenge");
         let authentication =
-            ImathasLaunchSessionAuthenticationCodec::from_server_secret(authentication_secret)
+            ImathasSessionAuthenticationCodec::from_server_secret(authentication_secret)
                 .expect("codec")
                 .authenticate_for_lda(&grading_context, &challenge);
+        let imathas_question_backend_binding = lda_imathas_backend();
         ImathasQuestionBackendSessionPreparationContext::new(
             AccountId::from_uuid(Uuid::from_u128(1)),
             CourseId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
             grading_context,
             question.grading.clone(),
-            imathas_binding(),
+            imathas_question_backend_binding,
             artifact.clone(),
             source.source_object_checksum().clone(),
-            ImathasQuestionBackendResponseChecksum::from_bytes([4; 32]),
+            ImathasResponseChecksum::from_bytes([4; 32]),
             challenge,
             authentication,
             Timestamp::from_unix_millis(10),
@@ -228,22 +228,27 @@ mod launch_session_bridge {
         question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
         artifact: &SourceObjectReference,
-        grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+        grading_context: learning_data_access::ImathasGradingContext,
         authentication: learning_data_access::ImathasQuestionBackendSessionAuthentication,
         digest: learning_data_access::QualifiedLaunchBindingDigest,
     ) -> ImathasQuestionBackendSessionRestoreExpectation {
+        let imathas_question_backend_binding = lda_imathas_backend();
         ImathasQuestionBackendSessionRestoreExpectation::new(
             AccountId::from_uuid(Uuid::from_u128(1)),
             CourseId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
             grading_context,
             question.grading.clone(),
-            imathas_binding(),
+            imathas_question_backend_binding,
             artifact.clone(),
             source.source_object_checksum().clone(),
             digest,
             authentication,
         )
+    }
+
+    fn lda_imathas_backend() -> ImathasQuestionBackendBinding {
+        imathas_binding()
     }
 
     fn assert_no_transport_io(transport: &RecordedImathasQuestionBackendTransport) {
@@ -256,12 +261,15 @@ mod launch_session_bridge {
     fn signed_result_token(
         validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
         score: &str,
-    ) -> learning_data_access::ImathasQuestionBackendResultToken {
+    ) -> learning_data_access::ImathasResultToken {
         let codec = base64::engine::general_purpose::URL_SAFE_NO_PAD;
         let header = codec.encode(br#"{"alg":"HS256","typ":"JWT"}"#);
         let payload = codec.encode(format!(
             r#"{{"id":"{}","score":{score},"ple_launch_challenge":"{}","ple_binding":"{}"}}"#,
-            validation.imathas_binding.item_reference().as_str(),
+            validation
+                .imathas_question_backend_binding
+                .item_reference()
+                .as_str(),
             codec.encode(validation.challenge.as_bytes()),
             validation.qualified_launch_binding_digest.as_str(),
         ));
@@ -269,7 +277,7 @@ mod launch_session_bridge {
         let mut mac = Hmac::<Sha256>::new_from_slice(b"recorded-result-secret")
             .expect("fixed recorded result secret");
         mac.update(signed.as_bytes());
-        learning_data_access::ImathasQuestionBackendResultToken::from_server_adapter_bytes(
+        learning_data_access::ImathasResultToken::from_server_adapter_bytes(
             format!("{signed}.{}", codec.encode(mac.finalize().into_bytes())).into_bytes(),
         )
         .expect("bounded signed result")
@@ -325,11 +333,12 @@ mod launch_session_bridge {
             )
             .await
             .expect("store");
+        let imathas_question_backend_binding = lda_imathas_backend();
         let initial_restore_expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
             account,
             CourseId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
-            learning_data_access::ImathasQuestionBackendGradingContext::new(
+            learning_data_access::ImathasGradingContext::new(
                 QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
                 QuestionRevisionReference {
                     question_id: question.question_id.clone(),
@@ -338,7 +347,7 @@ mod launch_session_bridge {
                 QuestionSeed::new(11),
             ),
             question.grading.clone(),
-            imathas_binding(),
+            imathas_question_backend_binding,
             artifact.clone(),
             source.source_object_checksum().clone(),
             digest,
@@ -367,7 +376,7 @@ mod launch_session_bridge {
             .expect("proxy");
         assert!(proxy.html().starts_with(b"<!doctype html>"));
         let result = adapter
-            .retrieve_verified_imathas_question_backend_result(&validation, &state, now())
+            .retrieve_verified_imathas_result(&validation, &state, now())
             .await
             .expect("result");
         let exact_transport_token = transport
@@ -375,19 +384,11 @@ mod launch_session_bridge {
             .expect("recorded signed result token");
         let expected_checksum: [u8; 32] = Sha256::digest(exact_transport_token).into();
         assert_eq!(
-            result
-                .imathas_question_backend_result_token_checksum()
-                .as_bytes(),
+            result.imathas_result_token_checksum().as_bytes(),
             &expected_checksum,
             "the verified receipt hashes the exact bytes returned by the transport"
         );
-        assert!(
-            format!(
-                "{:?}",
-                result.imathas_question_backend_result_token_checksum()
-            )
-            .contains("redacted")
-        );
+        assert!(format!("{:?}", result.imathas_result_token_checksum()).contains("redacted"));
         assert!(!format!("{result:?}").contains("eyJ"));
         assert_eq!(transport.proxy_calls(), 1);
         assert_eq!(transport.result_calls(), 1);
@@ -407,17 +408,15 @@ mod launch_session_bridge {
             .clone()
             .stage(
                 lease,
-                learning_data_access::ImathasQuestionBackendResultExchangeIdempotencyKey::parse(
-                    "adapter-stage",
-                )
-                .expect("idempotency key"),
+                learning_data_access::ImathasResultExchangeIdempotencyKey::parse("adapter-stage")
+                    .expect("idempotency key"),
                 Timestamp::from_unix_millis(25),
             )
             .expect("verified result stages only through its exact context and authentication");
         assert!(!format!("{staged:?}").contains("recorded-proxy-session"));
 
         let original_context = validation.grading_context.clone();
-        let mismatched_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+        let mismatched_context = learning_data_access::ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(88)),
             original_context.question_revision().clone(),
             original_context.question_seed(),
@@ -471,7 +470,7 @@ mod launch_session_bridge {
         assert_eq!(
             result.clone().stage(
                 mismatched_context_lease,
-                learning_data_access::ImathasQuestionBackendResultExchangeIdempotencyKey::parse(
+                learning_data_access::ImathasResultExchangeIdempotencyKey::parse(
                     "wrong-context-stage"
                 )
                 .expect("idempotency key"),
@@ -525,7 +524,7 @@ mod launch_session_bridge {
         assert_eq!(
             result.clone().stage(
                 mismatched_authentication_lease,
-                learning_data_access::ImathasQuestionBackendResultExchangeIdempotencyKey::parse(
+                learning_data_access::ImathasResultExchangeIdempotencyKey::parse(
                     "wrong-authentication-stage"
                 )
                 .expect("idempotency key"),
@@ -536,12 +535,12 @@ mod launch_session_bridge {
         );
 
         let verifier = crate::result_verification::ImathasResultVerifier::new(
-            crate::result_verification::ImathasRemoteGradingProfile::remote_grading_deployment(
+            crate::result_verification::ImathasGradingProfile::grading_deployment(
                 "self-hosted-imathas",
                 true,
                 true,
             )
-            .expect("iMathAS Remote Grading profile"),
+            .expect("iMathAS grading profile"),
             b"recorded-result-secret",
         )
         .expect("result verifier");
@@ -554,10 +553,7 @@ mod launch_session_bridge {
                 )
                 .expect("exact score boundary is accepted");
             assert_eq!(
-                verified
-                    .imathas_question_backend_result()
-                    .normalized_score()
-                    .value(),
+                verified.imathas_result().normalized_score().value(),
                 expected_score
             );
         }
@@ -579,68 +575,81 @@ mod launch_session_bridge {
         let mut expired = validation.clone();
         expired.expires_at = now();
         let mut wrong_deployment = validation.clone();
-        wrong_deployment.imathas_binding = ImathasQuestionBackendBinding::new(
+        wrong_deployment.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
             ImathasDeploymentReference::new("wrong-imathas").expect("deployment"),
-            validation.imathas_binding.item_reference().clone(),
-            validation.imathas_binding.profile().clone(),
+            wrong_deployment
+                .imathas_question_backend_binding
+                .item_reference()
+                .clone(),
+            wrong_deployment
+                .imathas_question_backend_binding
+                .profile()
+                .clone(),
         );
         let mut wrong_profile = validation.clone();
-        wrong_profile.imathas_binding = ImathasQuestionBackendBinding::new(
-            validation.imathas_binding.deployment_reference().clone(),
-            validation.imathas_binding.item_reference().clone(),
+        wrong_profile.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
+            wrong_profile
+                .imathas_question_backend_binding
+                .deployment_reference()
+                .clone(),
+            wrong_profile
+                .imathas_question_backend_binding
+                .item_reference()
+                .clone(),
             ImathasProfile::new("wrong-profile").expect("profile"),
         );
         let mut wrong_item = validation.clone();
-        wrong_item.imathas_binding = ImathasQuestionBackendBinding::new(
-            validation.imathas_binding.deployment_reference().clone(),
+        wrong_item.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
+            wrong_item
+                .imathas_question_backend_binding
+                .deployment_reference()
+                .clone(),
             ImathasItemReference::new("wrong-item").expect("item"),
-            validation.imathas_binding.profile().clone(),
+            wrong_item
+                .imathas_question_backend_binding
+                .profile()
+                .clone(),
         );
         let mut wrong_checksum = validation.clone();
         wrong_checksum.source_object_checksum =
             SourceObjectChecksum::parse("a".repeat(64)).expect("checksum");
         let mut wrong_attempt = validation.clone();
-        wrong_attempt.grading_context =
-            learning_data_access::ImathasQuestionBackendGradingContext::new(
-                QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
-                wrong_attempt.grading_context.question_revision().clone(),
-                wrong_attempt.grading_context.question_seed(),
-            );
+        wrong_attempt.grading_context = learning_data_access::ImathasGradingContext::new(
+            QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
+            wrong_attempt.grading_context.question_revision().clone(),
+            wrong_attempt.grading_context.question_seed(),
+        );
         let mut wrong_question_id = validation.clone();
-        wrong_question_id.grading_context =
-            learning_data_access::ImathasQuestionBackendGradingContext::new(
-                wrong_question_id.grading_context.question_attempt(),
-                QuestionRevisionReference {
-                    question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
-                        .expect("Question ID"),
-                    revision_number: wrong_question_id
-                        .grading_context
-                        .question_revision()
-                        .revision_number,
-                },
-                wrong_question_id.grading_context.question_seed(),
-            );
+        wrong_question_id.grading_context = learning_data_access::ImathasGradingContext::new(
+            wrong_question_id.grading_context.question_attempt(),
+            QuestionRevisionReference {
+                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
+                revision_number: wrong_question_id
+                    .grading_context
+                    .question_revision()
+                    .revision_number,
+            },
+            wrong_question_id.grading_context.question_seed(),
+        );
         let mut wrong_revision = validation.clone();
-        wrong_revision.grading_context =
-            learning_data_access::ImathasQuestionBackendGradingContext::new(
-                wrong_revision.grading_context.question_attempt(),
-                QuestionRevisionReference {
-                    question_id: wrong_revision
-                        .grading_context
-                        .question_revision()
-                        .question_id
-                        .clone(),
-                    revision_number: QuestionRevisionNumber::new(99).expect("revision"),
-                },
-                wrong_revision.grading_context.question_seed(),
-            );
+        wrong_revision.grading_context = learning_data_access::ImathasGradingContext::new(
+            wrong_revision.grading_context.question_attempt(),
+            QuestionRevisionReference {
+                question_id: wrong_revision
+                    .grading_context
+                    .question_revision()
+                    .question_id
+                    .clone(),
+                revision_number: QuestionRevisionNumber::new(99).expect("revision"),
+            },
+            wrong_revision.grading_context.question_seed(),
+        );
         let mut wrong_seed = validation.clone();
-        wrong_seed.grading_context =
-            learning_data_access::ImathasQuestionBackendGradingContext::new(
-                wrong_seed.grading_context.question_attempt(),
-                wrong_seed.grading_context.question_revision().clone(),
-                QuestionSeed::new(12),
-            );
+        wrong_seed.grading_context = learning_data_access::ImathasGradingContext::new(
+            wrong_seed.grading_context.question_attempt(),
+            wrong_seed.grading_context.question_revision().clone(),
+            QuestionSeed::new(12),
+        );
 
         for invalid in [
             wrong_hmac,
@@ -676,7 +685,7 @@ mod launch_session_bridge {
             ));
             assert_eq!(
                 refused_adapter
-                    .retrieve_verified_imathas_question_backend_result(&invalid, &state, now())
+                    .retrieve_verified_imathas_result(&invalid, &state, now())
                     .await,
                 Err(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication)
             );
@@ -698,10 +707,16 @@ mod launch_session_bridge {
         assert_no_transport_io(&hostile_transport);
         for mutator in [
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.imathas_binding = ImathasQuestionBackendBinding::new(
+                validation.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
                     ImathasDeploymentReference::new("wrong-imathas").expect("deployment"),
-                    validation.imathas_binding.item_reference().clone(),
-                    validation.imathas_binding.profile().clone(),
+                    validation
+                        .imathas_question_backend_binding
+                        .item_reference()
+                        .clone(),
+                    validation
+                        .imathas_question_backend_binding
+                        .profile()
+                        .clone(),
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
@@ -714,21 +729,27 @@ mod launch_session_bridge {
                     SourceObjectChecksum::parse("a".repeat(64)).expect("checksum")
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.imathas_binding = ImathasQuestionBackendBinding::new(
-                    validation.imathas_binding.deployment_reference().clone(),
-                    validation.imathas_binding.item_reference().clone(),
+                validation.imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
+                    validation
+                        .imathas_question_backend_binding
+                        .deployment_reference()
+                        .clone(),
+                    validation
+                        .imathas_question_backend_binding
+                        .item_reference()
+                        .clone(),
                     ImathasProfile::new("wrong-profile").expect("profile"),
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
                     validation.grading_context.question_revision().clone(),
                     validation.grading_context.question_seed(),
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
                     QuestionRevisionReference {
                         question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
@@ -742,7 +763,7 @@ mod launch_session_bridge {
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
                     QuestionRevisionReference {
                         question_id: validation
@@ -756,7 +777,7 @@ mod launch_session_bridge {
                 )
             },
             |validation: &mut learning_data_access::ImathasQuestionBackendLaunchPreparationValidation| {
-                validation.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
                     validation.grading_context.question_revision().clone(),
                     QuestionSeed::new(12),
@@ -840,7 +861,7 @@ mod launch_session_bridge {
             let validation = learning_data_access::ImathasQuestionBackendSessionValidation {
                 grading_context: prevalidation.grading_context,
                 question_grading_rule: prevalidation.question_grading_rule,
-                imathas_binding: prevalidation.imathas_binding,
+                imathas_question_backend_binding: prevalidation.imathas_question_backend_binding,
                 source_object: prevalidation.source_object,
                 source_object_checksum: prevalidation.source_object_checksum,
                 response_checksum: prevalidation.response_checksum,
@@ -883,7 +904,7 @@ mod launch_session_bridge {
             };
             assert_eq!(
                 adapter
-                    .retrieve_verified_imathas_question_backend_result(&validation, &state, now())
+                    .retrieve_verified_imathas_result(&validation, &state, now())
                     .await,
                 Err(expected)
             );

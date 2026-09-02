@@ -7,9 +7,7 @@ use question_model::{
     ImathasDeploymentReference, ImathasItemReference, ImathasProfile, QuestionRevisionReference,
 };
 
-use crate::{
-    ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult,
-};
+use crate::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
 
 /// An iMathAS deployment's publication-safe integration profile.
 ///
@@ -175,7 +173,7 @@ pub trait QuestionBackend: sealed::QuestionBackendSealed + Send + Sync {
     async fn verify_result(
         &self,
         request: ImathasResultRequest<'_>,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure>;
+    ) -> Result<VerifiedImathasResult, ImathasQuestionBackendFailure>;
 }
 
 /// Immutable inputs for one iMathAS render. No browser data is present.
@@ -195,7 +193,7 @@ pub struct ImathasRenderRequest<'a> {
 pub struct ImathasResultRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) profile: &'a str,
-    pub(crate) grading_context: &'a learning_data_access::ImathasQuestionBackendGradingContext,
+    pub(crate) grading_context: &'a learning_data_access::ImathasGradingContext,
     pub(crate) launch_session_authentication:
         &'a learning_data_access::ImathasQuestionBackendSessionAuthentication,
 }
@@ -208,7 +206,7 @@ impl<'a> ImathasResultRequest<'a> {
         self.profile
     }
     /// Exact server-owned grading identity for this iMathAS request.
-    pub fn grading_context(&self) -> &learning_data_access::ImathasQuestionBackendGradingContext {
+    pub fn grading_context(&self) -> &learning_data_access::ImathasGradingContext {
         self.grading_context
     }
 

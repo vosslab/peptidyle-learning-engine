@@ -26,17 +26,17 @@ authority.
 PLE is one installation with global accounts. The authenticated server session
 derives `AuthenticatedSession { account_id, session_id }`. It then authorizes the exact
 course selected by the user from current membership rows. A route course ID,
-workspace ID, Question ID, Object Address, queue payload, or external-provider field
+workspace ID, Question ID, Object Address, queue payload, or client-supplied integration field
 is only a lookup/input value; it cannot establish authority.
 
-| Data                          | Exact owner                                           | Local enforcement                         |
-| ----------------------------- | ----------------------------------------------------- | ----------------------------------------- |
-| Account, session, and passkey | Global `AccountId`                                    | Server session and PostgreSQL             |
+| Data                          | Exact owner                                            | Local enforcement                         |
+| ----------------------------- | ------------------------------------------------------ | ----------------------------------------- |
+| Account, session, and passkey | Global `AccountId`                                     | Server session and PostgreSQL             |
 | Published question            | Global immutable `QuestionId`/`QuestionRevisionNumber` | Approved-Instructor Question Library      |
-| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                | Workspace relationship                    |
-| Course and assignment         | `CourseId` and child records                          | Current direct Instructor membership      |
-| Student work and grades       | Exact course plus Student owner                       | Student self or current course Instructor |
-| Jobs and objects              | Typed target from the locked lease                    | Store/PostgreSQL capability boundary      |
+| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                 | Workspace relationship                    |
+| Course and assignment         | `CourseId` and child records                           | Current direct Instructor membership      |
+| Student work and grades       | Exact course plus Student owner                        | Student self or current course Instructor |
+| Jobs and objects              | Typed target from the locked lease                     | Store/PostgreSQL capability boundary      |
 
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students

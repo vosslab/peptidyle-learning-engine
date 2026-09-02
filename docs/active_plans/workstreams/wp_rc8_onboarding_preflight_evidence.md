@@ -22,7 +22,7 @@ J9 and J10 retain their own evidence requirements.
 ## Historical disposition
 
 The default local workspace uses local development authentication and has no
-external provider, mailbox confirmation, or delivered one-time link. It is
+configured SMTP delivery, mailbox confirmation, or delivered one-time link. It is
 therefore deterministically `BLOCKED` with `LOCAL_DEVELOPMENT_AUTH`. No
 onboarding ceremony was attempted.
 

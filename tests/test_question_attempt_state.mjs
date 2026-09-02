@@ -723,12 +723,12 @@ test("a withheld receipt is explicitly awaiting and never infers a grade from su
   assert.deepEqual(fixture.machine.state().feedback, { kind: "awaiting", feedback: null });
 });
 
-test("an injected remote-question-backend local buffer with provider data is discarded", () => {
+test("an injected iMathAS Question Backend local buffer with backend secrets is discarded", () => {
   const storage = createStorage();
   storage.setItem(
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
-      response: { kind: "remoteQuestionBackend", score: 100, token: "forged" },
+      response: { kind: "imathasQuestionBackend", score: 100, token: "forged" },
       idempotencyKey: "key-forged",
     }),
   );
@@ -737,13 +737,13 @@ test("an injected remote-question-backend local buffer with provider data is dis
   assert.equal(fixture.machine.state().response, null);
 });
 
-test("a marker-only remote-question-backend local buffer restores unchanged", () => {
+test("a marker-only iMathAS Question Backend local buffer restores unchanged", () => {
   const storage = createStorage();
   storage.setItem(
     "ple:attempt:assignment-attempt-a:attempt-a",
-    JSON.stringify({ response: { kind: "remoteQuestionBackend" }, idempotencyKey: "key-external" }),
+    JSON.stringify({ response: { kind: "imathasQuestionBackend" }, idempotencyKey: "key-imathas" }),
   );
   const fixture = createMachine({ storage });
   fixture.machine.start();
-  assert.deepEqual(fixture.machine.state().response, { kind: "remoteQuestionBackend" });
+  assert.deepEqual(fixture.machine.state().response, { kind: "imathasQuestionBackend" });
 });

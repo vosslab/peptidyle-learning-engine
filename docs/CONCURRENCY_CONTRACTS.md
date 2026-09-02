@@ -211,14 +211,14 @@ Assignment Content change, accepted-submission completion, authorized
 attempt support, or a timer adjustment. The future scoring and auto-submit
 Stores must enforce the same generation check.
 
-### Remote Question Backend Sessions and Result Exchanges
+### iMathAS Question Backend Sessions and Result Exchanges
 
-A Remote Question Backend Session is server-created and bound to the exact
+An iMathAS Question Backend Session is server-created and bound to the exact
 course/Student/attempt scope, expiry-bound, and revocable. Its random bearer token is stored only as a
 hash; backend state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
-A Remote Question Backend Result Exchange is separately idempotent, lease-fenced, and
+An iMathAS Result Exchange is separately idempotent, lease-fenced, and
 indeterminate-safe. It binds the attempt/version/seed/source checksum,
 response digest, backend correlation, and idempotency key before verification.
 Before an effectful backend POST, the holder must atomically prove the exact
@@ -231,7 +231,7 @@ structurally safe GET-only operation, never a fall-through backend action.
 Only the holder of the active lease can move it from `verifying` to `ready_to_commit`;
 a verified token then binds the final commit. `failed` records a safe failure code,
 and `cancelled` records its terminal time; neither permits a retained backend result.
-This is a deferred Remote Question Backend Store and adapter requirement.
+This is a deferred iMathAS Question Backend Store and adapter requirement.
 
 ## Cross-system commit boundaries
 

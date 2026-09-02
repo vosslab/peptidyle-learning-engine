@@ -240,7 +240,7 @@ export function decodeQuestionPresentation(
   return decoded;
 }
 
-/** Decodes the route-only iMathAS Question Backend broker projection. */
+/** Decodes the route-only iMathAS Question Backend Transport projection. */
 export function decodeImathasQuestionBackendLaunch(
   value: unknown,
   path: string,
@@ -262,7 +262,7 @@ export function decodeImathasQuestionBackendLaunch(
   ) {
     throw new DecodeError(
       `${path}.launchUrl`,
-      "the canonical same-origin broker path for this attempt",
+      "the canonical same-origin iMathAS Question Backend Transport route for this attempt",
     );
   }
   return { launchUrl };
@@ -391,7 +391,7 @@ export function decodeGradingResult(value: unknown, path: string): GradingResult
  * Decodes the server's already-redacted teaching projection.
  *
  * Every field is optional because absence is a security property: a client
- * must reject unknown properties rather than silently retaining a provider
+ * must reject unknown properties rather than silently retaining iMathAS
  * transcript, key, or other server-private material.
  */
 export function decodeStudentFeedback(value: unknown, path = "response"): StudentFeedback {

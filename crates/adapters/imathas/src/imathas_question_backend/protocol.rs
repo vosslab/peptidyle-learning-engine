@@ -1,4 +1,4 @@
-//! Signed launch-wire encoding for the fixed iMathAS iMathAS Question Backend protocol.
+//! Signed launch-wire encoding for the fixed iMathAS Question Backend protocol.
 
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};

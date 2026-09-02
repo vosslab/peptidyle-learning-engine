@@ -110,7 +110,7 @@ malformed payload cannot commit an old worker's result. The worker accepts only 
 `StudentRecord` keys; an already absent object is an idempotent success.
 
 The archive access predicate is reused by CourseInstance student records, runs, summaries, feedback,
-exports, Remote Question Backend paths, and protected StudentRecord assets. It also denies access as soon as
+exports, iMathAS Question Backend paths, and protected StudentRecord assets. It also denies access as soon as
 the current archive/delete stage has started, preventing a cleanup race from leaking a record.
 BlueprintCourse reads never grant CourseInstance or Student access.
 
@@ -138,7 +138,7 @@ The deleted student graph includes:
 - enrollments, student course membership, assignment summaries, runs, attempts, submissions,
   evaluations, grades, timers, feedback, and item-analysis rows;
 - prefetch, provider replay, idempotency, scoring, and per-student statistics receipts;
-- student-record audit events, exports, protected deliveries, and Remote Question Backend Sessions and
+- student-record audit events, exports, protected deliveries, and iMathAS Question Backend Sessions and
   transcripts; and
 - CourseInstance Assignment Content only when the archive-time disposition is `delete`.
 

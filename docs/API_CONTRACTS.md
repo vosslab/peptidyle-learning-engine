@@ -337,7 +337,7 @@ both invitation and passwordless email delivery. Without them, the router uses
 unavailable delivery/issuer capabilities and email start fails closed; a
 server-secret-only deployment can still issue an Instructor copy link for an
 invitation. PLE has no mail-server container or deliverability subsystem. A
-live external-provider account and its acceptance evidence remain WP-RC8 work.
+live SMTP account and its delivery acceptance evidence remain WP-RC8 work.
 Optional OIDC/SAML linking is
 an integration path to an existing PLE account, not the primary identity
 system.

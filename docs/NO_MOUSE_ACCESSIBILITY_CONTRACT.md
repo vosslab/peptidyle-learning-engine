@@ -4,7 +4,7 @@
 
 This is the durable interaction contract for every PLE-owned student browser surface. It applies to
 the course, assignment, run, response, feedback, summary, continued-practice, recovery, asset, and
-PLE-owned Remote Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
+PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
 must be possible with the keyboard alone. The primary path uses the browser platform contract: Tab
 and Shift+Tab move focus, and Space selects choices or activates focused buttons. Arrow keys,
 digits 1-9, Enter-to-submit from a response input, and Escape are documented widget extensions that
@@ -177,13 +177,13 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 - If a pedagogically equivalent keyboard interaction cannot be provided, the item is not eligible
   for a graded PLE assignment.
 
-### Short text, file, and Remote Question Backend controls
+### Short text, file, and iMathAS Question Backend controls
 
 - A multiline short-text field retains ordinary text-entry keys; Tab reaches Submit answer and Space
   activates it.
 - A supported file response uses a native file input and retains the selected filename through a
   recoverable submission failure. An unavailable response exposes no fake upload control.
-- PLE-owned Remote Question Backend launch, readiness, submit, return, and error recovery expose native
+- PLE-owned iMathAS Question Backend launch, readiness, submit, return, and error recovery expose native
   buttons reachable with Tab and activated with Space. The iframe has a title and cannot trap focus.
   A third-party tool's internal interface is separately evaluated; PLE does not call the whole task
   accessible merely because its launch button is accessible.
@@ -271,7 +271,7 @@ does not establish screen-reader comprehension, shortcut discoverability, or con
 The built mock single-choice journey proves the primary platform path. Mounted response fixtures
 prove the same Tab-and-Space path for multiple answer and ordering, then independently cover their
 arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Feedback and summary focus
-tests, the Remote Question Backend browser fixture, and the live WeBWorK browser gate are also implemented; the
+tests, the iMathAS Question Backend browser fixture, and the live WeBWorK browser gate are also implemented; the
 live gate exercises an extension path and does not replace the platform-key journey.
 The Chapter 1 release gate now exercises static and WeBWorK MATCH through visible keyboard controls.
 Numeric, short-text, FIB, MULTI-FIB, HOTSPOT, and unavailable-file behavior still rely partly on

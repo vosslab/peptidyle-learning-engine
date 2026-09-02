@@ -7,13 +7,13 @@ mod assignment_attempt;
 #[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
+mod imathas_question_backend_session;
+#[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
 mod object_record;
 #[cfg(feature = "postgres")]
 mod question_source;
-#[cfg(feature = "postgres")]
-mod remote_question_backend_session;
 #[cfg(feature = "postgres")]
 mod sessions;
 
@@ -21,6 +21,8 @@ mod sessions;
 pub use assignment_attempt::PostgresAssignmentAttemptStore;
 #[cfg(feature = "postgres")]
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
+#[cfg(feature = "postgres")]
+pub use imathas_question_backend_session::PostgresImathasQuestionBackendSessionStore;
 #[cfg(feature = "postgres")]
 pub use migrations::{
     MigrationCheck, MigrationCheckEntry, MigrationCheckResult, SchemaCompatibilityError,
@@ -31,8 +33,6 @@ pub use migrations::{
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
 #[cfg(feature = "postgres")]
 pub use question_source::PostgresDraftQuestionSourceStore;
-#[cfg(feature = "postgres")]
-pub use remote_question_backend_session::PostgresRemoteQuestionBackendSessionStore;
 #[cfg(feature = "postgres")]
 pub use sessions::PostgresSessionStore;
 

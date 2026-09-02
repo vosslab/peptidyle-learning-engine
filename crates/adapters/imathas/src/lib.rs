@@ -30,10 +30,8 @@ pub const GRADING_ID: &str = "imathas-verified-grader";
 pub const GRADING_VERSION: &str = "1";
 
 pub use adapter::{ImathasAdapter, ImathasIssuedAttempt, ResolvedImathasQuestionSource};
-pub use grade::{
-    ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult,
-};
-pub use imathas_question_backend::ImathasLaunchSessionAuthenticationCodec;
+pub use grade::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
+pub use imathas_question_backend::ImathasSessionAuthenticationCodec;
 pub use question_backend::{
     ImathasQuestionLocation, ImathasRenderRequest, ImathasResultRequest, PreparedSnapshot,
     QuestionBackend, SafeImathasQuestionRender, SupportedImathasProfile,

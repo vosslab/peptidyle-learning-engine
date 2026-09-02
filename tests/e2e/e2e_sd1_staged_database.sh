@@ -104,13 +104,13 @@ BEGIN
 	IF current_database() <> 'ple_e2e_baseline' THEN
 		RAISE EXCEPTION 'oracle connected to an unexpected database';
 	END IF;
-	IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name IN ('question_attempt_id', 'imathas_deployment_reference', 'imathas_item_reference', 'imathas_profile', 'question_seed', 'qualified_launch_binding_digest', 'remote_question_backend_state_key_id', 'remote_question_backend_state_nonce', 'remote_question_backend_state_ciphertext') AND is_nullable = 'NO') <> 9
-		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'attempt_id')
-		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_result_token_sha256')
-		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_result_exchange' AND column_name = 'remote_question_backend_result_token_sha256' AND data_type = 'bytea' AND is_nullable = 'YES') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND pg_get_constraintdef(oid) LIKE '%octet_length(remote_question_backend_result_token_sha256) = 32%')
-		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_session'::regclass AND conname = 'remote_question_backend_session_state_key_nonce_is_unique')
-		OR (SELECT count(*) FROM pg_proc proc JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace JOIN pg_roles owner_role ON owner_role.oid = proc.proowner WHERE namespace.nspname = 'ple_api' AND proc.proname IN ('create_remote_question_backend_session', 'load_remote_question_backend_session', 'lease_remote_question_backend_session', 'stage_verified_remote_question_backend_result') AND owner_role.rolname = 'ple_api_owner' AND proc.prosecdef AND array_to_string(proc.proconfig, ',') LIKE 'search_path=pg_catalog,%' AND has_function_privilege('ple_app', proc.oid, 'EXECUTE') AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 4 THEN
-		RAISE EXCEPTION 'Remote Question Backend Session Store schema/API boundary is incomplete';
+	IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name IN ('question_attempt_id', 'imathas_deployment_reference', 'imathas_item_reference', 'imathas_profile', 'question_seed', 'qualified_launch_binding_digest', 'imathas_question_backend_state_key_id', 'imathas_question_backend_state_nonce', 'imathas_question_backend_state_ciphertext') AND is_nullable = 'NO') <> 9
+		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'attempt_id')
+		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'imathas_result_token_sha256')
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_result_exchange' AND column_name = 'imathas_result_token_sha256' AND data_type = 'bytea' AND is_nullable = 'YES') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_result_exchange'::regclass AND pg_get_constraintdef(oid) LIKE '%octet_length(imathas_result_token_sha256) = 32%')
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_question_backend_session'::regclass AND conname = 'imathas_question_backend_session_state_key_nonce_is_unique')
+		OR (SELECT count(*) FROM pg_proc proc JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace JOIN pg_roles owner_role ON owner_role.oid = proc.proowner WHERE namespace.nspname = 'ple_api' AND proc.proname IN ('create_imathas_question_backend_session', 'load_imathas_question_backend_session', 'lease_imathas_question_backend_session', 'stage_verified_imathas_result') AND owner_role.rolname = 'ple_api_owner' AND proc.prosecdef AND array_to_string(proc.proconfig, ',') LIKE 'search_path=pg_catalog,%' AND has_function_privilege('ple_app', proc.oid, 'EXECUTE') AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 4 THEN
+		RAISE EXCEPTION 'iMathAS Question Backend Session Store schema/API boundary is incomplete';
 	END IF;
 	IF (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()) <> 'ple_database_owner' THEN
 		RAISE EXCEPTION 'database owner is not ple_database_owner';
@@ -123,7 +123,7 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'ple_migrator attributes are not exact';
 	END IF;
-	FOREACH role_name IN ARRAY ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'] LOOP
+	FOREACH role_name IN ARRAY ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker'] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
 			AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
@@ -135,24 +135,24 @@ BEGIN
 	END LOOP;
 	SELECT count(*)::integer INTO role_count
 	FROM pg_roles
-	WHERE rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker']);
+	WHERE rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker']);
 	IF role_count <> 9 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
 	END IF;
-	IF NOT has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_api', 'USAGE')
-		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_private', 'USAGE')
-		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_data', 'USAGE')
-		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_audit', 'USAGE')
-		OR NOT has_function_privilege('ple_remote_question_backend_grading_worker', 'ple_api.claim_remote_question_backend_result_grading_job(uuid,uuid,timestamp with time zone)', 'EXECUTE')
-		OR NOT has_function_privilege('ple_remote_question_backend_grading_worker', 'ple_api.commit_remote_question_backend_result_grading(uuid,uuid,timestamp with time zone)', 'EXECUTE') THEN
-		RAISE EXCEPTION 'Remote Question Backend grading worker capability is not execute-only';
+	IF NOT has_schema_privilege('ple_imathas_question_backend_grading_worker', 'ple_api', 'USAGE')
+		OR has_schema_privilege('ple_imathas_question_backend_grading_worker', 'ple_private', 'USAGE')
+		OR has_schema_privilege('ple_imathas_question_backend_grading_worker', 'ple_data', 'USAGE')
+		OR has_schema_privilege('ple_imathas_question_backend_grading_worker', 'ple_audit', 'USAGE')
+		OR NOT has_function_privilege('ple_imathas_question_backend_grading_worker', 'ple_api.claim_imathas_result_grading_job(uuid,uuid,timestamp with time zone)', 'EXECUTE')
+		OR NOT has_function_privilege('ple_imathas_question_backend_grading_worker', 'ple_api.commit_imathas_result_grading(uuid,uuid,timestamp with time zone)', 'EXECUTE') THEN
+		RAISE EXCEPTION 'iMathAS Question Backend grading worker capability is not execute-only';
 	END IF;
 	SELECT count(*)::integer INTO membership_count
 	FROM pg_auth_members membership
 	JOIN pg_roles member ON member.oid = membership.member
 	JOIN pg_roles parent ON parent.oid = membership.roleid
 	WHERE member.rolname = 'ple_migrator'
-	AND parent.rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker']);
+	AND parent.rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker']);
 	IF membership_count <> 13 THEN
 		RAISE EXCEPTION 'unexpected membership count: %', membership_count;
 	END IF;
@@ -186,7 +186,7 @@ BEGIN
 	)
 	AND NOT (
 		member.rolname = 'ple_migrator'
-		AND parent.rolname = ANY (ARRAY['ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'])
+		AND parent.rolname = ANY (ARRAY['ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker'])
 		AND grantor.rolname = 'ple_e2e_migrator'
 		AND NOT membership.inherit_option
 		AND NOT membership.set_option AND membership.admin_option
@@ -513,7 +513,7 @@ BEGIN
 		) THEN
 		RAISE EXCEPTION 'Grading Result does not bind one Question Submission grading lifecycle, Job, and receipt';
 	END IF;
-	IF to_regclass('ple_private.course_object_metadata') IS NOT NULL OR to_regclass('ple_private.course_object_reference') IS NULL OR to_regclass('ple_private.imathas_render_cache_entry') IS NULL OR to_regclass('ple_private.course_retention_plan') IS NOT NULL OR to_regclass('ple_audit.retention_lifecycle_event') IS NOT NULL OR to_regclass('ple_private.course_retention_plan_revision') IS NULL OR to_regclass('ple_audit.course_retention_event') IS NULL OR to_regclass('ple_private.webauthn_ceremony') IS NOT NULL OR to_regclass('ple_private.passkey_ceremony') IS NULL OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_session_authentication' AND is_nullable = 'NO') OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_session_challenge' AND is_nullable = 'NO') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_result_exchange' AND column_name IN ('attempt_id', 'course_id', 'assignment_id', 'account_id', 'imathas_deployment_reference', 'question_id', 'revision_number', 'source_object_id', 'source_object_checksum', 'imathas_profile', 'remote_question_backend_response_sha256', 'correlation')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND conname = 'remote_question_backend_result_exchange_session_matches') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('assignment_export_request', 'assignment_export_artifact') AND column_name IN ('export_id', 'artifact_kind', 'state')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND conname = 'remote_question_backend_result_exchange_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_course_retention_plan_revision_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_assignment_export_matches') OR EXISTS (
+	IF to_regclass('ple_private.course_object_metadata') IS NOT NULL OR to_regclass('ple_private.course_object_reference') IS NULL OR to_regclass('ple_private.imathas_render_cache_entry') IS NULL OR to_regclass('ple_private.course_retention_plan') IS NOT NULL OR to_regclass('ple_audit.retention_lifecycle_event') IS NOT NULL OR to_regclass('ple_private.course_retention_plan_revision') IS NULL OR to_regclass('ple_audit.course_retention_event') IS NULL OR to_regclass('ple_private.webauthn_ceremony') IS NOT NULL OR to_regclass('ple_private.passkey_ceremony') IS NULL OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'imathas_question_backend_session_authentication' AND is_nullable = 'NO') OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'imathas_question_backend_session_challenge' AND is_nullable = 'NO') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_result_exchange' AND column_name IN ('attempt_id', 'course_id', 'assignment_id', 'account_id', 'imathas_deployment_reference', 'question_id', 'revision_number', 'source_object_id', 'source_object_checksum', 'imathas_profile', 'imathas_response_sha256', 'correlation')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_result_exchange'::regclass AND conname = 'imathas_result_exchange_session_matches') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('assignment_export_request', 'assignment_export_artifact') AND column_name IN ('export_id', 'artifact_kind', 'state')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_result_exchange'::regclass AND conname = 'imathas_result_exchange_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_course_retention_plan_revision_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_assignment_export_matches') OR EXISTS (
 			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name IN ('scope', 'owner_student_record_id', 'sha256') ) OR NOT EXISTS (
 			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name = 'object_checksum' AND is_nullable = 'NO'
 		) OR NOT EXISTS (
@@ -780,7 +780,7 @@ BEGIN
 	END IF;
 	FOREACH role_name IN ARRAY ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker'
 	] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
@@ -795,7 +795,7 @@ BEGIN
 	FROM pg_roles
 	WHERE rolname = ANY (ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker'
 	]);
 	IF role_count <> 9 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
@@ -814,7 +814,7 @@ BEGIN
 			member.rolname = 'ple_migrator'
 			AND parent.rolname = ANY (ARRAY[
 				'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
+				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_imathas_question_backend_grading_worker'
 			])
 			AND grantor.rolname = 'ple_e2e_migrator'
 			AND NOT membership.inherit_option AND NOT membership.set_option AND membership.admin_option
@@ -895,14 +895,14 @@ END $$;
 DO $$ BEGIN INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256, issued_at, deadline_at, question_attempt_state, reproduction_details) VALUES ('00000000-0000-0000-0000-00000000f101', '00000000-0000-5000-8000-000000000115', 1, repeat('ab', 32), '2026-01-01 00:00:00+00', NULL, 'open', '{}'::jsonb);
 INSERT INTO ple_private.assignment_grade_calculation (assignment_grade_calculation_id, student_record_id, assignment_id, calculated_at, grade, generation) VALUES ('00000000-0000-0000-0000-00000000f102', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '2026-01-01 00:00:00+00', '{}'::jsonb, 1);
 INSERT INTO ple_private.assignment_grade (assignment_grade_id, student_record_id, assignment_id, assignment_grade_calculation_id, selected_at) VALUES ('00000000-0000-0000-0000-00000000f103', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f102', '2026-01-01 00:00:00+00');
-BEGIN INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f104', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-104', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f105', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('00', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-104', decode(repeat('04', 24), 'hex'), decode(repeat('ef', 17), 'hex')); RAISE EXCEPTION 'Remote Question Backend Session accepted zero challenge'; EXCEPTION WHEN check_violation THEN NULL; END;
-BEGIN INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f106', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-106', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f107', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to('malformed', 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-106', decode(repeat('06', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
-RAISE EXCEPTION 'Remote Question Backend Session accepted malformed authentication';
+BEGIN INSERT INTO ple_private.imathas_question_backend_session (imathas_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, imathas_response_sha256, imathas_question_backend_session_challenge, imathas_question_backend_session_authentication, issued_at, expires_at, imathas_question_backend_state_key_id, imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f104', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-104', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f105', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('00', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-104', decode(repeat('04', 24), 'hex'), decode(repeat('ef', 17), 'hex')); RAISE EXCEPTION 'iMathAS Question Backend Session accepted zero challenge'; EXCEPTION WHEN check_violation THEN NULL; END;
+BEGIN INSERT INTO ple_private.imathas_question_backend_session (imathas_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, imathas_response_sha256, imathas_question_backend_session_challenge, imathas_question_backend_session_authentication, issued_at, expires_at, imathas_question_backend_state_key_id, imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f106', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-106', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f107', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to('malformed', 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-106', decode(repeat('06', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
+RAISE EXCEPTION 'iMathAS Question Backend Session accepted malformed authentication';
 EXCEPTION WHEN check_violation THEN NULL;
 END;
-INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, activity_lease_token_sha256, activity_lease_expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-108', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f109', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', decode(repeat('aa', 32), 'hex'), '2026-01-02 00:00:00+00', 'key-108', decode(repeat('08', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
-BEGIN UPDATE ple_private.remote_question_backend_session SET consumed_at = '2026-01-01 00:03:00+00' WHERE remote_question_backend_session_id = '00000000-0000-0000-0000-00000000f108';
-RAISE EXCEPTION 'Remote Question Backend Session accepted replay consumption';
+INSERT INTO ple_private.imathas_question_backend_session (imathas_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, imathas_response_sha256, imathas_question_backend_session_challenge, imathas_question_backend_session_authentication, issued_at, expires_at, activity_lease_token_sha256, activity_lease_expires_at, imathas_question_backend_state_key_id, imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-108', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f109', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', decode(repeat('aa', 32), 'hex'), '2026-01-02 00:00:00+00', 'key-108', decode(repeat('08', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
+BEGIN UPDATE ple_private.imathas_question_backend_session SET consumed_at = '2026-01-01 00:03:00+00' WHERE imathas_question_backend_session_id = '00000000-0000-0000-0000-00000000f108';
+RAISE EXCEPTION 'iMathAS Question Backend Session accepted replay consumption';
 EXCEPTION WHEN check_violation THEN NULL;
 END;
 END $$;
@@ -936,11 +936,11 @@ SQL
 			expect_denied "$probe object creation" psql_in_container "$probe" -d "$DATABASE_NAME" -c "SET ROLE $capability; CREATE TABLE ple_api.sd1_probe_denied (id integer)"
 	done
 }
-assert_remote_question_backend_service_logins() {
-	echo "SD1 staged database E2E: Remote Question Backend API/worker authority probes"
+assert_imathas_question_backend_service_logins() {
+	echo "SD1 staged database E2E: iMathAS Question Backend API/worker authority probes"
 	expect_denied "API login cannot assume procedure owner" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'; expect_denied "worker login cannot assume procedure owner" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'
-	expect_denied "API login cannot assume grading worker" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_remote_question_backend_grading_worker'; expect_denied "grading worker cannot assume API capability" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_app'
-	expect_denied "API login cannot read Remote Question Backend Sessions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.remote_question_backend_session LIMIT 1'; expect_denied "grading worker cannot read Remote Question Backend Sessions directly" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.remote_question_backend_session LIMIT 1'
+	expect_denied "API login cannot assume grading worker" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_imathas_question_backend_grading_worker'; expect_denied "grading worker cannot assume API capability" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_app'
+	expect_denied "API login cannot read iMathAS Question Backend Sessions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.imathas_question_backend_session LIMIT 1'; expect_denied "grading worker cannot read iMathAS Question Backend Sessions directly" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.imathas_question_backend_session LIMIT 1'
 }
 cd "$REPO_ROOT"
 require_command podman
@@ -988,7 +988,7 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 assert_catalog
 assert_restricted_logins
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/remote_question_backend_session_postgres_oracle.sql"
-assert_remote_question_backend_service_logins
-bash "$REPO_ROOT/tests/e2e/e2e_remote_question_backend_session_postgres_oracle.sh" "$WORKSPACE"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"
+assert_imathas_question_backend_service_logins
+bash "$REPO_ROOT/tests/e2e/e2e_imathas_question_backend_session_postgres_oracle.sh" "$WORKSPACE"
 echo "SD1 staged database E2E: PASS (fresh apply, no-op, PostgreSQL 17 catalog, restricted probes)"

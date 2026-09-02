@@ -273,10 +273,10 @@ response carries only selected Hotspot Region references.
 `ResponseItemReference` is the durable semantic identifier used by this shared
 model; it is not a visible letter or display position.
 
-`QuestionResponseControl` names the browser interaction. `RemoteQuestionBackendResponseControl` is a
+`QuestionResponseControl` names the browser interaction. `ImathasQuestionBackendResponseControl` is a
 fieldless marker variant in both response enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
-owns the later Remote Question Backend Result Exchange through its server-owned boundary, so the
+owns the later iMathAS Result Exchange through its server-owned boundary, so the
 question envelope and generic submission record remain answer-free.
 
 Agreement _between_ the two and variant-specific format rules live in
@@ -326,7 +326,7 @@ Choices; Ordering has Ordering Items. Each record combines its Response Item
 Reference with the learner-visible content. This keeps similar wire shapes from
 becoming interchangeable application meanings.
 
-`RemoteQuestionBackendResponseControl` intentionally has no `QuestionPresentationResponseFormat` variant.
+`ImathasQuestionBackendResponseControl` intentionally has no `QuestionPresentationResponseFormat` variant.
 The presentation builder rejects it until its server-owned provider route has a
 complete delivery contract.
 
@@ -598,7 +598,7 @@ fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
-Student payload. It does not claim file-upload or Remote Question Backend authoring
+Student payload. It does not claim file-upload or iMathAS Question Backend authoring
 support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only Answer Key and Question Feedback.
 

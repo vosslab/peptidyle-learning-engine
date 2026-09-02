@@ -1,11 +1,10 @@
 //! Server-to-server signed-result retrieval and verification.
 
 use super::{
-    ImathasAdapterError, ImathasLaunchState, ImathasQuestionBackendConfig,
-    ImathasQuestionBackendTransport, ImathasRemoteGradingFailure, ResultTransportRequest,
-    map_transport,
+    ImathasAdapterError, ImathasGradingFailure, ImathasLaunchState, ImathasQuestionBackendConfig,
+    ImathasQuestionBackendTransport, ResultTransportRequest, map_transport,
 };
-use crate::{ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult};
+use crate::{ImathasQuestionBackendFailure, VerifiedImathasResult};
 use question_model::Timestamp;
 
 /// Fetches only the server-held iMathAS result and gives it directly to the
@@ -16,7 +15,7 @@ pub(super) async fn retrieve_and_verify<T: ImathasQuestionBackendTransport>(
     validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
     imathas_launch_state: &ImathasLaunchState,
     now: Timestamp,
-) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
+) -> Result<VerifiedImathasResult, ImathasAdapterError> {
     super::validate_loaded_imathas_launch_state(config, validation, now)?;
     let bytes = transport
         .fetch_signed_grade_get(ResultTransportRequest {
@@ -34,13 +33,12 @@ pub(super) async fn retrieve_and_verify<T: ImathasQuestionBackendTransport>(
     // ASVS 2.2.1: LDA bounds untrusted iMathAS bytes before this adapter
     // performs UTF-8 or JWT parsing. The verifier receives those exact bytes,
     // so its receipt cannot describe a different representation.
-    let token =
-        learning_data_access::ImathasQuestionBackendResultToken::from_server_adapter_bytes(bytes)
-            .map_err(|_| {
+    let token = learning_data_access::ImathasResultToken::from_server_adapter_bytes(bytes)
+        .map_err(|_| {
             ImathasAdapterError::QuestionBackend(ImathasQuestionBackendFailure::InvalidResponse)
         })?;
     config
         .result_verifier
         .verify_result(validation, &token, now)
-        .map_err(ImathasRemoteGradingFailure::into_adapter_error)
+        .map_err(ImathasGradingFailure::into_adapter_error)
 }

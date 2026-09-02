@@ -108,7 +108,7 @@ target, and audit effect they verify. Broker owners may have the limited privile
 that one operation, while ordinary application roles receive no direct shortcut to private grading,
 retention, queue, object, or Question Backend data. `ple_app` performs only authenticated Session
 create, load, lease, and stage operations. `ple_worker_login` may `SET ROLE` only to
-`ple_remote_question_backend_grading_worker`; that capability executes only the grading
+`ple_imathas_question_backend_grading_worker`; that capability executes only the grading
 claim/commit `SECURITY DEFINER` procedures and has no direct protected-table access. Session lookup,
 migration tooling, API Store work, workers, grading, and registered capabilities use distinct database
 credentials or roles with only their needed grants.
@@ -126,7 +126,7 @@ workspace asset, or course-record asset. Public Question Library presentation de
 private source delivery. Course-record delivery rechecks its course/Student authority and retention
 fence; opaque object identifiers and signed URLs do not bypass it.
 
-Remote Question Backend Sessions, iMathAS Render Cache Entries, exports, and retention operations
+iMathAS Question Backend Sessions, iMathAS Render Cache Entries, exports, and retention operations
 bind to their exact course, assignment, attempt, export, or retention target. Question Backend
 credentials and answer-bearing payloads remain server-only.
 
@@ -138,15 +138,15 @@ receive the same account-and-relationship-scoped RLS, minimum-field, audit, rete
 handling. Partition children, views, staging relations, query results, exports, diagnostics, and
 restores inherit the highest label of their inputs.
 
-| Family                                      | Radioactive relations                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roster and invitation                       | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                                                        |
-| Student work and Gradebook evidence         | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                                               |
-| Assignment Analysis                         | `assignment_analysis`, `assignment_item_analysis`, `assignment_analysis_receipt`                                                                                                                                                                                                                        |
-| Student exports                             | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                                                                                                                               |
-| Course and attempt linkage                  | `course_instance`, `course_object_reference`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                           |
-| Remote-backend, delivery, and audit linkage | `remote_question_backend_result_exchange`, `remote_question_backend_session`, Remote Question Backend Reference, `imathas_render_cache_entry`, `object_delivery`, exact Object Delivery owner relationships, Object Delivery Access Event (Account, allowed-or-denied decision, and access time), `job` |
-| Retention evidence                          | `course_retention_plan_revision`, `course_retention_event`                                                                                                                                                                                                                                              |
+| Family                                                | Radioactive relations                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roster and invitation                                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                                                           |
+| Student work and Gradebook evidence                   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                                                  |
+| Assignment Analysis                                   | `assignment_analysis`, `assignment_item_analysis`, `assignment_analysis_receipt`                                                                                                                                                                                                                           |
+| Student exports                                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                                                                                                                                  |
+| Course and attempt linkage                            | `course_instance`, `course_object_reference`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                              |
+| iMathAS Question Backend, delivery, and audit linkage | `imathas_question_backend_result_exchange`, `imathas_question_backend_session`, iMathAS Question Backend Reference, `imathas_render_cache_entry`, `object_delivery`, exact Object Delivery owner relationships, Object Delivery Access Event (Account, allowed-or-denied decision, and access time), `job` |
+| Retention evidence                                    | `course_retention_plan_revision`, `course_retention_event`                                                                                                                                                                                                                                                 |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
 Private source, Answer Keys, Question Feedback, Question Answer Explanations,
@@ -157,7 +157,7 @@ radioactive because small cohorts can be identifiable.
 
 Retention keeps shared published Question Library content and private drafts outside course-record deletion.
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
-Student-facing records, exports, Remote Question Backend records, and course-record assets as archive or
+Student-facing records, exports, iMathAS Question Backend records, and course-record assets as archive or
 deletion starts. Authorized current Instructors may retain course and Assignment Content without
 restoring student records. A retention broker uses the exact course/stage/generation manifest and a
 renewed lease, so stale work cannot commit after a newer retention generation.
@@ -177,7 +177,7 @@ number in these ranges:
 | `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                   |
 | `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                 |
 | `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                              |
-| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, Remote Question Backend state                                                                                   |
+| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, iMathAS Question Backend state                                                                                  |
 | `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
@@ -194,7 +194,7 @@ conformance.
 Recurring service acceptance proves fresh migration convergence; RLS refusal without a resolved Account; Student
 self versus other-Student and other-course denial; Teaching Team Member mutation and Gradebook read;
 immediate membership revocation and approval-withdrawal denial; narrow audited Sysadmin support;
-observer non-escalation; typed worker confused-deputy refusal; object delivery; Remote Question Backend;
+observer non-escalation; typed worker confused-deputy refusal; object delivery; iMathAS Question Backend;
 export; retention; cleanup; and migration idempotency/checksum status.
 
 Production-browser acceptance proves Question Library discovery/reuse, equal Teaching Team Member behavior,

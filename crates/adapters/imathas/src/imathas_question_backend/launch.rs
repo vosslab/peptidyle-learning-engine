@@ -73,17 +73,17 @@ impl std::fmt::Debug for ImathasLaunchState {
 
 /// HMAC-SHA-256 authentication for the exact grading context and LDA challenge.
 /// This is authentication only; LDA owns protected-state encryption and storage.
-pub struct ImathasLaunchSessionAuthenticationCodec {
+pub struct ImathasSessionAuthenticationCodec {
     secret: [u8; 32],
 }
 
-impl std::fmt::Debug for ImathasLaunchSessionAuthenticationCodec {
+impl std::fmt::Debug for ImathasSessionAuthenticationCodec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("ImathasLaunchSessionAuthenticationCodec(REDACTED)")
+        f.write_str("ImathasSessionAuthenticationCodec(REDACTED)")
     }
 }
 
-impl ImathasLaunchSessionAuthenticationCodec {
+impl ImathasSessionAuthenticationCodec {
     pub fn from_server_secret(secret: [u8; 32]) -> Result<Self, ImathasAdapterError> {
         if secret.iter().all(|byte| *byte == 0) {
             return Err(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication);
@@ -93,7 +93,7 @@ impl ImathasLaunchSessionAuthenticationCodec {
 
     pub fn authenticate_for_lda(
         &self,
-        grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+        grading_context: &learning_data_access::ImathasGradingContext,
         challenge: &learning_data_access::ImathasQuestionBackendSessionChallenge,
     ) -> learning_data_access::ImathasQuestionBackendSessionAuthentication {
         let payload = grading_context.authentication_payload_v1();
@@ -109,11 +109,11 @@ impl ImathasLaunchSessionAuthenticationCodec {
 
     /// Recomputes the row-530 authentication before the adapter performs
     /// iMathAS I/O. LDA persists the authenticated value; this adapter owns
-    /// only verification of the exact grading-context and Launch Challenge
+    /// only verification of the exact iMathAS Grading Context and iMathAS Session Challenge
     /// binding at its iMathAS boundary.
     pub fn verifies_for_lda(
         &self,
-        grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+        grading_context: &learning_data_access::ImathasGradingContext,
         challenge: &learning_data_access::ImathasQuestionBackendSessionChallenge,
         authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
     ) -> bool {

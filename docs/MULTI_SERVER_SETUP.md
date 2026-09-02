@@ -20,7 +20,7 @@ not a new authorization claim.
 | Record or capability                                   | Exact owner or scope                                        | Authorization                                                   |
 | ------------------------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | Account, email, passkey, session                       | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
-| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionRevisionNumber`   | Every active Instructor                                       |
+| Published question and presentation asset              | Global immutable `QuestionId` and `QuestionRevisionNumber`  | Every active Instructor                                         |
 | Draft Question or private curriculum workspace         | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                               | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
 | Course, roster, assignment, schedule                   | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
@@ -40,8 +40,7 @@ Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,
 or routing. They are never an Account, role, course, Student, workspace,
 Question Library, or lease authority. PLE-owned account and session state remains the
-authority even when an optional institutional or external provider integration
-is enabled.
+authority even when an optional OIDC or SAML identity integration is enabled.
 
 ## Scope and status
 

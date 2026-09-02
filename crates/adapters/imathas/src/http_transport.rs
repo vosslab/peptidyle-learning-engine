@@ -1,4 +1,4 @@
-//! Private fixed-dialect HTTP transport for iMathAS iMathAS Question Backend.
+//! Private fixed-dialect HTTP transport for iMathAS Question Backend.
 //!
 //! This module is feature-gated because deployment composition, not authored
 //! question data, selects an iMathAS deployment host. It accepts no browser URL, header,
@@ -596,7 +596,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let binding = learning_data_access::ImathasQuestionBackendGradingContext::new(
+        let binding = learning_data_access::ImathasGradingContext::new(
             question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
             question_model::QuestionRevisionReference {
                 question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
@@ -606,8 +606,7 @@ mod tests {
             },
             question_model::generation::QuestionSeed::new(7),
         );
-        let codec =
-            crate::ImathasLaunchSessionAuthenticationCodec::from_server_secret([1; 32]).unwrap();
+        let codec = crate::ImathasSessionAuthenticationCodec::from_server_secret([1; 32]).unwrap();
         let challenge =
             learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
         let launch_session_authentication = codec.authenticate_for_lda(&binding, &challenge);

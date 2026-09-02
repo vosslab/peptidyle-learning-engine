@@ -243,7 +243,7 @@ pub enum QuestionResponseFormat {
         /// Number of regions the student must select.
         selection: ResponseSelectionRule,
     },
-    /// A server-brokered iMathAS Question Backend.
+    /// An iMathAS response collected through the server-owned iMathAS Question Backend Transport.
     ///
     /// This marker deliberately contains no iMathAS Question Backend identity, launch, answer, score,
     /// token, or completion data. The server owns the later iMathAS Result Exchange.

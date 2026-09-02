@@ -213,7 +213,7 @@ pub enum QuestionBackend {
     Qti,
     /// Ungraded H5P activity.
     H5p,
-    /// iMathAS item served through a verified server-side broker.
+    /// iMathAS item served through the verified iMathAS Question Backend Transport.
     Imathas,
 }
 

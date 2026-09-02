@@ -26,8 +26,8 @@ const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
 pub enum ProductionLoginProfile {
     /// Browser/API process: course data plus passwordless account sessions.
     Api,
-    /// Remote Question Backend grading worker: claim and commit procedures only.
-    RemoteQuestionBackendGradingWorker,
+    /// iMathAS Question Backend grading worker: claim and commit procedures only.
+    ImathasQuestionBackendGradingWorker,
 }
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {

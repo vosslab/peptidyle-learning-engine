@@ -2,7 +2,7 @@
 //!
 //! This module is deliberately absent from the default production dependency
 //! closure. It has no network client and never exposes a way to construct a
-//! `VerifiedImathasQuestionBackendResult` from test or browser data.
+//! `VerifiedImathasResult` from test or browser data.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -19,11 +19,11 @@ use crate::imathas_question_backend::{
     ProtectedLaunchRequest, ProxyRequest, ProxyResponse, ResultTransportRequest,
     SnapshotTransportRequest,
 };
-use crate::result_verification::ImathasRemoteGradingProfile;
+use crate::result_verification::ImathasGradingProfile;
 use crate::{
     ImathasQuestionBackendFailure, ImathasQuestionLocation, ImathasRenderRequest,
     ImathasResultRequest, QuestionBackend, SafeImathasQuestionRender, SupportedImathasProfile,
-    VerifiedImathasQuestionBackendResult, sealed,
+    VerifiedImathasResult, sealed,
 };
 
 /// Safe, deterministic behavior selected by a local server test.
@@ -126,12 +126,12 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
     async fn verify_result(
         &self,
         request: ImathasResultRequest<'_>,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure> {
+    ) -> Result<VerifiedImathasResult, ImathasQuestionBackendFailure> {
         self.grade_calls.fetch_add(1, Ordering::SeqCst);
         mode_result(self.mode)?;
-        Ok(VerifiedImathasQuestionBackendResult::from_test_support(
-            learning_data_access::ImathasQuestionBackendResult::new(
-                learning_data_access::ImathasQuestionBackendNormalizedScore::try_from_f64(1.0)
+        Ok(VerifiedImathasResult::from_test_support(
+            learning_data_access::ImathasResult::new(
+                learning_data_access::ImathasNormalizedScore::try_from_f64(1.0)
                     .expect("recorded score is valid"),
             ),
             request.grading_context().clone(),
@@ -141,12 +141,12 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
     }
 }
 
-fn verified_token_checksum() -> learning_data_access::ImathasQuestionBackendResultTokenChecksum {
-    let token = learning_data_access::ImathasQuestionBackendResultToken::from_server_adapter_bytes(
+fn verified_token_checksum() -> learning_data_access::ImathasResultTokenChecksum {
+    let token = learning_data_access::ImathasResultToken::from_server_adapter_bytes(
         b"recorded test iMathAS result".to_vec(),
     )
     .expect("bounded iMathAS result token");
-    learning_data_access::ImathasQuestionBackendResultTokenChecksum::from_verified_token(&token)
+    learning_data_access::ImathasResultTokenChecksum::from_verified_token(&token)
 }
 
 fn mode_result(
@@ -164,7 +164,7 @@ fn mode_result(
     }
 }
 
-/// Fixed activity behavior for the recorded iMathAS iMathAS Question Backend transport.
+/// Fixed activity behavior for the recorded iMathAS Question Backend transport.
 /// It deliberately has no grade-result mode: route tests may exercise launch
 /// and proxy isolation but cannot manufacture an iMathAS verdict.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -205,7 +205,7 @@ pub enum RecordedImathasQuestionBackendTransportMode {
     Unavailable,
 }
 
-/// Constructs the recorded transport used by the bounded iMathAS iMathAS Question Backend
+/// Constructs the recorded transport used by the bounded iMathAS Question Backend
 /// route tests. It accepts neither a URL nor credentials and exposes only the
 /// fixed immutable snapshot and activity document.
 pub fn recorded_imathas_question_backend_transport(
@@ -242,15 +242,11 @@ pub fn recorded_imathas_question_backend_with_transport(
     let transport = recorded_imathas_question_backend_transport(mode);
     let question_backend = ImathasQuestionBackend::new(
         ImathasQuestionBackendConfig::new(
-            ImathasRemoteGradingProfile::remote_grading_deployment(
-                "self-hosted-imathas",
-                true,
-                true,
-            )
-            .expect("recorded iMathAS Remote Grading profile"),
+            ImathasGradingProfile::grading_deployment("self-hosted-imathas", true, true)
+                .expect("recorded iMathAS grading profile"),
             b"recorded-launch-secret",
             b"recorded-result-secret",
-            crate::ImathasLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+            crate::ImathasSessionAuthenticationCodec::from_server_secret([9; 32])
                 .expect("recorded launch authentication codec"),
             30_000,
         )
@@ -353,7 +349,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
         _request: crate::imathas_question_backend::RenderTransportRequest<'_>,
     ) -> Result<SafeImathasQuestionRender, ImathasTransportFailure> {
         Ok(SafeImathasQuestionRender {
-            title: "Recorded iMathAS iMathAS Question Backend question".into(),
+            title: "Recorded iMathAS Question Backend question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete the protected activity.".into(),
             }],

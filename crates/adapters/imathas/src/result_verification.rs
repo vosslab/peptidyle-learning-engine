@@ -1,8 +1,8 @@
-//! The first concrete, deliberately narrow iMathAS Remote Grading profile.
+//! The first concrete, deliberately narrow iMathAS grading profile.
 //!
-//! This module verifies a score only after the server-side iMathAS iMathAS Question Backend has matched
-//! it to an exact, single-use iMathAS Question Backend Session. The PLE Remote
-//! Question Backend extension carries the signed Launch Challenge and Qualified Launch Binding
+//! This module verifies a score only after the server-side iMathAS Question Backend has matched
+//! it to an exact, single-use iMathAS Question Backend Session. The iMathAS
+//! grading profile carries the signed iMathAS Session Challenge and Qualified Launch Binding
 //! Digest. The unextended upstream iMathAS protocol omits PLE account, attempt,
 //! version, and idempotency facts; consequently a valid JWT alone is never a
 //! grade.
@@ -14,12 +14,10 @@ use serde::Deserialize;
 use serde::de::IgnoredAny;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult,
-};
+use crate::{ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasResult};
 
 /// The only currently supported server-graded iMathAS profile.
-pub const IMATHAS_REMOTE_GRADING_PROFILE_ID: &str = "imathas_remote_grading_v1";
+pub const IMATHAS_GRADING_PROFILE_ID: &str = "imathas_remote_grading_v1";
 /// The bounded iMathAS seed range documented by iMathAS.
 pub const IMATHAS_SEED_VARIANTS: u64 = 9_999;
 const MAX_RESULT_TOKEN_BYTES: usize = 8_192;
@@ -38,84 +36,85 @@ pub fn normalize_imathas_seed(ple_seed: question_model::generation::QuestionSeed
 /// Deployment confirmation required before this profile can grade a published
 /// question.  It intentionally contains no host, URL, credential, or JWT.
 #[derive(Clone, PartialEq, Eq)]
-pub struct ImathasRemoteGradingProfile {
+pub struct ImathasGradingProfile {
     deployment_reference: String,
     frozen_execution_target: bool,
     source_object_checksum_revalidation: bool,
-    remote_grading_enabled: bool,
+    grading_enabled: bool,
 }
 
-impl std::fmt::Debug for ImathasRemoteGradingProfile {
+impl std::fmt::Debug for ImathasGradingProfile {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("ImathasRemoteGradingProfile")
+            .debug_struct("ImathasGradingProfile")
             .field("deployment_reference", &self.deployment_reference)
             .field("frozen_execution_target", &self.frozen_execution_target)
             .field(
                 "source_object_checksum_revalidation",
                 &self.source_object_checksum_revalidation,
             )
-            .field("remote_grading_enabled", &self.remote_grading_enabled)
+            .field("grading_enabled", &self.grading_enabled)
             .finish()
     }
 }
 
-impl ImathasRemoteGradingProfile {
-    /// Creates the profile only for an explicit iMathAS Remote Grading deployment
+impl ImathasGradingProfile {
+    /// Creates the profile only for an explicit iMathAS grading deployment
     /// where the operator guarantees a frozen execution target and
     /// revalidates its Source Object Checksum at every launch.
-    pub fn remote_grading_deployment(
+    pub fn grading_deployment(
         deployment_reference: impl Into<String>,
         frozen_execution_target: bool,
         source_object_checksum_revalidation: bool,
-    ) -> Result<Self, ImathasRemoteGradingFailure> {
+    ) -> Result<Self, ImathasGradingFailure> {
         let deployment_reference = deployment_reference.into();
         if !valid_deployment_reference(&deployment_reference)
             || !frozen_execution_target
             || !source_object_checksum_revalidation
         {
-            return Err(ImathasRemoteGradingFailure::UnsupportedProfile);
+            return Err(ImathasGradingFailure::UnsupportedProfile);
         }
         Ok(Self {
             deployment_reference,
             frozen_execution_target,
             source_object_checksum_revalidation,
-            remote_grading_enabled: true,
+            grading_enabled: true,
         })
     }
 
     /// An unverified hosted MyOpenMath deployment has no confirmed immutable execution target
-    /// or iMathAS Question Backend Session authentication contract, so Remote Grading is
+    /// or iMathAS Question Backend Session authentication contract, so grading is
     /// unavailable. A separate ungraded practice display is outside this module.
     pub fn unverified_myopenmath_hosted(deployment_reference: impl Into<String>) -> Self {
         Self {
             deployment_reference: deployment_reference.into(),
             frozen_execution_target: false,
             source_object_checksum_revalidation: false,
-            remote_grading_enabled: false,
+            grading_enabled: false,
         }
     }
 
-    /// The opaque deployment selector used to bind a ledger to one iMathAS deployment.
+    /// The opaque deployment selector used to bind this grading profile to one iMathAS deployment.
     pub fn deployment_reference(&self) -> &str {
         &self.deployment_reference
     }
 
     /// Whether this deployment may expose `serverGrading` for this profile.
-    pub fn allows_remote_grading(&self) -> bool {
-        self.remote_grading_enabled
+    pub fn allows_grading(&self) -> bool {
+        self.grading_enabled
             && self.frozen_execution_target
             && self.source_object_checksum_revalidation
     }
 }
 
-/// Redacted classification for an iMathAS Remote Grading refusal. No variant carries an
+/// Redacted classification for an iMathAS grading refusal. No variant carries an
 /// upstream token, response body, answer, source, URL, or secret.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImathasRemoteGradingFailure {
+pub enum ImathasGradingFailure {
     UnsupportedProfile,
-    InvalidLedger,
-    StaleLedger,
+    InvalidLimits,
+    InvalidSessionBinding,
+    ExpiredSessionBinding,
     InvalidResult,
     InvalidSignature,
     MissingLaunchBinding,
@@ -125,13 +124,13 @@ pub enum ImathasRemoteGradingFailure {
     BackendUnavailable,
 }
 
-impl ImathasRemoteGradingFailure {
+impl ImathasGradingFailure {
     /// Maps only transport-independent failures into the adapter's existing
     /// question-local retry/degraded classification.
     pub fn into_adapter_error(self) -> ImathasAdapterError {
         match self {
             Self::UnsupportedProfile => ImathasAdapterError::UnsupportedProfile,
-            Self::InvalidLedger | Self::StaleLedger => {
+            Self::InvalidLimits | Self::InvalidSessionBinding | Self::ExpiredSessionBinding => {
                 ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication
             }
             Self::InvalidResult
@@ -196,7 +195,7 @@ impl ImathasRenderCacheEntry {
 /// Server-private iMathAS Result Verifier. The credential is accepted at
 /// composition time and has no getter or serializable representation.
 pub struct ImathasResultVerifier {
-    profile: ImathasRemoteGradingProfile,
+    profile: ImathasGradingProfile,
     signing_secret: Vec<u8>,
 }
 
@@ -223,12 +222,12 @@ impl std::fmt::Debug for ImathasResultVerifier {
 impl ImathasResultVerifier {
     /// Installs one iMathAS deployment's protected HS256 result-verification secret.
     pub fn new(
-        profile: ImathasRemoteGradingProfile,
+        profile: ImathasGradingProfile,
         signing_secret: impl AsRef<[u8]>,
-    ) -> Result<Self, ImathasRemoteGradingFailure> {
+    ) -> Result<Self, ImathasGradingFailure> {
         let signing_secret = signing_secret.as_ref();
-        if !profile.allows_remote_grading() || signing_secret.is_empty() {
-            return Err(ImathasRemoteGradingFailure::UnsupportedProfile);
+        if !profile.allows_grading() || signing_secret.is_empty() {
+            return Err(ImathasGradingFailure::UnsupportedProfile);
         }
         Ok(Self {
             profile,
@@ -238,36 +237,48 @@ impl ImathasResultVerifier {
 
     /// Verifies a bounded iMathAS response after an allowlisted server proxy
     /// receives it server-to-server.  Callers must never pass browser
-    /// `postMessage` content here. On success it produces a verified Remote
+    /// `postMessage` content here. On success it produces a verified iMathAS
     /// result; LDA Store consumption and durable replay/idempotency remain the
     /// caller's Session transaction.
     pub fn verify_result(
         &self,
         validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
-        result_token: &learning_data_access::ImathasQuestionBackendResultToken,
+        result_token: &learning_data_access::ImathasResultToken,
         now: Timestamp,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasRemoteGradingFailure> {
-        if !self.profile.allows_remote_grading()
-            || validation.imathas_binding.deployment_reference().as_str()
+    ) -> Result<VerifiedImathasResult, ImathasGradingFailure> {
+        if !self.profile.allows_grading()
+            || validation
+                .imathas_question_backend_binding
+                .deployment_reference()
+                .as_str()
                 != self.profile.deployment_reference()
-            || validation.imathas_binding.profile().as_str() != IMATHAS_REMOTE_GRADING_PROFILE_ID
+            || validation
+                .imathas_question_backend_binding
+                .profile()
+                .as_str()
+                != IMATHAS_GRADING_PROFILE_ID
         {
-            return Err(ImathasRemoteGradingFailure::InvalidLedger);
+            return Err(ImathasGradingFailure::InvalidSessionBinding);
         }
         if now >= validation.expires_at {
-            return Err(ImathasRemoteGradingFailure::StaleLedger);
+            return Err(ImathasGradingFailure::ExpiredSessionBinding);
         }
         let result_token_text = std::str::from_utf8(result_token.as_server_adapter_bytes())
-            .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+            .map_err(|_| ImathasGradingFailure::InvalidResult)?;
         let claims = verify_hs256(result_token_text, &self.signing_secret)?;
-        if claims.question_id != validation.imathas_binding.item_reference().as_str() {
-            return Err(ImathasRemoteGradingFailure::WrongQuestion);
+        if claims.question_id
+            != validation
+                .imathas_question_backend_binding
+                .item_reference()
+                .as_str()
+        {
+            return Err(ImathasGradingFailure::WrongQuestion);
         }
         let Some(challenge) = claims.challenge else {
-            return Err(ImathasRemoteGradingFailure::MissingLaunchBinding);
+            return Err(ImathasGradingFailure::MissingLaunchBinding);
         };
         let Some(binding_digest) = claims.binding_digest else {
-            return Err(ImathasRemoteGradingFailure::MissingLaunchBinding);
+            return Err(ImathasGradingFailure::MissingLaunchBinding);
         };
         let expected_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(validation.challenge.as_bytes());
@@ -278,35 +289,31 @@ impl ImathasResultVerifier {
                 expected_binding_digest.as_bytes(),
             )
         {
-            return Err(ImathasRemoteGradingFailure::WrongLaunchBinding);
+            return Err(ImathasGradingFailure::WrongLaunchBinding);
         }
         let normalized_score =
-            learning_data_access::ImathasQuestionBackendNormalizedScore::try_from_f64(claims.score)
-                .map_err(|_| ImathasRemoteGradingFailure::InvalidScore)?;
+            learning_data_access::ImathasNormalizedScore::try_from_f64(claims.score)
+                .map_err(|_| ImathasGradingFailure::InvalidScore)?;
         if let Some(exp) = claims.exp {
             let Some(expiry_ms) = exp.checked_mul(1_000) else {
-                return Err(ImathasRemoteGradingFailure::InvalidResult);
+                return Err(ImathasGradingFailure::InvalidResult);
             };
             if now.as_unix_millis() > expiry_ms {
-                return Err(ImathasRemoteGradingFailure::StaleLedger);
+                return Err(ImathasGradingFailure::ExpiredSessionBinding);
             }
         }
         // Upstream permits no exp. The mandatory, exact session expiry
         // above and its server-side receipt are therefore the fallback, not an
         // invented JWT guarantee.
-        let imathas_question_backend_result_token_checksum =
-            learning_data_access::ImathasQuestionBackendResultTokenChecksum::from_verified_token(
-                result_token,
-            );
-        Ok(
-            VerifiedImathasQuestionBackendResult::from_result_verification(
-                ImathasResultVerificationSeal::after_verified_result_verification(),
-                learning_data_access::ImathasQuestionBackendResult::new(normalized_score),
-                validation.grading_context.clone(),
-                &validation.authentication,
-                imathas_question_backend_result_token_checksum,
-            ),
-        )
+        let imathas_result_token_checksum =
+            learning_data_access::ImathasResultTokenChecksum::from_verified_token(result_token);
+        Ok(VerifiedImathasResult::from_result_verification(
+            ImathasResultVerificationSeal::after_verified_result_verification(),
+            learning_data_access::ImathasResult::new(normalized_score),
+            validation.grading_context.clone(),
+            &validation.authentication,
+            imathas_result_token_checksum,
+        ))
     }
 }
 
@@ -333,10 +340,10 @@ struct ResultClaims {
     score: f64,
     #[serde(default)]
     exp: Option<i64>,
-    /// Required iMathAS Remote Grading profile extension: exact opaque launch challenge.
+    /// Required iMathAS grading profile extension: exact opaque iMathAS Session Challenge.
     #[serde(default, rename = "ple_launch_challenge")]
     challenge: Option<String>,
-    /// Required iMathAS Remote Grading profile extension: signed exact ledger binding.
+    /// Required iMathAS grading profile extension: signed exact iMathAS Session binding.
     #[serde(default, rename = "ple_binding")]
     binding_digest: Option<String>,
     // These official fields can contain response, correct-answer, or iMathAS
@@ -359,9 +366,9 @@ struct VerifiedClaims {
     binding_digest: Option<String>,
 }
 
-fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasRemoteGradingFailure> {
+fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasGradingFailure> {
     if token.is_empty() || token.len() > MAX_RESULT_TOKEN_BYTES || !token.is_ascii() {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     }
     let mut sections = token.split('.');
     let (Some(header), Some(payload), Some(signature), None) = (
@@ -370,39 +377,39 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasRem
         sections.next(),
         sections.next(),
     ) else {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     };
     if header.is_empty() || payload.is_empty() || signature.is_empty() {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     }
     let decode = base64::engine::general_purpose::URL_SAFE_NO_PAD;
     let header_bytes = decode
         .decode(header)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+        .map_err(|_| ImathasGradingFailure::InvalidResult)?;
     let payload_bytes = decode
         .decode(payload)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+        .map_err(|_| ImathasGradingFailure::InvalidResult)?;
     if header_bytes.len() > MAX_RESULT_BODY_BYTES || payload_bytes.len() > MAX_RESULT_BODY_BYTES {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     }
-    let parsed_header: JwtHeader = serde_json::from_slice(&header_bytes)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+    let parsed_header: JwtHeader =
+        serde_json::from_slice(&header_bytes).map_err(|_| ImathasGradingFailure::InvalidResult)?;
     if parsed_header.alg != "HS256" || parsed_header.typ.as_deref().is_some_and(|typ| typ != "JWT")
     {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     }
     let signature = decode
         .decode(signature)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+        .map_err(|_| ImathasGradingFailure::InvalidResult)?;
     let mut mac = Hmac::<Sha256>::new_from_slice(secret)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidSignature)?;
+        .map_err(|_| ImathasGradingFailure::InvalidSignature)?;
     mac.update(header.as_bytes());
     mac.update(b".");
     mac.update(payload.as_bytes());
     mac.verify_slice(&signature)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidSignature)?;
-    let claims: ResultClaims = serde_json::from_slice(&payload_bytes)
-        .map_err(|_| ImathasRemoteGradingFailure::InvalidResult)?;
+        .map_err(|_| ImathasGradingFailure::InvalidSignature)?;
+    let claims: ResultClaims =
+        serde_json::from_slice(&payload_bytes).map_err(|_| ImathasGradingFailure::InvalidResult)?;
     let ResultClaims {
         question_id,
         score,
@@ -422,7 +429,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasRem
         ResultQuestionId::Number(value) => value.to_string(),
     };
     if !valid_question_id(&question_id) {
-        return Err(ImathasRemoteGradingFailure::InvalidResult);
+        return Err(ImathasGradingFailure::InvalidResult);
     }
     Ok(VerifiedClaims {
         question_id,
@@ -462,7 +469,7 @@ fn valid_launch_challenge(value: &str) -> bool {
 }
 
 pub(crate) fn launch_binding_digest(
-    grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+    grading_context: &learning_data_access::ImathasGradingContext,
     imathas_item_reference: &str,
     source_object_checksum: &str,
     imathas_seed: u16,
@@ -487,7 +494,7 @@ pub(crate) fn launch_binding_digest(
     );
     digest.update(grading_context.question_seed().value().to_be_bytes());
     digest.update(imathas_seed.to_be_bytes());
-    digest.update(IMATHAS_REMOTE_GRADING_PROFILE_ID.as_bytes());
+    digest.update(IMATHAS_GRADING_PROFILE_ID.as_bytes());
     digest.update(imathas_item_reference.as_bytes());
     digest.update(source_object_checksum.as_bytes());
     digest.update(launch_session_authentication.as_bytes());

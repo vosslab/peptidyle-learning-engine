@@ -29,8 +29,8 @@ pub enum RenderedResponseTranslationError {
 ///
 /// This is deliberately a closed projection.  It contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;
-/// answer keys, grader material, durable Object Addresses, and Remote Question
-/// Backend payloads
+/// answer keys, grader material, durable Object Addresses, and Question Backend
+/// payloads
 /// have no representation here.  The server creates it after it has verified
 /// the issued presentation witness.  ASVS 14.1.1 and 14.2.1: sensitive
 /// educational-record data has one minimized response shape.

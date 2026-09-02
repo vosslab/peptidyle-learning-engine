@@ -42,8 +42,8 @@ immutable Blueprint parent and applied revision are server-owned.
 | `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Student entitlement                                     |
 | `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                                                           |
 | /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                          |
-| /blueprint-courses                                                      | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
-| /blueprint-courses/:blueprintCourseRef                                  | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
+| /blueprint-courses                                                     | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
+| /blueprint-courses/:blueprintCourseRef                                 | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
 | /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                |
 | /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                |
 | /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                             |
@@ -53,7 +53,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                                                        |
 | /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                                                             |
 | /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                                                             |
-| /blueprint-courses                                                      | Blueprint Course adoption and imports              | Course Instance destination authority                                                 |
+| /blueprint-courses                                                     | Blueprint Course adoption and imports              | Course Instance destination authority                                                 |
 
 Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
 the canonical Assignment Attempt terms in
@@ -226,8 +226,8 @@ server-owned Course Route View data, not browser storage.
 - Mutations use same-origin requests, strong revisions, and typed idempotency.
 - Browser logs contain no response text, answer, key, undisclosed feedback,
   grades, email, UUID, or FERPA record.
-- Supplied markup is sanitized server-side; external providers remain behind
-  the server broker.
+- Supplied markup is sanitized server-side; Question Backends remain behind
+  their server-owned transports.
 - A public BlueprintCourse read never exposes CourseInstance delivery or
   Student state.
 

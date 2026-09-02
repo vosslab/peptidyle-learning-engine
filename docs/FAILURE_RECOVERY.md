@@ -157,12 +157,12 @@ Workers log only `StoreError` categories and aggregate pass counts. Diagnostics
 must not serialize a raw error object because it may contain identifiers or
 dependency-specific text.
 
-## Effectful Remote Question Backend dispatch
+## Effectful iMathAS Question Backend dispatch
 
-A Remote Question Backend can receive an effectful POST after PLE has sent
+An iMathAS Question Backend can receive an effectful POST after PLE has sent
 bytes but before PLE receives a valid response. Retrying that request as though
 nothing happened could duplicate an upstream action or make PLE and the
-backend disagree about the attempt. The Remote Question Backend activity lease therefore
+backend disagree about the attempt. The iMathAS Question Backend activity lease therefore
 uses a durable pre-dispatch fence:
 
 1. while the exact activity lease is still valid, PLE atomically records an
@@ -180,7 +180,7 @@ preserves at-most-once local dispatch rather than guessing whether the external
 side effect occurred.
 
 The marker is durable evidence, not an automatic recovery protocol. Resolving
-an indeterminate Remote Question Backend result requires an authorized operator procedure and
+an indeterminate iMathAS Result requires an authorized operator procedure and
 backend-specific evidence that can establish the outcome without replaying
 the POST. Until such a procedure is designed and tested for a backend, the
 attempt remains fenced. Read-only grade/result retrieval must remain

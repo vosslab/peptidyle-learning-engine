@@ -1,7 +1,4 @@
-//! Server-only Remote Question Backend Session persistence boundary.
-//!
-//! A Session owns the authenticated, leased interaction with one remote
-//! Question Backend. Opaque backend state remains server-only.
+//! Server-only iMathAS Question Backend Session persistence boundary.
 
 use async_trait::async_trait;
 use question_model::Timestamp;
@@ -18,85 +15,83 @@ mod storage_parts;
 
 pub(crate) use grading::automated_grading_receipt_checksum_v1;
 pub use grading::{
-    AutomatedGradingReceipt, AutomatedGradingReceiptId,
-    CommitStagedRemoteQuestionBackendResultGrading, GradingResultId, JobId,
-    LoadedRemoteQuestionBackendSession, MAX_REMOTE_QUESTION_BACKEND_GRADING_JOB_LEASE_MILLIS,
-    QuestionSubmissionGradingId, RemoteQuestionBackendGradingJobLease,
-    RemoteQuestionBackendResultExchangeIdempotencyKey, StageVerifiedRemoteQuestionBackendResult,
-    StagedRemoteQuestionBackendResultReceipt,
+    AutomatedGradingReceipt, AutomatedGradingReceiptId, CommitStagedImathasResultGrading,
+    GradingResultId, ImathasGradingJobLease, ImathasResultExchangeIdempotencyKey, JobId,
+    LoadedImathasQuestionBackendSession, MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS,
+    QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
 };
 pub(crate) use identifiers::validate_question_grading_rule;
 pub use identifiers::{
-    AutomatedGradingReceiptChecksum, QualifiedLaunchBindingDigest,
-    RemoteQuestionBackendGradingContext, RemoteQuestionBackendNormalizedScore,
-    RemoteQuestionBackendResponseChecksum, RemoteQuestionBackendResult,
-    RemoteQuestionBackendResultChecksum, RemoteQuestionBackendResultToken,
-    RemoteQuestionBackendResultTokenChecksum, RemoteQuestionBackendSessionAuthentication,
-    RemoteQuestionBackendSessionChallenge, RemoteQuestionBackendSessionReference,
-    derive_remote_question_backend_grading_result,
+    AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasNormalizedScore,
+    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
+    ImathasQuestionBackendSessionReference, ImathasResponseChecksum, ImathasResult,
+    ImathasResultChecksum, ImathasResultToken, ImathasResultTokenChecksum,
+    QualifiedLaunchBindingDigest, derive_imathas_question_backend_grading_result,
 };
-pub use memory::MemoryRemoteQuestionBackendSessionStore;
+pub use memory::MemoryImathasQuestionBackendSessionStore;
 pub use preparation::{
-    RemoteQuestionBackendLaunchPreparationValidation,
-    RemoteQuestionBackendSessionPreparationContext,
+    ImathasQuestionBackendLaunchPreparationValidation,
+    ImathasQuestionBackendSessionPreparationContext,
 };
+pub(super) const IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES: usize =
+    protected_state::IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES;
+pub(crate) use protected_state::ImathasQuestionBackendStateCipherStorageParts;
+#[cfg(test)]
+use protected_state::ImathasQuestionBackendStateNonceSource;
 pub use protected_state::{
-    MAX_REMOTE_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
-    MAX_REMOTE_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, RemoteQuestionBackendStateCipher,
-    RemoteQuestionBackendStateKeyId, RemoteQuestionBackendStateKeyRing,
-    RemoteQuestionBackendStatePlaintext,
+    ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
+    ImathasQuestionBackendStateKeyRing, ImathasQuestionBackendStatePlaintext,
+    MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
+    MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES,
 };
-pub(crate) use protected_state::{
-    REMOTE_QUESTION_BACKEND_STATE_NONCE_BYTES, RemoteQuestionBackendStateCipherStorageParts,
-};
+pub(crate) use session::ImathasQuestionBackendSessionStorePredicate;
 pub use session::{
-    RemoteQuestionBackendSession, RemoteQuestionBackendSessionCreate,
-    RemoteQuestionBackendSessionLease, RemoteQuestionBackendSessionRestoreExpectation,
-    RemoteQuestionBackendSessionValidation,
+    ImathasQuestionBackendSession, ImathasQuestionBackendSessionCreate,
+    ImathasQuestionBackendSessionLease, ImathasQuestionBackendSessionRestoreExpectation,
+    ImathasQuestionBackendSessionValidation,
 };
 pub(crate) use storage_parts::{
-    RemoteQuestionBackendGradingJobLeaseParts, RemoteQuestionBackendSessionCreateParts,
-    RemoteQuestionBackendSessionLeaseParts, RemoteQuestionBackendSessionRestoreParts,
-    RemoteQuestionBackendSessionStorageParts, StageVerifiedRemoteQuestionBackendResultParts,
+    ImathasGradingJobLeaseParts, ImathasQuestionBackendSessionCreateParts,
+    ImathasQuestionBackendSessionLeaseParts, ImathasQuestionBackendSessionRestoreParts,
+    ImathasQuestionBackendSessionStorageParts, StageVerifiedImathasResultParts,
 };
 
-/// Server-only Store for one Remote Question Backend Session and Result Exchange.
 #[async_trait]
-pub trait RemoteQuestionBackendSessionStore: Send + Sync {
-    async fn create_remote_question_backend_session(
+pub trait ImathasQuestionBackendSessionStore: Send + Sync {
+    async fn create_imathas_question_backend_session(
         &self,
         session_token_hash: SessionTokenHash,
-        create: RemoteQuestionBackendSessionCreate,
-    ) -> Result<RemoteQuestionBackendSessionReference, StoreError>;
-    async fn load_remote_question_backend_session(
+        create: ImathasQuestionBackendSessionCreate,
+    ) -> Result<ImathasQuestionBackendSessionReference, StoreError>;
+    async fn load_imathas_question_backend_session(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: RemoteQuestionBackendSessionReference,
-        expectation: RemoteQuestionBackendSessionRestoreExpectation,
-    ) -> Result<LoadedRemoteQuestionBackendSession, StoreError>;
-    async fn lease_remote_question_backend_session(
+        reference: ImathasQuestionBackendSessionReference,
+        expectation: ImathasQuestionBackendSessionRestoreExpectation,
+    ) -> Result<LoadedImathasQuestionBackendSession, StoreError>;
+    async fn lease_imathas_question_backend_session(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: RemoteQuestionBackendSessionReference,
-        expectation: RemoteQuestionBackendSessionRestoreExpectation,
+        reference: ImathasQuestionBackendSessionReference,
+        expectation: ImathasQuestionBackendSessionRestoreExpectation,
         lease_expires_at: Timestamp,
-    ) -> Result<RemoteQuestionBackendSessionLease, StoreError>;
-    async fn stage_verified_remote_question_backend_result(
+    ) -> Result<ImathasQuestionBackendSessionLease, StoreError>;
+    async fn stage_verified_imathas_result(
         &self,
         session_token_hash: SessionTokenHash,
-        stage: StageVerifiedRemoteQuestionBackendResult,
-    ) -> Result<StagedRemoteQuestionBackendResultReceipt, StoreError>;
-    async fn claim_remote_question_backend_result_grading_job(
+        stage: StageVerifiedImathasResult,
+    ) -> Result<StagedImathasResultReceipt, StoreError>;
+    async fn claim_imathas_result_grading_job(
         &self,
         grading_job_id: JobId,
         lease_expires_at: Timestamp,
-    ) -> Result<RemoteQuestionBackendGradingJobLease, StoreError>;
-    async fn commit_staged_remote_question_backend_result_grading(
+    ) -> Result<ImathasGradingJobLease, StoreError>;
+    async fn commit_staged_imathas_result_grading(
         &self,
-        command: CommitStagedRemoteQuestionBackendResultGrading,
+        command: CommitStagedImathasResultGrading,
     ) -> Result<AutomatedGradingReceipt, StoreError>;
 }
 
 #[cfg(test)]
-#[path = "remote_question_backend_session_tests.rs"]
+#[path = "imathas_question_backend_session_tests.rs"]
 mod tests;

@@ -169,7 +169,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
-| C3      | Run/attempt/prefetch/submit/status/summary/feedback, Remote Question Backend PLE wrapper, author preview, three validation fallbacks                                                                                     |
+| C3      | Run/attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                                                    |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                                         |
@@ -287,11 +287,11 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   evidence. Focused evidence and independent review are required before accepting the child and
   checking vocabulary row 469.
 
-### WP-SD1-A-TERM-01-RQB1: Remote Question Backend terminology cutover
+### WP-SD1-A-TERM-01-RQB1: accepted iMathAS backend terminology evidence
 
-- **In progress (2026-09-01).** This package directly establishes `Question Backend` as the product
-  category and `Remote Question Backend` as the LDA/server-managed Session, state, result,
-  and launch/return boundary where a selected backend runs separately. iMathAS adapter-local
+- **Accepted historical evidence (2026-09-01).** RQB1 established the `Question Backend` product
+  category and its server-managed iMathAS Session, state, result, and launch/return boundary.
+  RQB2 now directly replaces the remaining generic backend-session names with exact iMathAS ownership. iMathAS adapter-local
   records use iMathAS names; registered protocol claims, including `ple_launch_challenge`, retain
   their protocol spelling.
 - **Superseded terminology evidence:** `ETLS1`, `ETLC1`, `ETGC1`, and `ETPRT1` retain their
@@ -300,17 +300,17 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   directly replaces their source, schema, API, generated-artifact, documentation, and validation
   language, including the row-535 result-to-grading lineage.
 - **Owned model and inheritance:** `Question Revision -> Question Backend -> iMathAS Question
-  Backend Binding (Deployment Reference, Item Reference, pinned Profile) -> Remote Question Backend
-  Session -> Challenge, Authentication, Grading Context, encrypted State, Result Token, and Result
-  Exchange -> immutable Remote Question Backend Result -> marker Question Submission -> Question
-  Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Question Model owns the
+Backend Binding (Deployment Reference, Item Reference, pinned Profile) -> iMathAS Question Backend
+Session -> Challenge, Authentication, Grading Context, encrypted State, Result Token, and Result
+Exchange -> immutable iMathAS Result -> marker Question Submission -> Question
+Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Question Model owns the
   typed binding, LDA persists it as a Session fact, and the iMathAS adapter owns Launch State, cache,
   and protocol behavior. The Result Exchange inherits authority
   through its Session and introduces no duplicate learner, Course, Assignment, Question Attempt,
   Question Revision, Seed, or Question Grading Rule columns. The marker carries no backend bytes,
   token, or score.
-- **Direct cutover:** rename the Question Model response control/marker and generated browser
-  contract to `RemoteQuestionBackend`; rename the LDA aggregate, Store, iMathAS adapter boundary,
+- **Direct cutover:** RQB2 renames the Question Model response control/marker and generated browser
+  contract to `ImathasQuestionBackend`; it renames the LDA aggregate, Store, iMathAS adapter boundary,
   SQL tables/functions/policies, service-oracle names, fixtures, and active documentation together.
   Use the shared typed iMathAS binding at every Question Model, LDA, adapter, and SQL boundary; name
   iMathAS-only transport records `Imathas*`. Remove the orphaned `lti_grade_return` table, trigger,
@@ -319,7 +319,7 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   registered protocol boundary; the current product has none. No alias, compatibility DTO, old wire
   value, old SQL procedure, transitional schema view, or successor migration is introduced.
 - **Migration allocation:** rewrite both unshipped migrations directly. `2026082927` owns the
-  Remote Question Backend cache/session/exchange schema and removes the orphaned LTI schema;
+  iMathAS Question Backend cache/session/exchange schema and removes the orphaned LTI schema;
   `2026090102` owns the Session/Exchange lifecycle, encrypted-state fields, result-token checksum,
   marker Submission, pending ordinary-grading Job, worker-leased idempotent Grading Result and
   Automated Grading Receipt lineage. Neither migration is shared with a superseded package.

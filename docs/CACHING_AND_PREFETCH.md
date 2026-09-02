@@ -136,8 +136,8 @@ mappings in the public render cache; they are server-only Question Grading Input
 ### iMathAS
 
 The iMathAS adapter uses the same immutable `ProblemRender` shape for an
-answer-free Remote Question Backend envelope. It validates the pinned Source Object Reference,
-Remote Question Backend configuration, `imathas_remote_grading_v1` profile, version, seed, and response shape on every
+answer-free iMathAS Question Backend envelope. It validates the pinned Source Object Reference,
+iMathAS Question Backend configuration, `imathas_remote_grading_v1` profile, version, seed, and response shape on every
 read. A cache miss asks the configured verified backend for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable
 object. iMathAS Result verification remains a server-to-server operation bound to exact

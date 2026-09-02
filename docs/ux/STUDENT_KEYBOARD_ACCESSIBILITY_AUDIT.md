@@ -60,14 +60,14 @@ entire route end to end.
 
 ## Question Format keyboard contract
 
-| Question Format         | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Single choice           | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, mounted extension scenarios, and live PLE-owned WebWork path |
-| Multiple answer         | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Mounted production-component platform and extension fixtures                              |
-| Numeric                 | Tab reaches input and Submit answer; typing enters data; Space activates submission | Browser number adjustment Arrows and ready-input Enter-to-submit               | Source inspection plus shared response-controller tests                                   |
-| Short text              | Tab reaches textarea and Submit answer; Space activates submission                  | Escape returns; Enter remains ordinary multiline text entry                    | Native textarea/button semantics and source inspection                                    |
-| Ordering                | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Mounted production-component platform and extension fixtures                              |
-| Remote Question Backend | Tab reaches launch, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Mounted browser fixture plus source inspection; real backend internals remain unevaluated |
+| Question Format          | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Single choice            | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, mounted extension scenarios, and live PLE-owned WebWork path |
+| Multiple answer          | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Mounted production-component platform and extension fixtures                              |
+| Numeric                  | Tab reaches input and Submit answer; typing enters data; Space activates submission | Browser number adjustment Arrows and ready-input Enter-to-submit               | Source inspection plus shared response-controller tests                                   |
+| Short text               | Tab reaches textarea and Submit answer; Space activates submission                  | Escape returns; Enter remains ordinary multiline text entry                    | Native textarea/button semantics and source inspection                                    |
+| Ordering                 | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Mounted production-component platform and extension fixtures                              |
+| iMathAS Question Backend | Tab reaches launch, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Mounted browser fixture plus source inspection; real backend internals remain unevaluated |
 
 ## Findings and corrections
 
@@ -147,5 +147,5 @@ credential, hidden field, or answer mapping.
 
 Before calling the fall pilot fully accessible, run at least one VoiceOver plus Safari session and
 one NVDA plus Firefox or Chromium session with representative students. Include the institutional
-login service and any real Remote Question Backend because neither production identity nor backend
+login service and any real iMathAS Question Backend because neither production identity nor backend
 internals exist in this local PLE acceptance path.

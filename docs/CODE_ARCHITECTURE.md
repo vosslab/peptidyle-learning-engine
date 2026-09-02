@@ -254,7 +254,7 @@ after the owning implementation is coherent.
   strict decoders and typed browser clients.
 - Add browser behavior in the owning API client, feature, page, or component;
   keep CourseInstance delivery decisions server-authoritative.
-- Add external question behavior through an adapter with a safe public
+- Add Question Backend behavior through an adapter with a safe public
   projection and a server-only grading handoff.
 
 ## Known gaps
@@ -264,6 +264,6 @@ after the owning implementation is coherent.
   across question model, Store, SQL, server, generated output, and browser.
 - The fresh SD1 migration epoch and its exact per-file ledger remain owned by
   `implementation_status.md`; this document does not allocate migrations.
-- Production AWS activation, external provider attestation, institutional
+- Production AWS activation, SMTP delivery attestation, institutional
   FERPA/legal sign-off, and human pilot acceptance remain separate release
   evidence classes.

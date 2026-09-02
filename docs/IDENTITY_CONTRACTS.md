@@ -233,7 +233,7 @@ student authority to select another variant or browser input to define grading.
 | Raw session cookie                                           | Browser and authentication endpoint    | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
 | Email authentication secret                                  | Initiating browser and email recipient | Short-lived, single-use, browser-bound; database stores only a hash.                                                     |
 | Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor projection.                                                |
-| `JobLeaseToken` and Remote Question Backend Result Tokens    | Exact worker/Result Exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
+| `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
 | Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
 | Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
 

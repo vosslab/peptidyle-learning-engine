@@ -19,7 +19,7 @@ import {
   jsonResponse,
 } from "./http_client_test_support.mjs";
 
-test("question decoders reject answer-bearing and provider-secret fields", () => {
+test("question decoders reject answer-bearing and iMathAS-secret fields", () => {
   const draft = publishedQuestionFixture.draft;
   assert.throws(() => decodeDraftQuestionContent({ ...draft, answer: "secret" }), DecodeError);
   assert.throws(
@@ -28,7 +28,7 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
         ...draft,
         backendLocator: {
           backend: "imathas",
-          provider: "self-hosted",
+          backendSecret: "self-hosted",
           itemRef: "42",
           token: "secret",
         },
@@ -37,18 +37,18 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
   );
 });
 
-test("issued remote-question-backend envelopes accept only their public marker", () => {
+test("issued iMathAS Question Backend envelopes accept only their public marker", () => {
   const envelope = {
     variation: {
       questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
       seed: 2,
     },
-    title: "External practice item",
+    title: "iMathAS Question Backend practice item",
     prompt: [],
-    response: { kind: "remoteQuestionBackend" },
+    response: { kind: "imathasQuestionBackend" },
   };
   assert.deepEqual(decodeQuestionPresentation(envelope).response, {
-    kind: "remoteQuestionBackend",
+    kind: "imathasQuestionBackend",
   });
   assert.throws(
     () =>
@@ -65,7 +65,7 @@ test("issued remote-question-backend envelopes accept only their public marker",
     () =>
       decodeQuestionPresentation({
         ...envelope,
-        response: { kind: "remoteQuestionBackend", token: "secret" },
+        response: { kind: "imathasQuestionBackend", token: "secret" },
       }),
     DecodeError,
   );
@@ -237,19 +237,19 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
   assert.deepEqual(prefetched?.questionPoolSelectionPosition, { itemNumber: 1, itemCount: 2 });
 });
 
-test("remote-question-backend launch is a strict same-origin route projection", async () => {
+test("iMathAS Question Backend launch is a strict same-origin route projection", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch`;
+  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
   assert.deepEqual(
-    await client.beginRemoteQuestionBackendLaunch(course.id, assignment.id, attempt.id),
+    await client.beginImathasQuestionBackendLaunch(course.id, assignment.id, attempt.id),
     {
       launchUrl,
     },
@@ -259,12 +259,12 @@ test("remote-question-backend launch is a strict same-origin route projection", 
   assert.equal(await requests[0]?.text(), "");
 });
 
-test("remote-question-backend launch rejects absolute, foreign, and decorated routes", async () => {
+test("iMathAS Question Backend launch rejects absolute, foreign, and decorated routes", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch`;
+  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const routes = [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
@@ -281,7 +281,7 @@ test("remote-question-backend launch rejects absolute, foreign, and decorated ro
       fetch: async () => jsonResponse({ launchUrl }),
     });
     await assert.rejects(
-      client.beginRemoteQuestionBackendLaunch(course.id, assignment.id, attempt.id),
+      client.beginImathasQuestionBackendLaunch(course.id, assignment.id, attempt.id),
       DecodeError,
       launchUrl,
     );
@@ -352,7 +352,7 @@ test("submission status uses its route-bound same-origin no-store GET", async ()
   assert.equal(await request.text(), "");
 });
 
-test("remote-question-backend submission sends only the marker with its caller idempotency key", async () => {
+test("iMathAS Question Backend submission sends only the marker with its caller idempotency key", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
@@ -366,7 +366,7 @@ test("remote-question-backend submission sends only the marker with its caller i
         ...receiptAttempt,
         submission: {
           ...receiptAttempt.submission,
-          response: { kind: "remoteQuestionBackend" },
+          response: { kind: "imathasQuestionBackend" },
           gradingResult: null,
         },
       },
@@ -385,16 +385,16 @@ test("remote-question-backend submission sends only the marker with its caller i
     course.id,
     assignment.id,
     attempt.id,
-    { kind: "remoteQuestionBackend" },
-    "remote-question-backend-once",
+    { kind: "imathasQuestionBackend" },
+    "imathas-question-backend-once",
   );
   const request = requests[0];
   assert.ok(request);
   assert.equal(
     request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch/submission`,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch/submission`,
   );
   assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), "remote-question-backend-once");
-  assert.deepEqual(await request.json(), { response: { kind: "remoteQuestionBackend" } });
+  assert.equal(request.headers.get("idempotency-key"), "imathas-question-backend-once");
+  assert.deepEqual(await request.json(), { response: { kind: "imathasQuestionBackend" } });
 });

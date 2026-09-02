@@ -6,53 +6,44 @@ use question_model::QuestionTitleError;
 /// Authenticated iMathAS verdict. The fields are private and this type has no
 /// serde implementation, so an HTTP/browser payload cannot deserialize into it.
 #[derive(Clone, PartialEq)]
-pub struct VerifiedImathasQuestionBackendResult {
-    pub(crate) imathas_question_backend_result: learning_data_access::ImathasQuestionBackendResult,
-    pub(crate) grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+pub struct VerifiedImathasResult {
+    pub(crate) imathas_result: learning_data_access::ImathasResult,
+    pub(crate) grading_context: learning_data_access::ImathasGradingContext,
     pub(crate) launch_session_authentication:
         learning_data_access::ImathasQuestionBackendSessionAuthentication,
-    imathas_question_backend_result_token_checksum:
-        learning_data_access::ImathasQuestionBackendResultTokenChecksum,
+    imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
 }
 
-impl std::fmt::Debug for VerifiedImathasQuestionBackendResult {
+impl std::fmt::Debug for VerifiedImathasResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("VerifiedImathasQuestionBackendResult")
-            .field(
-                "imathas_question_backend_result",
-                &self.imathas_question_backend_result,
-            )
+        f.debug_struct("VerifiedImathasResult")
+            .field("imathas_result", &self.imathas_result)
             .field("grading_context", &self.grading_context)
             .field("launch_session_authentication", &"REDACTED")
-            .field(
-                "imathas_question_backend_result_token_checksum",
-                &"REDACTED",
-            )
+            .field("imathas_result_token_checksum", &"REDACTED")
             .finish()
     }
 }
 
-impl VerifiedImathasQuestionBackendResult {
+impl VerifiedImathasResult {
     /// Server-only verified result; this type is non-serde and can only be
     /// obtained from the sealed Result Verifier.
-    pub fn imathas_question_backend_result(
-        &self,
-    ) -> learning_data_access::ImathasQuestionBackendResult {
-        self.imathas_question_backend_result.clone()
+    pub fn imathas_result(&self) -> learning_data_access::ImathasResult {
+        self.imathas_result.clone()
     }
 
     /// Exact identity authenticated by the iMathAS verifier.
-    pub fn grading_context(&self) -> learning_data_access::ImathasQuestionBackendGradingContext {
+    pub fn grading_context(&self) -> learning_data_access::ImathasGradingContext {
         self.grading_context.clone()
     }
 
     /// Durable receipt of the exact iMathAS result token accepted by this adapter.
     /// The caller supplies it to the later one-use Store transaction; this
     /// adapter performs no Store consumption itself.
-    pub fn imathas_question_backend_result_token_checksum(
+    pub fn imathas_result_token_checksum(
         &self,
-    ) -> learning_data_access::ImathasQuestionBackendResultTokenChecksum {
-        self.imathas_question_backend_result_token_checksum
+    ) -> learning_data_access::ImathasResultTokenChecksum {
+        self.imathas_result_token_checksum
     }
 
     /// Converts this sealed verifier output into the sole LDA staging command.
@@ -61,19 +52,17 @@ impl VerifiedImathasQuestionBackendResult {
     pub fn stage(
         self,
         lease: learning_data_access::ImathasQuestionBackendSessionLease,
-        idempotency_key: learning_data_access::ImathasQuestionBackendResultExchangeIdempotencyKey,
+        idempotency_key: learning_data_access::ImathasResultExchangeIdempotencyKey,
         transitioned_at: question_model::Timestamp,
-    ) -> Result<
-        learning_data_access::StageVerifiedImathasQuestionBackendResult,
-        learning_data_access::StoreError,
-    > {
-        learning_data_access::StageVerifiedImathasQuestionBackendResult::new(
+    ) -> Result<learning_data_access::StageVerifiedImathasResult, learning_data_access::StoreError>
+    {
+        learning_data_access::StageVerifiedImathasResult::new(
             lease,
             self.grading_context,
             self.launch_session_authentication,
             idempotency_key,
-            self.imathas_question_backend_result_token_checksum,
-            self.imathas_question_backend_result,
+            self.imathas_result_token_checksum,
+            self.imathas_result,
             transitioned_at,
         )
     }
@@ -82,51 +71,51 @@ impl VerifiedImathasQuestionBackendResult {
     /// expiry/challenge verification succeeds.
     #[cfg(test)]
     pub(crate) fn verified(
-        imathas_question_backend_result: learning_data_access::ImathasQuestionBackendResult,
-        grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+        imathas_result: learning_data_access::ImathasResult,
+        grading_context: learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        imathas_question_backend_result_token_checksum: learning_data_access::ImathasQuestionBackendResultTokenChecksum,
+        imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
     ) -> Self {
         Self {
-            imathas_question_backend_result,
+            imathas_result,
             grading_context,
             launch_session_authentication: launch_session_authentication.clone(),
-            imathas_question_backend_result_token_checksum,
+            imathas_result_token_checksum,
         }
     }
 
-    /// The iMathAS iMathAS Question Backend verifier is the only production constructor. Its
+    /// The iMathAS Question Backend verifier is the only production constructor. Its
     /// result token has already passed signature, expiry, exact question, and
     /// exact iMathAS-binding checks before this sealed grade exists. The
     /// caller-owned LDA Store transaction performs single-use consumption and
     /// replay finalization after protocol verification succeeds.
     pub(crate) fn from_result_verification(
         _seal: crate::result_verification::ImathasResultVerificationSeal,
-        imathas_question_backend_result: learning_data_access::ImathasQuestionBackendResult,
-        grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+        imathas_result: learning_data_access::ImathasResult,
+        grading_context: learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        imathas_question_backend_result_token_checksum: learning_data_access::ImathasQuestionBackendResultTokenChecksum,
+        imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
     ) -> Self {
         Self {
-            imathas_question_backend_result,
+            imathas_result,
             grading_context,
             launch_session_authentication: launch_session_authentication.clone(),
-            imathas_question_backend_result_token_checksum,
+            imathas_result_token_checksum,
         }
     }
 
     #[cfg(feature = "test-support")]
     pub(crate) fn from_test_support(
-        imathas_question_backend_result: learning_data_access::ImathasQuestionBackendResult,
-        grading_context: learning_data_access::ImathasQuestionBackendGradingContext,
+        imathas_result: learning_data_access::ImathasResult,
+        grading_context: learning_data_access::ImathasGradingContext,
         launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        imathas_question_backend_result_token_checksum: learning_data_access::ImathasQuestionBackendResultTokenChecksum,
+        imathas_result_token_checksum: learning_data_access::ImathasResultTokenChecksum,
     ) -> Self {
         Self {
-            imathas_question_backend_result,
+            imathas_result,
             grading_context,
             launch_session_authentication: launch_session_authentication.clone(),
-            imathas_question_backend_result_token_checksum,
+            imathas_result_token_checksum,
         }
     }
 }
@@ -180,9 +169,9 @@ impl std::fmt::Display for ImathasAdapterError {
                 f.write_str("invalid iMathAS Question Backend render")
             }
             Self::InvalidTitle(error) => write!(f, "invalid iMathAS question title: {error}"),
-            Self::InvalidImathasQuestionBackendSessionAuthentication => f.write_str(
-                "invalid server-held iMathAS iMathAS Question Backend Session authentication",
-            ),
+            Self::InvalidImathasQuestionBackendSessionAuthentication => {
+                f.write_str("invalid server-held iMathAS Question Backend Session authentication")
+            }
             Self::VerificationRefused => {
                 f.write_str("iMathAS verified grade did not match its server-held binding")
             }

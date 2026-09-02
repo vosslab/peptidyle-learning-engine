@@ -385,9 +385,9 @@ export interface PublicationRequest {
 }
 
 /**
- * Per-attempt route to the server-owned iMathAS Question Backend broker.
+ * Per-attempt route for the server-owned iMathAS Question Backend Transport.
  *
- * This is deliberately a same-origin path only. It carries no provider URL,
+ * This is deliberately a same-origin path only. It carries no iMathAS URL,
  * token, correlation identifier, score, or immutable question content.
  */
 export interface ImathasQuestionBackendLaunch {

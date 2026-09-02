@@ -99,8 +99,8 @@ current acceptance status remains in
 - Evidence: the [official iMathAS site](https://www.imathas.com/) documents algorithmically generated
   questions, computer grading, learning management, and a full gradebook; PLE's
   [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records its reviewed
-  self-hosted Remote Question Backend boundary.
-- Notes: PLE retains the Remote Question Backend Session, verifies each iMathAS Result server-side,
+  self-hosted iMathAS Question Backend boundary.
+- Notes: PLE retains the iMathAS Question Backend Session, verifies each iMathAS Result server-side,
   and gives the browser no authority to supply a score.
 
 ### H5P

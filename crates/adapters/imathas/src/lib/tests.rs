@@ -64,14 +64,14 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
     async fn verify_result(
         &self,
         request: ImathasResultRequest<'_>,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure> {
+    ) -> Result<VerifiedImathasResult, ImathasQuestionBackendFailure> {
         self.grades.fetch_add(1, Ordering::SeqCst);
         if self.outage {
             return Err(ImathasQuestionBackendFailure::Timeout);
         }
-        let mut verdict = VerifiedImathasQuestionBackendResult::verified(
-            learning_data_access::ImathasQuestionBackendResult::new(
-                learning_data_access::ImathasQuestionBackendNormalizedScore::try_from_f64(1.0)
+        let mut verdict = VerifiedImathasResult::verified(
+            learning_data_access::ImathasResult::new(
+                learning_data_access::ImathasNormalizedScore::try_from_f64(1.0)
                     .expect("recorded score is valid"),
             ),
             request.grading_context().clone(),
@@ -80,14 +80,14 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
         );
         match self.mismatch {
             Some(Mismatch::Attempt) => {
-                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
                     verdict.grading_context.question_revision().clone(),
                     verdict.grading_context.question_seed(),
                 )
             }
             Some(Mismatch::Problem) => {
-                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     QuestionRevisionReference {
                         question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
@@ -101,7 +101,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                 )
             }
             Some(Mismatch::Version) => {
-                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     QuestionRevisionReference {
                         question_id: verdict
@@ -115,7 +115,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                 )
             }
             Some(Mismatch::QuestionSeed) => {
-                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     verdict.grading_context.question_revision().clone(),
                     QuestionSeed::new(99),
@@ -132,12 +132,12 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
     }
 }
 
-fn verified_token_checksum() -> learning_data_access::ImathasQuestionBackendResultTokenChecksum {
-    let token = learning_data_access::ImathasQuestionBackendResultToken::from_server_adapter_bytes(
+fn verified_token_checksum() -> learning_data_access::ImathasResultTokenChecksum {
+    let token = learning_data_access::ImathasResultToken::from_server_adapter_bytes(
         b"recorded iMathAS result".to_vec(),
     )
     .expect("bounded iMathAS result token");
-    learning_data_access::ImathasQuestionBackendResultTokenChecksum::from_verified_token(&token)
+    learning_data_access::ImathasResultTokenChecksum::from_verified_token(&token)
 }
 
 fn profile() -> SupportedImathasProfile {
@@ -303,7 +303,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
         assert!(!serialized.contains(forbidden));
     }
     let result = adapter
-        .verify_imathas_question_backend_result(
+        .verify_imathas_result(
             &question,
             &source,
             &grading_context(&question, QuestionSeed::new(17)),
@@ -311,13 +311,7 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
         )
         .await
         .unwrap();
-    assert_eq!(
-        result
-            .imathas_question_backend_result()
-            .normalized_score()
-            .value(),
-        1.0
-    );
+    assert_eq!(result.imathas_result().normalized_score().value(), 1.0);
 }
 
 #[tokio::test]
@@ -365,7 +359,7 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
         [profile()],
     );
     let error = wrong
-        .verify_imathas_question_backend_result(
+        .verify_imathas_result(
             &question,
             &source,
             &grading_context(&question, QuestionSeed::new(17)),
@@ -418,7 +412,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         );
         assert_eq!(
             adapter
-                .verify_imathas_question_backend_result(
+                .verify_imathas_result(
                     &question,
                     &source,
                     &grading_context(&question, QuestionSeed::new(17)),
@@ -432,7 +426,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
             ImathasAdapterError::VerificationRefused
         );
     }
-    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
+    let codec = ImathasSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
     let binding = grading_context(&question, QuestionSeed::new(17));
     let challenge =
         learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
@@ -440,10 +434,10 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let adapter = ImathasAdapter::new(store.clone(), question_backend(), [profile()]);
     assert_eq!(
         adapter
-            .verify_imathas_question_backend_result(&question, &source, &binding, &restored)
+            .verify_imathas_result(&question, &source, &binding, &restored)
             .await
             .unwrap()
-            .imathas_question_backend_result()
+            .imathas_result()
             .normalized_score()
             .value(),
         1.0
@@ -456,14 +450,14 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     );
     assert_ne!(
         restored,
-        ImathasLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+        ImathasSessionAuthenticationCodec::from_server_secret([9; 32])
             .unwrap()
             .authenticate_for_lda(&binding, &challenge)
     );
     assert_ne!(
         restored,
         codec.authenticate_for_lda(
-            &learning_data_access::ImathasQuestionBackendGradingContext::new(
+            &learning_data_access::ImathasGradingContext::new(
                 binding.question_attempt(),
                 binding.question_revision().clone(),
                 QuestionSeed::new(18),
@@ -479,7 +473,7 @@ fn grading_context_dimensions_change_hmac_and_binding_digest() {
     let baseline = grading_context(&question, QuestionSeed::new(17));
     let challenge =
         learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
-    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
+    let codec = ImathasSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
     let baseline_authentication = codec.authenticate_for_lda(&baseline, &challenge);
     let baseline_digest = crate::result_verification::launch_binding_digest(
         &baseline,
@@ -490,12 +484,12 @@ fn grading_context_dimensions_change_hmac_and_binding_digest() {
     );
 
     let alternatives = [
-        learning_data_access::ImathasQuestionBackendGradingContext::new(
+        learning_data_access::ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
             baseline.question_revision().clone(),
             baseline.question_seed(),
         ),
-        learning_data_access::ImathasQuestionBackendGradingContext::new(
+        learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').unwrap(),
@@ -503,7 +497,7 @@ fn grading_context_dimensions_change_hmac_and_binding_digest() {
             },
             baseline.question_seed(),
         ),
-        learning_data_access::ImathasQuestionBackendGradingContext::new(
+        learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             QuestionRevisionReference {
                 question_id: baseline.question_revision().question_id.clone(),
@@ -511,7 +505,7 @@ fn grading_context_dimensions_change_hmac_and_binding_digest() {
             },
             baseline.question_seed(),
         ),
-        learning_data_access::ImathasQuestionBackendGradingContext::new(
+        learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             baseline.question_revision().clone(),
             QuestionSeed::new(99),
@@ -577,7 +571,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
     );
     assert!(matches!(
         outage
-            .verify_imathas_question_backend_result(
+            .verify_imathas_result(
                 &question,
                 &source,
                 &grading_context(&question, QuestionSeed::new(17)),
@@ -622,8 +616,8 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
 fn grading_context(
     question: &QuestionRevision,
     question_seed: QuestionSeed,
-) -> learning_data_access::ImathasQuestionBackendGradingContext {
-    learning_data_access::ImathasQuestionBackendGradingContext::new(
+) -> learning_data_access::ImathasGradingContext {
+    learning_data_access::ImathasGradingContext::new(
         QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
         QuestionRevisionReference {
             question_id: question.question_id.clone(),
@@ -634,9 +628,9 @@ fn grading_context(
 }
 
 fn launch_session_authentication(
-    grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+    grading_context: &learning_data_access::ImathasGradingContext,
 ) -> learning_data_access::ImathasQuestionBackendSessionAuthentication {
-    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([7; 32]).unwrap();
+    let codec = ImathasSessionAuthenticationCodec::from_server_secret([7; 32]).unwrap();
     let challenge =
         learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
     codec.authenticate_for_lda(grading_context, &challenge)

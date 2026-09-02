@@ -1,4 +1,4 @@
-//! iMathAS iMathAS Question Backend seam.
+//! iMathAS Question Backend seam.
 //!
 //! This is intentionally a transport boundary, not an HTTP client. A later
 //! adapter-owned private proxy can implement [`ImathasQuestionBackendTransport`] without
@@ -13,14 +13,14 @@ use question_model::{QuestionBackendLocator, QuestionRevision, Timestamp};
 use sha2::{Digest, Sha256};
 
 use crate::result_verification::{
-    IMATHAS_REMOTE_GRADING_PROFILE_ID, ImathasRemoteGradingFailure, ImathasRemoteGradingProfile,
+    IMATHAS_GRADING_PROFILE_ID, ImathasGradingFailure, ImathasGradingProfile,
     ImathasResultVerifier, launch_binding_digest, normalize_imathas_seed,
 };
 use crate::{
     ImathasAdapterError, ImathasQuestionBackendFailure, ImathasQuestionLocation,
     ImathasRenderRequest, ImathasResultRequest, QuestionBackend, ResolvedImathasQuestionSource,
-    SafeImathasQuestionRender, SupportedImathasProfile, VerifiedImathasQuestionBackendResult, hex,
-    sealed, verify_binding,
+    SafeImathasQuestionRender, SupportedImathasProfile, VerifiedImathasResult, hex, sealed,
+    verify_binding,
 };
 
 const MAX_SNAPSHOT_BYTES: usize = 1_048_576;
@@ -32,14 +32,14 @@ mod launch;
 mod protocol;
 mod result;
 
-pub use launch::{ImathasLaunchSessionAuthenticationCodec, ImathasLaunchState};
+pub use launch::{ImathasLaunchState, ImathasSessionAuthenticationCodec};
 
-/// Protected deployment settings for one iMathAS iMathAS Question Backend iMathAS deployment.
+/// Protected deployment settings for one iMathAS Question Backend deployment.
 /// No endpoint, browser URL, credential getter, or author-controlled field is
 /// represented here.
 pub struct ImathasQuestionBackendConfig {
-    profile: ImathasRemoteGradingProfile,
-    authentication_codec: ImathasLaunchSessionAuthenticationCodec,
+    profile: ImathasGradingProfile,
+    authentication_codec: ImathasSessionAuthenticationCodec,
     launch_signing_secret: Vec<u8>,
     result_verifier: ImathasResultVerifier,
     launch_ttl_millis: u64,
@@ -52,7 +52,7 @@ impl std::fmt::Debug for ImathasQuestionBackendConfig {
         formatter
             .debug_struct("ImathasQuestionBackendConfig")
             .field("deployment_reference", &self.profile.deployment_reference())
-            .field("profile", &IMATHAS_REMOTE_GRADING_PROFILE_ID)
+            .field("profile", &IMATHAS_GRADING_PROFILE_ID)
             .field("authentication_codec", &self.authentication_codec)
             .field("launch_signing_secret", &"REDACTED")
             .field("result_verifier", &self.result_verifier)
@@ -64,21 +64,21 @@ impl std::fmt::Debug for ImathasQuestionBackendConfig {
 }
 
 impl ImathasQuestionBackendConfig {
-    /// Creates a bounded configuration only for the explicit iMathAS Remote Grading profile.
+    /// Creates a bounded configuration only for the explicit iMathAS grading profile.
     pub fn new(
-        profile: ImathasRemoteGradingProfile,
+        profile: ImathasGradingProfile,
         launch_signing_secret: impl AsRef<[u8]>,
         result_verification_secret: impl AsRef<[u8]>,
-        authentication_codec: ImathasLaunchSessionAuthenticationCodec,
+        authentication_codec: ImathasSessionAuthenticationCodec,
         launch_ttl_millis: u64,
-    ) -> Result<Self, ImathasRemoteGradingFailure> {
+    ) -> Result<Self, ImathasGradingFailure> {
         let launch_signing_secret = launch_signing_secret.as_ref();
-        if !profile.allows_remote_grading()
+        if !profile.allows_grading()
             || launch_signing_secret.is_empty()
             || launch_ttl_millis == 0
             || launch_ttl_millis > MAX_LAUNCH_TTL_MILLIS
         {
-            return Err(ImathasRemoteGradingFailure::UnsupportedProfile);
+            return Err(ImathasGradingFailure::UnsupportedProfile);
         }
         Ok(Self {
             result_verifier: ImathasResultVerifier::new(
@@ -99,13 +99,13 @@ impl ImathasQuestionBackendConfig {
         mut self,
         max_snapshot_bytes: usize,
         max_result_bytes: usize,
-    ) -> Result<Self, ImathasRemoteGradingFailure> {
+    ) -> Result<Self, ImathasGradingFailure> {
         if max_snapshot_bytes == 0
             || max_snapshot_bytes > MAX_SNAPSHOT_BYTES
             || max_result_bytes == 0
             || max_result_bytes > MAX_RESULT_BYTES
         {
-            return Err(ImathasRemoteGradingFailure::InvalidLedger);
+            return Err(ImathasGradingFailure::InvalidLimits);
         }
         self.max_snapshot_bytes = max_snapshot_bytes;
         self.max_result_bytes = max_result_bytes;
@@ -115,13 +115,13 @@ impl ImathasQuestionBackendConfig {
     fn supported_profile(&self) -> SupportedImathasProfile {
         // Construction has already frozen these compatibility claims.
         SupportedImathasProfile::new(
-            question_model::ImathasProfile::new(IMATHAS_REMOTE_GRADING_PROFILE_ID)
-                .expect("iMathAS iMathAS Question Backend profile identifier is valid"),
+            question_model::ImathasProfile::new(IMATHAS_GRADING_PROFILE_ID)
+                .expect("iMathAS grading profile identifier is valid"),
             true,
             true,
             true,
         )
-        .expect("iMathAS iMathAS Question Backend profile is valid")
+        .expect("iMathAS grading profile is valid")
     }
 }
 
@@ -148,7 +148,7 @@ impl From<ImathasTransportFailure> for ImathasQuestionBackendFailure {
     }
 }
 
-/// Exact bytes from an authorized iMathAS iMathAS Question Backend snapshot endpoint.
+/// Exact bytes from an authorized iMathAS Question Backend snapshot endpoint.
 /// The bytes are answer-bearing and never implement Debug or serde.
 pub struct ImathasQuestionBackendSnapshot(Vec<u8>);
 
@@ -458,7 +458,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         let QuestionBackendLocator::Imathas { binding } = &question.backend_locator else {
             return Err(ImathasAdapterError::UnsupportedSource);
         };
-        if binding.profile().as_str() != IMATHAS_REMOTE_GRADING_PROFILE_ID {
+        if binding.profile().as_str() != IMATHAS_GRADING_PROFILE_ID {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         let grading_context = &validation.grading_context;
@@ -466,7 +466,21 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
         };
-        if validation.imathas_binding != *source.binding()
+        if validation
+            .imathas_question_backend_binding
+            .deployment_reference()
+            .as_str()
+            != source.binding().deployment_reference().as_str()
+            || validation
+                .imathas_question_backend_binding
+                .item_reference()
+                .as_str()
+                != source.binding().item_reference().as_str()
+            || validation
+                .imathas_question_backend_binding
+                .profile()
+                .as_str()
+                != source.binding().profile().as_str()
             || validation.source_object != *source.artifact()
             || validation.source_object_checksum != *source.source_object_checksum()
             || grading_context.question_revision() != &question_revision
@@ -546,14 +560,14 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
     }
 
     /// Retrieves the iMathAS response through the protected transport and
-    /// passes it to the sealed iMathAS iMathAS Question Backend verifier. No browser callback can
+    /// passes it to the sealed iMathAS Question Backend verifier. No browser callback can
     /// reach this method's token input.
     pub async fn retrieve_and_verify(
         &self,
         validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
         imathas_launch_state: &ImathasLaunchState,
         now: Timestamp,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
+    ) -> Result<VerifiedImathasResult, ImathasAdapterError> {
         result::retrieve_and_verify(
             &self.transport,
             &self.config,
@@ -627,7 +641,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
         &self,
         request: ImathasRenderRequest<'_>,
     ) -> Result<SafeImathasQuestionRender, ImathasQuestionBackendFailure> {
-        if request.profile != IMATHAS_REMOTE_GRADING_PROFILE_ID
+        if request.profile != IMATHAS_GRADING_PROFILE_ID
             || request.snapshot.len() > self.config.max_snapshot_bytes
         {
             return Err(ImathasQuestionBackendFailure::UnsupportedProfile);
@@ -646,7 +660,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
     async fn verify_result(
         &self,
         _request: ImathasResultRequest<'_>,
-    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure> {
+    ) -> Result<VerifiedImathasResult, ImathasQuestionBackendFailure> {
         // The generic adapter method has no protected iMathAS Question Backend
         // Session. Refuse
         // rather than accepting any caller-provided token or claiming a grade.
@@ -684,12 +698,19 @@ fn validate_loaded_imathas_launch_state(
     validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
     now: Timestamp,
 ) -> Result<(), ImathasAdapterError> {
-    if validation.imathas_binding.deployment_reference().as_str()
+    if validation
+        .imathas_question_backend_binding
+        .deployment_reference()
+        .as_str()
         != config.profile.deployment_reference()
-        || validation.imathas_binding.profile().as_str() != IMATHAS_REMOTE_GRADING_PROFILE_ID
+        || validation
+            .imathas_question_backend_binding
+            .profile()
+            .as_str()
+            != IMATHAS_GRADING_PROFILE_ID
         || validation.expires_at <= now
         || validation
-            .imathas_binding
+            .imathas_question_backend_binding
             .item_reference()
             .as_str()
             .is_empty()
@@ -712,7 +733,10 @@ fn validate_loaded_imathas_launch_state(
     }
     let expected = launch_binding_digest(
         grading_context,
-        validation.imathas_binding.item_reference().as_str(),
+        validation
+            .imathas_question_backend_binding
+            .item_reference()
+            .as_str(),
         validation.source_object_checksum.as_str(),
         normalize_imathas_seed(grading_context.question_seed()),
         validation.authentication.as_str(),

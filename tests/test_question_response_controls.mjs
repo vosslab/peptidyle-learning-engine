@@ -8,8 +8,8 @@ import { createRoot } from "solid-js";
 import {
   createSubmissionController,
   handleQuestionResponseControlKeyDown,
-  isRemoteQuestionBackendReadyMessage,
-  isSafeRemoteQuestionBackendLaunchPath,
+  isImathasQuestionBackendReadyMessage,
+  isSafeImathasQuestionBackendLaunchPath,
   numericResponseFromInput,
   validateResponseLocally,
 } from "../src/components/question_response_controls/question_response_control.tsx";
@@ -343,29 +343,29 @@ test("a rejected submission keeps the response editable for a corrected resubmis
   assert.deepEqual(submitted, [refused, corrected]);
 });
 
-test("remote-question-backend readiness and route values admit only the narrow browser contract", () => {
-  const courseId = "course-external";
-  const assignmentId = "assignment-external";
-  const attemptId = "attempt-external";
+test("iMathAS Question Backend readiness and route values admit only the narrow browser contract", () => {
+  const courseId = "course-imathas";
+  const assignmentId = "assignment-imathas";
+  const attemptId = "attempt-imathas";
   assert.equal(
-    isRemoteQuestionBackendReadyMessage(
-      { kind: "ple.remoteQuestionBackend.ready", attemptId },
+    isImathasQuestionBackendReadyMessage(
+      { kind: "ple.imathasQuestionBackend.ready", attemptId },
       attemptId,
     ),
     true,
   );
   for (const message of [
-    { kind: "ple.remoteQuestionBackend.ready", attemptId: "other-attempt" },
-    { kind: "ple.remoteQuestionBackend.ready", attemptId, score: 1 },
-    { kind: "ple.remoteQuestionBackend.ready", attemptId, provider: "foreign" },
-    { kind: "ple.remoteQuestionBackend.complete", attemptId },
+    { kind: "ple.imathasQuestionBackend.ready", attemptId: "other-attempt" },
+    { kind: "ple.imathasQuestionBackend.ready", attemptId, score: 1 },
+    { kind: "ple.imathasQuestionBackend.ready", attemptId, backendSecret: "foreign" },
+    { kind: "ple.imathasQuestionBackend.complete", attemptId },
   ]) {
-    assert.equal(isRemoteQuestionBackendReadyMessage(message, attemptId), false);
+    assert.equal(isImathasQuestionBackendReadyMessage(message, attemptId), false);
   }
   const origin = "https://client.example.test";
   assert.equal(
-    isSafeRemoteQuestionBackendLaunchPath(
-      "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/remote-question-backend/launch",
+    isSafeImathasQuestionBackendLaunchPath(
+      "/api/courses/course-imathas/assignments/assignment-imathas/attempts/attempt-imathas/imathas-question-backend/launch",
       courseId,
       assignmentId,
       attemptId,
@@ -374,7 +374,7 @@ test("remote-question-backend readiness and route values admit only the narrow b
     true,
   );
   const expected =
-    "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/remote-question-backend/launch";
+    "/api/courses/course-imathas/assignments/assignment-imathas/attempts/attempt-imathas/imathas-question-backend/launch";
   for (const unsafe of [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
@@ -384,12 +384,12 @@ test("remote-question-backend readiness and route values admit only the narrow b
     expected.replace(attemptId, "other-attempt"),
     `${expected}?token=secret`,
     `${expected}#fragment`,
-    expected.replace("courses/course-external", "courses/../foreign"),
-    expected.replace("courses/course-external", "courses/%2e%2e/foreign"),
-    expected.replace("/remote-question-backend/", "\\remote-question-backend\\"),
+    expected.replace("courses/course-imathas", "courses/../foreign"),
+    expected.replace("courses/course-imathas", "courses/%2e%2e/foreign"),
+    expected.replace("/imathas-question-backend/", "\\imathas-question-backend\\"),
   ]) {
     assert.equal(
-      isSafeRemoteQuestionBackendLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
+      isSafeImathasQuestionBackendLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
       false,
       unsafe,
     );

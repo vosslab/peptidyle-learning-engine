@@ -341,7 +341,8 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
   if (left.kind === "hotspot" && right.kind === "hotspot") {
     return JSON.stringify(left.selections) === JSON.stringify(right.selections);
   }
-  if (left.kind === "imathasQuestionBackend" && right.kind === "imathasQuestionBackend") return true;
+  if (left.kind === "imathasQuestionBackend" && right.kind === "imathasQuestionBackend")
+    return true;
   return false;
 }
 

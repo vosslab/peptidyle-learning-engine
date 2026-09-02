@@ -164,7 +164,7 @@ Each question system should implement a common adapter boundary.
 interface QuestionBackendAdapter {
   getCapabilities(): QuestionBackendCapabilities;
 
-  loadQuestion(reference: ExternalQuestionReference): Promise<QuestionRevision>;
+  loadQuestion(reference: QuestionBackendReference): Promise<QuestionRevision>;
 
   createAttempt(question: QuestionRevision, context: AttemptContext): Promise<QuestionAttempt>;
 
@@ -326,7 +326,7 @@ The database will likely need entities for:
 - exports
 - audit events
 
-External questions should be referenced by stable source identifiers and version metadata.
+Question Backend questions should be referenced by stable source identifiers and version metadata.
 
 The platform should avoid copying proprietary question content unless the source license and integration require local storage.
 

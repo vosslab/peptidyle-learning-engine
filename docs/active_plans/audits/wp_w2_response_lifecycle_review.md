@@ -20,7 +20,7 @@ controller and local selection.
   original-idempotency-key recovery contracts.
 - `currentEnvelope()` remains reactive and supplies the new attempt definition
   after `machine.advance`. `initialResponse` reads the current machine state,
-  while the event callback for an external tool closes over the same keyed
+  while the event callback for the iMathAS Question Backend control closes over the same keyed
   attempt ID. There is no mixed old-attempt request path.
 - The new production `RunPage` fixture observes a checked first radio, advances
   via a distinct issued attempt, then requires the first retry radio to be

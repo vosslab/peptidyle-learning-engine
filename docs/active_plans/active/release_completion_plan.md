@@ -6,9 +6,23 @@
 
 The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 and WP-FU1 through WP-FU6 stay open until their named gates and independent review pass.
 
-`WP-SD1-A-TERM-01-RQB1` is accepted historical evidence. Its generic server-boundary name is superseded by RQB2's exact iMathAS ownership while its least-privilege, PostgreSQL, and aggregate receipts remain valid evidence.
+`WP-SD1-A-TERM-01-RQB1` is accepted historical evidence. Its prior server-boundary terminology is
+superseded by RQB2's exact iMathAS ownership while its least-privilege, PostgreSQL, and aggregate
+receipts remain valid evidence.
 
-`WP-SD1-A-TERM-01-RQB2` is in progress and depends on RQB1. It owns one direct pre-production naming cutover: the complete `RemoteQuestionBackend*`/`remote_question_backend*`/`remoteQuestionBackend*` family becomes exact iMathAS Session, Challenge, Authentication, Grading Context, Result Token, Result Exchange, Result, and Question Backend Transport ownership; response/control/Student Response marker names become `ImathasQuestionBackend`/`imathasQuestionBackend`. Question Model owns marker and generated-boundary renames; LDA and `2026090102` own durable/schema/procedure renames; the iMathAS adapter owns transport, launch, and result translation; browser copy uses Question Backend only when backend-agnostic. It preserves RQB1's Session lifecycle, Question Submission marker flow, tables and relationships, procedures, browser launch flow, security invariants, and focused test families. Fresh-apply/no-op/catalog/restricted-login PostgreSQL, least-privilege review, and the required aggregate suite remain completion gates.
+`WP-SD1-A-TERM-01-RQB2` is accepted after RQB1. It owned one direct pre-production
+naming cutover: the remaining generic backend-session names become exact iMathAS Session,
+Challenge, Authentication, Grading Context, Result Token, Result Exchange, Result, and Question
+Backend Transport ownership; response/control/Student Response marker names become
+`ImathasQuestionBackend`/`imathasQuestionBackend`. Question Model owns marker and
+generated-boundary renames; LDA and `2026090102` own durable/schema/procedure renames; the iMathAS
+adapter owns transport, launch, and result translation; browser copy uses Question Backend only when
+backend-agnostic. It preserves RQB1's Session lifecycle, Question Submission marker flow, tables and
+relationships, procedures, browser launch flow, security invariants, and focused test families.
+Generated 467 TypeScript declarations; focused adapter, LDA, Node, TypeScript, formatting, and strict
+Clippy gates; fresh-apply/no-op/catalog/restricted-login PostgreSQL and both iMathAS PostgreSQL tests;
+least-privilege review; and the required aggregate suite all passed on the final tree. This package closes
+only the exact terminology cutover; the overall terminology program remains open.
 
 `WP-SD1-A-TERM-01-SRF1` is accepted. This no-schema terminology slice aligns the answer-free Student
 Response Format Check and its thirteen exact Student Response Format Issues across domain, Wasm,
@@ -148,18 +162,18 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 
 ## Risk register
 
-| Risk                                                  | Owner                         | Control                                                                                                                    |
-| ----------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Documentation substitutes for product evidence        | Release integrator            | Package acceptance requires working behavior and evidence.                                                                 |
-| Adapter output leaks answers or unsafe markup         | Adapter owner                 | Strict translation, sanitization, private network, browser trace.                                                          |
-| New family exposes answer material                    | Family owner                  | Public/private compilation, DTO scans, server-only grading.                                                                |
-| Reconciliation deletes valid concurrent bytes         | Object owner                  | Two observations, quarantine, reference recheck, idempotency.                                                              |
-| Role/membership disagreement selects course authority | Auth owner                    | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
-| Published bytes escape before commit                  | Object owner                  | Transactional pending registry and dedicated publisher.                                                                    |
-| iMathAS Question Backend dispatch outcome is unknown  | iMathAS adapter owner         | Durable lease-bound marker and explicit operator resolution.                                                               |
-| Deployment exposes secrets or broad destroy           | Deployment owner              | Secret references, unique tags, reviewed plan, bounded destroy.                                                            |
-| Bot protection harms legitimate users                 | Edge owner                    | Count mode, accessible recovery, versioned legitimate corpus, rollback.                                                    |
-| Pilot begins before activation evidence               | Product owner                 | Separate signed production-activation checklist.                                                                           |
+| Risk                                                  | Owner                 | Control                                                                                                                    |
+| ----------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Documentation substitutes for product evidence        | Release integrator    | Package acceptance requires working behavior and evidence.                                                                 |
+| Adapter output leaks answers or unsafe markup         | Adapter owner         | Strict translation, sanitization, private network, browser trace.                                                          |
+| New family exposes answer material                    | Family owner          | Public/private compilation, DTO scans, server-only grading.                                                                |
+| Reconciliation deletes valid concurrent bytes         | Object owner          | Two observations, quarantine, reference recheck, idempotency.                                                              |
+| Role/membership disagreement selects course authority | Auth owner            | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
+| Published bytes escape before commit                  | Object owner          | Transactional pending registry and dedicated publisher.                                                                    |
+| iMathAS Question Backend dispatch outcome is unknown  | iMathAS adapter owner | Durable lease-bound marker and explicit operator resolution.                                                               |
+| Deployment exposes secrets or broad destroy           | Deployment owner      | Secret references, unique tags, reviewed plan, bounded destroy.                                                            |
+| Bot protection harms legitimate users                 | Edge owner            | Count mode, accessible recovery, versioned legitimate corpus, rollback.                                                    |
+| Pilot begins before activation evidence               | Product owner         | Separate signed production-activation checklist.                                                                           |
 
 ## Rollout and closeout
 
