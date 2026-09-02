@@ -41,8 +41,8 @@ def inspect_renderer_oci_id(
 	)
 	oci_id = result.stdout.strip()
 	# Podman reports the OCI configuration ID without its algorithm prefix,
-	# whereas some compatible formatters include it.  Provenance uses one
-	# canonical, digest-qualified representation.
+	# whereas some compatible formatters include it. Question Renderer Version uses one
+	# canonical, digest-qualified OCI identity.
 	if re.fullmatch(r"[0-9a-f]{64}", oci_id) is not None:
 		oci_id = "sha256:" + oci_id
 	if not result.ok() or OCI_ID.fullmatch(oci_id) is None:

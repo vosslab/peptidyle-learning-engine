@@ -46,7 +46,7 @@ evaluator derives current access from the exact Student Record, Course
 Membership, Assignment Status, effective Assignment policy, and direct Student accommodation facts. The
 first Assignment Attempt start, grade-bearing action, or explicit Instructor
 issue atomically creates the assignment receipt, typed empty summary, direct
-access basis, and immutable account-or-rule provenance.
+access basis, and immutable Assignment Access evidence.
 
 This gives instructors the simple course-enrollment model used successfully by
 LibreTexts ADAPT without weakening PLE's more precise Student Work Records model:
@@ -63,7 +63,7 @@ Create later assignment    ->     assignment
 
 First entitlement-bearing  ->     Assignment Attempt and Issued Question
 event                             selected Assignment Grade state
-                                  sealed authorization and provenance
+                                  sealed Assignment Access evidence
 ```
 
 The normal UI does not ask an instructor to add the same student separately to
@@ -384,7 +384,7 @@ The Store owns three connected but intentionally separate invariants:
 2. Merely joining a course, creating an assignment, listing work, or reading a
    summary creates no assignment receipt.
 3. The first bounded entitlement-bearing transition atomically creates one
-   enrollment and one typed empty summary with its sealed grant and provenance.
+   enrollment and one typed empty summary with its sealed Assignment Access evidence.
 
 The following operations preserve them:
 
@@ -719,7 +719,7 @@ Roster removal is an access transition, not record destruction.
   policy.
 - Re-adding the same student creates a fresh membership episode, reuses the
   stable Student Record, and preserves existing assignment receipts and
-  their original membership provenance.
+  their original Course Membership history.
 - Archive/delete jobs remain the only path that disposes student records and
   associated protected objects.
 - Every roster mutation records the authenticated account, course, target member, source

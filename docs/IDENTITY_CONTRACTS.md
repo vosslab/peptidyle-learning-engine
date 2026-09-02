@@ -190,20 +190,19 @@ until each workflow has its complete privacy and disclosure contract.
 
 ## Typed operational identities and scopes
 
-| Identity                 | Scope                                    | Intended use                                                                                                                                                                                                            |
-| ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                              |
-| `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                                   |
-| Job target scope         | Locked job manifest                      | A tagged `course`, `workspace`, `catalog`, `object`, or `provider` target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
-| `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                                              |
-| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                           |
-| `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                                   |
-| `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                               |
+| Identity                 | Scope                                    | Intended use                                                                                                                                                                                                      |
+| ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                        |
+| `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                             |
+| Job target scope         | Locked job manifest                      | Question Library work uses the exact `question_revision` Job Target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
+| `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                                        |
+| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                     |
+| `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                             |
+| `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                         |
 
 A worker derives every target from its locked current lease and immutable job
 manifest. Queue payload, retry input, provider response, object reference, and
-caller input are evidence; they do not establish course, workspace, `catalog`,
-object, or provider authority.
+caller input are evidence; they do not establish the exact Job Target authority.
 
 ## Human-facing references and browser identifiers
 

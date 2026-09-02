@@ -158,7 +158,7 @@ browser does not recompute either. See [API_CONTRACTS.md](API_CONTRACTS.md) and 
 The production browser suite covers role entry and authorization; Blueprint authoring and publication;
 Course Instance creation and Apply Blueprint Update; assignment authoring, preview, question replacement,
 pools, and grade settings; Student delivery, gateway recovery, and automated-grading recovery;
-WebWork delivery; catalog discovery and question curation; rollover and term scheduling; and QTI
+WebWork delivery; Question Library discovery and question curation; rollover and term scheduling; and QTI
 profile import. These are live workflows, not mock or fixture walkthroughs. Use [E2E_TESTS.md](E2E_TESTS.md)
 for scenario selectors and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the visible route and policy
 boundary. Screenshots are one-time visual evidence, not a substitute for the live browser journey.

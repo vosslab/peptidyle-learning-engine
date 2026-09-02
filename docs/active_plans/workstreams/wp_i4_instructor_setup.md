@@ -11,7 +11,7 @@ student modules and does not retarget J1-J5 or J8.
 - J12 opens Students, reads the configured alias only at the visible local-only form action, and
   observes one active local-pilot row.
 - J13 returns through the rendered Back to course link, creates a Mastery assignment from the
-  published catalog, and observes its exact course link.
+  Question Library, and observes its exact course link.
 - The runner's `--instructor-setup-only` branch arranges only retry-corpus publication and runs one
   fixed child. It retains no child stdout, stderr, credential, alias, or private state artifact.
 - The schema-v2 state commits the exact J11/J12/J13 prefix atomically only after all visible J13

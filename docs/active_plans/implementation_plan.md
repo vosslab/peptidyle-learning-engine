@@ -67,8 +67,8 @@ evidence, receipt replay, and audited Instructor inspection as the canonical pro
 WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-INST-D1 and
 WP-INST-D2, WP-INST-B1, and WP-INST-B2 are accepted. Reusable curricula now advance into ordinary
-teaching courses through explicit adoption, rollover, term shifting, provenance, and controlled
-updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Questions and Policies
+teaching courses through explicit adoption, rollover, term shifting, recorded Course Origin and
+Assignment Source Record history, and controlled updates. WP-INST-T6 is accepted: each assignment has a linked home, separate Questions and Policies
 pages, and a live answer-free Student view. WP-INST-G1 persists one immutable accepted student
 input before grading and adds assignment-local exception recovery,
 bounded retry, generation-fenced recalculation, and immutable receipts. `WP-INST-WN1` is the current
@@ -226,9 +226,10 @@ later acceptance gates.
 
 **WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
 requires a current registered conformance test target. The former disconnected
-`crates/learning-data-access/tests/conformance/` corpus is retired; server
-Question-ID request and replacement behavior belongs in `crates/server/src/catalog/tests/publication.rs`
-and `crates/server/src/course/tests/assignment_revision.rs`. The disposable PostgreSQL/RLS driver is
+`crates/learning-data-access/tests/conformance/` corpus is retired. Question-ID
+request and replacement behavior has no mounted server route or server-test
+owner yet; its future owner must name the actual Question Library or Assignment
+route boundary when that route is mounted. The disposable PostgreSQL/RLS driver is
 `tests/e2e/e2e_wp_r2_postgres_rls.py`; `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
 manifest convergence. The canonical `webwork_delivery` and
 `assignment_question_replacement` scenarios carry the retained browser behavior; the browser-free
@@ -248,7 +249,7 @@ historical evidence only and are not referenced through an ignored scratch sourc
 **Local Question Renderer Version.** WP-R1 is accepted on 2026-08-14. Its completed Chapter One
 pilot/browser and aggregate-acceptance Python work uses one designated configured renderer image name
 as the stable local selection and rebuild target. Each live run records the inspected immutable OCI
-image configuration ID as exact runtime provenance. Image pruning may remove the selected local bytes,
+image configuration ID as the exact digest-qualified renderer OCI identity. Image pruning may remove the selected local bytes,
 after which the configured target is rebuilt before use. WP-R2 is accepted; the Instructor roadmap's
 M0 evidence is accepted, and WP-PY-L1 is accepted on 2026-08-15 after final offline/live Validation
 and its named independent final reviews. The release plan retains its later acceptance gates.
@@ -655,8 +656,8 @@ Revision remains scoped to its Blueprint Course Owner and exact Blueprint Collab
 deadlines, accommodations, grades, or activity. Relative schedule intent is resolved against the
 destination CourseInstance term and IANA zone and becomes CourseInstance-owned state. New upstream
 assignments arrive in daughter instances as unreleased; release and divergent delivery edits require
-an explicit CourseInstance action. Archived referenced Blueprints remain resolvable for provenance
-and history.
+an explicit CourseInstance action. Archived referenced Blueprints remain resolvable through the exact
+Blueprint references retained by Course Origin and Assignment Source Record history.
 
 The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
 (`BP-*`) and one exact Store/route/decoder/editor boundary; it removes Alpha types, route surfaces, schema
@@ -1541,7 +1542,7 @@ substitution for a required production path.
 | MOD-EXPORT                 | Print model and writers                                                  | DOCX and PDF                                                                                                                          | MOD-QM                                                                                  | Fixture version                     | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                            |
 | MOD-WASM                   | WASM bridge                                                              | Typed exports                                                                                                                         | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                                           | n/a                                 | Export allowlist; no `grading` in closure                                                                                                                                                                                                   |
 | MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                                                                               | MOD-STO                                                                                 | `MemoryStore`                       | Login on one replica, proceed on another                                                                                                                                                                                                    |
-| MOD-API-CAT                | Question Library routes                                                  | `/questions`, Question Classifications, publication                                                                                   | MOD-STO, MOD-ID, MOD-CAP                                                                | `MemoryStore`                       | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
+| MOD-API-QUESTION-LIBRARY   | Question Library routes                                                  | `/questions`, Question Search, Question Classifications, Question Revision publication                                                | MOD-STO, MOD-ID, MOD-CAP                                                                | `MemoryStore`                       | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
 | MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                                                                            | MOD-STO                                                                                 | `MemoryStore`                       | Assignments store exact `(question_id, revision_number)` pins                                                                                                                                                                               |
 | MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`                                                              | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                                     | `MemoryStore`                       | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                                   |
 | MOD-API-ASSET              | Asset delivery                                                           | `POST /api/assets/{id}`                                                                                                               | MOD-OBJ, MOD-STO                                                                        | `MemoryObjectStore`                 | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                                |

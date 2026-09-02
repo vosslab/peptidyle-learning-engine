@@ -347,8 +347,8 @@ asset delivery has its own typed object authorization.
 
 Workers have no browser-session authority and are not HTTP targets. A worker
 may act only through a locked, current typed lease containing an opaque lease
-token, typed durable scope (`course`, `workspace`, `catalog`, or `system`),
-Job Kind, target identity, Handler/Effect Committer pair, and generation fence.
+token, the exact `question_revision` Job Target for Question Library work, Job
+Kind, target identity, Handler/Effect Committer pair, and generation fence.
 The Job claim-and-lease operation and RLS validate all of those values on claim, renewal, and
 completion. A stale, foreign, superseded, or Job-Kind-mismatched lease cannot read,
 commit, or repeat work. Queue messages carry bounded IDs and generations, not

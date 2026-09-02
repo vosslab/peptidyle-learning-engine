@@ -22,7 +22,7 @@ walkthrough package and stable compatibility entry points.
   override; the runner keeps the launcher's internal `--skip-build` detail private.
 - On instructor-child failure only, permit one closed redacted checkpoint value:
   `login_visible`, `signed_in`, `course_created`, `course_opened`,
-  `student_active`, `assignment_editor_opened`, `catalog_result_selected`, or
+  `student_active`, `assignment_editor_opened`, `question_search_result_selected`, or
   `assignment_created`. `login_visible` means only that the visible local-login
   control rendered; it is written before any credential value is entered.
 - Do not import another E2E runner or E2E test-support module.

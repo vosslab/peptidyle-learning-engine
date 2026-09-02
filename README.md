@@ -5,7 +5,7 @@ An open mastery-learning platform for biology instructors and students that deli
 **Project status: advanced implementation, not ready for production deployment.** The production-shaped
 live demo and G1 acceptance evidence are green, and G2 calculated Gradebook plus audited Student-work
 inspection is the current implementation handoff. Wider release closure and production deployment remain
-open; the demo and its current 63-artifact privacy/provenance-checked capture are not a public deployment.
+open; the demo and its current 63-artifact capture, validated by the Capture Manifest, are not a public deployment.
 [docs/active_plans/implementation_status.md](docs/active_plans/implementation_status.md)
 records the current handoff, and [docs/active_plans/implementation_plan.md](docs/active_plans/implementation_plan.md)
 owns planned work.
@@ -30,7 +30,7 @@ that implement it.
 
 The published screenshots show a connected teaching loop: Instructor policy setup, Student feedback,
 and Instructor Gradebook propagation. `tests/e2e/browser_screenshot_corpus.json` is the durable artifact
-and viewport authority; the repository screenshot publisher and its provenance receipt are the
+and viewport authority; the repository screenshot publisher and its Publication Receipt are the
 publication authority. The demo records behave as ordinary live PLE data inside a disposable,
 production-shaped installation.
 [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) defines that boundary, and

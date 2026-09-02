@@ -290,7 +290,7 @@ change class; an explicit source-history link names the source, and an Instructo
 or opts in to a newer version for any assignment that should use it.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-philosophy),
 [`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/question_library.rs`, and
-MOD-API-CAT in
+MOD-API-QUESTION-LIBRARY in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 ### Assignment work is one aggregate

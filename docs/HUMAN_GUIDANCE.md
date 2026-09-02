@@ -85,7 +85,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 ## Question philosophy
 
 - Questions are subject agnostic. Questions must be properly tagged, but all are part of the same library.
-- **Draft Questions** are kept private until publication so unfinished material does not reduce shared-catalog quality.
+- **Draft Questions** are kept private until publication so unfinished material does not reduce Question Library quality.
 - **Draft Questions** must go through a validation process before being added to the library.
 - Questions are strictly and deterministically automated; do not add manual grading.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.

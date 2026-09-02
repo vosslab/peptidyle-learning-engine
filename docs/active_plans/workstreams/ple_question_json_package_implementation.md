@@ -30,7 +30,7 @@ non-signable       answer-free      separate grader capability
 only the answer-free draft. `POST /api/questions/{workspace}/ple-question-json-publish`
 uses the same no-store/ETag discipline, rereads and recompiles the private
 source, copies its exact canonical bytes to a distinct immutable non-signable
-`QuestionSource`, then sends one catalog promotion command. Neither route emits
+`QuestionSource`, then sends one Question Publication command. Neither route emits
 source bytes, checksums, Answer Keys, or Question Feedback.
 
 The source Store atomically advances the typed draft and its source metadata

@@ -6,8 +6,8 @@
 - Add `/instructor/courses/:courseId/assignments/new` to the executable route contract.
 - Reuse the assignment editor with a create mode that starts with the Fall-pilot
   Mastery policy: AllCorrect, Highest, Unlimited, and NewSeeds.
-- Search only the public catalog and retain only immutable problem/version tuples
-  in browser state and the strict creation payload.
+- Search only the Instructor-visible Question Library and retain exact immutable
+  Question Revision References in browser state and the strict creation payload.
 
 ## Acceptance evidence
 
@@ -15,7 +15,7 @@
   create payload.
 - The production-component Playwright tests prove the manager-only visible
   entry, its absence for students, native Tab/Enter navigation into create
-  mode, public catalog selection, exact POST payload, and the resulting course
+  mode, Question Library selection, exact POST payload, and the resulting course
   assignment link.
 - Edit-mode regression coverage remains in the same production-component spec.
 

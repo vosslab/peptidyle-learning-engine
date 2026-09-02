@@ -78,7 +78,8 @@ CourseInstance to a moving source.
 
 `CourseInstance` is created or updated through the separate Blueprint-operation boundary.
 `crates/question_model/src/blueprint_operations.rs` owns source observations,
-target-term schedule resolution, previews, commands, provenance, receipts, and
+target-term schedule resolution, previews, commands, Course Origin and Assignment Source Record
+creation, receipts, and
 Apply Blueprint Update semantics. Create Course from Blueprint copies reusable
 definitions, policy/theme defaults, reviewed offsets, and normalized manifests
 into an exact destination `CourseId`; it never copies Students, invitations,
