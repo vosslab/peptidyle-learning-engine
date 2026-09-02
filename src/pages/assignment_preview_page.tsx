@@ -184,16 +184,16 @@ function PreviewResult(props: {
           <h3>Disclosure</h3>
           <ul class="preview-student_feedback_release-list">
             <For each={evaluation.student_feedback_release}>
-              {(projection) => (
+              {(availability) => (
                 <li>
-                  <strong>{titleCase(projection.moment)}</strong>
+                  <strong>{titleCase(availability.moment)}</strong>
                   <Show
-                    when={projection.kind === "available"}
+                    when={availability.kind === "available"}
                     fallback={<span> Disclosure boundary unavailable.</span>}
                   >
                     <span>
-                      {projection.kind === "available"
-                        ? ` Score ${projection.flags.scoreShown ? "shown" : "withheld"}; correctness ${projection.flags.correctnessShown ? "shown" : "withheld"}; feedback ${projection.flags.feedbackShown ? "shown" : "withheld"}; Question Answer ${projection.flags.questionAnswerShown ? "shown" : "withheld"}; Answer Explanation ${projection.flags.questionAnswerExplanationShown ? "shown" : "withheld"}; statistics ${projection.flags.statisticsShown ? "shown" : "withheld"}.`
+                      {availability.kind === "available"
+                        ? ` Score ${availability.flags.scoreShown ? "shown" : "withheld"}; correctness ${availability.flags.correctnessShown ? "shown" : "withheld"}; feedback ${availability.flags.feedbackShown ? "shown" : "withheld"}; Question Answer ${availability.flags.questionAnswerShown ? "shown" : "withheld"}; Answer Explanation ${availability.flags.questionAnswerExplanationShown ? "shown" : "withheld"}; statistics ${availability.flags.statisticsShown ? "shown" : "withheld"}.`
                         : ""}
                     </span>
                   </Show>

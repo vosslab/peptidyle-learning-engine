@@ -124,7 +124,7 @@ impl Default for StatisticsDisclosurePolicy {
 
 /// Browser-safe anonymous metrics for one immutable published question revision.
 ///
-/// This projection intentionally carries no deployment, Student, enrollment,
+/// This Question Statistics View intentionally carries no deployment, Student, enrollment,
 /// course, assignment, Assignment Attempt, Question Attempt, response, source, or feedback identity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

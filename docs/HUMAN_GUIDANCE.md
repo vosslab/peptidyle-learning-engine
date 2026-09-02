@@ -82,6 +82,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
+- Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
 
 ## Question philosophy
 
@@ -185,6 +186,11 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Student** course data falls under FERPA; treat it as radioactive.
 - Student email addresses are immmutable. Even students who change their legal name do not usually 
 get a new address during the semester and if they did I might just make them create a new account
+- Student Accounts persist across courses and semesters.
+- A Student Account is global and is not owned by or permanently tied to a Course Instance.
+- When an Instructor uploads a roster, PLE uses the institutional email to find an existing Student Account or creates one when none exists.
+- Each course creates its own course-scoped Student Record and enrollment relationship for that Student Account.
+- Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
 
 ## Course observers, student observers, and graders philosophy
 

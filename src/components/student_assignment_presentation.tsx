@@ -28,7 +28,7 @@ export interface StudentAssignmentPresentationDelivery {
  * The answer-free data needed to render an assignment landing surface.
  *
  * This is deliberately independent of route, session, and Assignment Attempt state. The
- * Instructor Student-view projection can provide the same shape without
+ * Instructor Student View can provide the same shape without
  * introducing student identity or mutation capabilities.
  */
 export interface StudentAssignmentPresentationData {
@@ -51,7 +51,7 @@ export interface StudentAssignmentPresentationProps {
   readonly primaryAction: JSX.Element | null;
 }
 
-/** Adapts either answer-free server projection to the shared presentation shape. */
+/** Adapts either answer-free Assignment Overview to the shared presentation shape. */
 export function toStudentAssignmentPresentationData(
   assignment: StudentAssignmentDetail | InstructorStudentView,
 ): StudentAssignmentPresentationData {

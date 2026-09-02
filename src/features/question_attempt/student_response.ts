@@ -1,4 +1,4 @@
-// student_response.ts - key-free display projection of a Student's submitted response.
+// student_response.ts - key-free Student Response Inspection Feedback for a submitted response.
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";

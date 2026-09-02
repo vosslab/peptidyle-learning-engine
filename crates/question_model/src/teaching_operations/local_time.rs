@@ -7,12 +7,12 @@ use crate::{
 
 use super::{AssignmentPolicySource, TeachingPreviewTimeField};
 
-/// Projects a resolved server timestamp for an allowed teaching preview.
+/// Converts a resolved server timestamp for an allowed teaching preview.
 ///
 /// The preview wire contract contains only the resulting course-local wall
 /// clock value. The server remains responsible for resolving policy and for
 /// attaching the course's authoritative IANA zone to the allowed preview.
-pub fn project_teaching_preview_time_field(
+pub fn convert_teaching_preview_time_field(
     value: Option<Timestamp>,
     source: AssignmentPolicySource,
     course_term: &CourseTerm,
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn allowed_preview_carries_course_zone_and_exact_local_projections() {
+    fn allowed_preview_carries_course_zone_and_exact_local_values() {
         let term = chicago_term();
         let timestamp = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
@@ -140,13 +140,13 @@ mod tests {
                 .timestamp_millis()
                 + 123,
         );
-        let available_at = project_teaching_preview_time_field(
+        let available_at = convert_teaching_preview_time_field(
             Some(timestamp),
             base_source(),
             &term,
             AssignmentAuthoredContentField::AvailableAt,
         )
-        .expect("exact course-local projection");
+        .expect("exact course-local value");
         assert_eq!(
             available_at
                 .value
@@ -160,20 +160,20 @@ mod tests {
                 late: TeachingStudentLateWorkStatus::OnTime,
             },
             available_at,
-            due_at: project_teaching_preview_time_field(
+            due_at: convert_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
                 AssignmentAuthoredContentField::DueAt,
             )
-            .expect("empty projection"),
-            closes_at: project_teaching_preview_time_field(
+            .expect("empty value"),
+            closes_at: convert_teaching_preview_time_field(
                 None,
                 base_source(),
                 &term,
                 AssignmentAuthoredContentField::ClosesAt,
             )
-            .expect("empty projection"),
+            .expect("empty value"),
             assignment_attempt_time_limit_seconds: TeachingPreviewLimitField {
                 value: None,
                 source: base_source(),

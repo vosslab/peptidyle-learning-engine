@@ -4,7 +4,7 @@ import type { AssignmentProgress } from "../generated/api/AssignmentProgress";
 
 import { formatPercentScore } from "./score_format";
 
-/** Human-readable aggregate progress from the server's key-free projection. */
+/** Human-readable aggregate progress from the server's key-free Student Assignment Progress. */
 export function studentProgressSummary(progress: AssignmentProgress): string {
   if (progress.assignment_scoring_state === "recalculating")
     return "Scores are recalculating. Recorded work is safe.";

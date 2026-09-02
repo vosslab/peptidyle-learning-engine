@@ -71,13 +71,13 @@ export function AssignmentWorkspaceStudentViewPage(): JSX.Element {
   async function load(): Promise<void> {
     setState({ kind: "loading" });
     try {
-      const projection = await workspace.client.getInstructorStudentView(
+      const studentView = await workspace.client.getInstructorStudentView(
         workspace.courseId,
         workspace.assignmentId,
       );
       setState({
         kind: "ready",
-        assignment: toStudentAssignmentPresentationData(projection),
+        assignment: toStudentAssignmentPresentationData(studentView),
       });
     } catch (error: unknown) {
       setState({ kind: studentViewFailureState(error) });

@@ -336,6 +336,7 @@ pub struct AssignmentSource {
     pub import_revision: CurriculumImportRevision,
 }
 
+/// Browser-safe Course Instance Blueprint Inspection View.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseInstanceBlueprintInspectionView {
@@ -631,7 +632,7 @@ pub struct CopyAssignmentFromBlueprintPreview {
     pub readiness: CopyAssignmentFromBlueprintReadiness,
 }
 
-/// Server-only Assignment import repair projection bound to one immutable receipt.
+/// Server-only Assignment Import Repair Preview bound to one immutable receipt.
 ///
 /// This is not a browser DTO: Store code retains the original import receipt while it
 /// rechecks current derived projections and consumes the matching repair record.
@@ -642,7 +643,7 @@ pub struct AssignmentImportRepairPreview {
 }
 
 impl AssignmentImportRepairPreview {
-    /// Creates a server-held repair projection for exactly one Assignment import.
+    /// Creates a server-held Assignment Import Repair Preview for exactly one Assignment import.
     pub fn new(
         original_import_receipt: AssignmentImportReceipt,
         readiness: AssignmentImportRepairReadiness,

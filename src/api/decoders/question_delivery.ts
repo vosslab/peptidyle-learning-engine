@@ -240,7 +240,7 @@ export function decodeQuestionPresentation(
   return decoded;
 }
 
-/** Decodes the route-only iMathAS Question Backend Transport projection. */
+/** Decodes the route-only iMathAS Question Backend Transport response. */
 export function decodeImathasQuestionBackendLaunch(
   value: unknown,
   path: string,
@@ -388,7 +388,7 @@ export function decodeGradingResult(value: unknown, path: string): GradingResult
 }
 
 /**
- * Decodes the server's already-redacted teaching projection.
+ * Decodes the server's already-redacted Student Feedback.
  *
  * Every field is optional because absence is a security property: a client
  * must reject unknown properties rather than silently retaining iMathAS

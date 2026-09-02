@@ -254,7 +254,7 @@ pub enum InstructorGradingOperationReplayError {
     ReceiptBindingMismatch,
 }
 
-/// Metadata-only public operation projection.
+/// Metadata-only Grading Operation Visible State.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GradingOperationVisibleState {

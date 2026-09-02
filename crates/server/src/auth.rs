@@ -115,7 +115,7 @@ pub struct AuthSessionResponse {
     pub account: AuthAccountResponse,
 }
 
-/// Browser-safe Account projection nested in [`AuthSessionResponse`].
+/// Browser-safe authenticated Account data nested in [`AuthSessionResponse`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthAccountResponse {

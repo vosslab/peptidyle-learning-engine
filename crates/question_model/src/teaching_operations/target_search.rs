@@ -14,7 +14,7 @@ pub const MIN_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS: usize = 2;
 /// Discovery input is intentionally shorter than a display label.
 pub const MAX_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS: usize = 100;
 
-/// Safe current account projection.
+/// Safe current Teaching Account View.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TeachingAccountView {

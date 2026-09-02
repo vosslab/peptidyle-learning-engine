@@ -27,7 +27,7 @@ pub enum RenderedResponseTranslationError {
 
 /// A closed rendering of one immutable submitted Student Response.
 ///
-/// This is deliberately a closed projection.  It contains only the Student's
+/// This deliberately closed Student Response Inspection Feedback contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;
 /// answer keys, grader material, durable Object Addresses, and Question Backend
 /// payloads
@@ -309,7 +309,7 @@ pub fn project_durable_response_to_rendered(
 }
 
 /// Validates an immutable browser-submitted response against its exact issued
-/// presentation and returns the safe inspection projection for that issue.
+/// presentation and returns the safe Student Response Inspection Feedback for that issue.
 ///
 /// Accepted-submission storage preserves the browser contract verbatim. The
 /// inspection boundary validates each identifier against the reconstructed

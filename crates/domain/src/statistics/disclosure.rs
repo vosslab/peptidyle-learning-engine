@@ -1,6 +1,6 @@
 //! Browser-safe statistics disclosure.
 //!
-//! This module is the sole owner of the public projection.  Aggregation stays
+//! This module is the sole owner of the public Question Statistics View. Aggregation stays
 //! server-only until the configured k-anonymity threshold is met.
 
 use question_model::{

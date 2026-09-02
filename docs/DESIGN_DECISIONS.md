@@ -551,30 +551,34 @@ network boundaries, backups, and managed recovery controls.
 
 ### Enrollment is course-level
 
-**Decision.** One opaque PLE Account UUID names a Student's Account across courses. A Student
-Record belongs to exactly one Student Account and Course Instance. Course Enrollment creates a
-Student Course Membership episode bound to that stable Student Record; re-enrollment creates a
-new membership episode bound to the existing record.
+**Decision.** One opaque PLE Account UUID names a global Student Account across courses and
+semesters. Its institutional email is immutable for the lifetime of that Student Account. A
+Student Record belongs to exactly one Student Account and Course Instance. Course Enrollment
+creates a Student Course Membership episode bound to that stable Student Record; re-enrollment
+creates a new membership episode bound to the existing record.
 An Assignment Attempt directly binds that Student Record to one Assignment. An Assignment Grade
 binds the same pair and selects its contributing Assignment Attempt. Assignment lists and empty
 activity states are derived from Active Student Course Membership, Assignment Status, and
 effective access rules.
 
-**Why.** A Student should retain one PLE account across courses. Course-scoped authorization,
-Student ownership, and RLS control disclosure more reliably than pretending the same
-person is a different identity in every class. Verified email is the mutable canonical sign-in
-attribute, not the identity key; passkeys are optional convenience credentials for that account.
+**Why.** A Student retains one global PLE Account across courses and semesters. The Account UUID
+is the stable identity, and its immutable institutional email supplies passwordless sign-in and
+Course Roster Import matching. Course-scoped authorization, Student ownership, and RLS control
+disclosure through separate Student Records and Student Course Memberships. Passkeys are optional
+convenience credentials for that Account.
 
-**Consequence.** An Instructor creates a pending invitation with protected course-scoped roster
-metadata, then shares its one-time copy link through an existing trusted LMS or uses configured
-SMTP. After the Student completes email authentication and claims the invitation, PLE resolves or
-creates the Student Record and creates the exact Course Membership binding atomically. An authorized
-pre-activity Assignment read returns
+**Consequence.** Course Roster Import uses each institutional email to resolve an existing Student
+Account or create one when none exists, then creates a pending Course Invitation bound to that
+Account and the exact Course Instance. The Instructor shares its one-time copy link through an
+existing trusted LMS or uses configured SMTP. After the Student authenticates and accepts the
+invitation, Course Enrollment creates or reuses the Course Instance's Student Record and creates
+the exact Student Course Membership binding atomically. An authorized pre-activity Assignment read returns
 an empty activity projection. Starting an Assignment Attempt creates the direct Student
 Record-to-Assignment activity relationship transactionally; calculating a Grade creates its exact
 grade record. New Assignments add definitions, while Student rows appear with actual Student work.
-The retention workflow preserves existing education records after access ends. Server-issued
-evidence establishes every Account, Course Membership, Student Record, and invitation claim.
+Student Work Records and Grades follow the Course Retention Plan independently of the Student
+Account's lifetime. Server-issued evidence establishes every Account, Course Membership, Student
+Record, and invitation claim.
 **Owner.** [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md),
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
 `crates/learning-data-access` and `crates/server/src/course/`.
@@ -591,6 +595,9 @@ role. A person needing multiple roles uses separate accounts; Dr. Voss may use s
 and Sysadmin accounts. Instructor Vetting is real-person validation before Account Creation, and teaching requires
 direct Instructor membership. A Sysadmin creates a Course Instance only for an explicitly assigned
 active Instructor account, which receives the initial membership; the Sysadmin receives none.
+An Instructor may replace the Instructor Authentication Email after verifying the new address; the
+same Instructor Account retains its Product Role, Question authorship and ownership, Authoring
+Workspace relationships, Course Memberships, authored content, and teaching history.
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
 Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
 public-asset publisher is a service identity, not a person. Every active Instructor has the same

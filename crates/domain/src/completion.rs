@@ -1,6 +1,6 @@
 //! Derived within-Assignment-Attempt completion.
 //!
-//! Completion is a projection over current required-question states, never a
+//! Completion derives from current required-question states, never a
 //! stored boolean. A stored flag could disagree with the attempts that
 //! produced it; deriving the value keeps those states inseparable.
 
@@ -10,7 +10,7 @@ use crate::assignment_activity::{AssignmentActivityError, validate_fraction};
 
 /// Current state of one required question within an Assignment Attempt.
 ///
-/// This is a projection of its attempts, not another persisted completion
+/// This derives from its attempts, not another persisted completion
 /// flag. The current response may change while retries remain available.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RequiredQuestionState {

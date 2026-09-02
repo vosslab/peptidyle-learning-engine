@@ -3,7 +3,7 @@
 //! The Store owns route locators and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
 //! module only the already-resolved S5/S3 facts. Evaluation borrows those facts
-//! and returns an owned, closed browser projection.
+//! and returns an owned, closed Assignment Release Validation.
 
 use question_model::{
     ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,

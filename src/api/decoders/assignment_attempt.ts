@@ -436,7 +436,7 @@ export function decodeAssignmentProgressRecord(
 }
 
 /**
- * Decodes the Student-only aggregate projection. Unlike the storage summary,
+ * Decodes the Student-only Student Assignment Progress. Unlike the storage summary,
  * this exact wire contract has no account or enrollment identifiers and sends no
  * score totals unless the current assignment settings permit their disclosure.
  */

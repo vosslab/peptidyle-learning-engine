@@ -23,7 +23,7 @@ mod student_memberships;
 mod target_search;
 
 pub use assignment_policy_source::AssignmentPolicySource;
-pub use local_time::{project_teaching_preview_time_field, resolve_teaching_local_time};
+pub use local_time::{convert_teaching_preview_time_field, resolve_teaching_local_time};
 pub use modifier_revision_response::TeachingOperationRevisionResponse;
 pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
@@ -168,7 +168,7 @@ pub struct MembershipPageRequest {
     pub size: TeachingPageSize,
 }
 
-/// Browser projection of one course membership; email and UUID are absent by type.
+/// Browser-safe Student Membership View; email and UUID are absent by type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentMembershipView {
@@ -559,7 +559,7 @@ pub struct RetentionNotificationView {
     pub copy: String,
 }
 
-/// Closed notification intent from the existing retention projection.
+/// Closed Course Retention Notice intent from the existing retention read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RetentionNotificationIntentView {

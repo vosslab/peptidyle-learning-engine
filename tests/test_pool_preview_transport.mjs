@@ -40,7 +40,7 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
   });
 }
 
-test("pool preview decoder accepts only the safe closed server projection", () => {
+test("pool preview decoder accepts only the safe closed Instructor Question Pool Preview", () => {
   const response = previewResponse();
   assert.deepEqual(decodeQuestionPoolPreview(response), response);
   assert.deepEqual(decodeQuestionPoolPreviewRequest({ assignmentEntryId }), { assignmentEntryId });

@@ -127,7 +127,7 @@ pub struct AssignmentGrade {
 }
 
 impl AssignmentAttempt {
-    /// Returns the completion state recorded by the authoritative Assignment Attempt projection.
+    /// Returns the completion state recorded by the authoritative Assignment Attempt.
     pub fn completion(&self) -> AssignmentAttemptCompletion {
         if self.completed_at.is_some() {
             AssignmentAttemptCompletion::Completed
@@ -481,9 +481,9 @@ impl From<&QuestionAttempt> for StudentQuestionAttemptView {
     }
 }
 
-/// Compact projection read by course pages and the gradebook.
+/// Compact Assignment Progress Record read by course pages and the Gradebook.
 ///
-/// Historical Assignment Attempts remain separate. Updating this projection from the same
+/// Historical Assignment Attempts remain separate. Updating this Assignment Progress Record from the same
 /// Assignment Attempt transition lets storage commit the history and summary atomically.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -522,11 +522,11 @@ pub enum AssignmentProgressScoreState {
     Available,
 }
 
-/// Key-free Student projection of an assignment's aggregate progress.
+/// Key-free Student Assignment Progress for an assignment's aggregate progress.
 ///
 /// It deliberately excludes the Student Record and Assignment identifiers
 /// carried by [`AssignmentProgressRecord`]. Browser routes use this type instead of the
-/// storage projection so score totals are omitted while withheld.
+/// storage Assignment Progress Record so score totals are omitted while withheld.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AssignmentProgress {
@@ -548,7 +548,7 @@ pub struct AssignmentProgress {
     /// Latest server-recorded activity time, if any.
     pub last_activity_at: Option<Timestamp>,
     /// Current anonymous class statistics when the assignment policy permits
-    /// their disclosure. Absent means the server withholds this projection.
+    /// their disclosure. Absent means the server withholds this Question Statistics View.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub class_statistics: Option<crate::StudentClassStatistics>,
 }

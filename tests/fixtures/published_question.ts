@@ -1,4 +1,4 @@
-// Browser-facing projection of the approved cross-layer Question fixture.
+// Browser-facing Question Details for the approved cross-layer Question fixture.
 //
 // The stored JSON remains the single source for Question, Course, Assignment,
 // and attempt data. This module only supplies browser test names for the same

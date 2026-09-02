@@ -53,7 +53,7 @@ export type GradebookPageSelectionState =
       readonly moreError: boolean;
     };
 
-/** All data visible to the Gradebook JSX comes through this closed page projection. */
+/** All data visible to the Gradebook JSX comes through this closed Gradebook Summary Row. */
 export interface GradebookPageState {
   readonly route: GradebookRouteSearchResult;
   readonly gradebook: GradebookPageGradebookState;

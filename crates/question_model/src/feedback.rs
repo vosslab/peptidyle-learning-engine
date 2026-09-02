@@ -42,7 +42,7 @@ impl QuestionAnswer {
         (!content.is_empty()).then_some(Self { content })
     }
 
-    /// Returns the display-ready content for an authorized release projection.
+    /// Returns the display-ready Question Answer content after authorized release.
     pub fn content(&self) -> &[QuestionContentBlock] {
         &self.content
     }
@@ -60,7 +60,7 @@ impl QuestionAnswerExplanation {
         (!content.is_empty()).then_some(Self { content })
     }
 
-    /// Returns the display-ready content for an authorized release projection.
+    /// Returns the display-ready Question Answer Explanation content after authorized release.
     pub fn content(&self) -> &[QuestionContentBlock] {
         &self.content
     }
@@ -123,7 +123,7 @@ pub struct StudentFeedback {
 }
 
 impl StudentFeedback {
-    /// Makes the empty public projection used only for an unlocked ungraded
+    /// Makes the empty Student Feedback used only for an unlocked ungraded
     /// backend response. Graded paths populate the permitted result fields.
     pub fn empty() -> Self {
         Self {
@@ -158,7 +158,7 @@ pub struct StudentResponseInspectionFeedback {
 }
 
 impl StudentResponseInspectionFeedback {
-    /// Returns the no-score/no-correctness inspection projection.
+    /// Returns the no-score/no-correctness Student Response Inspection Feedback.
     pub const fn empty() -> Self {
         Self {
             correctness: None,

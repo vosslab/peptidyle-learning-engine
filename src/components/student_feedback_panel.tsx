@@ -194,7 +194,7 @@ function scrollNewStudentFeedbackIntoView(heading: HTMLHeadingElement): void {
 }
 
 /**
- * Displays only the server-redacted DTO and an optional public student-response projection.
+ * Displays only the server-redacted DTO and optional public Student Response Inspection Feedback.
  * It has no grading, policy, question-definition, answer-key, or raw-response dependencies.
  */
 export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Element {

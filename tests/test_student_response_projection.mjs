@@ -18,7 +18,7 @@ const envelope = {
   },
 };
 
-test("Student response projection uses only public choice bodies and rejects mismatches", () => {
+test("Student Response Inspection Feedback uses only public choice bodies and rejects mismatches", () => {
   assert.deepEqual(projectStudentResponse(envelope, { kind: "multipleChoice", selected: ["b"] }), [
     { kind: "text", markdown: "Visible B" },
   ]);

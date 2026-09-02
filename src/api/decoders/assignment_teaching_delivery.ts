@@ -269,7 +269,7 @@ export function decodeStudentAssignmentDetail(
   };
 }
 
-/** Decodes the deliberately identity-free Instructor Student-view projection. */
+/** Decodes the deliberately identity-free Instructor Student View. */
 export function decodeInstructorStudentView(
   value: unknown,
   path = "response",

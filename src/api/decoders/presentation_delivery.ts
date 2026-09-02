@@ -1,4 +1,4 @@
-// Strict student-presentation decoding and key-free response-widget projection.
+// Strict Student Question Attempt View decoding and key-free response-widget translation.
 
 import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
 import type { HotspotRegion } from "../../../generated/api/HotspotRegion";

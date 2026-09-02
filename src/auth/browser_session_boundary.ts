@@ -9,7 +9,7 @@ export interface BrowserSessionBoundary {
 
 /**
  * Keeps requests and router query entries inside the session generation that
- * created them. Advancing aborts the old generation before cached projections
+ * created them. Advancing aborts the old generation before cached router query data
  * are discarded, so its late responses cannot become another account's data.
  */
 export function createBrowserSessionBoundary(

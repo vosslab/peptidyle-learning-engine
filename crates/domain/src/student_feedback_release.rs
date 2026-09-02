@@ -15,7 +15,7 @@ use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssi
 
 /// The six independently evaluated Student Feedback Release fields.
 ///
-/// A caller uses these booleans to omit protected fields from a projection;
+/// A caller uses these booleans to omit protected fields from Student Feedback;
 /// this type contains no protected content itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StudentFeedbackReleaseDecision {

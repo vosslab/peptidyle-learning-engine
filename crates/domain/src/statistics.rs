@@ -1,7 +1,7 @@
 //! Retention-safe anonymous question-statistics facade.
 //!
 //! Aggregation keeps server-only sufficient statistics; disclosure owns the
-//! k-anonymity-gated browser projection.  This facade preserves the stable
+//! k-anonymity-gated Question Statistics View. This facade preserves the stable
 //! `domain::statistics` public API while keeping those capabilities separate.
 
 mod aggregation;

@@ -74,7 +74,7 @@ export interface SubmissionAcknowledgement {
   readonly nextIssued: GradedQuestionSubmissionReceipt["nextIssued"];
   /** Receipt state that keeps feedback visible while successor issuance recovers. */
   readonly nextPending: GradedQuestionSubmissionReceipt["nextPending"];
-  /** Currentness of the server-owned score projection. */
+  /** Currentness of the server-owned Assignment Progress Record. */
   readonly assignmentScoringState: GradedQuestionSubmissionReceipt["assignmentScoringState"];
 }
 

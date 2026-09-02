@@ -173,7 +173,7 @@ impl std::fmt::Display for CourseLocalDateAndTimeError {
 
 impl std::error::Error for CourseLocalDateAndTimeError {}
 
-/// Browser-facing Instructor projection of one Assignment-authored content.
+/// Browser-facing Instructor Assignment Authored Content Local.
 ///
 /// This is an edit/display boundary only. It contains local strings plus the
 /// course-owned IANA zone so a browser never consults its own machine zone.
@@ -203,7 +203,7 @@ pub struct InstructorAssignmentAuthoredContentLocal {
 }
 
 impl InstructorAssignmentAuthoredContentLocal {
-    /// Builds a browser projection after validating limits and local ordering.
+    /// Builds the browser value after validating limits and local ordering.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         time_zone: CourseTimeZone,

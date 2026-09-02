@@ -139,7 +139,7 @@ pub struct AssignmentSummary {
 ///
 /// The ordinary student detail and an Instructor's stable-identity Student
 /// view use distinct envelopes, but they describe the same landing material.
-/// Routes build this projection once from the authoritative Assignment Content and
+/// Routes build this Assignment Overview once from the authoritative Assignment Content and
 /// then use their role-appropriate envelope constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -162,7 +162,7 @@ pub struct AssignmentOverview {
 
 /// Student-safe Assignment Content.
 ///
-/// This projection deliberately omits course identities, Assignment Attempt and
+/// This Student Assignment Landing Summary deliberately omits course identities, Assignment Attempt and
 /// disclosure policy, and other server authority inputs. Student routes use
 /// it instead of [`AssignmentSummary`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -270,7 +270,7 @@ impl StudentAssignmentDetail {
 /// One compact gradebook row for a Student Record and Assignment.
 ///
 /// The row comes only from the course-owned assignment, Student Record, and
-/// `AssignmentProgressRecord` projection. It carries no Assignment Attempt
+/// `AssignmentProgressRecord`. It carries no Assignment Attempt
 /// history, so continued practice cannot make the default gradebook slower.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -285,7 +285,7 @@ pub struct GradebookSummaryRow {
     pub assignment_id: AssignmentId,
     /// Human-facing assignment title from the assignment record.
     pub assignment_title: AssignmentTitle,
-    /// Transactionally maintained compact activity and score projection.
+    /// Transactionally maintained compact Assignment Progress Record.
     pub summary: AssignmentProgressRecord,
     /// Current visibility and freshness of assignment scores.
     pub assignment_scoring_state: AssignmentScoringState,

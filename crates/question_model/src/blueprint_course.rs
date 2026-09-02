@@ -300,7 +300,7 @@ pub enum ReusableSelectionAvailability {
     Retained,
 }
 
-/// Current answer-free discovery projection of one reusable question member.
+/// Current answer-free Reusable Question View.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableQuestionView {
@@ -310,7 +310,7 @@ pub struct ReusableQuestionView {
     pub selection_availability: ReusableSelectionAvailability,
 }
 
-/// Current answer-free Question Pool Item projection in stored item order.
+/// Current answer-free Reusable Pool Entry View in stored item order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolEntryView {
@@ -320,7 +320,7 @@ pub struct ReusablePoolEntryView {
     pub selection_availability: ReusableSelectionAvailability,
 }
 
-/// Current answer-free reusable pool projection.
+/// Current answer-free Reusable Pool View.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
@@ -342,7 +342,7 @@ pub struct ReusablePoolView {
 pub enum BlueprintAssignmentEntryView {
     /// One fixed question in content order.
     Fixed {
-        /// Current answer-free question projection.
+        /// Current answer-free Reusable Question View.
         question: Box<ReusableQuestionView>,
         /// Points copied into the future fixed item.
         points_possible: AssignmentPointValue,
@@ -451,7 +451,7 @@ pub enum BlueprintCourseAccess {
     ActiveInstructor,
 }
 
-/// Safe compact current projection of one BlueprintCourse.
+/// Safe compact current Blueprint Course Summary View.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseSummaryView {
@@ -465,7 +465,7 @@ pub struct BlueprintCourseSummaryView {
     pub access: BlueprintCourseAccess,
 }
 
-/// Safe current projection of one complete BlueprintCourse tree.
+/// Safe current Blueprint Course View of one complete BlueprintCourse tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseView {
@@ -762,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn blueprint_projection_serializes_answer_free_question_library_rows_and_edit_handles() {
+    fn blueprint_course_view_serializes_answer_free_question_library_rows_and_edit_handles() {
         let view = BlueprintCourseView {
             reference: "BP-12".parse().expect("valid reference"),
             title: "Biochemistry Blueprint".to_string(),
@@ -791,7 +791,7 @@ mod tests {
                 }],
             }],
         };
-        let wire = serde_json::to_value(view).expect("safe projection serializes");
+        let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["reference"], "BP-12");
         assert_eq!(
             wire["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],

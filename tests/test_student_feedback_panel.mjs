@@ -1,4 +1,4 @@
-// test_student_feedback_panel.mjs - permanent server-projection behavior checks for Student Feedback UI.
+// test_student_feedback_panel.mjs - permanent server-View behavior checks for Student Feedback UI.
 
 import assert from "node:assert/strict";
 import test from "node:test";

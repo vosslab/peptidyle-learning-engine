@@ -72,7 +72,7 @@ export interface CourseRouteView {
 }
 
 /**
- * The instructor-only editable projection of a course-owned assignment.
+ * The instructor-only editable Instructor Assignment Authored Content Local.
  *
  * This intentionally carries immutable published references rather than
  * complete Question Revisions: authoring an assignment never transfers question
@@ -82,7 +82,7 @@ export interface CourseRouteView {
 export interface AssignmentEditorDetail extends AssignmentSummary {
   /** Stable Assignment Status; release selection stays outside editable content. */
   readonly assignmentStatus: AssignmentStatus;
-  /** Course-local instructor projection; the server owns time-zone resolution. */
+  /** Course-local Instructor Assignment Authored Content Local; the server owns time-zone resolution. */
   readonly assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal;
   /** Server-derived Assignment Availability View at the response's authoritative instant. */
   readonly assignmentAvailability: InstructorAssignmentAvailabilityView;
@@ -177,7 +177,7 @@ export interface SignedOutResponse {
   readonly authenticated: false;
 }
 
-/** Student attempt projection with the current server-owned score freshness gate. */
+/** Student Question Attempt View with the current server-owned score freshness gate. */
 export interface StudentQuestionAttempt extends StudentQuestionAttemptView {
   readonly assignmentScoringState: AssignmentScoringState;
   /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
@@ -279,7 +279,7 @@ export interface AssignmentAttemptSummaryOutcome {
   readonly assignmentScoringState: AssignmentScoringState;
 }
 
-/** Current server projection; it never includes a question key, result, or release policy. */
+/** Current Student Question Attempt View; it never includes a question key, result, or release policy. */
 export interface AssignmentAttemptSummaryResponse {
   readonly course: CourseRouteView;
   readonly assignmentAttempt: AssignmentAttempt;
@@ -398,7 +398,7 @@ export interface ImathasQuestionBackendLaunch {
 /** Everything the reference Assignment Attempt screen needs from one cached query. */
 export interface AssignmentAttemptScreenData {
   readonly course: CourseRouteView;
-  /** Student-safe assignment projection; no policy or ownership inputs. */
+  /** Student-safe Student Assignment Landing Summary; no policy or ownership inputs. */
   readonly assignment: StudentAssignmentLandingSummary;
   readonly assignmentAttempt: AssignmentAttempt;
   readonly attempt: StudentQuestionAttempt;

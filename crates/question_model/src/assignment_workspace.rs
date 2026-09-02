@@ -156,7 +156,7 @@ pub enum AssignmentReleaseIssue {
 /// Server-derived release validation for the current Assignment.
 ///
 /// An empty issue list means the Assignment Content has the currently known minimum
-/// conditions for publication. This is intentionally a projection rather than
+/// conditions for publication. This Assignment Release Validation is intentionally derived rather than
 /// a second persisted state, so future closed blockers can extend it without
 /// changing the assignment aggregate.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,7 +166,7 @@ pub struct AssignmentReleaseValidation {
     pub blocking_issues: Vec<AssignmentReleaseIssue>,
 }
 
-/// Answer-free, non-mutating student landing projection for an Instructor's
+/// Answer-free, non-mutating Instructor Student View for an Instructor's
 /// stable-identity Student view.  It deliberately omits assignment, item,
 /// question, Assignment Attempt, and Question Attempt identities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

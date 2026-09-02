@@ -1,4 +1,4 @@
-//! Validated Blueprint Revision Content and target-term schedule projection.
+//! Validated Blueprint Revision Content and target-term schedule resolution.
 
 use std::collections::BTreeSet;
 use std::num::NonZeroU64;

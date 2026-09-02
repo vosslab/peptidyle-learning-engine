@@ -1,4 +1,4 @@
-// Strict browser decoder for the Instructor assignment workspace projection.
+// Strict browser decoder for Instructor Assignment Authored Content Local.
 
 import type { SuccessorAssignmentRevisionRequired } from "../../../generated/api/SuccessorAssignmentRevisionRequired";
 import type { AssignmentReleaseValidation } from "../../../generated/api/AssignmentReleaseValidation";
@@ -18,7 +18,7 @@ import {
 } from "./shared";
 
 /**
- * Decodes the Assignment editor's deliberately narrow editable Assignment projection.
+ * Decodes the Assignment editor's deliberately narrow editable Instructor Assignment Authored Content Local.
  * It never carries question source material or other server-only policy.
  */
 export function decodeAssignmentEditorDetail(

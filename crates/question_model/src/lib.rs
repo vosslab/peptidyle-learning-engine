@@ -278,5 +278,5 @@ pub use crate::teaching_operations::{
     TeachingPreviewAssignmentDeadlineRuleField, TeachingPreviewDenialReason,
     TeachingPreviewLateWorkRuleField, TeachingPreviewLimitField, TeachingPreviewTimeField,
     TeachingPreviewView, TeachingStudentLateWorkStatus, TeachingTimeFieldPatch,
-    project_teaching_preview_time_field, resolve_teaching_local_time,
+    convert_teaching_preview_time_field, resolve_teaching_local_time,
 };

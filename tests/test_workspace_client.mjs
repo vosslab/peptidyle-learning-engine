@@ -29,7 +29,7 @@ function jsonResponse(value, options = {}) {
   });
 }
 
-function semanticProjection(definition) {
+function questionPublicationReviewCurrent(definition) {
   const response = definition.response;
   const optionCount =
     response.kind === "multipleChoice"
@@ -57,7 +57,7 @@ function semanticProjection(definition) {
 }
 
 test("Question Publication Review admits only safe review summaries and a consistent base", () => {
-  const current = semanticProjection(draft);
+  const current = questionPublicationReviewCurrent(draft);
   const first = {
     draftQuestionRevisionNumber: 1,
     baseQuestion: "newQuestion",
@@ -92,7 +92,7 @@ test("publication transport uses a bodyless validation request and explicit Ques
           {
             draftQuestionRevisionNumber: 1,
             baseQuestion: "newQuestion",
-            current: semanticProjection(draft),
+            current: questionPublicationReviewCurrent(draft),
             changed: [],
           },
           { headers: { etag: '"1"' } },
@@ -212,7 +212,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
         {
           draftQuestionRevisionNumber: 2,
           baseQuestion: "newQuestion",
-          current: semanticProjection(draft),
+          current: questionPublicationReviewCurrent(draft),
           changed: [],
         },
         { headers: { etag: '"1"' } },

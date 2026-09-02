@@ -493,7 +493,7 @@ function AttemptExperience(props: {
   const currentEnvelope = (): QuestionVariationPresentation =>
     currentState()?.envelope ?? screen().issuedQuestion;
   // A cache-hit advance has a server-issued descriptor and envelope but not a
-  // complete AssignmentAttemptScreenData record. Keep student-response projection bound to
+  // complete AssignmentAttemptScreenData record. Keep Student Response Inspection Feedback bound to
   // the attempt state, which is advanced atomically with that descriptor.
   const currentAttemptId = (): string => currentState()?.context.attemptId ?? screen().attempt.id;
 

@@ -99,8 +99,21 @@ it owns.
 **Account** is one global login identity in the single PLE installation. Account creation assigns one immutable **Product Role**: **Student**, **Instructor**, or **Sysadmin**.
 **Account State** derives from immutable Account State Events: Active, Deactivated, or Closed. Deactivated is reversible: it disables access while preserving Product Role, authored content, ownership, Course relationships, Student records, and teaching history. Closed is terminal.
 
+**Student Account** is the global Account with the Student Product Role. It
+persists across courses and semesters and belongs to no Course Instance. Its
+**Student Authentication Email** is the immutable institutional email used for
+passwordless sign-in and Course Roster Import matching. Course Roster Import
+resolves the normalized email to an existing Student Account or creates one
+when none exists. PLE treats a different institutional email as a different
+Student Account.
+
 **Instructor Vetting** is the Sysadmin's real-person review before Account creation. **Create Instructor Account** then accepts a normalized email address and creates one Active Account with the immutable Instructor Product Role.
 **Instructor Accounts** is the Sysadmin surface for creating and managing those Accounts. Account State is the complete later enablement lifecycle. An **Active Instructor Account** has the Instructor Product Role and Active Account State.
+An **Instructor Authentication Email** is the mutable verified email used for
+passwordless sign-in to that persistent Instructor Account. A verified email
+change preserves the Instructor Account, Product Role, Question authorship and
+ownership, Authoring Workspace relationships, Course Memberships, authored
+content, and teaching history when the Instructor changes institutions.
 
 **Last Successful Sign-In** is the time of the most recent successful credential verification that created or continued an Authenticated Session. The Instructor Accounts surface shows it as evidence for a Sysadmin's deactivation decision; it is not an Account State or a source of authority.
 **Deactivate Instructor Account** and **Reactivate Instructor Account** are Sysadmin operations that append the corresponding Account State Event. Deactivation revokes current sessions.
@@ -264,7 +277,10 @@ provide self-enrollment or Account Creation authority.
 **Student Record** is the stable educational record for one Student Account in
 one Course Instance. A Student Course Membership binds to that Student Record.
 Re-enrollment starts another membership episode while retaining the same
-Student Record and course history.
+Student Record and course history. Course Enrollment creates or reuses these
+course-scoped relationships after Course Roster Import resolves the global
+Student Account. Student Work Records and Grades follow the Course Retention
+Plan independently of the Student Account's lifetime.
 
 **Course Observer Relationship** is a separately governed, answer-free,
 identity-free, read-only relationship to one Course Instance. It is not a
