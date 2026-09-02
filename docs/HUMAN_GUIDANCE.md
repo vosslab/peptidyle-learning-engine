@@ -91,8 +91,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
 - Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
-- WeBWorK and iMathAS are PLE-managed Question Backends. Use Remote Question
-  Backend for a server-managed remote operation.
+- WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
+  backend-specific terms when a concrete implementation or lifecycle matters.
 - **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`. where the final character is a checksum.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
 - **Published Questions** should have a limit on the amount of change allowed, to avoid trolling or completely changing the content.
@@ -101,6 +101,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Full forks create a separate **Draft Question** with its own authorship while maintaining the source question's CC licensing and attribution.
 - Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the library as a **Published Question**.
 - Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
+- feedback for individual questions will be optional for question writers, so I do not expect many students to read it
 
 ## Question library philosophy
 
