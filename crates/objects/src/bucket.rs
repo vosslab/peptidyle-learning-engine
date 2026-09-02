@@ -110,19 +110,6 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// A logical asset authored directly for a private workspace question.
-    ///
-    /// This private-content object is intentionally distinct from
-    /// [`Self::WorkspaceImportAsset`]: it has no Workspace Import relationship and is never a
-    /// Question Library asset or direct delivery.
-    WorkspaceQuestionAsset {
-        /// Private authoring workspace.
-        workspace: WorkspaceId,
-        /// Logical asset referenced by a workspace question.
-        asset: QuestionAssetId,
-        /// Physical object-record identity.
-        object: ObjectId,
-    },
     /// An original source package for a published version.
     QuestionSource {
         /// Exact immutable Question Revision that owns the source.
@@ -216,7 +203,6 @@ impl ObjectAddress {
             Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. }
-            | Self::WorkspaceQuestionAsset { .. }
             | Self::QuestionSource { .. }
             | Self::PublishedImportArchive { .. }
             | Self::RestrictedQuestionAsset { .. }
@@ -234,8 +220,7 @@ impl ObjectAddress {
         match self {
             Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
-            | Self::WorkspaceImportAsset { .. }
-            | Self::WorkspaceQuestionAsset { .. } => ObjectDataClass::AuthoringContent,
+            | Self::WorkspaceImportAsset { .. } => ObjectDataClass::AuthoringContent,
             Self::QuestionSource { .. } | Self::PublishedImportArchive { .. } => {
                 ObjectDataClass::QuestionSource
             }
@@ -272,11 +257,6 @@ impl ObjectAddress {
             } => {
                 format!("workspaces/{workspace}/imports/{import}/assets/{asset}/{object}")
             }
-            Self::WorkspaceQuestionAsset {
-                workspace,
-                asset,
-                object,
-            } => format!("workspaces/{workspace}/questions/assets/{asset}/{object}"),
             Self::QuestionSource {
                 question_revision,
                 object,
@@ -340,7 +320,6 @@ impl ObjectAddress {
             Self::WorkspaceImportSource { object, .. }
             | Self::WorkspaceQuestionSource { object, .. }
             | Self::WorkspaceImportAsset { object, .. }
-            | Self::WorkspaceQuestionAsset { object, .. }
             | Self::QuestionSource { object, .. }
             | Self::PublishedImportArchive { object, .. }
             | Self::QuestionAsset { object, .. }
@@ -376,7 +355,6 @@ impl ObjectAddress {
             Self::WorkspaceImportSource { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. }
-            | Self::WorkspaceQuestionAsset { .. }
             | Self::CourseBannerUpload { .. }
             | Self::CourseBanner { .. }
             | Self::StudentRecord { .. }
@@ -555,11 +533,6 @@ mod tests {
             ObjectAddress::WorkspaceImportSource {
                 workspace,
                 import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
-                object,
-            },
-            ObjectAddress::WorkspaceQuestionAsset {
-                workspace,
-                asset: QuestionAssetId::from_uuid(Uuid::from_u128(8)),
                 object,
             },
             ObjectAddress::QuestionSource {

@@ -2,14 +2,9 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import { PleQuestionJsonChoiceList } from "./question_json_choice_list";
 import { PleQuestionJsonMatchingEditor } from "./question_json_matching_editor";
 import { PleQuestionJsonAdvancedResponseFields } from "./question_json_advanced_response_fields";
-import type {
-  PleQuestionJsonAssetClient,
-  PleQuestionJsonAssetDescriptor,
-} from "./question_json_asset_client";
 import {
   addChoice,
   addMatchingPair,
@@ -23,10 +18,7 @@ import {
   setMatchingItemText,
   setMatchingPair,
 } from "./question_json_editor_model";
-import type {
-  PleQuestionJsonHotspotResponse,
-  PleQuestionJsonDocument,
-} from "./question_json_source";
+import type { PleQuestionJsonDocument } from "./question_json_source";
 
 function singleChoiceResponse(
   source: PleQuestionJsonDocument,
@@ -64,14 +56,6 @@ export function PleQuestionJsonResponseFields(props: {
   readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
   readonly onStatus: (message: string) => void;
   readonly selectedKind: () => PleQuestionJsonDocument["response"]["kind"];
-  readonly hotspotResponse: () => PleQuestionJsonHotspotResponse | null;
-  readonly pendingHotspotDescription: () => string;
-  readonly assetClient: PleQuestionJsonAssetClient | undefined;
-  readonly workspace: WorkspaceId;
-  readonly onChooseHotspot: () => void;
-  readonly onSelectHotspotAsset: (asset: PleQuestionJsonAssetDescriptor) => void;
-  readonly onPendingHotspotDescriptionChange: (description: string) => void;
-  readonly onChooseOrdinaryFormat: () => void;
 }): JSX.Element {
   const responseKind = props.selectedKind;
 
@@ -90,10 +74,7 @@ export function PleQuestionJsonResponseFields(props: {
           disabled={props.disabled}
           onChange={(event) => {
             const kind = event.currentTarget.value;
-            if (isEditableResponseKind(kind)) {
-              props.onChooseOrdinaryFormat();
-              chooseFormat(kind);
-            } else if (kind === "hotspot") props.onChooseHotspot();
+            if (isEditableResponseKind(kind)) chooseFormat(kind);
           }}
         >
           <option value="singleChoice">Multiple choice (one answer)</option>
@@ -103,11 +84,10 @@ export function PleQuestionJsonResponseFields(props: {
           <option value="numeric">Numerical entry</option>
           <option value="matching">Matching pairs</option>
           <option value="ordering">Ordered list</option>
-          <option value="hotspot">Image hotspot</option>
         </select>
         <span class="ple-question-json-authoring__help">
           Choose the student task first. Changing the format starts a valid private draft for that
-          format. Image hotspot starts with a verified image and student-facing description.
+          format.
         </span>
       </label>
       <Show when={responseKind() === "singleChoice"}>
@@ -198,12 +178,6 @@ export function PleQuestionJsonResponseFields(props: {
         onEdit={props.onEdit}
         onStatus={props.onStatus}
         selectedKind={responseKind}
-        hotspotResponse={props.hotspotResponse}
-        pendingHotspotDescription={props.pendingHotspotDescription}
-        assetClient={props.assetClient}
-        workspace={props.workspace}
-        onSelectHotspotAsset={props.onSelectHotspotAsset}
-        onPendingHotspotDescriptionChange={props.onPendingHotspotDescriptionChange}
       />
     </>
   );

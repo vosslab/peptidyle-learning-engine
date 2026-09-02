@@ -6,7 +6,6 @@ import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
 import { PleQuestionJsonFeedbackFields } from "./question_json_feedback_fields";
 import { PleQuestionJsonHintField } from "./question_json_hint_field";
-import { hotspotSourceFromAsset } from "./question_json_hotspot_editor_model";
 import {
   initialPleQuestionJsonEditorState,
   reducePleQuestionJsonEditor,
@@ -37,11 +36,7 @@ import { PleQuestionJsonPreview } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
-import type { PleQuestionJsonAssetDescriptor } from "./question_json_asset_client";
-import type {
-  PleQuestionJsonHotspotResponse,
-  PleQuestionJsonDocument,
-} from "./question_json_source";
+import type { PleQuestionJsonDocument } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
 
 export type {
@@ -176,12 +171,6 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   // Numeric source values are numbers. This local literal is intentionally separate so partially
   // typed values such as "6.02e" remain visible without replacing the last valid source value.
   const [numericAnswerLiteral, setNumericAnswerLiteral] = createSignal("0");
-  // HOTSPOT remains local until a verified descriptor and a useful student description can make
-  // a valid persisted source. This prevents a placeholder asset from entering a draft.
-  const [hotspotPending, setHotspotPending] = createSignal(false);
-  const [pendingHotspotAsset, setPendingHotspotAsset] =
-    createSignal<PleQuestionJsonAssetDescriptor | null>(null);
-  const [pendingHotspotDescription, setPendingHotspotDescription] = createSignal("");
   let displayedResponseKind: PleQuestionJsonDocument["response"]["kind"] | null = null;
   function currentSource(): PleQuestionJsonDocument {
     const draft = source();
@@ -233,10 +222,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const canSave = (): boolean => {
     const current = state();
     return (
-      current.kind === "ready" &&
-      current.status === "dirty" &&
-      numericLiteralError() === undefined &&
-      !hotspotPending()
+      current.kind === "ready" && current.status === "dirty" && numericLiteralError() === undefined
     );
   };
   const isSaved = (): boolean => {
@@ -245,8 +231,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       ((current.kind === "ready" && current.status === "clean") ||
         current.kind === "publishReview" ||
         current.kind === "publishing") &&
-      numericLiteralError() === undefined &&
-      !hotspotPending()
+      numericLiteralError() === undefined
     );
   };
 
@@ -298,53 +283,6 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     setReview(null);
     setStatus(null);
     transition({ kind: "edit", source: next });
-  }
-
-  function selectHotspotFormat(): void {
-    if (isLocked()) return;
-    setHotspotPending(true);
-    setPendingHotspotAsset(null);
-    setPendingHotspotDescription("");
-    setShowInstructorCheck(false);
-    setReview(null);
-    setStatus("Choose a verified image and describe it before the hotspot draft can be saved.");
-  }
-
-  function selectOrdinaryFormat(): void {
-    setHotspotPending(false);
-    setPendingHotspotAsset(null);
-    setPendingHotspotDescription("");
-  }
-
-  function hotspotResponse(): PleQuestionJsonHotspotResponse | null {
-    const current = source();
-    return current?.response.kind === "hotspot" ? current.response : null;
-  }
-
-  function selectHotspotAsset(asset: PleQuestionJsonAssetDescriptor): void {
-    const current = source();
-    if (current === null || isLocked()) return;
-    setPendingHotspotAsset(asset);
-    const description = pendingHotspotDescription();
-    if (description.trim() === "") {
-      setStatus(
-        "Describe the image for Students, then the verified image will become this hotspot draft.",
-      );
-      return;
-    }
-    applyEdit(hotspotSourceFromAsset(current, asset, description));
-    setHotspotPending(false);
-    setStatus("Verified image selected. Define the labeled regions before saving.");
-  }
-
-  function updatePendingHotspotDescription(description: string): void {
-    setPendingHotspotDescription(description);
-    const asset = pendingHotspotAsset();
-    const current = source();
-    if (asset === null || current === null || description.trim() === "" || isLocked()) return;
-    applyEdit(hotspotSourceFromAsset(current, asset, description));
-    setHotspotPending(false);
-    setStatus("Verified image selected. Define the labeled regions before saving.");
   }
 
   function updateNumericAnswerLiteral(literal: string): void {
@@ -610,15 +548,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                 onEdit={applyEdit}
                 onMoveChoice={moveChoice}
                 onStatus={setStatus}
-                selectedKind={() => (hotspotPending() ? "hotspot" : currentSource().response.kind)}
-                hotspotResponse={hotspotResponse}
-                pendingHotspotDescription={pendingHotspotDescription}
-                assetClient={props.assetClient}
-                workspace={props.workspace}
-                onChooseHotspot={selectHotspotFormat}
-                onSelectHotspotAsset={selectHotspotAsset}
-                onPendingHotspotDescriptionChange={updatePendingHotspotDescription}
-                onChooseOrdinaryFormat={selectOrdinaryFormat}
+                selectedKind={() => currentSource().response.kind}
               />
               <PleQuestionJsonHintField
                 value={currentSource().questionHint}
@@ -702,29 +632,19 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
             </section>
             <aside class="editor-preview">
               <section class="editor-panel">
-                <Show
-                  when={!hotspotPending()}
-                  fallback={
-                    <p role="status">
-                      Student preview appears after the verified image and student description form
-                      a complete hotspot draft.
-                    </p>
-                  }
-                >
-                  <For each={[currentSource()]}>
-                    {(draft) => (
-                      <PleQuestionJsonPreview
-                        preview={pleQuestionJsonPublicPreview(draft)}
-                        validator={props.responseValidator}
-                        instructorAnswerCheck={
-                          showInstructorCheck() && isSaved()
-                            ? (answerCheck(draft) ?? undefined)
-                            : undefined
-                        }
-                      />
-                    )}
-                  </For>
-                </Show>
+                <For each={[currentSource()]}>
+                  {(draft) => (
+                    <PleQuestionJsonPreview
+                      preview={pleQuestionJsonPublicPreview(draft)}
+                      validator={props.responseValidator}
+                      instructorAnswerCheck={
+                        showInstructorCheck() && isSaved()
+                          ? (answerCheck(draft) ?? undefined)
+                          : undefined
+                      }
+                    />
+                  )}
+                </For>
               </section>
               <section class="editor-panel" aria-labelledby="ple-question-json-publish-heading">
                 <h2 id="ple-question-json-publish-heading">Publish review</h2>

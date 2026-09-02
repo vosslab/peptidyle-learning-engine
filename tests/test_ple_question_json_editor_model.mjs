@@ -28,15 +28,6 @@ import {
   setQuestionAttemptTimeLimit,
   validatePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
-import {
-  addHotspotRegion,
-  hotspotResponseFromAsset,
-  hotspotSourceFromAsset,
-  moveHotspotRegion,
-  removeHotspotRegion,
-  setHotspotCorrectRegion,
-  setHotspotRegionCoordinate,
-} from "../src/features/ple_question_json_authoring/question_json_hotspot_editor_model.ts";
 
 function source() {
   return createDefaultPleQuestionJsonSource();
@@ -199,43 +190,6 @@ test("ordinary Question Type switches use complete valid defaults with stable se
   const ordering = setPleQuestionJsonResponseKind(source(), "ordering");
   if (ordering.response.kind !== "ordering") throw new Error("Expected ordering source.");
   assert.deepEqual(ordering.response.correctOrder, ["item_a", "item_b", "item_c"]);
-});
-
-test("hotspot source starts only from a typed server descriptor and retains stable region identity", () => {
-  const descriptor = {
-    assetId: "aaaaaaaa-0000-4000-8000-000000000011",
-    contentChecksum: "a".repeat(64),
-    displayLabel: "Cell membrane diagram",
-    mediaType: "image/png",
-    intrinsicWidth: 800,
-    intrinsicHeight: 600,
-  };
-  const response = hotspotResponseFromAsset(
-    descriptor,
-    "A membrane diagram with labeled features.",
-  );
-  assert.equal(response.surface.asset, descriptor.assetId);
-  assert.equal(response.surface.checksum, descriptor.contentChecksum);
-  assert.equal(response.regions[0]?.id, "region_1");
-  const sourceWithHotspot = hotspotSourceFromAsset(
-    source(),
-    descriptor,
-    response.surface.description,
-  );
-  assert.equal(validatePleQuestionJsonSource(sourceWithHotspot).valid, true);
-  const added = addHotspotRegion(response);
-  assert.equal(added.changed, true);
-  const addedRegion = added.response.regions[1];
-  assert.equal(addedRegion?.id, "region_2");
-  const moved = moveHotspotRegion(added.response, "region_2", "earlier");
-  assert.equal(moved.changed, true);
-  assert.deepEqual(
-    moved.response.regions.map((region) => region.id),
-    ["region_2", "region_1"],
-  );
-  assert.equal(removeHotspotRegion(moved.response, "region_1").changed, false);
-  assert.equal(setHotspotRegionCoordinate(response, "region_1", "width", 10_001).changed, false);
-  assert.equal(setHotspotCorrectRegion(response, "region_1", false).changed, false);
 });
 
 test("matching pair operations retain semantic IDs and repair only the removed pair relation", () => {

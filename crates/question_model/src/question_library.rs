@@ -373,7 +373,7 @@ pub struct CourseQuestionUse {
     pub assignment_count: u64,
 }
 
-/// Bounded exact-detail usage projection for a requesting instructor.
+/// Bounded Question Use Details View for a requesting instructor.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionUseDetails {
@@ -418,7 +418,7 @@ pub enum QuestionDetailsPromptView {
     },
 }
 
-/// Safe immutable content projection for Question Library detail.
+/// Safe immutable Question Details View.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionDetails {

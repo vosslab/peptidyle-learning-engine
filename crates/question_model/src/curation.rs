@@ -106,7 +106,7 @@ pub fn validate_question_curation_title(value: &str) -> Result<(), QuestionCurat
         .ok_or(QuestionCurationTitleError::Invalid)
 }
 
-/// Safe current projection of one exact immutable Question Folder member.
+/// Safe current Question Folder entry View for one exact immutable member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionFolderEntryView {
@@ -116,7 +116,7 @@ pub struct QuestionFolderEntryView {
     pub question_revision_availability: QuestionRevisionAvailability,
 }
 
-/// Browser-safe private Question Folder projection.
+/// Browser-safe private Question Folder View.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionFolderSummaryView {

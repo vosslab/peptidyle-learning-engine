@@ -11,13 +11,13 @@ import type { CursorPage } from "./contracts";
 /** Strong server ETag that callers retain unchanged for a subsequent mutation. */
 export type QuestionCurationEtag = string;
 
-/** One current Question Folder projection paired with its authoritative edit-number ETag. */
+/** One current Question Folder View paired with its authoritative edit-number ETag. */
 export interface RevisionedQuestionFolder {
   readonly folder: QuestionFolderSummaryView;
   readonly etag: QuestionCurationEtag;
 }
 
-/** One current saved-search projection paired with its authoritative edit-number ETag. */
+/** One current Saved Question Search View paired with its authoritative edit-number ETag. */
 export interface RevisionedSavedQuestionSearch {
   readonly search: SavedQuestionSearchView;
   readonly etag: QuestionCurationEtag;

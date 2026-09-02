@@ -119,7 +119,7 @@ export type CurationNotice =
 export interface FolderDraft {
   readonly reference: QuestionFolderReference | null;
   readonly title: string;
-  /** Exact strong ETag observed with the current complete Question Folder projection. */
+  /** Exact strong ETag observed with the current complete Question Folder View. */
   readonly editNumber: string | null;
   readonly questionIds: ReadonlyArray<string>;
 }

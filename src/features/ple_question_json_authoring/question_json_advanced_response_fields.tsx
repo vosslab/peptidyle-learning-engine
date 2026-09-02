@@ -2,17 +2,6 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import { PleQuestionJsonHotspotEditor } from "./question_json_hotspot_editor";
-import {
-  addHotspotRegion,
-  moveHotspotRegion,
-  removeHotspotRegion,
-  setHotspotCorrectRegion,
-  setHotspotDescription,
-  setHotspotRegionCoordinate,
-  setHotspotRegionLabel,
-} from "./question_json_hotspot_editor_model";
 import { PleQuestionJsonFillInEditor } from "./question_json_fill_in_editor";
 import { PleQuestionJsonMultiFillInEditor } from "./question_json_multi_fill_in_editor";
 import {
@@ -45,11 +34,6 @@ import {
   setOrderingItemText,
 } from "./question_json_ordering_editor_model";
 import type {
-  PleQuestionJsonAssetClient,
-  PleQuestionJsonAssetDescriptor,
-} from "./question_json_asset_client";
-import type {
-  PleQuestionJsonHotspotResponse,
   PleQuestionJsonNumericResponseTolerance,
   PleQuestionJsonDocument,
 } from "./question_json_source";
@@ -70,12 +54,6 @@ export interface PleQuestionJsonAdvancedResponseFieldsProps {
   readonly onEdit: (source: PleQuestionJsonDocument) => void;
   readonly onStatus: (message: string) => void;
   readonly selectedKind: () => PleQuestionJsonDocument["response"]["kind"];
-  readonly hotspotResponse: () => PleQuestionJsonHotspotResponse | null;
-  readonly pendingHotspotDescription: () => string;
-  readonly assetClient: PleQuestionJsonAssetClient | undefined;
-  readonly workspace: WorkspaceId;
-  readonly onSelectHotspotAsset: (asset: PleQuestionJsonAssetDescriptor) => void;
-  readonly onPendingHotspotDescriptionChange: (description: string) => void;
 }
 
 function applyResult(
@@ -159,20 +137,6 @@ export function PleQuestionJsonAdvancedResponseFields(
       unit,
     );
     if (next !== null) editResponse(next);
-  }
-
-  function applyHotspot(
-    edit: (response: PleQuestionJsonHotspotResponse) => {
-      readonly response: PleQuestionJsonHotspotResponse;
-      readonly changed: boolean;
-      readonly error: string | null;
-    },
-  ): void {
-    const response = props.hotspotResponse();
-    if (response === null) return;
-    const next = edit(response);
-    if (next.changed) editResponse(next.response);
-    else if (next.error !== null) props.onStatus(next.error);
   }
 
   return (
@@ -318,40 +282,6 @@ export function PleQuestionJsonAdvancedResponseFields(
             }
           />
         )}
-      </Show>
-      <Show when={props.selectedKind() === "hotspot"}>
-        <PleQuestionJsonHotspotEditor
-          response={props.hotspotResponse}
-          assetClient={props.assetClient}
-          workspace={props.workspace}
-          pendingDescription={props.pendingHotspotDescription}
-          fieldErrors={props.fieldErrors}
-          disabled={props.disabled}
-          onSelectAsset={props.onSelectHotspotAsset}
-          onPendingDescriptionChange={props.onPendingHotspotDescriptionChange}
-          onDescriptionChange={(description) =>
-            applyHotspot((response) => setHotspotDescription(response, description))
-          }
-          onRegionLabelChange={(regionId, label) =>
-            applyHotspot((response) => setHotspotRegionLabel(response, regionId, label))
-          }
-          onRegionCoordinateChange={(regionId, coordinate, value) =>
-            applyHotspot((response) =>
-              setHotspotRegionCoordinate(response, regionId, coordinate, value),
-            )
-          }
-          onCorrectChange={(regionId, correct) =>
-            applyHotspot((response) => setHotspotCorrectRegion(response, regionId, correct))
-          }
-          onAddRegion={() => applyHotspot(addHotspotRegion)}
-          onRemoveRegion={(regionId) =>
-            applyHotspot((response) => removeHotspotRegion(response, regionId))
-          }
-          onMoveRegion={(regionId, direction) =>
-            applyHotspot((response) => moveHotspotRegion(response, regionId, direction))
-          }
-          onStatus={props.onStatus}
-        />
       </Show>
     </>
   );

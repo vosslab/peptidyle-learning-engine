@@ -12,7 +12,6 @@ import {
   type PleQuestionJsonRead,
 } from "../features/ple_question_json_authoring/question_json_client";
 import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
-import { createPleQuestionJsonAssetClient } from "../features/ple_question_json_authoring/question_json_asset_client";
 import { PleQuestionJsonEditorPage } from "../features/ple_question_json_authoring/question_json_editor_page";
 import { createPleQuestionJsonRepository } from "../features/ple_question_json_authoring/question_json_repository";
 import { WasmEditorPage } from "./editor_page";
@@ -51,7 +50,6 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
   const wasm = useWasmFacade();
   const workspace = props.workspace;
   const flatRepository = createPleQuestionJsonRepository(createPleQuestionJsonClient());
-  const pleQuestionJsonAssetClient = createPleQuestionJsonAssetClient();
   const [flatRead] = createResource(
     () => workspace,
     async (selected): Promise<Awaited<ReturnType<typeof flatRepository.load>> | null> =>
@@ -99,7 +97,6 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
               repository={flatRepository}
               api={runtime.client}
               responseValidator={wasm}
-              assetClient={pleQuestionJsonAssetClient}
             />
           )}
         </Show>

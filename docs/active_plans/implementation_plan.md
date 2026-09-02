@@ -2026,10 +2026,10 @@ or implementer-authored specification is required.
   editors, student widgets, live evidence, and durable documentation.
 - Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
   MATCH, ORDER, and HOTSPOT.
-- Acceptance criteria: keep answers and optional feedback protected; complete Question Type-specific visual
-  authoring and the Memory/PostgreSQL/object-store paths; prove accessible author/student flows,
-  immutable publication, forced RLS, asset lifecycle, correct/incorrect grading, cleanup, and no
-  browser/Wasm answer association.
+- Acceptance criteria: keep answers and optional feedback protected; complete supported browser Authoring Workspace
+  fields plus imported/trusted HOTSPOT Question Asset bindings and the Memory/PostgreSQL/object-store paths; prove
+  accessible author/student flows, immutable publication, forced RLS, asset lifecycle, correct/incorrect grading,
+  cleanup, and no browser/Wasm answer association.
 - Evidence or review: focused Rust/Node/Playwright gates, disposable PostgreSQL/object-store oracles,
   the full repository gate, and independent PASS with no remaining P0/P1 finding.
 - Next dependency: WP-RC5 publishes the exact Chapter 1 content after MATCH and completes the other
@@ -2191,11 +2191,11 @@ output lines, and any skipped check with a one-line scope note.
 The current implementation and scope decisions are expanded into dispatchable packages in
 `docs/active_plans/active/release_completion_plan.md`:
 
-- The protected visual author editor now supports all eight version 2 Question Types. MC, MA, FIB,
-  MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
-  provides verified-image selection, immutable version-scoped publication, exact issue-time asset
-  binding, and the primary keyboard region-list workflow. Its integrated author-to-student
-  object-lifecycle acceptance remains open in the PLE Question JSON type plan.
+- The browser editor supports the Authoring Workspace fields for the seven browser-authored version 2
+  Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, and ORDER. HOTSPOT remains a supported PLE
+  Question JSON format for registered imported or trusted Question Asset bindings; it has no browser
+  file-authoring capability. Its imported/trusted asset and author-to-student object-lifecycle
+  acceptance remains open in the PLE Question JSON type plan.
 - New assignments default to `highest`; new practice Assignment Attempts use `newSeeds` while resumed attempts keep
   their issued seed.
 - Retention defaults are notify at 30 days, archive at 100 days, student-record deletion at 365 days,

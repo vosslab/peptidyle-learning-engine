@@ -37,8 +37,7 @@ still selects local-development authentication rather than canonical PLE email-a
 that wiring is a code gap in addition to the remaining SMTP delivery acceptance evidence.
 The secure learner-payload design is
 decision-complete, and its descriptor codec and first forward migration are present, but the full
-browser/API/WeBWorK cutover remains unaccepted. Learner file upload remains deliberately disabled
-behind a separate implementation-ready security plan.
+browser/API/WeBWorK cutover remains unaccepted.
 
 The central architecture remains sound:
 
@@ -194,19 +193,6 @@ delivery: it removes SMTP from that handoff but does not create or authenticate 
 and assignment creation will be the only remaining arranged setup steps once the composition gap is
 closed, until their instructor UI exists.
 
-### File upload planned safely
-
-The learner file-upload contract is decision-complete while the product remains fail-closed. The
-plan requires one opaque attempt-bound upload ID, authenticated same-origin streaming into
-non-deliverable temporary storage, exact SHA-256 verification, a closed PDF/text/PNG/JPEG profile,
-private malware inspection, typed promotion, atomic manual-grading consumption, RLS, retention,
-reconciliation, protected delivery, multi-replica recovery, and keyboard accessibility.
-
-No learner upload route is accepted or enabled. WP-FU1 through WP-FU6 and reserved migration
-`2026080912_secure_learner_uploads.sql` runs after passwordless identity/enrollment, object
-reconciliation, and LTI and before
-production deployment.
-
 ## Status dashboard
 
 | Area                                  | Current status                                           | Boundary                                                                                                                                                                                                                                                                                                                    |
@@ -222,7 +208,6 @@ production deployment.
 | WP-RC7 data hardening                 | Planned and owned                                        | Object inventory, twice-observed orphan quarantine, missing-reference alerts, and combined M2-M5 gate                                                                                                                                                                                                                       |
 | WP-RC8 identity/enrollment            | Source implemented, acceptance open                      | Generic account/roster routes, optional passkeys, no-store copy-link/optional-SMTP invitation claim, roster/bulk import, atomic enrollments, and manual no-store grade export exist; production composition must wire canonical PLE account entry, then provider, optional-passkey/replica, and independent evidence remain |
 | WP-RC9 LTI                            | Planned and owned                                        | LTI 1.3 launch and AGS passback; optional institutional SSO remains a non-blocking future account-linking integration                                                                                                                                                                                                       |
-| WP-FU1 through WP-FU6 uploads         | Planned and fail-closed                                  | Server-issued, inspected, attempt-bound learner upload capability                                                                                                                                                                                                                                                           |
 | WP-RC10 and WP-RC11 operations        | Planned and owned                                        | OpenTofu deployment/recovery/scale, then measured bot-cost controls                                                                                                                                                                                                                                                         |
 | WP-RC12 release                       | Not started                                              | Complete local and disposable production evidence plus independent multi-discipline audit                                                                                                                                                                                                                                   |
 
@@ -335,8 +320,8 @@ production deployment.
    WeBWorK MATCH, and the exact Chapter 1 genetics and biochemistry content.
 5. Complete WP-RC6 QTI export and bounded H5P import claims.
 6. Complete WP-RC7 object reconciliation and the combined M2-M5 security/data gate.
-7. Implement optional SSO, LTI, secure learner uploads, declarative deployment/recovery, and bot-cost
-   controls through WP-RC9 to WP-RC11.
+7. Implement optional SSO, LTI, declarative deployment/recovery, and bot-cost controls through
+   WP-RC9 to WP-RC11.
 8. Run WP-RC12 working-codebase release acceptance and independent review before any production
    readiness claim.
 
@@ -353,13 +338,13 @@ WP-P1..WP-P6 secure payload ---> WP-RC5 families/content ---> WP-RC6 QTI/H5P
                  |
                  +-------------> WP-RC7 reconciliation/integration
 
-WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-FU1..WP-FU6 uploads ---> WP-RC10 OpenTofu
-                                                                    |
-                                                                    v
-                                                         WP-RC11 bot controls
-                                                                    |
-                                                                    v
-                                                         WP-RC12 release acceptance
+WP-RC8 accepted identity/enrollment ---> WP-RC9 LTI ---> WP-RC10 OpenTofu
+                                                        |
+                                                        v
+                                             WP-RC11 bot controls
+                                                        |
+                                                        v
+                                             WP-RC12 release acceptance
 ```
 
 WP-P1 may overlap the independent RC4 review, and non-schema object inventory work may begin before
@@ -370,8 +355,7 @@ WP-P2. Package acceptance and migration order may not be skipped.
 The repository still needs production runtime PostgreSQL identities, startup role attestation,
 embedded-mode CSRF and final gateway headers, production passwordless email/WebAuthn configuration,
 off-the-shelf SMTP email-authentication and optional-passkey acceptance, optional SSO credentials,
-LTI registration, secure learner uploads, managed deployment, encrypted backup/restore and
-point-in-time recovery, aggregate
+LTI registration, managed deployment, encrypted backup/restore and point-in-time recovery, aggregate
 observability, replica/worker/load evidence, cost controls, and independent release review. Institutional
 FERPA/legal/security sign-off and the human fall-pilot accessibility and teaching walkthrough are
 external activation evidence, not unfinished source code substitutes.

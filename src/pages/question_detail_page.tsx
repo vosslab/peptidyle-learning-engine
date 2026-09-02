@@ -1,4 +1,4 @@
-// question_detail_page.tsx - safe current Question Library detail and lineage projection.
+// question_detail_page.tsx - safe current Question Details and Question Revision lineage View.
 
 import { A, createAsync, useParams } from "@solidjs/router";
 import { Show, Suspense, type JSX } from "solid-js";

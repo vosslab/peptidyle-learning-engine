@@ -168,7 +168,7 @@ export function decodeQuestionSummary(
 }
 
 /**
- * Verifies the exact browser-safe success projection for a PLE publication.
+ * Verifies the exact browser-safe Question Summary command result for a PLE publication.
  *
  * Decoding establishes the DTO's shape; callers of a publication command must
  * additionally bind that DTO to the published state.
@@ -392,13 +392,13 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
 
 function decodeQuestionDetailsPromptView(value: unknown, path: string): QuestionDetailsPromptView {
   const record = decodeRecord(value, path);
-  const projectionKind = kind(record, path);
-  if (projectionKind !== "static" && projectionKind !== "generatedExample") {
+  const promptKind = kind(record, path);
+  if (promptKind !== "static" && promptKind !== "generatedExample") {
     throw new DecodeError(`${path}.kind`, "a known Question Details Prompt View");
   }
   requireOnlyFields(record, path, ["kind", "blocks"]);
   return {
-    kind: projectionKind,
+    kind: promptKind,
     blocks: decodeBoundedArray(
       field(record, "blocks", path),
       `${path}.blocks`,
@@ -407,7 +407,7 @@ function decodeQuestionDetailsPromptView(value: unknown, path: string): Question
     ),
   };
 }
-/** Strict, bounded metadata-only projection used by Question Search. */
+/** Strict, bounded metadata-only Question Search Results View. */
 export function decodeQuestionSearchPage(value: unknown, path = "response"): QuestionSearchPage {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["items", "nextCursor", "facets"]);
@@ -427,7 +427,7 @@ export function decodeQuestionSearchPage(value: unknown, path = "response"): Que
   };
 }
 
-/** Strict safe immutable detail projection; source and grading fields are rejected. */
+/** Strict safe immutable Question Details View; source and grading fields are rejected. */
 export function decodeQuestionDetails(value: unknown, path = "response"): QuestionDetails {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
