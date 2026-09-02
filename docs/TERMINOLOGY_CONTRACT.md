@@ -390,9 +390,10 @@ primitive while their containing records retain their exact meaning.
 
 A **Question Asset** is one logical image, figure, or other file owned by an exact Draft Question
 Revision or Question Revision. A **Question Asset Reference** pairs it with the checksum of the file
-used by Question content. A **Question Asset Rendition** records the browser-safe form selected for a
-Question Presentation: its Question Asset Reference, rendition checksum, and intrinsic dimensions.
-The Question Presentation binds its Question Asset Renditions into its checksum.
+used by Question content. A **Question Asset Rendition** records the browser-safe form selected for an
+issued Question Presentation: its Question Asset Reference, rendition checksum, and intrinsic dimensions.
+The server-held Issued Question Presentation binds its Question Asset Renditions
+into the complete Question Presentation Checksum.
 
 Instructor-authored PLE Question JSON content is entered through Authoring Workspace fields.
 Question Assets enter through registered adapter-owned Question Format and import boundaries.
@@ -425,6 +426,14 @@ seed, and ordered declared parameters that produced the presentation in server
 and cache evidence. The browser receives
 only the answer-free Question Revision and Question Seed required to bind its
 presentation.
+
+**Question Variation Presentation** is the answer-free Question Backend render
+result for one exact Question Variation before issuance. It carries the nested
+Question Variation, student-facing title and prompt, and durable Question
+Response Format. It contains no Answer Key, Question Grading Input, issuance
+nonce, presentation-scoped Response Item References, or issuance binding. A
+Question Backend may safely cache it by immutable Question Revision and
+Question Seed.
 
 **Question Grading Rule** names how automatic grading awards points.
 **Answer Key** names the private accepted-response facts. A **Question Answer**
@@ -480,21 +489,22 @@ Question Model owns the typed **ImathasQuestionBackendBinding**: iMathAS Deploym
 The LDA-owned iMathAS Question Backend Session persists that exact binding with its iMathAS Session Challenge, iMathAS Session Authentication, iMathAS Grading Context, iMathAS Result Token, iMathAS Result Exchange, and iMathAS Result; its existing response/control/Student Response marker is exactly `ImathasQuestionBackend`.
 The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State, iMathAS Render Cache Entry, and iMathAS Launch/Result protocol verification. iMathAS is the current scored operation; no generic remote-backend item reference, profile, or shared cross-backend cache record exists.
 
-**Question Presentation** is the answer-free state issued for one exact
-Question Attempt. It contains the Question Prompt, Question Asset Renditions,
-**Question Response Format**, **Question Response Control**, and temporary
-Response Item References needed by that presentation. Question Response Format
-defines the correctness-neutral shape and constraints of an accepted **Student
-Response**. Use Question Response Format consistently for the authored Question,
-Published Question, issued Question Presentation, browser contract, and strict
-Student Response decoder.
+**Question Presentation** is the answer-free Student contract issued for one
+exact Question Attempt. It carries direct Question Revision and Question Seed
+with a server-minted Question Presentation Nonce; it does not nest a Question
+Variation. Its fields are title, Question Prompt, and Question Presentation
+Response Format. Question Response Format defines the correctness-neutral
+shape and constraints of an accepted **Student Response**. Use Question
+Response Format consistently for the authored Question, Published Question,
+issued Question Presentation, browser contract, and strict Student Response
+decoder.
 The authored Question Response Format retains durable Response Item References.
 **Question Presentation Response Format** is its answer-free View with
-presentation-scoped Response Item References for one Question Presentation.
-Question Response Control names the browser interaction used to collect that
-response. The Question Presentation declares the control, keeping the Student
-interface independent of Question Type and Question Format. The exact iMathAS
-marker is `ImathasQuestionBackend`/`imathasQuestionBackend` where that control is used.
+presentation-scoped Response Item References for one Question Presentation; it
+selects and encodes the Question Response Control that collects that response.
+The response format keeps the Student interface independent of Question Type
+and Question Format. The exact iMathAS marker is
+`ImathasQuestionBackend`/`imathasQuestionBackend` where that control is used.
 
 Student Responses contain only values defined by the supported Question Response Format: selections,
 entered text or numbers, matches, ordering, or a hotspot selection. Object Delivery owns authorized
@@ -502,10 +512,12 @@ retrieval of stored files; Student Feedback carries result data and optional Que
 
 **Question Presentation Binding** is the server-held evidence that pairs one
 Question Presentation Nonce with its complete Question Presentation Checksum.
-**Issued Question Presentation** is the exact relationship among one Issued
-Question, its Question Presentation, and that binding. These terms preserve the
-presentation and integrity evidence boundaries. Question Revision remains the
-Question content lifecycle.
+**Issued Question Presentation** is the server-held issuance record that
+relates one Issued Question, its Question Presentation, Question Asset
+Renditions, private Response Item Bindings, and Question Presentation Binding
+with the complete Question Presentation Checksum.
+These terms preserve the presentation and integrity evidence boundaries.
+Question Revision remains the Question content lifecycle.
 
 **Student Response Format Check** is the answer-free result of applying one Question Response Format to a proposed Student Response. It owns an ordered set of **Student Response Format Issues**, each naming one exact shape or constraint mismatch. The closed issue set belongs to the domain contract and is shared unchanged by browser and server format validation. A **Response Format Message** is visible interface text derived from that check; it is not the check or an issue record.
 

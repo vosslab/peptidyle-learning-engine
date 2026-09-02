@@ -41,8 +41,8 @@ import {
   decodeDraftQuestionContent,
   decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
+  decodeIssuedQuestionPresentation,
   decodeQuestionPresentation,
-  decodeIssuedPresentationEnvelope,
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
   decodeAssignmentProgress,
@@ -86,7 +86,9 @@ async function fetchCourseBanner(
   if (
     response.headers.get("content-disposition") !== 'attachment; filename="ple-course-banner.webp"'
   )
-    throw new ApiProtocolError(`API response ${path} must use the protected banner disposition`);
+    throw new ApiProtocolError(
+      `API response ${path} must use the protected Course Banner Content-Disposition header`,
+    );
   if (response.headers.get("x-content-type-options") !== "nosniff")
     throw new ApiProtocolError(`API response ${path} must prevent content sniffing`);
   if (response.headers.get("cross-origin-resource-policy") !== "same-origin")
@@ -115,7 +117,7 @@ function issuedQuestionForAttempt(
   const decoder =
     attempt.issuedCapability === "notApplicable"
       ? decodeQuestionPresentation
-      : decodeIssuedPresentationEnvelope;
+      : decodeIssuedQuestionPresentation;
   return requestJson(
     fetchImplementation,
     basePath,

@@ -175,7 +175,7 @@ function decodeQuestionSearchCourseUseFacet(
 
 /**
  * ASVS 1.5.2 and 2.2.1: strictly decodes only the same-query, answer-free
- * Question Search facet projection generated from the Rust contract.
+ * Question Search facets generated from the Rust contract.
  */
 export function decodeQuestionSearchFacets(value: unknown, path: string): QuestionSearchFacets {
   const record = decodeRecord(value, path);

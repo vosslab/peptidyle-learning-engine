@@ -6,16 +6,16 @@
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Write as _;
 
+use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationRule;
 use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
 };
 use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionContent, GradingResult, QuestionAnswer,
-    QuestionAnswerExplanation, QuestionBackendLocator, QuestionFeedback, QuestionFormat,
+    DraftQuestionContent, GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionBackend,
+    QuestionFeedback, QuestionFormat,
     QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{AnswerKey, GradingError, QuestionGradingOutcome, grade};
 
-/// Upper bound shared by persisted private material and source adapters.
+/// Upper bound shared by persisted PLE Question JSON Private Grading and source adapters.
 pub const MAX_PLE_QUESTION_JSON_BYTES: usize = 256 * 1024;
 const PRIVATE_SCHEMA_VERSION: u32 = 2;
 const MAX_CHOICES: usize = 100;
@@ -66,7 +66,7 @@ impl std::fmt::Display for PleQuestionJsonError {
             }
             Self::InvalidTitle(error) => error.fmt(formatter),
             Self::PublicBindingMismatch => formatter.write_str(
-                "private PLE Question JSON material does not match the public definition",
+                "PLE Question JSON Private Grading does not match the public definition",
             ),
             Self::Grading(error) => error.fmt(formatter),
             Self::Encoding(message) => {
@@ -78,7 +78,8 @@ impl std::fmt::Display for PleQuestionJsonError {
 
 impl std::error::Error for PleQuestionJsonError {}
 
-/// Server-only key and feedback bound to one exact public question payload.
+/// Server-only Answer Key and Question Feedback bound to one exact public
+/// Question payload.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PleQuestionJsonPrivateGrading {
@@ -105,7 +106,8 @@ struct PleQuestionJsonOutcomeFeedback {
     incorrect: Option<String>,
 }
 
-/// Result and private teaching content from one trusted evaluation.
+/// Grading Result plus selected Question Feedback, Question Answer, and Question
+/// Answer Explanation from one trusted evaluation.
 pub struct PleQuestionJsonEvaluation {
     pub outcome: QuestionGradingOutcome,
     pub question_feedback: QuestionFeedback,
@@ -114,7 +116,7 @@ pub struct PleQuestionJsonEvaluation {
 }
 
 impl PleQuestionJsonPrivateGrading {
-    /// Builds private material for one of the closed v2 PLE Question JSON Types.
+    /// Builds PLE Question JSON Private Grading for one of the closed v2 PLE Question JSON Types.
     pub fn new_with_key(
         draft: &DraftQuestionContent,
         answer_key: AnswerKey,
@@ -155,7 +157,8 @@ impl PleQuestionJsonPrivateGrading {
         &self.public_sha256
     }
 
-    /// Rebinds the unchanged private Answer Key and Question Feedback to the exact public draft
+    /// Rebinds the unchanged server-only Answer Key and Question Feedback to the
+    /// exact public draft
     /// emitted during publication.
     ///
     /// Publication uses this only when a private HOTSPOT workspace asset is
@@ -184,10 +187,10 @@ impl PleQuestionJsonPrivateGrading {
         })
     }
 
-    /// Validates this private material against its editable public draft.
+    /// Validates this PLE Question JSON Private Grading against its editable public draft.
     ///
     /// Publication uses this seam before durable identifiers exist. It proves
-    /// that the key and feedback describe this exact public payload without
+    /// that the Answer Key and Question Feedback describe this exact public payload without
     /// fabricating a published [`QuestionRevision`].
     pub fn validate_for_draft(
         &self,
@@ -210,7 +213,7 @@ impl PleQuestionJsonPrivateGrading {
             .map_err(|error| PleQuestionJsonError::MalformedJson(error.to_string()))?;
         if value.canonical_bytes()? != bytes {
             return Err(PleQuestionJsonError::MalformedJson(
-                "PLE Question JSON private material is not canonical".to_string(),
+                "PLE Question JSON Private Grading is not canonical".to_string(),
             ));
         }
         value.validate_private_shape()?;
@@ -248,7 +251,7 @@ impl PleQuestionJsonPrivateGrading {
         })
     }
 
-    /// Verifies this private material against one exact immutable published
+    /// Verifies this PLE Question JSON Private Grading against one exact immutable published
     /// definition before an issuance capability retains it for later grade.
     pub fn validate_for_question(
         &self,
@@ -349,9 +352,9 @@ impl PleQuestionJsonPrivateGrading {
     }
 }
 
-/// Validates the public contract on a draft before it can receive private key material.
+/// Validates the public contract on a draft before it can receive an Answer Key.
 pub fn validate_for_draft(draft: &DraftQuestionContent) -> Result<(), PleQuestionJsonError> {
-    if !matches!(draft.backend_locator, DraftQuestionBackendLocator::Ple)
+    if draft.question_backend != QuestionBackend::Ple
         || draft.question_format != QuestionFormat::PleQuestionJson
     {
         return Err(PleQuestionJsonError::PublicBindingMismatch);
@@ -368,7 +371,7 @@ pub fn validate_for_draft(draft: &DraftQuestionContent) -> Result<(), PleQuestio
 pub fn validate_ple_question_json_question(
     question: &QuestionRevision,
 ) -> Result<(), PleQuestionJsonError> {
-    if !matches!(question.backend_locator, QuestionBackendLocator::Ple)
+    if question.question_backend != QuestionBackend::Ple
         || question.question_format != QuestionFormat::PleQuestionJson
     {
         return Err(PleQuestionJsonError::PublicBindingMismatch);
@@ -762,12 +765,12 @@ struct PublicBinding<'a> {
     grading: &'a QuestionGradingRule,
     metadata: &'a QuestionMetadata,
 }
-/// Returns the checksum that binds private Answer Key and Question Feedback to one exact
-/// browser-safe PLE PLE Question JSON Revision.
+/// Returns the checksum that binds the server-only Answer Key and Question Feedback
+/// to one exact browser-safe PLE Question JSON Revision.
 pub fn public_binding_sha256_for_draft(
     draft: &DraftQuestionContent,
 ) -> Result<String, PleQuestionJsonError> {
-    if !matches!(draft.backend_locator, DraftQuestionBackendLocator::Ple)
+    if draft.question_backend != QuestionBackend::Ple
         || draft.question_format != QuestionFormat::PleQuestionJson
     {
         return Err(PleQuestionJsonError::PublicBindingMismatch);
@@ -787,7 +790,7 @@ pub fn public_binding_sha256_for_draft(
 fn public_binding_sha256_for_question(
     question: &QuestionRevision,
 ) -> Result<String, PleQuestionJsonError> {
-    if !matches!(question.backend_locator, QuestionBackendLocator::Ple)
+    if question.question_backend != QuestionBackend::Ple
         || question.question_format != QuestionFormat::PleQuestionJson
     {
         return Err(PleQuestionJsonError::PublicBindingMismatch);

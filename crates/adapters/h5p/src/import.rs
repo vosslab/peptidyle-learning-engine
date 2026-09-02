@@ -13,9 +13,9 @@ use std::fmt;
 
 use async_trait::async_trait;
 use question_model::ObjectId;
+use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationRule;
 use question_model::question_content::{QuestionGradingRule, QuestionMetadata};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
@@ -514,9 +514,9 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<QuestionChoice>, H5p
 #[cfg(test)]
 mod tests {
     use super::*;
+    use question_model::QuestionContentBlock;
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::classification::QuestionLicense;
-    use question_model::envelope::QuestionContentBlock;
     use question_model::question_content::QuestionGradingRule;
     use uuid::Uuid;
 

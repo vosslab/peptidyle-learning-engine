@@ -581,7 +581,7 @@ fn version_one_flat_source_is_refused_without_a_legacy_reader() {
 }
 
 #[test]
-fn private_material_refuses_a_different_public_definition() {
+fn ple_question_json_private_grading_refuses_a_different_public_definition() {
     let document =
         PleQuestionJsonDocument::parse(ple_question_json_single_choice_bytes().as_slice())
             .expect("PLE Question JSON source should parse");
@@ -613,7 +613,7 @@ fn source_size_has_one_explicit_backstop() {
 }
 
 #[test]
-fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only() {
+fn ple_question_json_private_grading_roundtrips_canonical_bytes_and_exposes_binding_digest_only() {
     let document =
         PleQuestionJsonDocument::parse(ple_question_json_single_choice_bytes().as_slice())
             .expect("PLE Question JSON source should parse");
@@ -623,7 +623,7 @@ fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only()
         .into_parts();
     let encoded = private
         .canonical_bytes()
-        .expect("private material should encode");
+        .expect("PLE Question JSON Private Grading should encode");
     let reloaded = PleQuestionJsonPrivateGrading::from_canonical_bytes(&encoded)
         .expect("canonical payload should reload exactly");
 
@@ -646,7 +646,7 @@ fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only()
                 selected: vec![ResponseItemReference::new("blue")],
             },
         )
-        .expect("roundtripped private material should evaluate like original");
+        .expect("roundtripped PLE Question JSON Private Grading should evaluate like original");
     assert!(matches!(
         correct.outcome,
         QuestionGradingOutcome::Graded(result) if result.correct && result.points_earned == 1.0
@@ -654,7 +654,7 @@ fn private_material_roundtrips_canonical_bytes_and_exposes_binding_digest_only()
 }
 
 #[test]
-fn private_material_validates_canonical_shape_and_rejects_substitutions() {
+fn ple_question_json_private_grading_validates_canonical_shape_and_rejects_substitutions() {
     let document =
         PleQuestionJsonDocument::parse(ple_question_json_single_choice_bytes().as_slice())
             .expect("PLE Question JSON source should parse");
@@ -665,7 +665,7 @@ fn private_material_validates_canonical_shape_and_rejects_substitutions() {
 
     let canonical = private
         .canonical_bytes()
-        .expect("private material should encode");
+        .expect("PLE Question JSON Private Grading should encode");
     assert!(matches!(
         PleQuestionJsonPrivateGrading::from_canonical_bytes(&canonical),
         Ok(value) if value == private
@@ -700,7 +700,7 @@ fn private_material_validates_canonical_shape_and_rejects_substitutions() {
 }
 
 #[test]
-fn private_material_validates_against_the_exact_draft_before_publication() {
+fn ple_question_json_private_grading_validates_against_the_exact_draft_before_publication() {
     let document =
         PleQuestionJsonDocument::parse(ple_question_json_single_choice_bytes().as_slice())
             .expect("PLE Question JSON source should parse");
@@ -720,9 +720,9 @@ fn private_material_validates_against_the_exact_draft_before_publication() {
     let canonical = String::from_utf8(
         private
             .canonical_bytes()
-            .expect("private material should encode"),
+            .expect("PLE Question JSON Private Grading should encode"),
     )
-    .expect("canonical private material should be UTF-8");
+    .expect("canonical PLE Question JSON Private Grading should be UTF-8");
     let correct_binding = format!(
         r#""choice":"{}""#,
         ple_question_json_single_choice().response.correct_choice
@@ -731,7 +731,7 @@ fn private_material_validates_against_the_exact_draft_before_publication() {
         canonical.replacen(&correct_binding, r#""choice":"not-a-choice""#, 1);
     let substituted_private =
         PleQuestionJsonPrivateGrading::from_canonical_bytes(substituted_canonical.as_bytes())
-            .expect("private material shape alone cannot know the draft choices");
+            .expect("PLE Question JSON Private Grading shape alone cannot know the draft choices");
     assert!(matches!(
         substituted_private.validate_for_draft(&draft),
         Err(PleQuestionJsonError::PublicBindingMismatch)

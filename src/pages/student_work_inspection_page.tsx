@@ -378,7 +378,7 @@ function StudentWorkCoursePage(props: {
               </p>
               <section class="student-work-boundary" aria-label="Inspection privacy boundary">
                 This view contains the Student's submitted responses, visible question content, and
-                score-only feedback. Answer keys and grader material remain server-owned.
+                score-only feedback. Answer Keys and Question Grading Input remain server-owned.
               </section>
               <Show
                 when={ready.detail.submissions.length > 0}

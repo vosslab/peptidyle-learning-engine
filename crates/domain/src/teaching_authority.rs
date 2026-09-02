@@ -15,9 +15,9 @@ pub const COURSE_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 
 /// Current direct Instructor-membership facts for one exact course.
 ///
-/// The Store supplies this projection after locking the durable membership
-/// record. It deliberately contains no creator distinction: the course creator
-/// and every accepted Teaching Team Member use the same exact membership relation.
+/// The Store supplies these Direct Instructor Membership facts after locking
+/// the durable membership record. It deliberately contains no creator distinction:
+/// the course creator and every accepted Teaching Team Member use the same exact membership relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectInstructorMembership {
     pub course: CourseId,
@@ -71,8 +71,8 @@ pub struct StudentCourseMembership {
 /// Returns whether one account currently owns the exact Student record in an
 /// exact course.
 ///
-/// Callers must supply the membership projection from the same protected
-/// transaction as the educational-record access. A foreign course, account,
+/// Callers must supply the Student Course Membership facts from the same
+/// protected transaction as the educational-record access. A foreign course, account,
 /// Student Record, membership episode, revoked episode, or non-Student role
 /// fails closed.
 pub fn student_owns_course_record(

@@ -19,7 +19,7 @@ remain in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and the
 
 Authorization is distinct from authentication, structural validation, revision
 and lifecycle checks, and grading. An identifier, a request field, a browser
-projection, a coarse role label, or a valid response shape does not establish
+reader result, a coarse role label, or a valid response shape does not establish
 authority.
 
 ## Account and request boundary
@@ -100,12 +100,12 @@ The course creator and every accepted Teaching Team Member have equal authority.
 receive identical allow/deny results for the same current course state; audit
 entries retain the acting `AccountId` and distinguish who performed the action.
 
-| Course operation                                                | Creator                                   | Current accepted Teaching Team Member     | Student                                        | Sysadmin without membership                                 |
-| --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
-| Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student projection in own course | No general course authority                                 |
-| Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                      | No general FERPA authority                                  |
-| Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
-| Create or publish a question                                    | Allow for active Instructor Account       | Allow for active Instructor Account       | No                                             | Platform operation only when separately authorized          |
+| Course operation                                                | Creator                                   | Current accepted Teaching Team Member     | Student                                         | Sysadmin without membership                                 |
+| --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student-facing data in own course | No general course authority                                 |
+| Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                       | No general FERPA authority                                  |
+| Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                              | Narrow audited roster support only where separately granted |
+| Create or publish a question                                    | Allow for active Instructor Account       | Allow for active Instructor Account       | No                                              | Platform operation only when separately authorized          |
 
 Course Invitation, acceptance, update, and revocation are atomic,
 audited course-membership operations. Invitation acceptance verifies the target
@@ -147,8 +147,9 @@ browser cannot create, widen, renew, or select it.
 
 An active capability has one exact CourseId, one closed Operation Kind, and
 one stated support purpose. It is issued by a current CourseInstance Instructor
-for support requested by that course. The platform retention scheduler is the
-registered issuer for its payload-free lifecycle operation. The capability
+for support requested by that course. A future Course Retention implementation
+must define its own exact issuer and lifecycle operation with its Store and
+worker. The capability
 registry begins after Course Instance Creation has committed an exact CourseInstance and
 its first direct Instructor membership.
 
@@ -180,11 +181,14 @@ its first direct Instructor membership.
   reference.
 - Appends `sysadmin_support.delivery_recovery`.
 
-#### `retention_lifecycle_support`
+#### Future Course Retention support
 
-- Reads coarse lifecycle state and requests an archive, delete, or extension transition.
-- Projects lifecycle state, strong revision, disposition, and resulting receipt only.
-- Appends `sysadmin_support.retention`.
+Course Retention has no mounted Store, route, worker, or browser reader. When
+implemented, its exact-course support authority must bind an accepted Course
+Retention Plan Revision, Course Retention Job, and committed Course Retention
+Event or Course Retention Receipt. It must not grant a browser an Object Cleanup
+Receipt outcome, object list, Assignment Revision Retention Rule, or general
+Student-record authority.
 
 Every capability use verifies the acting Sysadmin, exact CourseId, current
 Operation Kind, purpose, expiry, and absence of revocation inside the same
@@ -198,7 +202,7 @@ invitation secrets, raw Student responses, answer keys, or scores.
 The registry gives no Gradebook browsing, general Student-record browsing,
 course-teaching authority, export authority, or ambient FERPA access. A
 Sysadmin receives course-record access only through a separately registered
-capability that specifies an equally narrow target and projection.
+capability that specifies an equally narrow target and returned data.
 `ForcedQuestionCorrection` remains a platform-level closed
 operation that produces privacy-safe impact and deterministic remediation; it
 does not issue a course support capability or widen course access.
@@ -210,7 +214,7 @@ exact `CourseId`. A Student Record, Assignment Attempt, Question Attempt, respon
 or Student-record asset is bound to that exact course, the current Student
 membership/owner, and its child identity. A Student may list and work only the
 assignments available to that Student in that course and may read only the
-answer-free projection of that Student's own records.
+answer-free reader result for that Student's own records.
 
 Each student-scoped Store operation rechecks current Student membership and
 owner binding inside its transaction. This makes roster revocation immediate:
@@ -222,14 +226,14 @@ their own fences to the authorization result.
 
 ## Private workspace ownership
 
-Drafts are private authoring material. A draft, curriculum, source package,
+Drafts are private authoring records. A draft, curriculum, source package,
 QTI upload, conversion, collaborator grant, and author preview belongs to a
 typed `WorkspaceId` with an explicit owner/collaborator relationship. The
 stored current relationship and exact revision authorize draft read, save,
 edit, sharing, deletion, preview, and publication preparation.
 
 An author preview is an authorized Instructor workspace operation with
-`no-store`; it is not a Student delivery path. Its projection is answer-free
+`no-store`; it is not a Student delivery path. Its result is answer-free
 and contains no key, private rubric, source package, provider credential,
 Object Address, signed URL, or draft-to-published identity shortcut. Drafts remain
 private until successful publication. Question Folders, Stars, Watches, and Saved Question
@@ -241,7 +245,7 @@ visibility of any published question they reference.
 Every published question has one stable Question ID lineage and immutable
 QuestionRevisions, visible to every active Instructor through exactly one shared
 Question Library state. A publication mints a new Question ID only for a new lineage,
-after the private workspace material validates. A same-lineage semantic change
+after the private workspace Question Source and private grading records validate. A same-lineage semantic change
 publishes a new immutable QuestionRevision under the existing Question ID. An
 incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
@@ -250,17 +254,17 @@ retain their exact reference until a current course Instructor performs an
 explicit revision-checked replacement.
 
 Question Library visibility is authenticated approved-Instructor visibility.
-Student delivery is a separate assignment-entitlement operation: a Student
-receives only the exact question snapshot entitled by that assignment. Students
+Student delivery is a separate Assignment Access-authorized operation: a Student
+receives only the exact question snapshot allowed by that Assignment Access decision. Students
 do not receive Question Library discovery. An anonymous web request receives no Question
 Library access authority.
 
 The caller projections are closed:
 
-| Caller                                     | Question projection                                                                                                                           |
+| Caller                                     | Question reader result                                                                                                                        |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs.                            |
-| Authenticated Student                      | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an authorized assignment entitlement. |
+| Authenticated Student                      | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an allowed Assignment Access decision. |
 | Anonymous caller                           | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure.                                 |
 
 Lifecycle state is visible and does not change discovery authority. Every
@@ -307,8 +311,8 @@ manifest binds flawed and replacement exact versions, a permitted reason
 (`security_flaw` or `critical_correctness_flaw`), generation, affected bindings,
 and deterministic remediation. Approval atomically maps the flawed version to its
 replacement for new selection and issuance. The flawed version remains immutable
-historical evidence. Bounded, idempotent, generation-fenced workers materialize
-the mapping; issued and graded evidence retains its original pin, while
+historical evidence. Bounded, idempotent, generation-fenced workers apply the
+authoritative correction mapping and remediation; issued and graded evidence retains its original pin, while
 in-progress work is reissued or excused and completed work receives superseding
 receipts and deterministic recalculation when required. There is no per-course
 approval step.
@@ -375,14 +379,14 @@ consent/disclosure policy. It is distinct from current Student and Instructor
 memberships and cannot widen their predicates.
 
 A future Course Observer receives a separately typed exact-course relationship
-with a named assignment-completion projection and privacy-safe aggregate-grade
-projection. The completion projection contains the assigned Student identity,
+with a named assignment-completion result and privacy-safe aggregate-grade
+result. The completion result contains the assigned Student identity,
 assignment identity, and completed/not-completed state only. It contains no
 individual score, grade, response, attempt detail, feedback, accommodation,
 small-cell aggregate, Student-record asset, or arbitrary course record. The
-aggregate projection applies its disclosure threshold and contains no row-level
+aggregate-grade result applies its disclosure threshold and contains no row-level
 Student information. A future Student Observer requires explicit revocable
-consent, an exact Student binding, a read-only projection, and its own audit
+consent, an exact Student binding, a read-only result, and its own audit
 events. Future Grader, Course Observer, and Student Observer packages must
 define their visible workflow, capability matrix, revocation behavior,
 privacy/disclosure rules, and denial tests before activation.
@@ -393,7 +397,7 @@ An issued attempt is the sole student grading authority. It binds the exact
 Student owner, course assignment, immutable question revision, seed, timing
 state, and grading backend. The server checks that binding, current Student
 authority, timing, idempotency, Question Type, presentation consistency, and
-lifecycle before it loads answer-bearing material through a separately injected
+lifecycle before it loads the Answer Key, Question Feedback, or format-specific Question Grading Input through a separately injected
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.
 
@@ -419,11 +423,11 @@ authentication events, authorization denials, Account State changes,
 membership and relationship changes, sensitive course-record reads, export,
 retention, protected delivery, and Job lease transitions. They exclude
 session credentials, signed URLs, raw Student responses, grades where an audit
-reference suffices, answer keys, private grader material, and browser-supplied
+reference suffices, Answer Keys, private Question Grading Input, and browser-supplied
 authority. Auditing records who acted; it never grants a capability.
 
 Each protected route, Store method, authorization function, worker action, and object delivery
-must document the exact account predicate, durable target, field projection,
+must document the exact account predicate, durable target, returned fields,
 concealment result, audit event, and revocation point. Permanent tests cover
 stable authorization behavior. Fresh PostgreSQL/RLS, provider, worker-lease,
 and multi-replica exercises remain named disposable acceptance evidence under

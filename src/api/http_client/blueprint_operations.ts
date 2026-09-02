@@ -21,9 +21,9 @@ const OPERATIONS = new Set([
   "copy_assignment_from_blueprint",
 ]);
 
-function decodeOperationEnvelope<T>(value: unknown, path: string, payload: string): T {
+function decodeOperationRecord<T>(value: unknown, path: string, payload: string): T {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiProtocolError(`API ${path} must be an operation envelope`);
+    throw new ApiProtocolError(`API ${path} must be an operation record`);
   }
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record);
@@ -46,7 +46,7 @@ function decodeOperationEnvelope<T>(value: unknown, path: string, payload: strin
 function decodePreviewRequest(
   value: BlueprintOperationPreviewRequest,
 ): BlueprintOperationPreviewRequest {
-  return decodeOperationEnvelope<BlueprintOperationPreviewRequest>(value, "request", "request");
+  return decodeOperationRecord<BlueprintOperationPreviewRequest>(value, "request", "request");
 }
 
 function decodeApplyIntent(value: BlueprintOperationApplyIntent): BlueprintOperationApplyIntent {
@@ -99,11 +99,11 @@ export function createBlueprintOperationsClient(
         basePath,
         PREVIEW_PATH,
         decodePreviewRequest(request),
-        (value, path) => decodeOperationEnvelope<BlueprintOperationPreview>(value, path, "preview"),
+        (value, path) => decodeOperationRecord<BlueprintOperationPreview>(value, path, "preview"),
       ),
     applyBlueprintOperation: (intent) =>
       post(fetchImplementation, basePath, APPLY_PATH, decodeApplyIntent(intent), (value, path) =>
-        decodeOperationEnvelope<BlueprintOperationCompleted>(value, path, "completed"),
+        decodeOperationRecord<BlueprintOperationCompleted>(value, path, "completed"),
       ),
   };
 }

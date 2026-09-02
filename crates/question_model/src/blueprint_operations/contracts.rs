@@ -6,10 +6,10 @@
 
 mod assignment_source;
 mod bounded;
+mod browser_records;
 mod course_instance;
 mod course_instance_commands;
 mod course_instance_receipts;
-mod envelope;
 mod operations;
 mod pins;
 mod scalars;
@@ -17,13 +17,13 @@ mod server_records;
 mod source;
 
 pub use assignment_source::BlueprintAssignmentRevisionReference;
-pub use course_instance::*;
-pub use course_instance_commands::*;
-pub use course_instance_receipts::*;
-pub use envelope::{
+pub use browser_records::{
     BlueprintOperationApplyIntent, BlueprintOperationCompleted, BlueprintOperationPreview,
     BlueprintOperationPreviewRequest,
 };
+pub use course_instance::*;
+pub use course_instance_commands::*;
+pub use course_instance_receipts::*;
 pub use operations::*;
 pub use pins::{
     BlueprintQuestionPosition, BlueprintQuestionPositionError, QuestionRevisionSubstitution,

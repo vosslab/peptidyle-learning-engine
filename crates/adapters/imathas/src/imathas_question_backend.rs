@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use base64::Engine as _;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionBackendLocator, QuestionRevision, Timestamp};
+use question_model::{DraftImathasQuestionBackendBinding, QuestionBackend, QuestionRevision, Timestamp};
 use sha2::{Digest, Sha256};
 
 use crate::result_verification::{
@@ -455,9 +455,13 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        let QuestionBackendLocator::Imathas { binding } = &question.backend_locator else {
+        if question.question_backend != QuestionBackend::Imathas {
             return Err(ImathasAdapterError::UnsupportedSource);
-        };
+        }
+        let binding = question
+            .imathas_question_backend_binding
+            .as_ref()
+            .ok_or(ImathasAdapterError::UnsupportedSource)?;
         if binding.profile().as_str() != IMATHAS_GRADING_PROFILE_ID {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
@@ -511,14 +515,13 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
                 .map_err(|_| {
                     ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication
                 })?;
-        let locator = ImathasQuestionLocation::from_draft_backend_locator(
-            &question_model::DraftQuestionBackendLocator::Imathas {
-                binding: question_model::DraftImathasQuestionBackendBinding::new(
-                    source.binding().deployment_reference().clone(),
-                    source.binding().item_reference().clone(),
-                ),
-            },
-        )?;
+        let draft_binding = DraftImathasQuestionBackendBinding::new(
+            source.binding().deployment_reference().clone(),
+            source.binding().item_reference().clone(),
+        );
+        let locator = ImathasQuestionLocation::from_draft_imathas_question_backend_binding(
+            &draft_binding,
+        );
         let fresh = self
             .transport
             .fetch_snapshot(SnapshotTransportRequest {

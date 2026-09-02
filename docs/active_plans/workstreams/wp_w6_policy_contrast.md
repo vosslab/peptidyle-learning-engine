@@ -20,7 +20,7 @@ walkthrough. See the [J4 review](../audits/wp_w6_policy_contrast_review.md),
   closed; a resumed fresh-practice state fails rather than being activated. Both completion summaries
   retain `Back to assignment`.
 - The journey observes labels, focus, route surfaces, and completion controls only. It does not read
-  feedback body content, correctness, score, answer material, browser storage, private state, API
+  feedback body content, correctness, score, Answer Key data, browser storage, private state, API
   responses, direct post-login routes, or pointer actions.
 - `student_completion_policy_evidence.ts` accepts only fixed visible codes, public UUIDs, and bounded
   elapsed time. Report integration is intentionally deferred to the shared report owner.

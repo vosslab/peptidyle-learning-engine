@@ -4,9 +4,28 @@
 
 ### Fixes and Maintenance
 
-- Exempted three intentionally single-document Markdown owners from the source-file line cap: the
-  durable design-decision and terminology authorities, plus the transient active-plan status registry.
-  Code and other authored sources remain subject to the 999-line cap.
+- Completed the Tier 2 terminology closure for Entitlement, Material, Materialization,
+  Disposition, and Ledger. Current boundaries use Assignment Access and Active Student Course
+  Membership; exact operation records and Receipts; Answer Key, Question Grading Input, Question
+  Feedback, Question Answer Explanation, Question Hint, and format-specific records; Migration
+  Check Result; precise Object Cleanup Receipt outcomes; registered HTTP headers; and SQLx's
+  platform migration ledger. Workspace Import Item Result Store/service projection (row 508),
+  Course Retention rows 585--593, and Envelope/Witness/Locator review remain open.
+
+- Completed the broad Projection-to-View terminology closure. Independent current-tree review
+  classified all 88 remaining `projection` matches as precise technical mechanics, the terminology
+  definition, or frozen accepted-package history; no current PLE reader shape or interface uses
+  generic Projection. The temporary vocabulary tracker now omits completed Projection, Family, and
+  Factory reviews. Family retains 23 justified technical, ordinary-language, or historical matches
+  after six transient-plan phrases became "all supported Question Types"; Factory's sole match is
+  the terminology contract's precise construction-pattern definition. Open Job Kind Registration
+  rows remain separate.
+
+- The source-file line-limit gate now automatically excludes Markdown under `docs/active_plans/`
+  and `docs/archive/`; other source types there remain covered. Removed redundant active-plan
+  exact-path overrides while retaining the intentional single-document `DESIGN_DECISIONS.md` and
+  `TERMINOLOGY_CONTRACT.md` canonical-authority exceptions. Code and other authored sources remain
+  subject to the 999-line cap.
 
 - Recorded the owner-established role-qualified email boundary. A Student Account is global across
   courses and semesters, its institutional Student Authentication Email is immutable, Course
@@ -17,6 +36,15 @@
   the Course Retention Plan independently of the Account lifetime. The terminology contract,
   account decisions, and still-open vocabulary migration row now agree; implementation and schema
   correction remain open.
+
+- Completed the three post-Course-Route PV4 Support source batches: Workspace Editor (six comments),
+  PLE Question JSON Public Preview (five comments), and Instructor Preview client (four comments).
+  Independent allocation and implementation reviews pass; natural-language Editor Draft wording
+  unambiguously describes local `EditorDraft`. No wire/schema/routes/generated/security/behavior
+  boundary, fixture, or test changed. All source-owned View/read-shape migration is complete: the
+  former 18 Support residuals now equal only the justified fixed SQL query projection in
+  `local_stack_control/disposable_stack_adapter.py:579`. PV5 current documentation remains the sole
+  drift, so the broad View row and temporary projection queue remain open.
 
 - Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-COURSE-ROUTE`: exactly two Course Appearance comments now
   name the authorized `CourseRouteView` already loaded by route scope and the `THEME_MIX`

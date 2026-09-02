@@ -3,7 +3,7 @@
 //! WeBWorK execution remains in a separate, non-public renderer service.  This
 //! crate turns its output into the shared question model, caches only
 //! browser-safe rendered output by immutable `(version, seed)`, and delegates
-//! grading back to that service.  Answer material never enters this crate's
+//! grading back to that service.  The Answer Key never enters this crate's
 //! public results or the browser cache.
 
 use objects::{ObjectStore, ObjectStoreError, PutObject};
@@ -55,14 +55,14 @@ fn take_test_cache_events() -> Vec<&'static str> {
 #[derive(Clone, PartialEq)]
 pub struct WebworkIssuedAttempt {
     /// Reusable browser-safe response contract and prompt blocks.
-    pub envelope: QuestionVariationPresentation,
+    pub presentation: QuestionVariationPresentation,
     /// Deterministic parameter record for the version/seed pair.
     pub parameter_hash: String,
     /// Immutable source, implementation, and rendered-output evidence.
     pub reproduction_details: QuestionAttemptReproductionDetails,
     /// Private field/value mapping captured from the exact trusted render.
     /// It is persisted under the attempt's course boundary and is never part
-    /// of the browser envelope or safe render cache.
+    /// of the browser Question Presentation or safe render cache.
     pub replay: Option<WebworkQuestionAttemptReplayDetails>,
     /// Whether this response came from object storage rather than the renderer.
     pub cache_hit: bool,
@@ -72,7 +72,7 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("WebworkIssuedAttempt")
-            .field("envelope", &self.envelope)
+            .field("presentation", &self.presentation)
             .field("parameter_hash", &self.parameter_hash)
             .field("reproduction_details", &self.reproduction_details)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
@@ -100,7 +100,7 @@ pub enum WebworkAdapterError {
     /// Cache bytes could not be decoded as a browser-safe rendered question.
     InvalidCache(String),
     /// Renderer output did not match the immutable version/seed requested.
-    InvalidRendererEnvelope(String),
+    InvalidRendererQuestionPresentation(String),
     /// Persisted student-facing metadata cannot be delivered safely.
     InvalidTitle(QuestionTitleError),
 }
@@ -122,8 +122,11 @@ impl std::fmt::Display for WebworkAdapterError {
             Self::InvalidCache(message) => {
                 write!(formatter, "invalid WeBWorK render cache: {message}")
             }
-            Self::InvalidRendererEnvelope(message) => {
-                write!(formatter, "invalid WeBWorK renderer envelope: {message}")
+            Self::InvalidRendererQuestionPresentation(message) => {
+                write!(
+                    formatter,
+                    "invalid WeBWorK renderer Question Presentation: {message}"
+                )
             }
             Self::InvalidTitle(error) => {
                 write!(formatter, "invalid WeBWorK question title: {error}")
@@ -265,12 +268,16 @@ where
                     })
                     .await
                     .map_err(WebworkAdapterError::Renderer)?;
-                crate::cache::validate_envelope(&untrusted.envelope, &question_revision, seed)?;
+                crate::cache::validate_presentation(
+                    &untrusted.presentation,
+                    &question_revision,
+                    seed,
+                )?;
                 // Renderer output is untrusted. The student title is durable
                 // published metadata, not a renderer/source-provided field.
-                untrusted.envelope.title = question.metadata.title.clone();
+                untrusted.presentation.title = question.metadata.title.clone();
                 let replay = untrusted.replay.take().ok_or_else(|| {
-                    WebworkAdapterError::InvalidRendererEnvelope(
+                    WebworkAdapterError::InvalidRendererQuestionPresentation(
                         "renderer omitted private replay mapping".to_string(),
                     )
                 })?;
@@ -279,7 +286,7 @@ where
                     source_object_reference: source.source_object_reference().clone(),
                     source_object_checksum: source.source_object_checksum().clone(),
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
-                        envelope: untrusted.envelope,
+                        presentation: untrusted.presentation,
                         renderer_version: untrusted.renderer_version,
                     },
                 };
@@ -292,7 +299,7 @@ where
                     self.renderer.identity(),
                 )?;
                 let bytes = serde_json::to_vec(&rendered).map_err(|error| {
-                    WebworkAdapterError::InvalidRendererEnvelope(error.to_string())
+                    WebworkAdapterError::InvalidRendererQuestionPresentation(error.to_string())
                 })?;
                 match self
                     .store
@@ -395,10 +402,10 @@ where
             })
             .await
             .map_err(WebworkAdapterError::Renderer)?;
-        crate::cache::validate_envelope(&rendered.envelope, &question_revision, seed)?;
-        rendered.envelope.title = question.metadata.title.clone();
+        crate::cache::validate_presentation(&rendered.presentation, &question_revision, seed)?;
+        rendered.presentation.title = question.metadata.title.clone();
         let replay = rendered.replay.take().ok_or_else(|| {
-            WebworkAdapterError::InvalidRendererEnvelope(
+            WebworkAdapterError::InvalidRendererQuestionPresentation(
                 "renderer omitted private replay mapping".to_string(),
             )
         })?;
@@ -407,12 +414,12 @@ where
             source_object_reference: source.source_object_reference().clone(),
             source_object_checksum: source.source_object_checksum().clone(),
             rendered: crate::cache::SafeRenderedWebworkQuestion {
-                envelope: rendered.envelope,
+                presentation: rendered.presentation,
                 renderer_version: rendered.renderer_version,
             },
         };
         if &reproduced != cached {
-            return Err(WebworkAdapterError::InvalidRendererEnvelope(
+            return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
                 "renderer replay did not match the immutable safe cache".to_string(),
             ));
         }
@@ -431,7 +438,7 @@ where
         let renderer_version = rendered.rendered.renderer_version;
         let grader = grader_version(GRADING_ID, &renderer_version.version);
         Ok(WebworkIssuedAttempt {
-            envelope: rendered.rendered.envelope,
+            presentation: rendered.rendered.presentation,
             parameter_hash: parameter_hash(seed),
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),

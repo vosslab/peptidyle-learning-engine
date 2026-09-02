@@ -8,9 +8,9 @@
 
 use domain::generator::QuestionVariationParameters;
 use grading::AnswerKey;
+use question_model::QuestionContentBlock;
+use question_model::QuestionVariationPresentation;
 use question_model::capability::QuestionBackendCapabilities;
-use question_model::envelope::QuestionContentBlock;
-use question_model::envelope::QuestionVariationPresentation;
 use question_model::generation::QuestionGeneratorReference;
 use question_model::question_content::DraftQuestionContent;
 use question_model::{
@@ -20,9 +20,10 @@ use question_model::{
 
 use crate::PleQuestionBackendError;
 
-/// Rendered instructor teaching material for one deterministic draft variant.
+/// Display-ready Question Answer and Question Answer Explanation for one
+/// deterministic draft variant.
 ///
-/// This is deliberately display-ready rather than an answer-key projection:
+/// This is deliberately a display-ready generated Question rather than an Answer Key:
 /// choice identifiers, numeric expectations, accepted-response sets, and
 /// grading rules remain inside the PLE Question Backend.
 #[derive(Clone, PartialEq)]
@@ -83,12 +84,12 @@ pub trait PleQuestionImplementation: Send + Sync {
     /// Answer Explanation values
     /// after the exact issued instance has been reproduced and graded. The
     /// answer key never leaves this trusted adapter boundary; implementations
-    /// return only rendered public blocks, never answer identifiers or key material.
+    /// return only rendered public blocks, never answer identifiers or the Answer Key.
     fn derive_question_feedback_answer_and_explanation(
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionVariationPresentation,
+        presentation: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
         response: &StudentResponse,
@@ -100,7 +101,14 @@ pub trait PleQuestionImplementation: Send + Sync {
         ),
         PleQuestionBackendError,
     > {
-        let _ = (question, generated, envelope, answer_key, result, response);
+        let _ = (
+            question,
+            generated,
+            presentation,
+            answer_key,
+            result,
+            response,
+        );
         Ok((QuestionFeedback::default(), None, None))
     }
 
@@ -112,10 +120,10 @@ pub trait PleQuestionImplementation: Send + Sync {
         &self,
         question: &QuestionRevision,
         generated: &QuestionVariationParameters,
-        envelope: &QuestionVariationPresentation,
+        presentation: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
     ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
-        let _ = (question, generated, envelope, answer_key);
+        let _ = (question, generated, presentation, answer_key);
         Ok(None)
     }
 
@@ -124,7 +132,7 @@ pub trait PleQuestionImplementation: Send + Sync {
     /// supplied deterministic variant.  Returning `None` is an honest
     /// declaration that this implementation does not yet provide a safe author view;
     /// callers must surface it as unavailable rather than exposing an answer
-    /// key or fabricating teaching material.
+    /// key or fabricating a Question Answer or Question Answer Explanation.
     fn derive_author_presentation(
         &self,
         question: &DraftQuestionContent,

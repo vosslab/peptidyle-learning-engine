@@ -2,7 +2,7 @@
 //!
 //! The types here use only human route references and display labels.  They
 //! deliberately exclude external-affiliation IDs, UUIDs, email, policy inputs, jobs, object
-//! keys, recipient lists, answer material, and clock authority.  A server maps
+//! keys, recipient lists, Answer Key facts, and clock authority. A server maps
 //! its authorized Store/domain result into these values after resolving S5/S3.
 
 use std::num::{NonZeroU32, NonZeroU64};
@@ -37,8 +37,6 @@ pub use target_search::{
 pub const MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS: usize = 200;
 /// Maximum rows in one browser teaching-operations page.
 pub const MAX_TEACHING_PAGE_SIZE: u32 = 100;
-/// Largest browser-requestable retention extension in whole days.
-pub const MAX_RETENTION_EXTENSION_DAYS: u32 = 36_500;
 
 /// A nonzero teaching-operations page size that cannot exceed the route limit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -492,115 +490,6 @@ pub struct InstructorMembershipsPage {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorMembershipRemovalRequest {}
 
-/// Coarse server-owned retention state with no deadline, job, recipient, or policy input.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RetentionStateView {
-    Active,
-    NotificationDue,
-    StudentRecordsArchived,
-    StudentRecordsDeleted,
-}
-
-/// Closed Assignment Content disposition for a retention action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RetentionDispositionView {
-    Retain,
-    Delete,
-}
-
-/// Validated whole-day retention extension accepted by the existing server boundary.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "u32", into = "u32")]
-pub struct RetentionAdditionalDays(NonZeroU32);
-
-impl RetentionAdditionalDays {
-    /// Returns the bounded number of additional days.
-    pub fn get(self) -> u32 {
-        self.0.get()
-    }
-}
-
-impl TryFrom<u32> for RetentionAdditionalDays {
-    type Error = &'static str;
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        NonZeroU32::new(value)
-            .filter(|days| days.get() <= MAX_RETENTION_EXTENSION_DAYS)
-            .map(Self)
-            .ok_or("retention extension must be between 1 and 36500 whole days")
-    }
-}
-
-impl From<RetentionAdditionalDays> for u32 {
-    fn from(value: RetentionAdditionalDays) -> Self {
-        value.get()
-    }
-}
-
-/// Browser-safe retention read matching the server's strong revision boundary.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RetentionReadView {
-    pub state: RetentionStateView,
-    pub assignment_content: RetentionDispositionView,
-    pub revision: TeachingOperationRevision,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub notification: Option<RetentionNotificationView>,
-}
-
-/// Authorized notification accompanying retention GET and extend responses.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RetentionNotificationView {
-    pub intent: RetentionNotificationIntentView,
-    pub created_at: Timestamp,
-    pub copy: String,
-}
-
-/// Closed Course Retention Notice intent from the existing retention read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RetentionNotificationIntentView {
-    Archive,
-    Delete,
-    Extend,
-}
-
-/// Exact JSON body for the existing retention archive endpoint.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RetentionArchiveRequest {
-    pub assignment_content: RetentionDispositionView,
-}
-
-/// Exact JSON body for the existing retention extend endpoint.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RetentionExtendRequest {
-    pub additional_days: RetentionAdditionalDays,
-}
-
-/// Replay-safe result of a server-owned retention request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RetentionActionOutcomeView {
-    Scheduled,
-    InProgress,
-    Completed,
-}
-
-/// Browser-safe archive/delete response with its action outcome and new revision.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RetentionActionResponse {
-    pub state: RetentionStateView,
-    pub assignment_content: RetentionDispositionView,
-    pub revision: TeachingOperationRevision,
-    pub outcome: RetentionActionOutcomeView,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -683,41 +572,6 @@ mod tests {
         ] {
             assert!(denied.get(key).is_none());
         }
-    }
-
-    #[test]
-    fn retention_endpoint_bodies_and_notification_are_exact() {
-        assert_eq!(
-            serde_json::to_value(RetentionArchiveRequest {
-                assignment_content: RetentionDispositionView::Retain
-            })
-            .unwrap(),
-            serde_json::json!({"assignmentContent":"retain"})
-        );
-        assert_eq!(
-            serde_json::to_value(RetentionExtendRequest {
-                additional_days: RetentionAdditionalDays::try_from(7).unwrap()
-            })
-            .unwrap(),
-            serde_json::json!({"additionalDays":7})
-        );
-        assert!(
-            serde_json::from_str::<RetentionExtendRequest>(r#"{"additionalDays":36501}"#).is_err()
-        );
-        let notification = RetentionReadView {
-            state: RetentionStateView::NotificationDue,
-            assignment_content: RetentionDispositionView::Retain,
-            revision: "7".parse().unwrap(),
-            notification: Some(RetentionNotificationView {
-                intent: RetentionNotificationIntentView::Archive,
-                created_at: Timestamp::from_unix_millis(1),
-                copy: "Server-owned copy".to_owned(),
-            }),
-        };
-        assert_eq!(
-            serde_json::to_value(notification).unwrap()["notification"]["createdAt"],
-            1
-        );
     }
 
     #[test]

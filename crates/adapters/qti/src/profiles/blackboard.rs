@@ -229,7 +229,7 @@ fn parse_item(
             QtiSafeDiagnosticTemplate::MissingRequiredField,
         ));
     };
-    if !shape::valid_item_envelope(item) {
+    if !shape::valid_assessment_item_shape(item) {
         return Err(reject(
             QtiProfileDiagnosticCode::ItemShape,
             QtiSafeDiagnosticLocation::Item,

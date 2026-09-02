@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use domain::draft_preview::build_question_prompt;
 use domain::generator::generate;
-use question_model::envelope::QuestionVariationPresentation;
+use question_model::QuestionVariationPresentation;
 use question_model::generation::QuestionSeed;
 use question_model::{
     DraftQuestionContent, QuestionAttemptReproductionDetails, QuestionRevision,
@@ -21,7 +21,7 @@ use crate::{
 impl PleQuestionBackend {
     /// Generates one key-free PLE Issued Question.
     ///
-    /// Trusted Question Asset Object References are resolved against the generated envelope,
+    /// Trusted Question Asset Object References are resolved against the generated Question Presentation,
     /// then canonical immutable object IDs are persisted in the reproduction details.
     pub fn issue(
         &self,
@@ -32,8 +32,10 @@ impl PleQuestionBackend {
         question_asset_object_references: &[QuestionAssetObjectReference],
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
         let prepared = self.prepare(question, seed)?;
-        let asset_objects =
-            resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?;
+        let asset_objects = resolve_question_asset_objects(
+            &prepared.presentation,
+            question_asset_object_references,
+        )?;
         let reproduction_details = QuestionAttemptReproductionDetails {
             backend: self.current_backend.clone(),
             renderer_version: None,
@@ -45,7 +47,7 @@ impl PleQuestionBackend {
             rendered_question_sha256: prepared.rendered_question_sha256,
         };
         Ok(PleIssuedQuestion {
-            envelope: prepared.envelope,
+            presentation: prepared.presentation,
             parameter_hash: prepared.parameter_hash,
             reproduction_details,
         })
@@ -111,7 +113,7 @@ impl PleQuestionBackend {
             prompt,
             answer_key: execution.derive_answer_key(implementation, question, &generated)?,
         };
-        let envelope = QuestionVariationPresentation {
+        let presentation = QuestionVariationPresentation {
             variation: question_model::QuestionVariation::from_question_variation_rule(
                 question_model::QuestionRevisionReference {
                     question_id: question.question_id.clone(),
@@ -124,11 +126,11 @@ impl PleQuestionBackend {
             prompt: derived.prompt.clone(),
             response: question.response.clone(),
         };
-        let rendered_question_sha256 = hash_json(&envelope)?;
+        let rendered_question_sha256 = hash_json(&presentation)?;
         Ok(PreparedPleQuestion {
             generated,
             derived,
-            envelope,
+            presentation,
             parameter_hash,
             rendered_question_sha256,
         })

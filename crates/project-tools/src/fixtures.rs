@@ -12,13 +12,11 @@ use std::path::{Component, Path, PathBuf};
 use adapter_ple::{PleQuestionBackend, QuestionAssetObjectReference};
 use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
-use question_model::question_content::{
-    DraftQuestionContent, QuestionBackendLocator, QuestionRevision,
-};
+use question_model::question_content::{DraftQuestionContent, QuestionRevision};
 use question_model::{
     AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
-    IssuedQuestion, QuestionAttempt, QuestionFormat, QuestionRevisionReference, QuestionSummary,
-    SourceObjectChecksum, SourceObjectReference, StudentRecordId,
+    IssuedQuestion, QuestionAttempt, QuestionBackend, QuestionFormat, QuestionRevisionReference,
+    QuestionSummary, SourceObjectChecksum, SourceObjectReference, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -125,10 +123,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
 
     let adapter = PleQuestionBackend::new();
     ensure!(
-        matches!(
-            &fixture_set.published_question_revision.backend_locator,
-            QuestionBackendLocator::Ple
-        ),
+        fixture_set.published_question_revision.question_backend == QuestionBackend::Ple,
         "stored published Question must use the PLE Question Backend"
     );
     ensure!(
@@ -302,7 +297,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
                 == Some(&fixture_set.source_object_checksum),
             "PLE stored fixture must carry its exact Source Object Checksum"
         );
-        let envelope = adapter.reproduce(
+        let presentation = adapter.reproduce(
             &fixture_set.published_question_revision,
             attempt.seed,
             &attempt.parameter_hash,
@@ -310,7 +305,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
             &question_asset_object_references,
         )?;
         ensure!(
-            envelope.variation.question_revision
+            presentation.variation.question_revision
                 == QuestionRevisionReference {
                     question_id: fixture_set.published_question_revision.question_id.clone(),
                     revision_number: fixture_set.published_question_revision.revision_number,

@@ -32,8 +32,8 @@ Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
 Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
-is not a course or Question Library. The Question Library exposes only the reviewed,
-answer-free projection: every Published Question is discoverable to an
+is not a course or Question Library. The Question Library exposes only reviewed,
+answer-free Question Search Results: every Published Question is discoverable to an
 active Instructor, while only `Available` Question Revisions are ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,

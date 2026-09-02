@@ -171,7 +171,7 @@ pub fn validate_response_format(
 /// This is the server-side authority for a presentation-bearing attempt: it
 /// lets a first submission reject malformed input without asking a mutable
 /// Question Library or renderer to rebuild the student's already-issued widget. It
-/// checks only public shape, never answer material or correctness.
+/// checks only public shape, never Answer Key facts or correctness.
 pub fn validate_presentation_response_format(
     schema: &QuestionPresentationResponseFormat,
     response: &StudentResponse,
@@ -774,7 +774,7 @@ mod tests {
         );
 
         let hotspot = QuestionResponseFormat::Hotspot {
-            surface: question_model::envelope::QuestionAssetReference {
+            surface: question_model::QuestionAssetReference {
                 asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
                 checksum: "a".repeat(64),
             },

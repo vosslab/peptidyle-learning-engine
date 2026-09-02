@@ -35,7 +35,7 @@ private draft
 ```
 
 The arrow is an ownership change, not merely a screen change. A browser can
-read an answer-free projection and propose a response; it cannot choose a
+read an answer-free Question Presentation and propose a Student Response; it cannot choose an
 installation, published version, seed, deadline, grading backend, score, or deletion
 scope. The server derives those facts from authenticated course-owned records.
 
@@ -54,7 +54,7 @@ Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
 `(QuestionId, QuestionRevisionNumber)` pair; an optional Question Fork Source may identify its
 source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
-pinned pair and does not copy prompt, assets, source, or answer material into the
+pinned pair and does not copy Question Prompt, assets, Question Source, or Answer Key into the
 course. An Assignment Attempt is one pass through an Assignment, and a Question
 Attempt is one issued instance of one assignment position. Repeated use of the
 same exact published question does not merge distinct assignment positions or
@@ -91,7 +91,7 @@ repeats it before writing a durable transition.
 
 The server resolves the workspace-owned draft, validates it, mints a fresh Question
 ID and hidden `(QuestionId, QuestionRevisionNumber)` pair only after success, and commits
-immutable metadata, public payload, private grader material or source binding,
+immutable metadata, public payload, private Question Grading Input or Question Source binding,
 visibility grant, and draft removal as one transaction. A publication never
 mutates an existing published question. Every content change publishes a new
 question; an optional Question Fork Source may identify its source Question Revision. A deliberate,
@@ -129,7 +129,7 @@ interchangeable.
 ### 5. Create or resume an Assignment Attempt
 
 The server starts the initial Assignment Attempt or resumes the one active Assignment Attempt that belongs to
-the enrollment only after current S5 entitlement and S3 resolution. Stored
+the enrollment only after current Active Student Course Membership and Assignment Access evaluation. Stored
 Released Assignment Status is the sole Student-accessible G1 state; Unreleased,
 Closed, and Archived Assignments do not start Student work. It assigns server
 timestamps, one-based Assignment Attempt number, and
@@ -164,7 +164,7 @@ display and submission aid, never the timing authority.
 
 ### 7. Render an answer-free screen
 
-The student receives a public render envelope and the smallest state needed to
+The student receives a public Question Presentation and the smallest state needed to
 use it. Rich render data includes typed prompt blocks, accessible
 asset references, Question Response Format, item order, and public constraints. It may
 also include seed and version to identify the public render. It excludes correct
@@ -185,10 +185,11 @@ working. A prefetch reservation is Course-, Student-, Assignment Attempt-, prede
 position-bound. It has no Question Attempt ID, response, grade, or started timer.
 
 At the secure-payload target boundary, an untimed-practice browser may hold the
-answer-free envelope in memory and warm a bounded set of same-origin assets.
+answer-free Question Presentation in memory and warm a bounded set of same-origin assets.
 For timed or exam work, PLE may prepare privately but withholds the next
-envelope until the predecessor commits. The current bodyless prefetch route has
-not yet enforced this timing-policy distinction. Only an exact committed receipt
+Question Presentation until the predecessor commits. The current bodyless prefetch route has
+not yet enforced this timing-policy distinction. Only an exact graded Question
+Submission Receipt
 promotes a reservation to an issued attempt. A reload, mismatch, cancellation,
 or route exit discards the browser cache; it does not invent another seed or
 advance an Assignment Attempt.
@@ -207,7 +208,7 @@ accepting browser copies.
 The server rejects a digest mismatch before grading and keeps the attempt
 unchanged. The browser reloads the same attempt, retains compatible unsent work
 in memory, and asks the student to review it. Repeating the same idempotency
-key and same response returns the first committed receipt. Reusing a key or
+key and same response returns the first Question Submission Receipt. Reusing a key or
 attempt with a changed response conflicts before a second grade or state
 transition occurs.
 
@@ -221,14 +222,17 @@ key, or correctness assertion for ordinary grading. The current tagged
 `StudentResponse` route accepts `kind`, but derives and validates the
 expected Question Type from the issued attempt; it is not submission authority.
 
-Acceptance first commits the validated response, immutable issued-work witness,
-pending evaluation, execution record, and ready grading job as one transaction.
-The student receives `202 Accepted` and may read the route-bound submission
-status while the sealed worker owns grading. A successful worker transaction
-then commits the grading result, score event, Question Attempt transition, Assignment Attempt completion,
-enrollment pointers, summary projection, successor receipt, and immutable
-idempotency receipt together. The completed receipt copies the issued,
-answer-free `QuestionPresentation` and exact public Presented Question Asset snapshot.
+Acceptance first commits the validated Question Submission and its Question
+Submission Receipt, pending evaluation, execution record, and ready grading job
+as one transaction. The submission remains bound through its Question Attempt
+to the immutable Issued Question and private Question Attempt Reproduction
+Details. The student receives `202 Accepted` and may read the route-bound
+submission status while the sealed worker owns grading. A successful worker
+transaction then commits the grading result, score event, Question Attempt
+transition, Assignment Attempt completion, enrollment pointers, Assignment
+Attempt Summary, successor binding, and immutable idempotency evidence together.
+The graded Question Submission Receipt copies the issued, answer-free `QuestionPresentation` and
+exact public Presented Question Asset snapshot.
 Replay and status reads therefore use durable accepted or completed evidence,
 never a newer published Question/backend render, and never re-grade an answer.
 
@@ -239,22 +243,22 @@ committed attempt identity, with an accessible action to check grading status.
 After completion, the student receives policy-permitted correctness and points,
 sanitized feedback, and either an immutable `nextIssued` descriptor or
 `nextPending`. The Store evaluates student
-disclosure at projection time only after S5 entitlement, from the current
+Student Feedback disclosure only after Active Student Course Membership and Assignment Access, from the current
 S3-resolved effective-policy verdict, assignment-owned policy, authoritative
 time, and the submitted fact; the request cannot choose it. The historical S3
 receipt remains immutable attempt evidence, not a disclosure input.
-`nextPending` means the grade receipt succeeded but successor
+`nextPending` means the graded Question Submission Receipt succeeded but successor
 delivery has not; recovery may finish that single pending delivery, while a
 replay never resubmits or consults changed published Question/backend state. Withheld
 feedback remains withheld even though the result is persisted. An instructor or
-gradebook view reads the summary projection and lazily paged history rather
+Gradebook reads the Assignment Attempt Summary and lazily paged history rather
 than recomputing a grade by scanning all attempts. A separate scoring freshness
 state can mark the maintained summary Recalculating or Failed; student routes
 then omit aggregate and Assignment Attempt scores, Grading Results, and disclosed point values
 until it is Current, without changing the student's semantic
 activity/disclosure state.
 
-The attempt state machine, feedback policy, timer rule, and summary projection
+The attempt state machine, feedback policy, timer rule, and Assignment Attempt Summary
 are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and
 target request/receipt shapes are detailed in
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
@@ -265,21 +269,21 @@ The common lifecycle deliberately ends at a backend boundary. Adapters can
 share public attempt behavior without sharing private grading data or assuming
 the same source format.
 
-| Question Backend | Publication authority                                                                                                          | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key                                               | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private envelope, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
-| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled                 | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                              |
-| WeBWorK          | PLE copies licensed PG/PGML Question Source into immutable storage with its Source Object Reference and Source Object Checksum | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WeBWorK grading contract, and immutable Question Source; submitted reads never rerender                           |
-| iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration                                                 | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                          |
+| Question Backend | Publication authority                                                                                                          | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key                                               | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private Question Grading Input, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
+| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled                 | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                                            |
+| WeBWorK          | PLE copies licensed PG/PGML Question Source into immutable storage with its Source Object Reference and Source Object Checksum | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WeBWorK grading contract, and immutable Question Source; submitted reads never rerender                                         |
+| iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration                                                 | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                                        |
 
 PLE Question JSON Questions use PLE's public `QuestionRevision` plus separate
-grader-only material. The exact PLE Question JSON authoring format is
+PLE Question JSON Private Grading. The exact PLE Question JSON authoring format is
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
 runtime model.
 
 QTI import refuses unsupported input rather than silently dropping semantics.
 Published QTI runtime is feature-gated and separates its PostgreSQL grader
-access from ordinary public projections. Its profile and promotion contract is
+access from ordinary public Question Presentations. Its profile and promotion contract is
 registered in [CONTRACTS.md](CONTRACTS.md).
 
 WeBWorK is a private service integration. PLE sends the trusted source, fixed
@@ -303,7 +307,7 @@ with their own authorization and retention handling.
 | Concurrent issue/resume                      | Lock and return the sole unresolved Question Attempt.                                                                               |
 | Public render or asset fails                 | Keep the Assignment Attempt resumable; offer retry without changing seed or Question Attempt.                                       |
 | Presentation mismatch                        | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state.                  |
-| Network loss after submit                    | Retry with the same idempotency key and response to receive the committed receipt.                                                  |
+| Network loss after submit                    | Retry with the same idempotency key and response to receive the Question Submission Receipt.                                        |
 | Changed submission replay                    | Conflict before grading or state mutation.                                                                                          |
 | Renderer/backend outage                      | Preserve the active attempt; expose a bounded degraded state only for the affected question.                                        |
 | Commit interruption after prefetch promotion | Heal only the sole owned, committed-but-unlinked successor; never derive a different successor from later Assignment Attempt state. |
@@ -338,7 +342,7 @@ Use this lifecycle document to find the right detailed contract:
 - [QUESTION_MODEL.md](QUESTION_MODEL.md): public model, durable identities,
   response shapes, generation, and browser-safe type boundary.
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
-  timing, idempotency, completion, and summary projection.
+  timing, idempotency, completion, and Assignment Attempt Summary.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
   rendered IDs, presentation checksum, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,

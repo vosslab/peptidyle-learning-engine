@@ -40,6 +40,70 @@ INSERT INTO ple_private.question_attempt (
     '00000000-0000-5000-8000-000000000115', 1, repeat('ac', 32),
     pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
 );
+-- This second issued Question preserves the same active Question identity while
+-- freezing a deliberately ineligible statistics decision for the Store oracle.
+INSERT INTO ple_private.assignment_attempt (
+    assignment_attempt_id, student_record_id, assignment_id, assignment_revision_id,
+    started_at, completed_at, attempt_number, question_pool_reuse_rule, question_variation_rule
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f210', student_record_id, assignment_id,
+    assignment_revision_id, pg_catalog.clock_timestamp(), NULL, attempt_number + 100,
+    question_pool_reuse_rule, question_variation_rule
+FROM ple_private.assignment_attempt
+WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+INSERT INTO ple_private.issued_question (
+    issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
+    revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
+    question_pool_selection_id, question_pool_item_id
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f209',
+    '00000000-0000-0000-0000-00000000f210', assignment_entry_id, question_id,
+    revision_number, issued_position, point_value, scoring_rule, false,
+    question_pool_selection_id, question_pool_item_id
+FROM ple_private.issued_question
+WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+INSERT INTO ple_private.question_attempt (
+    question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
+    issued_at, deadline_at, question_attempt_state, reproduction_details
+) VALUES (
+    '00000000-0000-0000-0000-00000000f208',
+    '00000000-0000-0000-0000-00000000f209', 1, repeat('ad', 32),
+    pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
+);
+-- A separate eligible Question Attempt keeps the statistics scenario independent
+-- from the existing lifecycle and persistence scenarios.
+INSERT INTO ple_private.assignment_attempt (
+    assignment_attempt_id, student_record_id, assignment_id, assignment_revision_id,
+    started_at, completed_at, attempt_number, question_pool_reuse_rule, question_variation_rule
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f212', student_record_id, assignment_id,
+    assignment_revision_id, pg_catalog.clock_timestamp(), NULL, attempt_number + 200,
+    question_pool_reuse_rule, question_variation_rule
+FROM ple_private.assignment_attempt
+WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+INSERT INTO ple_private.issued_question (
+    issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
+    revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
+    question_pool_selection_id, question_pool_item_id
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f213',
+    '00000000-0000-0000-0000-00000000f212', assignment_entry_id, question_id,
+    revision_number, issued_position, point_value, scoring_rule, true,
+    question_pool_selection_id, question_pool_item_id
+FROM ple_private.issued_question
+WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+INSERT INTO ple_private.question_attempt (
+    question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
+    issued_at, deadline_at, question_attempt_state, reproduction_details
+) VALUES (
+    '00000000-0000-0000-0000-00000000f214',
+    '00000000-0000-0000-0000-00000000f213', 1, repeat('ae', 32),
+    pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
+);
 INSERT INTO ple_private.authenticated_session (
     session_id, account_id, role, token_hash, created_at, expires_at
 ) VALUES (
@@ -52,9 +116,45 @@ COMMIT;
 
 CREATE ROLE ple_api_login LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
     NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8 PASSWORD 'imathasquestionbackendoracle';
+CREATE ROLE ple_worker_login LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+    NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8 PASSWORD 'imathasquestionbackendworkeroracle';
 GRANT ple_app TO ple_api_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 GRANT ple_auth TO ple_api_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT CONNECT ON DATABASE ple_e2e_baseline TO ple_api_login;
+GRANT ple_imathas_question_backend_grading_worker TO ple_worker_login
+    WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+GRANT CONNECT ON DATABASE ple_e2e_baseline TO ple_api_login, ple_worker_login;
+
+-- ASVS 8.2.1-8.2.3: only the trusted grading commit invokes the recorder.
+DO $$
+BEGIN
+    IF (
+        SELECT count(*)
+        FROM pg_proc AS procedure
+        JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        JOIN pg_roles AS owner_role ON owner_role.oid = procedure.proowner
+        WHERE namespace.nspname = 'ple_api'
+          AND procedure.proname = 'record_question_statistics_observation'
+          AND pg_get_function_identity_arguments(procedure.oid) =
+              'p_automated_grading_receipt_id uuid, p_eligible_choice_ids text[]'
+          AND owner_role.rolname = 'ple_api_owner'
+          AND procedure.prosecdef
+          AND array_to_string(procedure.proconfig, ',') LIKE 'search_path=pg_catalog,%'
+    ) <> 1
+    OR EXISTS (
+        SELECT 1
+        FROM unnest(
+            ARRAY['public', 'ple_app', 'ple_imathas_question_backend_grading_worker']::name[]
+        ) AS capability(role)
+        WHERE has_function_privilege(
+            capability.role,
+            'ple_api.record_question_statistics_observation(uuid,text[])',
+            'EXECUTE'
+        )
+    ) THEN
+        RAISE EXCEPTION 'Question Statistics Observation recorder authority is not exact';
+    END IF;
+END
+$$;
 
 -- The Store fixture proves its exact Student/Attempt/Question Source join before
 -- the Rust process exercises the same authenticated procedure boundary.
@@ -66,6 +166,14 @@ SELECT session_id FROM ple_api.resolve_and_install_session(
 SET LOCAL ROLE ple_api_owner;
 SELECT
     EXISTS (SELECT 1 FROM ple_private.question_attempt WHERE question_attempt_id = '00000000-0000-0000-0000-00000000f205') AS has_question_attempt,
+    EXISTS (
+        SELECT 1
+        FROM ple_private.question_attempt AS question_attempt
+        JOIN ple_private.issued_question AS issued_question
+          ON issued_question.issued_question_id = question_attempt.issued_question_id
+        WHERE question_attempt.question_attempt_id = '00000000-0000-0000-0000-00000000f208'
+          AND NOT issued_question.statistics_eligible
+    ) AS has_ineligible_question_attempt,
     EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-5000-8000-000000000115') AS has_issued_question,
     EXISTS (SELECT 1 FROM ple_private.question_source WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source,
     ple_api.current_session_account_owns_student_record('00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000106') AS owns_student_record;

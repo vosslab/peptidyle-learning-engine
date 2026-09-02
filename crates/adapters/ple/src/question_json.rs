@@ -2,7 +2,7 @@
 //!
 //! The closed version 2 Question Type set follows the reviewed QTI Package Maker item model.
 //! Parsing produces two values:
-//! a browser-safe draft and answer-bearing private material. The latter stays
+//! a browser-safe draft and PLE Question JSON Private Grading. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
 //! definition it grades.
 
@@ -14,9 +14,9 @@ pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
     validate_for_draft, validate_ple_question_json_question,
 };
+use question_model::QuestionContentBlock;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::classification::QuestionClassification;
-use question_model::envelope::QuestionContentBlock;
 use question_model::{
     DraftQuestionContent, QuestionFormat, QuestionHint, QuestionRevision, QuestionType,
     WorkspaceId,
@@ -150,7 +150,7 @@ impl CompiledPleQuestionJson {
         &self.draft
     }
 
-    /// Returns the private material accepted only by a grading capability.
+    /// Returns the PLE Question JSON Private Grading accepted only by a grading capability.
     pub fn private(&self) -> &PleQuestionJsonPrivateGrading {
         &self.private
     }
@@ -210,10 +210,8 @@ impl PleQuestionImplementation for PleQuestionJsonImplementation {
         question: &QuestionRevision,
         _generated: &domain::generator::QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, crate::PleQuestionBackendError> {
-        if !matches!(
-            question.backend_locator,
-            question_model::QuestionBackendLocator::Ple
-        ) || question.question_format != self.question_format()
+        if question.question_backend != question_model::QuestionBackend::Ple
+            || question.question_format != self.question_format()
             || question.question_type != self.question_type()
         {
             return Err(crate::PleQuestionBackendError::IncompatibleQuestionImplementation {

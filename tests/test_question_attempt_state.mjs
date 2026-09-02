@@ -602,7 +602,7 @@ test("editing after a failed request does not reuse that request's key", async (
   assert.deepEqual(fixture.keys, ["key-1", "key-2"]);
 });
 
-test("advance retry reloads the retained envelope without resubmitting a committed response", async () => {
+test("advance retry reloads the retained Question Presentation without resubmitting a committed response", async () => {
   const fixture = createMachine();
   ready(fixture.machine);
   await fixture.machine.submit();
@@ -613,7 +613,7 @@ test("advance retry reloads the retained envelope without resubmitting a committ
       questionRevision: versionReference(2),
       seed: 3,
     }),
-    envelope: {
+    presentation: {
       variation: { questionRevision: versionReference(2), seed: 3 },
       prompt: [],
       response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
@@ -634,11 +634,11 @@ test("advance retry reloads the retained envelope without resubmitting a committ
   await fixture.machine.retryAdvance();
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(fixture.machine.state().phase, "answering");
-  assert.deepEqual(fixture.machine.state().envelope, next.envelope);
+  assert.deepEqual(fixture.machine.state().presentation, next.presentation);
 });
 
-test("a mismatched next envelope preserves feedback and exposes a recoverable content error", async () => {
-  for (const envelope of [
+test("a mismatched next Question Presentation preserves feedback and exposes a recoverable content error", async () => {
+  for (const presentation of [
     {
       variation: { questionRevision: versionReference(3), seed: 3 },
       prompt: [],
@@ -661,7 +661,7 @@ test("a mismatched next envelope preserves feedback and exposes a recoverable co
         questionRevision: versionReference(2),
         seed: 3,
       }),
-      envelope,
+      presentation,
     };
 
     await fixture.machine.advance(async () => invalidNext);
@@ -671,7 +671,7 @@ test("a mismatched next envelope preserves feedback and exposes a recoverable co
     assert.match(state.message, /did not match its issued attempt/i);
     assert.equal(state.context.attemptId, "attempt-a");
     assert.deepEqual(state.feedback, prior.feedback);
-    assert.equal(state.envelope, null);
+    assert.equal(state.presentation, null);
   }
 });
 

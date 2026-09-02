@@ -1,4 +1,4 @@
-// question_renderer.tsx - browser-safe envelope-to-prompt projection.
+// question_renderer.tsx - browser-safe Question Variation Presentation rendering.
 
 import { createUniqueId, ErrorBoundary, For, onMount, type JSX } from "solid-js";
 import temml from "temml";
@@ -98,8 +98,9 @@ type SanitizedMathMl = { readonly root: SafeMathMlElementNode };
 export type AssetUrlResolver = (asset: QuestionAssetReference) => URL;
 
 /**
- * The identity-free content the browser renderer actually needs. Published envelopes and private
- * workspace previews intentionally share this projection without sharing a publication identity.
+ * The identity-free Question Variation Presentation that the browser renderer needs. Published
+ * Question Presentations and private workspace previews can share this content without sharing a
+ * publication identity.
  */
 export interface QuestionVariationPresentation {
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
@@ -183,7 +184,7 @@ function mathMlAttributesFromElement(element: Element): ReadonlyMap<string, stri
   return attributes;
 }
 
-function projectMathMlNode(node: Node): SafeMathMlNode {
+function sanitizeMathMlNode(node: Node): SafeMathMlNode {
   if (node.nodeType === Node.TEXT_NODE) {
     return { kind: "text", text: node.textContent ?? "" };
   }
@@ -199,12 +200,12 @@ function projectMathMlNode(node: Node): SafeMathMlNode {
     kind: "element",
     tag,
     attributes: mathMlAttributesFromElement(element),
-    children: Array.from(element.childNodes, projectMathMlNode),
+    children: Array.from(element.childNodes, sanitizeMathMlNode),
   };
 }
 
 /**
- * Converts TeX only through Temml, then projects the result through a fresh MathML allowlist.
+ * Converts TeX only through Temml, then validates it through a fresh MathML allowlist.
  * The resulting object contains no raw TeX-derived markup string and is safe to construct with
  * namespace-aware DOM APIs.
  */
@@ -231,7 +232,7 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
       "This math content could not be rendered. Please ask the instructor to correct its TeX.",
     );
   }
-  const root = projectMathMlNode(parsed.documentElement);
+  const root = sanitizeMathMlNode(parsed.documentElement);
   if (root.kind !== "element" || root.tag !== "math") {
     throw new QuestionContentError("Converted TeX did not produce a MathML root element.");
   }
@@ -444,7 +445,7 @@ function RendererFailure(props: {
   );
 }
 
-/** Renders prompt blocks without requiring a response or grading projection. */
+/** Renders Question Content Blocks without rendering a Question Response Format or grading data. */
 export function QuestionPromptRenderer(props: QuestionPromptRendererProps): JSX.Element {
   return (
     <>

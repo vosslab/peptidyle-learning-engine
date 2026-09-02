@@ -217,7 +217,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 +----------------------------------------------------------------------------------+
 ```
 
-## 12) Nielsen / WCAG ledger
+## 12) Nielsen and WCAG Checklist
 
 ### Nielsen heuristics alignment
 

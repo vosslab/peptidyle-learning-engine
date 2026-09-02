@@ -58,7 +58,7 @@ export const STATISTICS_DURATION_ESTIMATES_SECONDS = [
 export const MAX_PUBLICATION_SEMANTIC_ENTRIES = 100;
 const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
 
-export function decodeEnvelopeTitle(value: unknown, path: string): string {
+export function decodeQuestionTitle(value: unknown, path: string): string {
   const title = decodeNonemptyString(value, path);
   if (title.trim().length === 0) {
     throw new DecodeError(path, "a title containing non-whitespace content");
@@ -125,7 +125,7 @@ export function decodeCursor(value: unknown, path: string): string {
 }
 
 /**
- * Decodes the exact common cursor-page envelope used by browser list routes.
+ * Decodes the exact common Cursor Page response used by browser list routes.
  *
  * The server's shared pagination contract caps every page at 100 rows. Keeping
  * the same cap at this untrusted browser boundary prevents a malformed response
@@ -136,17 +136,17 @@ export function decodeCursorPage<T>(
   path: string,
   decodeItem: Decoder<T>,
 ): CursorPage<T> {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  const cursorPageResponse = decodeRecord(value, path);
+  requireOnlyFields(cursorPageResponse, path, ["items", "nextCursor"]);
   return {
     items: decodeBoundedArray(
-      field(record, "items", path),
+      field(cursorPageResponse, "items", path),
       `${path}.items`,
       MAX_CURSOR_PAGE_ITEMS,
       decodeItem,
     ),
     nextCursor: decodeNullable(
-      field(record, "nextCursor", path),
+      field(cursorPageResponse, "nextCursor", path),
       `${path}.nextCursor`,
       decodeCursor,
     ),

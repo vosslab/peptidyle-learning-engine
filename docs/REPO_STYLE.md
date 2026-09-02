@@ -116,9 +116,10 @@ Preferred structure:
 - Markdown beneath any `docs/active_plans/` or `docs/archive/` tree is planning or historical
   material and stays outside this source-code line budget. Other source types in those trees remain
   covered.
-- Managers may exempt tracked external sources in `tests/source_file_line_limit_overrides.txt`,
-  using one exact repo-relative path per line. Encode universal folder-category exclusions in the
-  gate and reserve the repo-owned override list for individually approved files.
+- Managers may exempt individually approved canonical or external sources in
+  `tests/source_file_line_limit_overrides.txt`, using one exact repo-relative path per line. Encode
+  universal folder-category exclusions in the gate and reserve the repo-owned override list for
+  exceptional single-document ownership.
 
 ## Changelog rotation
 - Rotate `docs/CHANGELOG.md` once it exceeds 800 physical lines (`wc -l docs/CHANGELOG.md`).

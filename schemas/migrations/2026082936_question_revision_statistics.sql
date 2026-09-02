@@ -92,7 +92,7 @@ GRANT SELECT ON TABLE ple_private.question_attempt, ple_private.question_submiss
 GRANT INSERT, SELECT ON TABLE ple_private.question_statistics_observation_receipt TO ple_api_owner;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.question_statistics_observation_receipt FROM PUBLIC;
 COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS
-    'One private idempotency witness for a global Question Statistics Observation.';
+    'One private Question Statistics Observation Receipt records one global Question Statistics Observation exactly once.';
 RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;
@@ -106,7 +106,6 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.record_question_statistics_observation(
     p_automated_grading_receipt_id uuid,
-    p_correct boolean,
     p_eligible_choice_ids text[]
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -116,6 +115,7 @@ DECLARE
     v_question_attempt_id uuid;
     v_question_id text;
     v_revision_number integer;
+    v_correct boolean;
     v_observed_at timestamp with time zone;
     v_inserted boolean;
 BEGIN
@@ -131,9 +131,11 @@ BEGIN
             MESSAGE = 'Question Statistics Observation choices must be distinct nonempty eligible IDs';
     END IF;
 
+    -- ASVS 2.1.2, 2.3.1, 8.3.1, and 15.4.2: derive the observation only from
+    -- the accepted, locked grading lineage and its immutable issue-time eligibility.
     SELECT question_attempt.question_attempt_id, issued.question_id, issued.revision_number,
-           receipt.committed_at
-      INTO v_question_attempt_id, v_question_id, v_revision_number, v_observed_at
+           result.correct, receipt.committed_at
+      INTO v_question_attempt_id, v_question_id, v_revision_number, v_correct, v_observed_at
       FROM ple_audit.automated_grading_receipt AS receipt
       JOIN ple_private.grading_result AS result
         ON result.grading_result_id = receipt.grading_result_id
@@ -158,7 +160,7 @@ BEGIN
     INSERT INTO ple_private.question_statistics_observation_receipt (
         automated_grading_receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at
     ) VALUES (
-        p_automated_grading_receipt_id, v_question_attempt_id, v_question_id, v_revision_number, p_correct, v_observed_at
+        p_automated_grading_receipt_id, v_question_attempt_id, v_question_id, v_revision_number, v_correct, v_observed_at
     ) ON CONFLICT (automated_grading_receipt_id) DO NOTHING
     RETURNING true INTO v_inserted;
     IF COALESCE(v_inserted, false) IS NOT TRUE THEN
@@ -168,12 +170,12 @@ BEGIN
     INSERT INTO ple_data.question_revision_statistics (
         question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
     ) VALUES (
-        v_question_id, v_revision_number, 1, CASE WHEN p_correct THEN 1 ELSE 0 END, v_observed_at
+        v_question_id, v_revision_number, 1, CASE WHEN v_correct THEN 1 ELSE 0 END, v_observed_at
     ) ON CONFLICT (question_id, revision_number) DO UPDATE
         SET accepted_graded_attempt_count =
                 ple_data.question_revision_statistics.accepted_graded_attempt_count + 1,
             correct_count = ple_data.question_revision_statistics.correct_count
-                + CASE WHEN p_correct THEN 1 ELSE 0 END,
+                + CASE WHEN v_correct THEN 1 ELSE 0 END,
             updated_at = EXCLUDED.updated_at;
 
     INSERT INTO ple_data.question_revision_choice_statistics (
@@ -185,9 +187,6 @@ BEGIN
 END
 $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.record_question_statistics_observation(
-    uuid, boolean, text[]
+    uuid, text[]
 ) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.record_question_statistics_observation(
-    uuid, boolean, text[]
-) TO ple_app;
 RESET ROLE;

@@ -11,6 +11,7 @@ import {
   decodeQuestionSubmissionAcknowledgement,
   decodeQuestionPresentation,
   decodeAssignmentAttempt,
+  decodeStudentQuestionAttemptView,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import {
@@ -37,8 +38,8 @@ test("question decoders reject answer-bearing and iMathAS-secret fields", () => 
   );
 });
 
-test("issued iMathAS Question Backend envelopes accept only their public marker", () => {
-  const envelope = {
+test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
+  const presentation = {
     variation: {
       questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
       seed: 2,
@@ -47,15 +48,15 @@ test("issued iMathAS Question Backend envelopes accept only their public marker"
     prompt: [],
     response: { kind: "imathasQuestionBackend" },
   };
-  assert.deepEqual(decodeQuestionPresentation(envelope).response, {
+  assert.deepEqual(decodeQuestionPresentation(presentation).response, {
     kind: "imathasQuestionBackend",
   });
   assert.throws(
     () =>
       decodeQuestionPresentation({
-        ...envelope,
+        ...presentation,
         variation: {
-          ...envelope.variation,
+          ...presentation.variation,
           generator: { id: "secret", version: "1" },
         },
       }),
@@ -64,7 +65,7 @@ test("issued iMathAS Question Backend envelopes accept only their public marker"
   assert.throws(
     () =>
       decodeQuestionPresentation({
-        ...envelope,
+        ...presentation,
         response: { kind: "imathasQuestionBackend", token: "secret" },
       }),
     DecodeError,
@@ -101,11 +102,11 @@ test("Question Submission acknowledgement separates its answer-free receipt and 
   assert.throws(
     () => decodeQuestionSubmissionAcknowledgement({ ...pending, attempt: {} }),
     DecodeError,
-    "pending acknowledgement cannot mix detailed receipt material at its outer boundary",
+    "pending acknowledgement cannot mix detailed receipt data at its outer boundary",
   );
 });
 
-test("Question Library pages remain bounded and do not disclose answer material", () => {
+test("Question Library pages remain bounded and do not disclose an Answer Key", () => {
   const page = { items: [publishedQuestionFixture.publishedQuestion], nextCursor: null };
   assert.deepEqual(decodeQuestionPage(page), page);
   assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
@@ -178,12 +179,38 @@ test("Assignment Attempt transport preserves its exact Released Assignment Revis
   }, DecodeError);
 });
 
+test("Student Question Attempt decoding accepts every generated issued capability and rejects retired values", () => {
+  const attempt = publishedQuestionFixture.attempts[0];
+  assert.ok(attempt);
+  const { questionPoolSelectionPosition: _position, ...attemptView } = attempt;
+  for (const issuedCapability of [
+    "questionPresentation",
+    "pleQuestionJsonPresentation",
+    "webworkPresentation",
+    "qtiPresentation",
+    "notApplicable",
+  ]) {
+    assert.equal(
+      decodeStudentQuestionAttemptView({ ...attemptView, issuedCapability }).issuedCapability,
+      issuedCapability,
+    );
+  }
+  assert.throws(
+    () =>
+      decodeStudentQuestionAttemptView({
+        ...attemptView,
+        issuedCapability: "presentationEnvelope",
+      }),
+    DecodeError,
+  );
+});
+
 test("prefetch rejects a descriptor with a mismatched issued identity", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const predecessor = publishedQuestionFixture.attempts[0];
   assert.ok(predecessor);
-  const envelope = {
+  const questionPresentation = {
     ...issuedQuestionWireFixture(predecessor, publishedQuestionFixture.publishedQuestionRevision),
     questionRevision: {
       questionId: "BCDEFGH",
@@ -204,7 +231,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
         seed: predecessor.seed,
         renderedQuestionSha256: "a".repeat(64),
         questionPoolSelectionPosition: null,
-        envelope,
+        presentation: questionPresentation,
       }),
   });
   await assert.rejects(
@@ -218,7 +245,7 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
   const assignment = publishedQuestionFixture.assignment;
   const predecessor = publishedQuestionFixture.attempts[0];
   assert.ok(predecessor);
-  const envelope = issuedQuestionWireFixture(
+  const questionPresentation = issuedQuestionWireFixture(
     predecessor,
     publishedQuestionFixture.publishedQuestionRevision,
   );
@@ -227,17 +254,17 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
       jsonResponse({
         predecessor: predecessor.id,
         issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-        seed: envelope.seed,
+        seed: questionPresentation.seed,
         renderedQuestionSha256: "b".repeat(64),
         questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
-        envelope,
+        presentation: questionPresentation,
       }),
   });
   const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
   assert.deepEqual(prefetched?.questionPoolSelectionPosition, { itemNumber: 1, itemCount: 2 });
 });
 
-test("iMathAS Question Backend launch is a strict same-origin route projection", async () => {
+test("iMathAS Question Backend launch returns its strict same-origin launch route", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];

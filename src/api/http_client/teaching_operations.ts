@@ -5,10 +5,6 @@ import type { CourseInvitationReference } from "../../../generated/api/CourseInv
 import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
 import type { TeachingAccountSearchQuery } from "../../../generated/api/TeachingAccountSearchQuery";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
-import type { RetentionActionResponse } from "../../../generated/api/RetentionActionResponse";
-import type { RetentionArchiveRequest } from "../../../generated/api/RetentionArchiveRequest";
-import type { RetentionExtendRequest } from "../../../generated/api/RetentionExtendRequest";
-import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { TeachingOperationRevisionResponse } from "../../../generated/api/TeachingOperationRevisionResponse";
 import type { ApiClient } from "../client";
@@ -23,10 +19,6 @@ import {
   decodeInstructorMembershipsPage,
   decodeAccommodationAdjustmentUpdateRequest,
   decodePendingCourseInvitationsPage,
-  decodeRetentionActionResponse,
-  decodeRetentionArchiveRequest,
-  decodeRetentionExtendRequest,
-  decodeRetentionReadView,
   decodeTeachingPreviewView,
   decodeTeachingOperationRevisionResponse,
 } from "../decoders";
@@ -231,11 +223,6 @@ export function createTeachingOperationsClient(
   | "respondToCourseInvitation"
   | "listCourseInstructors"
   | "removeCourseInstructor"
-  | "getCourseRetention"
-  | "endCourseRetention"
-  | "archiveCourseRetention"
-  | "deleteCourseRetention"
-  | "extendCourseRetention"
 > {
   return {
     listCourseStudentTargets: (courseId, cursor, pageSize) =>
@@ -353,88 +340,6 @@ export function createTeachingOperationsClient(
         `/api/courses/${encodedId(courseId)}/instructors/${encodeURIComponent(membership)}`,
         { method: "DELETE", body, revision },
       );
-    },
-    getCourseRetention: async (courseId): Promise<RetentionReadView> => {
-      const path = `/api/courses/${encodedId(courseId)}/retention`;
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeRetentionReadView,
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    endCourseRetention: async (courseId): Promise<RetentionReadView> => {
-      const path = `/api/courses/${encodedId(courseId)}/retention/end`;
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeRetentionReadView,
-        {
-          method: "POST",
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    archiveCourseRetention: async (
-      courseId,
-      request,
-      revision,
-    ): Promise<RetentionActionResponse> => {
-      const path = `/api/courses/${encodedId(courseId)}/retention/archive`;
-      const body: RetentionArchiveRequest = decodeRetentionArchiveRequest(request, "request");
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeRetentionActionResponse,
-        {
-          method: "POST",
-          body,
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    deleteCourseRetention: async (courseId, revision): Promise<RetentionActionResponse> => {
-      const path = `/api/courses/${encodedId(courseId)}/retention/delete`;
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeRetentionActionResponse,
-        {
-          method: "POST",
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
-    },
-    extendCourseRetention: async (courseId, request, revision): Promise<RetentionReadView> => {
-      const path = `/api/courses/${encodedId(courseId)}/retention/extend`;
-      const body: RetentionExtendRequest = decodeRetentionExtendRequest(request, "request");
-      const result = await teachingJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeRetentionReadView,
-        {
-          method: "PATCH",
-          body,
-          revision,
-          expectedStatus: 200,
-        },
-      );
-      verifyRevision(result.response, result.body.revision, path);
-      return result.body;
     },
   };
 }

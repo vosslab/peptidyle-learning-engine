@@ -91,11 +91,11 @@ fn package_owns_a_deterministic_answer_free_report_digest_input() {
     assert_eq!(report.profile, QtiProfileId::CANVAS);
     assert!(matches!(
         report.items.as_slice(),
-        [disposition]
-            if disposition.source_identifier == "canvas-1"
-                && disposition.accepted
-                && disposition.public_mapping_checksum.is_some()
-                && disposition.diagnostics.is_empty()
+        [item_result]
+            if item_result.source_identifier == "canvas-1"
+                && item_result.accepted
+                && item_result.public_mapping_checksum.is_some()
+                && item_result.diagnostics.is_empty()
     ));
     assert!(report.defaults.iter().all(|entry| {
         entry.code == QtiProfileDiagnosticCode::Policy && !entry.detail.trim().is_empty()

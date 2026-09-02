@@ -317,7 +317,7 @@ export async function requestAssignmentEditor(
   return { ...detail, revision };
 }
 
-/** Policies owns the aggregate 422 envelope; Questions retain their separate save contract. */
+/** Policies owns the aggregate 422 validation response; Questions retain their separate save contract. */
 async function requestAssignmentPolicies(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -339,8 +339,8 @@ async function requestAssignmentPolicies(
   if (response.status === 422) {
     const value = await boundedResponseJson(response, path);
     try {
-      const failure = decodeAssignmentPoliciesValidationFailure(value, "response");
-      throw new AssignmentPoliciesValidationError(path, failure.issues);
+      const validationFailure = decodeAssignmentPoliciesValidationFailure(value, "response");
+      throw new AssignmentPoliciesValidationError(path, validationFailure.issues);
     } catch (error: unknown) {
       if (error instanceof AssignmentPoliciesValidationError) throw error;
       throw new ApiRequestError(response.status, path);

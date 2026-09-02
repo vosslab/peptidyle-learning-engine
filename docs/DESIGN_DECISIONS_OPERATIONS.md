@@ -18,13 +18,13 @@ This companion to [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) keeps implementatio
 
 **Decision.** The Python controller owns labelled lifecycle, readiness, and bounded cleanup for the selected project.
 
-### Gradebook and Student-work inspection have one authority each
+### Gradebook Summary and Student-work inspection have one authority each
 
-**Decision.** The Gradebook is one server-derived projection. Student-work inspection validates the exact authorized course composite, writes its audit fact atomically, and returns an answer-free `no-store` projection with only the Student response and issued presentation needed for teaching.
+**Decision.** The Gradebook Summary is server-derived. Authorized Student-work inspection validates the exact course composite, writes its audit fact atomically, and returns an answer-free `no-store` Student-work inspection result with only the Student response and issued presentation needed for teaching.
 
 ### Inspected work names its Student and Assignment
 
-**Decision.** The authorized inspection projection includes server-resolved Student and Assignment labels, never placing those labels in cursors, URLs, or browser storage.
+**Decision.** The authorized Student-work inspection result includes server-resolved Student and Assignment labels, never placing those labels in cursors, URLs, or browser storage.
 
 ### PLE-owned wire names use direct Serde DTOs
 

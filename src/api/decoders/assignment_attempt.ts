@@ -73,7 +73,7 @@ import {
   decodeStudentFeedback,
   decodeStudentResponse,
 } from "./question_delivery";
-import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
+import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import {
   decodeAssignmentReference,
   decodeQuestionSummary,
@@ -82,9 +82,10 @@ import {
 } from "./question_library";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
-  "presentationEnvelope",
+  "questionPresentation",
   "pleQuestionJsonPresentation",
   "webworkPresentation",
+  "qtiPresentation",
   "notApplicable",
 ] as const satisfies ReadonlyArray<IssuedAttemptCapability>;
 
@@ -643,8 +644,12 @@ export function decodePrefetchedNextQuestion(
     "seed",
     "renderedQuestionSha256",
     "questionPoolSelectionPosition",
-    "envelope",
+    "presentation",
   ]);
+  const prefetchedQuestionPresentation = decodeIssuedQuestionPresentation(
+    field(record, "presentation", path),
+    `${path}.presentation`,
+  );
   const decoded = {
     predecessor: decodeIdentifier(field(record, "predecessor", path), `${path}.predecessor`),
     issuedQuestion: decodeStudentIssuedQuestion(
@@ -660,16 +665,16 @@ export function decodePrefetchedNextQuestion(
       field(record, "questionPoolSelectionPosition", path),
       `${path}.questionPoolSelectionPosition`,
     ),
-    envelope: decodeIssuedPresentationEnvelope(field(record, "envelope", path), `${path}.envelope`),
+    presentation: prefetchedQuestionPresentation,
   } satisfies PrefetchedNextQuestion;
   if (
-    decoded.envelope.variation.questionRevision.revisionNumber !==
+    prefetchedQuestionPresentation.variation.questionRevision.revisionNumber !==
       decoded.issuedQuestion.reference.revisionNumber ||
-    decoded.envelope.variation.questionRevision.questionId !==
+    prefetchedQuestionPresentation.variation.questionRevision.questionId !==
       decoded.issuedQuestion.reference.questionId ||
-    decoded.envelope.variation.seed !== decoded.seed
+    prefetchedQuestionPresentation.variation.seed !== decoded.seed
   ) {
-    throw new DecodeError(path, "a prefetch envelope bound to its descriptor");
+    throw new DecodeError(path, "a Question Presentation bound to its descriptor");
   }
   return decoded;
 }

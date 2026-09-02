@@ -36,10 +36,6 @@ import type { AccommodationAdjustmentUpdateRequest } from "../../generated/api/A
 import type { InstructorMembershipRemovalRequest } from "../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
-import type { RetentionActionResponse } from "../../generated/api/RetentionActionResponse";
-import type { RetentionArchiveRequest } from "../../generated/api/RetentionArchiveRequest";
-import type { RetentionExtendRequest } from "../../generated/api/RetentionExtendRequest";
-import type { RetentionReadView } from "../../generated/api/RetentionReadView";
 import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
 import type { TeachingOperationRevisionResponse } from "../../generated/api/TeachingOperationRevisionResponse";
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
@@ -257,22 +253,6 @@ export interface ApiClient
     request: InstructorMembershipRemovalRequest,
     revision: TeachingOperationRevision,
   ) => Promise<void>;
-  readonly getCourseRetention: (courseId: CourseId) => Promise<RetentionReadView>;
-  readonly endCourseRetention: (courseId: CourseId) => Promise<RetentionReadView>;
-  readonly archiveCourseRetention: (
-    courseId: CourseId,
-    request: RetentionArchiveRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<RetentionActionResponse>;
-  readonly deleteCourseRetention: (
-    courseId: CourseId,
-    revision: TeachingOperationRevision,
-  ) => Promise<RetentionActionResponse>;
-  readonly extendCourseRetention: (
-    courseId: CourseId,
-    request: RetentionExtendRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<RetentionReadView>;
   readonly getCourseGradeScheme: (
     courseId: CourseId,
   ) => Promise<CourseGradeSchemeView & { readonly revision: string }>;
@@ -379,7 +359,7 @@ export interface ApiClient
   ) => Promise<CursorPage<AssignmentAttempt>>;
   /**
    * Starts or resumes student work within the course route that authorizes the assignment.
-   * The browser supplies no student-work authority or answer material.
+   * The browser supplies no student-work authority or Answer Key.
    */
   readonly startAssignmentAttempt: (
     courseId: CourseId,
@@ -424,7 +404,7 @@ export interface ApiClient
     response: StudentResponse,
     idempotencyKey: string,
   ) => Promise<QuestionSubmissionAcknowledgement>;
-  /** Reads a previously acknowledged student submission without resending answer material. */
+  /** Reads a previously acknowledged student submission without resending an Answer Key. */
   readonly getSubmissionStatus: (
     courseId: CourseId,
     assignmentId: AssignmentId,

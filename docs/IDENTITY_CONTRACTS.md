@@ -59,8 +59,8 @@ former installation-scope model to these identities.
 | `Sysadmin` Product Role   | Implemented SD1 global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
-with its global account and session identity. The browser receives only its own answer-free account/session
-projection. It never receives another person's `AccountId`, a raw session
+with its global account and session identity. The browser receives only its own answer-free
+`AuthSessionResponse` Account data. It never receives another person's `AccountId`, a raw session
 token, or an authority-bearing Account-State claim.
 
 ### Session authority ownership
@@ -177,11 +177,11 @@ records; each carries subject `AccountId`, exact `CourseId`, relationship kind,
 explicit capability set, issuer and issue time, lifecycle/revision, audit ID,
 and its required disclosure policy.
 
-| Relationship                         | Intended projection                  | Identity boundary                                                                                                                                              |
-| ------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Grader                               | Bounded grading work                 | Uses an explicit grant and exact grading target; it does not become a course manager.                                                                          |
-| Course Observer (for example, ADAPT) | Anonymous aggregate grades           | Uses a typed aggregate projection with disclosure thresholds and no Student subject, enrollment, row, small-cell, linkable metadata, answers, or FERPA record. |
-| Student Observer                     | A consent-backed view of one Student | Binds observer, one Student, and one explicit revocable consent/disclosure record.                                                                             |
+| Relationship                         | Intended returned data               | Identity boundary                                                                                                                                                |
+| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grader                               | Bounded grading work                 | Uses an explicit grant and exact grading target; it does not become a course manager.                                                                            |
+| Course Observer (for example, ADAPT) | Anonymous aggregate grades           | Uses a typed aggregate-grade result with disclosure thresholds and no Student subject, enrollment, row, small-cell, linkable metadata, answers, or FERPA record. |
+| Student Observer                     | A consent-backed view of one Student | Binds observer, one Student, and one explicit revocable consent/disclosure record.                                                                               |
 
 These relationships complement rather than replace course membership. They
 remain separate from Student ownership, Instructor teaching, roster,
@@ -231,7 +231,7 @@ student authority to select another variant or browser input to define grading.
 | ------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Raw session cookie                                           | Browser and authentication endpoint    | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
 | Email authentication secret                                  | Initiating browser and email recipient | Short-lived, single-use, browser-bound; database stores only a hash.                                                     |
-| Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor projection.                                                |
+| Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor result.                                                    |
 | `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
 | Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
 | Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
@@ -326,7 +326,7 @@ continue to resolve that exact source after it leaves ordinary selection.
 - [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines Question
   publication, availability, and stewardship vocabulary.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines public question data and
-  server-only answer material.
+  server-only Answer Keys.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines student
   render, response, and presentation consistency.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) defines authentication, grading,

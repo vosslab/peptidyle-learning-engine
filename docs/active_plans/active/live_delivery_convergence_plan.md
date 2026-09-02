@@ -17,7 +17,7 @@ PLE has one assignment-execution model:
 - Instructors author, publish, preview current policy, and inspect audited student work.
 - Students exercise the actual assignment delivery path through ordinary enrollments, Assignment Attempts,
   attempts, submissions, immutable receipts, grades, and repeat practice.
-- Deterministic graders execute on the server from issuance-owned private material.
+- Deterministic graders execute on the server from issuance-owned private Question Grading Input.
 - Browser contracts contain the visible question and response shape needed for interaction while
   Answer Key data and Question Grader code remain server-owned.
 - The disposable HTTPS production stack creates and mutates ordinary PLE data through visible
@@ -51,14 +51,14 @@ WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 `2026081814`, and `2026081816` through `2026081820`, plus `2026081823`:
 
 - Assignment and complete Assignment Content mutation with revision conflict checks;
-- Course Membership, entitlement, Student Accommodation, and schedule-exception source authority;
+- Course Membership, Assignment Access, Student Accommodation, and schedule-exception source authority;
 - immutable issued-question source and private execution snapshots for normal student work;
 - session-derived course creation and co-instructor invitation mutations;
 - grade-scheme, export-audit, scoring preparation, and scoring finalization operations; and
 - least-privilege PostgreSQL roles, forced RLS, typed conflicts, and route-bound witnesses.
 
 Each capability has one protected database operation and one typed application contract. Read
-projections use snapshot reads. Mutations lock and verify their complete authority set inside the
+Read operations use snapshot reads. Mutations lock and verify their complete authority set inside the
 owning protected database operation. Server composition routes every operation through the narrow
 authority that owns it.
 
@@ -86,7 +86,7 @@ Focused implementation evidence:
 1. Rust formatting, default and all-feature checks, strict Clippy, and the affected domain, data
    access, server, and project-tools tests pass.
 2. Type generation converges and the TypeScript typecheck, lint, format, and Node tests pass.
-3. A fresh PostgreSQL cluster applies the final migration ledger and passes assignment mutation,
+3. A fresh PostgreSQL cluster applies the final migration sequence and passes assignment mutation,
    Course Membership and Student Accommodation, student issuance/submission/replay, teaching authority, grade settings,
    and scoring authority tests with exact least-privilege roles and forced RLS.
 4. The canonical production HTTPS browser suite exercises authoring, preview, student delivery,

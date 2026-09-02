@@ -35,7 +35,7 @@ deployment, or release acceptance.
 
 - The foundational clean-cluster baseline and its explicit migration administration boundary.
 - The forward-only migration allocation policy and the accepted feature migrations recorded in
-  [implementation status](active_plans/implementation_status.md#shared-migration-ledger-and-allocation).
+  [implementation status](active_plans/implementation_status.md#migration-allocation-registry).
 - The real live-demo product boundary: ordinary Student, Instructor, and Sysadmin workflows,
   server-owned authorization, answer-free browser contracts, and deterministic automated grading
   as specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
@@ -100,7 +100,7 @@ determinism, ordinary teaching workflows, and demo identity boundaries.
 | D5    | Human release decision                                                               | No unresolved required gate; deployment approval is explicitly recorded            |
 
 Stages are intentionally serial where later work depends on accepted schema or package
-contracts. Any new schema work receives an allocation in the shared ledger before
+contracts. Any new schema work receives an allocation in the shared Migration Allocation Registry before
 implementation; non-schema work receives no implicit migration number.
 
 ## Durable migration policy
@@ -121,7 +121,7 @@ explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 | Risk                                            | Required response                                                              |
 | ----------------------------------------------- | ------------------------------------------------------------------------------ |
 | Schema or security object drift                 | Block the cutover; compare clean clusters and repeat independent review.       |
-| Installer still applies DDL                     | Keep release acceptance open; remove the flag and ledger path.                 |
+| Installer still applies DDL                     | Keep release acceptance open; remove the flag and migration application path.  |
 | Current source changes during evidence capture  | Refresh the inventory and rerun the affected gates on the final material tree. |
 | Recovery procedure is untested                  | Block release until a disposable restore exercise passes.                      |
 | Normalization is proposed without measured need | Defer it to a future package with an explicit owner and allocation.            |
@@ -132,7 +132,7 @@ and independent review. This roadmap does not authorize deployment.
 
 ## Related documentation
 
-- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) - current schema inventory and migration ledger.
+- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) - current schema inventory and migration inventory and allocation registry.
 - [CONTRACTS.md](CONTRACTS.md) - durable service and capability contracts.
 - [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) - Validation evidence model.
 - [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) - durable owner decisions.

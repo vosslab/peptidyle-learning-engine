@@ -1,4 +1,4 @@
-// Strict browser decoder for the Policies workspace's server-owned validation envelope.
+// Strict browser decoder for the Policies workspace's server-owned Assignment Policies Validation Failure.
 
 import type { AssignmentPoliciesValidationFailure } from "../../../generated/api/AssignmentPoliciesValidationFailure";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
@@ -8,7 +8,7 @@ import { decodeAssignmentAuthoredContentValidationFailure } from "./assignment_t
 import {
   decodeBoundedArray,
   decodeCapability,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeQuestionId,
   field,
   requireOnlyFields,
@@ -50,7 +50,7 @@ function decodePolicyValidationIssue(
       requireOnlyFields(record, path, ["kind", "title", "questionId", "capability"]);
       return {
         kind: issueKind,
-        title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+        title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         capability: decodeCapability(field(record, "capability", path), `${path}.capability`),
       } satisfies AssignmentPoliciesValidationIssue;
@@ -73,7 +73,7 @@ function decodePolicyValidationIssue(
   }
 }
 
-/** Decodes only the bounded, closed 422 envelope owned by Policies save. */
+/** Decodes only the bounded, closed Assignment Policies 422 validation response. */
 export function decodeAssignmentPoliciesValidationFailure(
   value: unknown,
   path = "response",

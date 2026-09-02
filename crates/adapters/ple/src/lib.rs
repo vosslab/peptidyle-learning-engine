@@ -12,11 +12,11 @@ use std::sync::Arc;
 use domain::draft_preview::PresentationError;
 use domain::generator::{GenerationError, QuestionVariationParameters};
 use grading::GradingError;
-use question_model::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use question_model::{
     ObjectId, QuestionAssetId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
     QuestionGraderVersion, QuestionTitleError,
 };
+use question_model::{QuestionContentBlock, QuestionVariationPresentation};
 
 use crate::generator::PleQuestionImplementation;
 
@@ -81,7 +81,7 @@ pub struct QuestionAssetObjectReference {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PleIssuedQuestion {
     /// Generated prompt and response shape safe to deliver to the browser.
-    pub envelope: QuestionVariationPresentation,
+    pub presentation: QuestionVariationPresentation,
     /// SHA-256 of the canonical generated parameter map.
     pub parameter_hash: String,
     /// Versions and object identities needed to reproduce the attempt.
@@ -93,7 +93,7 @@ pub struct PleIssuedQuestion {
 ///
 /// Question Feedback, Question Answer, and Question Answer Explanation remain
 /// independently policy-released by the Domain layer. This boundary never
-/// carries an Answer Key or browser-safe Student Feedback projection.
+/// carries an Answer Key or browser-safe Student Feedback DTO.
 pub struct PleQuestionGradingEvaluation {
     /// Automatic grading outcome for the accepted Student Response.
     pub outcome: grading::QuestionGradingOutcome,
@@ -136,7 +136,7 @@ pub struct PleQuestionBackend {
 struct PreparedPleQuestion {
     generated: QuestionVariationParameters,
     derived: DerivedPleQuestion,
-    envelope: QuestionVariationPresentation,
+    presentation: QuestionVariationPresentation,
     parameter_hash: String,
     rendered_question_sha256: String,
 }
@@ -175,13 +175,13 @@ pub enum PleQuestionBackendError {
     Generation(GenerationError),
     /// Shared key-free prompt presentation was invalid.
     Presentation(PresentationError),
-    /// A browser-safe envelope could not be serialized for hashing.
+    /// A browser-safe Question Presentation could not be serialized for hashing.
     Serialization(String),
     /// Stored attempt metadata disagreed with exact regeneration.
     ReproductionMismatch { field: &'static str },
     /// A renderable asset was not bound by the trusted storage layer.
     MissingAssetBinding(QuestionAssetId),
-    /// A trusted binding was supplied for an asset the envelope does not render.
+    /// A trusted binding was supplied for an asset the Question Presentation does not render.
     UnrelatedAssetBinding(QuestionAssetId),
     /// A binding list assigned one logical asset more than once.
     ConflictingAssetBinding(QuestionAssetId),

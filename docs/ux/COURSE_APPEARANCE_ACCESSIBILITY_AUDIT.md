@@ -3,7 +3,7 @@
 Status: implementation and focused acceptance complete on 2026-08-09.
 
 This audit covers the PLE-owned instructor course-appearance workflow and the student course-entry
-projection. It combines a keyboard cognitive walkthrough, source inspection, built-browser tests,
+`CourseAppearanceView`. It combines a keyboard cognitive walkthrough, source inspection, built-browser tests,
 axe analysis, computed contrast, forced-colors and reduced-motion rendering. The original accepted
 run included 320, 480, 768, and 1920 CSS-pixel artifacts; current visual acceptance follows the
 repository's desktop-first policy and uses the canonical 1280 by 800 instructor canvas, with a
@@ -52,7 +52,7 @@ description. A missing or removed banner produces no student image element.
 | Medium   | The global header and native file input caused horizontal overflow at 320 pixels.                | Wrapped the small-screen header and allowed the grid/file control to shrink.                                    | Narrow forced-colors test reports no overflowing element.       |
 | Medium   | The plan required axe evidence, but no axe test dependency or executable gate existed.           | Added `@axe-core/playwright` and a main-content serious/critical gate.                                          | Zero serious or critical violations in the accepted form state. |
 
-## Guideline ledger
+## Accessibility Guideline Checklist
 
 | Need                                     | Standard or method                                      | Acceptance criterion                                                                       | Evidence                                            | Status |
 | ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------ |

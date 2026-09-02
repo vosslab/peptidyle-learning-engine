@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseTheme;
-use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 use crate::generation::QuestionSeed;
+use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
 use crate::student_work::{AssignmentId, CourseId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.

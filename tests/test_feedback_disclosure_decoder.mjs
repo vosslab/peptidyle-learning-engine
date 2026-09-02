@@ -180,7 +180,7 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
   );
 });
 
-test("submission receipts require an exact feedback field and reject hostile nested material", () => {
+test("submission receipts reject hostile private grading data", () => {
   const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...attempt } =
     publishedQuestionFixture.attempts[0];
   const receipt = {
@@ -301,7 +301,7 @@ test("submission receipts require an exact feedback field and reject hostile nes
   );
 });
 
-test("disclosed feedback rejects private material and malformed blocks", () => {
+test("disclosed Student Feedback rejects private grading data and malformed blocks", () => {
   const feedback = { correctness: true };
   for (const forbidden of [
     "answerKey",

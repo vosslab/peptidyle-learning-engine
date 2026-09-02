@@ -4,7 +4,7 @@
 
 **Independently ACCEPTED.** M3 has accepted supported-API arrangement evidence;
 it does not claim a keyboard journey, scoring, enrollment simulation, canonical
-onboarding, all-family coverage, or release acceptance. See the independent
+onboarding, all supported Question Types, or release acceptance. See the independent
 [M3 review](../audits/m3_arrangement_integration_review.md).
 
 ## Scope

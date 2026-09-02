@@ -11,11 +11,11 @@ export function assertPreviewPresentationBoundary(
 ): QuestionVariationPresentation {
   const presentation: QuestionVariationPresentation = preview;
 
-  // @ts-expect-error A workspace preview cannot enter a published-envelope path.
-  const invalidEnvelope: IssuedQuestionPresentation = preview;
+  // @ts-expect-error A workspace preview cannot enter an issued Question Presentation path.
+  const invalidIssuedPresentation: IssuedQuestionPresentation = preview;
   // @ts-expect-error A workspace preview cannot enter an assignment's published definition path.
   const invalidVersion: QuestionRevision = preview;
-  void invalidEnvelope;
+  void invalidIssuedPresentation;
   void invalidVersion;
   return presentation;
 }

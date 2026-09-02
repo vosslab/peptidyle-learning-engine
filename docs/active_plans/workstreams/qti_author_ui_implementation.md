@@ -23,7 +23,7 @@ second authoring route.
 - `src/features/qti_profile_import/` owns the feature-local answer-free TypeScript contract,
   strict decoder, same-origin `no-store` client, pure review state, Solid panel, and styles.
 - The browser uploads the selected ZIP as opaque bytes. It never parses ZIP/XML, stores an archive or
-  safe report outside component memory, receives answer mappings, or receives private answer material.
+  safe report outside component memory, receives answer mappings, or receives a private Answer Key.
 - The panel presents queued/processing state with manual refresh, recognized profile/default/warning
   detail, source-ordered accepted/rejected item cards, and explicit review acknowledgement.
 - An all-rejected report has no conversion controls. Unsupported profiles, terminal failures, and

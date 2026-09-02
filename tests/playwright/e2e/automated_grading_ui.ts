@@ -40,7 +40,7 @@ export async function waitForAutomatedStudentFeedback(page: Page): Promise<Locat
     .toMatch(/^(studentFeedback|pending)$/u);
 
   // Status refresh is an idempotent visible action; keep driving it until the
-  // server-owned terminal Student Feedback replaces the pending projection.
+  // server-owned current Student Feedback replaces the pending state.
   await expect
     .poll(
       async () => {

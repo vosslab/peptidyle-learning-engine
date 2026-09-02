@@ -100,7 +100,7 @@ fn report_digest_input_preserves_accepted_and_rejected_source_order() {
         .expect("accepted item remains package-owned after report projection");
     mapped
         .compute_import_checksums(&report)
-        .expect("ordered accepted disposition binds the package mapping");
+        .expect("ordered accepted import result binds the package mapping");
 }
 
 #[test]

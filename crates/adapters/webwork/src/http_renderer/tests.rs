@@ -238,13 +238,14 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
         &settings.base_uri,
     )
     .expect("recorded response is supported");
-    let QuestionResponseFormat::MultipleChoice { choices, selection } = &parsed.envelope.response
+    let QuestionResponseFormat::MultipleChoice { choices, selection } =
+        &parsed.presentation.response
     else {
-        panic!("single-choice envelope")
+        panic!("single-choice Question Presentation")
     };
     assert_eq!(*selection, ResponseSelectionRule::ExactlyOne);
     assert_eq!(choices.len(), 2);
-    let prompt = match &parsed.envelope.prompt[0] {
+    let prompt = match &parsed.presentation.prompt[0] {
         QuestionContentBlock::Text { markdown } => markdown,
         _ => panic!("text prompt"),
     };
@@ -254,7 +255,8 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
         panic!("single-choice replay mapping")
     };
     assert_eq!(controls.len(), 2);
-    let serialized = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
+    let serialized = serde_json::to_string(&parsed.presentation)
+        .expect("public Question Presentation serializes");
     assert!(!serialized.contains("AnSwEr0001"));
     assert!(!serialized.contains("header.payload.signature"));
 }
@@ -278,9 +280,10 @@ Based on their molecular formula, which compound is most likely <span style="col
         &settings.base_uri,
     )
     .expect("standalone PGML RadioButtons output is supported");
-    let QuestionResponseFormat::MultipleChoice { choices, selection } = &parsed.envelope.response
+    let QuestionResponseFormat::MultipleChoice { choices, selection } =
+        &parsed.presentation.response
     else {
-        panic!("single-choice envelope")
+        panic!("single-choice Question Presentation")
     };
     assert_eq!(*selection, ResponseSelectionRule::ExactlyOne);
     assert_eq!(choices.len(), 2);
@@ -315,8 +318,9 @@ Based on their molecular formula, which compound is most likely <span style="col
 #[test]
 fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     let parsed = parsed_matching();
-    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
-        panic!("typed matching envelope")
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.presentation.response
+    else {
+        panic!("typed matching Question Presentation")
     };
     assert_eq!(prompts.len(), 2);
     assert_eq!(choices.len(), 2);
@@ -349,7 +353,8 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     };
     assert_eq!(replay.len(), 2);
     assert!(replay.values().all(|prompt| prompt.choices.len() == 2));
-    let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
+    let public = serde_json::to_string(&parsed.presentation)
+        .expect("public Question Presentation serializes");
     for protected in ["AnSwEr0001", "AnSwEr0002", "header.payload.signature"] {
         assert!(!public.contains(protected));
     }
@@ -755,7 +760,8 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
         &settings.base_uri,
     )
     .expect("accepted result is safe to cache");
-    let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
+    let public = serde_json::to_string(&parsed.presentation)
+        .expect("public Question Presentation serializes");
     for protected in ["AnSwEr0001", "header.payload.signature", "RE9DVU1FTlQoKTs="] {
         assert!(!public.contains(protected));
     }
@@ -909,8 +915,9 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
     )
     .expect("fixture client");
     let parsed = parsed_matching();
-    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
-        panic!("typed matching envelope")
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.presentation.response
+    else {
+        panic!("typed matching Question Presentation")
     };
     let response = StudentResponse::Matching {
         matches: vec![

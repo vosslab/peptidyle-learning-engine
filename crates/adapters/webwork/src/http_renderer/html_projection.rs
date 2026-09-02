@@ -308,7 +308,7 @@ pub(super) fn reject_protected_text(
         .iter()
         .any(|protected| value.contains(protected))
     {
-        return Err(bad("renderer HTML contained protected material"));
+        return Err(bad("renderer HTML contained protected values"));
     }
     Ok(())
 }

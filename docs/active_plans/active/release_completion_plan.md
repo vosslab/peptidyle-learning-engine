@@ -31,7 +31,7 @@ independent audit with repaired findings, and complete aggregate acceptance pass
 key-free server format-validation fallback remains a separately allocated future server-boundary
 correction; the current server does not mount that route.
 
-This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The current package ledger is [implementation_status.md](../implementation_status.md). Update both documents when a release decision, dependency, status, or acceptance condition changes.
+This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](../implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification
 
@@ -39,7 +39,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 
 ## Decisions
 
-### In-scope decision ledger
+### In-scope Decision Register
 
 | Topic                         | Binding decision                                                                                                                                                                                                                                                                                                                                                              | Owner                              |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
@@ -47,7 +47,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 | Reusable courses              | A revisioned `BlueprintCourse` owns reusable ordered structure. Every `CourseInstance` has one immutable Blueprint parent and applied revision; it alone owns Students, deadlines, releases, accommodations, grades, and delivery state.                                                                                                                                      | WP-SD1-B--G                        |
 | Published questions           | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionRevision` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically.                                                                                                                                                                                  | WP-R2, WP-SD1                      |
 | Question stewardship          | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**.                                                                                                                           | WP-R2, WP-SD1                      |
-| PLE questions                 | PLE Question JSON schema version 2 is the PLE Question Source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public projections are answer-free; grading remains server-owned.                                                                                                                                                                                   | WP-RC4, WP-RC5                     |
+| PLE questions                 | PLE Question JSON schema version 2 is the PLE Question Source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public Question Presentations are answer-free; grading remains server-owned.                                                                                                                                                                        | WP-RC4, WP-RC5                     |
 | Question variation and grades | New Assignment Attempts independently use `reuseSelection` for Question Pool membership and `newVariation` for Question Variations; resumed Issued Questions retain their exact issued variation. The grade default is `highest`.                                                                                                                                             | WP-RC0, WP-PROF-T5, WP-PROF-G1--G5 |
 | Retention                     | CourseInstance Student records notify at 30 days, archive at 100, delete at 365; course-owned Assignment Content remains. Aggregate publication requires k >= 5.                                                                                                                                                                                                              | WP-RC0, WP-SD1                     |
 | Adapters                      | QTI profiles are strict and lossless or refuse. Canvas/Blackboard export is background work. H5P is ungraded practice unless translated losslessly into the protected native model.                                                                                                                                                                                           | WP-RC6                             |
@@ -64,13 +64,13 @@ Version 1 excludes content-addressed byte deduplication, a TypeScript API server
 
 Deliver one coherent automated-grading platform and canonical live production-stack journey. Grading, answer keys, correctness decisions, object authorization, and course selection remain server-owned. Browser contracts remain answer-free. Issued work and grading evidence are immutable, and Instructor inspection is audited.
 
-The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters/export, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
+The release scope is the dependency-ordered [Current Package Registry](../implementation_status.md): WP-RC1--WP-RC12, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters/export, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
 
-No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update this ledger, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
+No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update the In-scope Decision Register, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
 
 ### BlueprintCourse and CourseInstance cutover
 
-`BlueprintCourse` is the only reusable course-level aggregate. Its revision holds ordered modules, assignments, relative schedule defaults, and exact published-question pins. A one-assignment reusable unit is a one-module projection, not another type.
+`BlueprintCourse` is the only reusable course-level aggregate. Its revision holds ordered modules, assignments, relative schedule defaults, and exact published-question pins. A one-assignment reusable unit is a one-module `BlueprintCourseView`, not another type.
 
 Each `CourseInstance` binds to one immutable Blueprint parent and applied source revision. Instantiation copies reusable meaning and resolved defaults, never Student records. Students, deadlines, releases, accommodations, grades, attempts, and delivery settings are private CourseInstance state. A Blueprint revision can make a new assignment available to descendants as unreleased; release requires an explicit Instructor decision and preserves local delivery edits.
 
@@ -159,7 +159,7 @@ The final handoff records command, date, material-tree state, environment, recei
 
 ## Migration policy
 
-The shared migration ledger in [implementation_status.md](../implementation_status.md) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON schema version 2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
+The shared [Migration Allocation Registry](../implementation_status.md#migration-allocation-registry) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON schema version 2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
 
 ## Risk register
 
@@ -167,7 +167,7 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 | ----------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Documentation substitutes for product evidence        | Release integrator    | Package acceptance requires working behavior and evidence.                                                                 |
 | Adapter output leaks answers or unsafe markup         | Adapter owner         | Strict translation, sanitization, private network, browser trace.                                                          |
-| New protected data boundary exposes answer material   | Boundary owner        | Public/private compilation, DTO scans, server-only grading.                                                                |
+| New protected data boundary exposes an Answer Key     | Boundary owner        | Public/private compilation, DTO scans, server-only grading.                                                                |
 | Object Storage Repair deletes valid concurrent bytes  | Object owner          | Two observations, quarantine, reference recheck, idempotency.                                                              |
 | Role/membership disagreement selects course authority | Auth owner            | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
 | Published bytes escape before commit                  | Object owner          | Transactional pending registry and dedicated publisher.                                                                    |

@@ -40,7 +40,7 @@ function issuedPresentationEvidence() {
   return {
     kind: "issuedPresentation",
     presentation: {
-      envelope: {
+      presentation: {
         questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
         seed: 42,
         presentationNonce: "11111111111111111111111111111111",

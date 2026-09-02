@@ -9,7 +9,6 @@ import {
   decodeCourseInvitationTargetSearchRequest,
   decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
-  decodeRetentionReadView,
   decodeTeachingOperationRevisionResponse,
   decodeTeachingPreviewView,
 } from "../src/api/decoders.ts";
@@ -150,18 +149,7 @@ test("Instructor Course Invitation creation accepts only the Instructor-only ope
   );
 });
 
-test("retention and empty removal contracts reject leaked or invented data", () => {
-  const retention = {
-    state: "notificationDue",
-    assignmentContent: "retain",
-    revision: "3",
-    notification: { intent: "extend", createdAt: 1, copy: "Retention extended." },
-  };
-  assert.deepEqual(decodeRetentionReadView(retention), retention);
+test("empty Instructor removal contract rejects invented data", () => {
   assert.deepEqual(decodeInstructorMembershipRemovalRequest({}), {});
   assert.throws(() => decodeInstructorMembershipRemovalRequest({ revision: "3" }), DecodeError);
-  assert.throws(
-    () => decodeRetentionReadView({ ...retention, recipients: ["private"] }),
-    DecodeError,
-  );
 });

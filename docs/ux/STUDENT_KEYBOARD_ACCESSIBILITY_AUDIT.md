@@ -84,7 +84,7 @@ Practices convention for Tab into a group and arrow movement inside it
 ([WCAG 2.2 Focus Order](https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html),
 [WAI-ARIA radio-group pattern](https://www.w3.org/WAI/ARIA/apg/patterns/radio/)).
 
-## Guideline ledger
+## Accessibility Guideline Checklist
 
 | Task need                            | Guideline                          | Acceptance criterion                                                                                                                | Evidence                                                                     | Status                                    |
 | ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |

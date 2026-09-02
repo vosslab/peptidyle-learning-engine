@@ -13,7 +13,7 @@ spelling.
 +- crates/                 Rust product crates and repository tools
 +- src/                    SolidJS browser application
 +- schemas/migrations/     Forward PostgreSQL schema
-+- generated/              Ignored generated TypeScript and fixture projections
++- generated/              Ignored generated TypeScript declarations and fixtures
 +- content/                Checked-in teaching content and pilot material
 +- containers/             Podman Compose and service images
 +- deploy/opentofu/        AWS infrastructure and policy tests
@@ -58,7 +58,7 @@ The reusable and delivery aggregates have separate paths:
 
 ```text
 crates/question_model/src/
-+- blueprint_course.rs       BlueprintCourse tree and projections
++- blueprint_course.rs       BlueprintCourse tree and `BlueprintCourseView` readers
 +- blueprint_operations.rs    Source, target, preview, apply, and receipt contracts
 `- blueprint_operations/      Focused exact-operation contract modules
 ```
@@ -131,7 +131,7 @@ src/
 
 The intended browser workspace has one BlueprintCourse list, detail, editor,
 and nested module/assignment picker. It presents draft owner/collaborator
-states and the vetted-Instructor published projection without a second product
+states and the vetted-Instructor published `BlueprintCourseView` without a second product
 branch. Adoption selects an operation and destination: one assignment into an
 existing CourseInstance, a whole BlueprintCourse into a new CourseInstance, or
 an explicit fork into a new BlueprintCourse.
@@ -179,12 +179,12 @@ tests/
 
 generated/
 +- api/                       Ignored Rust-derived TypeScript
-`- fixtures/                 Ignored generated fixture projections
+`- fixtures/                 Ignored generated fixture outputs
 ```
 
 Permanent tests protect behavior that can regress: tree ordering, exact pins,
 authorization, strict decoding, adoption exclusions, unreleased propagation,
-and answer-free projections. Graphify and source/migration inventories are
+and answer-free browser reader data. Graphify and source/migration inventories are
 one-time evidence. PostgreSQL, browser, process, migration, and rendered visual
 checks stay in their named E2E or human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).

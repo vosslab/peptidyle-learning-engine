@@ -1,7 +1,7 @@
 # Local stack controller workstream
 
 > **Historical and superseded browser record (2026-08-22).** This workstream preserves the dated
-> WP-PY-L1 controller evidence and acceptance. Its browser ledger, including the `202` ordinary
+> WP-PY-L1 controller evidence and acceptance. Its browser evidence record, including the `202` ordinary
 > mock-preview tests and seven legacy lanes, is historical evidence only and does not define the
 > supported browser architecture, catalog, commands, or lane ownership. For current truth, follow
 > the [release_completion_plan.md](../active/release_completion_plan.md),
@@ -256,7 +256,7 @@ These are opt-in pre-production data-loss operations. Before each confirmed rese
 disposable cleanup, show the exact project/resources/argv and obtain the operator confirmation
 required by the controller and Podman operating guidance.
 
-## Validation evidence ledger
+## Validation Evidence Checklist
 
 Record each command only after it runs against the final material tree. `PENDING` is not passing
 evidence and does not satisfy this workstream's completion boundary.
@@ -271,7 +271,7 @@ evidence and does not satisfy this workstream's completion boundary.
 | Read-only controller     | help, doctor, projects, validate, status, reset dry run                                                                    | PASS   | Default typed commands completed without creating labelled resources; `validate` remained read-only and reset dry-run refused an empty target rather than mutating it.                                                                                                                                                                              |
 | Retain/reset/rebuild     | default start/status/validate, renderer stop/restart, full WebWork RPC                                                     | PASS   | Typed default lifecycle reached semantic readiness; restart recovers an exited selected renderer while refusing unrelated unhealthy state, reproves the OCI identity for its Question Renderer Version, and reruns the semantic render/grade probe.                                                                                                 |
 | Renderer outage          | `restart webwork-renderer` and real render/grade evidence                                                                  | PASS   | The selected renderer name remains the rebuild target; bare Podman IDs are normalized to the recorded OCI configuration ID, and the real render/grade RPC path passed after restart.                                                                                                                                                                |
-| Disposable ownership     | canonical walkthrough and replica/restart                                                                                  | PASS   | Schema-v2 walkthrough completed visible J11-J13/J1-J5/J8 with private report ownership. Replica/restart preserved durable replay through its exact envelope and Question-ID manifest, with owner-scoped cleanup.                                                                                                                                    |
+| Disposable ownership     | canonical walkthrough and replica/restart                                                                                  | PASS   | Schema-v2 walkthrough completed visible J11-J13/J1-J5/J8 with private report ownership. Replica/restart preserved durable replay through its exact Runtime Manifest and Question-ID manifest, with owner-scoped cleanup.                                                                                                                               |
 | Aggregate acceptance     | public controller completes no-skip lanes                                                                                  | PASS   | All seven lanes passed: 202 ordinary, course visual, instructor visual, built walkthrough, Chapter publication, Chapter browser with four tests and Question-ID replacement, and WebWork RPC. Final default state: zero containers/networks and exactly `containers_ple_pgdata`, `containers_ple_miniodata`, and `containers_ple_identity_runtime`. |
 | Independent reviews      | Python/rules, Podman, walkthrough/acceptance                                                                               | PASS   | `final_python_repository_review.ae3`, `final_podman_security_review.c2`, and `walkthrough_acceptance_final_review.ae3` each returned ACCEPT on 2026-08-15 with no P0-P3 finding.                                                                                                                                                                    |
 

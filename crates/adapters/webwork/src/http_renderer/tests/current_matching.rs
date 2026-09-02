@@ -32,8 +32,9 @@ fn parsed_current_matching() -> ParsedRender {
 #[test]
 fn current_renderer_matching_shape_becomes_answer_free_typed_matching() {
     let parsed = parsed_current_matching();
-    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.envelope.response else {
-        panic!("typed matching envelope")
+    let QuestionResponseFormat::Matching { prompts, choices } = &parsed.presentation.response
+    else {
+        panic!("typed matching Question Presentation")
     };
     assert_eq!(prompts.len(), 2);
     assert_eq!(choices.len(), 2);
@@ -49,7 +50,8 @@ fn current_renderer_matching_shape_becomes_answer_free_typed_matching() {
             markdown: "Marfan syndrome".into()
         }]
     );
-    let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
+    let public = serde_json::to_string(&parsed.presentation)
+        .expect("public Question Presentation serializes");
     for protected in [
         "AnSwEr0001",
         "MaThQuIlL_AnSwEr0001",

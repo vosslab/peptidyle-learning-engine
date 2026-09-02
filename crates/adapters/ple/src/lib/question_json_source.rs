@@ -4,7 +4,7 @@ use grading::QuestionGradingOutcome;
 use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionBackendLocator, QuestionRevision,
+    QuestionAttemptReproductionDetails, QuestionBackend, QuestionRevision,
     QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, StudentResponse,
 };
 
@@ -31,7 +31,7 @@ impl ResolvedPleQuestionJsonSource {
         source_object_reference: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
-        if !matches!(question.backend_locator, QuestionBackendLocator::Ple)
+        if question.question_backend != QuestionBackend::Ple
             || question.question_format != question_model::QuestionFormat::PleQuestionJson
         {
             return Err(PleQuestionBackendError::UnsupportedSource);
@@ -61,8 +61,12 @@ impl ResolvedPleQuestionJsonSource {
             compiled.draft().clone(),
             question.question_id.clone(),
             question.revision_number,
-            QuestionBackendLocator::Ple,
-        );
+            QuestionBackend::Ple,
+            None,
+            None,
+            None,
+        )
+        .map_err(|_| PleQuestionBackendError::QuestionSourceDoesNotMatchQuestion)?;
         if expected_question != *question {
             return Err(PleQuestionBackendError::QuestionSourceDoesNotMatchQuestion);
         }

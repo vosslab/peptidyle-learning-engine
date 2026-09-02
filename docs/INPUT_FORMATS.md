@@ -41,7 +41,7 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 
 QTI conversion produces an answer-free draft handoff for the authoring UI. The worker separately
 retains the original archive, private answer bindings, choice maps, QTI Import Checksums, and Question Source.
-The public runtime receives only the PLE Question projection. See
+The public runtime receives only an answer-free Question Presentation. See
 [implementation_plan.md](active_plans/implementation_plan.md) and
 [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
@@ -49,7 +49,7 @@ The public runtime receives only the PLE Question projection. See
 
 PLE can publish a private immutable PG or PGML Question Source through a Source Object Reference to the configured external
 `webwork-pg-renderer`. The server sends source, path, seed, display policy, and
-resolved answer to `/render-api`; the browser receives only the typed PLE presentation envelope
+resolved answer to `/render-api`; the browser receives only the typed PLE Question Presentation
 and submits a PLE response. The four reviewed Chapter 1 sources are the current evidence boundary.
 See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 

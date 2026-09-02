@@ -11,7 +11,7 @@ Date: 2026-08-09
 The instructor PLE Question JSON editor is complete. It is a focused feature under
 `src/features/ple_question_json_authoring/`, rather than an addition to the large
 generic editor page or decoder. Small modules own the exact schema-version-2 source,
-strict codec, defaults, answer-free student projection, protected client,
+strict codec, defaults, answer-free Student Question Preview, protected client,
 revision repository, reducer, compact field components, styles, and page
 composition. The existing generic editor remains available for non-PLE Question JSON drafts.
 

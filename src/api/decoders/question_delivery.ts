@@ -19,7 +19,7 @@ import {
   decodeString,
 } from "../decoder";
 import {
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeIdentifier,
   decodePositiveQuestionRevisionNumber,
   decodeQuestionId,
@@ -227,7 +227,7 @@ export function decodeQuestionPresentation(
         `${path}.variation.seed`,
       ),
     },
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeQuestionContentBlock(block, blockPath, true),
     ),
@@ -392,7 +392,7 @@ export function decodeGradingResult(value: unknown, path: string): GradingResult
  *
  * Every field is optional because absence is a security property: a client
  * must reject unknown properties rather than silently retaining iMathAS
- * transcript, key, or other server-private material.
+ * transcript, Answer Key, or other server-private Question Grading Input.
  */
 export function decodeStudentFeedback(value: unknown, path = "response"): StudentFeedback {
   const record = decodeRecord(value, path);

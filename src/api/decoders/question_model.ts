@@ -64,7 +64,7 @@ import {
   decodeCapability,
   decodeBoundedArray,
   decodeCursor,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeIdentifier,
   decodeQuestionLicense,
   decodeQuestionCitation,
@@ -461,7 +461,7 @@ export function decodeDraftQuestionSummary(
       field(record, "authoringWorkspace", path),
       `${path}.authoringWorkspace`,
     ),
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     questionBackend: decodeStringEnum(
       field(record, "questionBackend", path),
       `${path}.questionBackend`,
@@ -523,7 +523,7 @@ export function decodePublicationValidationReport(
             field(violation, "workspace", entryPath),
             `${entryPath}.workspace`,
           ),
-          title: decodeEnvelopeTitle(field(violation, "title", entryPath), `${entryPath}.title`),
+          title: decodeQuestionTitle(field(violation, "title", entryPath), `${entryPath}.title`),
           capability: decodeCapability(
             field(violation, "capability", entryPath),
             `${entryPath}.capability`,
@@ -631,7 +631,7 @@ function decodeQuestionPublicationReviewSummary(
       `${path}.questionBackend`,
       QUESTION_BACKENDS,
     ),
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     prompt: {
       blocks: decodeBoundedArray(
         field(prompt, "blocks", `${path}.prompt`),

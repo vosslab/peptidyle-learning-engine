@@ -1,7 +1,7 @@
 use question_model::{
     GradingOperationAction, InstructorGradingOperationActionRequest,
     InstructorGradingOperationReceipt, InstructorGradingOperationReference,
-    InstructorGradingOperationReplayError, InstructorGradingOperationReplayLedger,
+    InstructorGradingOperationReplayError, InstructorGradingOperationReplayRegistry,
     InstructorGradingOperationRequestChecksum, InstructorGradingOperationRetryToken, Timestamp,
 };
 
@@ -20,10 +20,10 @@ fn request(
 }
 
 fn accept(
-    ledger: &mut InstructorGradingOperationReplayLedger,
+    replay_registry: &mut InstructorGradingOperationReplayRegistry,
     request: InstructorGradingOperationActionRequest,
 ) {
-    ledger
+    replay_registry
         .accept_or_replay(request, |accepted_request| {
             InstructorGradingOperationReceipt::new(
                 accepted_request,
@@ -38,12 +38,16 @@ fn accept(
 
 #[test]
 fn retry_token_refuses_a_different_operation() {
-    let mut ledger = InstructorGradingOperationReplayLedger::default();
-    accept(&mut ledger, request(7, GradingOperationAction::Retry, 1));
+    let mut replay_registry = InstructorGradingOperationReplayRegistry::default();
+    accept(
+        &mut replay_registry,
+        request(7, GradingOperationAction::Retry, 1),
+    );
 
-    let result = ledger.accept_or_replay(request(8, GradingOperationAction::Retry, 1), |_| {
-        panic!("a changed operation must not run")
-    });
+    let result = replay_registry
+        .accept_or_replay(request(8, GradingOperationAction::Retry, 1), |_| {
+            panic!("a changed operation must not run")
+        });
 
     assert_eq!(
         result,
@@ -53,12 +57,16 @@ fn retry_token_refuses_a_different_operation() {
 
 #[test]
 fn retry_token_refuses_a_different_request_checksum() {
-    let mut ledger = InstructorGradingOperationReplayLedger::default();
-    accept(&mut ledger, request(7, GradingOperationAction::Retry, 1));
+    let mut replay_registry = InstructorGradingOperationReplayRegistry::default();
+    accept(
+        &mut replay_registry,
+        request(7, GradingOperationAction::Retry, 1),
+    );
 
-    let result = ledger.accept_or_replay(request(7, GradingOperationAction::Retry, 2), |_| {
-        panic!("a changed checksum must not run")
-    });
+    let result = replay_registry
+        .accept_or_replay(request(7, GradingOperationAction::Retry, 2), |_| {
+            panic!("a changed checksum must not run")
+        });
 
     assert_eq!(
         result,

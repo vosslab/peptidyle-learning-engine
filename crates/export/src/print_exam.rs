@@ -7,11 +7,11 @@
 use std::collections::BTreeMap;
 
 use objects::Sha256Checksum;
-use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::{
     Capability, QuestionAssetId, QuestionBackendCapabilities, QuestionResponseFormat,
     QuestionRevision,
 };
+use question_model::{QuestionAssetReference, QuestionContentBlock};
 
 /// The rendition selected by an instructor or accessibility workflow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

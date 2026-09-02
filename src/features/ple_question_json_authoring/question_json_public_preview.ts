@@ -40,7 +40,7 @@ export function pleQuestionJsonPublicPreview(
   };
 }
 
-/** Builds the existing key-free runtime definition; source answer material never crosses this seam. */
+/** Builds the existing key-free runtime definition; the Answer Key never crosses this seam. */
 export function pleQuestionJsonResponseFormat(
   source: PleQuestionJsonDocument,
 ): QuestionResponseFormat {

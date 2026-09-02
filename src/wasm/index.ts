@@ -73,7 +73,7 @@ export interface PleDraftPreviewRequest {
   readonly questionVariationRule: QuestionVariationRule;
 }
 
-/** Identity-free preview material returned only for local PLE Question Sources. */
+/** Identity-free Question Prompt and Question Response Format returned for a local PLE draft preview. */
 export interface PleDraftPreview {
   readonly workspace: string;
   readonly seed: number;
@@ -99,7 +99,7 @@ export type PresentationVerification =
   { readonly kind: "match" } | { readonly kind: "mismatch" } | { readonly kind: "unavailable" };
 
 export type PresentationVerifier = (
-  envelope: QuestionPresentation,
+  presentation: QuestionPresentation,
   assets: ReadonlyArray<QuestionAssetRendition>,
   presentationToken: QuestionPresentationToken,
 ) => Promise<PresentationVerification>;
@@ -121,7 +121,7 @@ interface WasmBindgenModule {
   readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
   readonly preview_ple_draft: (draftJson: string, seedJson: string) => string;
   readonly verify_presentation_descriptor: (
-    envelopeJson: string,
+    presentationJson: string,
     questionAssetRenditionsJson: string,
     presentationToken: string,
   ) => boolean;
@@ -315,13 +315,13 @@ async function initializeWasmFacade(
         ),
       );
     const verifyPresentationDescriptor: PresentationVerifier = (
-      envelope,
+      presentation,
       assets,
       presentationToken,
     ) =>
       Promise.resolve({
         kind: loaded.verify_presentation_descriptor(
-          JSON.stringify(envelope),
+          JSON.stringify(presentation),
           JSON.stringify(assets),
           presentationToken,
         )

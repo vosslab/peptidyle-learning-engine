@@ -6,7 +6,7 @@ The plan and its active release plan remain authoritative for dependency order a
 
 PLE is question agnostic at the learning-engine boundary. An Issued Question preserves one exact
 published Question Revision, and a Question Attempt binds one exact Question Backend adapter. Each
-adapter safely issues, reproduces, and grades its own material; PLE owns Account and exact
+adapter safely issues, reproduces, and grades through its exact Question Backend-specific Question Grading Input; PLE owns Account and exact
 course/Student authorization, assignment policy, attempt identity, timing, idempotency,
 gradebook persistence, retention, and the
 browser API.
@@ -30,16 +30,16 @@ PLE, WeBWorK, and iMathAS Question Backends each expose their explicit issue,
 reproduce, and grade operations; a later server delivery boundary will compose
 them without creating a second product vocabulary.
 
-| Concern                               | Common PLE rule                                                                                                                                                                                                                                              |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or backend configuration.                                                       |
-| Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
-| Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                        |
-| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                                            |
-| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                   |
-| Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                           |
-| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                        |
-| Capabilities                          | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                             |
+| Concern                               | Common PLE rule                                                                                                                                                                                                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or backend configuration.                                                                       |
+| Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free Question Presentation, parameter hash, and Question Attempt Reproduction Details.    |
+| Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit active Question Backends without a public Question Presentation. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private Question Grading Input instead. |
+| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                                                            |
+| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                                   |
+| Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                                           |
+| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                                        |
+| Capabilities                          | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                                             |
 
 The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
 an answer key. Its render `kind` selects the browser widget. The planned compact response wire drops
@@ -85,7 +85,7 @@ hotspot asset bindings, remains open.
 
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
 References before generic grading or isolated PLE Question JSON grading. First PLE Question JSON grade reads only the issued
-checksummed PLE Question JSON grading contract; ordinary published-Question and browser paths cannot read that material or
+checksummed PLE Question JSON Private Grading; ordinary published-Question and browser paths cannot read that private grading data or
 replace it with a current Question Grader view. Question Attempt Reproduction Details name the PLE Question Backend and
 Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
@@ -113,17 +113,17 @@ server-only grading handoff. Publication atomically pins archive and item identi
 
 At issue or replay, `QtiBackend` rereads the exact published archive, verifies object identity and
 SHA-256, reparses it, checks the selected item against the durable public definition, resolves
-immutable assets, and returns a normal answer-free PLE envelope. The student submits the same typed
+immutable assets, and returns a normal answer-free PLE Question Presentation. The student submits the same typed
 PLE response as for PLE Questions. Student JSON has no QTI XML, archive Object Address, import ID, or
 answer binding.
 
 ### Grade, Question Attempt Reproduction Details, and scope
 
-`QtiBackend` obtains answer-bearing material only through separately injected, least-privilege
+`QtiBackend` obtains `QtiGradingHandoff` only through separately injected, least-privilege
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
 asset mapping, or private binding no longer reproduces. The Question Attempt Reproduction Details records private-profile adapter,
-Source Object Reference, bound assets, QTI private grader, and rendered envelope hash.
+Source Object Reference, bound assets, QTI private grader, and rendered Question Presentation checksum.
 
 When explicitly configured, QTI declares `serverGrading`. Current accepted import profiles are static
 single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, interaction types,
@@ -139,11 +139,11 @@ not enable them.
 
 **Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
-private standalone `/render-api` Question Backend service. The browser receives only a typed PLE envelope
+private standalone `/render-api` Question Backend service. The browser receives only a typed PLE Question Presentation
 and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
 
-The accepted projection covers the exact reviewed Chapter 1 `RadioButtons` and matching shapes. PLE
+The accepted Question Presentation covers the exact reviewed Chapter 1 `RadioButtons` and matching shapes. PLE
 rejects unsupported upstream controls and emits opaque IDs per projected label or matching
 side. A student submits PLE IDs to PLE, not upstream form fields.
 
@@ -151,14 +151,14 @@ side. A student submits PLE IDs to PLE, not upstream form fields.
 
 For a newly issued attempt, PLE resolves immutable source, captures and validates the private
 field/value mapping, converts durable Question Choice References to presentation-scoped Response Item References, and
-persists that mapping with the exact public snapshot, private grading envelope, and frozen WeBWorK
+persists that mapping with the exact public snapshot, private Question Grading Input, and frozen WeBWorK
 definition. Normal grade reloads those validated artifacts, maps the student's rendered ID through
-the private envelope, and makes one private grade request. It does not reconstruct an issuance
+the private Question Grading Input, and makes one private grade request. It does not reconstruct an issuance
 render or resolve a current published Question Revision. The mapping never
-appears in an envelope, safe cache, receipt, log event, or browser response.
+appears in a Question Presentation, safe cache, receipt, log event, or browser response.
 
 The shared immutable cache is keyed by version and seed. It holds only its schema version, an answer-free
-typed `QuestionVariationPresentation` envelope, Source Object Reference, Source Object Checksum, and
+typed `QuestionVariationPresentation`, Source Object Reference, Source Object Checksum, and
 Question Renderer Version. A cache hit
 for a new issuance still performs the bounded private render needed to create that attempt's replay
 mapping; reproduction and normal grade do not. Telemetry uses only `renderer_call` and `cache_hit`
@@ -177,7 +177,7 @@ match the evidence profile. Other PG sources remain all-or-nothing.
 
 **Planned.** Generic PG controls, unreviewed matching sources, broad OPL compatibility, browser
 access to WebWork, and upstream gradebook/LTI passback remain outside the accepted scope. Any added
-control needs its own projection, private replay mapping, response contract, browser interaction,
+control needs its own Question Presentation, private replay mapping, response contract, browser interaction,
 and acceptance evidence.
 The detailed protocol is in [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
@@ -240,11 +240,11 @@ iMathAS callbacks remain outside the supported boundary.
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
 2. Pin source bytes, checksum, license, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
-3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, iMathAS Session Authentication state, and raw results server-only.
+3. Issue an answer-free Question Presentation; keep keys, rubrics, mappings, credentials, iMathAS Session Authentication state, and raw results server-only.
 4. At issue, capture the exact version/seed render, compare the complete Question Attempt Reproduction Details, and persist its
-   answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
+   answer-free public snapshot plus server-only Question Grading Input. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.
-5. Choose one grading authority: private PLE material, private renderer, or verified iMathAS Result.
+5. Choose one grading authority: PLE Question JSON Private Grading, private renderer, or verified iMathAS Result.
 6. Cache only immutable answer-free render output. Bind private replay state to the exact course/Student attempt, never shared cache.
 7. Declare only implemented capabilities, and make assignment validation refuse unsupported policy before issue.
 8. Add deterministic conformance tests. Label recorded iMathAS fixtures separately from live service acceptance.
@@ -253,7 +253,7 @@ iMathAS callbacks remain outside the supported boundary.
 
 | Contract                                                        | Primary locations                                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared Question model and Question Attempt Reproduction Details | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                             |
+| Shared Question model and Question Attempt Reproduction Details | `crates/question_model/src/{question_library.rs,student_work.rs,presentation/,capability.rs}`                                                                           |
 | Adapter operations                                              | `crates/adapters/{ple,webwork,imathas,qti}`                                                                                                                             |
 | Server composition                                              | `crates/server/src/{application.rs,composition.rs}`; Question delivery composition remains unmounted                                                                    |
 | WeBWorK renderer                                                | `crates/adapters/webwork` and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)                                                                      |

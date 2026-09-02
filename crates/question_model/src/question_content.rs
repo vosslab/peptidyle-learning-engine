@@ -15,12 +15,75 @@ use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use crate::classification::{QuestionClassification, QuestionLicense, Tag};
-use crate::envelope::QuestionContentBlock;
 use crate::generation::QuestionVariationRule;
-use crate::identity::{WorkspaceId, WorkspaceImportId};
+use crate::identity::{QuestionAssetId, WorkspaceId, WorkspaceImportId};
 use crate::question_citation::QuestionCitation;
 use crate::response::{QuestionResponseFormat, QuestionType};
-use crate::{QuestionId, QuestionRevisionNumber};
+use crate::{QuestionBackend, QuestionId, QuestionRevisionNumber};
+
+/// A reference to a stored asset used inside Question Content.
+///
+/// The checksum travels with the reference so a client can verify that the
+/// bytes it received are the bytes the Question was authored against, which is
+/// what makes a cached render trustworthy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuestionAssetReference {
+    /// Identifier of the stored object.
+    pub asset: QuestionAssetId,
+    /// Hex-encoded checksum computed when the asset was written.
+    pub checksum: String,
+}
+
+/// One renderable piece of a Question prompt.
+///
+/// Each variant that carries visual content also carries text describing it.
+/// That text is required rather than optional: a Question whose figure has no
+/// description is unusable with a screen reader, and the renderer surfaces a
+/// missing description as an authoring error rather than rendering a gap.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum QuestionContentBlock {
+    /// Prose, in a restricted Markdown subset that the renderer sanitizes.
+    Text {
+        /// Markdown source.
+        markdown: String,
+    },
+    /// A mathematical expression.
+    Math {
+        /// LaTeX source.
+        latex: String,
+        /// Spoken-form description for assistive technology.
+        description: String,
+    },
+    /// An image or figure.
+    Image {
+        /// The stored asset.
+        asset: QuestionAssetReference,
+        /// Description of what the image conveys.
+        description: String,
+    },
+    /// A code listing.
+    Code {
+        /// Language name for highlighting, for example `python`.
+        language: String,
+        /// The listing itself.
+        source: String,
+    },
+    /// A data table.
+    Table {
+        /// Column headings, left to right.
+        headers: Vec<String>,
+        /// Rows, each holding one cell per heading.
+        rows: Vec<Vec<String>>,
+        /// Description of what the table shows.
+        description: String,
+    },
+}
 
 /// Maximum Unicode scalar values permitted in a student-facing question title.
 ///
@@ -328,99 +391,116 @@ pub fn validate_question_description(description: &str) -> Result<(), QuestionDe
     Ok(())
 }
 
-/// Backend-specific location information for a Question Source.
-///
-/// This identifies the Question Backend and the backend's own location fields.
-/// It deliberately carries neither Question Source data nor a Source Object
-/// Reference; the private Question Source owns those exact bytes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "backend",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum QuestionBackendLocator {
-    /// A first-party PLE Question.
-    Ple,
-    /// A WeBWorK PG problem, rendered by the renderer service.
-    Webwork {
-        /// Path within the problem library, for example an OPL path.
-        pg_path: String,
-    },
-    /// An item from an imported QTI package.
-    Qti {
-        /// Item identifier within the package.
-        item_id: String,
-    },
-    /// An iMathAS item resolved through its configured deployment and profile.
-    ///
-    /// The deployment reference is an opaque configured key. The private
-    /// Question Source holds the immutable snapshot bytes separately.
-    Imathas {
-        /// The typed iMathAS binding is flattened to its browser contract.
-        #[serde(flatten)]
-        binding: ImathasQuestionBackendBinding,
-    },
+/// Why direct Question Backend fields do not describe one permitted backend record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuestionBackendFieldsError {
+    /// The record omits the exact field required by its Question Backend.
+    MissingRequiredField,
+    /// The record carries a field owned by another Question Backend or stage.
+    UnexpectedField,
+    /// Publication changed the backend instead of preparing the same backend's exact facts.
+    BackendMismatch,
 }
 
-/// Backend-specific location information permitted while content is a private
-/// Draft Question Revision.
-///
-/// Unlike [`QuestionBackendLocator::Imathas`], its iMathAS variant intentionally has
-/// no snapshot or profile: those are fetched and frozen by the server before
-/// publication can mint a durable version.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "backend",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum DraftQuestionBackendLocator {
-    /// A first-party PLE Question.
-    Ple,
-    /// A WeBWorK PG problem.
-    Webwork { pg_path: String },
-    /// An imported QTI item staged in this draft's private workspace.
-    ///
-    /// The import record, rather than the browser, resolves private archive,
-    /// asset and Question Grading Input. It cannot be used as a published locator.
-    Qti {
-        item_id: String,
-        import_id: WorkspaceImportId,
-    },
-    /// Private iMathAS sandbox locator, never an endpoint or credential.
-    Imathas {
-        /// The typed draft binding is flattened to its browser contract.
-        #[serde(flatten)]
-        binding: DraftImathasQuestionBackendBinding,
-    },
-}
-
-impl TryFrom<DraftQuestionBackendLocator> for QuestionBackendLocator {
-    type Error = QuestionBackendLocatorPreparationError;
-
-    fn try_from(backend_locator: DraftQuestionBackendLocator) -> Result<Self, Self::Error> {
-        match backend_locator {
-            DraftQuestionBackendLocator::Ple => Ok(Self::Ple),
-            DraftQuestionBackendLocator::Webwork { pg_path } => Ok(Self::Webwork { pg_path }),
-            DraftQuestionBackendLocator::Qti { .. } => {
-                Err(QuestionBackendLocatorPreparationError::QtiImportRequired)
+impl std::fmt::Display for QuestionBackendFieldsError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingRequiredField => formatter.write_str("Question Backend field is required"),
+            Self::UnexpectedField => {
+                formatter.write_str("Question Backend record carries an inapplicable field")
             }
-            DraftQuestionBackendLocator::Imathas { .. } => {
-                Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
-            }
+            Self::BackendMismatch => formatter
+                .write_str("published Question Backend differs from the Draft Question Backend"),
         }
     }
 }
 
-/// Why a draft backend locator cannot become a published immutable source automatically.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionBackendLocatorPreparationError {
-    /// iMathAS requires the server to create the Question Source snapshot and pin its profile.
-    SnapshotRequired,
-    /// QTI publication must resolve an authorized staged import into an exact
-    /// immutable Question Source before identifiers are minted.
-    QtiImportRequired,
+impl std::error::Error for QuestionBackendFieldsError {}
+
+#[derive(Debug, Clone, Copy)]
+struct QuestionBackendFieldPresence {
+    webwork_pg_path: bool,
+    qti_package_item_identifier: bool,
+    workspace_import_id: bool,
+    imathas_question_backend_binding: bool,
+    draft_imathas_question_backend_binding: bool,
+}
+
+/// Validates the closed Question Backend field matrix shared by editable and
+/// published Question records.
+///
+/// This deliberately relates backend-owned location facts only. It carries no
+/// Question Source bytes, Source Object Reference, or Source Object Checksum.
+fn validate_question_backend_field_matrix(
+    question_backend: QuestionBackend,
+    fields: QuestionBackendFieldPresence,
+    is_draft: bool,
+) -> Result<(), QuestionBackendFieldsError> {
+    let QuestionBackendFieldPresence {
+        webwork_pg_path,
+        qti_package_item_identifier,
+        workspace_import_id,
+        imathas_question_backend_binding,
+        draft_imathas_question_backend_binding,
+    } = fields;
+
+    let no_location_fields = !webwork_pg_path
+        && !qti_package_item_identifier
+        && !workspace_import_id
+        && !imathas_question_backend_binding
+        && !draft_imathas_question_backend_binding;
+    match question_backend {
+        QuestionBackend::Ple if no_location_fields => Ok(()),
+        QuestionBackend::Ple => Err(QuestionBackendFieldsError::UnexpectedField),
+        QuestionBackend::Webwork
+            if webwork_pg_path
+                && !qti_package_item_identifier
+                && !workspace_import_id
+                && !imathas_question_backend_binding
+                && !draft_imathas_question_backend_binding =>
+        {
+            Ok(())
+        }
+        QuestionBackend::Webwork if !webwork_pg_path => {
+            Err(QuestionBackendFieldsError::MissingRequiredField)
+        }
+        QuestionBackend::Webwork => Err(QuestionBackendFieldsError::UnexpectedField),
+        QuestionBackend::Qti
+            if qti_package_item_identifier
+                && (is_draft == workspace_import_id)
+                && !webwork_pg_path
+                && !imathas_question_backend_binding
+                && !draft_imathas_question_backend_binding =>
+        {
+            Ok(())
+        }
+        QuestionBackend::Qti
+            if !qti_package_item_identifier || (is_draft && !workspace_import_id) =>
+        {
+            Err(QuestionBackendFieldsError::MissingRequiredField)
+        }
+        QuestionBackend::Qti => Err(QuestionBackendFieldsError::UnexpectedField),
+        QuestionBackend::Imathas
+            if !webwork_pg_path
+                && !qti_package_item_identifier
+                && !workspace_import_id
+                && ((is_draft
+                    && draft_imathas_question_backend_binding
+                    && !imathas_question_backend_binding)
+                    || (!is_draft
+                        && imathas_question_backend_binding
+                        && !draft_imathas_question_backend_binding)) =>
+        {
+            Ok(())
+        }
+        QuestionBackend::Imathas
+            if (is_draft && !draft_imathas_question_backend_binding)
+                || (!is_draft && !imathas_question_backend_binding) =>
+        {
+            Err(QuestionBackendFieldsError::MissingRequiredField)
+        }
+        QuestionBackend::Imathas => Err(QuestionBackendFieldsError::UnexpectedField),
+    }
 }
 
 /// How a response is judged, without stating what the answer is.
@@ -478,7 +558,7 @@ pub struct QuestionMetadata {
 }
 
 impl QuestionMetadata {
-    /// Validates the one piece of metadata delivered in every student envelope.
+    /// Validates the one piece of metadata delivered in every Student Question Presentation.
     pub fn validate_title(&self) -> Result<(), QuestionTitleError> {
         validate_question_title(&self.title)
     }
@@ -500,8 +580,16 @@ impl QuestionMetadata {
 pub struct DraftQuestionContent {
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
-    /// The Question Backend and any backend-specific location facts.
-    pub backend_locator: DraftQuestionBackendLocator,
+    /// The Question Backend that owns the exact optional fields below.
+    pub question_backend: QuestionBackend,
+    /// WeBWorK PG Path for a WeBWorK Question Backend only.
+    pub webwork_pg_path: Option<String>,
+    /// QTI package item identifier for a QTI Question Backend only.
+    pub qti_package_item_identifier: Option<String>,
+    /// Private workspace import identity for a draft QTI Question only.
+    pub workspace_import_id: Option<WorkspaceImportId>,
+    /// iMathAS Deployment and Item References before publication pins a profile.
+    pub draft_imathas_question_backend_binding: Option<DraftImathasQuestionBackendBinding>,
     /// The authored or imported representation of this Question.
     pub question_format: QuestionFormat,
     /// The prompt, in render order.
@@ -522,11 +610,30 @@ pub struct DraftQuestionContent {
     pub metadata: QuestionMetadata,
 }
 
+impl DraftQuestionContent {
+    /// Validates the exact fields permitted for this editable Question Backend.
+    pub fn validate_question_backend_fields(&self) -> Result<(), QuestionBackendFieldsError> {
+        validate_question_backend_field_matrix(
+            self.question_backend,
+            QuestionBackendFieldPresence {
+                webwork_pg_path: self.webwork_pg_path.is_some(),
+                qti_package_item_identifier: self.qti_package_item_identifier.is_some(),
+                workspace_import_id: self.workspace_import_id.is_some(),
+                imathas_question_backend_binding: false,
+                draft_imathas_question_backend_binding: self
+                    .draft_imathas_question_backend_binding
+                    .is_some(),
+            },
+            true,
+        )
+    }
+}
+
 /// Compact browser-safe identity for one private Draft Question.
 ///
-/// The full backend locator, prompt, Question Response Format, grading policy, and
+/// The exact backend fields, prompt, Question Response Format, grading policy, and
 /// asset references remain on the detail record.  In particular, this list
-/// projection deliberately has no published Question ID or Question Revision Number.
+/// Draft Question Summary deliberately has no published Question ID or Question Revision Number.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftQuestionSummary {
@@ -538,14 +645,15 @@ pub struct DraftQuestionSummary {
     pub authoring_workspace: crate::AuthoringWorkspaceReference,
     /// Human-facing draft title.
     pub title: String,
-    /// Question Backend without its private source locator.
+    /// Question Backend without its private backend-specific fields.
     pub question_backend: crate::question_library::QuestionBackend,
 }
 
 /// Immutable published question content.
 ///
-/// Every assignment, attempt, envelope, cache key, and grading operation uses
-/// this type, so a draft can never enter a published-only path by omission.
+/// Every Assignment, Question Attempt, Question Variation, render cache key,
+/// and grading operation uses this type, so a draft can never enter a
+/// published-only path by omission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionRevision {
@@ -555,8 +663,14 @@ pub struct QuestionRevision {
     pub revision_number: QuestionRevisionNumber,
     /// The workspace that authored it.
     pub workspace: WorkspaceId,
-    /// Which engine it came from.
-    pub backend_locator: QuestionBackendLocator,
+    /// The Question Backend that owns the exact optional fields below.
+    pub question_backend: QuestionBackend,
+    /// WeBWorK PG Path for a WeBWorK Question Backend only.
+    pub webwork_pg_path: Option<String>,
+    /// QTI package item identifier for a QTI Question Backend only.
+    pub qti_package_item_identifier: Option<String>,
+    /// iMathAS Deployment, Item, and pinned Profile for an iMathAS Question Backend only.
+    pub imathas_question_backend_binding: Option<ImathasQuestionBackendBinding>,
     /// The authored or imported representation of this Question.
     pub question_format: QuestionFormat,
     /// The prompt, in render order.
@@ -578,18 +692,43 @@ pub struct QuestionRevision {
 }
 
 impl QuestionRevision {
+    /// Validates the exact fields permitted for this immutable Question Backend.
+    pub fn validate_question_backend_fields(&self) -> Result<(), QuestionBackendFieldsError> {
+        validate_question_backend_field_matrix(
+            self.question_backend,
+            QuestionBackendFieldPresence {
+                webwork_pg_path: self.webwork_pg_path.is_some(),
+                qti_package_item_identifier: self.qti_package_item_identifier.is_some(),
+                workspace_import_id: false,
+                imathas_question_backend_binding: self.imathas_question_backend_binding.is_some(),
+                draft_imathas_question_backend_binding: false,
+            },
+            false,
+        )
+    }
+
     /// Attaches the IDs minted at successful publication to draft content.
     pub fn from_draft(
         draft: DraftQuestionContent,
         question_id: QuestionId,
         revision_number: QuestionRevisionNumber,
-        backend_locator: QuestionBackendLocator,
-    ) -> Self {
-        Self {
+        question_backend: QuestionBackend,
+        webwork_pg_path: Option<String>,
+        qti_package_item_identifier: Option<String>,
+        imathas_question_backend_binding: Option<ImathasQuestionBackendBinding>,
+    ) -> Result<Self, QuestionBackendFieldsError> {
+        draft.validate_question_backend_fields()?;
+        if draft.question_backend != question_backend {
+            return Err(QuestionBackendFieldsError::BackendMismatch);
+        }
+        let question_revision = Self {
             question_id,
             revision_number,
             workspace: draft.workspace,
-            backend_locator,
+            question_backend,
+            webwork_pg_path,
+            qti_package_item_identifier,
+            imathas_question_backend_binding,
             question_format: draft.question_format,
             prompt: draft.prompt,
             response: draft.response,
@@ -599,7 +738,9 @@ impl QuestionRevision {
             question_variation_rule: draft.question_variation_rule,
             grading: draft.grading,
             metadata: draft.metadata,
-        }
+        };
+        question_revision.validate_question_backend_fields()?;
+        Ok(question_revision)
     }
 }
 
@@ -610,10 +751,33 @@ mod tests {
     use crate::generation::QuestionVariationRule;
     use uuid::Uuid;
 
+    #[test]
+    fn visual_blocks_carry_their_description() {
+        let block = QuestionContentBlock::Math {
+            latex: r"\frac{1}{2}".to_string(),
+            description: "one half".to_string(),
+        };
+        let json = serde_json::to_string(&block).expect("serialization should succeed");
+        assert!(json.contains("one half"));
+    }
+
+    #[test]
+    fn blocks_serialize_with_a_discriminant() {
+        let block = QuestionContentBlock::Text {
+            markdown: "Balance the equation.".to_string(),
+        };
+        let json = serde_json::to_string(&block).expect("serialization should succeed");
+        assert!(json.starts_with(r#"{"kind":"text""#));
+    }
+
     fn sample_draft() -> DraftQuestionContent {
         DraftQuestionContent {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            backend_locator: DraftQuestionBackendLocator::Ple,
+            question_backend: QuestionBackend::Ple,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            workspace_import_id: None,
+            draft_imathas_question_backend_binding: None,
             question_format: QuestionFormat::PleAlgorithmic,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "What is the molar mass?".to_string(),
@@ -652,8 +816,12 @@ mod tests {
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionBackendLocator::Ple,
-        );
+            QuestionBackend::Ple,
+            None,
+            None,
+            None,
+        )
+        .expect("PLE draft publishes with no backend-specific fields");
         assert_eq!(published.question_id.to_string(), "123-4567");
     }
 
@@ -667,55 +835,62 @@ mod tests {
     }
 
     #[test]
-    fn imathas_sandbox_source_cannot_become_published_without_a_snapshot() {
+    fn draft_question_backend_fields_accept_the_four_permitted_rows() {
         let binding = DraftImathasQuestionBackendBinding::new(
             ImathasDeploymentReference::new("myopenmath").expect("valid deployment"),
             ImathasItemReference::new("12345").expect("valid item"),
         );
-        let draft = DraftQuestionBackendLocator::Imathas {
-            binding: binding.clone(),
-        };
-        assert_eq!(
-            serde_json::to_value(&draft).expect("draft serializes"),
-            serde_json::json!({
-                "backend": "imathas",
-                "deploymentReference": "myopenmath",
-                "itemReference": "12345",
-            })
-        );
-        assert_eq!(
-            QuestionBackendLocator::try_from(draft),
-            Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
-        );
+        let mut draft = sample_draft();
+        assert!(draft.validate_question_backend_fields().is_ok());
+
+        draft.question_backend = QuestionBackend::Webwork;
+        draft.webwork_pg_path = Some("Library/Algebra/test.pg".to_string());
+        assert!(draft.validate_question_backend_fields().is_ok());
+
+        draft.question_backend = QuestionBackend::Qti;
+        draft.webwork_pg_path = None;
+        draft.qti_package_item_identifier = Some("choice-1".to_string());
+        draft.workspace_import_id = Some(WorkspaceImportId::from_uuid(Uuid::from_u128(44)));
+        assert!(draft.validate_question_backend_fields().is_ok());
+
+        draft.question_backend = QuestionBackend::Imathas;
+        draft.qti_package_item_identifier = None;
+        draft.workspace_import_id = None;
+        draft.draft_imathas_question_backend_binding = Some(binding);
+        assert!(draft.validate_question_backend_fields().is_ok());
     }
 
     #[test]
-    fn imathas_bindings_are_typed_but_keep_the_flat_browser_locator_shape() {
+    fn published_question_backend_fields_require_a_pinned_imathas_profile() {
+        let draft_binding = DraftImathasQuestionBackendBinding::new(
+            ImathasDeploymentReference::new("self-hosted-imathas").expect("valid deployment"),
+            ImathasItemReference::new("item-17").expect("valid item"),
+        );
         let binding = ImathasQuestionBackendBinding::new(
             ImathasDeploymentReference::new("self-hosted-imathas").expect("valid deployment"),
             ImathasItemReference::new("item-17").expect("valid item"),
             ImathasProfile::new("imathas_remote_grading_v1").expect("valid profile"),
         );
-        let locator = QuestionBackendLocator::Imathas { binding };
-
-        let json = serde_json::to_value(&locator).expect("locator serializes");
-        assert_eq!(
-            json,
-            serde_json::json!({
-                "backend": "imathas",
-                "deploymentReference": "self-hosted-imathas",
-                "itemReference": "item-17",
-                "profile": "imathas_remote_grading_v1",
-            })
+        let mut draft = sample_draft();
+        draft.question_backend = QuestionBackend::Imathas;
+        draft.draft_imathas_question_backend_binding = Some(draft_binding);
+        let published = QuestionRevision::from_draft(
+            draft,
+            "123-4567".parse().expect("valid Question ID"),
+            QuestionRevisionNumber::new(1).expect("positive version"),
+            QuestionBackend::Imathas,
+            None,
+            None,
+            Some(binding),
         );
-        assert!(
-            serde_json::from_value::<QuestionBackendLocator>(serde_json::json!({
-                "backend": "imathas",
-                "deploymentReference": "https://untrusted.example",
-                "itemReference": "item-17",
-                "profile": "imathas_remote_grading_v1",
-            }))
-            .is_err()
+        assert_eq!(
+            published
+                .expect("pinned iMathAS profile publishes")
+                .imathas_question_backend_binding
+                .expect("iMathAS binding")
+                .profile()
+                .as_str(),
+            "imathas_remote_grading_v1"
         );
     }
 
@@ -728,35 +903,42 @@ mod tests {
     }
 
     #[test]
-    fn qti_draft_uses_only_an_opaque_workspace_import_and_requires_preparation() {
-        let import_id = WorkspaceImportId::from_uuid(Uuid::from_u128(44));
-        let draft = DraftQuestionBackendLocator::Qti {
-            item_id: "choice-1".to_string(),
-            import_id,
-        };
-        let json = serde_json::to_value(&draft).expect("draft serializes");
-        assert_eq!(json["backend"], "qti");
-        assert_eq!(json["importId"], import_id.to_string());
-        assert!(json.get("packageObject").is_none());
+    fn question_backend_fields_reject_cross_backend_and_draft_only_values() {
+        let mut draft = sample_draft();
+        draft.webwork_pg_path = Some("Library/Algebra/test.pg".to_string());
         assert_eq!(
-            QuestionBackendLocator::try_from(draft),
-            Err(QuestionBackendLocatorPreparationError::QtiImportRequired)
+            draft.validate_question_backend_fields(),
+            Err(QuestionBackendFieldsError::UnexpectedField)
         );
+
+        let mut draft = sample_draft();
+        draft.question_backend = QuestionBackend::Qti;
+        draft.qti_package_item_identifier = Some("choice-1".to_string());
+        draft.workspace_import_id = Some(WorkspaceImportId::from_uuid(Uuid::from_u128(44)));
+        let published = QuestionRevision::from_draft(
+            draft,
+            "123-4567".parse().expect("valid Question ID"),
+            QuestionRevisionNumber::new(1).expect("positive version"),
+            QuestionBackend::Qti,
+            None,
+            Some("choice-1".to_string()),
+            None,
+        );
+        assert!(published.is_ok());
     }
 
     #[test]
-    fn qti_backend_locator_carries_only_its_item_location() {
-        let source = QuestionBackendLocator::Qti {
-            item_id: "choice-1".to_string(),
-        };
-        let json = serde_json::to_string(&source).expect("locator serializes");
-        let restored: QuestionBackendLocator =
-            serde_json::from_str(&json).expect("locator round trips");
-        assert_eq!(restored, source);
-        assert!(serde_json::from_str::<QuestionBackendLocator>(
-            r#"{\"backend\":\"qti\",\"itemId\":\"choice-1\",\"sourceObjectReference\":{\"object\":\"00000000-0000-0000-0000-00000000002d\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}"#
-        )
-        .is_err());
+    fn publication_cannot_change_a_draft_question_backend() {
+        let published = QuestionRevision::from_draft(
+            sample_draft(),
+            "123-4567".parse().expect("valid Question ID"),
+            QuestionRevisionNumber::new(1).expect("positive version"),
+            QuestionBackend::Qti,
+            None,
+            Some("choice-1".to_string()),
+            None,
+        );
+        assert_eq!(published, Err(QuestionBackendFieldsError::BackendMismatch));
     }
 
     #[test]

@@ -50,7 +50,7 @@ impl BlueprintRevisionContent {
         BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION
     }
     /// Produces the one validated persistence record for this Blueprint Revision Content.
-    pub fn canonical_envelope(&self) -> BlueprintRevisionContentRecord {
+    pub fn canonical_record(&self) -> BlueprintRevisionContentRecord {
         let canonical_bytes = canonical_bytes(self);
         let checksum = BlueprintContentChecksum(Sha256::digest(&canonical_bytes).into());
         BlueprintRevisionContentRecord {
@@ -61,7 +61,7 @@ impl BlueprintRevisionContent {
     }
     /// Computes the full versioned Blueprint Revision Content checksum.
     pub fn checksum(&self) -> BlueprintContentChecksum {
-        self.canonical_envelope().checksum()
+        self.canonical_record().checksum()
     }
     /// Checks Blueprint Revision Content and reports both checksums when it changed.
     pub fn compare(&self, other: &Self) -> BlueprintContentCheck {

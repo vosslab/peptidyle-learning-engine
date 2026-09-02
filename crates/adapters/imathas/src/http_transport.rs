@@ -240,7 +240,7 @@ struct HandleResponse {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RenderResponse {
     title: String,
-    prompt: Vec<question_model::envelope::QuestionContentBlock>,
+    prompt: Vec<question_model::QuestionContentBlock>,
 }
 
 #[async_trait]

@@ -132,18 +132,18 @@ pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, Js
 /// presentation data. A well-formed but mismatched Question Presentation Token returns `false`.
 #[wasm_bindgen]
 pub fn verify_presentation_descriptor(
-    envelope_json: &str,
+    presentation_json: &str,
     question_asset_renditions_json: &str,
     presentation_token: &str,
 ) -> Result<bool, JsValue> {
-    let envelope: QuestionPresentation = serde_json::from_str(envelope_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid presentation envelope: {error}")))?;
+    let presentation: QuestionPresentation = serde_json::from_str(presentation_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid Question Presentation: {error}")))?;
     let assets: Vec<QuestionAssetRendition> = serde_json::from_str(question_asset_renditions_json)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation assets: {error}")))?;
     let expected = QuestionPresentationToken::parse(presentation_token).map_err(|error| {
         JsValue::from_str(&format!("invalid Question Presentation Token: {error}"))
     })?;
-    let presentation = rebuild_public_question_presentation(&envelope, &assets)
+    let presentation = rebuild_public_question_presentation(&presentation, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.checksum.public_token() == expected)
 }
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
-        let envelope = r#"{
+        let presentation = r#"{
             "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
             "seed":42,
             "presentationNonce":"11111111111111111111111111111111",
@@ -192,17 +192,17 @@ mod tests {
             ]}
         }"#;
         let rebuilt = rebuild_public_question_presentation(
-            &serde_json::from_str(envelope).expect("fixture envelope"),
+            &serde_json::from_str(presentation).expect("Question Presentation fixture"),
             &[],
         )
         .expect("descriptor");
         let checksum = rebuilt.checksum.public_token();
         assert_eq!(checksum.as_str(), "pd1_q2fE1ezXCkT6_yd7zeqkCQ");
 
-        assert!(verify_presentation_descriptor(envelope, "[]", checksum.as_str()).unwrap());
+        assert!(verify_presentation_descriptor(presentation, "[]", checksum.as_str()).unwrap());
         assert!(
             !verify_presentation_descriptor(
-                &envelope.replace("Peptide bond", "Changed title"),
+                &presentation.replace("Peptide bond", "Changed title"),
                 "[]",
                 checksum.as_str(),
             )

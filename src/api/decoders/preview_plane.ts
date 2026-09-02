@@ -346,7 +346,7 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
       ] as const),
     };
   }
-  throw new DecodeError(`${path}.kind`, "a known student_feedback_release projection kind");
+  throw new DecodeError(`${path}.kind`, "a known Student Feedback Release View kind");
 }
 
 function disclosures(value: unknown, path: string): Array<StudentFeedbackReleaseView> {
@@ -356,12 +356,15 @@ function disclosures(value: unknown, path: string): Array<StudentFeedbackRelease
     DISCLOSURE_MOMENTS.length,
     student_feedback_release,
   );
-  const moments = decoded.map((projection) => projection.moment);
+  const moments = decoded.map((releaseView) => releaseView.moment);
   if (
     moments.length !== DISCLOSURE_MOMENTS.length ||
     moments.some((moment, index) => moment !== DISCLOSURE_MOMENTS[index])
   ) {
-    throw new DecodeError(path, "one ordered projection for now, due, and close");
+    throw new DecodeError(
+      path,
+      "one Student Feedback Release View for each disclosure moment in order: now, due, close",
+    );
   }
   return decoded;
 }

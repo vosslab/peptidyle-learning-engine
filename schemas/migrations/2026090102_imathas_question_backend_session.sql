@@ -900,6 +900,14 @@ BEGIN
       WHERE question_submission_grading_id = g.question_submission_grading_id;
     UPDATE ple_private.job SET state = 'completed', lease_token = NULL, lease_expires_at = NULL,
         completed_at = p_committed_at WHERE job_id = j.job_id;
+    -- ASVS 2.3.1, 2.3.3, 2.3.4, 8.2.1-8.2.3, 8.3.1, 14.2.4, and 15.4.2:
+    -- the trusted grading commit records the identity-free observation after
+    -- terminal grading state and before the Result Exchange becomes replayable.
+    -- Current iMathAS marker responses have no eligible choice IDs.
+    PERFORM ple_api.record_question_statistics_observation(
+        v_automated_grading_receipt_id,
+        ARRAY[]::text[]
+    );
     UPDATE ple_private.imathas_result_exchange SET state = 'committed', grading_result_id = v_grading_result_id,
         committed_job_lease_token_sha256 = pg_catalog.sha256(pg_catalog.uuid_send(p_job_lease_token)),
         committed_at = p_committed_at, updated_at = p_committed_at WHERE imathas_question_backend_session_id = e.imathas_question_backend_session_id;

@@ -17,7 +17,7 @@ pub(super) const CACHE_SCHEMA_VERSION: u8 = 2;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SafeRenderedWebworkQuestion {
-    pub(super) envelope: QuestionVariationPresentation,
+    pub(super) presentation: QuestionVariationPresentation,
     pub(super) renderer_version: QuestionRendererVersion,
 }
 
@@ -85,8 +85,8 @@ pub(super) fn validate_cached(
             "cache renderer identity does not match the configured renderer".to_string(),
         ));
     }
-    validate_envelope(&cached.rendered.envelope, question_revision, seed)?;
-    if cached.rendered.envelope.title != title {
+    validate_presentation(&cached.rendered.presentation, question_revision, seed)?;
+    if cached.rendered.presentation.title != title {
         return Err(WebworkAdapterError::InvalidCache(
             "cache title does not match immutable published metadata".to_string(),
         ));
@@ -94,18 +94,18 @@ pub(super) fn validate_cached(
     Ok(())
 }
 
-pub(super) fn validate_envelope(
-    envelope: &QuestionVariationPresentation,
+pub(super) fn validate_presentation(
+    presentation: &QuestionVariationPresentation,
     question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
 ) -> Result<(), WebworkAdapterError> {
-    if &envelope.variation.question_revision != question_revision {
-        return Err(WebworkAdapterError::InvalidRendererEnvelope(
+    if &presentation.variation.question_revision != question_revision {
+        return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
             "renderer returned a different immutable version".to_string(),
         ));
     }
-    if envelope.variation.seed != seed {
-        return Err(WebworkAdapterError::InvalidRendererEnvelope(
+    if presentation.variation.seed != seed {
+        return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
             "renderer returned a different deterministic seed".to_string(),
         ));
     }
@@ -113,8 +113,9 @@ pub(super) fn validate_envelope(
 }
 
 pub(super) fn rendered_hash(rendered: &CachedWebworkRender) -> Result<String, WebworkAdapterError> {
-    let bytes = serde_json::to_vec(rendered)
-        .map_err(|error| WebworkAdapterError::InvalidRendererEnvelope(error.to_string()))?;
+    let bytes = serde_json::to_vec(rendered).map_err(|error| {
+        WebworkAdapterError::InvalidRendererQuestionPresentation(error.to_string())
+    })?;
     Ok(hex_digest(Sha256::digest(bytes).as_slice()))
 }
 

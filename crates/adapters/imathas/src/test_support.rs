@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use base64::Engine as _;
 use hmac::{Hmac, KeyInit, Mac};
-use question_model::envelope::QuestionContentBlock;
+use question_model::QuestionContentBlock;
 use sha2::Sha256;
 
 use crate::imathas_question_backend::{
@@ -35,7 +35,7 @@ pub enum RecordedImathasQuestionBackendMode {
     Unavailable,
     /// Inject a bounded iMathAS timeout.
     Timeout,
-    /// Inject malformed upstream material.
+    /// Inject a malformed upstream response.
     InvalidResponse,
 }
 

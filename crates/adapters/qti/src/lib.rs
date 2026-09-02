@@ -22,7 +22,7 @@ pub use crate::profiles::{
     QtiPrivateChoiceMapChecksumInput, QtiPrivateFeedbackChecksumInput,
     QtiPrivateMappingChecksumInput, QtiProfileContractError, QtiProfileDetection,
     QtiProfileDetectionEvidence, QtiProfileDiagnostic, QtiProfileDiagnosticCode, QtiProfileId,
-    QtiProfileItemDisposition, QtiProfileItemEvidence, QtiProfileMatrixDetail,
-    QtiProfileResourceEvidence, QtiProfileVersion, QtiPublicChoiceChecksumInput,
-    QtiPublicMappingChecksumInput, detect_qti_profile,
+    QtiProfileItemEvidence, QtiProfileMatrixDetail, QtiProfileResourceEvidence, QtiProfileVersion,
+    QtiPublicChoiceChecksumInput, QtiPublicMappingChecksumInput, QtiWorkspaceImportItemResult,
+    detect_qti_profile,
 };

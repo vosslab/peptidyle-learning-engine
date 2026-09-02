@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { projectStudentResponse } from "../src/features/question_attempt/student_response.ts";
 
-const envelope = {
+const presentation = {
   version: "version-a",
   seed: 2,
   title: "Question",
@@ -19,12 +19,16 @@ const envelope = {
 };
 
 test("Student Response Inspection Feedback uses only public choice bodies and rejects mismatches", () => {
-  assert.deepEqual(projectStudentResponse(envelope, { kind: "multipleChoice", selected: ["b"] }), [
-    { kind: "text", markdown: "Visible B" },
-  ]);
   assert.deepEqual(
-    projectStudentResponse(envelope, { kind: "multipleChoice", selected: ["forged"] }),
+    projectStudentResponse(presentation, { kind: "multipleChoice", selected: ["b"] }),
+    [{ kind: "text", markdown: "Visible B" }],
+  );
+  assert.deepEqual(
+    projectStudentResponse(presentation, { kind: "multipleChoice", selected: ["forged"] }),
     [],
   );
-  assert.deepEqual(projectStudentResponse(envelope, { kind: "shortText", text: "wrong kind" }), []);
+  assert.deepEqual(
+    projectStudentResponse(presentation, { kind: "shortText", text: "wrong kind" }),
+    [],
+  );
 });

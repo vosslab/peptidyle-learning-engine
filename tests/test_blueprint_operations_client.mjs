@@ -33,7 +33,7 @@ function noStoreJson(value) {
   });
 }
 
-test("B2 client uses the one closed Blueprint-operation envelope", async () => {
+test("B2 client uses the one closed Blueprint-operation record", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {

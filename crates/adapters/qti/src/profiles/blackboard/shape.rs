@@ -109,7 +109,7 @@ pub(super) fn valid_meta(root: &XmlNode, resources: &[QtiProfileResourceEvidence
         })
 }
 
-pub(super) fn valid_item_envelope(item: &XmlNode) -> bool {
+pub(super) fn valid_assessment_item_shape(item: &XmlNode) -> bool {
     item.name() == "assessmentItem"
         && item.namespace_uri() == Some(BLACKBOARD_ITEM_NAMESPACE)
         && root_attrs(item, &["identifier", "title", "adaptive", "timeDependent"])

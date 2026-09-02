@@ -84,19 +84,19 @@ test("issued-question transport rejects a response that carries a server-only fi
   );
 });
 
-test("issued-question transport rejects answer material at every nested envelope record", async () => {
-  const hostileEnvelopes = [
+test("issued-question transport rejects server-only data from a Question Presentation", async () => {
+  const hostilePresentations = [
     {
       name: "prompt text",
-      mutate: (envelope) => {
-        envelope.prompt[0].solution = "carbonyl";
+      mutate: (presentation) => {
+        presentation.prompt[0].solution = "carbonyl";
       },
       path: "response.prompt[0].solution",
     },
     {
       name: "math prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
+      mutate: (presentation) => {
+        presentation.prompt = [
           {
             kind: "math",
             latex: "x",
@@ -109,8 +109,8 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "code prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
+      mutate: (presentation) => {
+        presentation.prompt = [
           { kind: "code", language: "text", source: "x", checker: "private-checker" },
         ];
       },
@@ -118,8 +118,8 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "table prompt",
-      mutate: (envelope) => {
-        envelope.prompt = [
+      mutate: (presentation) => {
+        presentation.prompt = [
           {
             kind: "table",
             headers: ["A"],
@@ -133,8 +133,8 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "image asset reference",
-      mutate: (envelope) => {
-        envelope.prompt = [
+      mutate: (presentation) => {
+        presentation.prompt = [
           {
             kind: "image",
             asset: {
@@ -150,36 +150,36 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "multiple-choice response",
-      mutate: (envelope) => {
-        envelope.response.correctChoiceId = "carbonyl";
+      mutate: (presentation) => {
+        presentation.response.correctChoiceId = "carbonyl";
       },
       path: "response.response.correctChoiceId",
     },
     {
       name: "multiple-choice choice",
-      mutate: (envelope) => {
-        envelope.response.choices[0].answer = true;
+      mutate: (presentation) => {
+        presentation.response.choices[0].answer = true;
       },
       path: "response.response.choices[0].answer",
     },
     {
       name: "multiple-choice choice content",
-      mutate: (envelope) => {
-        envelope.response.choices[0].body[0].solution = "private";
+      mutate: (presentation) => {
+        presentation.response.choices[0].body[0].solution = "private";
       },
       path: "response.response.choices[0].body[0].solution",
     },
     {
       name: "selection rule",
-      mutate: (envelope) => {
-        envelope.response.grading = "allOrNothing";
+      mutate: (presentation) => {
+        presentation.response.grading = "allOrNothing";
       },
       path: "response.response.grading",
     },
     {
       name: "numerical response",
-      mutate: (envelope) => {
-        envelope.response = {
+      mutate: (presentation) => {
+        presentation.response = {
           kind: "numerical",
           maxCharacters: 128,
           displayedUnit: null,
@@ -190,8 +190,8 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "fill-in response",
-      mutate: (envelope) => {
-        envelope.response = {
+      mutate: (presentation) => {
+        presentation.response = {
           kind: "fillIn",
           maxCharacters: 20,
           checker: "private-checker",
@@ -201,8 +201,8 @@ test("issued-question transport rejects answer material at every nested envelope
     },
     {
       name: "ordering item",
-      mutate: (envelope) => {
-        envelope.response = {
+      mutate: (presentation) => {
+        presentation.response = {
           kind: "ordering",
           items: [{ id: "first", body: [], solution: 0 }],
         };
@@ -211,7 +211,7 @@ test("issued-question transport rejects answer material at every nested envelope
     },
   ];
 
-  for (const hostile of hostileEnvelopes) {
+  for (const hostile of hostilePresentations) {
     const { attempt, client } = clientWithIssuedQuestion(hostile.mutate);
     await assert.rejects(
       client.getIssuedQuestion(

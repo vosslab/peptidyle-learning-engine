@@ -4,12 +4,12 @@
 //! trusted Question backend and, once persistence lands, to Question-owned
 //! private storage. In contrast, [`StudentFeedback`] is the small, policy-redacted
 //! response DTO. Keeping the two shapes separate makes it impossible for the
-//! TypeScript generator to accidentally add private teaching material to the
+//! TypeScript generator to accidentally add private Question Feedback to the
 //! public question model.
 
 use serde::{Deserialize, Serialize};
 
-use crate::envelope::QuestionContentBlock;
+use crate::question_content::QuestionContentBlock;
 
 /// Trusted Question-attached feedback selected after automatic grading.
 ///
@@ -92,7 +92,7 @@ impl QuestionHint {
 ///
 /// Absent fields are omitted from JSON, rather than sent as hidden `null`
 /// values. This lets strict client decoders prove that a policy did not merely
-/// hide restricted material in the interface.
+/// omit restricted feedback and answer facts from the interface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentFeedback {
@@ -142,7 +142,7 @@ impl StudentFeedback {
 /// Closed score-only feedback for an audited Instructor Student-work read.
 ///
 /// This type deliberately cannot carry Question Hints, Question Answer,
-/// Question Answer Explanation, or any other instructional material.
+/// Question Answer Explanation, or other instructional content.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentResponseInspectionFeedback {

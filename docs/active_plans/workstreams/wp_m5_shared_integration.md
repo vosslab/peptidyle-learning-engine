@@ -42,7 +42,7 @@ from overwriting the current course.
   cleanup. No reset, fresh project, direct route, stale row, or API/browser
   shortcut was used.
 - MemoryStore conformance covers the generic 51-record cursor boundary only;
-  it is not live PostgreSQL evidence. All-family, secure-payload, and onboarding-preflight
+  it is not live PostgreSQL evidence. All supported Question Types, secure-payload, and onboarding-preflight
   work remain separate package evidence and do not gate the corrected
   walkthrough.
 

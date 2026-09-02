@@ -212,11 +212,11 @@ impl InstructorGradingOperationReceipt {
 /// Production persistence must apply the same comparison in its transaction; this
 /// value deliberately makes no durability claim.
 #[derive(Debug, Default)]
-pub struct InstructorGradingOperationReplayLedger {
+pub struct InstructorGradingOperationReplayRegistry {
     receipts: BTreeMap<InstructorGradingOperationRetryToken, InstructorGradingOperationReceipt>,
 }
 
-impl InstructorGradingOperationReplayLedger {
+impl InstructorGradingOperationReplayRegistry {
     /// Returns the first accepted Receipt for an equal request without rerunning its effect.
     pub fn accept_or_replay(
         &mut self,
@@ -379,9 +379,9 @@ mod tests {
             InstructorGradingOperationRequestChecksum::from_bytes([1; 32]),
             token.clone(),
         );
-        let mut ledger = InstructorGradingOperationReplayLedger::default();
+        let mut replay_registry = InstructorGradingOperationReplayRegistry::default();
         let mut effects = 0;
-        let first = ledger
+        let first = replay_registry
             .accept_or_replay(request.clone(), |accepted_request| {
                 effects += 1;
                 InstructorGradingOperationReceipt::new(
@@ -393,7 +393,7 @@ mod tests {
                 )
             })
             .expect("first acceptance");
-        let replay = ledger
+        let replay = replay_registry
             .accept_or_replay(request.clone(), |_| {
                 panic!("replay must not repeat the effect")
             })
@@ -415,7 +415,7 @@ mod tests {
             token,
         );
         assert_eq!(
-            ledger.accept_or_replay(changed_action, |_| panic!("must refuse mismatch")),
+            replay_registry.accept_or_replay(changed_action, |_| panic!("must refuse mismatch")),
             Err(InstructorGradingOperationReplayError::BindingMismatch)
         );
     }

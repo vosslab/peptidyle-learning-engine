@@ -110,7 +110,9 @@ function validatePageRows(page: GradebookPageResult): void {
       (cell, index) => cell.assignment === page.assignmentScoringSnapshots[index]?.assignment,
     )
   ) {
-    throw new Error("Gradebook score witnesses do not match the visible assignment structure");
+    throw new Error(
+      "Gradebook Assignment Scoring Snapshots do not match the visible assignment structure",
+    );
   }
 }
 
@@ -132,7 +134,7 @@ function verifyContinuation(current: GradebookPageResult, next: GradebookPageRes
     current.mode !== next.mode ||
     current.rounding !== next.rounding
   ) {
-    throw new Error("Gradebook continuation changed its structural witness");
+    throw new Error("Gradebook continuation changed its structure");
   }
   const expected = current.rows[0]?.assignmentCells ?? [];
   if (next.rows.some((row) => !sameColumns(expected, row.assignmentCells))) {

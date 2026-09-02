@@ -3,7 +3,7 @@
 //! A route request owns any `M-` locator. The Store resolves and discards
 //! those locators before returning the owned [`StudentViewScenario`].  That value is
 //! immutable, self-contained, and identity-free; later preview evaluation only
-//! borrows it and returns an owned closed projection.
+//! borrows it and returns an owned closed Student View Scenario.
 
 use serde::{Deserialize, Serialize};
 
@@ -290,7 +290,7 @@ impl StudentViewScenario {
     }
 }
 
-/// Safe Assignment Access outcome for an instructor-only effective_assignment_policy row or preview projection.
+/// Safe Assignment Access outcome for one Instructor Preview Schedule Row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ActiveStudentCourseMembershipOutcome {
@@ -314,7 +314,7 @@ pub enum ActiveStudentCourseMembershipDenialReason {
     NoActiveStudentCourseMembership,
 }
 
-/// The FERPA-authorized effective_assignment_policy table projection. This is not a StudentViewScenario.
+/// FERPA-authorized Instructor Preview Schedule Row. This is not a Student View Scenario.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum InstructorPreviewScheduleRow {
@@ -353,7 +353,7 @@ pub struct EffectiveAssignmentPolicyView {
     pub assignment_deadline_rule: PreviewAssignmentDeadlineRuleField,
 }
 
-/// Accommodation effect compares two independently resolved safe projections.
+/// Accommodation effect compares two independently resolved Effective Assignment Policy Views.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewAccommodationComparison {

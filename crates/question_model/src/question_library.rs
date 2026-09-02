@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::classification::{QuestionClassification, QuestionLicense, Tag};
 use crate::{
-    CourseInstanceReference, DraftQuestionBackendLocator, QuestionBackendCapabilities,
-    QuestionBackendLocator, QuestionMetadata, QuestionRevisionNumber, Timestamp,
+    CourseInstanceReference, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
+    Timestamp,
 };
 
 pub use crate::question_search::{
@@ -230,28 +230,6 @@ impl QuestionBackend {
     }
 }
 
-impl From<&QuestionBackendLocator> for QuestionBackend {
-    fn from(source: &QuestionBackendLocator) -> Self {
-        match source {
-            QuestionBackendLocator::Ple => Self::Ple,
-            QuestionBackendLocator::Webwork { .. } => Self::Webwork,
-            QuestionBackendLocator::Qti { .. } => Self::Qti,
-            QuestionBackendLocator::Imathas { .. } => Self::Imathas,
-        }
-    }
-}
-
-impl From<&DraftQuestionBackendLocator> for QuestionBackend {
-    fn from(source: &DraftQuestionBackendLocator) -> Self {
-        match source {
-            DraftQuestionBackendLocator::Ple => Self::Ple,
-            DraftQuestionBackendLocator::Webwork { .. } => Self::Webwork,
-            DraftQuestionBackendLocator::Qti { .. } => Self::Qti,
-            DraftQuestionBackendLocator::Imathas { .. } => Self::Imathas,
-        }
-    }
-}
-
 /// Question Library summary metadata returned by browse endpoints without loading payloads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -261,7 +239,7 @@ pub struct QuestionSummary {
     /// Exact accepted Question Revision with the greatest revision number in
     /// this Question lineage. This is independent of selection availability.
     pub latest_question_revision: QuestionRevisionReference,
-    /// Question Backend, without private source-locator fields.
+    /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
     /// Immutable browser-safe Question Type derived at publication time.
     pub question_type: QuestionType,
@@ -409,12 +387,12 @@ pub enum QuestionDetailsPromptView {
     /// The immutable publication contains one fixed prompt.
     Static {
         /// Browser-safe prompt blocks in authored order.
-        blocks: Vec<crate::envelope::QuestionContentBlock>,
+        blocks: Vec<crate::question_content::QuestionContentBlock>,
     },
     /// One deterministic, server-generated example of a variable prompt.
     GeneratedExample {
         /// Browser-safe prompt blocks with every authored parameter resolved.
-        blocks: Vec<crate::envelope::QuestionContentBlock>,
+        blocks: Vec<crate::question_content::QuestionContentBlock>,
     },
 }
 
@@ -507,13 +485,7 @@ mod tests {
     }
 
     #[test]
-    fn backend_summary_never_carries_private_source_locators() {
-        assert_eq!(
-            QuestionBackend::from(&QuestionBackendLocator::Webwork {
-                pg_path: "OpenProblemLibrary/private/path.pg".to_string(),
-            }),
-            QuestionBackend::Webwork
-        );
+    fn backend_summary_never_carries_private_backend_fields() {
         assert_eq!(
             serde_json::to_string(&QuestionBackend::Webwork).expect("backend serializes"),
             "\"webwork\""

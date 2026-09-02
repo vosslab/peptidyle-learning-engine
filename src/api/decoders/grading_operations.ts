@@ -22,7 +22,7 @@ import {
   MAX_CURSOR_PAGE_ITEMS,
   decodeBoundedArray,
   decodeCursor,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeQuestionId,
   field,
   requireOnlyFields,
@@ -158,7 +158,7 @@ function decodeSubject(value: unknown, path: string): GradingOperationSubject {
       return {
         kind: subjectKind,
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-        title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+        title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
       };
     case "student":
       requireOnlyFields(record, path, ["kind", "membership", "displayName"]);

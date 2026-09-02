@@ -36,7 +36,7 @@ retain their separate ordinary authorization course.
 Before first production deployment, the reviewed clean-cluster baseline reissues migration `2026081818` with the final
 visible Biochemistry teaching title. Regenerating disposable live-demo volumes applies that baseline, whose resulting
 checksum is the canonical immutable v1 baseline. The first shipped baseline therefore begins with this coherent
-teaching-course topology; the established forward-only migration ledger applies after v1 ships.
+teaching-course topology; the established forward-only migration sequence applies after v1 ships.
 
 `BlueprintCourse` is course-level reusable content and structure. It is visible to all vetted (approved) Instructors,
 has no enrolled Students, and has no live deadlines, releases, accommodations, grades, or delivery settings.
@@ -93,8 +93,8 @@ public Question ID and title needed to find the item through the Question Librar
 
 This Question Library publication is infrastructure bootstrap rather than teaching state. It creates no course,
 assignment, roster member, invitation, Assignment Attempt, or submission. Instructor and Student journeys create those
-ordinary PLE records through the visible interface. The private source, object identity, renderer configuration,
-credentials, and answer material remain outside browser receipts and screenshots.
+ordinary PLE records through the visible interface. Question Source, object identity, renderer configuration,
+credentials, Question Grading Input, and Answer Keys remain outside browser receipts and screenshots.
 
 The Question Library installer accepts the publishing Instructor, migration/database, and private-storage coordinates
 required to publish that Question. It writes to the one shared Question Library and does not accept or retain a Student
@@ -169,7 +169,7 @@ The connected grading journey uses ordinary visible Student and Instructor
 actions. The Student submits one answer and sees **Response received** with a
 cleared answer buffer and **Check grading status**. The answer POST is not
 replayed after acknowledgement; each status GET is answer-free and `no-store`.
-The API retains grading and answer material on the server, and Student status,
+The API retains Question Grading Input and Answer Keys on the server, and Student status,
 operation responses, and receipts do not contain answers, feedback internals,
 grading source, or score values.
 

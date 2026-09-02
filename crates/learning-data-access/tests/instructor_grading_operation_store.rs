@@ -5,13 +5,13 @@ use learning_data_access::{InstructorGradingOperationStore, StoreError};
 use question_model::{
     GradingOperationAction, InstructorGradingOperationActionRequest,
     InstructorGradingOperationReceipt, InstructorGradingOperationReference,
-    InstructorGradingOperationReplay, InstructorGradingOperationReplayLedger,
+    InstructorGradingOperationReplay, InstructorGradingOperationReplayRegistry,
     InstructorGradingOperationRequestChecksum, InstructorGradingOperationRetryToken, Timestamp,
 };
 
 #[derive(Default)]
 struct DeterministicGradingOperationStore {
-    ledger: Mutex<InstructorGradingOperationReplayLedger>,
+    replay_registry: Mutex<InstructorGradingOperationReplayRegistry>,
 }
 
 #[async_trait]
@@ -20,7 +20,7 @@ impl InstructorGradingOperationStore for DeterministicGradingOperationStore {
         &self,
         request: InstructorGradingOperationActionRequest,
     ) -> Result<InstructorGradingOperationReplay, StoreError> {
-        self.ledger
+        self.replay_registry
             .lock()
             .expect("test store lock")
             .accept_or_replay(request, |accepted_request| {

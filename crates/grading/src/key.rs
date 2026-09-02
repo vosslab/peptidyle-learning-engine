@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use question_model::response::ResponseItemReference;
 use serde::{Deserialize, Serialize};
 
-/// Correct response material for one question revision.
+/// Answer Key for one Question Revision.
 ///
 /// An ungraded question has no `AnswerKey`; it does not use a non-secret
 /// placeholder variant. Keeping every value here server-only makes the crate

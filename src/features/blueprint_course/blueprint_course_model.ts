@@ -354,7 +354,7 @@ export function reusableContentInputFromView(
   };
 }
 
-/** Converts a current Blueprint Course projection to an editable complete-tree replacement. */
+/** Converts a BlueprintCourseView to editable complete Blueprint Revision Content. */
 export function replacementContentFromBlueprintCourse(
   view: BlueprintCourseView,
 ): import("../../../generated/api/ReplaceBlueprintCourseContentInput").ReplaceBlueprintCourseContentInput {

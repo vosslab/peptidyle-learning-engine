@@ -211,7 +211,7 @@ model            answer key + three feedback forms
 | ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
 | Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                            |
-| Public compiled model        | Checksummed public Question Revision projection                                           | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
+| Public compiled model        | Checksummed public Question Revision model                                                | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
 | Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
 | Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
 

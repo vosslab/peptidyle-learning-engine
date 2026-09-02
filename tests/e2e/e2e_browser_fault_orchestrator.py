@@ -54,7 +54,7 @@ class FaultScenarioRequest:
 
 @dataclasses.dataclass(frozen=True)
 class FaultScenarioResult:
-	"""Safe public projection of the lifecycle-controlled transition."""
+	"""Fault Scenario Result for the lifecycle-controlled transition."""
 
 	fault_transition: str
 	fault_injected: bool

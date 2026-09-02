@@ -219,7 +219,7 @@ export interface GradedQuestionSubmissionReceipt extends QuestionSubmissionRecei
   readonly assignmentScoringState: AssignmentScoringState;
   /** Persisted completion state; successor absence alone is not completion evidence. */
   readonly assignmentAttemptCompletion: AssignmentAttemptCompletion;
-  /** Server-redacted teaching material, or an explicit policy withholding it. */
+  /** Browser-safe Student Feedback, or an explicit policy withholding it. */
   readonly feedback: StudentFeedback | null;
   readonly nextIssued: NextIssuedAttempt | null;
   /** The grade receipt is durable, but a successor has not been issued yet. */
@@ -258,7 +258,7 @@ export interface NextIssuedAttempt {
   readonly renderedQuestionSha256: string;
 }
 
-/** Key-free envelope cached only behind its owned predecessor attempt. */
+/** Key-free Question Presentation cached only behind its owned predecessor attempt. */
 export interface PrefetchedNextQuestion {
   readonly predecessor: QuestionAttemptId;
   readonly issuedQuestion: StudentIssuedQuestion;
@@ -266,7 +266,7 @@ export interface PrefetchedNextQuestion {
   readonly renderedQuestionSha256: string;
   /** Same safe Question Pool Selection Position used when this cached successor becomes current. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
-  readonly envelope: QuestionVariationPresentation;
+  readonly presentation: QuestionVariationPresentation;
 }
 
 /** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */

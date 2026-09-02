@@ -1,20 +1,17 @@
-// teaching_operations_page.tsx - authorized course shell for the teaching team and retention.
+// teaching_operations_page.tsx - authorized course shell for the teaching team.
 
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
-import { useApplicationApi } from "../api/application_api";
 import {
   courseRouteView,
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
-import { RetentionPanel } from "./teaching_operations/retention_panel";
 import { TeachingTeamPanel } from "./teaching_team_panel";
 
 type PageState = "loading" | "ready" | "denied" | "unavailable";
 
-/** Course-local shell for Instructor teaching authority and course retention. */
+/** Course-local shell for Instructor teaching authority. */
 export function TeachingOperationsPage(): JSX.Element {
-  const applicationApi = useApplicationApi();
   const scopedRoute = useCourseThemeRouteData();
   const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
   const [state, setState] = createSignal<PageState>("loading");
@@ -37,7 +34,7 @@ export function TeachingOperationsPage(): JSX.Element {
     <section class="page teaching-operations-page" data-route-surface="teachingOperations">
       <p class="eyebrow">Instructor course settings</p>
       <h1>Teaching operations</h1>
-      <p class="page-lede">Manage the teaching team and student-record retention.</p>
+      <p class="page-lede">Manage the teaching team.</p>
       <Show when={state() === "loading"}>
         <p role="status">Loading teaching operations...</p>
       </Show>
@@ -55,12 +52,6 @@ export function TeachingOperationsPage(): JSX.Element {
       <Show when={course !== undefined && state() === "ready"}>
         <div class="teaching-operations-hub">
           <TeachingTeamPanel courseId={course!.id} />
-          <RetentionPanel
-            courseId={course!.id}
-            courseReference={course!.reference}
-            applicationApi={applicationApi}
-            mayExtendRetention={false}
-          />
         </div>
       </Show>
     </section>

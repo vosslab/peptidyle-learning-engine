@@ -176,7 +176,7 @@ race safely; a losing finalizer must accept only the exact same stored result.
 Record attempt, predecessor, and
 assignment position. It is valid only before the predecessor is submitted and
 only when its full issued tuple-capability, binding, public snapshot, and
-server-only grading envelope-agrees with its protected columns. A later
+server-only Question Grading Input agrees with its protected columns. A later
 attempt cannot reuse an old prefetch as a new attempt. The future PostgreSQL
 and in-memory Stores must implement the same receipt rule.
 

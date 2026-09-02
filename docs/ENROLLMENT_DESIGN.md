@@ -41,12 +41,15 @@ authenticates and claims the invitation, the same Store-owned transaction:
    profile.
 
 When an instructor later creates an assignment, PLE stores the assignment for
-the Course Instance's active Student Records. The sole Assignment Access
-evaluator derives current access from the exact Student Record, Course
-Membership, Assignment Status, effective Assignment policy, and direct Student accommodation facts. The
-first Assignment Attempt start, grade-bearing action, or explicit Instructor
-issue atomically creates the assignment receipt, typed empty summary, direct
-access basis, and immutable Assignment Access evidence.
+the Course Instance without eagerly creating Student Work Records. The sole Assignment Access
+evaluator derives current access from the exact Student Record, Active Student
+Course Membership, Assignment Status, Effective Assignment Policy, and direct Student accommodation facts. The
+planned first Assignment Attempt start, grade-bearing action, or explicit
+Instructor issue will create the assignment receipt, typed empty Assignment Attempt
+Summary, direct access basis, and immutable Assignment Access evidence. Current
+source has no durable Store transaction that creates that planned
+enrollment-plus-empty-summary receipt, so this remains a design requirement
+rather than an implemented creation boundary.
 
 This gives instructors the simple course-enrollment model used successfully by
 LibreTexts ADAPT without weakening PLE's more precise Student Work Records model:
@@ -59,18 +62,18 @@ Add Student to course      ->     course_membership
                                   course roster profile
 
 Create later assignment    ->     assignment
-                                  direct active Student Record access
+                                  no eager Student Work Record
 
-First entitlement-bearing  ->     Assignment Attempt and Issued Question
+Assignment Access-authorized ->   Assignment Attempt and Issued Question
 event                             selected Assignment Grade state
                                   sealed Assignment Access evidence
 ```
 
 The normal UI does not ask an instructor to add the same student separately to
-every assignment. Course Membership and direct Student Record access are the
-assignment-delivery contract; absence of a materialized receipt means only that
-no access-bearing event has occurred. It is never interpreted as current denial
-or current grant.
+every assignment. Active Student Course Membership is the prerequisite for the
+per-Student, per-Assignment Assignment Access decision; absence of the planned
+Assignment Attempt Summary receipt means only that no access-bearing event has
+occurred. It is never interpreted as current denial or current grant.
 
 ## Why records remain separate
 
@@ -127,7 +130,7 @@ authorized start, Issued Question creation records delivery, Question
 Submission acceptance records the Student response, and Automated Grading
 records immutable grading evidence. `AssignmentGrade` owns the selected
 course-record result; `AssignmentProgressRecord` is the separate derived
-activity projection.
+derived activity result.
 
 The existing whole-course `upsert_course` operation is not the roster
 mutation. It replaces the complete member list and has no browser-facing
@@ -377,32 +380,35 @@ membership or educational-record access described in
 
 ## Store invariants
 
-The Store owns three connected but intentionally separate invariants:
+The planned Store boundary owns three connected but intentionally separate
+invariants:
 
-1. Active course membership, the exact Student Record, and the Assignment's
+1. Active Student Course Membership, the exact Student Record, and the Assignment's
    direct policy are the sole inputs to current Assignment Access.
 2. Merely joining a course, creating an assignment, listing work, or reading a
    summary creates no assignment receipt.
-3. The first bounded entitlement-bearing transition atomically creates one
-   enrollment and one typed empty summary with its sealed Assignment Access evidence.
+3. The first bounded Assignment Access-authorized transition will atomically
+   create one enrollment and one typed empty summary with its sealed Assignment
+   Access evidence.
 
-The following operations preserve them:
+The following describes the intended operations:
 
 | Operation                                                           | Atomic effect                                                                                                                        |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Claim invitation                                                    | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
 | Create assignment                                                   | Store the assignment; create no student activity rows                                                                                |
-| Read entitled pre-activity summary                                  | Return a key-free `no_activity` projection without creating an enrollment or summary                                                 |
-| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate entitlement and atomically create or reuse the enrollment and summary receipt                                            |
+| Read pre-activity summary authorized by Assignment Access           | Return a key-free `no_activity` result without creating an enrollment or summary                                                     |
+| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt |
 | Remove student access                                               | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                  |
 | Re-add former student                                               | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                  |
 
-Memory uses one write lock and rollback snapshot for compound transitions.
-PostgreSQL uses one transaction and a consistent lock order when materializing
-the first receipt. The database retains unique constraints for both `(course,
-assignment, student)` and `(course, assignment, user)`. Once materialization
-begins, inserting the enrollment and its empty summary remains one transaction;
-no route or migration may hand-write only one side.
+The planned Memory implementation will use one write lock and rollback snapshot
+for this compound transition. The planned PostgreSQL implementation will use one
+transaction and a consistent lock order when creating the first enrollment and
+empty summary receipt. It will retain unique constraints for both `(course,
+assignment, student)` and `(course, assignment, user)`. Once that creation
+begins, inserting the enrollment and its empty summary must remain one
+transaction; no route or migration may hand-write only one side.
 
 ## HTTP contract
 
@@ -530,7 +536,7 @@ not a series of unrelated browser requests.
    key. PLE commits the selected ready rows atomically.
 6. Each committed row invokes the same Store command as one-member addition;
    it creates the membership/profile boundary without bypassing authorization
-   or pre-materializing assignment activity.
+   or creating activity before the first bounded educational event.
 
 The initial bounds are one MiB, 500 data rows, and a closed UTF-8 CSV grammar.
 The implementation keeps those limits as constants covered at their boundary.
@@ -615,8 +621,8 @@ The strongest ADAPT ideas for PLE are:
 - let the authenticated student claim an invitation;
 - validate LMS-backed membership against the LMS roster when that integration
   is configured; and
-- derive assignment access immediately from membership while materializing
-  per-assignment activity only at the first bounded educational event.
+- evaluate Assignment Access from Active Student Course Membership; the design
+  creates activity only at the first bounded educational event.
 
 PLE intentionally improves several implementation details:
 
@@ -628,7 +634,7 @@ PLE intentionally improves several implementation details:
 | `student_id` is stored on the global ADAPT user.                                                             | Store an institution-provided roster identifier only on the protected course roster/export mapping.                                     |
 | Domain whitelist validation uses substring matching.                                                         | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary.                                            |
 | Access codes are visible, reusable course/invitation values.                                                 | Use random, expiring, single-purpose invitation secrets stored only as hashes.                                                          |
-| Course enrollment and assignment distribution are coupled procedurally.                                      | Keep current membership/entitlement separate from lazily materialized assignment activity.                                              |
+| Course enrollment and assignment distribution are coupled procedurally.                                      | Keep Active Student Course Membership and Assignment Access separate from lazily created assignment activity.                         |
 | Unenrollment can permanently remove submissions and scores.                                                  | Revoke access while retaining educational records until the explicit retention workflow acts.                                           |
 | Section is a second course subdivision.                                                                      | Treat a PLE `CourseId` as the current course or section boundary; add another hierarchy only from demonstrated need.                    |
 
@@ -655,7 +661,8 @@ it must not return a large page of bearer secrets by accident.
 
 The screen emphasizes outcomes rather than internal record types:
 
-- `Active` means the student can enter the course and has assignment access.
+- `Active` means the student has Active Student Course Membership and can enter
+  the course; Assignment Access is evaluated separately for each Assignment.
 - `Invitation pending` means no authenticated user has claimed the invitation.
 - `Invalid email`, `domain not permitted`, or `roster ID already used` gives a
   row-level correction before commit.
@@ -714,7 +721,7 @@ Roster removal is an access transition, not record destruction.
 
 - New Assignment Attempts, Question Attempts, asset grants, and invitation redemption are refused after
   membership removal.
-- Existing materialized receipts, summaries, and issued evidence remain
+- Existing Enrollment and Assignment Attempt Summary receipts and issued evidence remain
   available to authorized direct course instructors under course retention
   policy.
 - Re-adding the same student creates a fresh membership episode, reuses the
@@ -761,7 +768,7 @@ hand-match 50 scores.
 | Authentication email      | Sign in to the created PLE Account                                              | Global Account credential; never the account key; not exposed as cross-course instructor data                                                                                                                                   |
 | Course roster email       | Invite, correct, apply allowed-domain policy, and match an institutional export | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course student-record retention                                                                                       |
 | Institutional roster ID   | Match PLE results to an LMS/gradebook row                                       | Course-scoped protected record; no global lookup or authentication use                                                                                                                                                          |
-| Display name or handle    | Let the instructor distinguish roster members                                   | Student-controlled account projection copied only where the course workflow needs it; no legal-name requirement                                                                                                                 |
+| Display name or handle    | Let the instructor distinguish roster members                                   | Student-controlled account data copied only where the course workflow needs it; no legal-name requirement                                                                                                                       |
 | Raw roster CSV            | Import 50 students at once                                                      | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation                                                                                                                        |
 | Normalized import preview | Review errors before sending invitations                                        | Expires after one hour; direct-Instructor access; no account-existence signal                                                                                                                                                   |
 | Grade export              | Upload results to the institutional system                                      | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |

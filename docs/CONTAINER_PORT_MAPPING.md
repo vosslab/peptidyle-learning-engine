@@ -38,7 +38,7 @@ The API is reached only through the gateway; no other PLE application process
 has a supported host port.
 
 The renderer intentionally has no host-published port. Its PG/PGML request and
-grading interface carries protected assessment material and remains on
+grading interface carries protected Question Source, Question Grading Input, and Answer Key values and remains on
 `renderer_private`. Do not add a normal development mapping for it. If a
 short-lived, operator-approved diagnostic ever requires host access, reserve
 `127.0.0.1:8100 -> webwork-renderer:3000`; remove that override afterward.

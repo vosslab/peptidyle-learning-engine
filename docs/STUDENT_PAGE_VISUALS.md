@@ -83,7 +83,7 @@ alone do not establish current acceptance.
 ## Validation handoff
 
 The retained T1 evidence adds resolved instructions and delivery details to the already accepted S4
-student/access matrix. Behavior-named browser tests cover the allowed Student projection,
+student/access matrix. Behavior-named browser tests cover the allowed Student Question Attempt View,
 fail-closed direct-route denial, and no instructor transport; the visual capture and native
 inspection gate follows those tests. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
 repository-wide Validation test suite and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for the durable

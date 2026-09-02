@@ -178,10 +178,10 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+    use question_model::QuestionContentBlock;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
     use question_model::classification::{QuestionLicense, Tag};
-    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::{

@@ -22,7 +22,7 @@ rendered recovery path. See the [J3 review](../audits/wp_w3_leave_return_review.
   the Assignment Attempt surface must arrive. The J3 fragment appends only after those final assertions.
 - `tests/playwright/simulator/student_leave_resume_evidence.ts` defines the narrow future report fragment:
   public course and assignment UUIDs, elapsed time, and only visible start, leave, and return codes.
-  It contains no response, answer, feedback, scoring, persistence, or credential material.
+  It contains no Student Response, Question Answer, Student Feedback, scoring, persistence, or credentials.
 
 ## Evidence
 

@@ -21,7 +21,7 @@ video recording plus private explicit inputs; this note does not add live accept
   then uses Tab, Shift+Tab, Enter, and Space to select the arranged course and Mastery assignment.
 - The spec observes only rendered focus, visible response readiness, visible feedback, and the
   visible completion state. It never invokes a browser API, clicks or focuses a platform control,
-  injects session state, routes directly after login, or reads answer-bearing material.
+  injects session state, routes directly after login, or reads an Answer Key or Question Grading Input.
 - A bounded private state fragment records J1 PASS only after the visible start, response, submit,
   feedback, and completion milestones occur.
 - The fixed live Playwright child sets `PLAYWRIGHT_NO_COPY_PROMPT=1`; trace, screenshot, and video

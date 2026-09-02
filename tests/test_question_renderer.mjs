@@ -1,4 +1,4 @@
-// test_question_renderer.mjs - permanent behavior checks for question-safe prompt projection.
+// test_question_renderer.mjs - permanent behavior checks for browser-safe Question rendering.
 
 import assert from "node:assert/strict";
 import test from "node:test";

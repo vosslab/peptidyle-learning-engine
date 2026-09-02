@@ -54,11 +54,11 @@ fn safe_report_is_bounded_exact_and_contains_no_private_binding() {
 fn mapped_item_produces_digest_inputs_and_server_parts_without_private_debug() {
     let item = mapped_item(QtiMappedPoints::BlackboardDefaulted);
     assert_eq!(item.public_mapping_checksum_input().points, "1.0");
-    let disposition = item
-        .accepted_item_disposition()
-        .expect("mapped item owns its accepted disposition");
-    assert!(disposition.accepted);
-    assert!(disposition.public_mapping_checksum.is_some());
+    let item_result = item
+        .accepted_workspace_import_item_result()
+        .expect("mapped item owns its accepted Workspace Import Item Result");
+    assert!(item_result.accepted);
+    assert!(item_result.public_mapping_checksum.is_some());
     {
         let _private_mapping = item.private_mapping_checksum_input();
     }

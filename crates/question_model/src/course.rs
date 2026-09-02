@@ -138,9 +138,9 @@ pub struct AssignmentSummary {
 /// Canonical answer-free facts shown at the start of an assignment.
 ///
 /// The ordinary student detail and an Instructor's stable-identity Student
-/// view use distinct envelopes, but they describe the same landing material.
+/// view use distinct response records, but they describe the same Assignment Overview.
 /// Routes build this Assignment Overview once from the authoritative Assignment Content and
-/// then use their role-appropriate envelope constructors.
+/// then use their role-appropriate response constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentOverview {
@@ -160,7 +160,7 @@ pub struct AssignmentOverview {
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
-/// Student-safe Assignment Content.
+/// Student-safe Student Assignment Landing Summary.
 ///
 /// This Student Assignment Landing Summary deliberately omits course identities, Assignment Attempt and
 /// disclosure policy, and other server authority inputs. Student routes use
@@ -213,10 +213,10 @@ pub struct StudentAssignmentDelivery {
     pub late_status: StudentLateWorkStatus,
 }
 
-/// Student-safe assignment material for the dedicated detail route.
+/// Student-safe detail returned by the dedicated Student Assignment Detail route.
 ///
 /// Paginated Student list rows deliberately omit this potentially large
-/// material. The server admits this detail only after the same effective
+/// detail. The server admits this Student Assignment Detail only after the same effective
 /// policy gate used to issue an Assignment Attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -249,7 +249,7 @@ impl From<AssignmentSummary> for StudentAssignmentLandingSummary {
 
 impl StudentAssignmentDetail {
     /// Adds Student identity, resolved delivery, and the Question Content
-    /// envelope to the shared answer-free landing presentation.
+    /// Question Content to the shared answer-free landing presentation.
     pub fn from_landing(
         assignment: AssignmentSummary,
         landing: AssignmentOverview,
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn student_detail_owns_large_material_and_server_resolved_delivery() {
+    fn student_detail_owns_instructions_and_server_resolved_delivery() {
         let assignment = AssignmentSummary {
             id: AssignmentId::from_uuid(Uuid::from_u128(1)),
             reference: crate::AssignmentReference::new(1).expect("valid reference"),

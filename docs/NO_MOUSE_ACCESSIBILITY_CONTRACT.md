@@ -112,8 +112,8 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   may select a visible ordinal while a choice has focus, and Enter may submit a locally ready
   response from that input.
 - Choice labels are readable text; visual letters such as A or B are not the response identity.
-- The shipped WeBWorK radio projection uses the same PLE-native behavior. The browser never focuses
-  an upstream field, renderer page, or hidden WebWork control.
+- The shipped PLE-native radio response control converts the reviewed WeBWorK radio interaction.
+  The browser never focuses an upstream field, renderer page, or hidden WebWork control.
 
 ### Multiple answer
 

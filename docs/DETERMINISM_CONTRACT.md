@@ -13,13 +13,13 @@ attempt uses the stored values.
 
 ## Contract layers
 
-| Layer                         | Authoritative inputs                                                           | Exact result                                                                        | Owner                              |
-| ----------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
-| Question Variation Parameters | generator reference, definition, seed                                          | `QuestionVariationParameters` and SHA-256                                           | `domain` and Wasm                  |
-| PLE issued question           | immutable Question Revision, seed                                              | Question Variation Presentation and Question Attempt Reproduction Details           | trusted server backend             |
-| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation                                         | private adapter/renderer           |
-| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce     | Question Presentation Response Format, rendered IDs, Question Presentation Checksum | trusted server; browser may verify |
-| Submission                    | authenticated attempt, idempotency key, student response                       | one stored receipt or conflict                                                      | trusted server/store               |
+| Layer                         | Authoritative inputs                                                                 | Exact result                                                                                                                                                    | Owner                              |
+| ----------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Question Variation Parameters | generator reference, definition, seed                                                | `QuestionVariationParameters` and SHA-256                                                                                                                       | `domain` and Wasm                  |
+| PLE Question Backend render   | immutable Question Revision, seed                                                    | Question Variation Presentation and Question Attempt Reproduction Details                                                                                       | trusted server backend             |
+| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                     | private adapter/renderer           |
+| Student issuance              | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, rendered IDs, and Question Presentation Checksum | trusted server; browser may verify |
+| Submission                    | authenticated attempt, idempotency key, student response                             | one stored receipt or conflict                                                                                                                                  | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
@@ -122,8 +122,8 @@ descriptor includes:
 
 The server computes SHA-256 over the versioned binary descriptor and persists
 the full 32-byte digest with the nonce. The student receives the nonce in the
-answer-free envelope and a `pd1_` base64url token containing the first 128 bits
-of the digest. Rebuilding the same envelope with the persisted nonce must
+answer-free Question Presentation and a `pd1_` base64url token containing the first 128 bits
+of the digest. Rebuilding the same Question Presentation with the persisted nonce must
 reproduce the stored full digest exactly.
 
 A fresh nonce is intentional. It lets the server give one presentation-scoped
@@ -167,7 +167,7 @@ other internal identities remain server-side.
 The WeBWorK adapter caches only safe rendered output in content object storage.
 Its key is deterministic from `(problem, version, seed)` and validates cache
 schema, immutable Source Object Reference, version, seed, student title, and nonempty
-renderer identity. Cached bytes contain an answer-free shared envelope,
+renderer identity. Cached bytes contain an answer-free shared Question Variation Presentation,
 Source Object Reference binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
 
@@ -201,7 +201,7 @@ checksummed public presentation snapshot and matching server-only Question
 Grading Input, then translate browser-rendered IDs through that protected
 record before one private grade RPC. Submitted reads and retries must
 cross-check those persisted artifacts against their owning Attempt;
-they do not reproduce a safe envelope or call a renderer. Successful
+they do not reproduce a safe Question Variation Presentation or call a renderer. Successful
 submission and terminal instructor action delete the replay row in the same
 Store transaction.
 
@@ -218,7 +218,7 @@ The approved integration sequence and acceptance criteria live in
 Until the compact student wire cuts over, submission is still the tagged
 `StudentResponse` body. Server-side response-shape validation uses the
 checksummed issued snapshot and translates through its server-only grading
-envelope, not an untrusted browser-selected question type or mutable renderer.
+Question Grading Input, not an untrusted browser-selected question type or mutable renderer.
 
 ## Prefetch and replay
 

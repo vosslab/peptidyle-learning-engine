@@ -21,7 +21,7 @@ typed CAS workspace draft + private non-signable source
           v
 publication transaction
   /                 |                 \
-immutable source   public model     typed private grader material
+immutable source   public model     PLE Question JSON Private Grading
 non-signable       answer-free      separate grader capability
 ```
 

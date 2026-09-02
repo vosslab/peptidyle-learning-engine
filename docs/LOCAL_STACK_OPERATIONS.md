@@ -43,7 +43,7 @@ ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
 shared Instructor Question Library after publication. Question Revision
 Availability is `Available` or `Archived`; only `Available` Question Revisions
-are eligible for ordinary new selection. Draft source and answer-bearing material remain private.
+are eligible for ordinary new selection. Draft Question Source and Answer Keys remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
 similar fields are metadata for presentation, audit, provenance, or routing.
@@ -176,8 +176,8 @@ the browser. Its failure closes PG-backed work without losing PLE records.
 
 This is a bounded provider integration, not broad WeBWorK compatibility. The
 local stack does not run WebWork2 or MariaDB. Provider credentials, renderer
-configuration, answer material, source bytes, and upstream identifiers remain
-server-side. Provider fields in records are metadata/provenance and do not
+configuration, Answer Keys, Question Grading Input, Question Source bytes, and
+upstream identifiers remain server-side. Provider fields in records are metadata/provenance and do not
 authorize a course, Student, or object.
 
 ## Health and inspection

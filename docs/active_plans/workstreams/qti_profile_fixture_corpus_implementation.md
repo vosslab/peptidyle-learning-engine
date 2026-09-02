@@ -60,7 +60,7 @@ corpus.
 
 The immediate successors were the exact profile parsers. The Canvas and Blackboard owners shared a
 bounded markup/choice-ID helper with one explicit owner. They consumed this fixture corpus and frozen
-matrix, produced stable diagnostics and server-only mapped answer material, and preserved partial
+matrix, produced stable diagnostics and server-only mapped Answer Key data, and preserved partial
 package success without widening the generic archive-safety grammar or persisting vendor XML as PLE
 source.
 

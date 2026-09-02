@@ -39,7 +39,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
             (points, true)
         }
         question_model::QuestionGradingRule::PartialCredit { .. } => {
-            return Err(WebworkAdapterError::InvalidRendererEnvelope(
+            return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
                 "WeBWorK partial credit requires an accepted source profile".to_string(),
             ));
         }
@@ -47,7 +47,7 @@ pub(super) async fn grade<R: WebworkRenderer>(
             return Ok(QuestionGradingOutcome::Ungraded);
         }
         _ => {
-            return Err(WebworkAdapterError::InvalidRendererEnvelope(
+            return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
                 "WeBWorK grading requires finite nonnegative points".to_string(),
             ));
         }

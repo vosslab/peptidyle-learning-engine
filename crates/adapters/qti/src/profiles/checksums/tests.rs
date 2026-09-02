@@ -69,7 +69,7 @@ fn report(public_mapping: &QtiPublicMappingChecksumInput) -> QtiImportResultChec
         mapping_version: QtiMappingVersion::V1,
         detection: canvas_evidence(),
         detection_outcome: QtiProfileDetection::Recognized(QtiProfileId::CANVAS),
-        items: vec![QtiProfileItemDisposition {
+        items: vec![QtiWorkspaceImportItemResult {
             source_identifier: public_mapping.source_identifier.clone(),
             item_id: Some("question-1".to_string()),
             accepted: true,
@@ -95,13 +95,13 @@ fn integrity_checksums_are_deterministic_and_private_debug_is_redacted() {
 }
 
 #[test]
-fn checksum_contract_refuses_dispositions_and_private_binding_contradictions() {
+fn checksum_contract_refuses_import_results_and_private_binding_contradictions() {
     let public_mapping = public_mapping();
     let mut invalid_report = report(&public_mapping);
     invalid_report.items[0].public_mapping_checksum = None;
     assert_eq!(
         QtiImportChecksums::compute(&invalid_report, &public_mapping, &private_mapping()),
-        Err(QtiProfileContractError::ItemChecksumDisposition)
+        Err(QtiProfileContractError::ItemChecksumImportResult)
     );
     let report = report(&public_mapping);
     let missing_binding = QtiPrivateMappingChecksumInput::new(
@@ -138,7 +138,7 @@ fn checksum_contract_is_sensitive_to_one_field_and_choice_order() {
 #[test]
 fn public_mapping_deterministic_encoding_and_checksum_are_golden() {
     let public_mapping = public_mapping();
-    let bytes = serde_json::to_vec(&ContractEnvelope {
+    let bytes = serde_json::to_vec(&DeterministicChecksumInput {
         schema: "public-mapping",
         value: &public_mapping,
     })

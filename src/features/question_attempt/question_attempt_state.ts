@@ -113,8 +113,8 @@ interface StateBase {
   readonly rendererFailure: string | null;
   /** Non-blocking notice that this response cannot survive a browser refresh. */
   readonly storageWarning: string | null;
-  /** The prefetched, answer-free browser envelope for the current issued attempt. */
-  readonly envelope: QuestionVariationPresentation | null;
+  /** The prefetched, answer-free Question Presentation for the current issued attempt. */
+  readonly presentation: QuestionVariationPresentation | null;
 }
 
 type RecoveryReason =
@@ -159,7 +159,7 @@ export interface QuestionAttemptStateMachine {
   readonly retryWhenOnline: () => Promise<void>;
   /** Reads the acknowledgement status only; it never repeats the student's answer POST. */
   readonly checkGradingStatus: () => Promise<void>;
-  /** Retries only loading a prefetched next envelope after a committed submission. */
+  /** Retries only loading a prefetched next Question Presentation after a committed submission. */
   readonly retryAdvance: () => Promise<void>;
   readonly resumeAfterReauthentication: () => void;
   readonly reportRendererFailure: (message: string) => void;
@@ -172,7 +172,7 @@ export interface QuestionAttemptStateMachine {
 
 export interface NextAttempt {
   readonly context: AttemptContext;
-  readonly envelope: QuestionVariationPresentation;
+  readonly presentation: QuestionVariationPresentation;
 }
 
 export interface QuestionAttemptStateMachineOptions {
@@ -218,7 +218,7 @@ function remainingMilliseconds(context: AttemptContext, now: number): number | n
 function initialState(
   context: AttemptContext,
   clock: AttemptClock,
-  envelope: QuestionVariationPresentation | null = null,
+  presentation: QuestionVariationPresentation | null = null,
 ): QuestionAttemptExperienceState {
   return {
     phase: "loading",
@@ -229,7 +229,7 @@ function initialState(
     feedback: { kind: "none" },
     rendererFailure: null,
     storageWarning: null,
-    envelope,
+    presentation,
   };
 }
 
@@ -399,14 +399,15 @@ function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
   }
 }
 
-function envelopeMatchesContext(
-  envelope: QuestionVariationPresentation,
+function presentationMatchesContext(
+  presentation: QuestionVariationPresentation,
   context: AttemptContext,
 ): boolean {
   return (
-    envelope.variation.seed === context.seed &&
-    envelope.variation.questionRevision.questionId === context.questionRevision.questionId &&
-    envelope.variation.questionRevision.revisionNumber === context.questionRevision.revisionNumber
+    presentation.variation.seed === context.seed &&
+    presentation.variation.questionRevision.questionId === context.questionRevision.questionId &&
+    presentation.variation.questionRevision.revisionNumber ===
+      context.questionRevision.revisionNumber
   );
 }
 
@@ -441,7 +442,7 @@ export function createQuestionAttemptStateMachine(
       feedback: current.feedback,
       rendererFailure: current.rendererFailure,
       storageWarning,
-      envelope: current.envelope,
+      presentation: current.presentation,
       ...overrides,
     };
     return base;
@@ -827,15 +828,15 @@ export function createQuestionAttemptStateMachine(
     try {
       const next = await loadNext();
       if (disposed) return;
-      if (!envelopeMatchesContext(next.envelope, next.context)) {
+      if (!presentationMatchesContext(next.presentation, next.context)) {
         throw new Error("The next question did not match its issued attempt. Please retry.");
       }
       context = next.context;
       memoryBuffer = null;
       deadlineAutomaticSubmissionStarted = false;
       nextLoader = null;
-      current = initialState(context, options.clock, next.envelope);
-      start(next.envelope.response);
+      current = initialState(context, options.clock, next.presentation);
+      start(next.presentation.response);
     } catch (error: unknown) {
       if (disposed) return;
       context = priorContext;

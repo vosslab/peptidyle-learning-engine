@@ -80,8 +80,9 @@ or other vetted Instructors.
    and reusable pools. Do not substitute a UUID.
 3. Save the complete ordered definition as one Blueprint revision. Relative calendar-day and local
    wall-clock values are reusable defaults, not live deadlines.
-4. Review the answer-free projection and choose **Publish Blueprint**. Publishing makes that
-   revision discoverable to every vetted Instructor; it does not enroll Students or release work.
+4. Review the complete, answer-free Blueprint revision and choose
+   **Publish Blueprint**. Publishing makes that revision discoverable to every vetted Instructor;
+   it does not enroll Students or release work.
 
 An unpublished draft remains private to its workspace. A published Blueprint revision is immutable;
 editing it creates a new revision and does not silently change any existing Course Instance.
@@ -128,8 +129,8 @@ Use one explicit path for each kind of change:
 
 - **Fork Blueprint:** from a published Blueprint detail, choose **Fork Blueprint**. The result is an
   independently editable Blueprint with immutable source-lineage evidence and no live tether.
-- **Publish Blueprint:** from a private draft, choose **Publish Blueprint** after reviewing the
-  complete answer-free projection. This is the boundary that makes the revision reusable by all
+- **Publish Blueprint:** from a private draft, review the complete, answer-free Blueprint revision,
+  then choose **Publish Blueprint**. This is the boundary that makes the revision reusable by all
   vetted Instructors.
 - **Propose Blueprint update:** revise the source, then in each affected Course Instance choose
   **Prepare update proposal**. Review the source revision, imported assignment manifest, question
@@ -152,7 +153,7 @@ other delivery settings remain instance-owned after every operation.
 ## Inspect and run as a student
 
 From the assignment workspace, open **Student view** to inspect the current live Student landing.
-The view has a stable assignment identity, contains no answer material, and leaves the Instructor
+The view has a stable assignment identity, contains no Answer Key, and leaves the Instructor
 session in place. It is an inspection surface only: it does not start an Assignment Attempt or create graded work.
 
 For graded work, sign out, choose a seeded Student and authorized Course Instance, open the assignment
@@ -178,9 +179,10 @@ titles come from the server and are read-only; settings change inclusion, catego
 a title. Save replaces the whole scheme and requires the current strong revision. If another
 Instructor saved first, reload the settings and retry preserved changes after the revision conflict.
 
-The Gradebook totals view is a compact server projection. It reports a score or an explicit unavailable
-state such as recalculating, failed, empty after drop, or zero possible points. The browser does not
-recompute totals. **Export grades CSV** is synchronous and bounded to 500 active-Student rows. The
+`CourseGradebookTotalsView` is the compact server Gradebook result. It reports a score or an
+explicit unavailable state such as recalculating, failed, empty after drop, or zero possible points.
+The browser does not recompute totals. **Export grades CSV** is synchronous and bounded to 500
+active-Student rows. The
 protected display name appears in Instructor views; roster ID and email remain export-only. The
 durable export audit stores no Student PII, only Course Instance, authenticated Account, revision, mode, rounding,
 row count, and timestamp metadata.

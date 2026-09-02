@@ -292,13 +292,13 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     assert!(!first.cache_hit);
     assert!(second.cache_hit);
     assert_eq!(renders.load(Ordering::SeqCst), 1);
-    assert_eq!(first.envelope.title, "Recorded iMathAS question");
-    assert_eq!(second.envelope.title, first.envelope.title);
+    assert_eq!(first.presentation.title, "Recorded iMathAS question");
+    assert_eq!(second.presentation.title, first.presentation.title);
     assert!(matches!(
-        first.envelope.response,
+        first.presentation.response,
         question_model::QuestionResponseFormat::ImathasQuestionBackend {}
     ));
-    let serialized = serde_json::to_string(&first.envelope).unwrap();
+    let serialized = serde_json::to_string(&first.presentation).unwrap();
     for forbidden in ["token", "launch", "score", "correct", "recorded\\\":true"] {
         assert!(!serialized.contains(forbidden));
     }
@@ -610,7 +610,7 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     let first = first.unwrap();
     let second = second.unwrap();
     assert!(first.cache_hit || second.cache_hit);
-    assert_eq!(first.envelope, second.envelope);
+    assert_eq!(first.presentation, second.presentation);
 }
 
 fn grading_context(

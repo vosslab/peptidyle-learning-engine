@@ -44,7 +44,7 @@ Student work requires the exact course relationship and Student ownership of the
 record. A private authoring input requires its current Authoring Workspace owner or Workspace
 Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
 relationship. A published question has exactly one Instructor-visible Question Library
-state: every active Instructor can discover and reuse its safe projection while its visible
+state: every active Instructor can discover and reuse its safe Question Library data while its visible
 lifecycle is Question Revision Availability `Available` or `Archived`. Selection eligibility is separate: only `Available`
 Question Revisions are eligible for ordinary new selection; Archived Question Revisions remain available
 for discovery and exact historical references but are excluded from ordinary new selection. Drafts
@@ -83,9 +83,9 @@ satisfies Student-owner, Teaching Team, Gradebook, response, export, Assignment-
 predicates. Student Observer and Grader relationships remain separate future product designs.
 
 - A Grader receives only the bounded grading work in its completed relationship package.
-- A Course Observer receives a separately typed anonymous aggregate projection with disclosure
+- A Course Observer receives a separately typed anonymous aggregate-grade result with disclosure
   thresholds; it contains no subject, enrollment, row, small-cell, or linkable metadata.
-- A Student Observer receives a distinct one-Student projection only with explicit revocable consent
+- A Student Observer receives a distinct one-Student result only with explicit revocable consent
   and its own disclosure contract.
 
 Fabricated, expired, and revoked future grants fail all current FERPA predicates.
@@ -165,7 +165,7 @@ renewed lease, so stale work cannot commit after a newer retention generation.
 ## Fresh migration epoch
 
 SD1-C creates the single-installation schema only on freshly cleaned disposable stack data. It does
-not preserve an installation-scope compatibility layer. The migration ledger allocates the exact next available
+not preserve an installation-scope compatibility layer. The Migration Allocation Registry allocates the exact next available
 number in these ranges:
 
 | Range                                                | Allocated capability scope                                                                                                                                 |

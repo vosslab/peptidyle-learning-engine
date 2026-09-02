@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
-use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
 
 /// The educational interaction a Question assesses.
 ///
@@ -337,7 +337,8 @@ pub enum StudentResponse {
     },
     /// The student used the ordinary submission action for an iMathAS Question Backend.
     ///
-    /// It is intentionally a marker only; browser-supplied iMathAS Question Backend material
+    /// It is intentionally a marker only; browser-supplied iMathAS Question Backend response
+    /// data
     /// can never enter the generic submission record through this variant.
     ImathasQuestionBackend {},
 }

@@ -93,7 +93,7 @@ and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 No. PLE Question JSON is the small, versioned, answer-bearing authoring format for ordinary
 static Questions. The PLE Question Backend compiles it into an answer-free public Question model and
-separate grader-only material. QTI is a bounded import/export adapter and archival interchange
+separate server-only Answer Key and Question Grading Input. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current
 [implementation_plan.md](active_plans/implementation_plan.md).
@@ -187,7 +187,8 @@ grading internals, or a hidden key. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
 
 ## Can the browser or another Student see answer keys?
 
-No. Public question and student projections are answer-free. Answer keys, private source material,
+No. Public `QuestionPresentation`, `QuestionSummary`, and `StudentAssignmentDetail` results are
+answer-free. Answer Keys, private Question Source,
 grading rules, and provider credentials remain on the server; exact relationship authorization also
 restricts educational records. See [SECURITY_MODEL.md](SECURITY_MODEL.md) and [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
 

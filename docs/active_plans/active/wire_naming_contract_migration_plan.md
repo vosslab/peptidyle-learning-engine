@@ -33,9 +33,9 @@ current implementation package.
 | PLE properties and portable values | Rust Serde                          | `snake_case`, strict mutating records, one effective spelling                                    |
 | Generated TypeScript DTO           | `project-tools` `tsgen` modules     | One direct `Foo`; data properties and literals equal effective Serde                             |
 | Route-only request/response DTO    | pure `browser-api-contract`         | No Axum, Store, server runtime, persistence, or application state dependency                     |
-| Server boundary                    | owning route/projection module      | One mapping from domain/Store state into the direct DTO                                          |
+| Server boundary                    | owning route/DTO module             | One mapping from domain/Store state into the direct DTO                                          |
 | Browser boundary                   | owning feature client/decoder       | Direct strict snake DTO plus semantic, disclosure, range, relationship, and opaque-ID checks     |
-| Durable PLE data                   | named producer/reader/version owner | Clean rebuild, named forward version/migration, or frozen history exactly as the ledger declares |
+| Durable PLE data                   | named producer/reader/version owner | Clean rebuild, named forward version/migration, or frozen history exactly as the Wire Naming Migration Registry declares |
 | External protocol                  | registered/upstream owner           | Existing HTTP, URL, DOM, wasm-bindgen, WebAuthn, QTI, H5P, LTI, IMathAS, or WeBWorK spelling     |
 
 TypeScript functions, locals, signals, and components retain TypeScript conventions. For example,
@@ -60,7 +60,7 @@ accepted WN1-A
   -> G3-IA1 visible item-analysis workflow
 ```
 
-Parallel execution is valid only for child rows whose ledger dependencies and source ownership are
+Parallel execution is valid only for child rows whose Wire Naming Migration Registry dependencies and source ownership are
 disjoint. Every child has one owner; shared generator, model, and durable files remain serialized.
 
 ## Work packages
@@ -68,12 +68,12 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 ### WN1-A: allocation and review
 
 - Owner: architect.
-- Outcome: the ledger allocates every matrix-identified Axum producer, every public serializable
+- Outcome: the Wire Naming Migration Registry allocates every matrix-identified Axum producer, every public serializable
   question-model source closure, each PLE query boundary, Wasm/adapter PLE bridges, and every durable
   record or artifact type.
 - Evidence: Graphify navigation followed by current-source verification, durable disposition
   review, naming-convention review, and independent acceptance. These are one-time receipts.
-- Exit: achieved 2026-08-28; fresh independent v3 review accepted the revised ledger.
+- Exit: achieved 2026-08-28; fresh independent v3 review accepted the revised Wire Naming Migration Registry.
 
 ### WN1-B: direct generator and pure contract foundation
 
@@ -101,13 +101,13 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 
 ### WN1-OPS2 through WN1-OPS10: remaining PLE-owned shell naming closures
 
-- Owner: one shell operations coder per child registered in the ledger.
+- Owner: one shell operations coder per child registered in the Wire Naming Migration Registry.
 - Depends on: accepted WN1-A; each child package is otherwise independent and completes before WN1-F.
 - Outcome: convert script-private state to lowercase `snake_case` in the root aggregate, browser
   front doors, Rust front door, Wasm build, Python setup, Wasm runner setup, course-appearance E2E,
   database-baseline E2E, and named E2E orchestrators. Preserve exported environment spelling,
   explicit `readonly` fixture constants, command behavior, and shared-template ownership.
-- Permanent gate: each ledger row's existing shell syntax and visible behavior path. The uppercase
+- Permanent gate: each Wire Naming Migration Registry row's existing shell syntax and visible behavior path. The uppercase
   private-name inventory is one-time evidence; no permanent source inventory is added.
 
 ### WN1-GO1: orphaned generated-output retirement
@@ -129,7 +129,7 @@ are part of WN1-A, not optional supporting material. Implementation changes ever
 its one closure; it adds neither aliases nor parallel role vocabulary.
 
 - SR3 names every public and `_impl` Assignment Attempt Store method, `learner_submission_status`, Assignment Attempt screen
-  model, Student-work/store type, module, server projection, and local/function target.
+  model, Student-work/store type, module, server DTO, and local/function target.
 - SR4 names `LearnerAssignmentPresentationDelivery`, `LearnerAssignmentPresentationData`,
   `LearnerAssignmentPresentationProps`, `toLearnerAssignmentPresentationData`,
   `LearnerAssignmentPresentation`, `decodeLearnerDisclosurePolicy`,
@@ -137,11 +137,11 @@ its one closure; it adds neither aliases nor parallel role vocabulary.
   `decodeLearnerQuestionAttempt`, `decodeLearnerAssignmentProgress`,
   `decodeLearnerAssignmentPage`, and `decodeLearnerSubmissionStatus`, the class-statistics
   converter, and each browser client/runtime member target.
-- SR5 maps every legacy Student-work protected database function to its exact successor target in the ledger,
+- SR5 maps every legacy Student-work protected database function to its exact successor target in the Wire Naming Migration Registry,
   including retired wire names for assignment, attempt, audience, course, enrollment, group-member,
   group, and member; their current relationship names are Course Membership and Active Student Course
   Membership. It also maps prefetch, Assignment Attempt, and summary operations, and names the fence and
-  the three exact current function names and targets in the ledger.
+  the three exact current function names and targets in the Wire Naming Migration Registry.
 
 Fresh WN1-A review checked those embedded tables against current material source before WN1-B and
 accepted them on 2026-08-28. The allocation receipt makes no implementation or test-acceptance claim.
@@ -159,7 +159,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 
 ### WN1-C1 through C6: Axum route closures
 
-- Owner: one coder per atomic child row in the ledger.
+- Owner: one coder per atomic child row in the Wire Naming Migration Registry.
 - Depends on: WN1-B5 and the row's listed QM dependencies; C3 also depends on WN1-MG.
 - Outcome: project route-only types through `browser-api-contract`; change the producer, direct
   generated DTO, query parser/builder, browser client/decoder, fixture, and narrow Rust/Node test
@@ -206,7 +206,7 @@ authority. No C7 is created.
 
 For C6, `course/routing.rs` retains shared nonserializing topology, state, and body-limit support.
 `C6-CR1` owns `course/pagination.rs` with direct `CoursePageQuery`, plus
-`course/course_listing.rs` for course list/create/get and term-failure projection. `C6-AS1` owns
+`course/course_listing.rs` for course list/create/get and term-failure DTO. `C6-AS1` owns
 `course/assignments/listing.rs` and `course/assignments/strict_request.rs`; it consumes the shared
 `CoursePageQuery` and therefore depends on C6-CR1. This makes each PLE query and assignment request
 one direct contract rather than leaving serialization in a shared routing module.
@@ -224,19 +224,19 @@ one direct contract rather than leaving serialization in a shared routing module
   assignment workspace Analysis task. It joins aggregate item IDs to existing assignment titles
   and public Question IDs and links to audited Gradebook inspection, Library/source context, and
   Questions replacement. G3-IA1 adds no report SQL, score mutation, or G4 decision record.
-- WN1 permanent gate: server projection tests plus the offline item-analysis client test. G3-IA1
+- WN1 permanent gate: server DTO tests plus the offline item-analysis client test. G3-IA1
   connected browser evidence and human visual review remain in the G3 package.
 
 ### WN1-QM: source/type closures
 
-- Owner: one expert coder per ledger row.
-- Depends on: WN1-B5 and the route projections that currently serialize the closure raw.
+- Owner: one expert coder per Wire Naming Migration Registry row.
+- Depends on: WN1-B5 and the route DTOs that currently serialize the closure raw.
 - Outcome: move the complete source/type graph to snake Serde and regenerate the same direct names.
   The fixed topics are `IDENTITY`, `CAPABILITY`, `LIFECYCLE`, `CATALOG`, `COURSE`, `CONTENT`,
   `ACTIVITY`, `STATS`, `PRESENTATION`, `ASSIGNMENT`, `CURRICULUM`, `TEACHING`, and
   `GRADING-OPS`.
 - Permanent gate: focused Serde/semantic tests and the named strict direct-decoder tests in the
-  ledger. Public-Serde inventory, Graphify, generated import review, and fixture counts are
+  Wire Naming Migration Registry. Public-Serde inventory, Graphify, generated import review, and fixture counts are
   one-time evidence.
 
 ### WN1-QM-PRESENTATION-COURSE-BANNER-INFORMATIVE-TEXT: Course Banner Informative Text
@@ -270,13 +270,13 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
 - Depends on: accepted `WN1-B5`, completed
   `WN1-QM-PRESENTATION-COURSE-BANNER-INFORMATIVE-TEXT`, and completed
   `WN1-QM-PRESENTATION-COURSE-BANNER-REFERENCE`; it precedes `WN1-F`.
-- Outcome: replace the PLE-owned Course Appearance projection meaning with the direct reader
+- Outcome: replace the PLE-owned Course Appearance reader shape with the direct reader
   object `CourseAppearanceView`: exactly `{ theme, revision, banner }`, where `theme` is
   `CourseTheme`, `revision` is `CourseAppearanceRevision`, and `banner` is absent or the
   independently closed `CourseBanner`. Complete that direct name through the existing Question
   Model/public facade, generated TypeScript declaration, strict browser decoder, route-reader/client
   contracts and consumers, focused fixtures/tests, and directly affected documentation. Retire the
-  prior PLE-owned projection name directly; add no alias, dual DTO, or legacy decoder branch.
+  prior PLE-owned reader-shape name directly; add no alias, dual DTO, or legacy decoder branch.
 - Deferred boundary: this reader-only child creates no Course Appearance Store or retained record,
   schema/current-pointer relation, PostgreSQL migration, server route, authorization oracle, Course
   Banner Upload promotion/cleanup, or mounted editor. Low-level database/query projection remains
@@ -354,7 +354,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
 
 ### WN1-D: durable formats and clean rebuild
 
-- Owner: one expert coder per durable ledger child; release integrator owns migration allocation.
+- Owner: one expert coder per durable Wire Naming Migration Registry child; release integrator owns migration allocation.
 - Depends on: the affected producer and reader closure.
 - Outcome:
 
@@ -377,7 +377,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
   deterministic fixture behavior. Migration review, clean-volume rebuild, regeneration, digest
   comparison, connected service runs, and visual inspection are one-time evidence.
 
-The durable ledger gives each migration one named producer and reader. `1879` creates the bounded
+The durable Wire Naming Migration Registry gives each migration one named producer and reader. `1879` creates the bounded
 `ple_course_authority_broker`; `1880` rebinds the four effective public authority functions and
 their exact dependents while preserving current authorization behavior, explicit owners, ACLs,
 `SECURITY DEFINER`, and `FORCE ROW LEVEL SECURITY`. Accepted migrations and immutable historical
@@ -389,7 +389,7 @@ byte rewrite.
 - Owner: integrator.
 - Depends on: WN1-OPS1 through WN1-OPS10, WN1-GO1, WN1-SR6, WN1-FD, every C child, WN1-MG, and
   every applicable QM/WA/D child.
-- Outcome: independent final ledger review, exact `docs/NAMING_CONVENTIONS.md` compliance review,
+- Outcome: independent final Wire Naming Migration Registry review, exact `docs/NAMING_CONVENTIONS.md` compliance review,
   final material-tree receipt, and handback to G2 W5/W6.
 - Required final gate:
 
@@ -438,25 +438,25 @@ The WN1-F reviewer verifies these exact boundaries:
 3. TypeScript functions, locals, signals, and components retain TypeScript conventions.
 4. DOM/framework/dependency and registered protocol names retain owner conventions.
 5. Migrated PLE inputs reject retired camel aliases and unknown properties.
-6. Route-only DTOs remain pure `browser-api-contract` values and server projection occurs once.
+6. Route-only DTOs remain pure `browser-api-contract` values and server DTO assembly occurs once.
 
 This is an explicit one-time acceptance review. Permanent coverage remains deterministic offline
 behavior rather than source inventories, generated-file counts, or style snapshots.
 
 ## Risk register
 
-| Risk                        | Trigger                                                          | Owner           | Control                                                                      |
-| --------------------------- | ---------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------- |
-| Shared-model drift          | A route still serializes raw shared data while its model changes | C and QM owners | Land the route projection first, then move the complete source/type closure. |
-| Generator instability       | New behavior is added to the 969-line monolith                   | WN1-B           | Complete the responsibility split and module-level gates first.              |
-| Digest/history break        | Current spelling change alters retained bytes                    | D owner         | Keep the old named version and add a forward producer/reader version.        |
-| External protocol drift     | Snake conversion reaches provider/package values                 | C/WA owner      | Project only the PLE wrapper and retain the registered seam.                 |
-| Manual surface resurrection | C3 adds a codec/client for human grading                         | WN1-MG/C3       | Complete retirement first and keep automated retry as the positive route.    |
-| Premature acceptance        | Focused or connected evidence is treated as final                | WN1-F           | Require all named lanes and the final material-tree command.                 |
+| Risk                        | Trigger                                                          | Owner           | Control                                                                   |
+| --------------------------- | ---------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------- |
+| Shared-model drift          | A route still serializes raw shared data while its model changes | C and QM owners | Land the route DTO first, then move the complete source/type closure.     |
+| Generator instability       | New behavior is added to the 969-line monolith                   | WN1-B           | Complete the responsibility split and module-level gates first.           |
+| Digest/history break        | Current spelling change alters retained bytes                    | D owner         | Keep the old named version and add a forward producer/reader version.     |
+| External protocol drift     | Snake conversion reaches provider/package values                 | C/WA owner      | Project only the PLE wrapper and retain the registered seam.              |
+| Manual surface resurrection | C3 adds a codec/client for human grading                         | WN1-MG/C3       | Complete retirement first and keep automated retry as the positive route. |
+| Premature acceptance        | Focused or connected evidence is treated as final                | WN1-F           | Require all named lanes and the final material-tree command.              |
 
 ## Documentation and evidence close-out
 
-Each completed child updates the changelog after its narrow gate. The ledger and
+Each completed child updates the changelog after its narrow gate. The Wire Naming Migration Registry and
 `implementation_status.md` stay synchronized as the package/status authority. Inventories,
 regeneration, independent review, clean-stack work, connected services, and visual inspection are
 recorded as one-time evidence; deterministic offline behavior is retained as permanent coverage.

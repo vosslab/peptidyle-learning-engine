@@ -8,8 +8,9 @@ use learning_data_access::postgres::{
     local_development_pool,
 };
 use learning_data_access::{
-    ImathasGradingContext, ImathasNormalizedScore, ImathasQuestionBackendSessionAuthentication,
-    ImathasQuestionBackendSessionChallenge, ImathasQuestionBackendSessionPreparationContext,
+    CommitStagedImathasResultGrading, ImathasGradingContext, ImathasNormalizedScore,
+    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
+    ImathasQuestionBackendSessionPreparationContext,
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
     ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
@@ -27,6 +28,8 @@ use sqlx::Executor;
 use uuid::Uuid;
 
 const DATABASE_URL_ENV: &str = "PLE_IMATHAS_QUESTION_BACKEND_SESSION_DATABASE_URL";
+const GRADING_WORKER_DATABASE_URL_ENV: &str =
+    "PLE_IMATHAS_QUESTION_BACKEND_SESSION_GRADING_WORKER_DATABASE_URL";
 const ADMIN_DATABASE_URL_ENV: &str = "PLE_IMATHAS_QUESTION_BACKEND_SESSION_ADMIN_DATABASE_URL";
 const STUDENT_ACCOUNT: u128 = 0x101;
 const STUDENT_MEMBERSHIP: u128 = 0x108;
@@ -34,6 +37,8 @@ const COURSE: u128 = 0x105;
 const ASSIGNMENT: u128 = 0x110;
 const QUESTION_ATTEMPT: u128 = 0xf205;
 const PERSISTENCE_QUESTION_ATTEMPT: u128 = 0xf207;
+const ELIGIBLE_STATISTICS_QUESTION_ATTEMPT: u128 = 0xf214;
+const INELIGIBLE_STATISTICS_QUESTION_ATTEMPT: u128 = 0xf208;
 const SOURCE_OBJECT: u128 = 0xf202;
 const ORACLE_MEMBERSHIP_END_EVENT: u128 = 0xf204;
 
@@ -41,6 +46,7 @@ struct Oracle {
     token: SessionTokenHash,
     account: AccountId,
     store: PostgresImathasQuestionBackendSessionStore,
+    grading_worker_store: PostgresImathasQuestionBackendSessionStore,
     admin: sqlx::postgres::PgPool,
 }
 
@@ -64,6 +70,8 @@ fn key_ring(byte: u8) -> ImathasQuestionBackendStateKeyRing {
 
 async fn oracle() -> Oracle {
     let database_url = std::env::var(DATABASE_URL_ENV).expect("staged database URL");
+    let grading_worker_database_url =
+        std::env::var(GRADING_WORKER_DATABASE_URL_ENV).expect("staged grading-worker database URL");
     let admin_url = std::env::var(ADMIN_DATABASE_URL_ENV).expect("staged admin database URL");
     let pool = local_development_pool(&database_url, ProductionLoginProfile::Api)
         .expect("production-shaped API pool");
@@ -75,11 +83,28 @@ async fn oracle() -> Oracle {
         current_user, "ple_api_login",
         "the oracle must use the exact production API login"
     );
+    let grading_worker_pool = local_development_pool(
+        &grading_worker_database_url,
+        ProductionLoginProfile::ImathasQuestionBackendGradingWorker,
+    )
+    .expect("production-shaped grading-worker pool");
+    let grading_worker_current_user: String = sqlx::query_scalar("SELECT current_user")
+        .fetch_one(&grading_worker_pool)
+        .await
+        .expect("acquire the attested production-shaped grading-worker connection");
+    assert_eq!(
+        grading_worker_current_user, "ple_worker_login",
+        "the oracle must use the exact production grading-worker login"
+    );
     let admin = lazy_pool(&admin_url).expect("admin fixture pool");
     Oracle {
         token: SessionTokenHash::compute(&[0x42; 32]),
         account: AccountId::from_uuid(Uuid::from_u128(STUDENT_ACCOUNT)),
         store: PostgresImathasQuestionBackendSessionStore::new(pool, Arc::new(key_ring(9))),
+        grading_worker_store: PostgresImathasQuestionBackendSessionStore::new(
+            grading_worker_pool,
+            Arc::new(key_ring(9)),
+        ),
         admin,
     }
 }
@@ -312,6 +337,155 @@ async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+#[ignore = "requires the disposable PostgreSQL 17 iMathAS Question Backend Session oracle"]
+async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() {
+    let oracle = oracle().await;
+    let issued_at = Timestamp::from_unix_millis(now().as_unix_millis() - 5_000);
+    let expires_at = Timestamp::from_unix_millis(issued_at.as_unix_millis() + 180_000);
+    let (eligible_create, eligible_expectation) = create_for_attempt(
+        oracle.account,
+        ELIGIBLE_STATISTICS_QUESTION_ATTEMPT,
+        issued_at,
+        expires_at,
+    );
+    let eligible_reference = oracle
+        .store
+        .create_imathas_question_backend_session(oracle.token, eligible_create)
+        .await
+        .expect("create eligible Session");
+    let eligible_lease = oracle
+        .store
+        .lease_imathas_question_backend_session(
+            oracle.token,
+            eligible_reference,
+            eligible_expectation,
+            Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+        )
+        .await
+        .expect("lease eligible grading Job");
+    let eligible_stage = oracle
+        .store
+        .stage_verified_imathas_result(oracle.token, transition(eligible_lease.clone(), now()))
+        .await
+        .expect("stage eligible verified result");
+    let eligible_claim = oracle
+        .grading_worker_store
+        .claim_imathas_result_grading_job(
+            eligible_stage.job_id(),
+            Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+        )
+        .await
+        .expect("claim eligible grading Job");
+    let eligible_receipt = oracle
+        .grading_worker_store
+        .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
+            eligible_claim.clone(),
+            now(),
+        ))
+        .await
+        .expect("commit eligible grading");
+    let stored_grade_matches_observation: bool = sqlx::query_scalar(
+        "SELECT observation.correct = result.correct \
+         FROM ple_private.question_statistics_observation_receipt AS observation \
+         JOIN ple_audit.automated_grading_receipt AS receipt \
+           ON receipt.automated_grading_receipt_id = observation.automated_grading_receipt_id \
+         JOIN ple_private.grading_result AS result \
+           ON result.grading_result_id = receipt.grading_result_id \
+         WHERE observation.automated_grading_receipt_id = $1",
+    )
+    .bind(eligible_receipt.id().as_uuid())
+    .fetch_one(&oracle.admin)
+    .await
+    .expect("eligible observation binds the stored grading result");
+    assert!(stored_grade_matches_observation);
+    let eligible_counts: (i64, i64) = sqlx::query_as(
+        "SELECT accepted_graded_attempt_count, correct_count \
+         FROM ple_data.question_revision_statistics \
+         WHERE question_id = 'ABC-DEF0' AND revision_number = 1",
+    )
+    .fetch_one(&oracle.admin)
+    .await
+    .expect("eligible statistics counters");
+    assert_eq!(eligible_counts, (1, 1));
+    let replay = oracle
+        .grading_worker_store
+        .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
+            eligible_claim,
+            now(),
+        ))
+        .await
+        .expect("exact committed replay");
+    assert_eq!(eligible_receipt.id(), replay.id());
+    assert_eq!(eligible_receipt.checksum(), replay.checksum());
+    let replay_counts: (i64, i64, i64) = sqlx::query_as(
+        "SELECT statistics.accepted_graded_attempt_count, statistics.correct_count, \
+                (SELECT count(*) FROM ple_private.question_statistics_observation_receipt) \
+         FROM ple_data.question_revision_statistics AS statistics \
+         WHERE statistics.question_id = 'ABC-DEF0' AND statistics.revision_number = 1",
+    )
+    .fetch_one(&oracle.admin)
+    .await
+    .expect("replay leaves statistics unchanged");
+    assert_eq!(replay_counts, (1, 1, 1));
+
+    let (ineligible_create, ineligible_expectation) = create_for_attempt(
+        oracle.account,
+        INELIGIBLE_STATISTICS_QUESTION_ATTEMPT,
+        issued_at,
+        expires_at,
+    );
+    let ineligible_reference = oracle
+        .store
+        .create_imathas_question_backend_session(oracle.token, ineligible_create)
+        .await
+        .expect("create ineligible Session");
+    let ineligible_lease = oracle
+        .store
+        .lease_imathas_question_backend_session(
+            oracle.token,
+            ineligible_reference,
+            ineligible_expectation,
+            Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+        )
+        .await
+        .expect("lease ineligible grading Job");
+    let ineligible_stage = oracle
+        .store
+        .stage_verified_imathas_result(
+            oracle.token,
+            transition_with_score(ineligible_lease, now(), 0.0),
+        )
+        .await
+        .expect("stage ineligible verified result");
+    let ineligible_claim = oracle
+        .grading_worker_store
+        .claim_imathas_result_grading_job(
+            ineligible_stage.job_id(),
+            Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+        )
+        .await
+        .expect("claim ineligible grading Job");
+    oracle
+        .grading_worker_store
+        .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
+            ineligible_claim,
+            now(),
+        ))
+        .await
+        .expect("commit ineligible grading");
+    let ineligible_counts: (i64, i64, i64) = sqlx::query_as(
+        "SELECT statistics.accepted_graded_attempt_count, statistics.correct_count, \
+                (SELECT count(*) FROM ple_private.question_statistics_observation_receipt) \
+         FROM ple_data.question_revision_statistics AS statistics \
+         WHERE statistics.question_id = 'ABC-DEF0' AND statistics.revision_number = 1",
+    )
+    .fetch_one(&oracle.admin)
+    .await
+    .expect("ineligible grading leaves statistics unchanged");
+    assert_eq!(ineligible_counts, (1, 1, 1));
 }
 
 #[tokio::test]

@@ -14,15 +14,15 @@ adapter, not for defining a new student Question Type. The shared public contrac
 - Put answer keys, correct-choice bindings, and correctness logic in `crates/grading` or a
   server-only injected grading capability. The browser and WebAssembly dependency closure must not
   reach them. See [SECURITY_MODEL.md](SECURITY_MODEL.md).
-- Deliver only an answer-free envelope: title, prompt blocks, Question Response Format, immutable
+- Deliver only an answer-free Question Presentation: title, prompt blocks, Question Response Format, immutable
   version, and seed. Do not put source bytes, credentials, upstream session state, correct answers,
-  or private feedback in an envelope, browser cache, or browser request.
+  or private feedback in a Question Presentation, browser cache, or browser request.
 - Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
   Question Attempt Reproduction Details required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, iMathAS Profile, or renderer identity.
 - Record Source Object Reference and Source Object Checksum, Question Backend/Grader/Renderer versions, parameter
-  hash, rendered-envelope hash, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
-  attempts also persist a checksummed public snapshot and server-only grading envelope; missing or
+  hash, rendered Question Presentation checksum, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
+  attempts also persist a checksummed public snapshot and server-only Question Grading Input; missing or
   mismatched state makes grade unavailable rather than reissuing.
 - Keep iMathAS Question Backend configuration, credentials, network policy, iMathAS Question Backend Session
   authentication state, and backend verification inside the server composition and adapter boundary. The browser speaks only to the
@@ -38,7 +38,7 @@ publication, so an instructor sees every missing capability before a student sta
 Declare only capabilities the adapter enforces for every source it accepts:
 
 - `algorithmicGeneration` requires deterministic variants from the recorded seed.
-- `clientRendering` means the browser can render the safe envelope; it never grants browser grading.
+- `clientRendering` means the browser can render the safe Question Presentation; it never grants browser grading.
 - `serverGrading` requires a server-held key or verified server-to-server correctness result.
 - `partialCredit`, `hints`, `questionAttemptTimeLimit`, `printExport`, and `offlinePreview` require their
   own complete behavior, not a plausible future implementation.
@@ -65,8 +65,8 @@ Use the following sequence for a question-agnostic adapter.
 4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
-   public rendered IDs through the protected grading envelope, and use retained immutable source
-   Question Attempt Reproduction Details where a private grader needs them. A Question Backend that needs private first-grade material
+   public rendered IDs through the protected Question Grading Input, and use retained immutable source
+   Question Attempt Reproduction Details where a private grader needs them. A Question Backend that needs a private first-grade contract
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
    iMathAS Session Authentication state, source, seed, or backend response fields; do not rerender a receipt-era attempt.
@@ -74,7 +74,7 @@ Use the following sequence for a question-agnostic adapter.
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
 The PLE Question JSON adapter is the small reference: it compiles answer-bearing PLE Question JSON schema version 2
-into a public Question Revision and separate private material. Its closed v2 `singleChoice` Question Type is one of
+into a public Question Revision and separate PLE Question JSON Private Grading. Its closed v2 `singleChoice` Question Type is one of
 the eight PLE Question Types; new semantics require their own reviewed contract rather than an
 ad hoc adapter widening. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
@@ -90,7 +90,7 @@ in [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md).
 
 Render caches are immutable, shared-content artifacts keyed by version and seed. Cache only a
 validated browser-safe render plus the Source Object Reference, Source Object Checksum, and Question Renderer Version that identify its source, implementation, and
-envelope identity. Cache keys and bytes must exclude installation identity, answer material, credentials,
+Question Presentation identity. Cache keys and bytes must exclude installation identity, Answer Key data, credentials,
 raw backend responses, browser submissions, and upstream session state. If stateless replicas race
 to write the same key, reload and validate the winning immutable record.
 
@@ -153,7 +153,7 @@ documentation, or release notes.
 - [ ] Capability declaration is exact and assignment validation refuses unsupported use.
 - [ ] Published source and all assets are immutable, checksummed, private where required, and carried
       in Question Attempt Reproduction Details.
-- [ ] Issued envelope and cache are answer-free, browser-safe, deterministic, and version/seed bound.
+- [ ] Issued Question Presentation and cache are answer-free, browser-safe, deterministic, and version/seed bound.
 - [ ] Grading runs server-side from trusted state and revalidates the Question Source plus issued Question Attempt Reproduction Details.
 - [ ] iMathAS Question Backend integration has no browser endpoint, credential, launch secret, upstream state, or
       browser-trusted score.

@@ -218,7 +218,7 @@ BEGIN
           AND table_name = 'published_question_summary'
           AND column_name = 'question_description'
     ) THEN
-        RAISE EXCEPTION 'Question Description lacks its generated searchable publication projection';
+        RAISE EXCEPTION 'Question Description lacks its generated searchable Question Description result';
     END IF;
 END;
 $$;

@@ -85,8 +85,6 @@ test("authentication and authorization: sessions and course boundaries", async (
         "An invitation was created for Avery Singh.",
       );
 
-      const retention = elena.getByRole("heading", { name: "Record retention" }).locator("..");
-      await expect(retention).toBeVisible();
     });
 
     await test.step("Avery accepts and observes a fresh authorized teaching session", async () => {

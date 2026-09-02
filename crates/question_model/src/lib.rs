@@ -37,9 +37,7 @@ pub mod course_grade;
 pub mod course_term;
 /// Browser-safe private Question Folder and saved-search contracts.
 pub mod curation;
-/// Answer-free Question Presentation contracts with server-held generator details.
-pub mod envelope;
-/// Private teaching material and policy-redacted browser feedback.
+/// Private Question Feedback and policy-redacted Student Feedback.
 pub mod feedback;
 pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
@@ -62,6 +60,7 @@ pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
 mod question_search;
+mod question_variation;
 pub mod response;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
 pub mod statistics;
@@ -153,7 +152,6 @@ pub use crate::curation::{
     QuestionFolderEditNumber, QuestionFolderEntryView, QuestionFolderSummaryView,
     SavedQuestionSearchEditNumber, SavedQuestionSearchView, validate_question_curation_title,
 };
-pub use crate::envelope::{QuestionVariation, QuestionVariationPresentation};
 pub use crate::feedback::{
     QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint, StudentFeedback,
     StudentResponseInspectionFeedback,
@@ -163,7 +161,7 @@ pub use crate::grading_operations::{
     GradingOperationAction, GradingOperationReason, GradingOperationVisibleState,
     InstructorGradingOperationActionRequest, InstructorGradingOperationReceipt,
     InstructorGradingOperationReplay, InstructorGradingOperationReplayError,
-    InstructorGradingOperationReplayLedger, InstructorGradingOperationRequestChecksum,
+    InstructorGradingOperationReplayRegistry, InstructorGradingOperationRequestChecksum,
     InstructorGradingOperationRetryToken, InstructorGradingOperationRetryTokenError,
     InstructorGradingOperationState, QuestionSubmissionGradingState,
     StudentQuestionSubmissionGradingState,
@@ -208,14 +206,14 @@ pub use crate::question_authorship::{
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
-    DraftImathasQuestionBackendBinding, DraftQuestionBackendLocator, DraftQuestionContent,
-    DraftQuestionSummary, ImathasDeploymentReference, ImathasItemReference, ImathasProfile,
+    DraftImathasQuestionBackendBinding, DraftQuestionContent, DraftQuestionSummary,
+    ImathasDeploymentReference, ImathasItemReference, ImathasProfile,
     ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
     MAX_IMATHAS_IDENTIFIER_BYTES, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionBackendLocator,
-    QuestionBackendLocatorPreparationError, QuestionDescriptionError, QuestionFormat,
-    QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
-    validate_question_description, validate_question_title,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionBackendFieldsError,
+    QuestionContentBlock, QuestionDescriptionError, QuestionFormat, QuestionGradingRule,
+    QuestionMetadata, QuestionRevision, QuestionTitleError, validate_question_description,
+    validate_question_title,
 };
 pub use crate::question_library::{
     CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
@@ -234,6 +232,7 @@ pub use crate::question_library::{
     QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionSummary,
     QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
 };
+pub use crate::question_variation::{QuestionVariation, QuestionVariationPresentation};
 pub use crate::response::{
     QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
 };
@@ -266,10 +265,7 @@ pub use crate::teaching_operations::{
     InstructorCourseInvitationCreateRequest, InstructorCourseInvitationView,
     InstructorCourseInvitationsPage, InstructorMembershipRemovalRequest, InstructorMembershipView,
     InstructorMembershipsPage, MembershipPageRequest, PendingCourseInvitationView,
-    PendingCourseInvitationsPage, RetentionActionOutcomeView, RetentionActionResponse,
-    RetentionAdditionalDays, RetentionArchiveRequest, RetentionDispositionView,
-    RetentionExtendRequest, RetentionNotificationIntentView, RetentionNotificationView,
-    RetentionReadView, RetentionStateView, StudentMembershipView,
+    PendingCourseInvitationsPage, StudentMembershipView,
     SyntheticPreviewAccommodationAdjustmentRequest, TeachingAccountSearchQuery,
     TeachingAccountView, TeachingAssignmentAttemptTimeLimitFieldPatch,
     TeachingAssignmentAttemptTimeLimitSeconds, TeachingAssignmentStartDecision,

@@ -2,7 +2,6 @@
 
 import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
 import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS";
-import { MAX_RETENTION_EXTENSION_DAYS } from "../../../generated/api/MAX_RETENTION_EXTENSION_DAYS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
 import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
@@ -13,10 +12,6 @@ import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/ap
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
-import type { RetentionActionResponse } from "../../../generated/api/RetentionActionResponse";
-import type { RetentionArchiveRequest } from "../../../generated/api/RetentionArchiveRequest";
-import type { RetentionExtendRequest } from "../../../generated/api/RetentionExtendRequest";
-import type { RetentionReadView } from "../../../generated/api/RetentionReadView";
 import type { TeachingPreviewView } from "../../../generated/api/TeachingPreviewView";
 import type { TeachingOperationRevisionResponse } from "../../../generated/api/TeachingOperationRevisionResponse";
 import type { TeachingAccountView } from "../../../generated/api/TeachingAccountView";
@@ -28,9 +23,6 @@ import type { StudentMembershipView } from "../../../generated/api/StudentMember
 import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
 import type { TeachingPreviewLimitField } from "../../../generated/api/TeachingPreviewLimitField";
 import type { TeachingPreviewTimeField } from "../../../generated/api/TeachingPreviewTimeField";
-import type { RetentionDispositionView } from "../../../generated/api/RetentionDispositionView";
-import type { RetentionNotificationView } from "../../../generated/api/RetentionNotificationView";
-import type { RetentionStateView } from "../../../generated/api/RetentionStateView";
 import {
   DecodeError,
   decodeNullable,
@@ -589,89 +581,4 @@ export function decodeInstructorMembershipRemovalRequest(
 ): InstructorMembershipRemovalRequest {
   closed(value, path, []);
   return {};
-}
-
-function retentionState(value: unknown, path: string): RetentionStateView {
-  return decodeStringEnum(value, path, [
-    "active",
-    "notificationDue",
-    "studentRecordsArchived",
-    "studentRecordsDeleted",
-  ] as const);
-}
-
-function retentionDisposition(value: unknown, path: string): RetentionDispositionView {
-  return decodeStringEnum(value, path, ["retain", "delete"] as const);
-}
-
-function retentionNotification(value: unknown, path: string): RetentionNotificationView {
-  const decoded = closed(value, path, ["intent", "createdAt", "copy"]);
-  return {
-    intent: decodeStringEnum(decoded.intent, `${path}.intent`, [
-      "archive",
-      "delete",
-      "extend",
-    ] as const),
-    createdAt: decodeTimestamp(decoded.createdAt, `${path}.createdAt`),
-    copy: decodeString(decoded.copy, `${path}.copy`),
-  };
-}
-
-export function decodeRetentionReadView(value: unknown, path = "response"): RetentionReadView {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["state", "assignmentContent", "revision", "notification"]);
-  const notification =
-    record.notification === undefined
-      ? undefined
-      : retentionNotification(record.notification, `${path}.notification`);
-  return {
-    state: retentionState(field(record, "state", path), `${path}.state`),
-    assignmentContent: retentionDisposition(
-      field(record, "assignmentContent", path),
-      `${path}.assignmentContent`,
-    ),
-    revision: revision(field(record, "revision", path), `${path}.revision`),
-    ...(notification === undefined ? {} : { notification }),
-  };
-}
-
-export function decodeRetentionArchiveRequest(
-  value: unknown,
-  path = "request",
-): RetentionArchiveRequest {
-  const record = closed(value, path, ["assignmentContent"]);
-  return {
-    assignmentContent: retentionDisposition(record.assignmentContent, `${path}.assignmentContent`),
-  };
-}
-
-export function decodeRetentionExtendRequest(
-  value: unknown,
-  path = "request",
-): RetentionExtendRequest {
-  const record = closed(value, path, ["additionalDays"]);
-  return {
-    additionalDays: positiveInteger(
-      record.additionalDays,
-      `${path}.additionalDays`,
-      MAX_RETENTION_EXTENSION_DAYS,
-    ),
-  };
-}
-
-export function decodeRetentionActionResponse(
-  value: unknown,
-  path = "response",
-): RetentionActionResponse {
-  const record = closed(value, path, ["state", "assignmentContent", "revision", "outcome"]);
-  return {
-    state: retentionState(record.state, `${path}.state`),
-    assignmentContent: retentionDisposition(record.assignmentContent, `${path}.assignmentContent`),
-    revision: revision(record.revision, `${path}.revision`),
-    outcome: decodeStringEnum(record.outcome, `${path}.outcome`, [
-      "scheduled",
-      "inProgress",
-      "completed",
-    ] as const),
-  };
 }

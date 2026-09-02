@@ -30,7 +30,7 @@ pub enum GradingError {
     InvalidResponse(Vec<StudentResponseFormatIssue>),
     /// A graded question had no server-only answer key.
     MissingAnswerKey,
-    /// Ungraded practice incorrectly carried answer-bearing material.
+    /// Ungraded practice incorrectly carried an Answer Key.
     UnexpectedAnswerKey,
     /// The Question Response Format, submitted response, and key were not parallel variants.
     KindMismatch,
@@ -337,12 +337,12 @@ fn normalized_text(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use question_model::QuestionContentBlock;
     use question_model::answer::ResponseSelectionRule;
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
     use question_model::classification::QuestionLicense;
-    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{

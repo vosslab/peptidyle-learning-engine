@@ -18,7 +18,9 @@ case "$postgres_port" in
 esac
 admin_url="$(tr -d '\n' < "$admin_url_file")"
 app_url="postgres://ple_api_login:imathasquestionbackendoracle@127.0.0.1:${postgres_port}/ple_e2e_baseline"
+grading_worker_url="postgres://ple_worker_login:imathasquestionbackendworkeroracle@127.0.0.1:${postgres_port}/ple_e2e_baseline"
 PLE_IMATHAS_QUESTION_BACKEND_SESSION_DATABASE_URL="$app_url" \
+	PLE_IMATHAS_QUESTION_BACKEND_SESSION_GRADING_WORKER_DATABASE_URL="$grading_worker_url" \
 	PLE_IMATHAS_QUESTION_BACKEND_SESSION_ADMIN_DATABASE_URL="$admin_url" \
 	cargo test -p learning-data-access --features postgres \
 		--test imathas_question_backend_session_postgres -- --ignored --test-threads=1

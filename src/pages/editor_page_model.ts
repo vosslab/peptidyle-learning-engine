@@ -19,7 +19,7 @@ export type { DraftQuestionSummary };
  * The editor's deliberate browser-safe Editor Draft.
  *
  * It retains workspace ownership, but has neither a durable published identity nor any
- * server-only evaluation material. The live workspace API will construct this Editor Draft.
+ * server-only Question Grading Input. The live workspace API will construct this Editor Draft.
  */
 export interface EditorDraft {
   readonly workspace: WorkspaceId;

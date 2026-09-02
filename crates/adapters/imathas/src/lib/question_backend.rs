@@ -1,7 +1,7 @@
 //! iMathAS Question Backend-facing, answer-safe contracts and draft snapshot preparation.
 
 use async_trait::async_trait;
-use question_model::envelope::QuestionContentBlock;
+use question_model::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 use question_model::{
     ImathasDeploymentReference, ImathasItemReference, ImathasProfile, QuestionRevisionReference,
@@ -71,16 +71,13 @@ pub struct ImathasQuestionLocation {
 }
 
 impl ImathasQuestionLocation {
-    /// Creates the iMathAS location from a Draft Question Backend Locator.
-    pub fn from_draft_backend_locator(
-        locator: &question_model::DraftQuestionBackendLocator,
-    ) -> Result<Self, ImathasAdapterError> {
-        match locator {
-            question_model::DraftQuestionBackendLocator::Imathas { binding } => Ok(Self {
-                deployment_reference: binding.deployment_reference().clone(),
-                item: binding.item_reference().clone(),
-            }),
-            _ => Err(ImathasAdapterError::UnsupportedSource),
+    /// Creates the iMathAS location from its exact editable binding.
+    pub fn from_draft_imathas_question_backend_binding(
+        binding: &question_model::DraftImathasQuestionBackendBinding,
+    ) -> Self {
+        Self {
+            deployment_reference: binding.deployment_reference().clone(),
+            item: binding.item_reference().clone(),
         }
     }
 
@@ -137,8 +134,10 @@ impl std::fmt::Debug for PreparedSnapshot {
     }
 }
 
-/// Browser-safe iMathAS Question Backend render material. It cannot contain iframe markup,
-/// launch URLs, tokens, callbacks, answers, or scores.
+/// Browser-safe iMathAS Question Backend render.
+///
+/// It contains a Question Prompt and cannot contain iframe markup, launch URLs,
+/// tokens, callbacks, answers, or scores.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SafeImathasQuestionRender {
     /// Plain prompt blocks, already constrained by the adapter boundary.
@@ -163,7 +162,7 @@ pub trait QuestionBackend: sealed::QuestionBackendSealed + Send + Sync {
         locator: &ImathasQuestionLocation,
     ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure>;
 
-    /// Produces only browser-safe prompt material from archived source bytes.
+    /// Produces only a browser-safe Question Prompt from archived source bytes.
     async fn render(
         &self,
         request: ImathasRenderRequest<'_>,

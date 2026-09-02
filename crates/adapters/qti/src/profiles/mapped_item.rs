@@ -17,8 +17,8 @@ use super::server_parts::QtiMappedItemServerParts;
 use super::{
     QtiChoiceIdMap, QtiImportChecksums, QtiImportResultChecksumInput, QtiMappingVersion,
     QtiPrivateChoiceMapChecksumInput, QtiPrivateMappingChecksumInput, QtiProfileContractError,
-    QtiProfileId, QtiProfileItemDisposition, QtiProfileVersion, QtiPublicChoiceChecksumInput,
-    QtiPublicMappingChecksumInput,
+    QtiProfileId, QtiProfileVersion, QtiPublicChoiceChecksumInput, QtiPublicMappingChecksumInput,
+    QtiWorkspaceImportItemResult,
 };
 
 #[allow(dead_code)]
@@ -340,12 +340,13 @@ impl QtiMappedItem {
         QtiImportChecksums::compute(report, &self.public_mapping, &self.private_mapping)
     }
 
-    /// Returns this mapped item's accepted disposition without exposing a detached checksum API.
-    pub fn accepted_item_disposition(
+    /// Returns this mapped item's accepted Workspace Import Item Result without
+    /// exposing a detached checksum API.
+    pub fn accepted_workspace_import_item_result(
         &self,
-    ) -> Result<QtiProfileItemDisposition, QtiProfileContractError> {
+    ) -> Result<QtiWorkspaceImportItemResult, QtiProfileContractError> {
         let public_mapping_sha256 = self.public_mapping.checksum()?;
-        Ok(QtiProfileItemDisposition {
+        Ok(QtiWorkspaceImportItemResult {
             source_identifier: self.public_mapping.source_identifier.clone(),
             item_id: Some(self.public_mapping.source_identifier.clone()),
             accepted: true,

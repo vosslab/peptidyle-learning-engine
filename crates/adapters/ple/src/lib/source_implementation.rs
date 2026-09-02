@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use question_model::generation::QuestionGeneratorReference;
-use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionContent, QuestionBackendLocator, QuestionRevision,
-};
+use question_model::{DraftQuestionContent, QuestionBackend, QuestionRevision};
 
 use crate::generator::PleQuestionImplementation;
 use crate::{PleQuestionBackend, PleQuestionBackendError};
@@ -13,7 +11,7 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
     ) -> Result<Vec<&dyn PleQuestionImplementation>, PleQuestionBackendError> {
-        if !matches!(question.backend_locator, QuestionBackendLocator::Ple) {
+        if question.question_backend != QuestionBackend::Ple {
             return Err(PleQuestionBackendError::UnsupportedSource);
         }
         let implementations: Vec<_> = self
@@ -37,7 +35,7 @@ impl PleQuestionBackend {
         question: &QuestionRevision,
         generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
-        if !matches!(question.backend_locator, QuestionBackendLocator::Ple) {
+        if question.question_backend != QuestionBackend::Ple {
             return Err(PleQuestionBackendError::UnsupportedSource);
         }
         self.implementations
@@ -62,7 +60,7 @@ impl PleQuestionBackend {
         question: &DraftQuestionContent,
         generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
-        if !matches!(question.backend_locator, DraftQuestionBackendLocator::Ple) {
+        if question.question_backend != QuestionBackend::Ple {
             return Err(PleQuestionBackendError::UnsupportedSource);
         }
         self.implementations

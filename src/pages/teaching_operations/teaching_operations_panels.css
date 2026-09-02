@@ -26,8 +26,7 @@
 }
 .teaching-operations-list,
 .teaching-operations-form,
-.teaching-operations-policy,
-.teaching-operations-retention {
+.teaching-operations-policy {
   display: grid;
   gap: 0.65rem;
 }
@@ -48,8 +47,7 @@
 }
 
 .teaching-operations-form label,
-.teaching-operations-policy label,
-.teaching-operations-retention label {
+.teaching-operations-policy label {
   display: grid;
   gap: 0.3rem;
   font-weight: 650;
@@ -57,9 +55,7 @@
 .teaching-operations-form input,
 .teaching-operations-form select,
 .teaching-operations-policy input,
-.teaching-operations-policy select,
-.teaching-operations-retention input,
-.teaching-operations-retention select {
+.teaching-operations-policy select {
   width: 100%;
   min-height: 2.75rem;
   padding: 0.4rem 0.55rem;
@@ -77,8 +73,7 @@
   gap: 0.5rem;
 }
 .teaching-operations-actions button,
-.teaching-operations-list button,
-.teaching-operations-retention button {
+.teaching-operations-list button {
   min-height: 2.75rem;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--ple-accent-strong);
@@ -88,13 +83,11 @@
   font-weight: 700;
 }
 .teaching-operations-actions button:not(:disabled):hover,
-.teaching-operations-list button:not(:disabled):hover,
-.teaching-operations-retention button:not(:disabled):hover {
+.teaching-operations-list button:not(:disabled):hover {
   background: var(--ple-action-hover);
 }
 .teaching-operations-actions button:disabled,
-.teaching-operations-list button:disabled,
-.teaching-operations-retention button:disabled {
+.teaching-operations-list button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -107,8 +100,7 @@
   grid-area: action;
   justify-self: end;
 }
-.teaching-operations-policy,
-.teaching-operations-retention fieldset {
+.teaching-operations-policy {
   padding: 0.85rem;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset);

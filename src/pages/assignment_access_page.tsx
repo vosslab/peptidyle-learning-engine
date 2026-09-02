@@ -31,7 +31,7 @@ export interface AssignmentAccessPageProps {
   readonly assignmentReference: AssignmentRouteReference;
   /** Fetches the current strong revision after a compare-and-swap conflict. */
   readonly reloadAssignmentRevision: () => Promise<TeachingOperationRevision>;
-  /** Route owners may supply the authorized course-members list when their projection supports it. */
+  /** Route owners may supply the authorized Selected Student list. */
   readonly loadPreviewSubjects?: () => Promise<ReadonlyArray<SelectedStudent>>;
 }
 
@@ -50,7 +50,7 @@ function namedDeleteCopy(name: string): string {
 }
 
 /**
- * This page takes a narrow Student Membership preview-subject loader and never turns internal
+ * This page takes a narrow Selected Student loader and never turns internal
  * identifiers into student labels.
  */
 export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Element {

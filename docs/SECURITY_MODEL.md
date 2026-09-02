@@ -53,7 +53,7 @@ and Question Backend state remain typed server-side values, not browser DTO fiel
 | Correctness and point results after disclosure | Checkers and correctness decisions |
 
 The browser-safe model explains the input shape and public grading policy. The
-current compatibility envelope may expose a numeric tolerance or that exactly
+current compatibility Question Presentation may expose a numeric tolerance or that exactly
 two choices are required. The reserved compact student presentation must not
 expose tolerance; [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
 owns that cutover. The expected number and the two correct choice IDs remain
@@ -61,10 +61,10 @@ in `crates/grading`.
 
 `crates/grading` is the browser-excluded authority for checkers, answer keys,
 and correctness decisions. It is not the only server-only component that
-handles protected answer-bearing material. The PLE PLE Question JSON source compiler
+handles protected Answer Keys, Question Feedback, and format-specific Question Grading Input. The PLE Question JSON source compiler
 parses canonical author source and splits it into answer-free public content
 and private Answer Key/Question Feedback records. `crates/learning-data-access` then validates
-and carries that private material as an opaque grading payload, bound to the
+and carries PLE Question JSON Private Grading as an opaque grading payload, bound to the
 public definition, for authorized staging, publication, and grader retrieval.
 It does not expose the canonical bytes through browser-facing stores, routes,
 generated contracts, or the Wasm closure.
@@ -157,15 +157,15 @@ capability declarations already shown to an instructor. Its violations name a
 question revision and a missing capability, never an answer or grading key. The
 server independently calls the same domain function before publication.
 
-`preview_ple_draft` receives an unversioned draft workspace projection and
-a seed. It produces only title, prompt, and response material for a PLE
+`preview_ple_draft` receives an unversioned draft-workspace result and
+a seed. It produces only the Question Title, Question Prompt, and response definition for a PLE
 drafts; other adapters return an explicit `offlinePreview` unavailability
-result. The shared materializer lives in `domain`, while PLE Question Backend key
+result. `domain` builds the Question Prompt, while PLE Question Backend key
 derivation remains in its server-only crate. The bridge therefore cannot
 construct an answer key, Question Attempt Reproduction Details, published identity, grade, or score.
 
 `verify_presentation_descriptor` recomputes only the deterministic descriptor
-for already disclosed public envelope and asset-binding data. It returns a
+for already disclosed public Question Presentation and asset-binding data. It returns a
 consistency result and cannot issue an attempt, accept a submission, resolve a
 durable mapping, or disclose a key. The server retains the full Question Presentation Checksum
 and decides whether a request belongs to that presentation.
@@ -303,7 +303,7 @@ validation, from fixed ordered v1 bytes: the ASCII version prefix; Receipt,
 Result, grading, Submission, Attempt, Job, and Session UUID bytes; both
 Exchange evidence checksums; correct byte; validated canonical big-endian
 binary64 points; and signed big-endian commit milliseconds. It excludes raw
-tokens, credentials, keys, and browser material. No command, API, browser, or
+tokens, credentials, keys, and browser data. No command, API, browser, or
 adapter supplies it; exact committed replay returns the stored checksum rather
 than accepting a candidate value.
 
@@ -390,7 +390,7 @@ locator, Object Address, Question Backend credential, or published identity. A s
 PLE Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
 content through its server-only adapter seam. External sources and PLE
 PLE Question Implementations without a reviewed presentation return an explicit unavailable state;
-they do not invent answer material. The editor saves before requesting this
+they do not invent a Question Answer or Question Answer Explanation. The editor saves before requesting this
 view, rejects a mismatched response ETag, and keeps author-preview data out of
 browser persistence. Student routes deny the authoring surface before its
 repository or author-preview client is constructed.
@@ -403,11 +403,11 @@ Private drafts remain inside their owner/collaborator workspace until the
 atomic publication transition commits. Question Library routes resolve `AuthenticatedSession`
 first; paths and bodies cannot select another account, workspace relationship,
 publication identity, or capability. Forced PostgreSQL RLS and account-and-relationship-scoped
-Store predicates protect private workspace material. Question Library search and
-details return only the reviewed Instructor-safe projection.
+Store predicates protect private workspace Question Sources and private grading records. Question Library search and
+details return only the reviewed Instructor-safe result.
 
 The Question Library audience is the authenticated approved-Instructor set.
-Student access remains assignment-entitlement delivery, and anonymous web
+Student access remains Assignment Access-authorized delivery, and anonymous web
 requests receive no Question Library access.
 
 The browser supplies a workspace identifier, but never a new `QuestionId`, a
@@ -441,7 +441,7 @@ Question Backend but no PLE Question Implementation name, WeBWorK path, QTI pack
 prompt, Question Response Format, or answer-bearing value. H5P Package Import is outside the
 Question Library and retains its archival package identity privately.
 Every Published Question remains discoverable to every active Instructor. Its
-Question Revision Availability is `Available` or `Archived`; the safe projection
+Question Revision Availability is `Available` or `Archived`; the safe reader result
 shows that exact availability. Selection eligibility is separate: only `Available`
 Question Revisions may be selected for an ordinary new assignment. Archived
 Question Revisions remain resolvable for exact historical references and
@@ -462,7 +462,7 @@ creator capability. `Sysadmin` is not a course membership variant. Its
 `SysadminSupportCapability` is resolved through the closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry),
 which records the authenticated account, purpose, course, operation, expiry, and time and exposes
-only the approved minimum projection. Direct Instructor membership remains the
+only the approved `minimum_projection`-bounded response data. Direct Instructor membership remains the
 normal authority for general teaching records.
 
 Course and membership tables use forced account-and-relationship-scoped RLS. Nonmembers receive
@@ -479,17 +479,17 @@ typed, revocable grants rather than new ambient human roles.
 
 A Course Observer grant is bound to exactly one `CourseId`, one stated purpose,
 one issuer, an expiry and revocation state, an audit identity, and a closed
-disclosure policy. It is read-only. Its exact-course assignment projection may
+disclosure policy. It is read-only. Its exact-course assignment result may
 include assignment titles, instructions, release state, and the ordered
 answer-free content of the published questions assigned in that course. Its
-separate named assignment-completion projection contains only a safe Student
+separate named assignment-completion result contains only a safe Student
 display label, assignment identity, and `completed` or `not_completed` state. A
 named completion row never includes a score, grade, response, attempt detail,
 feedback, accommodation, enrollment detail, Student-record asset, or arbitrary
-course record. The projection exposes no private source, answer key, grading
+course record. The result exposes no private source, answer key, grading
 rule, rubric, Question Backend payload, or hidden diagnostic.
 
-The Course Observer aggregate-grade projection is a different typed result. It
+The Course Observer aggregate-grade result is a different typed result. It
 contains only an anonymous, formula-labeled, privacy-safe course aggregate after the
 disclosure threshold is met. It has no Student subject, enrollment, row-level
 score, small cell, or linkable metadata. The disclosure decision considers the
@@ -501,18 +501,18 @@ not satisfy current Instructor, Gradebook, Student-work inspection, or Student
 Observer predicates.
 
 Every successful Course Observer read records an audit event containing the
-server-derived account, exact course, grant, purpose, projection kind, disclosure
+server-derived account, exact course, grant, purpose, reader-result kind, disclosure
 policy revision, result, and authoritative time. It contains no Student name,
-response, score, answer material, or private content. Denials use the ordinary
+response, score, Answer Key, Question Grading Input, or private content. Denials use the ordinary
 concealed authorization result and do not create a Student-record access fact.
 The Store rechecks the grant's exact course, purpose, expiry, revocation, and
-disclosure policy in the same transaction as each projection. Revocation is
+disclosure policy in the same transaction as each returned result. Revocation is
 serialized with reads and takes effect immediately; cached observer data is
 discarded and cannot be replayed as current authority.
 
 A Student Observer requires its own exact one-Student binding, explicit Student
 consent, stated purpose and disclosure policy, expiry, immediate revocation,
-and audit events. Its read-only projection is separately typed and limited to
+and audit events. Its read-only result is separately typed and limited to
 that consented Student's records; it does not inherit a Course Observer or
 Instructor capability, and a Course Observer grant cannot satisfy its consent
 predicate. Observer responses are `Cache-Control: no-store`; completion and
@@ -590,7 +590,7 @@ partial credit remain server-owned in both contracts.
 The current tagged render `QuestionResponseFormat` also exposes some
 grading-adjacent metadata, including numeric tolerance and short-text match
 mode. That metadata does not disclose an expected answer, but it is broader
-than rendering requires. The target render projection retains only public
+than rendering requires. The target render data retains only public
 input constraints and displayed units while keeping tolerances, normalization
 rules, answer keys, weights, and rubrics server-only.
 
@@ -601,7 +601,7 @@ boundary**; they never infer authorization by equating that identity with
 prefetch, `/student-feedback-release`, issuance, submission, and iMathAS Question Backend paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
-separate, explicitly authorized historical-record projection after removal;
+separate, explicitly authorized historical-record result after removal;
 that Instructor authority never leaks into a student-scoped Store method.
 Direct course instructors may read enrollment history and
 summaries, but only the enrollment owner may start or submit an Assignment Attempt. Nonowners
@@ -614,7 +614,7 @@ database timestamps determine issue time, deadline, response arrival, and Assign
 completion.
 
 Next-question prefetch stores a course-scoped, server-only reservation without
-an attempt ID, timer, response, grade, or public answer. Its browser projection
+an attempt ID, timer, response, grade, or public answer. Its browser result
 is answer-free, while the reservation retains checksummed private grading
 authority for the exact issued question so first grade never reconstructs from
 current Question Library definition or renderer state. The Store binds it to the owned active
@@ -625,18 +625,18 @@ receipt. Replay reads that state instead of deriving a new successor from
 current Assignment Attempt state; initial owner-scoped recovery alone may heal the sole
 committed-but-unlinked predecessor after a process failure.
 
-The prefetch response contains only the safe envelope and an exact descriptor.
+The prefetch response contains only the safe Question Presentation and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
-cover the shared envelope. The route still
+cover the shared Question Presentation. The route still
 requires exact parameter hash, complete Question Attempt Reproduction Details, version, and seed reproduction.
-The browser caches this projection in memory only, aborts it on route teardown,
+The browser caches this result in memory only, aborts it on route teardown,
 warms at most 12 deduplicated same-origin logical asset routes, and advances
-from it only after an exact `nextIssued` receipt match. No prefetch envelope or
+from it only after an exact `nextIssued` receipt match. No prefetched Question Presentation or
 descriptor enters `localStorage` or `sessionStorage`.
 
 The server first validates browser-visible rendered IDs and response shape
 against the checksummed issued public snapshot, then translates those IDs and
-validates the result against the server-only grading envelope before calling
+validates the result against the server-only Question Grading Input before calling
 the injected grader. Native and WeBWorK first grading additionally require
 their matching issued private grading contracts, so neither path reloads a
 current Question Library definition or grader view. The idempotency table retains the
@@ -648,7 +648,7 @@ committed receipt, while a changed key or response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
 still carries version, seed, parameter hash, Question Attempt Reproduction Details, implementation IDs,
-and source/asset identifiers. The Student Feedback Release Rule redacts answer-bearing material,
+and source/asset identifiers. The Student Feedback Release Rule redacts Answer Keys, Question Feedback, and Question Grading Input,
 not that complete DTO. The payload plan's minimal student descriptor,
 digest-bound type-free response body, and compact receipt are accepted target
 work, not the current HTTP contract. Until that atomic cutover, clients must
@@ -684,8 +684,8 @@ registered for this route.
 Workspace Import Sources and Question Sources are never direct delivery targets and the
 typed object contract refuses to sign either key. This includes compact PLE
 PLE Question JSON as well as QTI, iMathAS, and other answer-bearing sources.
-An instructor preview or export must use a separate authorized projection that
-redacts or deliberately includes private material for that operation; it must
+An instructor preview or export must use a separate authorized result that
+redacts or deliberately includes the authorized Question Answer, Question Answer Explanation, or other named private record for that operation; it must
 not expose the source object URL.
 
 Published Question Library assets redirect to the configured immutable CDN URL
@@ -761,6 +761,6 @@ each work package.
 When adding or changing a path that handles protected data, update its owning
 contract and verify all of the following: the data classification, authenticated
 authorization, RLS and transaction boundary where applicable, server-only
-grading boundary, retention/deletion owner, browser projection, diagnostic
+grading boundary, retention/deletion owner, browser-visible result, diagnostic
 redaction, and recovery behavior. The narrowest relevant security test runs
 first; the package's full acceptance gate then verifies the integrated claim.

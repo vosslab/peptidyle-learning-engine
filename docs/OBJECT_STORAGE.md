@@ -13,7 +13,7 @@ canonical live-demo path uses these same domains and delivery rules.
 
 | Domain                        | Object Storage Area | Contents                                                                                                                                                                    | Delivery rule                                                                                                                                                                                                                                        |
 | ----------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                                                               | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or exact Student assignment entitlement. |
+| Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                                                               | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or an allowed Assignment Access decision for the Student's assigned activity. |
 | Private content               | `PrivateContent`    | Private workspace Question Source and assets, generation and grader keys or payloads, Question Attempt Reproduction Details, renders, and course-record presentation assets | Never CDN-readable. A protected delivery uses its exact server-derived authority.                                                                                                                                                                    |
 | Student records               | `StudentRecords`    | Student work and protected course-record artifacts, exports, and annotations                                                                                                | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                               |
 | Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner entries                                                                                                                 | Never signable or browser-served.                                                                                                                                                                                                                    |
@@ -35,9 +35,9 @@ variant. Important mappings are:
 | Object class                                                        | Object Address variants                                                              | Domain and delivery authority                                                                                                                                                                                                                                |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Private workspace source and imported assets                        | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`           | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                             |
-| Published answer-free presentation asset                            | `QuestionAsset`                                                                      | `PublicAssets`; approved-Instructor Question Library access or exact Student assignment entitlement selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
+| Published answer-free presentation asset                            | `QuestionAsset`                                                                      | `PublicAssets`; approved-Instructor Question Library access or an allowed Assignment Access decision for the Student's assigned activity selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
 | Published Question Source, import archive, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                         | `PrivateContent`; only an exact server capability or the authorized private workspace Question Source operation may read it.                                                                                                                                 |
-| Generation/grader keys and payloads                                 | Server-only private records and any typed private object used by their owning worker | `PrivateContent` when materialized; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                              |
+| Generation/grader keys and payloads                                 | Server-only private records and any typed private object written by its owning worker | `PrivateContent`; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                              |
 | Course-record presentation asset                                    | `CourseBanner`                                                                       | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                             |
 | Student work or protected artifact                                  | `StudentRecord`                                                                      | `StudentRecords`; delivery rechecks exact Student ownership, course Instructor authority, or a narrow audited support capability.                                                                                                                            |
 | Course Banner Upload or processing scratch object                   | `CourseBannerUpload`, `Temporary`                                                    | `TempProcessing`; never delivered, signed, or used as a public publication result.                                                                                                                                                                           |
@@ -86,19 +86,19 @@ object or delivery ID never supply authority by themselves:
 
 1. Approved-Instructor Question Library access delivers safe Question Library
    search and details results and the published presentation assets that they reference.
-2. The exact Student assignment entitlement delivers the answer-free
+2. An allowed Assignment Access decision delivers the answer-free
    presentation needed for that Student's assigned activity.
 3. The creating Instructor's exact workspace ownership delivers a private
-   workspace source, asset, preview, or authoring projection. Collaboration is
+   workspace source, asset, author preview, or authoring data. Collaboration is
    a future separately designed capability.
 4. A typed worker, active lease, or explicit capability delivers generation,
-   grading, export, retention, provider, or other server-only material. A
+   grading, export, retention, provider, or other server-only bytes or records. A
    course-record operation includes its exact current course relationship in
    that typed check.
 
 `GET /api/assets/{id}` can return only an already-ready published presentation
 asset after the route proves approved-Instructor Question Library access or the exact
-Student assignment entitlement. It resolves an opaque registry ID, verifies
+Assignment Access decision. It resolves an opaque registry ID, verifies
 the complete trusted `QuestionAsset`/`PublicAssets` record shape, then
 redirects to a configured immutable CDN URL. It cannot authorize, audit, or
 issue a protected bearer URL, and it returns the same not-found response for
@@ -108,7 +108,7 @@ Published presentation assets are not anonymous internet content. Delivering
 one through an approved authority does not grant Question Library search,
 details, or delivery of another asset. Question Library search and details
 require authenticated approved-Instructor access. A Student receives an
-assigned presentation through the exact assignment entitlement and does not
+assigned presentation through an allowed Assignment Access decision and does not
 receive Question Library access.
 
 `POST /api/assets/{id}/delivery` is the separate protected path. It requires a
@@ -148,8 +148,9 @@ The pending source is an exact allowlist: a private workspace asset with the
 exact Workspace Asset Object Address and no published version. It is never a
 public object, arbitrary private key, browser value, or queue payload byte
 sequence. The dedicated publisher has a separate database capability and
-production IAM role; ordinary API and worker roles cannot materialize public
-objects. This closes pre-commit CDN orphans and a confused deputy that could
+production IAM role; ordinary API and worker roles cannot write public objects.
+The publisher writes and verifies immutable public objects before activation.
+This closes pre-commit CDN orphans and a confused deputy that could
 copy arbitrary private data into the public domain.
 
 Production infrastructure enforces immutable publication tags, conditional

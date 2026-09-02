@@ -52,7 +52,7 @@ impl MigrationCheckEntry {
         &self.description
     }
 
-    /// Returns the database disposition for this migration.
+    /// Returns the Migration Check Result for this migration.
     pub fn result(&self) -> MigrationCheckResult {
         self.result
     }
@@ -158,7 +158,7 @@ fn evaluate_migration_check(
         .iter()
         .filter(|migration| !migration.migration_type.is_down_migration())
         .map(|migration| {
-            let disposition = match applied_by_version.remove(&migration.version) {
+            let result = match applied_by_version.remove(&migration.version) {
                 None => MigrationCheckResult::Pending,
                 Some(applied) if !applied.success => MigrationCheckResult::Incomplete,
                 Some(applied) if applied.checksum.as_slice() != migration.checksum.as_ref() => {
@@ -169,7 +169,7 @@ fn evaluate_migration_check(
             MigrationCheckEntry {
                 version: migration.version,
                 description: migration.description.to_string(),
-                result: disposition,
+                result,
             }
         })
         .collect();

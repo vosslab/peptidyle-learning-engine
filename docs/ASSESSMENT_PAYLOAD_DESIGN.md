@@ -69,7 +69,7 @@ transaction.
 
 The attempt also carries a server-owned typed capability such as
 `IssuedAttemptCapability::PleQuestionJsonPresentation` or `WebworkPresentation`. Its matching private
-grading envelope, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
+Question Grading Input, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
 `NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
 the same exact target from a locked typed lease. Provider metadata remains external protocol data
 only: renderer identity, provider profile, upstream field/value names, and source-artifact details
@@ -80,31 +80,35 @@ authorization selector.
 
 ### Current render payload
 
-The implemented [QuestionPresentation](../crates/question_model/src/envelope.rs) is deliberately
-answer-free. Its nested [QuestionVariation](../crates/question_model/src/envelope.rs) retains the
-exact Question Revision, seed, and declared generator recipe in server/cache evidence; its browser
-serialization carries only the version-and-seed binding. The presentation contains:
+`QuestionVariationPresentation` is the adapter-produced, answer-free render result for one exact
+`QuestionVariation`. It nests that variation and carries the student-facing title, ordered prompt
+blocks, and durable `QuestionResponseFormat`. `QuestionPresentation` is the later issued Student
+contract: it carries direct Question Revision and Question Seed, a server-minted nonce, the same
+public title and prompt, and a presentation-scoped `QuestionPresentationResponseFormat`.
+
+The Question Variation Presentation contains:
 
 - student-facing `title`;
 - ordered prompt blocks for text, math, images, code, and tables;
-- public asset IDs, SHA-256 checksums, and accessible descriptions; and
 - a tagged `QuestionResponseFormat` that selects the browser widget.
 
-The response `kind` is necessary in this render payload. Without it, the browser cannot know whether
+The response `kind` is necessary in this Question Variation Presentation. Without it, the browser cannot know whether
 to draw radio buttons, checkboxes, text boxes, ordering controls, matching controls, or a hotspot
 surface. Content-block `kind` values are similarly useful render discriminants.
 
 The current [QuestionResponseFormat](../crates/question_model/src/response.rs) is broader than the
 eventual student schema. For example, it exposes numeric tolerance and short-text match mode even
-though those values describe grading rather than rendering. The target projection retains public
-input constraints and displayed units while keeping tolerances, normalization rules, answer keys,
-weights, and rubrics server-only.
+though those values describe grading rather than rendering. The issued Question Presentation retains
+public input constraints and displayed units in its Question Presentation Response Format while
+keeping tolerances, normalization rules, Answer Keys, weights, and rubrics server-only.
 
-Asset bytes do not belong inline in the JSON envelope. The envelope carries logical asset references
-and checksums; the browser fetches image or other binary bytes through independently cacheable asset
-routes. This keeps a large image from being retransmitted with every question or response.
+Asset bytes do not belong inline in the JSON Question Presentation. The
+server-held Issued Question Presentation owns Question Asset Renditions and
+the complete Question Presentation Checksum. The browser fetches authorized
+image or other binary bytes independently through cacheable asset-delivery
+routes, without treating asset delivery as a Question Presentation field.
 
-### Current attempt projection
+### Current Student Question Attempt View
 
 The current browser Assignment Attempt screen receives a complete
 [QuestionAttempt](../crates/question_model/src/lib.rs). That persistence record contains:
@@ -115,7 +119,7 @@ The current browser Assignment Attempt screen receives a complete
   asset-object, Question Grader Version, and rendered hash.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
-needs only the attempt ID, student-visible deadline, presentation binding, and public envelope. It
+needs only the attempt ID, student-visible deadline, presentation binding, and public Question Presentation. It
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
 Question Backend, Renderer, or Grader Versions, or complete Question Attempt Reproduction Details.
 
@@ -124,7 +128,7 @@ Assignment Attempt, Student Record, cursor-paged Question Attempts, Assignment, 
 appearance, and Issued Question. In a one-time wire
 fixture,
 that required at least seven JSON responses across four dependent waves. A purpose-built server
-projection can perform those relationship checks once and return one bounded student screen.
+reader can perform those relationship checks once and return one bounded Student Question Attempt View.
 
 ### Current response payload
 
@@ -148,8 +152,8 @@ Content-Type: application/json
 The current server authenticates the session, loads the RLS-visible Question Attempt and owning Assignment Attempt, validates
 the response against the checksummed issued public snapshot, and atomically records immutable
 accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
-matching server-only grading envelope, grades under server authority, and commits the completed
-aggregate. Neither path reproduces a mutable issued envelope. Therefore the submitted `kind` is
+matching server-only Question Grading Input, grades under server authority, and commits the completed
+aggregate. Neither path reproduces a mutable issued Question Presentation. Therefore the submitted `kind` is
 redundant. The attempt already determines the expected Question Type.
 
 Removing `kind` is not merely deleting one JSON property. The v1 handler must first load the attempt
@@ -207,7 +211,7 @@ authoritative.
 ### Student screen
 
 The target `GET /api/assignment-attempts/{assignmentAttempt}/screen` response contains one navigation shell, one active Assignment Attempt
-descriptor, and one public envelope:
+descriptor, and one public Question Presentation:
 
 ```json
 {
@@ -224,7 +228,7 @@ descriptor, and one public envelope:
     "deadline": null,
     "presentationToken": "pd1_..."
   },
-  "envelope": {
+  "presentation": {
     "version": "...",
     "seed": 90210,
     "presentationNonce": "...",
@@ -431,7 +435,7 @@ scores or grading metadata.
 
 ### Current private flow
 
-The browser-facing WeBWorK envelope is typed and answer-free. PLE resolves immutable PG
+The browser-facing WeBWorK Question Presentation is typed and answer-free. PLE resolves immutable PG
 source from server-only object storage and caches the safe render by problem, version, and seed. An
 **issue** cache hit reuses that public render but still makes one private same-seed renderer call to
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
@@ -448,7 +452,7 @@ boundary. The historical RC3 compatibility grading path originally performed two
 2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
 
 The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
-server-only grading envelope, and frozen WeBWorK definition under the issued attempt. Normal grade
+server-only Question Grading Input, and frozen WeBWorK definition under the issued attempt. Normal grade
 validates those artifacts and performs only the private grade call; it never resolves a current
 published Question Revision or rerenders to recover state. The official upstream endpoint is stateless, so
 PLE still sends the immutable Source Object Reference and Source Object Checksum with signed server state on that private grade call. That
@@ -545,7 +549,7 @@ One-time synthetic wire-fixture measurements from the accepted decision recorded
 
 | Current artifact                              |                             Recorded size |
 | --------------------------------------------- | ----------------------------------------: |
-| Answer-free PLE envelope                      |                               1,091 bytes |
+| Answer-free PLE Question Presentation         |                               1,091 bytes |
 | Full PLE attempt                              |                                 977 bytes |
 | One-attempt page                              |                               1,007 bytes |
 | Current MC submit body                        |                                  59 bytes |
@@ -575,7 +579,7 @@ The end-to-end submission path contains:
 Removing a roughly 20-byte `kind` field improves clarity but is not a meaningful latency
 optimization by itself. The higher-value actions are:
 
-- collapse the Assignment Attempt screen request fan-out into one projection;
+- collapse the Assignment Attempt screen request fan-out into one Student Question Attempt View;
 - cache immutable assets and safe renders;
 - avoid inline binary media;
 - remove the normal extra WeBWorK rerender;
@@ -590,7 +594,7 @@ counts or arbitrary latency thresholds into permanent tests.
 ### Safe caching
 
 PLE may cache public render data by immutable `QuestionRevisionReference`, seed, and the presentation binding.
-Cache entries may contain only the answer-free envelope, public asset references, and
+Cache entries may contain only the answer-free Question Presentation, public asset references, and
 Question Renderer Version needed to identify the render. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
 
@@ -610,9 +614,9 @@ it. The server, not the browser:
 - promotes the reservation atomically only after the predecessor commits.
 
 The following is target behavior, not a claim about the current prefetch route. For untimed mastery
-and practice work, the browser may receive the next answer-free envelope early and warm a bounded
+and practice work, the browser may receive the next answer-free Question Presentation early and warm a bounded
 set of same-origin assets. For timed or exam policy, PLE may pre-render privately but must not reveal
-the next envelope until the current attempt commits. The current bodyless reservation route does not
+the next Question Presentation until the current attempt commits. The current bodyless reservation route does not
 yet enforce that timing-policy distinction. Prefetch never grades, starts the next timer, or lets the
 browser choose a seed, backend, or source.
 
@@ -667,7 +671,7 @@ easy to navigate without duplicating its exact migration and codec specification
 ### WP-P3: PLE API cutover
 
 - Owner: server and PLE grading implementation.
-- Files: Assignment Attempt screen and submission projections, PLE Question Backend validation, route tests, API fixtures,
+- Files: Student Question Attempt Views and submission receipts, PLE Question Backend validation, route tests, API fixtures,
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
@@ -728,7 +732,7 @@ Permanent tests protect stable behavior:
 - student-screen and receipt allowlists;
 - target prefetch promotion and timed-content withholding;
 - normal one-call WeBWorK grading; and
-- browser traces exclude private material.
+- browser traces exclude Answer Keys, Question Feedback, and Question Grading Inputs.
 
 One-time implementation evidence records:
 
@@ -758,7 +762,7 @@ The pre-production cutover:
 5. deploys server, Wasm, generated bindings, and browser together; and
 6. rejects retired route/body usage with stable `410 contract_retired`.
 
-Historical records remain available through bounded history and summary projections. Production data
+Historical records remain available through bounded history and Assignment Attempt Summaries. Production data
 is never deleted or recreated as a shortcut. iMathAS Question Backend submission contracts stay out of this v1
 cutover because they require their own backend-session design.
 

@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
-use crate::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use crate::generation::QuestionSeed;
+use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_variation::QuestionVariationPresentation;
 use crate::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
@@ -283,20 +284,20 @@ fn persisted_binding_is_strict_and_round_trips_full_checksum() {
 }
 
 fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPresentation {
-    let mut envelope = fixture();
-    envelope.response = response;
+    let mut variation_presentation = fixture();
+    variation_presentation.response = response;
     let mut source = Nonces::new([[0x91; 16]]);
-    build_question_presentation_with_nonce_source(&envelope, &[], &mut source)
+    build_question_presentation_with_nonce_source(&variation_presentation, &[], &mut source)
         .expect("valid presentation")
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let asset = crate::envelope::QuestionAssetReference {
+    let asset = QuestionAssetReference {
         asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
-    let mut envelope = fixture();
-    envelope.response = QuestionResponseFormat::Hotspot {
+    let mut variation_presentation = fixture();
+    variation_presentation.response = QuestionResponseFormat::Hotspot {
         surface: asset.clone(),
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
@@ -318,7 +319,7 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         intrinsic_height: Some(600),
     }];
     let mut source = Nonces::new([[0x92; 16]]);
-    build_question_presentation_with_nonce_source(&envelope, &bindings, &mut source)
+    build_question_presentation_with_nonce_source(&variation_presentation, &bindings, &mut source)
         .expect("valid hotspot presentation")
 }
 

@@ -10,7 +10,7 @@ use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
 use question_model::{
-    QuestionBackendLocator, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
+    QuestionBackend, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
     WorkspaceId, classification::QuestionLicense,
 };
 use serde::Deserialize;
@@ -361,10 +361,7 @@ fn validate_flat(
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
         PilotQuestionType::Matching => QuestionType::Matching,
     };
-    if !matches!(
-        compiled.draft().backend_locator,
-        question_model::DraftQuestionBackendLocator::Ple
-    ) {
+    if compiled.draft().question_backend != QuestionBackend::Ple {
         bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
     }
     if compiled.draft().question_format != QuestionFormat::PleQuestionJson
@@ -405,18 +402,18 @@ fn validate_correct_and_wrong_grading(
         .ok_or_else(|| anyhow::anyhow!("PLE Question JSON payload lacks its response object"))?;
     let (correct, wrong) = source_responses(response, question_type)?;
     let (draft, private, _question_hint) = compiled.into_parts();
-    if !matches!(
-        draft.backend_locator,
-        question_model::DraftQuestionBackendLocator::Ple
-    ) {
+    if draft.question_backend != QuestionBackend::Ple {
         bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
     }
     let published = QuestionRevision::from_draft(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionRevisionNumber::new(1).expect("positive version"),
-        QuestionBackendLocator::Ple,
-    );
+        QuestionBackend::Ple,
+        None,
+        None,
+        None,
+    )?;
     let correct_result = private.evaluate(&published, &correct)?;
     let wrong_result = private.evaluate(&published, &wrong)?;
     let grading::QuestionGradingOutcome::Graded(correct_result) = correct_result.outcome else {

@@ -79,7 +79,7 @@ import {
   decodeQuestionRevisionReference,
   decodeQuestionRevisionAvailability,
   decodeCursor,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeIdentifier,
   decodeQuestionMetadata,
   decodeQuestionId,
@@ -338,7 +338,7 @@ function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUs
   requireOnlyFields(record, path, ["course", "title", "assignmentCount"]);
   return {
     course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     assignmentCount: decodePositiveInteger(
       field(record, "assignmentCount", path),
       `${path}.assignmentCount`,
@@ -629,7 +629,7 @@ function decodeFixedQuestionAssignmentEntry(
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
@@ -790,7 +790,7 @@ function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem 
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",

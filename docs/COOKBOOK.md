@@ -63,7 +63,8 @@ correction. The invitation remains single-use; a queued email is not proof of ma
    visible `AAA-BBBB` Question IDs, reuse a saved assignment, or configure reusable pools.
 3. Save the complete ordered definition as one Blueprint revision. Relative calendar-day and local
    wall-clock values are defaults, not live deadlines.
-4. Review the answer-free projection and choose **Publish Blueprint**.
+4. Review the complete, answer-free Blueprint revision and choose
+   **Publish Blueprint**.
 
 Publishing is explicit. It makes the revision discoverable to every vetted Instructor, but it does
 not create enrollment, release an assignment, or create Student work. Editing a published Blueprint

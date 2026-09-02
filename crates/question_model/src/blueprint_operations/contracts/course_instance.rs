@@ -1,4 +1,4 @@
-//! CourseInstance browser previews and exact server witnesses.
+//! Course Instance browser previews and exact server snapshots.
 //!
 //! This module owns browser-safe inspection and preview values. Server-held apply records,
 //! commands, and immutable receipt evidence live in focused sibling modules so a preview can
@@ -341,7 +341,7 @@ pub struct AssignmentSource {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseInstanceBlueprintInspectionView {
     pub initial_course_origin: CourseOrigin,
-    pub witness: CourseInstanceSnapshot,
+    pub course_instance_snapshot: CourseInstanceSnapshot,
     #[serde(deserialize_with = "deserialize_assignment_sources")]
     pub assignment_sources: Vec<AssignmentSource>,
 }
@@ -600,7 +600,7 @@ impl CourseRolloverManifest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CopyCourseForNewTermPreview {
-    pub witness: CourseInstanceSnapshot,
+    pub course_instance_snapshot: CourseInstanceSnapshot,
     pub target_term: CourseTerm,
     pub manifest: CourseRolloverManifest,
     pub readiness: CopyCourseForNewTermReadiness,
@@ -609,7 +609,7 @@ pub struct CopyCourseForNewTermPreview {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ShiftCourseDatesPreview {
-    pub witness: CourseInstanceSnapshot,
+    pub course_instance_snapshot: CourseInstanceSnapshot,
     pub target_term: CourseTerm,
     pub schedules: BoundedResolvedScheduleSet,
     pub readiness: ShiftCourseDatesReadiness,
@@ -619,7 +619,7 @@ pub struct ShiftCourseDatesPreview {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ApplyBlueprintUpdatePreview {
     pub import: AssignmentSourceSnapshot,
-    pub witness: CourseInstanceSnapshot,
+    pub course_instance_snapshot: CourseInstanceSnapshot,
     pub readiness: ApplyBlueprintUpdateReadiness,
 }
 
@@ -627,7 +627,7 @@ pub struct ApplyBlueprintUpdatePreview {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CopyAssignmentFromBlueprintPreview {
     pub source: BlueprintAssignmentRevisionReference,
-    pub witness: CourseInstanceSnapshot,
+    pub course_instance_snapshot: CourseInstanceSnapshot,
     pub schedule: ResolvedAssignmentSchedule,
     pub readiness: CopyAssignmentFromBlueprintReadiness,
 }
@@ -847,6 +847,14 @@ impl std::error::Error for BoundedAssignmentRevisionReferencesError {}
 mod tests {
     use super::*;
     use crate::{CourseScheduleRevisionNumber, CourseScheduleRevisionReference};
+    use serde::de::DeserializeOwned;
+
+    fn rejects_retired_witness_field<T: DeserializeOwned>() -> bool {
+        match serde_json::from_value::<T>(serde_json::json!({"witness": null})) {
+            Ok(_) => false,
+            Err(error) => error.to_string().contains("unknown field `witness`"),
+        }
+    }
 
     #[test]
     fn assignment_revision_reference_keeps_assignment_and_immutable_revision_number_together() {
@@ -873,6 +881,19 @@ mod tests {
             CourseInstanceSnapshot::new(course, revision, vec![]),
             Err(CourseInstanceSnapshotError::ScheduleRevisionCourseMismatch)
         );
+    }
+
+    #[test]
+    fn course_instance_previews_refuse_the_retired_witness_field() {
+        let decoders: [fn() -> bool; 5] = [
+            rejects_retired_witness_field::<CourseInstanceBlueprintInspectionView>,
+            rejects_retired_witness_field::<CopyCourseForNewTermPreview>,
+            rejects_retired_witness_field::<ShiftCourseDatesPreview>,
+            rejects_retired_witness_field::<ApplyBlueprintUpdatePreview>,
+            rejects_retired_witness_field::<CopyAssignmentFromBlueprintPreview>,
+        ];
+
+        assert!(decoders.into_iter().all(|decoder| decoder()));
     }
 }
 

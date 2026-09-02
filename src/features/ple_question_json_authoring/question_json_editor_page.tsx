@@ -146,7 +146,7 @@ function hasLocalDraftChanges(state: PleQuestionJsonEditorState): boolean {
 
 /**
  * A purpose-built author surface. Student preview is a local answer-free PLE Question JSON Public Preview; this component
- * does not write source material to URLs, storage, or diagnostics.
+ * does not write Draft Question Content to URLs, browser storage, or diagnostics.
  */
 export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps): JSX.Element {
   const [state, setState] = createSignal<PleQuestionJsonEditorState>(

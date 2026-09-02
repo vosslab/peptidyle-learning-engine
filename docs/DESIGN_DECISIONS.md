@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -48,8 +49,8 @@ behind typed server-side adapters.
 **Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
 questions without making a vendor format or a browser widget the platform's core model.
 
-**Consequence.** A new Question Backend adds a bounded adapter, public render projection, private grading
-material, and capability declaration. It does not spread vendor fields, answer rules, or renderer
+**Consequence.** A new Question Backend adds a bounded adapter, public Question Presentation, private
+Question Grading Input, and capability declaration. It does not spread vendor fields, answer rules, or renderer
 details through storage, browser DTOs, and UI components.
 **Owner.** [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md),
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), and the adapter entries in
@@ -147,7 +148,7 @@ exactly resolvable in both Available and Archived states, with availability visi
 Instructor-safe Question Library view. Publication has one Question Library visibility contract.
 Selection eligibility is separate: Available versions appear in ordinary discovery and selection;
 Archived versions remain available through exact historical references. Student access remains bound to an
-assignment entitlement, and anonymous web access receives no Question Library authority.
+Assignment Access, and anonymous web access receives no Question Library authority.
 
 **Why.** This prevents the classic LMS failure where a later edit changes what an earlier Student
 was assessed on, while giving every Instructor an equal path to discover, organize, reuse, and
@@ -241,7 +242,7 @@ version, reason (`security_flaw` or `critical_correctness_flaw`), affected bindi
 and deterministic remediation. A Sysadmin alone approves the correction. Approval immediately
 stops new selection and issuance of the flawed version and atomically activates one authoritative
 correction mapping and Correction Generation. New resolution follows that mapping immediately. Bounded,
-idempotent, Correction-Generation-fenced workers materialize the mapping as one logical correction across all
+idempotent, Correction-Generation-fenced workers apply the authoritative correction mapping and remediation across all
 active BlueprintCourse, CourseInstance, assignment, pool, and future-issuance references and
 perform its remediation; the operation uses no unbounded cross-course SQL transaction. Every
 unissued binding passes a deterministic compatibility check recorded in the manifest. No
@@ -258,7 +259,7 @@ original evidence preserves reproducibility, while one Sysadmin approval avoids 
 course-by-course emergency decisions.
 
 **Consequence.** Instructors receive audited correction results and action items through their
-authorized course surfaces. The Sysadmin projection contains aggregate affected-version, assignment,
+authorized course surfaces. The Sysadmin correction result contains aggregate affected-version, assignment,
 and course counts plus manifest status, but no Student identities, responses, grades, or private
 CourseInstance identity. Replacement validation, manifest creation, Sysadmin approval, atomic
 reference advancement, reissue or excuse, superseding receipt, course remediation, and
@@ -309,7 +310,7 @@ a policy save from changing content or a content save from changing delivery rul
 `/api/courses/{course}/assignments/{assignment}` and
 `.../student-view`, plus title-only Assignment creation and focused `.../content` and `.../policies`
 mutations. Both mutations use the current `If-Match` revision, update their owned slice atomically,
-and return the complete authoritative assignment projection with one new revision. Structural
+and return the complete authoritative Assignment result with one new revision. Structural
 content changes return a typed issued-student-work conflict after immutable work exists; a stale
 revision remains a retryable conflict. The browser preserves entered values and offers reload
 guidance for either case.
@@ -334,7 +335,7 @@ and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace).
 **Decision.** `BlueprintCourse` is the one canonical course-level reusable aggregate. Use ADAPT's
 Alpha wording only as comparison history; PLE names no Alpha product type or compatibility alias.
 The creating Instructor owns a private draft through its authoring workspace. After complete
-validation succeeds, an explicit publication makes the answer-free BlueprintCourse projection
+validation succeeds, an explicit publication makes the answer-free `BlueprintCourseView`
 visible and reusable to every vetted Instructor. The BlueprintCourse contains ordered modules and
 assignments, reusable definitions, exact published-question pins, and reusable relative schedule
 defaults. Published questions remain part of the Question Library.
@@ -404,7 +405,7 @@ partial credit, and permitted feedback.
 [crates/grading/src/lib.rs](../crates/grading/src/lib.rs), and the MOD-GRD/MOD-WASM boundaries in
 [CONTRACTS.md](CONTRACTS.md#boundary-invariants).
 **Planned closure.** Every new Question Backend and Question Type must prove the same closure before its
-browser projection is accepted.
+Question Presentation is accepted.
 
 ### The attempt is the grading authority
 
@@ -420,7 +421,7 @@ sources of truth.
 **Consequence.** Server code loads and validates the issued attempt before accepting a response.
 The acceptance transaction creates the immutable submission, pending evaluation, execution job,
 and receipt; the sealed worker later reloads that private response and grades it. Exact replay and
-status reads return the answer-free current projection rather than resubmitting the answer.
+status reads return the answer-free current `StudentQuestionAttemptView` rather than resubmitting the answer.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
 [Question Model Student Work Records](../crates/question_model/src/lib.rs), and the
 Assignment Attempt API contract in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
@@ -504,7 +505,7 @@ answer for the exact Question Response Format. `kind` belongs in the render payl
 server derives its response decoder from the issued attempt.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#target-network-contract)
 and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
-**Planned closure.** The payload migration and one-screen projection remain owned by the
+**Planned closure.** The payload migration and one-screen `StudentQuestionAttemptView` remain owned by the
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 ### Rendered items have presentation identity
@@ -572,7 +573,7 @@ Account and the exact Course Instance. The Instructor shares its one-time copy l
 existing trusted LMS or uses configured SMTP. After the Student authenticates and accepts the
 invitation, Course Enrollment creates or reuses the Course Instance's Student Record and creates
 the exact Student Course Membership binding atomically. An authorized pre-activity Assignment read returns
-an empty activity projection. Starting an Assignment Attempt creates the direct Student
+an empty `AssignmentProgress` result. Starting an Assignment Attempt creates the direct Student
 Record-to-Assignment activity relationship transactionally; calculating a Grade creates its exact
 grade record. New Assignments add definitions, while Student rows appear with actual Student work.
 Student Work Records and Grades follow the Course Retention Plan independently of the Student
@@ -606,7 +607,7 @@ improvement workflows.
 **Why.** Ambient administrator or manager roles turn one compromised platform
 credential into access to every student's educational record. A publisher
 human role also confuses author approval with the least-authority service that
-materializes immutable public bytes.
+writes and verifies immutable public objects before activation.
 
 **Consequence.** Product Role is the closed Student/Instructor/Sysadmin set, currently represented
 by `AccountRole` in code, and Account/session storage carries one role, never a collection. Course
@@ -762,7 +763,7 @@ does not wait for a generic final audit.
 ### Question Backends remain private adapters
 
 **Decision.** PLE, never a student browser, contacts a managed Question Backend such as WeBWorK or iMathAS. PLE
-owns published source, issued seed, response projection, credentials, timeout, sanitization, and
+owns published source, issued seed, Student Response result, credentials, timeout, sanitization, and
 result translation.
 
 **Why.** Upstream systems use their own fields, sessions, HTML, and credentials. Those are neither
@@ -778,7 +779,7 @@ renderer output do not cross the PLE browser boundary.
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
 
 **Planned closure.** Broader problem compatibility and any unreviewed matching source require their
-own accepted projection and live evidence; they are not inferred from the Chapter 1 profile.
+own accepted Question Presentation and live evidence; they are not inferred from the Chapter 1 profile.
 
 ### H5P Package Import is not a Question Backend
 

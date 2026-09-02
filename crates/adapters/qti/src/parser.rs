@@ -5,7 +5,7 @@
 //! entity declarations, malformed nesting, and duplicate attributes fail
 //! before any model is made.  Asset bytes leave this module only in an
 //! immutable worker handoff; student-visible questions contain `QuestionAssetId`s and
-//! checksums, never archive paths or answer material.
+//! checksums, never archive paths or an Answer Key.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,9 +13,9 @@ use crate::profiles::NormalizedQtiItemFingerprint;
 use objects::Sha256Checksum;
 use objects::image_validation::verify_still_image;
 use question_model::answer::ResponseSelectionRule;
-use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::response::{QuestionChoice, ResponseItemReference};
 use question_model::{QuestionAssetId, QuestionResponseFormat};
+use question_model::{QuestionAssetReference, QuestionContentBlock};
 use uuid::Uuid;
 
 const MANIFEST_PATH: &str = "imsmanifest.xml";

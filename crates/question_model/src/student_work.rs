@@ -402,7 +402,7 @@ pub struct QuestionAttemptReproductionDetails {
 pub enum IssuedAttemptCapability {
     /// A browser-safe `QuestionPresentation` with no format-specific
     /// private first-grade contract.
-    PresentationEnvelope,
+    QuestionPresentation,
     /// A PLE Question JSON presentation and its required private grading contract.
     PleQuestionJsonPresentation,
     /// A WeBWorK presentation, immutable private definition, and replay map.

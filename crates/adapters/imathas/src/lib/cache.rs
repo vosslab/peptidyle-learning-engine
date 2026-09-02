@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ImathasQuestionBackendBinding, ObjectId, QuestionBackendLocator, QuestionBackendVersion,
+    ImathasQuestionBackendBinding, ObjectId, QuestionBackend, QuestionBackendVersion,
     QuestionGraderVersion, QuestionRevision, QuestionRevisionReference,
     QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference,
 };
@@ -22,7 +22,7 @@ pub(super) struct CachedRender {
     pub(super) source: SourceObjectReference,
     pub(super) source_object_checksum: SourceObjectChecksum,
     pub(super) binding: ImathasQuestionBackendBinding,
-    pub(super) envelope: QuestionVariationPresentation,
+    pub(super) presentation: QuestionVariationPresentation,
 }
 
 pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterError> {
@@ -39,15 +39,15 @@ pub(super) fn validate_cache(
         || cached.source != *source.artifact()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
-        || cached.envelope.variation.question_revision
+        || cached.presentation.variation.question_revision
             != (QuestionRevisionReference {
                 question_id: question.question_id.clone(),
                 revision_number: question.revision_number,
             })
-        || cached.envelope.variation.seed != seed
-        || question_model::validate_question_title(&cached.envelope.title).is_err()
+        || cached.presentation.variation.seed != seed
+        || question_model::validate_question_title(&cached.presentation.title).is_err()
         || !matches!(
-            cached.envelope.response,
+            cached.presentation.response,
             question_model::QuestionResponseFormat::ImathasQuestionBackend {}
         )
     {
@@ -68,9 +68,12 @@ pub(super) fn verify_binding(
     {
         return Err(ImathasAdapterError::SourceDoesNotMatchQuestion);
     }
-    match &question.backend_locator {
-        QuestionBackendLocator::Imathas { binding } if binding == &source.binding => Ok(()),
-        _ => Err(ImathasAdapterError::SourceDoesNotMatchQuestion),
+    if question.question_backend == QuestionBackend::Imathas
+        && question.imathas_question_backend_binding.as_ref() == Some(&source.binding)
+    {
+        Ok(())
+    } else {
+        Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
     }
 }
 

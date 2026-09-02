@@ -14,9 +14,9 @@ A public type belongs in this crate when it is answer-free and may cross a
 browser-facing boundary. A type that would let a caller learn a correct
 response belongs in `crates/grading`, which runs server-side and sits outside
 the WebAssembly dependency closure. This is a security classification, not a
-claim that every answer-free model field belongs in every Student payload:
-the presentation projection further removes Question Attempt Reproduction Details and grading-adjacent
-details the renderer does not need.
+claim that every answer-free model field belongs in every Student payload: the
+Question Presentation further removes Question Attempt Reproduction Details and
+grading-adjacent details the renderer does not need.
 
 Applied to answers, the split is:
 
@@ -28,7 +28,7 @@ Applied to answers, the split is:
 | Whether partial credit applies, and the points available           | The per-part weighting of a key |
 
 The left column is answer-free shared-model information. An individual
-Student projection may still omit it when it is not needed to render an input;
+a Student's Question Presentation may still omit it when it is not needed to render an input;
 for example, the current issued `QuestionPresentationResponseFormat` omits Numeric
 Response Tolerance and Text Response Match Rule.
 Everything in the right column decides correctness and remains server-only.
@@ -97,15 +97,15 @@ resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
-`QuestionSummary` is the current hot Question Search projection. It contains the Question
+`QuestionSummary` is the current Question Search summary record. It contains the Question
 ID, exact `latestQuestionRevision` reference, Question Backend, capabilities,
 metadata, Question Revision Availability, and publication time, but not prompt,
 response, private source-locator fields, or private source data. Latest means
 the accepted revision with the greatest Question Revision Number in the stable
 lineage; it is independent of Question Revision Availability. Trusted server
 work resolves the exact reference and loads the separate internal
-`QuestionRevision` payload. Question Details uses that safe Question-ID
-projection and presents one selected immutable version within the stable lineage. Approved
+`QuestionRevision` payload. Question Details uses that safe `QuestionSummary`
+and presents one selected immutable version within the stable lineage. Approved
 Instructors may inspect this published content even when another course
 references it; that access does not expose the other course's assignment
 composition or Student records.
@@ -192,7 +192,7 @@ remains pinned to the original immutable version; completed work receives
 superseding receipts and deterministic recalculation under the correction.
 
 The operation has no per-course approval step. Instructors receive audited,
-course-authorized results, while Sysadmin projections contain no FERPA-bearing
+course-authorized results, while Sysadmin access exposes no FERPA-bearing
 course or Student records. Every approval, validation, manifest, atomic
 advance, reissue, excuse, superseding receipt, recalculation, and publication
 event is append-only audited.
@@ -200,7 +200,7 @@ event is append-only audited.
 `Sysadmin` is a Product Role, never a Course Membership Role; it cannot
 replace direct Instructor membership for general FERPA access or view the
 Question ID Star identity list or any private Watch state. `CourseSummary`
-and `AssignmentSummary` are Rust-owned browser projections. Their Question Pool
+and `AssignmentSummary` are Rust-owned browser results. Their Question Pool
 selection summaries carry Question IDs and safe display metadata,
 never an opaque `QuestionRevisionReference` or question payload.
 
@@ -275,9 +275,9 @@ model; it is not a visible letter or display position.
 
 `QuestionResponseControl` names the browser interaction. `ImathasQuestionBackendResponseControl` is a
 fieldless marker variant in both response enums. It carries no
-provider, launch, answer, score, token, or completion material. The server
+provider, launch, answer, score, token, or completion data. The server
 owns the later iMathAS Result Exchange through its server-owned boundary, so the
-question envelope and generic submission record remain answer-free.
+Question Presentation and generic submission record remain answer-free.
 
 Agreement _between_ the two and variant-specific format rules live in
 `domain::validation::validate_response_format`. The browser calls that pure
@@ -304,7 +304,7 @@ for a specific attempt and provides a consistency binding for that presentation.
 
 `QuestionPresentation` contains the immutable version, issued seed,
 server-minted nonce, title, prompt, and an answer-free
-`QuestionPresentationResponseFormat`. It is the issued projection of the durable
+`QuestionPresentationResponseFormat`. It is the issued response format for the durable
 Question Response Format: it replaces durable response-item references with
 rendered IDs while preserving the exact response shape. The schema currently
 covers the eight PLE Question JSON Question Types:
@@ -379,7 +379,7 @@ Question-level rules are authored with the Question: `QuestionAttemptLimit`
 (a retry bound) and `QuestionAttemptTimeLimit` (unlimited or limited for one Question Attempt,
 each with a grace period for network delay). Student Feedback Release is not a
 question policy: the assignment owns its five-field `StudentFeedbackReleaseRule`
-and the server evaluates it for current Student projections.
+and the server evaluates it for current Student Feedback.
 
 A Question Hint is requested before a Student selects or submits a response.
 Question Feedback is selected only after automatic grading and remains three
@@ -426,17 +426,18 @@ Instructor transport uses `InstructorAssignmentAuthoredContentLocal`:
 local timestamps include
 milliseconds and the exact course IANA zone, but the server performs every
 DST, term, ordering, and integer-bound conversion before storage.
-`InstructorAssignmentAvailabilityView` is a separate closed server projection
+`InstructorAssignmentAvailabilityView` is a separate closed server View
 for Unreleased, Scheduled, Available, Closed, or Archived at one authoritative
 instant. Its scheduled and clock-closed variants carry only the matching
 course-local boundary, so a browser displays Assignment availability without
 inferring it.
 
 Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
-delivery values are already resolved from exact assignment entitlement and omit
+delivery values are already resolved from exact Assignment Access and omit
 Assignment Status, Assignment Policy Source, course identifiers, and evaluation
 clocks. `AssignmentScoringState`
-is also independent: Current allows the otherwise authorized score projection;
+is also independent: Current allows the otherwise authorized Student
+`AssignmentProgress` result;
 Recalculating and Failed retain the semantic score state while omitting every
 numeric Student score, Grading Result, and disclosed point value.
 
@@ -587,8 +588,8 @@ together; WN1-B does not change their effective Serde spelling.
 [PLE Question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
 authoring format for ordinary static questions. It is not another public
 question model. The PLE Question Backend compiles it into this crate's answer-free
-`DraftQuestionRevision` plus separate grader-only material. Published browser
-and Question Library browser projections therefore continue to use the shared question model
+`DraftQuestionRevision` plus separate PLE Question JSON Private Grading. Published browser
+and Question Library browser results therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
 
@@ -597,7 +598,7 @@ retired and unsupported. There is no v1 compatibility reader, source-byte
 fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
-and `hotspot`. V2 input is answer-bearing private authoring material, not a
+and `hotspot`. V2 input is answer-bearing private PLE Question JSON source, not a
 Student payload. It does not claim browser file-selection or iMathAS Question Backend authoring
 support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only Answer Key and Question Feedback.

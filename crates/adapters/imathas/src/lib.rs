@@ -56,7 +56,7 @@ use async_trait::async_trait;
 #[cfg(test)]
 use objects::{ObjectAddress, ObjectStore, PutObject};
 #[cfg(test)]
-use question_model::envelope::QuestionContentBlock;
+use question_model::QuestionContentBlock;
 #[cfg(test)]
 use question_model::generation::QuestionSeed;
 #[cfg(test)]

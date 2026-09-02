@@ -45,7 +45,7 @@ pub enum WebworkQuestionAttemptReplayDetails {
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
     /// Backend-neutral prompt and Question Response Format safe for a browser.
-    pub envelope: QuestionVariationPresentation,
+    pub presentation: QuestionVariationPresentation,
     /// The implementation that actually produced this particular render.
     ///
     /// This is part of renderer output rather than sampled from a client on a
@@ -60,7 +60,7 @@ impl std::fmt::Debug for RenderedWebworkQuestion {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("RenderedWebworkQuestion")
-            .field("envelope", &self.envelope)
+            .field("presentation", &self.presentation)
             .field("renderer_version", &self.renderer_version)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
             .finish()

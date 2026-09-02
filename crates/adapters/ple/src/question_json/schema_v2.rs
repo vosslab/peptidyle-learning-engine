@@ -7,7 +7,6 @@ use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
 use question_model::classification::{QuestionClassification, QuestionLicense, Tag};
-use question_model::envelope::{QuestionAssetReference, QuestionContentBlock};
 use question_model::generation::QuestionVariationRule;
 use question_model::question_citation::QuestionCitation;
 use question_model::response::{
@@ -15,9 +14,10 @@ use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
 use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionContent, QuestionAssetId, QuestionFormat,
+    DraftQuestionContent, QuestionAssetId, QuestionBackend, QuestionFormat,
     QuestionGradingRule, QuestionHint, QuestionMetadata, WorkspaceId,
 };
+use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -332,7 +332,11 @@ impl PleQuestionJsonDocumentBody {
         prompt.extend(prompt_suffix);
         let draft = DraftQuestionContent {
             workspace,
-            backend_locator: DraftQuestionBackendLocator::Ple,
+            question_backend: QuestionBackend::Ple,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            workspace_import_id: None,
+            draft_imathas_question_backend_binding: None,
             question_format: QuestionFormat::PleQuestionJson,
             prompt,
             response,

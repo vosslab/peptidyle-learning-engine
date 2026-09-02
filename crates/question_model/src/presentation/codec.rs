@@ -2,7 +2,7 @@
 
 use sha2::{Digest, Sha256};
 
-use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
 
 use super::builder::{
     IssuedQuestionPresentation, PresentationBuildError, ResponseItemBasis, ResponseItemRole,

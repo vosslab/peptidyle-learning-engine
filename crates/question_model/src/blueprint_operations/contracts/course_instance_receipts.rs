@@ -65,11 +65,11 @@ impl CourseInstanceReceiptBinding {
     pub fn destination(&self) -> &CourseInstanceSnapshot {
         &self.outcome
     }
-    /// Returns the exact current witness consumed by the server-held command.
+    /// Returns the exact Course Instance Snapshot precondition consumed by the server-held command.
     pub fn precondition(&self) -> &CourseInstanceSnapshot {
         &self.precondition
     }
-    /// Returns the exact resulting witness after the mutation completed.
+    /// Returns the resulting Course Instance Snapshot after the mutation completed.
     pub fn outcome(&self) -> &CourseInstanceSnapshot {
         &self.outcome
     }
@@ -222,7 +222,7 @@ impl CopyCourseForNewTermReceipt {
     pub fn server_time(&self) -> Timestamp {
         self.server_time
     }
-    /// Returns the authenticated account bound by the rollover creation witness.
+    /// Returns the authenticated account bound by the Course Instance Creation Reservation.
     pub fn authorized_account(&self) -> AccountId {
         self.created_from.authorized_account()
     }

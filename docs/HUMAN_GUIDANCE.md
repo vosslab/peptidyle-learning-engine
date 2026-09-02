@@ -158,7 +158,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
 - Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
 - A **Sysadmin** does not receive general access to FERPA course records.
-- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal 
+- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal
   operation. They may access them when helping an Instructor resolve a specific course problem.
 
 ## Instructor philosophy
@@ -183,7 +183,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.
-- Student email addresses are immmutable. Even students who change their legal name do not usually 
+- Student email addresses are immmutable. Even students who change their legal name do not usually
 get a new address during the semester and if they did I might just make them create a new account
 - Student Accounts persist across courses and semesters.
 - A Student Account is global and is not owned by or permanently tied to a Course Instance.

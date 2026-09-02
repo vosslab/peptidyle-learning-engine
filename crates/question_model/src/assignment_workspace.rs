@@ -205,7 +205,7 @@ pub struct InstructorStudentViewDelivery {
 }
 
 impl InstructorStudentView {
-    /// Adds the Instructor Student-view delivery envelope to the shared
+    /// Adds the Instructor Student-view delivery data to the shared
     /// answer-free assignment landing presentation.
     pub fn from_landing(
         landing: AssignmentOverview,

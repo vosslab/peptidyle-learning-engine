@@ -40,7 +40,7 @@ handling rules remain in [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
   CourseInstance, that Instructor's initial direct membership, and an append-only audit event;
   the Sysadmin account receives no course membership.
 - A support capability is purpose-bound, time-bounded, revocable, audited, and limited to its
-  registered Operation Kind and minimum projection. Sysadmin status supplies platform operations,
+  registered Operation Kind and `minimum_projection`-bounded response data. Sysadmin status supplies platform operations,
   not ambient course-record authority.
 
 Dr. Voss may use separate Instructor and Sysadmin accounts. Instructors are
@@ -125,8 +125,8 @@ cloud task roles are service identities. The word `publisher` may describe the
 dedicated publication service or the act of publishing, but it is never a
 human Product Role. The current `AccountRole` enum is the implementation name
 for that classification. An Instructor publishes reviewed content through the
-application; the dedicated publisher service materializes immutable public
-asset bytes after the committed outbox decision.
+application; the dedicated publisher service writes and verifies immutable
+public asset bytes before activation after the committed outbox decision.
 
 ## Authorization rules
 
@@ -136,7 +136,7 @@ asset bytes after the committed outbox decision.
   Sysadmin support or lifecycle capability.
 - Issue a Sysadmin support capability only through the closed registry, bound
   to one exact course, a stated purpose, an issuer, an Operation Kind, an
-  expiry, and a minimum projection. Record issuance, use, revocation, authenticated account,
+  expiry, and `minimum_projection`-bounded response data. Record issuance, use, revocation, authenticated account,
   course, action, and time; keep roster PII and invitation secrets out of audit
   payloads.
 - Route roster, schedule/accommodation, assignment-content, deterministic

@@ -8,9 +8,6 @@ use question_model::answer::NumericResponseTolerance;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::classification::QuestionLicense;
-use question_model::envelope::{
-    QuestionAssetReference as PresentedQuestionAssetReference, QuestionContentBlock,
-};
 use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
@@ -18,6 +15,9 @@ use question_model::{
     QuestionAssetId, QuestionBackendLocator, QuestionFeedback, QuestionFormat, QuestionGradingRule,
     QuestionId, QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionType,
     SourceObjectChecksum, SourceObjectReference, StudentResponse, WorkspaceId,
+};
+use question_model::{
+    QuestionAssetReference as PresentedQuestionAssetReference, QuestionContentBlock,
 };
 use uuid::Uuid;
 
@@ -143,15 +143,15 @@ fn ple_question_json_capabilities_are_installed_and_reproducible_without_answer_
         )
         .expect("PLE Question JSON issue should reproduce exactly");
 
-    assert_eq!(issue.envelope, replay);
-    let public = serde_json::to_string(&issue.envelope)
-        .expect("issued envelope should serialize for student");
+    assert_eq!(issue.presentation, replay);
+    let public = serde_json::to_string(&issue.presentation)
+        .expect("issued Question Presentation should serialize for student");
     assert!(!public.contains("correctChoice"));
     assert!(!public.contains("publicSha256"));
 }
 
 #[test]
-fn ple_question_json_grading_refuses_without_server_persisted_material() {
+fn ple_question_json_grading_refuses_without_server_persisted_answer_key() {
     let adapter = PleQuestionBackend::new();
     let question = ple_question_json_question();
     let issue = adapter
@@ -162,7 +162,7 @@ fn ple_question_json_grading_refuses_without_server_persisted_material() {
             &source_object_checksum(),
             &[],
         )
-        .expect("PLE Question JSON issue should deliver reproducible envelope");
+        .expect("PLE Question JSON issue should deliver a reproducible Question Presentation");
 
     assert!(matches!(
         adapter.grade(
@@ -182,7 +182,7 @@ fn ple_question_json_grading_refuses_without_server_persisted_material() {
 }
 
 #[test]
-fn ple_draft_preview_matches_the_published_envelope_presentation() {
+fn ple_draft_preview_matches_the_published_question_presentation() {
     let adapter = PleQuestionBackend::new();
     let question = ple_question_json_question();
     let seed = QuestionSeed::new(37);
@@ -210,9 +210,9 @@ fn ple_draft_preview_matches_the_published_envelope_presentation() {
     let DraftPreviewResult::Ready { preview } = preview else {
         panic!("PLE previews locally")
     };
-    assert_eq!(preview.title, issued.envelope.title);
-    assert_eq!(preview.prompt, issued.envelope.prompt);
-    assert_eq!(preview.response, issued.envelope.response);
+    assert_eq!(preview.title, issued.presentation.title);
+    assert_eq!(preview.prompt, issued.presentation.prompt);
+    assert_eq!(preview.response, issued.presentation.response);
 }
 
 #[test]
@@ -387,7 +387,7 @@ fn nested_response_assets_are_bound_in_canonical_logical_asset_order() {
 }
 
 #[test]
-fn rendered_envelope_hash_has_a_fixed_compatibility_vector() {
+fn rendered_question_presentation_hash_has_a_fixed_compatibility_vector() {
     let adapter = PleQuestionBackend::new();
     let issued = adapter
         .issue(
@@ -472,7 +472,7 @@ impl PleQuestionImplementation for NumericReferenceImplementation {
         &self,
         _question: &QuestionRevision,
         _generated: &QuestionVariationParameters,
-        _envelope: &question_model::envelope::QuestionVariationPresentation,
+        _presentation: &question_model::QuestionVariationPresentation,
         _answer_key: Option<&AnswerKey>,
         _result: &question_model::GradingResult,
         _response: &StudentResponse,

@@ -750,7 +750,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                 <h2 id="preview-heading">Student preview</h2>
                 <p>
                   This uses the same renderer and response controls as students, without sending a
-                  request or revealing evaluation material.
+                  request or revealing Question Grading Input.
                 </p>
                 <label class="editor-field">
                   Seed

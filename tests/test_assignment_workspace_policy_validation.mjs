@@ -48,7 +48,7 @@ const input = {
   },
 };
 
-const validationFailure = {
+const assignmentPoliciesValidationFailure = {
   error: "assignmentPoliciesInvalid",
   issues: [
     {
@@ -95,44 +95,54 @@ test("Policies save binds the reviewed Assignment Edit Number", async () => {
   });
 });
 
-test("Policies validation decoder accepts only the closed bounded envelope", () => {
-  assert.deepEqual(decodeAssignmentPoliciesValidationFailure(validationFailure), validationFailure);
+test("Policies validation decoder accepts only the closed bounded Assignment Policies Validation Failure", () => {
+  assert.deepEqual(
+    decodeAssignmentPoliciesValidationFailure(assignmentPoliciesValidationFailure),
+    assignmentPoliciesValidationFailure,
+  );
   assert.throws(
     () =>
       decodeAssignmentPoliciesValidationFailure({
-        ...validationFailure,
-        issues: [{ ...validationFailure.issues[0], internalId: "private" }],
+        ...assignmentPoliciesValidationFailure,
+        issues: [{ ...assignmentPoliciesValidationFailure.issues[0], internalId: "private" }],
       }),
     DecodeError,
   );
   assert.throws(
     () =>
       decodeAssignmentPoliciesValidationFailure({
-        ...validationFailure,
+        ...assignmentPoliciesValidationFailure,
         issues: [{ kind: "futurePolicyRule" }],
       }),
     DecodeError,
   );
   assert.throws(
-    () => decodeAssignmentPoliciesValidationFailure({ ...validationFailure, issues: [] }),
+    () =>
+      decodeAssignmentPoliciesValidationFailure({
+        ...assignmentPoliciesValidationFailure,
+        issues: [],
+      }),
     DecodeError,
   );
   assert.throws(
     () =>
       decodeAssignmentPoliciesValidationFailure({
-        ...validationFailure,
+        ...assignmentPoliciesValidationFailure,
         issues: [{ kind: "assignmentReleaseRequirements", blockingIssues: [] }],
       }),
     DecodeError,
   );
 });
 
-test("Policies save classifies only the exact 422 validation envelope", async () => {
-  await assert.rejects(policySave(jsonResponse(validationFailure, 422)), (error) => {
-    assert.ok(error instanceof AssignmentPoliciesValidationError);
-    assert.deepEqual(error.issues, validationFailure.issues);
-    return true;
-  });
+test("Policies save classifies only the exact Assignment Policies 422 validation response", async () => {
+  await assert.rejects(
+    policySave(jsonResponse(assignmentPoliciesValidationFailure, 422)),
+    (error) => {
+      assert.ok(error instanceof AssignmentPoliciesValidationError);
+      assert.deepEqual(error.issues, assignmentPoliciesValidationFailure.issues);
+      return true;
+    },
+  );
   await assert.rejects(policySave(jsonResponse({ error: "opaque" }, 422)), (error) => {
     assert.ok(error instanceof ApiRequestError);
     assert.ok(!(error instanceof AssignmentPoliciesValidationError));

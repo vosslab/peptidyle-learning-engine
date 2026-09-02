@@ -29,7 +29,7 @@ import {
 } from "../decoder";
 import {
   decodeBoundedArray,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeIdentifier,
   decodeQuestionRevisionReference,
   decodeSha256,
@@ -391,7 +391,7 @@ function responseForWidget(
 }
 
 /** Decode the immutable student presentation and project only its public widget fields. */
-export function decodeIssuedPresentationEnvelope(
+export function decodeIssuedQuestionPresentation(
   value: unknown,
   path = "response",
 ): QuestionVariationPresentation {
@@ -416,7 +416,7 @@ export function decodeIssuedPresentationEnvelope(
     ),
     seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     presentationNonce: nonce,
-    title: decodeEnvelopeTitle(field(record, "title", path), `${path}.title`),
+    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeBoundedArray(
       field(record, "prompt", path),
       `${path}.prompt`,

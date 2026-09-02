@@ -36,7 +36,7 @@ legacy readers, or parallel authorization model.
 ## Ownership boundaries
 
 - `ple_private` contains Account credentials, sessions, invitations, draft-authoring facts,
-  Student work, operational state, and private grading or provider material.
+  Student work, operational state, and private grading or provider records.
 - `ple_data` contains shared Question, Blueprint Course, Course Instance, Membership,
   Student Record, Assignment, delivery, correction, and aggregate analysis facts.
 - `ple_audit` contains immutable visible security, grading, retention, correction, and
@@ -98,7 +98,7 @@ through an exact Question Source or Question Asset License when it differs.
 
 Accepted Student responses, automated grading, Gradebook calculations, and
 retention lifecycle operations each retain their own immutable receipts or
-events. No aggregate projection replaces the exact record that proves it.
+events. No aggregate read result replaces the exact record that proves it.
 
 Each private Question Attempt stores its issued Question, unsigned Question
 Seed, generated-parameter SHA-256, issued/deadline times, closed Question

@@ -41,7 +41,7 @@ current-pointer/schema, PostgreSQL, route, authorization, upload-promotion/clean
 feature is deferred and incomplete after the pre-production schema reset. The separate current
 `WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW` package is only the existing reader-boundary
 terminology closure. The authoritative
-remaining package sequence, binary scope ledger, owners, files, behavior, success conditions, and
+remaining package sequence, binary scope register, owners, files, behavior, success conditions, and
 validation are in
 [release_completion_plan.md](active/release_completion_plan.md). The release plan owns release scope
 and dependency order, while [implementation_status.md](implementation_status.md) owns the sole global
@@ -84,7 +84,7 @@ capability contracts and evidence boundaries.
 **BlueprintCourse/CourseInstance binding (2026-08-29).** The accepted historical B1/B2 behavior is
 re-based for the SD1 cutover as one canonical reusable source model. `BlueprintCourse` is one
 answer-free, ordered, revisioned course-level aggregate: a vetted Instructor-visible published
-projection contains ordered modules and assignments, and every entry pins an exact published
+`BlueprintCourseView` contains ordered modules and assignments, and every entry pins an exact published
 `QuestionRevisionReference`. Draft source remains owner/workspace-collaborator scoped. `CourseInstance` is
 the separate exact-`CourseId` teaching aggregate created from that source; it owns copied assignment
 definitions, Students, releases, live deadlines, accommodations, grades, and delivery settings.
@@ -167,8 +167,8 @@ installation-wide scope or a lasting dual session API:
    path. This is the B1
    acceptance boundary. Evidence combines focused learning-data-access/server checks with the
    relevant C/D protected-route, Store, and RLS lanes.
-6. `SD1-B5` owns generated auth/browser contracts and direct decoders. The browser-safe account
-   projection reflects the completed auth boundary and contains no session credential, generic identity context, or
+6. `SD1-B5` owns generated auth/browser contracts and direct decoders. The browser-safe authenticated
+   Account data nested in `AuthSessionResponse` reflects the completed auth boundary and contains no session credential, generic identity context, or
    obsolete global-scope compatibility field. Its evidence is the B5 generated-contract and TypeScript
    compilation lanes.
 
@@ -283,7 +283,8 @@ mock-only wiring is never completion evidence.
 
 ## Decisions
 
-The architecture decisions below remain authoritative. The in-scope and out-of-scope ledgers in
+The architecture decisions below remain authoritative. The In-scope Decision Register and
+Out-of-scope decisions in
 `docs/active_plans/active/release_completion_plan.md` record the release boundary. No implementer is
 expected to
 choose a product default, storage rule, source format, authentication method, deployment tool, or
@@ -662,7 +663,7 @@ Blueprint references retained by Course Origin and Assignment Source Record hist
 The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
 (`BP-*`) and one exact Store/route/decoder/editor boundary; it removes Alpha types, route surfaces, schema
 branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
-module/assignment projection of the same BlueprintCourse. Fork Blueprint Course, Copy Assignment from Blueprint, and
+module/assignment `BlueprintCourseView` of the same BlueprintCourse. Fork Blueprint Course, Copy Assignment from Blueprint, and
 Create Course from Blueprint are distinct operations selected by destination, with no live source tether.
 
 Question stewardship remains a shared dependency of both aggregates. Stable human-facing
@@ -683,9 +684,9 @@ only under the existing privacy-threshold formula. Existing `WP-INST-D1`, `D2`, 
 The emergency QuestionRevision path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
 replacement and closed, FERPA-safe impact manifest precede one atomic authoritative replacement
 mapping and generation. New selection and issuance resolve to the replacement immediately. Bounded
-idempotent generation-fenced workers materialize affected BlueprintCourse/CourseInstance/assignment/
-pool/future-issuance references and deterministic remediation without an unbounded cross-course
-transaction. The flawed version and issued/graded evidence remain immutable; in-progress items are
+idempotent generation-fenced workers apply the authoritative correction mapping and deterministic
+remediation to affected BlueprintCourse/CourseInstance/assignment/pool/future-issuance references
+without an unbounded cross-course transaction. The flawed version and issued/graded evidence remain immutable; in-progress items are
 reissued or excused and completed work receives the manifest's deterministic remediation, with
 superseding recalculation receipts. Course Instructors receive audited impact and actionable results;
 Sysadmin receives privacy-safe aggregate impact only. D1 owns availability/impact, G1
@@ -966,7 +967,7 @@ Authoritative-versus-derived roles, settled per backend:
 | --------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
 | PLE algorithmic | Generator id and version; parameters derived from the seed | Rendered output                                          |
 | PLE static      | Canonical versioned PLE Question JSON source               | Public Question model and private Question Grading Input |
-| WeBWorK         | PG source reference and version                            | Typed render envelope, images, cached renders            |
+| WeBWorK         | PG source reference and version                            | Question Backend render result, images, cached renders   |
 | QTI             | Original ZIP in object storage                             | Parsed model in shared content, extracted assets         |
 | H5P             | Remote package reference                                   | Any imported internal representation                     |
 
@@ -1056,7 +1057,7 @@ needed separate rulings for generated and static questions.
 
 For an algorithmic question, **the pinned generator identifier, generator
 version, and parameter specification are authoritative.** The normalized
-Question Revision public model is a derived, cached projection for
+Question Revision public model is a derived, cached public reader model for
 rendering and search, regenerable from the pinned generator at any time.
 
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
@@ -1070,7 +1071,7 @@ evidence.
 For a static Question, **the canonical, versioned PLE Question JSON
 source is authoritative.** Publication preserves it as a private immutable
 source object and compiles it into an answer-free public model plus separately
-granted grader-only material. The two compiled values carry checksums and a
+protected PLE Question JSON Private Grading. The two compiled values carry checksums and a
 public/private binding, but neither replaces the preserved source for recovery
 or future re-import. QTI remains an adapter into and out of supported internal
 semantics; Canvas or Blackboard XML never becomes the PLE source contract.
@@ -1079,10 +1080,10 @@ semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 | --------------- | ------------------------------------------------------- | -------------------------------------------------------- |
 | PLE algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                        |
 | PLE static      | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input |
-| WeBWorK         | PG source reference and version                         | Normalized model, typed render envelope, cached renders  |
+| WeBWorK         | PG source reference and version                         | Normalized model, Question Backend render result, cached renders |
 | QTI             | Original ZIP in object storage                          | Parsed model, extracted assets                           |
 | H5P             | Remote package reference                                | Any imported internal representation                     |
-| iMathAS         | Checksum-pinned source snapshot and integration profile | Safe render envelope and deterministic render cache      |
+| iMathAS         | Checksum-pinned source snapshot and integration profile | Safe Question Backend render result and deterministic render cache |
 
 ### Reading a version 1 payload with version 5 software
 
@@ -1262,7 +1263,7 @@ than a component re-render.
 | Remaining time                                     | Signal holding an integer of deciseconds | Timer component          | Scalar, high-frequency, one subscriber                                                           |
 | Submission in flight                               | Signal holding a discriminated union     | Attempt component        | `idle`, `validating`, `submitted`, `graded`, `failed`                                            |
 | Question content                                   | Resource keyed on question attempt id    | Question component       | Async, suspendable, cache-friendly                                                               |
-| Prefetched next question                           | Store keyed by question index            | Prefetch controller      | Written by prefetch, read by navigation                                                          |
+| Next-question prefetch                             | Store keyed by question index            | Prefetch controller      | Written by prefetch, read by navigation                                                          |
 | Question Library browse results                    | Resource plus cursor signal              | Question Library route   | Cursor pagination, never an offset                                                               |
 
 Conventions the review checklist enforces positively: read props at the use site so reactivity is
@@ -1275,10 +1276,10 @@ effect.
 Rendering a backend-neutral question is security-sensitive because Question Backends process content
 produced elsewhere.
 
-The API returns a **render envelope** holding closed Question Content Blocks, a Question Response Format,
+The API returns a **Question Presentation** holding closed Question Content Blocks, a Question Response Format,
 and asset references. The renderer maps each block to a component and each Question Response Format to a
 question response control. WeBWorK and QTI conversion reject unsupported or unsafe upstream input before
-producing that typed envelope; raw renderer HTML never reaches the browser or cache.
+producing that Question Presentation; raw renderer HTML never reaches the browser or cache.
 
 Question Response Controls, one per response type in `question_model`, are the reusable core of the student UI:
 numeric entry with unit display, formula entry with live format validation, single and multiple
@@ -1297,9 +1298,10 @@ revealing the answer defeats the assessment.
 Each assignment owns five independently timed student fields: score, per-item correctness, feedback
 text, solution, and class statistics. Each field uses one closed timing: during attempt, after
 submit, after due, after close, or never. The server evaluates the current assignment policy only
-after current S5 entitlement, using the current S3-resolved effective-policy verdict/decision,
-authoritative time, and the submission fact. When a due or close boundary is absent, the
-corresponding timing withholds the field; withheld fields are omitted from the response envelope.
+after confirming current S5 Active Student Course Membership and resolving Assignment Access through
+the current S3 Effective Assignment Policy decision using authoritative time and the submission fact.
+When a due or close boundary is absent, the
+corresponding timing withholds the field; withheld fields are omitted from the Student Feedback response.
 
 The browser receives neither policy nor clock inputs and therefore cannot infer a future disclosure.
 A client asking for more receives no more, which keeps the answer-secrecy guarantee independent of
@@ -1322,14 +1324,14 @@ teaching screen, not a failure screen.
 Perceived speed comes from three mechanisms, in order of contribution:
 
 1. **Next-question prefetch.** While a student works on question N, the client requests question N+1's
-   envelope and warms its assets. Navigation after a graded answer is then a store read.
+   Question Presentation and warms its assets. Navigation after a graded answer is then a store read.
 2. **Local format validation.** Malformed input is caught in WASM with no request.
 3. **Explicit pending state.** The submit button enters a `submitted` state immediately with the
    student's answer echoed back, so the round trip is visible progress rather than a frozen UI. No
    correctness is implied or guessed before the server answers.
 
 Next-question prefetch uses a durable, server-only reservation rather than creating an early attempt.
-Its browser projection is answer-free, but the reservation retains the issued private grading
+Its browser result is answer-free, but the reservation retains the issued private grading
 authority needed to avoid later Question Library or renderer reconstruction. It binds the current unresolved
 attempt, the first unattempted assignment position, the server-owned seed, parameter hash, and
 complete Question Attempt Reproduction Details. Submitting question N promotes that reservation into the one real N+1
@@ -1338,7 +1340,7 @@ attempt and timer, then records either an immutable
 can heal a committed-but-unlinked successor from the sole pending receipt, but replay never scans
 newer Assignment Attempt state to rewrite a receipt.
 
-The browser keeps the prefetched envelope only in memory. It advances without another Assignment Attempt screen fetch
+The browser keeps the Question Presentation only in memory. It advances without another Assignment Attempt screen fetch
 only when the receipt's minimal `nextIssued` descriptor exactly matches predecessor, Assignment Attempt, position,
 version, seed, and backend-owned rendered hash. Mismatch, outage, teardown, or a late response clears
 the speculative value and uses the ordinary authoritative screen path. Asset warming is limited to 12
@@ -1396,7 +1398,7 @@ Browser persistence is deliberately narrow, since anything stored is data at res
 | Account settings | Presentation contrast preference; default standard, optional increased contrast     | On user change or explicit reset                            |
 | `localStorage`   | Device-local sound and reduced-motion preferences only                              | On explicit reset                                           |
 | `sessionStorage` | In-progress response text keyed by Question Attempt, for crash and refresh recovery | On successful submit, Assignment Attempt exit, and sign-out |
-| Memory only      | One exact key-free next-question envelope and its receipt-binding descriptor        | On advance, mismatch, Assignment Attempt exit, or unmount   |
+| Memory only      | One exact key-free Question Presentation and its receipt-binding descriptor | On advance, mismatch, Assignment Attempt exit, or unmount   |
 | Nothing          | Session tokens, keys, grades, and any answer-bearing value                          | n/a                                                         |
 
 Session identity lives in an `HttpOnly` cookie the page cannot read, which is what keeps it out of the
@@ -1409,7 +1411,7 @@ table above.
   generated surface contains no answer-key type, mirroring the WASM export allowlist so both halves of
   the secrecy boundary are checked the same way.
 - **Question Backends convert only supported content** into closed Question Content Blocks before it
-  enters a render envelope; raw renderer HTML is neither cached nor delivered.
+  enters a Question Presentation; raw renderer HTML is neither cached nor delivered.
 - **Content Security Policy** ships with the app: script sources limited to the bundle's own origin,
   `wasm-unsafe-eval` present because WebAssembly instantiation requires it, `object-src` empty, and
   frame ancestors limited to the LMS origins configured for LTI launch. The esbuild bundle contains no
@@ -1437,7 +1439,7 @@ table above.
 
 | Layer                    | Covers                                                                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node component tests     | Question Response Control behavior, validation state transitions, envelope-to-component mapping                                                                                       |
+| Node component tests     | Question Response Control behavior, validation state transitions, Question Presentation-to-component mapping                                                                          |
 | Playwright functional    | Mastery loop, post-completion practice Assignment Attempt, give-up flow, resume after refresh, retry after a failed submission, timer expiry, publish refusal                         |
 | Playwright accessibility | Keyboard-only completion of a full Assignment Attempt, focus order across attempt phases, live-region announcements, contrast measured against `docs/COLOR_CONTRAST_ACCESSIBILITY.md` |
 | Playwright network       | Offline submit and recovery, slow renderer, expired session mid-Assignment Attempt, WASM instantiation failure falling back to server validation                                      |
@@ -1518,12 +1520,12 @@ substitution for a required production path.
 | MOD-ACTIVITY               | Assignment Activity Rules                                                | Assignment Attempt lifecycle and independent policy rules                                                                             | MOD-QM                                                                                  | n/a                                 | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
 | MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, completion within an Assignment Attempt                                                                        | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
 | MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                                                                          | MOD-QM                                                                                  | n/a                                 | Table-driven grace and pause cases                                                                                                                                                                                                          |
-| MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                                                                      | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
+| MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, score summary                                                                                                           | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
 | MOD-CAP                    | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                                                                        | MOD-QM                                                                                  | n/a                                 | Committed violation table                                                                                                                                                                                                                   |
 | MOD-GEN                    | Question Variation generation                                            | `generate(question_seed, definition)`                                                                                                 | MOD-QM                                                                                  | n/a                                 | Question Seed parity (WP-C4)                                                                                                                                                                                                                |
 | MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed PLE Question JSON private integrity                                                        | MOD-QM, MOD-STATE                                                                       | n/a                                 | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                                                                   | MOD-ID                                                                                  | `MemoryObjectStore`                 | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
-| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no private material enters Wasm                                                                                                                                         |
+| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no Answer Key or Question Grading Input enters Wasm                                                                                                                                         |
 | MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                                                                      | MOD-ID, MOD-ACTIVITY                                                                    | n/a                                 | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
 | MOD-ADP-PLE                | PLE Question Backend                                                     | Algorithmic Question Types and strict PLE Question JSON compiler                                                                      | MOD-QM, MOD-GEN, MOD-GRD                                                                | n/a                                 | End-to-end generated Question Type; PLE Question JSON public/private split and reproducible hash                                                                                                                                            |
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                                                                           | MOD-QM, MOD-OBJ                                                                         | Recorded renderer fixtures          | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
@@ -1544,7 +1546,7 @@ substitution for a required production path.
 | MOD-UI-SHELL               | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                                                                        | MOD-CLIENT, WP-C9                                                                       | Mock handlers                       | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                                   |
 | MOD-UI-COURSE              | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow                                                         | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                                       | Appearance mock repository          | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual source_object_reference gates                                                                                                        |
 | MOD-UI-WIDGETS             | Question Response Control set                                            | One component per response type, with local format validation                                                                         | MOD-WASM, WP-C9                                                                         | Reference widget                    | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                      |
-| MOD-UI-RENDER              | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives                                                         | MOD-UI-WIDGETS                                                                          | Fixture envelopes                   | Representative supported block kinds render; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                                                                     |
+| MOD-UI-RENDER              | Question renderer                                                        | Question Presentation-to-component mapping, asset resolution, math and figure alternatives                                             | MOD-UI-WIDGETS                                                                          | Fixture Question Presentations     | Representative supported block kinds render; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                                                                     |
 | MOD-UI-ATTEMPT             | Assignment Attempt loop                                                  | Submit, pending state, current student-disclosure display, timer, prefetch, retry                                                     | MOD-UI-RENDER, MOD-CLIENT                                                               | Mock handlers                       | Full mastery Assignment Attempt; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                      |
 | MOD-UI-BROWSE              | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                                                                               | MOD-CLIENT                                                                              | Mock handlers                       | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                           |
 | MOD-UI-EDITOR              | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow                                                         | MOD-UI-RENDER, MOD-WASM                                                                 | Mock handlers                       | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                            |
@@ -1625,8 +1627,8 @@ widget exist to build against.
   AccountId, and revoked membership return zero rows;
   the student-facing role cannot read any answer-key table; an in-progress Assignment Attempt resumes across restart
   and across replicas; a replayed submission returns the first result; every list endpoint uses a
-  cursor; PLE Question JSON publication preserves the non-signable canonical source and binds grader-only
-  material to the exact answer-free public model.
+  cursor; PLE Question JSON publication preserves the non-signable canonical source and binds
+  PLE Question JSON Private Grading to the exact answer-free public model.
 - Parallel-plan ready: yes. Seven lanes.
 
 ### Milestone: M3 experience lanes
@@ -1674,7 +1676,8 @@ widget exist to build against.
   renderer; the renderer has no public endpoint, no PLE database access, enforced CPU, memory, and
   request-time limits, no SQL database or persistent renderer volume; its timeout degrades only
   WeBWorK questions; PLE
-  API and browser-network gates prove no protected material crosses the boundary. Broad OPL fixture-set
+  API and browser-network gates prove no server-only Answer Key, backend-specific Question Grading
+  Input, or Question Attempt Reproduction Details crosses the boundary. Broad OPL fixture-set
   compatibility is outside this bounded fixture acceptance. The hostile-ZIP fixture set is fully rejected
   with actionable errors; unsupported QTI features are recorded rather than dropped; the original
   package is re-importable; H5P declares `serverGrading: false`; an iMathAS sandbox preview remains
@@ -1727,7 +1730,7 @@ After that prerequisite:
 - Keep `ImathasQuestionBackendLaunch` separate from serializable question source. Its `launchUrl` is a
   non-secret, same-origin, session-authenticated attempt route or handle, never an opaque iMathAS
   launch capability. It contains no iMathAS bearer, token, credential, source locator, or
-  correctness material, and none may enter URLs, browser history, logs, traces, or serializable
+  Answer Key or Question Grading Input, and none may enter URLs, browser history, logs, traces, or serializable
   source. The server keeps the iMathAS launch and correlation server-held or in a server-only
   HttpOnly session, and rechecks enrollment and attempt ownership on every route use. Browser
   messages may communicate validated presentation/readiness state only; they never grade.
@@ -1749,7 +1752,7 @@ sandbox
 publication refusal without a snapshot or durable IDs; immutable replay after iMathAS mutation;
 deterministic render cache; forged or stale browser/iMathAS messages leaving attempts ungraded;
 idempotent grade replay and cross-course isolation; copied launch URLs and disclosure traces free of source,
-iMathAS launch material, secrets, answer, and unauthorized score; outage isolation; and capability
+iMathAS Session Authentication, secrets, Answer Key, and unauthorized score; outage isolation; and capability
 refusal for unsupported profiles. A dedicated
 non-production iMathAS/MyOpenMath compatibility probe is a one-time release-readiness check, never a
 permanent credentialed or network test.
@@ -1891,7 +1894,7 @@ or implementer-authored specification is required.
 - Acceptance criteria: Student Record, Assignment Attempt, and Question Attempt as distinct types; the four
   policies (completion requirement, grade policy, continued practice, variation policy) are independent enums
   that compose freely; completion within an Assignment Attempt is a derivation with no stored boolean; the summary
-  projection is a pure function of an Assignment Activity transition so the Store can apply it transactionally;
+  `AssignmentProgressRecord` is a pure function of an Assignment Activity transition so the Store can apply it transactionally;
   compact behavior tests cover varied completion and grade-policy histories against hand-computed outcomes
   without making an arbitrary Assignment Attempt count part of the contract.
 - Evidence or review: the transition examples are the source_object_reference a reviewer reads because they encode
@@ -1997,7 +2000,7 @@ or implementer-authored specification is required.
   promotion/cleanup, and mounted Instructor editor are deferred and incomplete. No historical
   receipt authorizes an acceptance claim for those absent capabilities.
 - Separate terminology scope: `WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW` owns only the already
-  existing reader projection and its Question Model/public facade, generated declaration, strict
+  existing `CourseAppearanceView` reader and its Question Model/public facade, generated declaration, strict
   browser decoder, reader/client consumers, focused fixtures/tests, and affected documentation. It
   neither restores nor accepts the deferred durable feature.
 - Acceptance criteria: retain the documented supported theme variants, including the `woodland` to
@@ -2109,7 +2112,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 | Signed URL leakage                                             | Educational records exposed                                                     | A URL is shared, logged, or used after its configured expiry                                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                      |
 | Draft problems leak into shared content                        | The exact ADAPT failure this design exists to avoid                             | A code path minting `QuestionId` outside publish                                                                                             | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                  |
 | Parallel lanes collide on a shared source_object_reference     | Merge conflicts and lost work                                                   | Two lanes editing migrations or the seed table                                                                                               | `integrator`     | One owning module per shared source_object_reference, tabulated in the catalog                                                                                                                                                                                                                                                                                                                       |
-| Scope creep toward ADAPT parity                                | Version 1 never ships                                                           | Requests for rubrics, Adaptive Question Support, discussions                                                                                 | `architect`      | Binary out-of-scope ledger in the release-completion plan                                                                                                                                                                                                                                                                                                                                            |
+| Scope creep toward ADAPT parity                                | Version 1 never ships                                                           | Requests for rubrics, Adaptive Question Support, discussions                                                                                 | `architect`      | Binary out-of-scope register in the release-completion plan                                                                                                                                                                                                                                                                                                                                          |
 | Plan drifts from implementation                                | Reviews check the wrong thing                                                   | Package work outpacing the tracker                                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                               |
 
 ## Rollout and release checklist

@@ -46,7 +46,7 @@ export interface PleQuestionJsonPreviewProps {
   /** This PLE Question JSON Public Preview contains no correct answer and is safe for the student-equivalent preview. */
   readonly preview: PleQuestionJsonPublicPreview;
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
-  /** The page exposes this only after the author explicitly asks to inspect answer material. */
+  /** The page exposes this only after the author explicitly asks to inspect the Answer Key. */
   readonly instructorAnswerCheck?: PleQuestionJsonInstructorAnswerCheck;
 }
 

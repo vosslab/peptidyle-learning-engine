@@ -45,11 +45,11 @@ function selectedBodies(
  * Student response instead of guessing at a result.
  */
 export function projectStudentResponse(
-  envelope: QuestionVariationPresentation,
+  presentation: QuestionVariationPresentation,
   response: StudentResponse | null,
 ): ReadonlyArray<QuestionContentBlock> {
-  if (response === null || envelope.response.kind !== response.kind) return [];
-  const definition = envelope.response;
+  if (response === null || presentation.response.kind !== response.kind) return [];
+  const definition = presentation.response;
   switch (response.kind) {
     case "multipleChoice": {
       if (definition.kind !== "multipleChoice") return [];

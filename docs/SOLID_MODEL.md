@@ -11,10 +11,10 @@ complete inventory of every route-local signal.
 | ------------------------------------ | -------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session identity and roles           | Context containing a signal accessor         | `SessionProvider`                       | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                       |
 | Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before widgets mount. Consumers read context; fallback validation stays behind the same facade.                                                       |
-| Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized Course projection for Course, Assignment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
+| Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized `CourseRouteView` for Course, Assignment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
 | Course-theme CSS variables           | JSX-derived token functions                  | `CourseThemeScope`                      | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                        |
 | PLE PLE Question JSON draft          | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                            |
-| Student-equivalent author preview    | Signal and answer-free projection            | `PleQuestionJsonPreview`                | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check. |
+| Student-equivalent author preview    | Signal and answer-free Question Preview      | `PleQuestionJsonPreview`                | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check. |
 | iMathAS Question Backend Launch      | Signals, refs, effect, and lifecycle cleanup | `ImathasQuestionBackendResponseControl` | The browser receives a same-origin launch path only after activation. Readiness is presentation state; it cannot provide a score, backend identity, or grading input.                       |
 | Route-local screens                  | Signals or router `createAsync` resources    | Owning route                            | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                             |
 
@@ -58,7 +58,7 @@ keyed `createResource` for its private draft read.
 
 `CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseId)` for course
 and instructor-course routes, `assignmentAttemptScreen(assignmentAttemptId)` for an attempt, and `assignmentAttemptSummary(assignmentAttemptId)` for a
-summary. The context exposes the authorized course projection to the course entry identity and theme;
+summary. The context exposes the authorized `CourseRouteView` to the course entry identity and theme;
 the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 
@@ -110,7 +110,7 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | Browser owns                                                                     | Server owns                                                                                                                          |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                                  |
-| Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                            |
+| Course-theme presentation from an authorized `CourseRouteView`                   | Course identity, appearance revision, banner-object authorization, and conflict decisions                                            |
 | PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                               |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, QTI Import Checksums, and atomic draft replacement |
 | iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
@@ -130,7 +130,7 @@ Reference-slice tests must prove observable behavior rather than only constructi
 
 - changing one selected response updates its control and live status without recreating the widget;
 - `<For>` keeps identity for choices, draft rows, and QTI report items;
-- a course route loads one authorized theme projection and drops it on navigation;
+- a course route loads one authorized `CourseRouteView` and drops it on navigation;
 - the native preview remains answer-free until an instructor explicitly opens the protected check;
 - QTI conversion rejects a dirty or unavailable draft and leaves the editor locked only during the
   replacement/refetch handoff;

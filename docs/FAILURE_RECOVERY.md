@@ -19,8 +19,8 @@ second recovery or product path.
 
 ## Authority status
 
-**Current authority.** Route-safe error projection, attempt-scoped submission
-receipts, no-store responses, and bounded private-backend failures determine
+**Current authority.** Route-safe error result, attempt-scoped Question
+Submission Receipts, no-store responses, and bounded private-backend failures determine
 the current caller-visible outcomes described below.
 
 **Required for new work.** Each capability must classify failures as committed,
@@ -40,7 +40,7 @@ Every state-changing path falls into one of four outcomes:
 
 | Outcome       | Meaning                                                                                                   | Caller behavior                                                                                                   |
 | ------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Committed     | The requested durable effect is known to be visible.                                                      | Show the returned receipt or current projection.                                                                  |
+| Committed     | The requested durable effect is known to be visible.                                                      | Show the returned receipt or current Assignment Attempt Summary.                                                  |
 | Rejected      | Validation, authorization, lifecycle, or immutable-state rules refused the request before a valid effect. | Do not retry unchanged automatically; correct the visible condition or reload.                                    |
 | Retryable     | A dependency or serializable transaction was unavailable before a known commit.                           | Retry only through the operation's documented idempotency or lease boundary.                                      |
 | Indeterminate | The client lost contact while a commit might have happened.                                               | Preserve the request identity, query/retry through its durable receipt, and never create a second logical action. |
@@ -55,16 +55,16 @@ best-effort data. PLE either reconstructs the exact durable state or fails close
 result; it is not a browser error schema and does not authorize exposing its
 attached diagnostic text.
 
-| Store result                                 | Durable meaning                                                                                                                | Normal recovery                                                                                       |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `NotFound`                                   | No visible record exists in the active scope.                                                                                  | Treat as absent; routes may also use it to conceal a foreign record.                                  |
-| `AlreadyExists`                              | Immutable identity or first-writer boundary already exists.                                                                    | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload. |
-| `Forbidden`                                  | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record.                                             |
-| `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative projection and ask the user to review before retrying.                       |
-| `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                           |
-| `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                   |
-| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                        |
-| `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                   |
+| Store result                                 | Durable meaning                                                                                                                | Normal recovery                                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `NotFound`                                   | No visible record exists in the active scope.                                                                                  | Treat as absent; routes may also use it to conceal a foreign record.                                                             |
+| `AlreadyExists`                              | Immutable identity or first-writer boundary already exists.                                                                    | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload.                            |
+| `Forbidden`                                  | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record.                                                                        |
+| `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative Student Question Attempt View or Assignment Attempt Summary and ask the user to review before retrying. |
+| `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                                                      |
+| `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                                              |
+| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                                                   |
+| `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                                              |
 
 HTTP routes project this classification narrowly. For example,
 The deferred Assignment Attempt route maps a missing attempt record to `404`, an Assignment Attempt conflict
@@ -88,12 +88,14 @@ recover an uncertain submission by issuing a different attempt.
 - A student supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
   visible ASCII and is stored with exact course/Student submission evidence in
   the deferred Store contract.
-- The Store first atomically persists the accepted response, immutable issued-work witness, pending
-  evaluation, execution, and ready job. An exact retry returns the same durable acceptance rather
-  than creating another grading operation. A changed response or incompatible replay conflicts.
+- The Store first atomically persists the accepted Question Submission and its Question Submission
+  Receipt, pending evaluation, execution, and ready job. The submission remains bound through its
+  Question Attempt to the immutable Issued Question and private Question Attempt Reproduction
+  Details. An exact retry returns the same durable acceptance rather than creating another grading
+  operation. A changed response or incompatible replay conflicts.
 - After `202 Accepted`, the browser uses the route-bound submission-status read. The sealed worker
-  commits the result, Question Attempt/Assignment Attempt/enrollment transitions, projections, and completed receipt in one
-  transaction; status reads converge on that receipt without re-grading.
+  commits the Grading Result, Question Attempt/Assignment Attempt/enrollment transitions, Assignment Attempt Summary, and Automated Grading Receipt in one
+  transaction; an authorized status reader derives policy-redacted Student Feedback without re-grading.
 - If the browser loses the response, it preserves the same request body and idempotency key, then
   retries that exact logical submission after connectivity returns. It must not create a new key
   merely because the outcome was unknown.
@@ -114,7 +116,7 @@ must not treat current Question Attempt Reproduction Details as client authority
 ## Replica and cache recovery
 
 API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-authenticated Account context, attempts, submissions, idempotency receipts, and shared S3-compatible object store
+authenticated Account context, attempts, submissions, Question Submission Receipts, idempotency bindings, and shared S3-compatible object store
 allow a surviving replica to resume an authorized attempt. The exact topology and evidence are in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 

@@ -17,7 +17,7 @@ pub enum StoreError {
     Forbidden,
     /// Record shape violates a model invariant.
     InvalidRecord(String),
-    /// Pure activity projection rejected the transition.
+    /// Pure activity evaluation rejected the transition.
     AssignmentActivity(AssignmentActivityError),
     /// The database-authoritative timer no longer accepts this response.
     TimedOut,

@@ -3,7 +3,7 @@
 //! The upstream endpoint is deliberately treated as an untrusted private
 //! service: it receives only trusted immutable source, seed, display policy,
 //! and a server-resolved submitted answer. PLE translates its form/JSON
-//! dialect into an answer-free question envelope.
+//! dialect into an answer-free Question Presentation.
 
 #[path = "html_projection.rs"]
 mod html_projection;
@@ -21,8 +21,8 @@ use base64::Engine as _;
 use grading::QuestionGradingOutcome;
 #[cfg(test)]
 use question_model::GradingResult;
+use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
-use question_model::envelope::QuestionContentBlock;
 use question_model::response::{
     MatchingChoice, MatchingPrompt, QuestionChoice, QuestionResponseFormat, ResponseItemReference,
 };
@@ -218,7 +218,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
         let parsed = self.parsed_render(request).await?;
         Ok(RenderedWebworkQuestion {
-            envelope: parsed.envelope,
+            presentation: parsed.presentation,
             renderer_version: self.settings.expected_renderer.clone(),
             replay: Some(parsed.replay),
         })
@@ -345,7 +345,7 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
 }
 
 struct ParsedRender {
-    envelope: QuestionVariationPresentation,
+    presentation: QuestionVariationPresentation,
     replay: WebworkQuestionAttemptReplayDetails,
 }
 #[derive(Debug)]
@@ -417,7 +417,7 @@ fn project_single_radio(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionVariationPresentation {
+        presentation: QuestionVariationPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
@@ -474,7 +474,7 @@ fn project_matching(
         );
     }
     Ok(ParsedRender {
-        envelope: QuestionVariationPresentation {
+        presentation: QuestionVariationPresentation {
             variation: question_model::QuestionVariation::static_variation(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
@@ -638,11 +638,11 @@ fn reject_protected_values(
             .any(|protected| key.eq_ignore_ascii_case(protected))
             || contains_protected(value, &protected)
         {
-            return Err(bad("renderer response contained protected material"));
+            return Err(bad("renderer response contained protected values"));
         }
     }
     if contains_expected_protected(object, expected) {
-        return Err(bad("renderer response echoed trusted request material"));
+        return Err(bad("renderer response echoed trusted request values"));
     }
     Ok(())
 }
@@ -674,7 +674,7 @@ fn reject_protected_html(
         .iter()
         .any(|protected| html.contains(protected))
     {
-        return Err(bad("renderer HTML contained protected material"));
+        return Err(bad("renderer HTML contained protected values"));
     }
     Ok(())
 }

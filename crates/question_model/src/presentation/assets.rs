@@ -2,9 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::envelope::{
-    QuestionAssetReference, QuestionContentBlock, QuestionVariationPresentation,
-};
+use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
+use crate::question_variation::QuestionVariationPresentation;
 use crate::response::QuestionResponseFormat;
 
 use super::builder::PresentationBuildError;
@@ -14,22 +13,22 @@ use super::model::{
 };
 
 pub(super) fn validate_assets(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     bindings: &[QuestionAssetRendition],
 ) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
-    collect_assets(&envelope.prompt, &mut referenced);
-    collect_response_assets(&envelope.response, &mut referenced);
+    collect_assets(&presentation.prompt, &mut referenced);
+    collect_response_assets(&presentation.response, &mut referenced);
     validate_asset_refs(&referenced, bindings)
 }
 
 pub(super) fn validate_public_assets(
-    envelope: &QuestionPresentation,
+    presentation: &QuestionPresentation,
     bindings: &[QuestionAssetRendition],
 ) -> Result<Vec<QuestionAssetRendition>, PresentationBuildError> {
     let mut referenced = BTreeSet::new();
-    collect_assets(&envelope.prompt, &mut referenced);
-    match &envelope.response {
+    collect_assets(&presentation.prompt, &mut referenced);
+    match &presentation.response {
         QuestionPresentationResponseFormat::SingleChoice { choices }
         | QuestionPresentationResponseFormat::MultipleAnswer { choices, .. } => {
             collect_presented_response_item_assets(choices, &mut referenced);

@@ -31,14 +31,17 @@ impl PleQuestionBackend {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
+            &resolve_question_asset_objects(
+                &prepared.presentation,
+                question_asset_object_references,
+            )?,
         )?;
         let implementation =
             self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
         implementation.derive_hint(
             question,
             &prepared.generated,
-            &prepared.envelope,
+            &prepared.presentation,
             prepared.derived.answer_key.as_ref(),
         )
     }
@@ -64,7 +67,10 @@ impl PleQuestionBackend {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
+            &resolve_question_asset_objects(
+                &prepared.presentation,
+                question_asset_object_references,
+            )?,
         )?;
         grader_execution
             .grade(question, response, prepared.derived.answer_key.as_ref())
@@ -93,7 +99,10 @@ impl PleQuestionBackend {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
+            &resolve_question_asset_objects(
+                &prepared.presentation,
+                question_asset_object_references,
+            )?,
         )?;
         let outcome = grader_execution
             .grade(question, response, prepared.derived.answer_key.as_ref())
@@ -112,7 +121,7 @@ impl PleQuestionBackend {
             .derive_question_feedback_answer_and_explanation(
                 question,
                 &prepared.generated,
-                &prepared.envelope,
+                &prepared.presentation,
                 prepared.derived.answer_key.as_ref(),
                 result,
                 response,

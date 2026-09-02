@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use question_model::envelope::QuestionContentBlock;
+use question_model::QuestionContentBlock;
 use question_model::{
     AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer,
     QuestionAnswerExplanation, QuestionFeedback, StudentFeedbackReleaseRule,

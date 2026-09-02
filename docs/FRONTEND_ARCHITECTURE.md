@@ -2,7 +2,7 @@
 
 PLE is a SolidJS single-page application backed by one Rust API and one
 answer-free Rust WebAssembly facade. The browser presents server-owned course,
-assignment, and Student projections. It never decides correctness, timing,
+assignment, and Student reader data. It never decides correctness, timing,
 authorization, publication, or release.
 
 This document applies [SOLID_MODEL.md](SOLID_MODEL.md),
@@ -25,7 +25,7 @@ authenticated course context
 ```
 
 BlueprintCourse is the reusable source surface. A published BlueprintCourse
-projection is visible and reusable to every vetted Instructor; a draft is
+`BlueprintCourseView` is visible and reusable to every vetted Instructor; a draft is
 visible only to its owner and authorized workspace collaborators. CourseInstance
 pages are private to current equal Teaching Team Members and enrolled Students. Each
 CourseInstance route and response carries the exact destination CourseId; its
@@ -33,27 +33,27 @@ immutable Blueprint parent and applied revision are server-owned.
 
 ## Route map
 
-| Route                                                                  | Surface                                            | Authority                                                                             |
-| ---------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| /                                                                      | Signed-in course list                              | Account and course summaries                                                          |
-| /sign-in                                                               | Deployment-gated seeded Live Demo Account selector | Authenticated Session contract                                                        |
-| /courses/:courseId                                                     | CourseInstance assignments                         | Current course relationship                                                           |
-| /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship                                            |
-| `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Student entitlement                                     |
-| `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed server projection                                                           |
-| /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                          |
-| /blueprint-courses                                                     | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared published projections |
-| /blueprint-courses/:blueprintCourseRef                                 | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                               |
-| /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                |
-| /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                |
-| /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                             |
-| /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                                                         |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                                                   |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/policies     | Policies                                           | Assignment revision                                                                   |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                                                        |
-| /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                                                             |
-| /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                                                             |
-| /blueprint-courses                                                     | Blueprint Course adoption and imports              | Course Instance destination authority                                                 |
+| Route                                                                  | Surface                                            | Authority                                                                                     |
+| ---------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| /                                                                      | Signed-in course list                              | Account and course summaries                                                                  |
+| /sign-in                                                               | Deployment-gated seeded Live Demo Account selector | Authenticated Session contract                                                                |
+| /courses/:courseId                                                     | CourseInstance assignments                         | Current course relationship                                                                   |
+| /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship                                                    |
+| `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Assignment Access                                                |
+| `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed Assignment Attempt Summary                                                          |
+| /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                                  |
+| /blueprint-courses                                                     | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared `BlueprintCourseView` results |
+| /blueprint-courses/:blueprintCourseRef                                 | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                                       |
+| /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                        |
+| /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                        |
+| /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                                     |
+| /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                                                                 |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                                                           |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/policies     | Policies                                           | Assignment revision                                                                           |
+| /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                                                                |
+| /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                                                                     |
+| /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                                                                     |
+| /blueprint-courses                                                     | Blueprint Course adoption and imports              | Course Instance destination authority                                                         |
 
 Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
 the canonical Assignment Attempt terms in
@@ -97,12 +97,12 @@ The reusable source client is owned by:
 
 The workspace displays ordered modules and ordered assignments. Its problem
 picker source descriptor contains one Blueprint reference and normalized module
-and assignment positions. A one-assignment selection is a bounded projection
+and assignment positions. A one-assignment selection is a bounded `BlueprintCourseView`
 of the same tree, not another source type. The editor keeps draft input locally,
 sends a complete definition with the observed revision, and preserves the local
 draft after a stale or invalid response.
 
-A published projection contains only answer-free definitions, reviewed Question Authorship,
+A published `BlueprintCourseView` contains only answer-free definitions, reviewed Question Authorship,
 public Question IDs, safe Question Library summaries, current publication state, and
 disclosed evidence context. It contains no answer key, private source,
 response, grading payload, internal UUID, email, Student, or CourseInstance
@@ -151,12 +151,12 @@ only. They are not accepted route aliases, decoder variants, or UI branches.
 | Decoding        | Decode from unknown with closed, bounded, field-by-field decoders.             |
 | Mutation        | Send strong revision evidence and operation-specific idempotency keys.         |
 | Pagination      | Use cursor contracts; never create an offset-based fallback.                   |
-| Cache           | Use no-store for private projections and previews; do not cache authority.     |
+| Cache           | Use no-store for private reader results and previews; do not cache authority.  |
 | Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it.          |
 | Errors          | Preserve entered draft/response where the contract permits recovery.           |
 | Authority       | Treat server authorization, revision, schedule, release, and grading as final. |
 
-Rust Serde owns serialized spelling. The generated TypeScript projection is a
+Rust Serde owns serialized spelling. The generated TypeScript declaration is a
 derivative of Rust contract roots through
 crates/project-tools/src/tsgen.rs. Authored TypeScript owns only transport
 adapters, strict decoding, and presentation models.
@@ -169,14 +169,14 @@ display. It never stores keys, private envelopes, unreleased Student Feedback, o
 provider state, and never derives correctness or completion.
 
 After accepted submission, the browser clears the response and polls an
-answer-free status projection. It does not resubmit known-accepted work.
+answer-free Assignment Attempt status result. It does not resubmit known-accepted work.
 Student Feedback, score, item correctness, solution, class statistics, late status,
 and Student Feedback Release are redacted or exposed only by the server's current policy.
 
 CourseInstance pages use exact CourseId and Student relationship context.
 Instructor Student view is informational and creates no Student work. Gradebook,
 inspection, roster, and assignment data never come from a public
-BlueprintCourse projection.
+`BlueprintCourseView`.
 
 ## WebAssembly facade
 

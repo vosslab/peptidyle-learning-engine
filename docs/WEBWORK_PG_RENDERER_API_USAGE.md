@@ -112,22 +112,22 @@ JWT debug flags problem_result problem_state renderedHTML resources
 ```
 
 The adapter validates token shape and request binding, then discards private
-renderer tokens from the student projection. `problem_result.score` is a finite
+renderer tokens from the Question Presentation. `problem_result.score` is a finite
 normalized value between 0 and 1. The bounded all-or-nothing radio contract
 accepts 0 or 1 and maps it to the published PLE point value.
 
-Unknown members and protected source, answer, or credential material are a
+Unknown members and protected Question Source, Answer Key, or credential values are a
 refusal. This exact closed shape is a security and compatibility boundary, not
 an arbitrary collection-size assertion.
 
-## Browser projection
+## Question Presentation
 
 The adapter selects the rendered `div#problem_body.problem-content`, verifies
 the same-origin renderer base/form metadata, and parses only recognized controls.
 It converts visible labels to PLE response options and stores the upstream
 field/value mapping only in server-side replay state.
 
-The student envelope may contain:
+The Student Question Presentation may contain:
 
 - typed prompt blocks;
 - the PLE Question Type and browser rendering metadata;
@@ -178,7 +178,7 @@ bounded backend-local refusal. The renderer cannot mutate PLE records directly.
 
 ## Verification model
 
-Fast permanent tests cover stable parser, projection, score, secrecy, and
+Fast permanent tests cover stable parser and renderer transformation, score, secrecy, and
 topology behavior. They use inline recorded data and no real network.
 
 Live acceptance is intentionally separate:

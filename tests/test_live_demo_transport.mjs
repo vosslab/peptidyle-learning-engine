@@ -24,7 +24,7 @@ function createLiveDemoFetch(handler) {
   };
 }
 
-test("live-demo decoders accept the closed five-persona projection", () => {
+test("live-demo decoders accept the closed Seeded Demo Accounts response", () => {
   const accounts = {
     accounts: [
       { persona: "elenaInstructor", displayName: "Elena Instructor" },

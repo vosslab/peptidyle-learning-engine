@@ -1,8 +1,8 @@
 //! Browser-safe contracts for an Instructor's non-mutating Question Pool Preview.
 //!
 //! A preview describes a saved Question Pool. It deliberately contains no
-//! selected Question Pool Item identity, seed, answer material, student identity, or issued-work
-//! record. The server owns the temporary preview nonce and discards it after the
+//! selected Question Pool Item identity, seed, Answer Key, student identity,
+//! or issued-work record. The server owns the temporary preview nonce and discards it after the
 //! response is produced.
 
 use serde::{Deserialize, Serialize};

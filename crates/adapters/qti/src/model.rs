@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::profiles::NormalizedQtiItemFingerprint;
 use question_model::QuestionAssetId;
+use question_model::QuestionContentBlock;
 use question_model::QuestionResponseFormat;
-use question_model::envelope::QuestionContentBlock;
 use question_model::response::ResponseItemReference;
 use serde::{Deserialize, Serialize};
 
@@ -198,8 +198,8 @@ pub enum QtiAssetReferenceError {
 }
 
 /// Server-only answer handoff. It is intentionally crate-private: public QTI
-/// callers receive only a question projection and cannot retrieve or compare
-/// correctness material.
+/// callers receive only a Question Prompt and cannot retrieve or compare the
+/// Answer Key.
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct QtiGradingHandoff {
     pub(crate) choices_by_item: BTreeMap<String, ResponseItemReference>,

@@ -8,7 +8,8 @@
 pub mod checker;
 /// Gated access to Answer Keys and other private Question grading records.
 pub mod key;
-/// Integrity contract and private material for the built-in PLE Question JSON Format.
+/// Integrity contract and PLE Question JSON Private Grading for the built-in
+/// PLE Question JSON Format.
 pub mod ple_question_json;
 
 pub use crate::checker::{

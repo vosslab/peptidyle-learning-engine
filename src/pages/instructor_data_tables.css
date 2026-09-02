@@ -47,7 +47,7 @@
   background: color-mix(in srgb, var(--ple-surface-soft) 55%, white);
 }
 
-.gradebook-witness {
+.gradebook-calculation-status {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--ple-layout-gap);
@@ -58,12 +58,12 @@
   background: var(--ple-surface-soft);
 }
 
-.gradebook-witness div {
+.gradebook-calculation-status div {
   display: grid;
   gap: 0.15rem;
 }
 
-.gradebook-witness span {
+.gradebook-calculation-status span {
   color: var(--ple-muted);
   font-size: 0.73rem;
   font-weight: 720;

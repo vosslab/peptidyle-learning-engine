@@ -27,12 +27,11 @@ pub enum RenderedResponseTranslationError {
 
 /// A closed rendering of one immutable submitted Student Response.
 ///
-/// This deliberately closed Student Response Inspection Feedback contains only the Student's
+/// This deliberately closed Student Response Inspection contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;
-/// answer keys, grader material, durable Object Addresses, and Question Backend
-/// payloads
-/// have no representation here.  The server creates it after it has verified
-/// the issued presentation witness.  ASVS 14.1.1 and 14.2.1: sensitive
+/// Answer Keys, Question Grading Input, durable Object Addresses, and Question Backend
+/// payloads have no representation here. The server creates it after verifying
+/// the Issued Question Presentation. ASVS 14.1.1 and 14.2.1: sensitive
 /// educational-record data has one minimized response shape.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
@@ -309,7 +308,7 @@ pub fn project_durable_response_to_rendered(
 }
 
 /// Validates an immutable browser-submitted response against its exact issued
-/// presentation and returns the safe Student Response Inspection Feedback for that issue.
+/// presentation and returns the safe Student Response Inspection for that issue.
 ///
 /// Accepted-submission storage preserves the browser contract verbatim. The
 /// inspection boundary validates each identifier against the reconstructed

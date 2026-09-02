@@ -27,8 +27,8 @@ pub use blackboard::{BlackboardQtiImportError, BlackboardQtiPackage, import_blac
 pub use canvas::{CanvasQtiImportError, CanvasQtiPackage, import_canvas_qti12};
 pub use checksums::{
     QtiImportChecksums, QtiImportResultChecksumInput, QtiPrivateChoiceMapChecksumInput,
-    QtiPrivateFeedbackChecksumInput, QtiPrivateMappingChecksumInput, QtiProfileItemDisposition,
-    QtiPublicChoiceChecksumInput, QtiPublicMappingChecksumInput,
+    QtiPrivateFeedbackChecksumInput, QtiPrivateMappingChecksumInput, QtiPublicChoiceChecksumInput,
+    QtiPublicMappingChecksumInput, QtiWorkspaceImportItemResult,
 };
 pub use choice_ids::{QtiChoiceIdMap, QtiChoiceIdMappingError, map_qti_choice_ids};
 pub use choice_map_payload::QtiChoiceMapPayload;
@@ -321,7 +321,7 @@ pub enum QtiProfileContractError {
     Serialization(String),
     ProfileVersionMismatch,
     DetectionMismatch,
-    ItemChecksumDisposition,
+    ItemChecksumImportResult,
     SourceItemNotAccepted,
     PublicMappingChecksumMismatch,
     PrivateBindingMissing,
@@ -339,8 +339,11 @@ impl fmt::Display for QtiProfileContractError {
             Self::DetectionMismatch => {
                 write!(formatter, "QTI detection evidence and report disagree")
             }
-            Self::ItemChecksumDisposition => {
-                write!(formatter, "QTI item checksum contradicts its disposition")
+            Self::ItemChecksumImportResult => {
+                write!(
+                    formatter,
+                    "QTI item checksum contradicts its accepted import result"
+                )
             }
             Self::SourceItemNotAccepted => write!(
                 formatter,

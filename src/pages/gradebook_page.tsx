@@ -409,7 +409,7 @@ function GradebookCoursePage(props: {
       <Show when={ready()}>
         {(current) => (
           <>
-            <section class="gradebook-witness" aria-label="Gradebook calculation status">
+            <section class="gradebook-calculation-status" aria-label="Gradebook calculation status">
               <div>
                 <span>Calculation</span>
                 <strong>

@@ -59,13 +59,13 @@ import { studentProgressSummary, studentScoreValue } from "../student_progress";
 function attemptContext(
   assignmentAttemptId: string,
   attempt: StudentQuestionAttemptView,
-  envelope: QuestionVariationPresentation,
+  presentation: QuestionVariationPresentation,
 ): AttemptContext {
   return {
     assignmentAttemptId,
     attemptId: attempt.id,
     issuedQuestionId: attempt.issuedQuestion,
-    questionRevision: envelope.variation.questionRevision,
+    questionRevision: presentation.variation.questionRevision,
     seed: attempt.seed,
     deadline: attempt.timing.deadline,
   };
@@ -124,12 +124,14 @@ function matchesIssuedSuccessor(
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
 const MAX_PREFETCH_ASSETS = 12;
 
-function assetIdsForEnvelope(envelope: QuestionVariationPresentation): ReadonlyArray<string> {
-  const blocks = [...envelope.prompt];
-  if (envelope.response.kind === "multipleChoice") {
-    blocks.push(...envelope.response.choices.flatMap((choice) => choice.body));
-  } else if (envelope.response.kind === "ordering") {
-    blocks.push(...envelope.response.items.flatMap((item) => item.body));
+function assetIdsForPresentation(
+  presentation: QuestionVariationPresentation,
+): ReadonlyArray<string> {
+  const blocks = [...presentation.prompt];
+  if (presentation.response.kind === "multipleChoice") {
+    blocks.push(...presentation.response.choices.flatMap((choice) => choice.body));
+  } else if (presentation.response.kind === "ordering") {
+    blocks.push(...presentation.response.items.flatMap((item) => item.body));
   }
   return [
     ...new Set(blocks.filter((block) => block.kind === "image").map((block) => block.asset.asset)),
@@ -242,11 +244,11 @@ function AttemptExperience(props: {
             attemptId: receiptNext.id,
             assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
             issuedQuestionId: receiptNext.issuedQuestion.id,
-            questionRevision: cached.envelope.variation.questionRevision,
+            questionRevision: cached.presentation.variation.questionRevision,
             seed: receiptNext.seed,
             deadline: receiptNext.deadline,
           },
-          envelope: cached.envelope,
+          presentation: cached.presentation,
         }),
       );
       setQuestionPoolSelectionPosition(cached.questionPoolSelectionPosition);
@@ -309,7 +311,7 @@ function AttemptExperience(props: {
       recoveredSuccessorScreen = next;
       return {
         context: attemptContext(next.assignmentAttempt.id, next.attempt, next.issuedQuestion),
-        envelope: next.issuedQuestion,
+        presentation: next.issuedQuestion,
       };
     });
     applyRecoveredSuccessorScreen();
@@ -345,7 +347,7 @@ function AttemptExperience(props: {
         }
         setPrefetched(value);
         if (value !== null) {
-          for (const assetId of assetIdsForEnvelope(value.envelope)) {
+          for (const assetId of assetIdsForPresentation(value.presentation)) {
             const assetUrl = new URL(runtime.client.assetUrl(assetId), window.location.origin);
             if (assetUrl.origin !== window.location.origin) continue;
             void fetch(assetUrl, {
@@ -490,9 +492,9 @@ function AttemptExperience(props: {
       terminalState()?.assignmentAttemptCompletion ?? "inProgress",
       true,
     );
-  const currentEnvelope = (): QuestionVariationPresentation =>
-    currentState()?.envelope ?? screen().issuedQuestion;
-  // A cache-hit advance has a server-issued descriptor and envelope but not a
+  const currentPresentation = (): QuestionVariationPresentation =>
+    currentState()?.presentation ?? screen().issuedQuestion;
+  // A cache-hit advance has a server-issued descriptor and Question Presentation but not a
   // complete AssignmentAttemptScreenData record. Keep Student Response Inspection Feedback bound to
   // the attempt state, which is advanced atomically with that descriptor.
   const currentAttemptId = (): string => currentState()?.context.attemptId ?? screen().attempt.id;
@@ -507,7 +509,7 @@ function AttemptExperience(props: {
       <header class="assignment-attempt-header">
         <div>
           <p class="eyebrow">Assignment Attempt {screen().assignmentAttempt.attemptNumber}</p>
-          <h1>{currentEnvelope().title}</h1>
+          <h1>{currentPresentation().title}</h1>
         </div>
         <span class="calm-status" role="timer" aria-live="polite">
           {formatRemaining(
@@ -560,7 +562,7 @@ function AttemptExperience(props: {
                       }
                       studentResponse={
                         outcome.attempt === currentAttemptId()
-                          ? projectStudentResponse(currentEnvelope(), outcome.response)
+                          ? projectStudentResponse(currentPresentation(), outcome.response)
                           : undefined
                       }
                       assetUrl={(asset) =>
@@ -620,7 +622,7 @@ function AttemptExperience(props: {
               }}
             >
               <QuestionRenderer
-                presentation={currentEnvelope()}
+                presentation={currentPresentation()}
                 assetUrl={(asset) =>
                   new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                 }
@@ -694,7 +696,7 @@ function AttemptExperience(props: {
                           {(attemptId) => (
                             <QuestionResponseControl
                               attemptId={attemptId}
-                              definition={currentEnvelope().response}
+                              definition={currentPresentation().response}
                               initialResponse={currentState()?.response ?? undefined}
                               validator={validator}
                               onResponseChange={responseChanged}
@@ -776,7 +778,7 @@ function AttemptExperience(props: {
                       <StudentFeedbackPanel
                         disclosure={studentFeedbackPresentation(feedback())}
                         studentResponse={projectStudentResponse(
-                          currentEnvelope(),
+                          currentPresentation(),
                           feedback().response,
                         )}
                         assetUrl={(asset) =>

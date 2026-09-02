@@ -4,7 +4,7 @@
 
 **ACCEPTED.** WP-W2 covers J2 only: an existing seeded student visibly retries the
 arranged Mastery work through keyboard controls. It does not accept M5 as a whole,
-J3-J5/J8, onboarding, all-family coverage, scoring reconstruction, or answer-key access.
+J3-J5/J8, onboarding, all supported Question Types, scoring reconstruction, or answer-key access.
 
 ## Delivered path
 

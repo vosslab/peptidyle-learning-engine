@@ -1,4 +1,4 @@
-//! Closed browser envelopes for the exact Blueprint-operation lifecycle.
+//! Closed browser records for the exact Blueprint-operation lifecycle.
 
 use serde::{Deserialize, Serialize};
 

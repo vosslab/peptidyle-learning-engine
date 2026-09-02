@@ -11,7 +11,7 @@ import {
 import { decodeAssignmentReference, decodeAssignmentSummary } from "./question_library";
 import {
   decodeCapability,
-  decodeEnvelopeTitle,
+  decodeQuestionTitle,
   decodeQuestionId,
   field,
   requireOnlyFields,
@@ -19,7 +19,7 @@ import {
 
 /**
  * Decodes the Assignment editor's deliberately narrow editable Instructor Assignment Authored Content Local.
- * It never carries question source material or other server-only policy.
+ * It never carries a Question Source or other server-only policy data.
  */
 export function decodeAssignmentEditorDetail(
   value: unknown,
@@ -164,7 +164,7 @@ export function decodeAssignmentCapabilityViolations(
       const violation = decodeRecord(entry, entryPath);
       requireOnlyFields(violation, entryPath, ["title", "questionId", "capability"]);
       const decoded = {
-        title: decodeEnvelopeTitle(field(violation, "title", entryPath), `${entryPath}.title`),
+        title: decodeQuestionTitle(field(violation, "title", entryPath), `${entryPath}.title`),
         questionId: decodeQuestionId(
           field(violation, "questionId", entryPath),
           `${entryPath}.questionId`,

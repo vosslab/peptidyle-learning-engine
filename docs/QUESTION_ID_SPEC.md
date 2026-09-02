@@ -106,8 +106,10 @@ meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
 ## Exact pins and evidence
 
 Every fixed Assignment Entry and Question Pool Item pins one exact
-`QuestionRevisionReference`. A browser-safe projection may include the Question
-ID without exposing the server-owned exact-version reference. An explicit,
+`QuestionRevisionReference`. Browser-safe `AssignmentSummary` entries expose a
+Question ID through `FixedQuestionAssignmentEntrySummary` and
+`QuestionPoolItemSummary`, without exposing the server-owned exact-version
+reference. An explicit,
 revision-checked Assignment update may choose a new Available version.
 Publication, availability changes, correction processing, and background work
 preserve the Assignment's selected reference.
@@ -135,7 +137,7 @@ Question IDs are public references, not bearer credentials. A valid ID does not
 grant Question Library access, reveal whether a question exists to an unauthorized
 caller, establish ownership, or grant course or Student authority. Question Library
 resolution requires an authenticated active Instructor. Student delivery
-requires the exact assignment entitlement. Anonymous callers cannot browse,
+requires exact Assignment Access for that Student and Assignment. Anonymous callers cannot browse,
 search, resolve, or inspect a Question ID.
 
 ## Display and entry
@@ -168,7 +170,7 @@ The implementation is complete when:
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines Question
   Attempt, rendered-item, and presentation-consistency values.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines the answer-free question model,
-  Question Library browser projections, semantic changes, and correction boundary.
+  Question Library browser results, semantic changes, and correction boundary.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines Account,
-  membership, projection, and Sysadmin support authority.
+  membership, browser-reader boundaries, and Sysadmin support authority.
 - [API_CONTRACTS.md](API_CONTRACTS.md) maps these rules to routes and payloads.

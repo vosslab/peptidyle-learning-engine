@@ -155,7 +155,7 @@ side effects of a label.
 Each assignment independently schedules five student-visible fields: score,
 per-item correctness, feedback text, solution, and class statistics. Each uses
 one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
-`Never`. The server first requires S5 entitlement, then uses the current
+`Never`. The server first requires Active Student Course Membership, then uses the current
 S3-resolved effective-policy verdict and authoritative time to evaluate the
 current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
 corresponding boundary is absent; a withheld field is omitted rather than sent
@@ -182,8 +182,8 @@ integration returns with the fresh course-delivery reconstruction.
 
 `QuestionAttemptTimeLimit` supports untimed, per-question, and per-attempt limits with an explicit grace period.
 The browser displays remaining time, but only server-issued timestamps and the server timing verdict
-can accept, auto-submit, or reject work. Assignment access policy separately controls visibility,
-availability, due date, closing date, late treatment, whole Assignment Attempt limits, and Assignment Attempt caps. This is why a
+can accept, auto-submit, or reject work. Effective Assignment Policy separately controls visibility,
+availability, due date, closing date, late treatment, whole Assignment Attempt limits, and Assignment Attempt caps through Assignment Access. This is why a
 mastery bundle can be untimed while an institution still gives an assignment an availability window.
 
 The policy types are in
@@ -259,7 +259,7 @@ The Instructor assignment workspace keeps mastery configuration in the same assi
 while separating the teaching tasks. Questions owns the title and ordered fixed-or-pool content;
 Policies owns Student Feedback Release Rules, Assignment Activity Rules, instructions, schedule, limits, late behavior,
 and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete
-authoritative projection, so a Policies save cannot silently replace Questions content.
+authoritative assignment state, so a Policies save cannot silently replace Questions content.
 
 An empty persisted Assignment is valid while the Instructor builds the assignment across pages.
 Assignment Release Validation returns Assignment Release Issues when the exact Assignment
@@ -284,8 +284,8 @@ The browser presents a learning experience; it does not administer the assignmen
 - issues attempt identifiers, seeds, deadlines, and immutable Question Attempt Reproduction Details;
 - validates response format again before calling a trusted grading backend;
 - computes correctness, points, retry availability, completion, and grade summary;
-- commits response, feedback record, summary projection, and completion transition atomically; and
-- applies the current assignment-owned student-disclosure decision before returning a student-facing result.
+- atomically commits the immutable Question Submission, grading result, Assignment Attempt Summary, and completion transition; and
+- derives policy-redacted Student Feedback for an authorized reader only after applying the current assignment-owned student-disclosure decision.
 
 The browser can perform key-free format validation for prompt feedback, show a server-projected
 timer, and request a new practice Assignment Attempt. It never receives an answer key or gains authority by

@@ -57,8 +57,8 @@ an account, membership, or database Object Address as an authorization input.
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Question Library    | **Current QS1 raw PostgreSQL View:** authenticated Instructor session only. Question Revision Availability is a separate product fact, not this View's authorization criterion. | The unmounted `published_question_summary` View derives Latest Question Revision from the greatest accepted Question Revision Number. It does not define the mounted Store/route or full DTO availability behavior.                                                            |
 | Course              | Persisted direct `course_member` relationship                                                                                                                                   | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority.                                                                                                                                                                      |
-| Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role                                                                         | Student-facing Store reads and mutations require one active Student assignment entitlement in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
-| Workspace           | Exact workspace owner/collaborator relationship                                                                                                                                 | Student, foreign, and unshared workspaces share an absent projection.                                                                                                                                                                                                          |
+| Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role                                                                         | Student-facing Store reads and mutations require an allowed Assignment Access decision for that Student and Assignment in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
+| Workspace           | Exact workspace owner/collaborator relationship                                                                                                                                 | Student, foreign, and unshared workspaces share an absent result.                                                                                                                                                                                                              |
 | Protected asset     | Typed delivery record plus current persisted authorization pointer                                                                                                              | Unknown or unauthorized delivery ID is not an object-storage lookup.                                                                                                                                                                                                           |
 
 The fuller authorization and forced account-and-relationship-scoped RLS evidence is in
@@ -84,7 +84,7 @@ mounted routes: Question Library and lifecycle; private authoring and
 QTI import; Blueprint Course and Course Instance creation; Course Roster and
 Course Enrollment; assignment authoring, direct Student Accommodations, and
 Student delivery; automated grading, Gradebook, Student-work inspection, and
-exports; object delivery; retention; and iMathAS Question Backend boundaries. Their
+exports; object delivery; Course Retention; and iMathAS Question Backend boundaries. Their
 future route composition must be Store-backed, relationship-authorized, and
 tested against the disposable PostgreSQL stack before this document can list
 their paths as available.
@@ -96,7 +96,7 @@ checksum and PLE Grading Result. The current browser launch shell carries
 only validated `{ launchUrl }`; no mounted HTTP contract, generated DTO, browser state, or log
 carries raw token bytes, either checksum, or an iMathAS Result.
 
-### Question Library and Student entitlement
+### Question Library and Assignment Access
 
 **Current QS1 boundary.** The raw PostgreSQL `published_question_summary`
 View is a partial, unmounted Instructor-only read. It derives Latest Question
@@ -149,7 +149,7 @@ correct counts plus eligible-choice selection counts for supported choice
 Question Types. Below the threshold the counts remain unavailable. The rollup never
 includes raw responses, small cells, linkable cohorts, Student identities,
 preview traffic, or the Instructor Student view. Course-local item analysis is
-a separate exact-course projection. The evidence is keyed to the immutable
+a separate exact-course result. The evidence is keyed to the immutable
 version that generated it, not to a mutable latest pointer.
 
 `ForcedQuestionCorrection` is a Sysadmin-approved security operation. It
@@ -159,20 +159,20 @@ replacement content, so new selection and issuance resolve to the replacement
 immediately. The old version is preserved solely as immutable historical
 evidence. Replacement requires validated content and a closed, privacy-safe
 impact manifest. The activated generation is handed to bounded, idempotent,
-generation-fenced workers for active-binding and remediation materialization
+generation-fenced workers for active-binding updates and remediation
 across active Blueprint, CourseInstance, assignment, selection-pool, and
 future-issuance bindings.
 A deterministic compatibility check governs reissue or excuse for in-progress
 work. Issued and graded evidence stays pinned to the original version;
 completed work receives superseding receipts and deterministic recalculation.
 There is no per-course approval step. Instructors receive audited,
-course-authorized results, while Sysadmin projections contain no FERPA-bearing
+course-authorized results, while results returned to Sysadmin contain no FERPA-bearing
 course or Student records. Approval, validation, manifest, atomic advance,
 reissue, excuse, superseding receipt, recalculation, and publication events are
 append-only audited.
 
 Student delivery is a separate authority path. A Student receives a question
-only when the server grants an exact assignment entitlement for that
+only when the server grants an allowed Assignment Access decision for that
 authenticated Student, Active Student Course Membership, exact course and assignment,
 Assignment Status, and current policy. Question Library visibility never
 grants Student delivery. Anonymous requests receive no Question Library authority and
@@ -180,7 +180,7 @@ cannot browse, search, resolve, or inspect a Question ID.
 
 Shared question visibility does not weaken course privacy. An approved
 Instructor may inspect published content used by another course, while
-assignment composition, course membership, Student assignment entitlement, and
+assignment composition, course membership, Assignment Access, and
 Student records remain available only through their exact course-authorized
 operations.
 
@@ -191,7 +191,7 @@ The assignment workspace is one course-scoped resource. `GET
 direct Instructor relationship to the course and then verifies that the
 assignment belongs to that exact course. A mismatched or unavailable pair has
 the same concealed not-found result and returns no assignment facts. The
-response carries the complete editable Assignment editor projection: title, ordered
+response carries the complete editable Assignment editor result: title, ordered
 fixed or pool content, Student Feedback Release Rules, Assignment activity rules, course-local teaching
 settings, server-derived current state, Active Student Course Membership, and
 Assignment Release Validation for that exact Assignment.
@@ -218,7 +218,7 @@ commits all policy-owned fields together. Active Student Course Membership
 determines ordinary access; direct Student Accommodations are separate exact
 Student operations. Both writes
 require the current assignment revision in `If-Match`, advance one shared
-aggregate revision, and return the complete authoritative editor projection
+aggregate revision, and return the complete authoritative editor result
 with its new `ETag`.
 
 Structural content changes are refused with the current typed
@@ -234,13 +234,13 @@ assignment authority, projects the current answer-free Student landing with
 course-wide base delivery facts, and does not create enrollment, Assignment Attempt, Question Attempt,
 submission, receipt, grade, or preview state. The shared landing presentation
 is also used by ordinary Student overview; only an exact active Student
-assignment entitlement creates work and supplies the server-owned gradebook
+Assignment Access-authorized start action creates work and supplies the server-owned gradebook
 evidence.
 
 ### Instructor grading operations
 
 The grading-operations surface is an assignment-local Instructor recovery
-projection. `GET
+read. `GET
 /api/courses/{course}/assignments/{assignment}/grading-operations` resolves
 the direct Instructor relationship from the session, verifies the exact course
 and assignment pair, and returns a bounded `no-store` page of metadata-only
@@ -265,7 +265,7 @@ commands return a `no-store` action receipt with a strong `ETag`; authorization
 and exact course/assignment ownership are checked from the authenticated
 session before the controlled operation reference or action is interpreted.
 
-The browser receives only the route-bound metadata and receipt projection. The
+The browser receives only the route-bound metadata and receipt result. The
 server recovers accepted private input through the sealed worker capability; a
 retry never asks the Student to submit the response again.
 
@@ -322,7 +322,7 @@ checks content type, constructs null-prototype records, refuses duplicate or
 unknown fields and closed-discriminant misses, and checks requested/returned
 relationships before exposing a typed value. The server gives mutating
 Serde models the same closed-world posture. Browser types and Wasm are
-convenience projections, never authorization evidence.
+convenience representations, never authorization evidence.
 
 Browser acceptance and developer browser entry use the visible PLE account page.
 The deployment-gated seeded selector and ordinary passkey remain within this
@@ -365,7 +365,7 @@ question/version/seed tuple.
 | Prompt blocks, response controls, accessible asset descriptions, safe course appearance, disclosed feedback, opaque IDs, public Question Library metadata, and policy-permitted aggregate analysis | Answer keys, expected values, hidden correct choices, private rubrics or weights, grading code, provider credentials, renderer fields, Question Source, Source Object Reference, Source Object Checksum, Question Attempt Reproduction Details, Object Addresses, bucket names, signed URLs in JSON, authenticated-session context, or raw provider results |
 
 An instructor's private author preview is a distinct, authorized exception for
-display-ready correct-response teaching material. It is not a Student route and
+display-ready Question Answer and Question Answer Explanation. It is not a Student route and
 does not turn answer-bearing source or an `AnswerKey` into a browser API type.
 
 For PLE assessment payload detail, including attempt-specific rendered IDs,

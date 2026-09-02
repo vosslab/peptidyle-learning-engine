@@ -4,11 +4,11 @@
 //! applies the authored parameter map to fields which are visible to an
 //! instructor, but never chooses an answer or evaluates a response.
 
+use question_model::QuestionContentBlock;
 use question_model::capability::Capability;
-use question_model::envelope::QuestionContentBlock;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::question_library::QuestionBackend;
-use question_model::{DraftQuestionBackendLocator, QuestionResponseFormat, WorkspaceId};
+use question_model::{QuestionBackend, QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 use crate::generator::{GenerationError, QuestionVariationParameterValue, generate};
@@ -22,8 +22,8 @@ use crate::generator::{GenerationError, QuestionVariationParameterValue, generat
 pub struct DraftPreviewRequest {
     /// Private workspace owning the unversioned draft.
     pub workspace: WorkspaceId,
-    /// Draft adapter locator.
-    pub backend_locator: DraftQuestionBackendLocator,
+    /// Question Backend selected by the draft.
+    pub question_backend: QuestionBackend,
     /// Student-facing draft title.
     pub title: String,
     /// Authored prompt blocks.
@@ -69,7 +69,7 @@ pub enum DraftPreviewResult {
     },
 }
 
-/// Failure while materializing safe prompt presentation.
+/// Failure while building a Question Prompt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PresentationError {
     /// Parameter generation itself was invalid.
@@ -112,9 +112,9 @@ pub fn preview_ple_draft(
     request: &DraftPreviewRequest,
     seed: QuestionSeed,
 ) -> Result<DraftPreviewResult, PresentationError> {
-    if !matches!(request.backend_locator, DraftQuestionBackendLocator::Ple) {
+    if request.question_backend != QuestionBackend::Ple {
         return Ok(DraftPreviewResult::Unavailable {
-            backend: QuestionBackend::from(&request.backend_locator),
+            backend: request.question_backend,
             capability: Capability::OfflinePreview,
         });
     }
@@ -235,19 +235,19 @@ fn generated_text(value: &QuestionVariationParameterValue) -> String {
 mod tests {
     use std::collections::BTreeMap;
 
-    use question_model::DraftQuestionBackendLocator;
+    use question_model::QuestionBackend;
+    use question_model::QuestionContentBlock;
     use question_model::answer::TextResponseMatchRule;
-    use question_model::envelope::QuestionContentBlock;
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use uuid::Uuid;
 
     use super::*;
 
-    fn request(backend_locator: DraftQuestionBackendLocator) -> DraftPreviewRequest {
+    fn request(question_backend: QuestionBackend) -> DraftPreviewRequest {
         DraftPreviewRequest {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-            backend_locator,
+            question_backend,
             title: "Preview".to_string(),
             prompt: vec![
                 QuestionContentBlock::Text {
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn ple_preview_is_key_free_and_builds_every_safe_text_field() {
         let result = preview_ple_draft(
-            &request(DraftQuestionBackendLocator::Ple),
+            &request(QuestionBackend::Ple),
             QuestionSeed::new(19),
         )
         .expect("valid preview");
@@ -314,9 +314,7 @@ mod tests {
     #[test]
     fn non_ple_sources_are_explicitly_unavailable() {
         let result = preview_ple_draft(
-            &request(DraftQuestionBackendLocator::Webwork {
-                pg_path: "set/a.pg".to_string(),
-            }),
+            &request(QuestionBackend::Webwork),
             QuestionSeed::new(1),
         )
         .expect("unavailable is a valid result");
@@ -331,7 +329,7 @@ mod tests {
 
     #[test]
     fn unresolved_or_unknown_placeholders_are_explicit() {
-        let mut request = request(DraftQuestionBackendLocator::Ple);
+        let mut request = request(QuestionBackend::Ple);
         request.prompt = vec![QuestionContentBlock::Text {
             markdown: "{{missing}}".to_string(),
         }];

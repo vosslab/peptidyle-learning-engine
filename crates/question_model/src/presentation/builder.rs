@@ -5,11 +5,11 @@ use std::collections::BTreeSet;
 use sha2::{Digest, Sha256};
 
 use crate::answer::ResponseSelectionRule;
-use crate::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use crate::response::{
     MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, QuestionResponseFormat,
     ResponseItemReference,
 };
+use crate::{QuestionContentBlock, QuestionVariationPresentation};
 
 use super::assets::{
     content_assets, question_asset_rendition, validate_assets, validate_public_assets,
@@ -158,11 +158,11 @@ impl QuestionPresentationNonceSource for OperatingSystemQuestionPresentationNonc
 
 /// Builds one presentation using operating-system randomness.
 pub fn build_question_presentation(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     build_question_presentation_with_nonce_source(
-        envelope,
+        presentation,
         question_asset_renditions,
         &mut OperatingSystemQuestionPresentationNonceSource,
     )
@@ -178,19 +178,15 @@ impl QuestionPresentationNonceSource for PersistedNonceSource {
     }
 }
 
-/// Rebuilds one server-issued presentation from its durable nonce and checksum.
-///
-/// This is the canonical server-side reproduction path. It recomputes every
-/// rendered-item ID and the full descriptor rather than trusting stored or
-/// browser-supplied public fields.
+/// Rebuilds the server-issued Question Presentation from its durable nonce and checksum.
 pub fn reproduce_question_presentation(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
     binding: QuestionPresentationBinding,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
     let mut nonce = PersistedNonceSource(Some(binding.nonce().as_bytes()));
     let presentation = build_question_presentation_with_nonce_source(
-        envelope,
+        presentation,
         question_asset_renditions,
         &mut nonce,
     )?;
@@ -203,26 +199,25 @@ pub fn reproduce_question_presentation(
 }
 /// Builds one presentation using an injected nonce source.
 pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonceSource>(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    build_with_hasher(envelope, question_asset_renditions, nonce_source, |bytes| {
-        crc16_ccitt_false(bytes)
-    })
+    build_with_hasher(
+        presentation,
+        question_asset_renditions,
+        nonce_source,
+        crc16_ccitt_false,
+    )
 }
 
-/// Reconstructs the exact descriptor inputs from a browser-safe envelope.
-///
-/// This performs no grading and does not require durable IDs. It is the only
-/// operation the Wasm bridge needs in order to verify that the browser holds
-/// one coherent server-issued presentation.
+/// Reconstructs descriptor inputs from one browser-safe Question Presentation for Wasm verification.
 pub fn rebuild_public_question_presentation(
-    envelope: &QuestionPresentation,
+    presentation: &QuestionPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
-    let assets = validate_public_assets(envelope, question_asset_renditions)?;
-    let item_bindings = public_item_bindings(&envelope.response, &assets)?;
+    let assets = validate_public_assets(presentation, question_asset_renditions)?;
+    let item_bindings = public_item_bindings(&presentation.response, &assets)?;
     if item_bindings.len() > MAX_PRESENTED_ITEMS {
         return Err(PresentationBuildError::TooManyItems);
     }
@@ -236,7 +231,7 @@ pub fn rebuild_public_question_presentation(
         ));
     }
     let mut presentation = IssuedQuestionPresentation {
-        presentation: envelope.clone(),
+        presentation: presentation.clone(),
         question_asset_renditions: assets,
         item_bindings,
         checksum: QuestionPresentationChecksum::zero(),
@@ -248,7 +243,7 @@ pub fn rebuild_public_question_presentation(
 
 #[cfg(test)]
 pub(super) fn build_question_presentation_with_hasher<N, H>(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
     hasher: H,
@@ -257,11 +252,16 @@ where
     N: QuestionPresentationNonceSource,
     H: FnMut(&[u8]) -> u16,
 {
-    build_with_hasher(envelope, question_asset_renditions, nonce_source, hasher)
+    build_with_hasher(
+        presentation,
+        question_asset_renditions,
+        nonce_source,
+        hasher,
+    )
 }
 
 fn build_with_hasher<N, H>(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
     nonce_source: &mut N,
     mut hasher: H,
@@ -270,8 +270,8 @@ where
     N: QuestionPresentationNonceSource,
     H: FnMut(&[u8]) -> u16,
 {
-    let assets = validate_assets(envelope, question_asset_renditions)?;
-    let pending = pending_items(envelope, &assets)?;
+    let assets = validate_assets(presentation, question_asset_renditions)?;
+    let pending = pending_items(presentation, &assets)?;
     if pending.len() > MAX_PRESENTED_ITEMS {
         return Err(PresentationBuildError::TooManyItems);
     }
@@ -283,7 +283,7 @@ where
         let mut collision = false;
         for item in &pending {
             let basis_bytes = item_basis_bytes(&item.basis)?;
-            let input = rendered_id_input(envelope, nonce, item, &basis_bytes)?;
+            let input = rendered_id_input(presentation, nonce, item, &basis_bytes)?;
             let rendered = PresentationResponseItemReference::from_crc(hasher(&input));
             if !used.insert(rendered.clone()) {
                 collision = true;
@@ -300,7 +300,7 @@ where
         if collision {
             continue;
         }
-        let public = public_envelope(envelope, nonce, &bindings)?;
+        let public = public_presentation(presentation, nonce, &bindings)?;
         let mut presentation = IssuedQuestionPresentation {
             presentation: public,
             question_asset_renditions: assets.clone(),
@@ -315,7 +315,7 @@ where
 }
 
 fn rendered_id_input(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
     item: &PendingResponseItem,
     basis_bytes: &[u8],
@@ -324,7 +324,7 @@ fn rendered_id_input(
     bytes.extend_from_slice(&nonce.as_bytes());
     push_bytes(
         &mut bytes,
-        envelope
+        presentation
             .variation
             .question_revision
             .question_id
@@ -332,14 +332,14 @@ fn rendered_id_input(
             .as_bytes(),
     )?;
     bytes.extend_from_slice(
-        &envelope
+        &presentation
             .variation
             .question_revision
             .revision_number
             .get()
             .to_be_bytes(),
     );
-    bytes.extend_from_slice(&envelope.variation.seed.value().to_be_bytes());
+    bytes.extend_from_slice(&presentation.variation.seed.value().to_be_bytes());
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
     push_bytes(&mut bytes, item.response_item_reference.as_str().as_bytes())?;
@@ -357,11 +357,11 @@ fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuil
 }
 
 fn pending_items(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     assets: &[QuestionAssetRendition],
 ) -> Result<Vec<PendingResponseItem>, PresentationBuildError> {
     let mut items = Vec::new();
-    match &envelope.response {
+    match &presentation.response {
         QuestionResponseFormat::MultipleChoice { choices, .. } => {
             push_choices(
                 &mut items,
@@ -547,7 +547,7 @@ fn push_item(
     });
     Ok(())
 }
-fn public_envelope(
+fn public_presentation(
     source: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
     bindings: &[ResponseItemBinding],

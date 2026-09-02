@@ -4,8 +4,9 @@
 
 - WP-INST-S3 and WP-INST-S5 are accepted and closed; S4 consumes their current verdicts without
   rebuilding policy resolution or entitlement.
-- WP-INST-S4 is accepted on the final material tree. Migration 1805, student projections, the central
-  student route boundary, class-statistics privacy, and the visual/access evidence are complete.
+- WP-INST-S4 is accepted on the final material tree. Migration 1805, `StudentAssignmentLandingSummary`,
+  `AssignmentProgress`, `StudentQuestionAttemptView`, the central student route boundary,
+  class-statistics privacy, and the visual/access evidence are complete.
 - Multiple prior cuts were rejected until resolved where competing authority paths remained; these were repaired to enforce single-truth ownership for policy, entitlement, and course membership.
 - This file preserves the start sequence as implementation history and records the completed closure.
 
@@ -43,7 +44,8 @@
 2. Scope freeze (next 10 min)
 
 - Write a one-line scope declaration before coding:
-  - In scope: disclosure and student-projection behavior consumption only.
+  - In scope: disclosure behavior consumed by `StudentAssignmentLandingSummary`,
+    `AssignmentProgress`, `StudentFeedback`, and `StudentQuestionAttemptView` only.
   - Out of scope: S3/S5 resolver changes, entitlement authority rewrites, and migration packages not reserved by S4.
 - Reconfirm immutable owners from previous packages:
   - S3 = effective policy/resolution authority.
@@ -51,9 +53,9 @@
 
 3. Inventory pass (30-45 min)
 
-- Map all disclosure consumers (Assignment Attempt list, Assignment Attempt detail, summaries,
-  grade-facing student projections, any retention views).
-- Ensure each path reads only through the accepted owners (S3/S5 + designated disclosure projection owners).
+- Map all disclosure consumers (`StudentAssignmentLandingSummary`, Assignment Attempt detail and
+  `AssignmentAttemptSummaryResponse`, `GradebookSummaryRow`, `AssignmentProgress`, and retention readers).
+- Ensure each path reads only through the accepted owners (S3/S5 and the designated disclosure owners).
 - Remove/neutralize any direct legacy policy-timing authority reads; no compatibility fallback behavior.
 - Verify the centrally derived role boundary denies every instructor-only route before transport,
   with direct roster and gradebook probes and no-transport assertions under a student session.
@@ -61,7 +63,7 @@
 4. Patch pass (work loop)
 
 - Keep changes narrow and additive.
-- Only touch the minimal files required for S4 projection behavior and evidence.
+- Only touch the minimal files required for S4 disclosure behavior and evidence.
 - If a migration is needed, use only the S4-reserved package and include full contract/fixture updates atomically.
 
 5. Validation sequence (do not skip required gates)

@@ -59,9 +59,9 @@ operation.
 | Assignment Attempt  | Student Record and Assignment                  | That Student, or a current course Instructor                                          |
 | Issued Question     | Assignment Attempt and exact Question Revision | That Student, or a current course Instructor                                          |
 | Question Attempt    | Issued Question and its Student owner          | That Student, or a current course Instructor                                          |
-| Assignment Grade    | Student Record and Assignment                  | That Student projection, or a current course Instructor                               |
+| Assignment Grade    | Student Record and Assignment                  | That Student's Assignment Attempt Summary, or a current course Instructor             |
 
-Student access requires current active Student membership for the exact course
+Student access requires current Active Student Course Membership for the exact course
 and ownership of the exact `StudentRecordId`; another Student, another course, a
 revoked membership, and an inactive retention state fail closed. Instructor
 access requires current approved-Instructor status and current direct Instructor
@@ -172,20 +172,21 @@ submission timestamps, deadlines, and completion timestamps. The browser does
 not submit any of those values.
 
 Every submission carries a bounded idempotency key. Repeating the exact key and
-response returns the same accepted or completed projection without grading twice. Reusing
+response returns the same accepted or completed submission-status result without grading twice. Reusing
 either the attempt with a different key or the key with a different response
-is a conflict. The first transaction atomically records the accepted response,
-issued-work witness, pending evaluation, execution, and ready job. The response
-is immutable server-private acceptance evidence; its metadata parent is
-answer-free and its canonical UTF-8 response is held by the private execution
-capability. The sealed worker's successful transaction atomically records the
-grade event, Question Attempt and Assignment Attempt transitions, Assignment Grade
-selection pointers, summary
-projection, and completed receipt.
+is a conflict. The first transaction atomically records the accepted Question
+Submission and its Question Submission Receipt, pending evaluation, execution,
+and ready job. The submission remains bound through its Question Attempt to the
+immutable Issued Question and private Question Attempt Reproduction Details.
+Its metadata parent is answer-free and its canonical UTF-8 Student Response is
+held by the private execution capability. The sealed worker's successful
+transaction atomically records the grade event, Question Attempt and Assignment
+Attempt transitions, Assignment Grade selection pointers, Assignment Attempt
+Summary, and Automated Grading Receipt.
 
 An acknowledged Student Response is recoverable without another answer POST.
 The submission route returns one Question Submission Acknowledgement: its
-accepted Receipt, `pending` Question Submission Grading State, and **Check
+Question Submission Receipt, `pending` Question Submission Grading State, and **Check
 grading status** action when the exact synchronous claim has not completed.
 The route-bound status GET returns the same answer-free boundary. A deterministic
 execution failure projects `instructor_attention`; an Instructor retry creates
@@ -274,16 +275,16 @@ fields are `score`, `per_item_correctness`, `feedback_text`, `solution`, and
 `class_statistics`. Each field uses one timing: `DuringAttempt`, `AfterSubmit`,
 `AfterDue`, `AfterClose`, or `Never`.
 
-The server first requires the S5 student entitlement, then uses S3's current
+The server first requires Active Student Course Membership, then uses S3's current
 effective policy and an authoritative server timestamp to evaluate every field.
 `AfterSubmit` requires that student's submission; due and close timings use the
 current resolved boundary. A missing due or close boundary does not release its
-field. The browser receives no policy, clock, entitlement, or identifiers from
+field. The browser receives no policy, clock, Assignment Access decision, or identifiers from
 which it could infer a withheld result.
 
-The server omits withheld fields rather than sending placeholders or answer
-material. Private feedback generation, grading keys, correct answers, and
-Question Grader code remains server-only. See
+The server omits withheld fields rather than sending placeholders or Answer
+Keys. Student Feedback is derived only from Question Feedback, Answer Keys,
+Question Answers, and Question Grader code that remain server-only. See
 [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the teaching
 rationale for independent disclosure choices.
 
@@ -327,8 +328,9 @@ each page can update its own slice without replacing a sibling page's changes.
   current assignment. It is a no-store read and creates no Student Record, Assignment Attempt,
   attempt, submission, receipt, score, gradebook row, or preview record.
 - Ordinary Student delivery is the real graded path. An enrolled Student's
-  start or resume and submission actions create the durable Assignment Attempt,
-  attempt, receipt, score, and gradebook evidence described below.
+  start or resume action creates the durable Assignment Attempt and Question
+  Attempt; a submission additionally creates the Question Submission Receipt,
+  score, and Gradebook evidence described below.
 
 These are presentation and command ownership boundaries over the same
 assignment aggregate. They do not alter the historical activity invariants:
@@ -397,7 +399,7 @@ The derivation follows these rules:
 
 Invalid score fractions and point values are explicit errors.
 
-## Summary projection
+## Assignment Attempt Summary
 
 **Assignment Progress** is the compact derived view for one exact Student
 Record and Assignment. The server's `AssignmentProgressRecord` carries the
@@ -408,11 +410,11 @@ Historical Assignment Attempts remain separate for analysis. The Store updates
 the view only for the same exact Student Record and Assignment represented by
 the transition.
 
-Student routes instead receive the key-free `AssignmentProgress`
-projection. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
+Student routes instead receive the key-free `AssignmentProgress` Assignment Attempt
+Summary. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
 are present only for `Available`; `NoActivity` means no submitted response and takes precedence over
 disclosure. Starting an Assignment Attempt may set `last_activity_at` without changing that score state.
-The student projection omits internal course, Student Record, and Assignment
+The Assignment Attempt Summary omits internal course, Student Record, and Assignment
 identifiers.
 Its independent `assignment_scoring_state` is `Current`, `Recalculating`, or `Failed`.
 Recalculating and Failed omit aggregate scores, Assignment Attempt scores, Grading Results,
@@ -438,7 +440,7 @@ so the selected pointer is stable. Instructor-selected grading remains empty
 until an instructor names a completed Assignment Attempt. The incremental summary and batch
 selection are checked against the same hand-computed fixture.
 
-The gradebook reads this compact projection together with the exact course and
+The Gradebook reads this compact Assignment Attempt Summary together with the exact course and
 assignment records. It does not scan every historical Assignment Attempt or Question Attempt when a
 student has returned for continued practice many times. Historical records
 remain available to authorized history and analysis paths until course
@@ -478,7 +480,8 @@ backup boundary are in [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 Retention and grading share the same evidence rule: while records are retained,
 deletion or rescoring cannot rewrite an immutable accepted response, Question
-Attempt Reproduction Details, receipt, or prior grade event. Retention deletion
+Attempt Reproduction Details, Question Submission Receipt, Automated Grading
+Receipt, or prior Grading Result. Retention deletion
 is a separate,
 generation-fenced terminal operation. Current summaries and Gradebook totals may
 be recalculated only by the server's deterministic grading contract and the

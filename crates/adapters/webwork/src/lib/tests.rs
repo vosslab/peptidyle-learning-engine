@@ -6,11 +6,11 @@ use grading::{AnswerKey, QuestionGradingOutcome, grade};
 use objects::ObjectAddress;
 use objects::Sha256Checksum;
 use objects::memory::MemoryObjectStore;
+use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
 use question_model::classification::QuestionLicense;
-use question_model::envelope::QuestionContentBlock;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
@@ -74,7 +74,7 @@ impl WebworkRenderer for RecordedRenderer {
             ));
         }
         Ok(RenderedWebworkQuestion {
-            envelope: QuestionVariationPresentation {
+            presentation: QuestionVariationPresentation {
                 variation: QuestionVariation::static_variation(
                     request.question_revision.clone(),
                     QuestionSeed::new(request.seed),
@@ -249,12 +249,12 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
         .await
         .expect("recorded OPL fixture should render");
     assert!(!issued.cache_hit);
-    assert_eq!(issued.envelope.variation.seed, QuestionSeed::new(17));
-    assert_eq!(issued.envelope.title, question.metadata.title);
-    assert_ne!(issued.envelope.title, "Untrusted renderer title");
+    assert_eq!(issued.presentation.variation.seed, QuestionSeed::new(17));
+    assert_eq!(issued.presentation.title, question.metadata.title);
+    assert_ne!(issued.presentation.title, "Untrusted renderer title");
     assert!(
-        !serde_json::to_string(&issued.envelope)
-            .expect("browser envelope serializes")
+        !serde_json::to_string(&issued.presentation)
+            .expect("browser Question Presentation serializes")
             .contains("\"correct\"")
     );
 
@@ -319,8 +319,8 @@ async fn repeated_version_and_seed_are_served_without_a_renderer_call() {
     assert!(!first.cache_hit);
     assert!(second.cache_hit);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
-    assert_eq!(first.envelope, second.envelope);
-    assert_eq!(second.envelope.title, question.metadata.title);
+    assert_eq!(first.presentation, second.presentation);
+    assert_eq!(second.presentation.title, question.metadata.title);
 }
 
 #[test]
@@ -629,7 +629,7 @@ async fn unreviewed_source_refuses_partial_credit_before_renderer_grading() {
         .expect_err("unreviewed partial-credit behavior must be refused");
     assert!(matches!(
         error,
-        WebworkAdapterError::InvalidRendererEnvelope(message)
+        WebworkAdapterError::InvalidRendererQuestionPresentation(message)
             if message.contains("accepted source profile")
     ));
 }

@@ -12,7 +12,12 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct QtiProfileItemDisposition {
+/// The QTI adapter's checksum-safe form of one Workspace Import Item Result.
+///
+/// The generic durable record belongs to the Workspace Import. This
+/// QTI-qualified form retains the QTI mapping checksum and diagnostics while
+/// the adapter constructs the committed import-result checksum.
+pub struct QtiWorkspaceImportItemResult {
     pub source_identifier: String,
     pub item_id: Option<String>,
     pub accepted: bool,
@@ -27,7 +32,7 @@ pub struct QtiImportResultChecksumInput {
     pub mapping_version: QtiMappingVersion,
     pub detection: QtiProfileDetectionEvidence,
     pub detection_outcome: QtiProfileDetection,
-    pub items: Vec<QtiProfileItemDisposition>,
+    pub items: Vec<QtiWorkspaceImportItemResult>,
     pub defaults: Vec<QtiProfileDiagnostic>,
 }
 
@@ -53,7 +58,7 @@ pub(super) fn package_import_result_checksum_input(
     let mut items = Vec::with_capacity(reports.len());
 
     for report in reports {
-        let disposition = match report.status() {
+        let item_result = match report.status() {
             QtiSafeItemStatus::Accepted => {
                 let item = accepted_items
                     .next()
@@ -61,9 +66,9 @@ pub(super) fn package_import_result_checksum_input(
                 if item.safe_report().source_identifier() != report.source_identifier() {
                     return Err(QtiProfileContractError::MappingOwnerMismatch);
                 }
-                item.accepted_item_disposition()?
+                item.accepted_workspace_import_item_result()?
             }
-            QtiSafeItemStatus::Rejected => QtiProfileItemDisposition {
+            QtiSafeItemStatus::Rejected => QtiWorkspaceImportItemResult {
                 source_identifier: report.source_identifier().to_string(),
                 item_id: None,
                 accepted: false,
@@ -77,7 +82,7 @@ pub(super) fn package_import_result_checksum_input(
                     .collect(),
             },
         };
-        items.push(disposition);
+        items.push(item_result);
     }
 
     if accepted_items.next().is_some() {
@@ -116,8 +121,8 @@ pub struct QtiPublicChoiceChecksumInput {
     pub text_markdown: String,
 }
 
-/// Server-only mapping material. It intentionally cannot be serialized or
-/// formatted for logs.
+/// Server-only QTI private-mapping checksum input. It intentionally cannot be
+/// serialized or formatted for logs.
 ///
 /// ```compile_fail
 /// use adapter_qti::{QtiPrivateChoiceMapChecksumInput, QtiPrivateMappingChecksumInput};
@@ -302,14 +307,14 @@ fn validate_profile_report(
     }
     for item in &report.items {
         if item.accepted != item.public_mapping_checksum.is_some() {
-            return Err(QtiProfileContractError::ItemChecksumDisposition);
+            return Err(QtiProfileContractError::ItemChecksumImportResult);
         }
     }
     Ok(())
 }
 
 #[derive(Serialize)]
-struct ContractEnvelope<'a, T> {
+struct DeterministicChecksumInput<'a, T> {
     schema: &'static str,
     value: &'a T,
 }
@@ -318,7 +323,7 @@ fn deterministic_checksum<T: Serialize>(
     kind: &'static str,
     value: &T,
 ) -> Result<Sha256Checksum, QtiProfileContractError> {
-    let bytes = serde_json::to_vec(&ContractEnvelope {
+    let bytes = serde_json::to_vec(&DeterministicChecksumInput {
         schema: kind,
         value,
     })

@@ -6,8 +6,8 @@ use objects::{ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionBackendLocator, QuestionRendererVersion,
-    QuestionRevision, QuestionRevisionReference, QuestionVariationPresentation,
+    DraftImathasQuestionBackendBinding, QuestionAttemptReproductionDetails, QuestionBackend as ModelQuestionBackend,
+    QuestionRendererVersion, QuestionRevision, QuestionRevisionReference, QuestionVariationPresentation,
     SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use sha2::{Digest, Sha256};
@@ -47,9 +47,13 @@ impl ResolvedImathasQuestionSource {
         source_object_reference: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, ImathasAdapterError> {
-        let QuestionBackendLocator::Imathas { binding } = &question.backend_locator else {
+        if question.question_backend != ModelQuestionBackend::Imathas {
             return Err(ImathasAdapterError::UnsupportedSource);
-        };
+        }
+        let binding = question
+            .imathas_question_backend_binding
+            .as_ref()
+            .ok_or(ImathasAdapterError::UnsupportedSource)?;
         let question_revision = QuestionRevisionReference {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
@@ -96,7 +100,7 @@ impl ResolvedImathasQuestionSource {
 /// Key-free issued iMathAS Question Backend response control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImathasIssuedAttempt {
-    pub envelope: QuestionVariationPresentation,
+    pub presentation: QuestionVariationPresentation,
     pub parameter_hash: String,
     pub reproduction_details: QuestionAttemptReproductionDetails,
     pub cache_hit: bool,
@@ -128,9 +132,9 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// Snapshot a draft before publication. This neither knows nor mints a published identity.
     pub async fn prepare_snapshot(
         &self,
-        draft: &question_model::DraftQuestionBackendLocator,
+        draft_binding: &DraftImathasQuestionBackendBinding,
     ) -> Result<PreparedSnapshot, ImathasAdapterError> {
-        let locator = ImathasQuestionLocation::from_draft_backend_locator(draft)?;
+        let locator = ImathasQuestionLocation::from_draft_imathas_question_backend_binding(draft_binding);
         let (bytes, profile) = self
             .question_backend
             .snapshot(&locator)
@@ -149,12 +153,16 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     /// Derives only capabilities actually delivered by the pinned profile.
     pub fn capabilities(
         &self,
-        source: &QuestionBackendLocator,
+        question: &QuestionRevision,
         profile: &SupportedImathasProfile,
     ) -> Result<QuestionBackendCapabilities, ImathasAdapterError> {
-        let QuestionBackendLocator::Imathas { binding } = source else {
+        if question.question_backend != ModelQuestionBackend::Imathas {
             return Err(ImathasAdapterError::UnsupportedSource);
-        };
+        }
+        let binding = question
+            .imathas_question_backend_binding
+            .as_ref()
+            .ok_or(ImathasAdapterError::UnsupportedSource)?;
         if binding.profile() != profile.profile() || !self.profiles.contains(profile.profile()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
@@ -220,7 +228,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             source: source.artifact().clone(),
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
-            envelope: QuestionVariationPresentation {
+            presentation: QuestionVariationPresentation {
                 variation: question_model::QuestionVariation::static_variation(
                     question_revision.clone(),
                     seed,
@@ -268,7 +276,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         )
         .as_slice());
         Ok(ImathasIssuedAttempt {
-            parameter_hash: parameter_hash(cached.envelope.variation.seed),
+            parameter_hash: parameter_hash(cached.presentation.variation.seed),
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(QuestionRendererVersion {
@@ -282,7 +290,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                 grader: grader_version(GRADING_ID, GRADING_VERSION),
                 rendered_question_sha256: hash,
             },
-            envelope: cached.envelope,
+            presentation: cached.presentation,
             cache_hit,
         })
     }

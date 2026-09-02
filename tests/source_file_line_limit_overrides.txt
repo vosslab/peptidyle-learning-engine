@@ -4,16 +4,10 @@ schemas/migrations/2026080802_catalog_authoring.sql
 schemas/migrations/2026080805_operations_analytics.sql
 schemas/migrations/2026080806_retention.sql
 
-# Documentation and archived history use their owning structure/rotation rules,
-# not the maintained code-module line limit.
+# Changelog rotation uses its owning archive policy rather than the maintained
+# code-module line limit.
 docs/CHANGELOG-2026-08a.md
-docs/active_plans/active/bot_traffic_cost_reduction_plan.md
-docs/active_plans/active/instructor_capability_architecture_plan.md
-docs/active_plans/implementation_plan.md
 
 # These long-form canonical Markdown authorities retain intentional single-document ownership.
 docs/DESIGN_DECISIONS.md
 docs/TERMINOLOGY_CONTRACT.md
-
-# This transient active-plan registry retains one mutable current-package handoff.
-docs/active_plans/implementation_status.md

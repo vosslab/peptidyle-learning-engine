@@ -24,7 +24,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeIssuedPresentationEnvelope } from "./presentation_delivery";
+import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import { decodeQuestionAssetReference } from "./question_response_format";
 import { decodeInstructorGradingOperationReference } from "./grading_operations";
 import {
@@ -557,14 +557,14 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
   requireOnlyFields(record, path, ["kind", "presentation", "issuedPresentationChecksum"]);
   const presentationPath = `${path}.presentation`;
   const presentation = closed(field(record, "presentation", path), presentationPath, [
-    "envelope",
+    "presentation",
     "questionAssetRenditions",
   ]);
   return {
     kind: evidenceKind,
-    question: decodeIssuedPresentationEnvelope(
-      field(presentation, "envelope", presentationPath),
-      `${presentationPath}.envelope`,
+    question: decodeIssuedQuestionPresentation(
+      field(presentation, "presentation", presentationPath),
+      `${presentationPath}.presentation`,
     ),
     questionAssetRenditions: decodeBoundedArray(
       field(presentation, "questionAssetRenditions", presentationPath),

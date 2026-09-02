@@ -278,8 +278,8 @@ async function observeInstructorOutcomesAndAccess(
 
   await page.getByRole("link", { name: "Gradebook" }).click();
   await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
-  // ASVS 8.2.2 and 8.3.1: verify the server-authorized Instructor projection for the exact
-  // student work created through Mary's separate authenticated session.
+  // ASVS 8.2.2 and 8.3.1: verify the server-authorized Gradebook and Student Work
+  // Inspection for the exact student work created through Mary's separate authenticated session.
   const learnerScore = page
     .locator("tr.gradebook-row")
     .filter({ has: page.getByText("Mary Okafor", { exact: true }) });

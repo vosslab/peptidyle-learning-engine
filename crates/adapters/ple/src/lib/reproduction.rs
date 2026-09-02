@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use question_model::envelope::{QuestionContentBlock, QuestionVariationPresentation};
 use question_model::generation::QuestionSeed;
 use question_model::{
     ObjectId, QuestionAssetId, QuestionAttemptReproductionDetails, QuestionRevision,
 };
+use question_model::{QuestionContentBlock, QuestionVariationPresentation};
 
 use crate::{
     PleQuestionBackend, PleQuestionBackendError, PreparedPleQuestion, QuestionAssetObjectReference,
 };
 
 impl PleQuestionBackend {
-    /// Reproduces an issued browser-safe envelope and verifies its record.
+    /// Reproduces an issued browser-safe Question Presentation and verifies its record.
     ///
     /// Question Asset Object References come from trusted server storage for the immutable published
     /// version. No answer key is returned.
@@ -29,9 +29,12 @@ impl PleQuestionBackend {
             &prepared,
             recorded_parameter_hash,
             recorded_reproduction_details,
-            &resolve_question_asset_objects(&prepared.envelope, question_asset_object_references)?,
+            &resolve_question_asset_objects(
+                &prepared.presentation,
+                question_asset_object_references,
+            )?,
         )?;
-        Ok(prepared.envelope)
+        Ok(prepared.presentation)
     }
 }
 
@@ -77,10 +80,10 @@ fn verify_equal(matches: bool, field: &'static str) -> Result<(), PleQuestionBac
 }
 
 pub(super) fn resolve_question_asset_objects(
-    envelope: &QuestionVariationPresentation,
+    presentation: &QuestionVariationPresentation,
     question_asset_object_references: &[QuestionAssetObjectReference],
 ) -> Result<Vec<ObjectId>, PleQuestionBackendError> {
-    let referenced_assets = envelope_asset_ids(envelope);
+    let referenced_assets = presentation_asset_ids(presentation);
     let mut bindings = BTreeMap::new();
     for reference in question_asset_object_references {
         if bindings
@@ -112,10 +115,12 @@ pub(super) fn resolve_question_asset_objects(
         .collect())
 }
 
-fn envelope_asset_ids(envelope: &QuestionVariationPresentation) -> BTreeSet<QuestionAssetId> {
+fn presentation_asset_ids(
+    presentation: &QuestionVariationPresentation,
+) -> BTreeSet<QuestionAssetId> {
     let mut assets = BTreeSet::new();
-    collect_content_assets(&envelope.prompt, &mut assets);
-    match &envelope.response {
+    collect_content_assets(&presentation.prompt, &mut assets);
+    match &presentation.response {
         question_model::response::QuestionResponseFormat::MultipleChoice { choices, .. } => {
             for choice in choices {
                 collect_content_assets(&choice.body, &mut assets);
