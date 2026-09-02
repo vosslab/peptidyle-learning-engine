@@ -130,7 +130,7 @@ export function AssignmentWorkspacePolicyPanel(
 
   return (
     <section
-      class="assignment-editor-policy-panel assignment-editor-policy-panel--run"
+      class="assignment-editor-policy-panel assignment-editor-policy-panel--assignment-attempt"
       aria-labelledby="assignment-rules-heading"
     >
       <h2 id="assignment-rules-heading">Assignment rules</h2>
@@ -225,23 +225,30 @@ export function AssignmentWorkspacePolicyPanel(
             Additional Assignment Attempts
             <input
               type="number"
-              ref={(element) => props.onRegisterActivityRuleControl("additionalRuns", element)}
+              ref={(element) =>
+                props.onRegisterActivityRuleControl("additionalAssignmentAttempts", element)
+              }
               min="0"
               step="1"
-              value={props.activityRuleDraft().additionalRuns}
-              aria-invalid={props.activityRuleFieldError("additionalRuns") !== undefined}
+              value={props.activityRuleDraft().additionalAssignmentAttempts}
+              aria-invalid={
+                props.activityRuleFieldError("additionalAssignmentAttempts") !== undefined
+              }
               aria-describedby={
-                props.activityRuleFieldError("additionalRuns") === undefined
+                props.activityRuleFieldError("additionalAssignmentAttempts") === undefined
                   ? undefined
-                  : "assignment-policies-additionalRuns-error"
+                  : "assignment-policies-additional-assignment-attempts-error"
               }
               onInput={(event) =>
-                props.onActivityRuleDraftChange("additionalRuns", event.currentTarget.value)
+                props.onActivityRuleDraftChange(
+                  "additionalAssignmentAttempts",
+                  event.currentTarget.value,
+                )
               }
             />
             <FieldError
-              id="assignment-policies-additionalRuns-error"
-              message={props.activityRuleFieldError("additionalRuns")}
+              id="assignment-policies-additional-assignment-attempts-error"
+              message={props.activityRuleFieldError("additionalAssignmentAttempts")}
             />
           </label>
         </Show>

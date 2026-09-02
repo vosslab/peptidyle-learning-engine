@@ -1,4 +1,4 @@
-//! MOD-DOMAIN: attempt state, runs, timing, generation, and validation.
+//! MOD-DOMAIN: Assignment Attempt state, timing, generation, and validation.
 //!
 //! This crate reaches `question_model` and nothing else, so it has no clock
 //! and no database. Time and storage arrive as parameters, which is what lets
@@ -11,7 +11,7 @@ pub mod active_student_course_membership;
 /// Continued-practice eligibility and shared Assignment Activity errors.
 pub mod assignment_activity;
 /// Attempt state machine (MOD-STATE).
-/// Completion derivation within a run (MOD-STATE).
+/// Completion derivation within an Assignment Attempt (MOD-STATE).
 pub mod completion;
 /// Pure course-grade aggregation from selected assignment scores.
 pub mod course_grade;

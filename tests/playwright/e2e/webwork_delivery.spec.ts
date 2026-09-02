@@ -131,8 +131,10 @@ async function completeVisibleWebworkRun(
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
   const feedback = await waitForAutomatedStudentFeedback(page);
   await expect(feedback.getByRole("heading", { name: /^(Correct|Not quite)$/u })).toBeVisible();
-  await page.getByRole("button", { name: "View completed run", exact: true }).click();
-  await expect(page.getByText("Your completed run is recorded.")).toBeVisible();
+  await page
+    .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+    .click();
+  await expect(page.getByText("Your completed Assignment Attempt is recorded.")).toBeVisible();
 }
 
 async function observeCompletionInFreshSession(
@@ -148,15 +150,15 @@ async function observeCompletionInFreshSession(
   await assignment.getByRole("link", { name: "Start assignment", exact: true }).click();
   const overview = page.locator('[data-route-surface="assignmentOverview"]');
   await expect(overview).toBeVisible();
-  const completedRuns = overview
-    .getByText("Completed runs", { exact: true })
+  const completedAssignmentAttempts = overview
+    .getByText("Completed Assignment Attempts", { exact: true })
     .locator("..")
     .locator("dd");
   const scoreStatus = overview
     .getByText("Score status", { exact: true })
     .locator("..")
     .getByRole("status");
-  await expect(completedRuns).toHaveText("1");
+  await expect(completedAssignmentAttempts).toHaveText("1");
   await expect(scoreStatus).toHaveText(
     /^Score available: Current \d+(?:\.\d+)?%, Latest \d+(?:\.\d+)?%, Best \d+(?:\.\d+)?%\.$/u,
   );

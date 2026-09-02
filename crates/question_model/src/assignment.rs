@@ -262,9 +262,9 @@ pub struct BaseAssignmentPolicy {
     pub due_at: Option<Timestamp>,
     /// Hard instant after which new work is closed.
     pub closes_at: Option<Timestamp>,
-    /// Whole-run time limit when one applies.
+    /// Whole Assignment Attempt time limit when one applies.
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
-    /// Maximum number of runs when one applies.
+    /// Maximum number of Assignment Attempts when one applies.
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
     pub late_work_rule: LateWorkRule,
@@ -298,7 +298,7 @@ pub struct AssignmentAuthoredContent {
     pub activity_rules: AssignmentActivityRules,
 }
 
-/// Largest whole-run limit representable by the current PostgreSQL `INTEGER`
+/// Largest whole Assignment Attempt limit representable by the current PostgreSQL `INTEGER`
 /// columns. Keeping this public makes every browser and storage boundary share
 /// the same lossless domain without a needless `BIGINT` migration.
 pub const MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;

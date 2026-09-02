@@ -280,7 +280,7 @@ export function decodeInstructorStudentView(
     "instructions",
     "timeZone",
     "delivery",
-    "questionsPerRun",
+    "questionsPerAssignmentAttempt",
     "questionPoolReuseRule",
     "questionVariationRule",
     "studentFeedbackReleaseRule",
@@ -335,9 +335,9 @@ export function decodeInstructorStudentView(
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
     delivery,
-    questionsPerRun: decodeNonnegativeInteger(
-      field(record, "questionsPerRun", path),
-      `${path}.questionsPerRun`,
+    questionsPerAssignmentAttempt: decodeNonnegativeInteger(
+      field(record, "questionsPerAssignmentAttempt", path),
+      `${path}.questionsPerAssignmentAttempt`,
     ),
     questionPoolReuseRule: decodeStringEnum(
       field(record, "questionPoolReuseRule", path),

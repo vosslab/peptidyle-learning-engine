@@ -10,15 +10,17 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// The closed set of reviewed course themes.
+/// The closed set of reviewed Course Theme palettes.
 ///
-/// Palette values are design-system data rather than wire data. The browser
-/// registry must exhaustively map every ID and refuse an unknown value.
+/// Each value selects one complete visual palette for a Course Appearance.
+/// Palette values are design-system data rather than database identities. The
+/// browser registry must exhaustively map every value and refuse an unknown
+/// value.
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
 #[serde(rename_all = "kebab-case")]
-pub enum CourseThemeId {
+pub enum CourseTheme {
     /// Muted grey-purple and moss green.
     Tundra,
     /// Deep green with a warm gold accent.
@@ -52,7 +54,7 @@ pub enum CourseThemeId {
     Beach,
 }
 
-impl CourseThemeId {
+impl CourseTheme {
     /// Every persisted and browser-visible theme, in authoring order.
     pub const ALL: [Self; 15] = [
         Self::Tundra,
@@ -72,7 +74,7 @@ impl CourseThemeId {
         Self::Beach,
     ];
 
-    /// Returns the stable database and JSON identifier.
+    /// Returns the stable serialized palette value.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Tundra => "tundra",
@@ -94,13 +96,13 @@ impl CourseThemeId {
     }
 }
 
-impl std::fmt::Display for CourseThemeId {
+impl std::fmt::Display for CourseTheme {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(self.as_str())
     }
 }
 
-impl FromStr for CourseThemeId {
+impl FromStr for CourseTheme {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -305,7 +307,7 @@ pub struct CourseBannerUploadReceipt {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseAppearanceView {
     /// Reviewed theme selected for the complete course route scope.
-    pub theme: CourseThemeId,
+    pub theme: CourseTheme,
     /// Strong revision shared by theme and banner state.
     pub revision: CourseAppearanceRevision,
     /// Current course banner, or no banner frame at all.
@@ -345,7 +347,7 @@ pub enum CourseBannerMutation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseAppearanceUpdate {
     /// Complete desired theme.
-    pub theme: CourseThemeId,
+    pub theme: CourseTheme,
     /// Complete desired banner action.
     pub banner: CourseBannerMutation,
 }
@@ -355,10 +357,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn theme_ids_are_closed_stable_and_have_one_default() {
-        let wire_ids = CourseThemeId::ALL.map(|theme| theme.to_string());
+    fn themes_are_closed_stable_and_have_one_default() {
+        let wire_values = CourseTheme::ALL.map(|theme| theme.to_string());
         assert_eq!(
-            wire_ids,
+            wire_values,
             [
                 "tundra",
                 "forest",
@@ -377,9 +379,9 @@ mod tests {
                 "beach",
             ]
         );
-        assert_eq!(CourseThemeId::default(), CourseThemeId::Grass);
-        assert!("woodland".parse::<CourseThemeId>().is_err());
-        assert!(serde_json::from_str::<CourseThemeId>(r#""unknown""#).is_err());
+        assert_eq!(CourseTheme::default(), CourseTheme::Grass);
+        assert!("woodland".parse::<CourseTheme>().is_err());
+        assert!(serde_json::from_str::<CourseTheme>(r#""unknown""#).is_err());
     }
 
     #[test]
@@ -413,7 +415,7 @@ mod tests {
     #[test]
     fn appearance_view_contains_only_safe_course_banner_data() {
         let appearance = CourseAppearanceView {
-            theme: CourseThemeId::Ocean,
+            theme: CourseTheme::Ocean,
             revision: CourseAppearanceRevision::INITIAL,
             banner: Some(CourseBanner {
                 reference: CourseBannerReference::from_uuid(Uuid::from_u128(7)),
@@ -467,7 +469,7 @@ mod tests {
     fn update_body_is_strict_and_route_bound() {
         let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(9));
         let update = CourseAppearanceUpdate {
-            theme: CourseThemeId::Forest,
+            theme: CourseTheme::Forest,
             banner: CourseBannerMutation::Replace {
                 upload,
                 alternative_text: CourseBannerAlternativeText::Informative {

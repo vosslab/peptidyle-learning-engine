@@ -25,8 +25,8 @@ additional data through the normal PLE workflows.
 
 The seeded Student and Instructor personas share ordinary course relationships. Elena teaches `Biochemistry:
 Protein Structure and Function`; Mary and Jack are active students in that same course. Work completed as Mary or
-Jack persists under that course enrollment, and Elena sees the resulting best score, latest score, completed-run
-count, and authorized run history in the course gradebook after a fresh server read.
+Jack persists under that course enrollment, and Elena sees the resulting best score, latest score, completed Assignment Attempt
+count, and authorized Assignment Attempt history in the course gradebook after a fresh server read.
 
 The ordinary teaching-course baseline includes `Biochemistry: Protein Structure and Function`, `Genetics: Foundations
 of Inheritance`, and `Biochemistry: Molecular Foundations`. Installer diagnostics call the installed Biochemistry
@@ -71,7 +71,7 @@ need to survive regeneration of the demo. Preserving the demo database and stora
 data.
 
 Preview resolves the current state of these ordinary live courses, assignments, published questions, and graders.
-Instructors validate delivery and automated grading through the visible production workflow. Student runs,
+Instructors validate delivery and automated grading through the visible production workflow. Student Assignment Attempts,
 submissions, grades, and instructor review are ordinary PLE records created by those workflows.
 
 ### Visual evidence profiles
@@ -92,7 +92,7 @@ immutable private source, and publishes the Question. It provides the browser-su
 public Question ID and title needed to find the item through the Question Library.
 
 This Question Library publication is infrastructure bootstrap rather than teaching state. It creates no course,
-assignment, roster member, invitation, Student run, or submission. Instructor and Student journeys create those
+assignment, roster member, invitation, Student Assignment Attempt, or submission. Instructor and Student journeys create those
 ordinary PLE records through the visible interface. The private source, object identity, renderer configuration,
 credentials, and answer material remain outside browser receipts and screenshots.
 
@@ -159,7 +159,7 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 
 The assignment workspace keeps one clear path for teaching work: the linked title opens Overview, local navigation
 connects Overview, Questions, Policies, Grading operations, and Student view, and each page reports its current state. Student view
-creates no Student work. Entering as the ordinary demo Student does create a real run, submission, and grade through
+creates no Student work. Entering as the ordinary demo Student does create a real Assignment Attempt, submission, and grade through
 the normal workflow; the Instructor can see that graded work in the gradebook after a fresh read.
 
 ### Automated grading
@@ -196,7 +196,7 @@ The demo should allow a Student to use the normal student workflows, including:
 
 - Enter courses in which the Student is enrolled.
 - Complete assignments.
-- Receive the fixed questions and server-selected pool questions issued for that run. The issued selection remains
+- Receive the fixed questions and server-selected pool questions issued for that Assignment Attempt. The issued selection remains
   attached to the Student work even when an Instructor later changes teaching metadata or prepares future content.
 - Submit answers.
 - View permitted feedback and grades.
@@ -320,7 +320,7 @@ live demo does not require SOPS to protect its disposable internal process-isola
 
 The live demo uses one implementation. Courses, assignments, problems, accounts, memberships, student work,
 grades, previews, and other application state use the normal PLE data model. Instructor validation of delivery
-uses the same Student-run, submission, deterministic-grading, receipt, and gradebook paths used by a live course.
+uses the same Student Assignment Attempt, submission, deterministic-grading, receipt, and gradebook paths used by a live course.
 
 The distinction between a live demo and another PLE installation is primarily:
 

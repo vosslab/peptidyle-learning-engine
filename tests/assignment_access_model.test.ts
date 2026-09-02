@@ -65,5 +65,5 @@ test("safe preview copy uses only display labels and closed verdict copy", () =>
     sourceLabel({ kind: "accommodation", membership: "M-private", label: "Jordan Lee" }),
     "Jordan Lee",
   );
-  assert.equal(startLabel("lateWorkRefused"), "Due date prevents a new run");
+  assert.equal(startLabel("lateWorkRefused"), "Due date prevents a new Assignment Attempt");
 });

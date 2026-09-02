@@ -65,8 +65,11 @@ pub fn assignment_attempt_continuation_allows_assignment_attempt(
     match rule {
         AssignmentAttemptContinuationRule::Unlimited => true,
         AssignmentAttemptContinuationRule::Capped {
-            max_additional_runs,
-        } => summary.completed_assignment_attempt_count.saturating_sub(1) < max_additional_runs,
+            max_additional_assignment_attempts,
+        } => {
+            summary.completed_assignment_attempt_count.saturating_sub(1)
+                < max_additional_assignment_attempts
+        }
         AssignmentAttemptContinuationRule::Closed => false,
     }
 }
@@ -101,7 +104,7 @@ mod tests {
         assert!(!assignment_attempt_continuation_allows_assignment_attempt(
             &summary,
             AssignmentAttemptContinuationRule::Capped {
-                max_additional_runs: 2,
+                max_additional_assignment_attempts: 2,
             }
         ));
     }

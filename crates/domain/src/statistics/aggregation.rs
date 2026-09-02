@@ -77,7 +77,7 @@ impl std::error::Error for StatisticsError {}
 
 /// One identity-free cohort measure for one exact Question Revision.
 ///
-/// Store code derives this from one enrollment's first completed assigned run.
+/// Store code derives this from one Student Record's first completed Assignment Attempt.
 /// Repeated assignment positions of the same version have already been
 /// collapsed before constructing this type.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -126,7 +126,7 @@ impl QuestionCohortRollupObservation {
         self.duration_seconds
     }
 
-    /// Returns the rest-of-run score used for discrimination when available.
+    /// Returns the rest-of-Assignment-Attempt score used for discrimination when available.
     pub fn rest_score(self) -> Option<f64> {
         self.rest_score
     }
@@ -243,7 +243,7 @@ pub struct PearsonMomentSnapshot {
     pub count: u64,
     /// Running mean of normalized question score.
     pub mean_x: f64,
-    /// Running mean of rest-of-run score.
+    /// Running mean of rest-of-Assignment-Attempt score.
     pub mean_y: f64,
     /// Sum of squared deviations for question score.
     pub m2_x: f64,
@@ -392,7 +392,7 @@ impl Default for PearsonSufficientSums {
 /// Non-wire, identity-free persistence snapshot of one Question Cohort Rollup.
 #[derive(Debug, Clone, PartialEq)]
 pub struct QuestionCohortRollupSnapshot {
-    /// Number of first-completed-run cohort contributions.
+    /// Number of first-completed-Assignment-Attempt cohort contributions.
     pub cohort_size: u64,
     /// Sum of normalized question scores.
     pub score_sum: f64,

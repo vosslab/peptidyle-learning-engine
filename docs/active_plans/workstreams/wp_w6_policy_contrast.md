@@ -12,10 +12,10 @@ walkthrough. See the [J4 review](../audits/wp_w6_policy_contrast_review.md),
 - `ui_walkthrough_keyboard_j4.spec.ts` enters through the rendered local student sign-in form and
   follows the exact arranged course, Mastery, and Exam `href` values using Tab, Enter, and Space.
 - The Mastery path handles an already completed state only through the rendered summary and its
-  `Start another practice run` control, then takes the first and second visible radio controls
+  `Start another practice Assignment Attempt` control, then takes the first and second visible radio controls
   through their visible submission and continuation states. It requires exactly two unchecked
   rendered native radios; the second is reached only through bounded backward Shift+Tab.
-- The closed Exam path completes one visible response, requires `This run is complete`, and requires
+- The closed Exam path completes one visible response, requires `This Assignment Attempt is complete`, and requires
   that no fresh-practice action or Mastery heading exists. A resumed closed Exam remains visibly
   closed; a resumed fresh-practice state fails rather than being activated. Both completion summaries
   retain `Back to assignment`.

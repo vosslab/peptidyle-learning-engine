@@ -74,7 +74,7 @@ impl std::fmt::Debug for RenderedWebworkQuestion {
     }
 }
 
-/// One bounded renderer failure that a run route can expose as a WeBWorK-only
+/// One bounded renderer failure that an Assignment Attempt route can expose as a WeBWorK-only
 /// degraded state.  No renderer implementation detail or answer data leaks.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RendererFailure {

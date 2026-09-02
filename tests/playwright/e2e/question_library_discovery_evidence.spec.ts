@@ -163,9 +163,11 @@ async function completeAssignment(page: Page, assignmentTitle: string): Promise<
   await response.check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
   await waitForAutomatedStudentFeedback(page);
-  await page.getByRole("button", { name: "View completed run", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+    .click();
   await expect(
-    page.locator(".attempt-summary").getByText("Your completed run is recorded."),
+    page.locator(".attempt-summary").getByText("Your completed Assignment Attempt is recorded."),
   ).toBeVisible();
 }
 
@@ -343,7 +345,9 @@ test.describe("Question Library discovery evidence on the production PLE stack",
           .filter({ has: mary.getByRole("heading", { name: baseAssignmentTitle, exact: true }) });
         await card.getByRole("link", { name: "Start assignment", exact: true }).click();
         await waitForRouteDataSurface(mary, "assignmentOverview");
-        await expect(mary.getByText("Completed runs", { exact: true })).toBeVisible();
+        await expect(
+          mary.getByText("Completed Assignment Attempts", { exact: true }),
+        ).toBeVisible();
       });
 
       const geneticsAssignmentTitle = "Genetics: Peptide Consequences Practice";
@@ -379,7 +383,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         );
       });
 
-      await test.step("Jack completes the installed open Biochemistry course run", async () => {
+      await test.step("Jack completes the installed open Biochemistry Course Assignment Attempt", async () => {
         await chooseSeededIdentity(jack, /Jack Chen/u);
         await selectVisibleCourse(jack, BIOCHEMISTRY_COURSE_TITLE);
         await completeAssignment(jack, baseAssignmentTitle);

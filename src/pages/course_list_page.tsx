@@ -30,7 +30,7 @@ function CourseCard(props: CourseCardProps): JSX.Element {
     <article class="course-card">
       <p class="card-kicker">Active course</p>
       <h2>{props.course.title}</h2>
-      <p>Review the current assignment or resume an in-progress practice run.</p>
+      <p>Review the current assignment or resume an in-progress practice Assignment Attempt.</p>
       <A
         class="primary-link"
         href={`/courses/${courseInstanceRouteReference(props.course.reference)}`}

@@ -163,8 +163,8 @@ adapters, strict decoding, and presentation models.
 
 ## Student and delivery boundary
 
-The run page keeps one editable response and one idempotency key for the
-current run/attempt. It may use answer-free Wasm for format hints and timing
+The Assignment Attempt page keeps one editable response and one idempotency key for the
+current Assignment Attempt. It may use answer-free Wasm for format hints and timing
 display. It never stores keys, private envelopes, unreleased Student Feedback, or
 provider state, and never derives correctness or completion.
 
@@ -190,11 +190,11 @@ is used only for non-authoritative format/timing help.
 
 ## Browser persistence
 
-| Storage        | Allowed data                                                                 | Clear boundary                        |
-| -------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
-| localStorage   | Nonessential preferences after applicable consent                            | Reset or consent withdrawal           |
-| sessionStorage | Explicitly requested in-progress response recovery                           | Submit success, run exit, or sign-out |
-| neither        | Session tokens, keys, grades, undisclosed feedback, CourseInstance authority | Never stored                          |
+| Storage        | Allowed data                                                                 | Clear boundary                                       |
+| -------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------- |
+| localStorage   | Nonessential preferences after applicable consent                            | Reset or consent withdrawal                          |
+| sessionStorage | Explicitly requested in-progress response recovery                           | Submit success, Assignment Attempt exit, or sign-out |
+| neither        | Session tokens, keys, grades, undisclosed feedback, CourseInstance authority | Never stored                                         |
 
 A BlueprintCourse draft remains in component/page state until the typed
 repository reports success or a recoverable conflict. It is not a hidden

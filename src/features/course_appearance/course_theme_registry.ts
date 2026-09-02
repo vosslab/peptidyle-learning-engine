@@ -1,6 +1,6 @@
 // course_theme_registry.ts - exhaustive course-theme anchors and accessible design tokens.
 
-import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
+import type { CourseTheme } from "../../../generated/api/CourseTheme";
 
 export interface ThemeAnchors {
   readonly canvas: string;
@@ -174,20 +174,20 @@ export const COURSE_THEME_REGISTRY = {
     action: "#8a3d24",
     onSecondary: "#172033",
   }),
-} as const satisfies Readonly<Record<CourseThemeId, CourseThemeTokens>>;
+} as const satisfies Readonly<Record<CourseTheme, CourseThemeTokens>>;
 
 export interface CourseThemeOption {
-  readonly id: CourseThemeId;
+  readonly id: CourseTheme;
   readonly tokens: CourseThemeTokens;
 }
 
 /** Theme choices in the Rust-owned registry order used by the native radio group. */
 export const COURSE_THEME_OPTIONS: ReadonlyArray<CourseThemeOption> = Object.entries(
   COURSE_THEME_REGISTRY,
-).map(([id, tokens]) => ({ id: id as CourseThemeId, tokens }));
+).map(([id, tokens]) => ({ id: id as CourseTheme, tokens }));
 
 /** Resolves one reviewed theme and rejects transport drift without a fallback. */
-export function courseThemeTokens(themeId: CourseThemeId): CourseThemeTokens {
+export function courseThemeTokens(themeId: CourseTheme): CourseThemeTokens {
   const candidate: CourseThemeTokens | undefined = COURSE_THEME_REGISTRY[themeId];
   if (candidate === undefined) {
     throw new Error(`Unknown course theme: ${String(themeId)}`);

@@ -272,12 +272,16 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
       const feedback = await waitForAutomatedStudentFeedback(mary);
       await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-      await mary.getByRole("button", { name: "View completed run", exact: true }).click();
-      const completedRun = mary.locator(".attempt-summary");
-      await expect(completedRun.getByText("Your completed run is recorded.")).toBeVisible();
-      await expect(completedRun.getByRole("region", { name: "Assignment score" })).toContainText(
-        "Best 100%",
-      );
+      await mary
+        .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+        .click();
+      const completedAssignmentAttempt = mary.locator(".attempt-summary");
+      await expect(
+        completedAssignmentAttempt.getByText("Your completed Assignment Attempt is recorded."),
+      ).toBeVisible();
+      await expect(
+        completedAssignmentAttempt.getByRole("region", { name: "Assignment score" }),
+      ).toContainText("Best 100%");
 
       await elena.getByRole("link", { name: "Gradebook", exact: true }).click();
       await expect(elena.locator("[data-route-surface=gradebook]")).toBeVisible();

@@ -13,13 +13,13 @@ attempt uses the stored values.
 
 ## Contract layers
 
-| Layer                         | Authoritative inputs                                                       | Exact result                                              | Owner                              |
-| ----------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------- |
-| Question Variation Parameters | generator reference, definition, seed                                      | `QuestionVariationParameters` and SHA-256                 | `domain` and Wasm                  |
-| PLE issued question           | immutable Question Revision, seed                                           | Question Variation Presentation and Question Attempt Reproduction Details | trusted server backend             |
-| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation and sanitized markup | private adapter/renderer           |
-| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce | Question Presentation Response Format, rendered IDs, Question Presentation Checksum | trusted server; browser may verify |
-| Submission                    | authenticated attempt, idempotency key, student response                   | one stored receipt or conflict                            | trusted server/store               |
+| Layer                         | Authoritative inputs                                                           | Exact result                                                                        | Owner                              |
+| ----------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| Question Variation Parameters | generator reference, definition, seed                                          | `QuestionVariationParameters` and SHA-256                                           | `domain` and Wasm                  |
+| PLE issued question           | immutable Question Revision, seed                                              | Question Variation Presentation and Question Attempt Reproduction Details           | trusted server backend             |
+| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation and sanitized markup                    | private adapter/renderer           |
+| Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce     | Question Presentation Response Format, rendered IDs, Question Presentation Checksum | trusted server; browser may verify |
+| Submission                    | authenticated attempt, idempotency key, student response                       | one stored receipt or conflict                                                      | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
@@ -223,7 +223,7 @@ envelope, not an untrusted browser-selected question type or mutable renderer.
 
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
-question, creates a course/student/run/predecessor-bound reservation, and
+question, creates a Course/Student/Assignment Attempt/predecessor-bound reservation, and
 persists its parameter hash, provenance, and presentation binding. It does not
 start the next timer or let the browser choose seed, version, backend, source,
 or grading state.

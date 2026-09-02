@@ -201,12 +201,12 @@ impl PreviewResolvedPolicy {
     }
 }
 
-/// Prior-run fact; it is a count, not a run, attempt, or receipt reference.
+/// Prior Assignment Attempt fact; it is a count, not an attempt or receipt reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
-pub struct PreviewPriorRunCount(u32);
+pub struct PreviewPriorAssignmentAttemptCount(u32);
 
-impl TryFrom<u32> for PreviewPriorRunCount {
+impl TryFrom<u32> for PreviewPriorAssignmentAttemptCount {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -214,8 +214,8 @@ impl TryFrom<u32> for PreviewPriorRunCount {
     }
 }
 
-impl From<PreviewPriorRunCount> for u32 {
-    fn from(value: PreviewPriorRunCount) -> Self {
+impl From<PreviewPriorAssignmentAttemptCount> for u32 {
+    fn from(value: PreviewPriorAssignmentAttemptCount) -> Self {
         value.0
     }
 }
@@ -241,7 +241,7 @@ pub struct StudentViewScenario {
     pub revision: TeachingOperationRevision,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
-    pub prior_run_count: PreviewPriorRunCount,
+    pub prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -252,7 +252,7 @@ struct StudentViewScenarioWire {
     revision: TeachingOperationRevision,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
-    prior_run_count: PreviewPriorRunCount,
+    prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
 }
 
 impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
@@ -264,7 +264,7 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
             value.revision,
             value.selected_moment,
             value.policy,
-            value.prior_run_count,
+            value.prior_assignment_attempt_count,
         )
     }
 }
@@ -277,7 +277,7 @@ impl StudentViewScenario {
         revision: TeachingOperationRevision,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
-        prior_run_count: PreviewPriorRunCount,
+        prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             kind,
@@ -285,7 +285,7 @@ impl StudentViewScenario {
             revision,
             selected_moment,
             policy,
-            prior_run_count,
+            prior_assignment_attempt_count,
         })
     }
 }
@@ -529,7 +529,7 @@ mod direct_preview_tests {
                 },
             )
             .expect("policy"),
-            PreviewPriorRunCount::try_from(0).expect("count"),
+            PreviewPriorAssignmentAttemptCount::try_from(0).expect("count"),
         )
         .expect("preview subject");
         let wire = serde_json::to_string(&subject).expect("wire");

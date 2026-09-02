@@ -206,7 +206,7 @@ does not issue a course support capability or widen course access.
 ## Student self ownership and FERPA records
 
 Current Student membership is an explicit relationship between `AccountId` and an
-exact `CourseId`. A Student record, run, attempt, response, grade, artifact,
+exact `CourseId`. A Student Record, Assignment Attempt, Question Attempt, response, grade, artifact,
 or Student-record asset is bound to that exact course, the current Student
 membership/owner, and its child identity. A Student may list and work only the
 assignments available to that Student in that course and may read only the
@@ -245,7 +245,7 @@ after the private workspace material validates. A same-lineage semantic change
 publishes a new immutable QuestionRevision under the existing Question ID. An
 incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
-Question ID and visible source ancestry. Existing assignments and issued runs
+Question ID and visible source ancestry. Existing Assignments and issued Assignment Attempts
 retain their exact reference until a current course Instructor performs an
 explicit revision-checked replacement.
 
@@ -295,7 +295,7 @@ credit and proposal ancestry. It never moves assignment or evidence pins. A
 stale base requires rebase and resubmission.
 
 Each assignment item records its visible Question ID and hidden exact
-`QuestionRevisionReference { question_id, revision_number }` pin. Issued runs, attempts, grading
+`QuestionRevisionReference { question_id, revision_number }` pin. Issued Assignment Attempts, Question Attempts, grading
 evidence, and audit records retain the same exact pair, seed, and required
 provenance. A publication, lifecycle transition, correction, or worker never
 advances an assignment implicitly; a future version requires an explicit,

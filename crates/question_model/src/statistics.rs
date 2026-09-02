@@ -29,7 +29,7 @@ pub enum StudentClassStatistics {
     InsufficientEvidence,
     /// Anonymous aggregate metrics for a completed-Student cohort.
     Available {
-        /// Number of distinct Students represented by their latest completed run.
+        /// Number of distinct Students represented by their latest completed Assignment Attempt.
         completed_student_cohort_size: u32,
         /// Mean normalized assignment score, in the inclusive range `0.0..=1.0`.
         assignment_average_score: f64,
@@ -125,11 +125,11 @@ impl Default for StatisticsDisclosurePolicy {
 /// Browser-safe anonymous metrics for one immutable published question revision.
 ///
 /// This projection intentionally carries no deployment, Student, enrollment,
-/// course, assignment, run, attempt, response, source, or feedback identity.
+/// course, assignment, Assignment Attempt, Question Attempt, response, source, or feedback identity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionStatisticsView {
-    /// Number of first-completed-run cohort contributions represented.
+    /// Number of first completed Assignment Attempt cohort contributions represented.
     pub cohort_size: u64,
     /// Mean normalized question score in the inclusive range `0.0..=1.0`.
     pub difficulty_index: f64,
@@ -137,7 +137,7 @@ pub struct QuestionStatisticsView {
     pub attempts_mean: f64,
     /// Fixed-histogram estimate of the median response duration in seconds.
     pub time_median_seconds_estimate: u64,
-    /// Pearson correlation of question score with rest-of-run score, when the
+    /// Pearson correlation of question score with rest of the Assignment Attempt score, when the
     /// cohort has enough variance to calculate it honestly.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discrimination_index: Option<f64>,

@@ -63,10 +63,10 @@ pub struct AssignmentItemAnalysis {
     pub average_credit: Option<f64>,
     /// Sample standard deviation of current credit fraction among graded attempts.
     pub credit_standard_deviation: Option<f64>,
-    /// Pearson correlation between item credit and rest-of-run credit.
+    /// Pearson correlation between item credit and rest-of-Assignment-Attempt credit.
     pub discrimination: Option<f64>,
     pub response_distribution: ItemAnalysisResponseDistribution,
-    /// Mean elapsed milliseconds from the terminal Student submission for runs
+    /// Mean elapsed milliseconds from the terminal Student submission for Assignment Attempts
     /// that delivered this item.
     pub average_completion_time_millis: Option<u64>,
 }
@@ -129,13 +129,15 @@ impl std::fmt::Display for ItemAnalysisMetricError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::UnpairedCredits => {
-                "item-analysis credits must remain paired with rest-of-run credits"
+                "item-analysis credits must remain paired with rest-of-Assignment-Attempt credits"
             }
             Self::UnpairedCorrectness => {
                 "item-analysis credits must remain paired with correctness"
             }
             Self::InvalidCredit => "item-analysis credit must be finite and between -1000 and 1000",
-            Self::InvalidRestOfRunCredit => "item-analysis rest-of-run credit must be finite",
+            Self::InvalidRestOfRunCredit => {
+                "item-analysis rest-of-Assignment-Attempt credit must be finite"
+            }
         })
     }
 }

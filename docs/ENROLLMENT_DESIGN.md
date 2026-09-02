@@ -84,7 +84,7 @@ questions:
 | Assignment Attempt | What immutable Student activity exists for this Student Record and Assignment?          | Educational record                       |
 | Assignment Grade   | What selected course result should the Gradebook read?                                  | Updated from retained Student activity   |
 
-Removing course access therefore does not erase Student Records, attempts,
+Removing course access therefore does not erase Student Records, Assignment Attempts, Question Attempts,
 submissions, or grades. Roster removal revokes future course access. Record
 archive and deletion continue through the explicit retention workflow in
 [RETENTION_POLICY.md](RETENTION_POLICY.md).
@@ -92,7 +92,7 @@ archive and deletion continue through the explicit retention workflow in
 Student-scoped Store operations re-evaluate active `Student` membership and the
 exact Student Record's Assignment Access, then bind the result's stable
 `StudentRecordId` to any retained receipt at the database/Store boundary. Thus a
-revoked student cannot continue to read a run, attempt, summary, feedback
+revoked student cannot continue to read an Assignment Attempt, Question Attempt, summary, feedback
 release, or prefetch that was issued before removal. Direct course instructors
 use distinct Instructor-history operations for records retained for grade, audit, and
 retention work; membership removal does not accidentally erase that explicit
@@ -197,9 +197,9 @@ or course fields.
 
 The local browser and deployed product use the same PLE-owned account contract:
 
-| Session              | Issuer and purpose                                            | What it establishes                                                                         |
-| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `__Host-ple_session` | Email code, passkey, or deployment-gated seeded-persona entry | One Authenticated Session used with exact course, assignment, run, and roster relationships |
+| Session              | Issuer and purpose                                            | What it establishes                                                                            |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `__Host-ple_session` | Email code, passkey, or deployment-gated seeded-persona entry | One Authenticated Session used with exact Course, Assignment Attempt, and roster relationships |
 
 Invitation redemption uses the authenticated Account session before exact course relationship resolution.
 Passkey registration begins from an authenticated PLE account, so a passkey can
@@ -353,7 +353,7 @@ The rules are:
 - A Sysadmin may help an Instructor through the closed roster list, invitation,
   policy, revoke, preview, and commit operations. The Store records
   authenticated account/course/action/time for each Sysadmin support access; this capability
-  does not include grade export, responses, runs, item analysis, or general
+  does not include grade export, responses, Assignment Attempts, item analysis, or general
   course access.
 - A student member may view the course but cannot enumerate or mutate the
   roster.
@@ -388,14 +388,14 @@ The Store owns three connected but intentionally separate invariants:
 
 The following operations preserve them:
 
-| Operation                                            | Atomic effect                                                                                                                        |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Claim invitation                                     | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
-| Create assignment                                    | Store the assignment; create no student activity rows                                                                                |
-| Read entitled pre-activity summary                   | Return a key-free `no_activity` projection without creating an enrollment or summary                                                 |
-| Start run, grade-bearing action, or instructor issue | Re-evaluate entitlement and atomically create or reuse the enrollment and summary receipt                                            |
-| Remove student access                                | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                  |
-| Re-add former student                                | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                  |
+| Operation                                                           | Atomic effect                                                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Claim invitation                                                    | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
+| Create assignment                                                   | Store the assignment; create no student activity rows                                                                                |
+| Read entitled pre-activity summary                                  | Return a key-free `no_activity` projection without creating an enrollment or summary                                                 |
+| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate entitlement and atomically create or reuse the enrollment and summary receipt                                            |
+| Remove student access                                               | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                  |
+| Re-add former student                                               | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                  |
 
 Memory uses one write lock and rollback snapshot for compound transitions.
 PostgreSQL uses one transaction and a consistent lock order when materializing
@@ -712,7 +712,7 @@ retention design.
 
 Roster removal is an access transition, not record destruction.
 
-- New runs, attempts, asset grants, and invitation redemption are refused after
+- New Assignment Attempts, Question Attempts, asset grants, and invitation redemption are refused after
   membership removal.
 - Existing materialized receipts, summaries, and issued evidence remain
   available to authorized direct course instructors under course retention
@@ -729,7 +729,7 @@ Roster removal is an access transition, not record destruction.
 ## Product data boundary
 
 PLE is authoritative for its own account credentials, PLE sessions, course
-access, issued attempts, responses, feedback, practice history, and calculated
+access, issued Questions, Question Attempts, responses, feedback, practice history, and calculated
 score summaries. Those records are required to operate and explain the PLE
 learning experience.
 
@@ -749,7 +749,7 @@ interpretation in the institutional system.
 
 PLE treats all course-linked student educational records as FERPA data and
 radioactive. This is broader than directly identifying roster fields: it
-includes membership, enrollment, attempts, responses, feedback, grades,
+includes membership, enrollment, Assignment Attempts, Question Attempts, responses, feedback, grades,
 exports, artifacts, audit evidence, and opaque values that link a person to
 them. Collect a value only for a named teaching operation, keep its authority
 narrow, exclude it from general logs and analytics, and remove copies that no
@@ -781,7 +781,7 @@ count, and time.
 
 ## Related documents
 
-- [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) defines enrollment, run, attempt,
+- [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) defines enrollment, Assignment Attempt, Question Attempt,
   mastery, and grade-selection semantics.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines course and
   student-record authority.

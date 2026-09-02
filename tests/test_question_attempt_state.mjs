@@ -39,7 +39,7 @@ function receipt() {
       attemptId: "attempt-a",
       attempt: {
         id: "attempt-a",
-        run: "run-a",
+        assignmentAttempt: "assignment-attempt-a",
         problem: "problem-a",
         questionRevision: versionReference(1),
         assignmentPosition: 0,
@@ -352,7 +352,7 @@ test("reload restores the saved response and its existing replay key", async () 
   assert.equal(second.submissionCalls[0].key, "key-1");
 });
 
-test("run exit clears only the active attempt buffer", () => {
+test("Assignment Attempt exit clears only the active Question Attempt buffer", () => {
   const storage = createStorage();
   const otherAttemptKey = "ple:attempt:assignment-attempt-a:attempt-b";
   storage.setItem(otherAttemptKey, "other-attempt-buffer");

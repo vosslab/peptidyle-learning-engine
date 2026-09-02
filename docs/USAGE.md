@@ -51,7 +51,7 @@ server-backed accounts for the Instructor, Student, and Sysadmin roles:
   not mounted in the current build, and email delivery is not configured for this live demo; use
   the visible seeded-role entry for demo access.
 - To switch from Instructor to Student work, sign out and select a seeded Student persona. Do not
-  use Instructor **Student view** as a substitute for a graded Student run.
+  use Instructor **Student view** as a substitute for a graded Student Assignment Attempt.
 
 ## Instructor assignment workspace
 
@@ -74,7 +74,7 @@ are public route references, not authority. For graded work, sign out, choose a 
 authorized course, open the assignment title on the Student course page, and choose **Start
 assignment**. Submit through visible response controls. When **Response received** appears, use
 **Check grading status** until the live worker returns feedback or instructor attention. The
-resulting student run, submission, receipt, grade, and instructor gradebook history are ordinary live
+resulting Student Assignment Attempt, submission, receipt, grade, and instructor Gradebook history are ordinary live
 records.
 
 When an accepted submission needs recovery, the Student sees **Response received**, a cleared answer

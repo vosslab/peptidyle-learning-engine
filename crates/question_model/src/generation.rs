@@ -87,7 +87,7 @@ pub enum QuestionGeneratorParameter {
     },
 }
 
-/// How a question varies between students and between runs.
+/// How a question varies between students and between Assignment Attempts.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",

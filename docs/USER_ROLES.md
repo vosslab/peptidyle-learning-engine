@@ -145,7 +145,7 @@ asset bytes after the committed outbox decision.
   that capability. Route initial CourseInstance bootstrap through the separate
   pre-course Sysadmin platform authority.
 - Provide support results at the minimum useful detail and keep grades,
-  responses, runs, exports, and item analysis behind direct Instructor
+  responses, Assignment Attempts, exports, and item analysis behind direct Instructor
   membership or a separately approved narrow operation.
 - Keep Student-owner and Instructor-history capabilities separate.
 - Conceal missing and unauthorized FERPA records with the same result where

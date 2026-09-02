@@ -22,7 +22,7 @@ The durable required behavior is now separated from this dated evidence in
 of their own acceptance package.
 
 The acceptance goal is direct: a student can open a course, open an assignment, begin or resume a
-run, answer every currently implemented Question Format, submit, read feedback, continue, review a
+Assignment Attempt, answer every currently implemented Question Format, submit, read feedback, continue, review an
 summary, recover from an error, and return without a mouse. The completed evidence demonstrates the
 full route only for the built mock journey below; the remaining Question Formats have the fixture or
 source-inspection coverage named in their rows.
@@ -42,15 +42,15 @@ response components, but their convenience does not become a prerequisite for an
 
 ## Task model
 
-| Step             | Student goal               | Primary platform path            | Completion evidence                                   |
-| ---------------- | -------------------------- | -------------------------------- | ----------------------------------------------------- |
-| Enter content    | Bypass repeated navigation | Tab to skip link, Enter          | Main content receives focus                           |
-| Choose work      | Open course and assignment | Tab to each native link, Enter   | Each route loads and main content receives focus      |
-| Start practice   | Begin or resume a run      | Tab to the button, Space         | Current question and Question Response Control appear |
-| Answer           | Enter a response           | Tab to the choice, Space         | Format status announces ready or explains the problem |
-| Submit           | Record the response        | Tab to Submit answer, Space      | Feedback or recovery state appears                    |
-| Continue         | Move to the next task      | Tab to the visible action, Space | Next question or run-complete summary appears         |
-| Review and leave | Inspect results or return  | Tab to the visible action, Space | Assignment overview or new practice run opens         |
+| Step             | Student goal                          | Primary platform path            | Completion evidence                                          |
+| ---------------- | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| Enter content    | Bypass repeated navigation            | Tab to skip link, Enter          | Main content receives focus                                  |
+| Choose work      | Open course and assignment            | Tab to each native link, Enter   | Each route loads and main content receives focus             |
+| Start practice   | Begin or resume an Assignment Attempt | Tab to the button, Space         | Current question and Question Response Control appear        |
+| Answer           | Enter a response                      | Tab to the choice, Space         | Format status announces ready or explains the problem        |
+| Submit           | Record the response                   | Tab to Submit answer, Space      | Feedback or recovery state appears                           |
+| Continue         | Move to the next task                 | Tab to the visible action, Space | Next question or Assignment Attempt-complete summary appears |
+| Review and leave | Inspect results or return             | Tab to the visible action, Space | Assignment overview or new practice Assignment Attempt opens |
 
 The built mock journey through a single-choice response is covered by `a student completes the
 primary platform-key course-to-answer path without a pointer` in
@@ -71,13 +71,13 @@ entire route end to end.
 
 ## Findings and corrections
 
-| Severity | Baseline finding                                                                                                                                         | Correction                                                                                                                                 | Status                          |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| High     | Every response on a run-summary page had a focusable `Stay on summary` button whose action did nothing. Thirty responses meant thirty useless Tab stops. | Read-only feedback omits the advance action. The completed-run surface now has one Back to assignment action outside the response list.    | Fixed and tested                |
-| High     | Repeated feedback panels reused `feedback-panel-heading`, so several regions referenced the same DOM ID.                                                 | Each panel now creates a unique heading ID and uses it for its own `aria-labelledby`.                                                      | Fixed and tested with 30 panels |
-| Medium   | Multiple-answer checkboxes required Tab between every option and offered no arrow navigation.                                                            | Arrow keys move focus among checkboxes without silently toggling them; Space retains standard selection behavior.                          | Fixed and tested                |
-| Medium   | Ordering had keyboard-operable buttons but did not support the owner's requested arrow-key workflow or announce a move.                                  | Visible controls retain their Tab-and-Space path; focused controls also accept Up/Down Arrow, retain focus, and announce the new position. | Fixed and tested                |
-| Medium   | The built primary journey mixed native platform operation with Arrow selection and response-input Enter, so one failure could not identify its owner.    | The primary journey now uses Tab, Shift+Tab, Space, explicit submission, and native links; each widget extension has an isolated scenario. | Fixed and tested                |
+| Severity | Baseline finding                                                                                                                                                         | Correction                                                                                                                                             | Status                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| High     | Every response on an Assignment Attempt summary page had a focusable `Stay on summary` button whose action did nothing. Thirty responses meant thirty useless Tab stops. | Read-only feedback omits the advance action. The completed Assignment Attempt surface now has one Back to assignment action outside the response list. | Fixed and tested                |
+| High     | Repeated feedback panels reused `feedback-panel-heading`, so several regions referenced the same DOM ID.                                                                 | Each panel now creates a unique heading ID and uses it for its own `aria-labelledby`.                                                                  | Fixed and tested with 30 panels |
+| Medium   | Multiple-answer checkboxes required Tab between every option and offered no arrow navigation.                                                                            | Arrow keys move focus among checkboxes without silently toggling them; Space retains standard selection behavior.                                      | Fixed and tested                |
+| Medium   | Ordering had keyboard-operable buttons but did not support the owner's requested arrow-key workflow or announce a move.                                                  | Visible controls retain their Tab-and-Space path; focused controls also accept Up/Down Arrow, retain focus, and announce the new position.             | Fixed and tested                |
+| Medium   | The built primary journey mixed native platform operation with Arrow selection and response-input Enter, so one failure could not identify its owner.                    | The primary journey now uses Tab, Shift+Tab, Space, explicit submission, and native links; each widget extension has an isolated scenario.             | Fixed and tested                |
 
 The summary cleanup follows WCAG 2.2 focus-order guidance, which recommends avoiding focusable
 elements that cannot be operated or actioned. The radio behavior follows the WAI-ARIA Authoring
@@ -127,11 +127,10 @@ node --import tsx --test tests/test_question_response_controls.mjs
 ./run_playwright_tests.sh --build \
   tests/playwright/frontend_contract.spec.ts \
   tests/playwright/feedback_panel.spec.ts \
-  tests/playwright/run_summary_route.spec.ts \
   tests/playwright/student_keyboard_accessibility.spec.ts
 ```
 
-The focused run rebuilds the shipped artifacts and checks the response controller, the primary
+The focused Assignment Attempt rebuilds the shipped artifacts and checks the response controller, the primary
 platform journey, independently named widget-extension scenarios, and the student question/feedback
 axe surface. This confirms the built mock journey and mounted fixture coverage listed above; it does
 not promote source-inspection rows into full-route evidence. The scenarios assert durable student

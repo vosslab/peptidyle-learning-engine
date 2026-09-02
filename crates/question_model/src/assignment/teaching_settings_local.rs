@@ -194,7 +194,7 @@ pub struct InstructorAssignmentAuthoredContentLocal {
     pub closes_at: Option<CourseLocalDateAndTime>,
     /// Whole Assignment Attempt limit when one applies.
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
-    /// Maximum number of runs when one applies.
+    /// Maximum number of Assignment Attempts when one applies.
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
     pub late_work_rule: LateWorkRule,

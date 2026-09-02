@@ -252,7 +252,7 @@ mod tests {
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: Timestamp::from_unix_millis(10),
-            prior_run_count: 0,
+            prior_assignment_attempt_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
                 due_at: Some(Timestamp::from_unix_millis(20)),
@@ -465,7 +465,7 @@ mod tests {
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: Timestamp::from_unix_millis(10),
-            prior_run_count: 0,
+            prior_assignment_attempt_count: 0,
             base: BaseAssignmentPolicy {
                 available_at: None,
                 due_at: None,

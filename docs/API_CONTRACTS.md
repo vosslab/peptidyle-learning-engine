@@ -231,7 +231,7 @@ reload/recovery action instead of silently overwriting another page.
 `GET /api/courses/{course}/assignments/{assignment}/student-view` is a
 non-mutating, `no-store` Instructor read. It uses the exact same course and
 assignment authority, projects the current answer-free Student landing with
-course-wide base delivery facts, and does not create enrollment, run, attempt,
+course-wide base delivery facts, and does not create enrollment, Assignment Attempt, Question Attempt,
 submission, receipt, grade, or preview state. The shared landing presentation
 is also used by ordinary Student overview; only an exact active Student
 assignment entitlement creates work and supplies the server-owned gradebook
@@ -347,12 +347,12 @@ system.
 The mutation rule is intentional: a route accepts only the data that the
 server cannot derive from authenticated state and the existing record.
 
-| Mechanism                   | Applies to                                                                                          | Contract                                                                                                                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
-| `Idempotency-Key`           | Future Student submission                                                                           | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
-| Server-generated identity   | Runs, attempts, publications, export jobs, upload entries, object deliveries                        | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
-| Bytes-first promotion       | QTI/PLE Question JSON publication and exports; future Course Banner Uploads                         | Objects may be written before the database transaction, but an unbound upload is not visible content. The database commits the authoritative public/delivery pointer atomically.                               |
+| Mechanism                   | Applies to                                                                                           | Contract                                                                                                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strong ETag plus `If-Match` | Workspace saves/deletes, publication review and conversion, focused assignment content/policy saves  | Read returns a strong revision. A write must send that exact revision; stale state conflicts without mutation. Authorization happens before precondition evaluation when that prevents an existence oracle.    |
+| `Idempotency-Key`           | Future Student submission                                                                            | The same key and same response will represent one grading request. A retry will return the committed receipt without grading twice. This is a deferred Store-backed delivery requirement, not a mounted route. |
+| Server-generated identity   | Assignment Attempts, Question Attempts, publications, export jobs, upload entries, object deliveries | Browser paths name an existing opaque record but browser bodies do not mint durable identities or choose storage paths.                                                                                        |
+| Bytes-first promotion       | QTI/PLE Question JSON publication and exports; future Course Banner Uploads                          | Objects may be written before the database transaction, but an unbound upload is not visible content. The database commits the authoritative public/delivery pointer atomically.                               |
 
 ETags are resource revisions, not general-purpose cache validators. An attempt
 submission uses its attempt ID and idempotency key rather than a browser-owned
@@ -383,7 +383,7 @@ The HTTP client treats a successful status as untrusted until it verifies:
 3. bounded primitive values and known discriminants;
 4. returned identity matches the requested route identity; and
 5. related records in a composed screen agree on the authenticated account, exact course/Student or
-   workspace relationship, run, attempt, version, and seed where relevant.
+   workspace relationship, Assignment Attempt, Question Attempt, version, and seed where relevant.
 
 Browser acceptance uses the production `ApiClient` over the disposable HTTPS
 gateway. Narrow browser-free unit tests check serialized decoder and transport

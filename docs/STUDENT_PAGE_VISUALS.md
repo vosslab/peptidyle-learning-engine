@@ -55,13 +55,13 @@ and human visual review before they can claim visual acceptance.
 
 ## Planned surfaces
 
-| Surface                   | Role           | Evidence purpose                    | Corpus area                        |
-| ------------------------- | -------------- | ----------------------------------- | ---------------------------------- |
-| Student assignment list   | Student        | Allowed course work                 | `docs/screenshots/student/`        |
-| Student assignment or run | Student        | Allowed Student task                | `docs/screenshots/student/`        |
-| Student access denial     | Student/access | Fail-closed instructor-route denial | `docs/screenshots/student/access/` |
-| Roster denial probe       | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
-| Gradebook denial probe    | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
+| Surface                                  | Role           | Evidence purpose                    | Corpus area                        |
+| ---------------------------------------- | -------------- | ----------------------------------- | ---------------------------------- |
+| Student assignment list                  | Student        | Allowed course work                 | `docs/screenshots/student/`        |
+| Student Assignment or Assignment Attempt | Student        | Allowed Student task                | `docs/screenshots/student/`        |
+| Student access denial                    | Student/access | Fail-closed instructor-route denial | `docs/screenshots/student/access/` |
+| Roster denial probe                      | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
+| Gradebook denial probe                   | Student/access | No instructor transport             | `docs/screenshots/student/access/` |
 
 The former screenshot-corpus source and consumers were removed. This table is
 the retained product coverage target for a future single browser-owner rebuild;

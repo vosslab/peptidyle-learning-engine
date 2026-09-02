@@ -130,14 +130,17 @@ function assignmentAttemptContinuationRule(value: unknown, path: string): unknow
     return { kind };
   }
   if (kind === "capped") {
-    requireOnlyFields(record, path, ["kind", "maxAdditionalRuns"]);
-    const maxAdditionalRuns = decodeSafeInteger(
-      field(record, "maxAdditionalRuns", path),
-      `${path}.maxAdditionalRuns`,
+    requireOnlyFields(record, path, ["kind", "maxAdditionalAssignmentAttempts"]);
+    const maxAdditionalAssignmentAttempts = decodeSafeInteger(
+      field(record, "maxAdditionalAssignmentAttempts", path),
+      `${path}.maxAdditionalAssignmentAttempts`,
     );
-    if (maxAdditionalRuns < 0)
-      throw new DecodeError(`${path}.maxAdditionalRuns`, "a nonnegative safe integer");
-    return { kind, maxAdditionalRuns };
+    if (maxAdditionalAssignmentAttempts < 0)
+      throw new DecodeError(
+        `${path}.maxAdditionalAssignmentAttempts`,
+        "a nonnegative safe integer",
+      );
+    return { kind, maxAdditionalAssignmentAttempts };
   }
   throw new DecodeError(`${path}.kind`, "a known Assignment Attempt Continuation Rule");
 }

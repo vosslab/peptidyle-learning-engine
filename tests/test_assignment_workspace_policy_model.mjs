@@ -97,7 +97,7 @@ test("Assignment activity-rule number drafts accept bounded values and retain in
 });
 
 test("inactive conditional Assignment activity-rule drafts survive a successful unrelated policy save", () => {
-  const original = { completionFraction: "0.65", additionalRuns: "7" };
+  const original = { completionFraction: "0.65", additionalAssignmentAttempts: "7" };
   const saved = {
     ...policies,
     assignmentCompletionRule: { kind: "answerAll" },
@@ -106,7 +106,7 @@ test("inactive conditional Assignment activity-rule drafts survive a successful 
 
   assert.deepEqual(activityRuleDraftFromRules(saved), {
     completionFraction: "0.8",
-    additionalRuns: "3",
+    additionalAssignmentAttempts: "3",
   });
   assert.deepEqual(mergeSavedActivityRuleDraft(original, saved), original);
 });

@@ -65,10 +65,10 @@ export async function waitForAutomatedStudentFeedback(page: Page): Promise<Locat
 }
 
 export async function advanceToNextIssuedQuestion(page: Page): Promise<void> {
-  const runSurface = page.locator('[data-route-surface="runAttempt"]');
-  const predecessor = await runSurface.getAttribute("data-attempt-id");
+  const assignmentAttemptSurface = page.locator('[data-route-surface="assignmentAttempt"]');
+  const predecessor = await assignmentAttemptSurface.getAttribute("data-attempt-id");
   if (predecessor === null || predecessor.length === 0) {
-    throw new Error("run-attempt surface is missing its stable attempt identity");
+    throw new Error("Assignment Attempt surface is missing its stable attempt identity");
   }
   const advance = page.getByRole("button", {
     name: /^(Continue|Refresh for the next question)$/u,

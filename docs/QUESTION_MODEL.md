@@ -353,7 +353,7 @@ but do not authenticate a Student, authorize a request, or determine whether
 an answer is correct.
 
 This is the accepted current presentation contract, not a statement that the live
-generic run route has already completed its payload cutover. The current route
+generic Assignment Attempt route has already completed its payload cutover. The current route
 still issues `QuestionVariationPresentation` and accepts a tagged `StudentResponse` in
 `{ "response": ... }`; its `kind` is therefore part of today's wire shape.
 The planned compact response uses the attempt route identity, presentation

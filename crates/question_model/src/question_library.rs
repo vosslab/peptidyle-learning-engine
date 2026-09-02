@@ -331,11 +331,11 @@ pub enum QuestionStatistics {
         independent_learner_observation_count: u64,
         /// Mean normalized score, in the inclusive range `0.0..=1.0`.
         difficulty_index: f64,
-        /// Mean submitted attempts represented by one first-run observation.
+        /// Mean submitted attempts represented by one first-Assignment-Attempt observation.
         attempts_mean: f64,
         /// Fixed-histogram estimate of the median response duration in seconds.
         time_median_seconds_estimate: u64,
-        /// Correlation of question score with rest-of-run score when valid.
+        /// Correlation of question score with rest-of-Assignment-Attempt score when valid.
         #[serde(skip_serializing_if = "Option::is_none")]
         discrimination_index: Option<f64>,
         /// Database-authoritative time at which this evidence was computed.

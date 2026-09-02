@@ -51,7 +51,7 @@ current-package handoff; this foundation plan does not duplicate that changing h
 cutover, exact hidden snapshot evidence, and explicit assignment replacement behavior. That receipt
 remains evidence of the work completed at the time. The current stable-lineage and immutable-version
 authority below supersedes its earlier one-Question-ID-per-content-snapshot interpretation while
-preserving all exact assignment, issued-run, grading, audit, provenance, and transport pins. Final
+preserving all exact Assignment, Issued Question, grading, audit, provenance, and transport pins. Final
 material-tree evidence is recorded in [implementation_status.md](implementation_status.md) and the
 changelog. WP-PY-L1 is accepted on 2026-08-15. The Instructor roadmap records M0 as accepted from
 the four evidenced release-truth packages; its subsequent work follows the Instructor dependency
@@ -62,7 +62,7 @@ Current browser evidence is tracked through the sole current-package handoff in
 remain separate release work.
 
 **Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
-ordinary live assignments, student runs, deterministic server-owned grading, immutable issued
+ordinary live assignments, Student Assignment Attempts, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-INST-D1 and
@@ -292,7 +292,7 @@ release boundary while writing code.
 - Deliver a mastery loop whose perceived latency is dominated by local work: answer-format validation
   and the next question are already in the browser, and grading is a server round trip whose
   server-side processing time is measured and recorded as a baseline.
-- Support unlimited post-completion practice runs as a first-class product behavior, with completion,
+- Support unlimited post-completion practice Assignment Attempts as a first-class product behavior, with completion,
   grading, and variation as three independent policies.
 - Guarantee no Answer Key or Question Grader code is reachable from the browser, enforced by the
   crate dependency graph rather than reviewer discipline.
@@ -388,7 +388,7 @@ Evidence strategy for uncertain methods:
   suites before production backends consume it.
 - Implement the question model, identity and lifecycle, attempt state machine, timing, scoring,
   capability validation, and audit events in Rust.
-- Implement the enrollment, run, and attempt model with independent completion, grading, and
+- Implement the Student Record, Assignment Attempt, and Question Attempt model with independent completion, grading, and
   variation policies, plus transactionally maintained summary rows.
 - Implement the Question Library, private Question authoring workspaces, and exact course/Student records in one
   cluster with forced RLS.
@@ -431,7 +431,7 @@ instruction directly.
 
 - The Rust workspace, Solid browser application, generated contract pipeline, PostgreSQL schema,
   object store, API, worker, local container stack, and repository gates are implemented.
-- M0/M1 contracts, core author/publish/assign/run/grade/feedback/export/statistics paths, retention
+- M0/M1 contracts, core author/publish/assign/Assignment Attempt/grade/feedback/export/statistics paths, retention
   R4.4, QTI profile import WP-QTI-12, the database baseline, keyboard pass, local typed lifecycle, and course
   appearance WP-CA1 through WP-CA7/WP-RC1 have accepted evidence.
 - Focused private `local_stack_control` Python modules now build, migrate, seed, start, wait for semantic
@@ -602,16 +602,16 @@ The boundary is **educational content versus educational records**, which is als
 the reuse line. Those turn out to be the same line, which is why the design works. Both live in one
 cluster; the distinction is ownership and policy, not physical separation.
 
-| Shared installation content                      | Exact relationship-owned records (RLS enforced) |
-| ------------------------------------------------ | ----------------------------------------------- |
-| Published Question Library                       | Courses and sections                            |
-| Immutable problem versions                       | Assignments                                     |
-| QTI, H5P, WeBWorK, and iMathAS source references | Instructor workspaces                           |
-| Shared media assets                              | Draft problems                                  |
-| Tags, Question Classifications, licensing        | Enrollments, runs, attempts, submissions        |
-| Backend capability definitions                   | Grades, summaries, timers                       |
-| Anonymous question statistics                    | Per-student analytics and audit logs            |
-| Public and community libraries                   | Student-record artifacts                        |
+| Shared installation content                      | Exact relationship-owned records (RLS enforced)                  |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| Published Question Library                       | Courses and sections                                             |
+| Immutable problem versions                       | Assignments                                                      |
+| QTI, H5P, WeBWorK, and iMathAS source references | Instructor workspaces                                            |
+| Shared media assets                              | Draft problems                                                   |
+| Tags, Question Classifications, licensing        | Enrollments, Assignment Attempts, Question Attempts, submissions |
+| Backend capability definitions                   | Grades, summaries, timers                                        |
+| Anonymous question statistics                    | Per-student analytics and audit logs                             |
+| Public and community libraries                   | Student-record artifacts                                         |
 
 An assignment is **not** shareable content. It is a course source_object_reference referencing published Questions,
 which is what lets one published Question serve thousands of instructors without copying:
@@ -623,7 +623,7 @@ Published Question Revision (shared, immutable)
 Assignment (Course A)     Assignment (Course B)
         |                         |
         v                         v
-Runs and Attempts (A)     Runs and Attempts (B)
+Assignment Attempts (A)   Assignment Attempts (B)
 ```
 
 RLS is enforced, not advisory: every protected table declares `FORCE ROW LEVEL SECURITY`, the
@@ -644,7 +644,7 @@ BlueprintCourse (workspace-owned, revisioned, answer-free)
 
 CourseInstance (exact CourseId, private teaching aggregate)
   -> copied definitions, resolved deadlines, releases, accommodations,
-     Students, runs, grades, and delivery settings
+     Students, Assignment Attempts, grades, and delivery settings
 ```
 
 Every CourseInstance has exactly one immutable Blueprint parent and applied source revision. Blank
@@ -673,7 +673,7 @@ discoverable and resolvable for evidence and existing pins. One AccountId-owned 
 bookmark and endorsement; vetted Instructors may see aggregate Star count and Star identities, while Students and
 anonymous users see neither identities nor private Watch state. Durable improvement events remain
 separate from publication authority. Grading corrections record affected
-pins and assignment/run impact, then use generation-fenced recalculation without mutating issued
+pins and Assignment Attempt impact, then use generation-fenced recalculation without mutating issued
 evidence. Attempts, correct counts, and eligible-choice counts are version-specific and disclosed
 only under the existing privacy-threshold formula. Existing `WP-INST-D1`, `D2`, `G1`, `G2`, `G3`, and
 `G4` packages own these behaviors; SD1 introduces no package ID.
@@ -712,17 +712,17 @@ This table records the current designed dependencies rather than an exhaustive p
 composition boundaries are permanent only where the architecture requires them, with the exact
 `crates/wasm` dependency closure retained as a security gate that keeps answer-bearing grading outside browser builds.
 
-| Crate                                   | Owns                                                                                                                    | Depends only on                                  |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`                 | Question types, capabilities, identity, Question Classifications, `ts-rs` derives                                       | External crates                                  |
-| `crates/domain`                         | Attempt state machine, run and completion rules, timing verdict, seeded generation, capability validation, audit events | `question_model`                                 |
-| `crates/grading`                        | **Answer keys, checkers, correctness decisions**                                                                        | `question_model`, `domain`                       |
-| `crates/objects`                        | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                 | `question_model`                                 |
-| `crates/learning-data-access`           | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                  | `question_model`, `domain`, `objects`            |
-| `crates/adapters/{ple,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                     | `question_model`, `domain`, `grading`, `objects` |
-| `crates/export`                         | Print model, DOCX and PDF writers                                                                                       | `question_model`, `objects`                      |
-| `crates/wasm`                           | `wasm-bindgen` bridge, delegating every call to `domain`                                                                | `question_model`, `domain`                       |
-| `crates/server`                         | axum routes, auth, worker mode, composition root                                                                        | Every crate above                                |
+| Crate                                   | Owns                                                                                                                          | Depends only on                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `crates/question_model`                 | Question types, capabilities, identity, Question Classifications, `ts-rs` derives                                             | External crates                                  |
+| `crates/domain`                         | Assignment Attempt state machine and completion rules, timing verdict, seeded generation, capability validation, audit events | `question_model`                                 |
+| `crates/grading`                        | **Answer keys, checkers, correctness decisions**                                                                              | `question_model`, `domain`                       |
+| `crates/objects`                        | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                       | `question_model`                                 |
+| `crates/learning-data-access`           | `Store` trait, PostgreSQL backends, migrations, RLS context management                                                        | `question_model`, `domain`, `objects`            |
+| `crates/adapters/{ple,webwork,qti,h5p}` | Per-engine load, generate, grade delegation, capability declaration                                                           | `question_model`, `domain`, `grading`, `objects` |
+| `crates/export`                         | Print model, DOCX and PDF writers                                                                                             | `question_model`, `objects`                      |
+| `crates/wasm`                           | `wasm-bindgen` bridge, delegating every call to `domain`                                                                      | `question_model`, `domain`                       |
+| `crates/server`                         | axum routes, auth, worker mode, composition root                                                                              | Every crate above                                |
 
 `learning-data-access` remains the sole owner of Base Course SQL, PostgreSQL locking, durable
 install-state transitions, migrations, and Store implementation. `project-tools` calls the focused
@@ -763,14 +763,14 @@ Four policies, deliberately independent so an instructor can combine them freely
 | Question Variation Rule  | Reuse Variation or New Variation                              |
 
 Two derivations that look contradictory and are not, so the distinction is stated once here:
-**within-Assignment-Attempt completion is derived** from Question states, never stored as a boolean, which keeps the
-state machine honest. **Cross-Assignment-Attempt grade state is a maintained summary row**, updated transactionally
+**Completion within an Assignment Attempt is derived** from Question states, never stored as a boolean, which keeps the
+state machine honest. **Grade state across Assignment Attempts is a maintained summary row**, updated transactionally
 when an Assignment Attempt changes, because scanning hundreds of millions of attempts to render a course page is not
 an option. Different scopes, different mechanisms.
 
-`student_assignment_summary` holds `best_score`, `latest_score`, `completed_run_count`,
+`student_assignment_summary` holds `best_score`, `latest_score`, `completed_assignment_attempt_count`,
 `total_question_attempts`, and `last_activity_at`. Ordinary course and gradebook pages read only the
-summary. Historical runs stay available for learning analysis through explicitly asynchronous
+summary. Historical Assignment Attempts stay available for learning analysis through explicitly asynchronous
 analytics, never through a synchronous page query.
 
 ## Data retention and deletion
@@ -796,14 +796,14 @@ course ends
 
 What each stage touches:
 
-| Deleted with student records         | Retained indefinitely                                    |
-| ------------------------------------ | -------------------------------------------------------- |
-| Enrollments                          | Published Questions and immutable Question Revisions     |
-| Runs, question attempts, submissions | Question Library, Question Classifications, licensing    |
-| Grades and summary rows              | Instructor question drafts and workspaces                |
-| Timer events and render traces       | Assignment Content (Instructor's choice at archive time) |
-| Per-student analytics                | Backend capability metadata                              |
-| Student-record bucket artifacts      | Anonymous question statistics (below)                    |
+| Deleted with student records                        | Retained indefinitely                                    |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| Enrollments                                         | Published Questions and immutable Question Revisions     |
+| Assignment Attempts, Question Attempts, submissions | Question Library, Question Classifications, licensing    |
+| Grades and summary rows                             | Instructor question drafts and workspaces                |
+| Timer events and render traces                      | Assignment Content (Instructor's choice at archive time) |
+| Per-student analytics                               | Backend capability metadata                              |
+| Student-record bucket artifacts                     | Anonymous question statistics (below)                    |
 
 Wording matters in the notification, because "reset" sounds like breakage. The instructor-facing copy
 is: _This course ended 30 days ago. Student records are still available. If they are no longer needed,
@@ -1134,14 +1134,14 @@ Planning assumption based on the owner's reported practice behavior, not a perma
 target. The values give the capacity review a declared workload shape; observed workload and the
 configured storage/query budgets decide whether the deployment model needs to change.
 
-| Planning quantity                                  | Sizing observation    |
-| -------------------------------------------------- | --------------------- |
-| Students x assignments x questions x complete runs | 50,000 x 10 x 20 x 30 |
-| Question instances per term                        | ~300 M                |
-| Plus incorrect attempts within runs                | 500 M+ rows over time |
-| Peak submission rate (due-date evening)            | ~300-500 / s          |
-| Database writes per submission                     | ~4                    |
-| Peak write rate                                    | ~2,000 writes / s     |
+| Planning quantity                                                 | Sizing observation    |
+| ----------------------------------------------------------------- | --------------------- |
+| Students x assignments x questions x complete Assignment Attempts | 50,000 x 10 x 20 x 30 |
+| Question instances per term                                       | ~300 M                |
+| Plus incorrect Question Attempts within Assignment Attempts       | 500 M+ rows over time |
+| Peak submission rate (due-date evening)                           | ~300-500 / s          |
+| Database writes per submission                                    | ~4                    |
+| Peak write rate                                                   | ~2,000 writes / s     |
 
 These figures are one-time sizing observations. A class-start or release review records the actual
 workload shape, observed queue/error/latency distribution, and configured capacity budgets; no value
@@ -1233,8 +1233,8 @@ requests, but they do not appear in the address bar or user-copyable navigation 
 | Route                                                                    | Surface                                                             | Notes                                                            |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `/`                                                                      | Course list for the signed-in role                                  | Student and instructor views diverge below this                  |
-| `/courses/:courseRef`                                                    | Assignment list with progress and run counts                        | `C-n`; reads summary rows                                        |
-| `/courses/:courseRef/assignments/:assignmentRef`                         | Assignment overview, run history, start or resume                   | `C-n` and `A-n`; entry point for a run                           |
+| `/courses/:courseRef`                                                    | Assignment list with progress and Assignment Attempt counts         | `C-n`; reads summary rows                                        |
+| `/courses/:courseRef/assignments/:assignmentRef`                         | Assignment overview, Assignment Attempt history, start or resume    | `C-n` and `A-n`; entry point for an Assignment Attempt           |
 | `/assignment-attempts/:assignmentAttemptRef`                             | The Assignment Attempt loop, one Question at a time                 | `R-n`; the screen that must feel instant                         |
 | `/assignment-attempts/:assignmentAttemptRef/summary`                     | Assignment Attempt result, per-Question outcomes, practice re-entry | `R-n`; where practice re-entry lives                             |
 | `/library`                                                               | Question Library browser                                            | Virtualized, faceted, cursor-paged                               |
@@ -1253,15 +1253,15 @@ requests, but they do not appear in the address bar or user-copyable navigation 
 fine-grained model is the reason a timer ticking four times a second costs one text-node update rather
 than a component re-render.
 
-| State                               | Primitive                                | Owner                  | Rationale                                                                                        |
-| ----------------------------------- | ---------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| Session and role                    | Context over a store                     | App shell              | Read everywhere, written rarely                                                                  |
-| Current run and per-question status | Store with granular reads                | Run route              | Nested and partially updated; a store avoids replacing the whole object on one question's change |
-| Remaining time                      | Signal holding an integer of deciseconds | Timer component        | Scalar, high-frequency, one subscriber                                                           |
-| Submission in flight                | Signal holding a discriminated union     | Attempt component      | `idle`, `validating`, `submitted`, `graded`, `failed`                                            |
-| Question content                    | Resource keyed on question attempt id    | Question component     | Async, suspendable, cache-friendly                                                               |
-| Prefetched next question            | Store keyed by question index            | Prefetch controller    | Written by prefetch, read by navigation                                                          |
-| Question Library browse results     | Resource plus cursor signal              | Question Library route | Cursor pagination, never an offset                                                               |
+| State                                              | Primitive                                | Owner                    | Rationale                                                                                        |
+| -------------------------------------------------- | ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Session and role                                   | Context over a store                     | App shell                | Read everywhere, written rarely                                                                  |
+| Current Assignment Attempt and per-question status | Store with granular reads                | Assignment Attempt route | Nested and partially updated; a store avoids replacing the whole object on one question's change |
+| Remaining time                                     | Signal holding an integer of deciseconds | Timer component          | Scalar, high-frequency, one subscriber                                                           |
+| Submission in flight                               | Signal holding a discriminated union     | Attempt component        | `idle`, `validating`, `submitted`, `graded`, `failed`                                            |
+| Question content                                   | Resource keyed on question attempt id    | Question component       | Async, suspendable, cache-friendly                                                               |
+| Prefetched next question                           | Store keyed by question index            | Prefetch controller      | Written by prefetch, read by navigation                                                          |
+| Question Library browse results                    | Resource plus cursor signal              | Question Library route   | Cursor pagination, never an offset                                                               |
 
 Conventions the review checklist enforces positively: read props at the use site so reactivity is
 preserved; place teardown in `onCleanup`; render dynamic lists with `<For>` when identity matters and
@@ -1343,10 +1343,10 @@ complete backend provenance. Submitting question N promotes that reservation int
 attempt and timer, then records either an immutable
 `nextIssued` descriptor or durable `nextPending` state in N's idempotent receipt. Initial recovery
 can heal a committed-but-unlinked successor from the sole pending receipt, but replay never scans
-newer run state to rewrite a receipt.
+newer Assignment Attempt state to rewrite a receipt.
 
-The browser keeps the prefetched envelope only in memory. It advances without another run-screen fetch
-only when the receipt's minimal `nextIssued` descriptor exactly matches predecessor, run, position,
+The browser keeps the prefetched envelope only in memory. It advances without another Assignment Attempt screen fetch
+only when the receipt's minimal `nextIssued` descriptor exactly matches predecessor, Assignment Attempt, position,
 version, seed, and backend-owned rendered hash. Mismatch, outage, teardown, or a late response clears
 the speculative value and uses the ordinary authoritative screen path. Asset warming is limited to 12
 deduplicated same-origin logical asset routes.
@@ -1356,13 +1356,13 @@ deduplicated same-origin logical asset routes.
 An assessment tool is judged on what happens when the network drops mid-question, so these are
 designed rather than discovered:
 
-| Situation                      | Behavior                                                                                                                            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Submission request fails       | Retry with the same idempotency key, backing off; the answer stays visible and editable; the timer keeps its server-anchored expiry |
-| Repeated failure               | A persistent banner states the answer is saved locally and will be submitted, with a manual retry control                           |
-| Session expires mid-run        | Re-authentication returns the student to the same question with the run intact                                                      |
-| Question content fails to load | The question shows a retry affordance and the run remains resumable                                                                 |
-| Renderer unavailable           | Only WeBWorK-sourced questions show a degraded state; the rest of the run proceeds                                                  |
+| Situation                              | Behavior                                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Submission request fails               | Retry with the same idempotency key, backing off; the answer stays visible and editable; the timer keeps its server-anchored expiry |
+| Repeated failure                       | A persistent banner states the answer is saved locally and will be submitted, with a manual retry control                           |
+| Session expires mid-Assignment Attempt | Re-authentication returns the Student to the same question with the Assignment Attempt intact                                       |
+| Question content fails to load         | The question shows a retry affordance and the Assignment Attempt remains resumable                                                  |
+| Renderer unavailable                   | Only WeBWorK-sourced questions show a degraded state; the rest of the Assignment Attempt proceeds                                   |
 
 ### Accessibility
 
@@ -1386,25 +1386,25 @@ before WP-RC5 acceptance.
 
 ### Client architecture
 
-| Concern               | Choice                                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework shape       | Solid SPA, static bundle, one Rust backend                                                                                                                     |
-| Router                | `@solidjs/router`                                                                                                                                              |
-| Query and cache layer | `query` plus `createAsync` from `@solidjs/router`, already present with the router; keyed on attempt, run, and cursor so revalidation is explicit              |
-| API access            | The generated typed client only; every call goes through it so the boundary stays one file deep                                                                |
-| WASM loading          | One module instantiated once at app start, awaited behind a splash state, shared by every consumer                                                             |
-| WASM fallback         | When instantiation fails, format validation falls back to a server call and the app continues with a round trip per validation, reporting the degradation once |
-| Server authority      | The server owns grading, timer verdicts, completion, and grade state; the client owns navigation, display, and input buffering                                 |
+| Concern               | Choice                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework shape       | Solid SPA, static bundle, one Rust backend                                                                                                                                |
+| Router                | `@solidjs/router`                                                                                                                                                         |
+| Query and cache layer | `query` plus `createAsync` from `@solidjs/router`, already present with the router; keyed on Question Attempt, Assignment Attempt, and cursor so revalidation is explicit |
+| API access            | The generated typed client only; every call goes through it so the boundary stays one file deep                                                                           |
+| WASM loading          | One module instantiated once at app start, awaited behind a splash state, shared by every consumer                                                                        |
+| WASM fallback         | When instantiation fails, format validation falls back to a server call and the app continues with a round trip per validation, reporting the degradation once            |
+| Server authority      | The server owns grading, timer verdicts, completion, and grade state; the client owns navigation, display, and input buffering                                            |
 
 Browser persistence is deliberately narrow, since anything stored is data at rest on a shared machine:
 
-| Store            | Contents                                                                            | Cleared                                      |
-| ---------------- | ----------------------------------------------------------------------------------- | -------------------------------------------- |
-| Account settings | Presentation contrast preference; default standard, optional increased contrast     | On user change or explicit reset             |
-| `localStorage`   | Device-local sound and reduced-motion preferences only                              | On explicit reset                            |
-| `sessionStorage` | In-progress response text keyed by question attempt, for crash and refresh recovery | On successful submit, run exit, and sign-out |
-| Memory only      | One exact key-free next-question envelope and its receipt-binding descriptor        | On advance, mismatch, run exit, or unmount   |
-| Nothing          | Session tokens, keys, grades, and any answer-bearing value                          | n/a                                          |
+| Store            | Contents                                                                            | Cleared                                                     |
+| ---------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Account settings | Presentation contrast preference; default standard, optional increased contrast     | On user change or explicit reset                            |
+| `localStorage`   | Device-local sound and reduced-motion preferences only                              | On explicit reset                                           |
+| `sessionStorage` | In-progress response text keyed by Question Attempt, for crash and refresh recovery | On successful submit, Assignment Attempt exit, and sign-out |
+| Memory only      | One exact key-free next-question envelope and its receipt-binding descriptor        | On advance, mismatch, Assignment Attempt exit, or unmount   |
+| Nothing          | Session tokens, keys, grades, and any answer-bearing value                          | n/a                                                         |
 
 Session identity lives in an `HttpOnly` cookie the page cannot read, which is what keeps it out of the
 table above.
@@ -1429,9 +1429,9 @@ table above.
 ### Forms, errors, and focus
 
 - Question Response Controls are controlled inputs with validation state as data, so a widget renders its own
-  error text and a run-level summary can list every outstanding issue from the same source.
+  error text and an Assignment Attempt-level summary can list every outstanding issue from the same source.
 - An error boundary wraps each route and, separately, the question renderer, so a failure in one
-  question's content leaves the run shell and timer intact and offers a retry.
+  question's content leaves the Assignment Attempt shell and timer intact and offers a retry.
 - Focus moves deliberately between attempt phases: to the feedback panel when a result arrives, so a
   screen-reader user hears the teaching content immediately, then to the advance control once feedback
   has been announced. Focus returns to the first question response control on the next question.
@@ -1442,14 +1442,14 @@ table above.
 
 ### Frontend validation strategy
 
-| Layer                    | Covers                                                                                                                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node component tests     | Question Response Control behavior, validation state transitions, envelope-to-component mapping                                                                                 |
-| Playwright functional    | Mastery loop, post-completion practice run, give-up flow, resume after refresh, retry after a failed submission, timer expiry, publish refusal                                  |
-| Playwright accessibility | Keyboard-only completion of a full run, focus order across attempt phases, live-region announcements, contrast measured against `docs/COLOR_CONTRAST_ACCESSIBILITY.md`          |
-| Playwright network       | Offline submit and recovery, slow renderer, expired session mid-run, WASM instantiation failure falling back to server validation                                               |
-| Playwright visual        | Feedback panel states and timer states, where a rendering regression is easier to see than to assert                                                                            |
-| Interaction latency      | Recorded during named release or usability investigations; not a permanent browser assertion until PLE has a reproducible benchmark environment and an approved user-facing SLO |
+| Layer                    | Covers                                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node component tests     | Question Response Control behavior, validation state transitions, envelope-to-component mapping                                                                                       |
+| Playwright functional    | Mastery loop, post-completion practice Assignment Attempt, give-up flow, resume after refresh, retry after a failed submission, timer expiry, publish refusal                         |
+| Playwright accessibility | Keyboard-only completion of a full Assignment Attempt, focus order across attempt phases, live-region announcements, contrast measured against `docs/COLOR_CONTRAST_ACCESSIBILITY.md` |
+| Playwright network       | Offline submit and recovery, slow renderer, expired session mid-Assignment Attempt, WASM instantiation failure falling back to server validation                                      |
+| Playwright visual        | Feedback panel states and timer states, where a rendering regression is easier to see than to assert                                                                                  |
+| Interaction latency      | Recorded during named release or usability investigations; not a permanent browser assertion until PLE has a reproducible benchmark environment and an approved user-facing SLO       |
 
 ### Instructor surfaces
 
@@ -1506,9 +1506,9 @@ current-pointer, route, authorization, upload-lifecycle, or editor implementatio
 feature requires an approved dedicated plan that freezes its palette, object, RLS, image, API,
 accessibility, and atomic work-package contracts before implementation.
 
-**Gradebook.** Reads summary rows only, showing best and latest scores, completed run count, and
-last activity. A student's run history is a drill-down that loads on demand, so the default view stays
-a summary query regardless of how many practice runs a class has accumulated. Rows show the
+**Gradebook.** Reads summary rows only, showing best and latest scores, completed Assignment Attempt count, and
+last activity. A Student's Assignment Attempt history is a drill-down that loads on demand, so the default view stays
+a summary query regardless of how many practice Assignment Attempts a class has accumulated. Rows show the
 student's display name and never render a student UUID.
 
 ## Module catalog
@@ -1523,7 +1523,7 @@ substitution for a required production path.
 | MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, Question Classifications                                                                               | none                                                                                    | n/a (root contract)                 | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
 | MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionRevisionNumber`, lifecycle                                                  | MOD-QM                                                                                  | n/a                                 | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
 | MOD-ACTIVITY               | Assignment Activity Rules                                                | Assignment Attempt lifecycle and independent policy rules                                                                             | MOD-QM                                                                                  | n/a                                 | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
-| MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, within-Assignment-Attempt completion                                                                           | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
+| MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, completion within an Assignment Attempt                                                                        | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
 | MOD-TIME                   | Timing rules                                                             | `timer_verdict(...)` pure fn                                                                                                          | MOD-QM                                                                                  | n/a                                 | Table-driven grace and pause cases                                                                                                                                                                                                          |
 | MOD-SCORE                  | Scoring and grade policies                                               | `score(...)`, summary projection                                                                                                      | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | First/latest/highest agree with a hand-computed fixture                                                                                                                                                                                     |
 | MOD-CAP                    | Capability validation                                                    | `validate_assignment_config -> Vec<Violation>`                                                                                        | MOD-QM                                                                                  | n/a                                 | Committed violation table                                                                                                                                                                                                                   |
@@ -1552,10 +1552,10 @@ substitution for a required production path.
 | MOD-UI-COURSE              | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow                                                         | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                                       | Appearance mock repository          | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual source_object_reference gates                                                                                                        |
 | MOD-UI-WIDGETS             | Question Response Control set                                            | One component per response type, with local format validation                                                                         | MOD-WASM, WP-C9                                                                         | Reference widget                    | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                      |
 | MOD-UI-RENDER              | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives                                                         | MOD-UI-WIDGETS                                                                          | Fixture envelopes                   | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                  |
-| MOD-UI-ATTEMPT             | Attempt loop                                                             | Submit, pending state, current student-disclosure display, timer, prefetch, retry                                                     | MOD-UI-RENDER, MOD-CLIENT                                                               | Mock handlers                       | Full mastery run; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                                     |
+| MOD-UI-ATTEMPT             | Assignment Attempt loop                                                  | Submit, pending state, current student-disclosure display, timer, prefetch, retry                                                     | MOD-UI-RENDER, MOD-CLIENT                                                               | Mock handlers                       | Full mastery Assignment Attempt; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                      |
 | MOD-UI-BROWSE              | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                                                                               | MOD-CLIENT                                                                              | Mock handlers                       | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                           |
 | MOD-UI-EDITOR              | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow                                                         | MOD-UI-RENDER, MOD-WASM                                                                 | Mock handlers                       | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                            |
-| MOD-UI-GRADEBOOK           | Gradebook                                                                | Summary-row views, run-history drill-down                                                                                             | MOD-CLIENT                                                                              | Mock handlers                       | Default view issues one summary query regardless of run count                                                                                                                                                                               |
+| MOD-UI-GRADEBOOK           | Gradebook                                                                | Summary-row views, Assignment Attempt-history drill-down                                                                              | MOD-CLIENT                                                                              | Mock handlers                       | Default view issues one summary query regardless of Assignment Attempt count                                                                                                                                                                |
 | MOD-LTI                    | LTI Advantage                                                            | Launch and grade passback                                                                                                             | MOD-STO, MOD-API-AUTH                                                                   | Sandbox fixtures                    | Passback verified against an LMS sandbox                                                                                                                                                                                                    |
 | MOD-DEPLOY                 | Containers and AWS                                                       | Compose, images, Fargate, RDS, buckets, CDN                                                                                           | all                                                                                     | n/a                                 | A declared workload-model exercise demonstrates independent replicas and records observed capacity, failures, and scaling decisions; numeric projections have no permanent gate authority                                                   |
 
@@ -1572,15 +1572,15 @@ Shared artifacts with exactly one owning module, so lanes never contend:
 
 ## Milestone plan
 
-| M   | Title                    | Summary                                                                     | Goal                                                                         |
-| --- | ------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| M0  | Foundation and toolchain | Workspace, Solid build, containers, gates                                   | Both toolchains green on a hello-path                                        |
-| M1  | Contract freeze          | Every contract, reference backend, and conformance suite                    | Six or more lanes start without coordinating                                 |
-| M2  | Core lanes               | Domain, runs, grading boundary, storage, objects, PLE Question Backend, API | Parity, secrecy, and cross-course/cross-user authorization gates green       |
-| M3  | Experience lanes         | Student and instructor UIs, worker pool, export                             | Long run history remains usable and correctly summarized                     |
-| M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                         | Adapter behavior is green and a one-time source-boundary receipt is accepted |
-| M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention                     | Every gate green together, not just per lane                                 |
-| M6  | Platform and deploy      | LTI, analytics, AWS, autoscaling                                            | Passback verified; capacity-model workload demonstrates independent replicas |
+| M   | Title                    | Summary                                                                                    | Goal                                                                         |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| M0  | Foundation and toolchain | Workspace, Solid build, containers, gates                                                  | Both toolchains green on a hello-path                                        |
+| M1  | Contract freeze          | Every contract, reference backend, and conformance suite                                   | Six or more lanes start without coordinating                                 |
+| M2  | Core lanes               | Domain, Assignment Attempts, grading boundary, storage, objects, PLE Question Backend, API | Parity, secrecy, and cross-course/cross-user authorization gates green       |
+| M3  | Experience lanes         | Student and instructor UIs, worker pool, export                                            | Long Assignment Attempt history remains usable and correctly summarized      |
+| M4  | Adapter lanes            | WeBWorK with render cache, QTI, H5P                                                        | Adapter behavior is green and a one-time source-boundary receipt is accepted |
+| M5  | Integration hardening    | Cross-cutting E2E, isolation, hostile inputs, retention                                    | Every gate green together, not just per lane                                 |
+| M6  | Platform and deploy      | LTI, analytics, AWS, autoscaling                                                           | Passback verified; capacity-model workload demonstrates independent replicas |
 
 ### Milestone: M0 foundation and toolchain
 
@@ -1621,7 +1621,7 @@ widget exist to build against.
 ### Milestone: M2 core lanes
 
 - Depends on: M1.
-- Deliverables: domain modules, run and scoring model, grading boundary with both gates, real object
+- Deliverables: domain modules, Assignment Attempt and scoring model, grading boundary with both gates, real object
   storage, PostgreSQL store with RLS and partitions, PLE Question Backend including the PLE PLE Question JSON
   compiler and split persistence path, API route groups.
 - Lanes: (1) MOD-STATE, MOD-TIME, MOD-SCORE, MOD-CAP; (2) MOD-GEN, MOD-ADP-PLE; (3) MOD-GRD,
@@ -1630,7 +1630,7 @@ widget exist to build against.
 - Exit criteria: seed parity green on both targets; WASM allowlist and dependency assertion green;
   conformance suites green against PostgreSQL and MinIO; a missing authenticated session, foreign course, another
   AccountId, and revoked membership return zero rows;
-  the student-facing role cannot read any answer-key table; an in-progress run resumes across restart
+  the student-facing role cannot read any answer-key table; an in-progress Assignment Attempt resumes across restart
   and across replicas; a replayed submission returns the first result; every list endpoint uses a
   cursor; PLE Question JSON publication preserves the non-signable canonical source and binds grader-only
   material to the exact answer-free public model.
@@ -1654,7 +1654,7 @@ widget exist to build against.
   measurement, with its environment, workload shape, and observed distribution recorded for release
   capacity planning; end-to-end round trip is recorded alongside it for context; a browser network trace confirmed free of
   any answer or key; answer-format validation confirmed to resolve locally with no request issued; a
-  student completes an assignment and starts another practice run with fresh variants and a correct
+  student completes an assignment and starts another practice Assignment Attempt with fresh variants and a correct
   summary row after a varied retained history;
   publish refusal names the question and capability; a draft carries no Question Library number; a
   multi-worker exercise shows independent job claims; supported export variants render from one
@@ -1820,7 +1820,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
    Mary an accommodation. The preview shows the effective window and its source before she saves
    the assignment.
 6. **Deliver.** Mary enters the released Assignment through the ordinary student workflow,
-   receives fixed and policy-selected pool items bound to the issued run, submits, and receives the
+   receives fixed and policy-selected pool items bound to the issued Assignment Attempt, submits, and receives the
    deterministic grade, immutable receipt, and permitted disclosure. Elena inspects the same audited
    student work through the Instructor surface.
 7. **Recover and recalculate.** A deterministic grader exception for one issued item routes to
@@ -1829,7 +1829,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 8. **Analyze and improve.** Elena opens course-local item analysis, inspects the affected student
    evidence and usage context, and publishes either a linked immutable successor or a validated fork
    according to the change class. She records the controlled-update decision; future teaching can use
-   the selected improvement while the issued run remains pinned to its original evidence.
+   the selected improvement while the issued Assignment Attempt remains pinned to its original evidence.
 9. **Rollover.** Elena previews and creates the next-term rollover. The manifest carries reusable
    teaching definitions and improvement notes while excluding roster membership, accommodations,
    student work, attempts, grades, and retention state.
@@ -1897,7 +1897,7 @@ or implementer-authored specification is required.
   `docs/STUDENT_WORK_RECORDS.md`.
 - Acceptance criteria: Student Record, Assignment Attempt, and Question Attempt as distinct types; the four
   policies (completion requirement, grade policy, continued practice, variation policy) are independent enums
-  that compose freely; within-Assignment-Attempt completion is a derivation with no stored boolean; the summary
+  that compose freely; completion within an Assignment Attempt is a derivation with no stored boolean; the summary
   projection is a pure function of an Assignment Activity transition so the Store can apply it transactionally;
   compact behavior tests cover varied completion and grade-policy histories against hand-computed outcomes
   without making an arbitrary Assignment Attempt count part of the contract.
@@ -2073,7 +2073,7 @@ or implementer-authored specification is required.
 
 ## Test and verification strategy
 
-- `cargo test --workspace`: domain rules, transitions, run and policy combinations, timing and
+- `cargo test --workspace`: domain rules, transitions, Assignment Attempt and policy combinations, timing and
   scoring behavior, identity lifecycle, and conformance suites against in-memory backends. Fast, no
   container.
 - `pytest tests/`: repo hygiene and durable architecture boundaries only. It performs no real CLI
@@ -2081,7 +2081,7 @@ or implementer-authored specification is required.
   on collection sizes, dates, tunable constants, and file layout.
 - `node --import tsx --test tests/test_*.mjs`: generated-type freshness, API
   client serialization/decoder behavior, and strict transport shapes.
-- `tests/playwright/`: mastery loop, a post-completion practice run, timer behavior, publish refusal,
+- `tests/playwright/`: mastery loop, a post-completion practice Assignment Attempt, timer behavior, publish refusal,
   and the network trace proving no answer crosses the wire. Timing measurements are diagnostic output,
   not pass/fail assertions.
 - `tests/e2e/`: container-dependent checks -- restart durability, replica independence, clock-skew
@@ -2203,7 +2203,7 @@ The current implementation and scope decisions are expanded into dispatchable pa
   provides verified-image selection, immutable version-scoped publication, exact issue-time asset
   binding, and the primary keyboard region-list workflow. Its integrated author-to-student
   object-lifecycle acceptance remains open in the PLE Question JSON type plan.
-- New assignments default to `highest`; new practice runs use `newSeeds` while resumed attempts keep
+- New assignments default to `highest`; new practice Assignment Attempts use `newSeeds` while resumed attempts keep
   their issued seed.
 - Retention defaults are notify at 30 days, archive at 100 days, student-record deletion at 365 days,
   and aggregate publication at k >= 5.

@@ -333,7 +333,7 @@ The normal application store and object store resolve only immutable published
 source, artifact, and asset evidence. The QTI backend reparses the exact
 checksum-pinned archive before a private grading lookup, and the dedicated pool
 can return only the committed published binding for the exact server-resolved
-course assignment and attempt. Disabled QTI has no registry capability or run
+course assignment and Question Attempt. Disabled QTI has no registry capability or Assignment Attempt
 dispatch; non-QTI and unauthorized dispatches do not reach the grader.
 Connection strings and grading payloads are not included in errors, Debug
 output, browser DTOs, TypeScript, or WASM.
@@ -344,7 +344,7 @@ Student records are FERPA data and treated as radioactive: course-scoped,
 Student-owned where applicable, minimized, and excluded from general logs and analytics;
 reusable published content is not. Every
 student-facing Store and PostgreSQL path checks the same course-retention access predicate, so
-archive cannot be bypassed through runs, summaries, feedback, exports, iMathAS Question Backend operations, or protected
+archive cannot be bypassed through Assignment Attempts, summaries, feedback, exports, iMathAS Question Backend operations, or protected
 StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
 lifecycle, fixed notification copy, and a strong revision-not student, object,
 job, lease, or generation identity. This payload-free lifecycle authority is
@@ -353,7 +353,7 @@ audited, closed exact-course support capability. The closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry)
 binds every support capability to one course, purpose, operation set, expiry,
 and audit trail. A Sysadmin platform role alone never grants course access,
-Gradebook access, item analysis, responses, or runs.
+Gradebook access, item analysis, responses, or Assignment Attempts.
 
 Only the scheduler creates a closed retention job binding. The broker-owned
 prepare and commit functions require the exact course, stage, generation, job,
@@ -578,7 +578,7 @@ types, never Object Addresses, manifests, leases, source refs, failure details, 
 signed URLs. Downloads continue through the protected asset route and its audit
 log.
 
-## Run authorization and grading boundary
+## Assignment Attempt authorization and grading boundary
 
 The presentation model and its server-persisted binding are implemented, but
 the current student HTTP route still accepts the broader tagged
@@ -599,7 +599,7 @@ than rendering requires. The target render projection retains only public
 input constraints and displayed units while keeping tolerances, normalization
 rules, answer keys, weights, and rubrics server-only.
 
-Run reads and mutations require the authenticated `AccountId` stored on the
+Assignment Attempt reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
 `StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
@@ -609,13 +609,13 @@ in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record projection after removal;
 that Instructor authority never leaks into a student-scoped Store method.
 Direct course instructors may read enrollment history and
-summaries, but only the enrollment owner may start or submit a run. Nonowners
+summaries, but only the enrollment owner may start or submit an Assignment Attempt. Nonowners
 receive not found so record existence is not disclosed.
 
 Each newly issued attempt receives an operating-system-random seed. Resuming
 an unresolved attempt returns its stored seed and provenance, and the store
-locks the run so only one unresolved question exists at a time. Server-owned
-database timestamps determine issue time, deadline, response arrival, and run
+locks the Assignment Attempt so only one unresolved question exists at a time. Server-owned
+database timestamps determine issue time, deadline, response arrival, and Assignment Attempt
 completion.
 
 Next-question prefetch stores a course-scoped, server-only reservation without
@@ -627,7 +627,7 @@ predecessor and first unattempted assignment position. Only submission
 promotion creates the successor attempt and records either its immutable
 `nextIssued` descriptor or durable `nextPending` state in the predecessor's
 receipt. Replay reads that state instead of deriving a new successor from
-current run state; initial owner-scoped recovery alone may heal the sole
+current Assignment Attempt state; initial owner-scoped recovery alone may heal the sole
 committed-but-unlinked predecessor after a process failure.
 
 The prefetch response contains only the safe envelope and an exact descriptor.
@@ -647,7 +647,7 @@ their matching issued private grading contracts, so neither path reloads a
 current Question Library definition or grader view. The idempotency table retains the
 original public student response; the translated private response is grade-only. Submission persistence
 rejects malformed point values and atomically commits the response, grade
-event, run and enrollment transitions, and summary. The idempotency table is
+event, Assignment Attempt and enrollment transitions, and summary. The idempotency table is
 insert-only for the application role; an exact retry returns its first
 committed receipt, while a changed key or response conflicts.
 

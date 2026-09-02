@@ -108,7 +108,7 @@ async function createCourseAssignment(
   return link.inputValue();
 }
 
-async function startRun(
+async function startAssignmentAttempt(
   page: Page,
   invitation: string,
   course: string,
@@ -192,7 +192,7 @@ test("student gateway recovery: a saved response retries after the owner restore
       answer,
     );
     const invitation = await createCourseAssignment(instructor, course, assignment, question);
-    await startRun(student, invitation, course, assignment, answer);
+    await startAssignmentAttempt(student, invitation, course, assignment, answer);
     handshake.notify("response_selected");
     await handshake.waitFor("gateway_stopped");
     await student.getByRole("button", { name: "Submit answer" }).click();
@@ -211,9 +211,13 @@ test("student gateway recovery: a saved response retries after the owner restore
     await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
     await feedback.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_recovered_feedback");
-    await student.getByRole("button", { name: "View completed run", exact: true }).click();
+    await student
+      .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+      .click();
     const completion = student.locator(".attempt-summary");
-    await expect(completion.getByText("Your completed run is recorded.")).toBeVisible();
+    await expect(
+      completion.getByText("Your completed Assignment Attempt is recorded."),
+    ).toBeVisible();
     await completion.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(
       student,

@@ -24,7 +24,7 @@ that implement it.
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
 ![Instructor assignment Policies workspace showing delivery, completion, grading, and continued-practice controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
-![Student practice run showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
+![Student practice Assignment Attempt showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
 ![Instructor Gradebook showing the completed Peptide Bonds Guided Practice result](docs/screenshots/instructor/grading/01_instructor_gradebook.png)
 <!-- screenshots:end -->
 
@@ -140,21 +140,21 @@ browser                         gateway       stateless server replicas
 Each crate names an exhaustive dependency list, so the boundary holds by construction rather than by
 convention:
 
-| Crate                         | Owns                                                                          | Depends only on                                  |
-| ----------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`       | Question types, capabilities, identity, taxonomy                              | External crates                                  |
-| `crates/domain`               | Attempt state machine, runs, timing, seeded generation, capability validation | `question_model`                                 |
-| `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                    | `question_model`, `domain`                       |
-| `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                    | `question_model`                                 |
-| `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and direct ownership | `question_model`, `domain`, `objects`            |
-| `crates/adapters/ple`         | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
-| `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
-| `crates/adapters/qti`         | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
-| `crates/adapters/imathas`     | PLE-managed iMathAS Question Backend Transport and Result Verification        | `question_model`, `objects`                      |
-| `crates/adapters/h5p`         | Package import into ungraded practice; scored execution is unavailable        | `question_model`                                 |
-| `crates/export`               | Print model, DOCX and PDF writers                                             | `question_model`, `objects`                      |
-| `crates/wasm`                 | The `wasm-bindgen` bridge, delegating every call to `domain`                  | `question_model`, `domain`                       |
-| `crates/server`               | axum routes, auth, worker mode, composition root                              | Every crate above                                |
+| Crate                         | Owns                                                                               | Depends only on                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `crates/question_model`       | Question types, capabilities, identity, taxonomy                                   | External crates                                  |
+| `crates/domain`               | Assignment Attempt state machine, timing, seeded generation, capability validation | `question_model`                                 |
+| `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                         | `question_model`, `domain`                       |
+| `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                         | `question_model`                                 |
+| `crates/learning-data-access` | Learning data access: contracts, PostgreSQL, migrations, and direct ownership      | `question_model`, `domain`, `objects`            |
+| `crates/adapters/ple`         | First-party generated questions and strict static PLE JSON                         | `question_model`, `domain`, `grading`            |
+| `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation               | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/qti`         | Hardened package import and opt-in published runtime                               | `question_model`, `domain`, `grading`, `objects` |
+| `crates/adapters/imathas`     | PLE-managed iMathAS Question Backend Transport and Result Verification             | `question_model`, `objects`                      |
+| `crates/adapters/h5p`         | Package import into ungraded practice; scored execution is unavailable             | `question_model`                                 |
+| `crates/export`               | Print model, DOCX and PDF writers                                                  | `question_model`, `objects`                      |
+| `crates/wasm`                 | The `wasm-bindgen` bridge, delegating every call to `domain`                       | `question_model`, `domain`                       |
+| `crates/server`               | axum routes, auth, worker mode, composition root                                   | Every crate above                                |
 
 Two properties follow from that table. `crates/domain` reaches only `question_model`, so it has no
 clock and no database, which is what lets the same code run on the server and in the browser. And

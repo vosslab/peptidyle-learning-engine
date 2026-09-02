@@ -49,7 +49,7 @@ fn input() -> ResolveEffectivePolicyInput {
         active_student_course_membership: active_student_course_membership(),
         authorization: AuthorizationGate::Authorized,
         now: stamp(20_000),
-        prior_run_count: 0,
+        prior_assignment_attempt_count: 0,
         base: base(),
         accommodation: None,
     }
@@ -139,7 +139,7 @@ fn synthetic_preview_can_apply_a_hypothetical_accommodation() {
         ),
         authorization: AuthorizationGate::Authorized,
         now: stamp(20_000),
-        prior_run_count: 0,
+        prior_assignment_attempt_count: 0,
         base: base(),
         hypothetical_accommodation: Some(HypotheticalAccommodation {
             mode: AccommodationApplicationRule::ExtendOnly,

@@ -7,8 +7,10 @@ CREATE TABLE ple_data.assignment_analysis (
     assignment_id uuid NOT NULL,
     scoring_generation integer NOT NULL CHECK (scoring_generation > 0),
     completed_at timestamp with time zone NOT NULL,
-    completed_run_count integer NOT NULL CHECK (completed_run_count >= 0),
-    in_progress_run_count integer NOT NULL CHECK (in_progress_run_count >= 0),
+    completed_assignment_attempt_count integer NOT NULL
+        CHECK (completed_assignment_attempt_count >= 0),
+    in_progress_assignment_attempt_count integer NOT NULL
+        CHECK (in_progress_assignment_attempt_count >= 0),
     minimum_cohort_size integer NOT NULL CHECK (minimum_cohort_size >= 5),
     aggregate jsonb NOT NULL CHECK (jsonb_typeof(aggregate) = 'object'),
     CONSTRAINT assignment_analysis_scoring_generation_is_unique

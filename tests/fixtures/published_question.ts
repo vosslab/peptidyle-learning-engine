@@ -49,7 +49,7 @@ export const publishedQuestionFixture = {
   course: fixtureSet.course,
   assignment: fixtureSet.assignment,
   studentRecord: fixtureSet.studentRecord,
-  runs: fixtureSet.runs,
+  assignment_attempts: fixtureSet.assignment_attempts,
   issuedQuestions: fixtureSet.issuedQuestions.map(browserIssuedQuestion),
   attempts: fixtureSet.attempts.map(browserQuestionAttempt),
 };

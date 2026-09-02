@@ -1,8 +1,8 @@
 # Mastery assignment design
 
 PLE treats mastery as continued learning, not a one-time finish line. A student can complete an
-assignment, receive a recorded score, and begin another varied run to consolidate the same concepts.
-The model supports a student who returns repeatedly because another run is a new learning
+assignment, receive a recorded score, and begin another varied Assignment Attempt to consolidate the same concepts.
+The model supports a Student who returns repeatedly because another Assignment Attempt is a new learning
 opportunity, not a replacement for the earlier educational record.
 
 This document explains the teaching intent, the implemented policy model, and the planned
@@ -20,8 +20,8 @@ dependable.
 
 The durable product promise is:
 
-- Completing one run records an accomplishment; it does not erase the opportunity to learn more.
-- A later practice run keeps the earlier run, responses, scores, and provenance as educational
+- Completing one Assignment Attempt records an accomplishment; it does not erase the opportunity to learn more.
+- A later practice Assignment Attempt keeps the earlier Assignment Attempt, responses, scores, and provenance as educational
   history.
 - Fresh variation supports transfer to a new instance instead of memorization of a previous answer.
 - The student sees only feedback authorized for the question and assignment context.
@@ -88,7 +88,7 @@ gradebook. Neither rule implies the other.
 
 `AllCorrect`, `AnswerAll`, and `ScoreAtLeast` are implemented completion requirements. `First`,
 `Latest`, `Highest`, and `InstructorSelected` are implemented grade policies. Highest-score ties
-retain the earlier run, which keeps the selected grade pointer stable. The pure rules live in
+retain the earlier Assignment Attempt, which keeps the selected grade pointer stable. The pure rules live in
 [crates/domain/src/completion.rs](../crates/domain/src/completion.rs) and
 [crates/domain/src/scoring.rs](../crates/domain/src/scoring.rs).
 
@@ -123,16 +123,16 @@ seed; only a newly issued instance receives a fresh one.
 PLE currently stores the independent policies below. The recommended mastery configuration is an
 explicit composition of those existing values, not a hidden special case:
 
-| Concern                 | Recommended mastery value     | Student meaning                                                                                             |
-| ----------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Completion              | `AllCorrect`                  | Keep working until every required question is correct                                                       |
-| Grade                   | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
-| Continued practice      | `Unlimited`                   | Start another run after completion whenever useful                                                          |
-| Question Pool Reuse Rule | `ReuseSelection`              | Keep the selected Questions from the prior Question Pool Selection                                           |
-| Question Variation Rule | `NewVariation`                | Use fresh generated values for the selected Questions                                                        |
-| Question attempts       | `max_attempts: None`          | Retry a question until correct                                                                              |
-| Student disclosure      | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
-| Timing                  | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
+| Concern                  | Recommended mastery value     | Student meaning                                                                                             |
+| ------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Completion               | `AllCorrect`                  | Keep working until every required question is correct                                                       |
+| Grade                    | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
+| Continued practice       | `Unlimited`                   | Start another Assignment Attempt after completion whenever useful                                           |
+| Question Pool Reuse Rule | `ReuseSelection`              | Keep the selected Questions from the prior Question Pool Selection                                          |
+| Question Variation Rule  | `NewVariation`                | Use fresh generated values for the selected Questions                                                       |
+| Question attempts        | `max_attempts: None`          | Retry a question until correct                                                                              |
+| Student disclosure       | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
+| Timing                   | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
 
 The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the five independent
 Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
@@ -184,13 +184,13 @@ integration returns with the fresh course-delivery reconstruction.
 `QuestionAttemptTimeLimit` supports untimed, per-question, and per-attempt limits with an explicit grace period.
 The browser displays remaining time, but only server-issued timestamps and the server timing verdict
 can accept, auto-submit, or reject work. Assignment access policy separately controls visibility,
-availability, due date, closing date, late treatment, whole-run limits, and run caps. This is why a
+availability, due date, closing date, late treatment, whole Assignment Attempt limits, and Assignment Attempt caps. This is why a
 mastery bundle can be untimed while an institution still gives an assignment an availability window.
 
 The policy types are in
 `crates/question_model/src/assignment_activity_rules.rs` and
-[crates/question_model/src/assignment.rs](../crates/question_model/src/assignment.rs). Run creation
-checks resolved assignment timing in both stores before it creates a run.
+[crates/question_model/src/assignment.rs](../crates/question_model/src/assignment.rs). Assignment Attempt creation
+checks resolved Assignment timing in both stores before it creates an Assignment Attempt.
 
 ## Human-facing activity types
 
@@ -209,14 +209,14 @@ The stored Assignment remains `AssignmentActivityRules`, five independent Studen
 published question revisions, and access policy. The examples below are proposed defaults, not a
 claim that an older coarse feedback bundle is directly representable.
 
-| Activity type              | Default intent                                              | Proposed policy bundle                                                                                                                                       | Status                                                                                                  |
-| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; score, correctness, feedback text, solution, and class statistics each `AfterSubmit`              | Fully representable today; chooser is planned                                                           |
-| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the five assignment disclosure fields set deliberately, for example all `AfterSubmit`                               | Fully representable today; chooser is planned                                                           |
-| Exam                       | Controlled one-run assessment                               | `AnswerAll`, `Latest`, `Closed`; restricted attempts and server timing; each disclosure field explicitly `AfterDue`, `AfterClose`, or `Never` as appropriate | Fully representable today; chooser is planned                                                           |
-| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the five assignment disclosure fields explicitly selected for learning                                         | Continued runs are representable; an explicit no-grade / gradebook-visibility policy is not yet modeled |
+| Activity type              | Default intent                                              | Proposed policy bundle                                                                                                                                                | Status                                                                                                                 |
+| -------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; score, correctness, feedback text, solution, and class statistics each `AfterSubmit`                       | Fully representable today; chooser is planned                                                                          |
+| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the five assignment disclosure fields set deliberately, for example all `AfterSubmit`                                        | Fully representable today; chooser is planned                                                                          |
+| Exam                       | Controlled single-Assignment-Attempt assessment             | `AnswerAll`, `Latest`, `Closed`; restricted Question Attempts and server timing; each disclosure field explicitly `AfterDue`, `AfterClose`, or `Never` as appropriate | Fully representable today; chooser is planned                                                                          |
+| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the five Assignment disclosure fields explicitly selected for learning                                                  | Continued Assignment Attempts are representable; an explicit no-grade / Gradebook-visibility policy is not yet modeled |
 
-The Standard and Exam defaults use `Latest` because `Closed` permits one completed run, making it
+The Standard and Exam defaults use `Latest` because `Closed` permits one completed Assignment Attempt, making it
 the only score candidate. That is a clear expression of current semantics, not a claim that every
 course should use the same grading rule. An instructor-facing type can expose the small number of
 decisions that commonly differ, such as due date, points, and an intentional advanced override.
@@ -247,10 +247,10 @@ The screen should also say when a setting changes that experience:
 - "Feedback is not available at this time" when the server withholds it; do not promise that it
   will become available later.
 - "This assignment is recorded" when continued practice is closed.
-- "Start another practice run" only when the server says another run is allowed.
+- "Start another practice Assignment Attempt" only when the server says another Assignment Attempt is allowed.
 
-The last condition is essential. `practice_allowed` in a run summary is advisory presentation state;
-`start_or_resume_run` remains the authoritative server transition. The existing run and summary
+The last condition is essential. `practice_allowed` in an Assignment Attempt summary is advisory presentation state;
+the start-or-resume operation remains the authoritative server transition. The existing Assignment Attempt and summary
 pages already hide the continuation action unless that state is true, and must continue to handle a
 server rejection gracefully.
 
@@ -266,9 +266,9 @@ An empty persisted Assignment is valid while the Instructor builds the assignmen
 Assignment Release Validation returns Assignment Release Issues when the exact Assignment
 lacks an active deliverable position or valid policy state. Once student work is issued, a structural Questions change can return the typed
 issued-student-work conflict; the page preserves its draft for recovery. Student view is an
-answer-free, non-mutating presentation of the current assignment and does not create a practice run.
+answer-free, non-mutating presentation of the current assignment and does not create a practice Assignment Attempt.
 
-Only an ordinary enrolled Student starts or resumes a mastery run and produces submissions, scores,
+Only an ordinary enrolled Student starts or resumes a mastery Assignment Attempt and produces submissions, scores,
 receipts, and gradebook evidence. The Instructor Student view retains the Instructor identity and
 links to explicit Student entry instead of fabricating a student account.
 
@@ -300,14 +300,14 @@ When changing mastery behavior, update the appropriate contract in the same patc
 
 - Policy vocabulary or serialization: `crates/question_model/src/assignment_activity_rules.rs` and
   [QUESTION_MODEL.md](QUESTION_MODEL.md).
-- Enrollment, run, attempt, or summary behavior: `crates/question_model/src/student_work.rs`,
+- Enrollment, Assignment Attempt, Question Attempt, or summary behavior: `crates/question_model/src/student_work.rs`,
   `crates/domain/`, and [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 - Server authority, disclosure, or student response boundary: [SECURITY_MODEL.md](SECURITY_MODEL.md)
   and [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 - Instructor activity-type chooser or student copy: this document, the relevant Solid route, and the
   browser accessibility contract.
 
-Use behavior-focused tests for changed policy outcomes: a mastery run completing only after all
-required questions are correct, an allowed post-completion run receiving fresh variation, a closed
-assignment rejecting another run, disclosure obeying policy, and a browser action remaining
+Use behavior-focused tests for changed policy outcomes: a mastery Assignment Attempt completing only after all
+required questions are correct, an allowed post-completion Assignment Attempt receiving fresh variation, a closed
+Assignment rejecting another Assignment Attempt, disclosure obeying policy, and a browser action remaining
 subordinate to the server result.

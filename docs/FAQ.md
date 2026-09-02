@@ -60,14 +60,14 @@ and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
 No. Mastery, scoring, continued practice, and the Question Variation Rule are independent Assignment rules. An
 Instructor can require mastery, keep the highest score, allow unlimited practice after completion,
-and issue fresh parameter seeds for each new run. A resumed attempt keeps its original seed so its
+and issue fresh parameter seeds for each new Assignment Attempt. A resumed Question Attempt keeps its original seed so its
 question does not change mid-attempt. See [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
 
 ## How does an exam differ?
 
 An Assignment teaching pattern gives Instructors a teaching-intent starting point rather than asking them to
 compose implementation policies. A mastery assignment gives immediate full feedback, permits
-retries, and can offer fresh later practice. An exam uses a controlled run, restricted feedback, and
+retries, and can offer fresh later practice. An exam uses a controlled Assignment Attempt, restricted feedback, and
 no continued practice. PLE keeps completion, grading, Question Variation, and feedback rules separate so
 a Course Instance can use either activity honestly. See [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md).
 
@@ -155,7 +155,7 @@ private sandbox. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [USER_ROLES.md](
 
 No. **Student view** is an answer-free, no-store inspection of the current assignment that retains
 the Instructor session and creates no student work. Ordinary Student entry uses the enrolled
-Student's authority and can create a run, attempt, submission, score, and Gradebook evidence. Use
+Student's authority and can create an Assignment Attempt, Question Attempt, submission, score, and Gradebook evidence. Use
 Student view to inspect delivery; use Student entry to exercise graded work. See
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) and [API_CONTRACTS.md](API_CONTRACTS.md).
 
@@ -171,16 +171,16 @@ compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
 ID, reuse an assignment's ordered questions, or draw from a reusable pool. A published Blueprint
 Course can supply ordered modules and assignments to a new Course Instance through the adoption
-workflow. Existing issued student runs keep their immutable question snapshot. See
+workflow. Existing issued Student Assignment Attempts keep their immutable question snapshot. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
 ## What happens if automated grading stalls?
 
 The student submits once and receives **Response received** while the server keeps the accepted
 response private. **Check grading status** is an answer-free read, and the normal path proceeds to
-feedback and **View completed run** without Instructor intervention. If the status says **Your
+feedback and **View completed Assignment Attempt** without Instructor intervention. If the status says **Your
 response needs instructor attention**, an authorized Instructor reviews **Grading operations** and
-chooses the currently enabled retry action when the operation is eligible. After **Your completed run
+chooses the currently enabled retry action when the operation is eligible. After **Your completed Assignment Attempt
 is recorded.**, confirm the current result in **Gradebook**. The browser never receives an answer,
 grading internals, or a hidden key. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
 [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [implementation_status.md](active_plans/implementation_status.md).

@@ -53,15 +53,15 @@ remain private until successful validated publication.
 `Sysadmin` is a platform role, not ambient FERPA authority. A Sysadmin reads or changes Student work
 only through a narrow, audited support capability or an ordinary current Instructor membership.
 
-| Durable target                              | Database authority                               | Boundary that remains private                            |
-| ------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| Account, session, passkey                   | Exact global account/session                     | Credentials and authentication evidence                  |
-| Published Question                          | Active Instructor Account                        | Answer keys, private grading, source, and credentials    |
-| Draft Question authoring                    | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
-| Draft Blueprint Revision contribution       | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
-| Course, roster, assignment                  | `current_course_instructor`                      | Other courses and former memberships                     |
-| Run, attempt, response, grade, artifact     | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
-| Job, export, object, Question Backend state | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
+| Durable target                                                  | Database authority                               | Boundary that remains private                            |
+| --------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Account, session, passkey                                       | Exact global account/session                     | Credentials and authentication evidence                  |
+| Published Question                                              | Active Instructor Account                        | Answer keys, private grading, source, and credentials    |
+| Draft Question authoring                                        | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
+| Draft Blueprint Revision contribution                           | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
+| Course, roster, assignment                                      | `current_course_instructor`                      | Other courses and former memberships                     |
+| Assignment Attempt, Question Attempt, response, grade, artifact | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
+| Job, export, object, Question Backend state                     | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
 
 Question Revision Availability does not narrow Active Instructor Account discovery. The Question Library safely
 returns Question Revision Availability on every Published Question. Assignment creation

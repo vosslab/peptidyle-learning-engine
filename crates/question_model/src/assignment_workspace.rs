@@ -127,7 +127,7 @@ pub struct SuccessorAssignmentRevisionRequired {
     deny_unknown_fields
 )]
 pub enum AssignmentEntryRequest {
-    /// One fixed Question at its place in ordered future-run Assignment Content.
+    /// One fixed Question in an Assignment's ordered content for future Assignment Attempts.
     FixedQuestion {
         question_id: QuestionId,
         points_possible: AssignmentPointValue,
@@ -168,7 +168,7 @@ pub struct AssignmentReleaseValidation {
 
 /// Answer-free, non-mutating student landing projection for an Instructor's
 /// stable-identity Student view.  It deliberately omits assignment, item,
-/// question, run, and attempt identities.
+/// question, Assignment Attempt, and Question Attempt identities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorStudentView {
@@ -180,8 +180,8 @@ pub struct InstructorStudentView {
     pub time_zone: CourseTimeZone,
     /// Server-derived base delivery facts, without student progress or actions.
     pub delivery: InstructorStudentViewDelivery,
-    /// Number of questions a student receives in one run; derived by the server.
-    pub questions_per_run: u32,
+    /// Number of questions a student receives in one Assignment Attempt; derived by the server.
+    pub questions_per_assignment_attempt: u32,
     /// Student-visible Question Pool Reuse Rule.
     pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
@@ -216,7 +216,7 @@ impl InstructorStudentView {
             instructions: landing.instructions,
             time_zone: landing.time_zone,
             delivery,
-            questions_per_run: landing.questions_per_run,
+            questions_per_assignment_attempt: landing.questions_per_assignment_attempt,
             question_pool_reuse_rule: landing.question_pool_reuse_rule,
             question_variation_rule: landing.question_variation_rule,
             student_feedback_release_rule: landing.student_feedback_release_rule,

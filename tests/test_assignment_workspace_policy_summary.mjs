@@ -9,7 +9,7 @@ const baseInput = {
   policies: {
     assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
     assignmentAttemptGradeRule: "instructorSelected",
-    assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalRuns: 3 },
+    assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalAssignmentAttempts: 3 },
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "reuseVariation",
     assignmentAttemptResumeRule: "resumable",
@@ -17,7 +17,7 @@ const baseInput = {
     assignmentNavigationRule: "freeNavigation",
     assignmentQuestionOrderRule: "authoredOrder",
   },
-  activityRuleDraft: { completionFraction: "0.75", additionalRuns: "2" },
+  activityRuleDraft: { completionFraction: "0.75", additionalAssignmentAttempts: "2" },
   studentFeedbackReleaseRule: {
     score: "after_submit",
     per_item_correctness: "after_submit",
@@ -75,7 +75,7 @@ test("Assignment policy summary covers every Policies-owned decision in readable
 test("Assignment policy summary surfaces invalid unsaved limits without stale values", () => {
   const summary = assignmentPolicyDraftSummary({
     ...baseInput,
-    activityRuleDraft: { completionFraction: "1.2", additionalRuns: "-1" },
+    activityRuleDraft: { completionFraction: "1.2", additionalAssignmentAttempts: "-1" },
     assignmentAttemptTimeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
   });

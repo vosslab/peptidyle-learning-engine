@@ -70,7 +70,7 @@ Use the following sequence for a question-agnostic adapter.
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
    iMathAS Session Authentication state, source, seed, or backend response fields; do not rerender a receipt-era attempt.
-6. Register the backend through the server run boundary, where course authorization, attempt
+6. Register the backend through the server Assignment Attempt boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
 The PLE Question JSON adapter is the small reference: it compiles answer-bearing PLE Question JSON schema version 2

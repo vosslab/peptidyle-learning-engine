@@ -3,7 +3,7 @@
 ## Status and authority
 
 This is the durable interaction contract for every PLE-owned student browser surface. It applies to
-the course, assignment, run, response, Student Feedback, summary, continued-practice, recovery,
+the course, assignment, Assignment Attempt, response, Student Feedback, summary, continued-practice, recovery,
 asset, and PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
 must be possible with the keyboard alone. The primary path uses the browser platform contract: Tab
 and Shift+Tab move focus, and Space selects choices or activates focused buttons. Arrow keys,
@@ -84,19 +84,19 @@ native radio controls supply the behavior.
 
 ## Whole student journey
 
-| Step                  | Required keyboard behavior                                                                         | Completion evidence                                             |
-| --------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content      | Main content is focused and named                               |
-| Choose a course       | Tab reaches the course link; Enter opens it                                                        | Route content loads and main receives focus                     |
-| Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                       | Assignment title and action are available                       |
-| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                         | Question heading and Question Response Control appear           |
-| Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                  | No interactive content is skipped or inserted out of order      |
-| Answer                | The Question-Type-specific contract below works without a pointer                                  | The selected or entered response is visibly represented         |
-| Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available                |
-| Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                | Pending state prevents a duplicate submission                   |
-| Read Student Feedback | Authorized Student Feedback receives a heading and sensible focus; unreleased Student Feedback is not inferred | Student can read result and next action                         |
-| Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice                      | The next question, assignment, or fresh-seed practice run opens |
-| Recover               | Error, offline, stale state, and reauthentication retain the response and expose a keyboard action | Retry uses the same logical submission identity where required  |
+| Step                  | Required keyboard behavior                                                                                     | Completion evidence                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content                  | Main content is focused and named                                              |
+| Choose a course       | Tab reaches the course link; Enter opens it                                                                    | Route content loads and main receives focus                                    |
+| Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                                   | Assignment title and action are available                                      |
+| Begin or resume       | Tab reaches Start or continue practice; Space activates it                                                     | Question heading and Question Response Control appear                          |
+| Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                              | No interactive content is skipped or inserted out of order                     |
+| Answer                | The Question-Type-specific contract below works without a pointer                                              | The selected or entered response is visibly represented                        |
+| Validate              | Format state is announced without grading or disclosing an answer                                              | Ready or actionable validation text is available                               |
+| Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                            | Pending state prevents a duplicate submission                                  |
+| Read Student Feedback | Authorized Student Feedback receives a heading and sensible focus; unreleased Student Feedback is not inferred | Student can read result and next action                                        |
+| Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice Assignment Attempt               | The next question, assignment, or fresh-seed practice Assignment Attempt opens |
+| Recover               | Error, offline, stale state, and reauthentication retain the response and expose a keyboard action             | Retry uses the same logical submission identity where required                 |
 
 Route changes focus the main content rather than leaving focus on a removed navigation element.
 Student Feedback may focus its heading and later its primary advance control only when the student has not

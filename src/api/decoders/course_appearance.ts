@@ -5,7 +5,7 @@ import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppear
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseBanner } from "../../../generated/api/CourseBanner";
-import type { CourseThemeId } from "../../../generated/api/CourseThemeId";
+import type { CourseTheme } from "../../../generated/api/CourseTheme";
 import {
   DecodeError,
   decodeNullable,
@@ -17,7 +17,7 @@ import {
 } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
-const COURSE_THEME_IDS = [
+const COURSE_THEME_VALUES = [
   "tundra",
   "forest",
   "desert",
@@ -33,7 +33,7 @@ const COURSE_THEME_IDS = [
   "sea-floor",
   "magma",
   "beach",
-] as const satisfies ReadonlyArray<CourseThemeId>;
+] as const satisfies ReadonlyArray<CourseTheme>;
 
 function decodeCourseBannerAlternativeText(
   value: unknown,
@@ -80,7 +80,7 @@ export function decodeCourseAppearanceView(
     throw new DecodeError(`${path}.revision`, "a canonical positive PostgreSQL bigint string");
   }
   return {
-    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_IDS),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
     revision,
     banner: decodeNullable(field(record, "banner", path), `${path}.banner`, decodeCourseBanner),
   };
@@ -103,7 +103,11 @@ export function decodeCourseAppearanceUpdate(
 ): CourseAppearanceUpdate {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["theme", "banner"]);
-  const theme = decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_IDS);
+  const theme = decodeStringEnum(
+    field(record, "theme", path),
+    `${path}.theme`,
+    COURSE_THEME_VALUES,
+  );
   const banner = decodeRecord(field(record, "banner", path), `${path}.banner`);
   const kind = decodeStringEnum(field(banner, "kind", `${path}.banner`), `${path}.banner.kind`, [
     "keep",

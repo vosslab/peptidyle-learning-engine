@@ -62,7 +62,8 @@ struct StoredFixtureSet {
     course: question_model::CourseSummary,
     assignment: AssignmentSummary,
     student_record: StudentRecordId,
-    runs: Vec<AssignmentAttempt>,
+    #[serde(rename = "assignment_attempts")]
+    assignment_attempts: Vec<AssignmentAttempt>,
     issued_questions: Vec<IssuedQuestion>,
     attempts: Vec<QuestionAttempt>,
     summary: AssignmentProgressRecord,
@@ -109,7 +110,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         "stored Question fixture has no assets"
     );
     ensure!(
-        !fixture_set.runs.is_empty(),
+        !fixture_set.assignment_attempts.is_empty(),
         "stored fixture has no Assignment Attempts"
     );
     ensure!(

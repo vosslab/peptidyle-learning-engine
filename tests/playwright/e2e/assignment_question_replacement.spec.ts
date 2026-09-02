@@ -1,4 +1,4 @@
-// Real-stack issued-work contract: visible replacement changes future runs, not issued work.
+// Real-stack issued-work contract: visible replacement changes future Assignment Attempts, not issued work.
 //
 // Selector contract:
 // - src/features/ple_question_json_authoring/question_json_editor_page.tsx:580-785 owns the
@@ -219,7 +219,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
     "the disposable production browser-suite owner supplies this scenario input",
   );
 
-  test("issued work survives a visible replacement while a future run receives the new question", async ({
+  test("issued work survives a visible replacement while a future Assignment Attempt receives the new question", async ({
     browser,
   }) => {
     test.setTimeout(scenarioTimeoutMs);
@@ -303,7 +303,9 @@ test.describe("assignment question replacement on the production PLE stack", () 
       await mary.getByRole("radio", { name: originalChoice, exact: true }).check();
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
       await waitForAutomatedStudentFeedback(mary);
-      await mary.getByRole("button", { name: "View completed run", exact: true }).click();
+      await mary
+        .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+        .click();
       await expect(
         mary.getByRole("button", { name: "Start fresh practice", exact: true }),
       ).toBeVisible();

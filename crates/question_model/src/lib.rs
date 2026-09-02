@@ -133,7 +133,7 @@ pub use crate::course::{
 pub use crate::course_appearance::{
     CourseAppearanceRevision, CourseAppearanceUpdate, CourseAppearanceView, CourseBanner,
     CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerMutation,
-    CourseBannerReference, CourseBannerUploadReceipt, CourseBannerUploadReference, CourseThemeId,
+    CourseBannerReference, CourseBannerUploadReceipt, CourseBannerUploadReference, CourseTheme,
 };
 pub use crate::course_grade::{
     CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeMode,
@@ -191,10 +191,10 @@ pub use crate::preview_plane::{
     PreviewAccommodationComparison, PreviewAssignmentDeadlineRuleField, PreviewDeferredCapability,
     PreviewDenialReason, PreviewDisclosureFlags, PreviewDisclosureMoment,
     PreviewDisclosureUnavailableReason, PreviewEvaluation, PreviewFutureSeam,
-    PreviewLateWorkRuleField, PreviewLimitField, PreviewPlaneResponse, PreviewPriorRunCount,
-    PreviewResolvedPolicy, PreviewSelectedMoment, PreviewTimeField, StudentFeedbackReleaseView,
-    StudentViewScenario, StudentViewScenarioKind, StudentViewScenarioRequest,
-    SyntheticPreviewModifiers,
+    PreviewLateWorkRuleField, PreviewLimitField, PreviewPlaneResponse,
+    PreviewPriorAssignmentAttemptCount, PreviewResolvedPolicy, PreviewSelectedMoment,
+    PreviewTimeField, StudentFeedbackReleaseView, StudentViewScenario, StudentViewScenarioKind,
+    StudentViewScenarioRequest, SyntheticPreviewModifiers,
 };
 pub use crate::public_route::{
     AccountReference, AssignmentAttemptReference, AssignmentReference, AuthoringWorkspaceReference,

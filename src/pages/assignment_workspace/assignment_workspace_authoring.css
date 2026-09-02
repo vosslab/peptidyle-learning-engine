@@ -52,7 +52,7 @@
 }
 
 .assignment-editor-policy-panel > h2,
-.assignment-editor-policy-panel > .assignment-editor-run-timing,
+.assignment-editor-policy-panel > .assignment-editor-assignment-attempt-timing,
 .assignment-editor-policy-panel > .assignment-editor-note {
   grid-column: 1 / -1;
 }
@@ -351,7 +351,7 @@
   font-weight: 640;
 }
 
-.assignment-editor-run-timing .assignment-editor-field {
+.assignment-editor-assignment-attempt-timing .assignment-editor-field {
   grid-template-columns: 1fr;
   margin: 0.2rem 0 0.3rem 1.4rem;
 }

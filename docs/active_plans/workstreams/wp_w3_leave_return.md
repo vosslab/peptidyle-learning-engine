@@ -10,16 +10,16 @@ rendered recovery path. See the [J3 review](../audits/wp_w3_leave_return_review.
 ## Scope
 
 - `tests/playwright/ui_walkthrough_keyboard_j3.spec.ts` signs in through the rendered local form,
-  opens the exact current course and Mastery assignment href, and starts the visible run by keyboard.
+  opens the exact current course and Mastery assignment href, and starts the visible Assignment Attempt by keyboard.
 - The exact Mastery href must exist once and be visible. From the route-focused main landmark, the
   spec reaches that existing rendered link through bounded backward Shift+Tab before native Enter.
   This guards retained assignment lists without selecting a stale duplicate.
 - The student reaches the rendered `Return to assignment (Esc)` control by Tab, confirms focus,
   and activates it with Space. The spec never sends Escape, uses browser history, or navigates
-  directly after entering the run.
+  directly after entering the Assignment Attempt.
 - J3 gives the rendered route surfaces bounded waits: after visible Return to assignment, the
   overview and focused main landmark must arrive; after each visible Start or resume practice action,
-  the `runAttempt` surface must arrive. The J3 fragment appends only after those final assertions.
+  the Assignment Attempt surface must arrive. The J3 fragment appends only after those final assertions.
 - `tests/playwright/simulator/student_leave_resume_evidence.ts` defines the narrow future report fragment:
   public course and assignment UUIDs, elapsed time, and only visible start, leave, and return codes.
   It contains no response, answer, feedback, scoring, persistence, or credential material.

@@ -568,11 +568,11 @@ textarea:hover {
   border: 0;
 }
 
-.run-page {
+.assignment-attempt-page {
   width: min(100%, 60rem);
 }
 
-.run-header {
+.assignment-attempt-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -583,7 +583,7 @@ textarea:hover {
   background: var(--ple-surface-soft);
 }
 
-.run-header h1 {
+.assignment-attempt-header h1 {
   font-size: clamp(1.35rem, 2.2vw, 1.8rem);
 }
 
@@ -985,7 +985,7 @@ html[data-contrast="increased"] .course-theme-scope {
     padding: 0.7rem;
   }
 
-  .run-header {
+  .assignment-attempt-header {
     align-items: flex-start;
     flex-direction: column;
   }

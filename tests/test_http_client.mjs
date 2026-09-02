@@ -143,7 +143,7 @@ test("prefetch is a body-free same-origin no-store request", async () => {
 test("Assignment Attempt start uses the explicit nested course and assignment route without a body", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
-  const assignmentAttempt = publishedQuestionFixture.runs[0];
+  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
   assert.ok(assignmentAttempt);
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse(assignmentAttempt),
@@ -166,7 +166,7 @@ test("Assignment Attempt start uses the explicit nested course and assignment ro
 });
 
 test("Assignment Attempt transport preserves its exact Released Assignment Revision", () => {
-  const assignmentAttempt = publishedQuestionFixture.runs[0];
+  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
   assert.ok(assignmentAttempt);
   assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).assignmentRevision, {
     assignment: "A-1",

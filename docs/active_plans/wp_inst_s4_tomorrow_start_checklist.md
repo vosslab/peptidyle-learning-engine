@@ -53,7 +53,8 @@
 
 3. Inventory pass (30-45 min)
 
-- Map all disclosure consumers (run list, run detail, summaries, grade-facing student projections, any retention views).
+- Map all disclosure consumers (Assignment Attempt list, Assignment Attempt detail, summaries,
+  grade-facing student projections, any retention views).
 - Ensure each path reads only through the accepted owners (S3/S5 + designated disclosure projection owners).
 - Remove/neutralize any direct legacy policy-timing authority reads; no compatibility fallback behavior.
 - Verify the centrally derived role boundary denies every instructor-only route before transport,

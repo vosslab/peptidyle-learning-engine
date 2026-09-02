@@ -69,7 +69,7 @@ test("route resolution recovers protected API identities without weakening refer
   const fixture = {
     course: { reference: "C-1", id: "course-id" },
     assignment: { reference: "A-1", id: "assignment-id" },
-    run: { reference: "R-1", id: "run-id" },
+    assignmentAttempt: { reference: "R-1", id: "assignment-attempt-id" },
     workspace: { reference: "W-1", id: "workspace-id" },
   };
   const client = {
@@ -81,7 +81,7 @@ test("route resolution recovers protected API identities without weakening refer
           courseId: fixture.course.id,
           assignmentId: fixture.assignment.id,
         },
-        "R-1": { kind: "assignmentAttempt", assignmentAttemptId: fixture.run.id },
+        "R-1": { kind: "assignmentAttempt", assignmentAttemptId: fixture.assignmentAttempt.id },
         "W-1": { kind: "workspace", workspaceId: fixture.workspace.id },
       };
       return values[reference];
@@ -94,7 +94,10 @@ test("route resolution recovers protected API identities without weakening refer
     courseId: fixture.course.id,
     assignmentId: fixture.assignment.id,
   });
-  assert.equal(await resolveAssignmentAttemptRoute(client, fixture.run.reference), fixture.run.id);
+  assert.equal(
+    await resolveAssignmentAttemptRoute(client, fixture.assignmentAttempt.reference),
+    fixture.assignmentAttempt.id,
+  );
   assert.equal(
     await resolveWorkspaceRoute(client, fixture.workspace.reference),
     fixture.workspace.id,

@@ -124,7 +124,9 @@ test("authentication and authorization: sessions and course boundaries", async (
       });
       mary.on("request", (request) => {
         const path = new URL(request.url()).pathname;
-        if (/^\/api\/(?:courses|assignments|runs)\//u.test(path)) protectedFollowOns.push(path);
+        if (/^\/api\/(?:courses|assignments|assignment-attempts)\//u.test(path)) {
+          protectedFollowOns.push(path);
+        }
       });
       await mary.goto(geneticsPath);
       await expect(mary.getByRole("alert")).toContainText("The learning space is still available");

@@ -39,12 +39,12 @@ container, or source-import path.
 | Path                                                            | Owns                                                                                                     |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, adoption, and browser-safe contract types. |
-| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, run, scoring, generation, and validation.                               |
+| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation.                |
 | [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                          |
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles.   |
 | [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                        |
-| [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                               |
-| [crates/adapters/](../crates/adapters/)                         | Ple, QTI, H5P, iMathAS, and WeBWorK adapters.                                                         |
+| [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                          |
+| [crates/adapters/](../crates/adapters/)                         | Ple, QTI, H5P, iMathAS, and WeBWorK adapters.                                                            |
 | [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                      |
 | [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                      |
 | [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                        |

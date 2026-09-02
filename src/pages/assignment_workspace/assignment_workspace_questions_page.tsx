@@ -222,7 +222,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       setDirectQuestionId("");
       setDirectMessage("");
       setMessage(
-        `${row.title} now replaces ${current.title} for future runs. Issued Student work remains unchanged.`,
+        `${row.title} now replaces ${current.title} for future Assignment Attempts. Issued Student work remains unchanged.`,
       );
       focusReplacedRow(row.questionId);
     } catch (error: unknown) {
@@ -620,8 +620,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             <h2>{targetItemId() === undefined ? "Add questions" : "Replace question"}</h2>
             <Show when={targetItemId() !== undefined}>
               <p class="assignment-editor-note">
-                Replace this fixed question immediately for future runs. Issued work remains with
-                its original question.
+                Replace this fixed question immediately for future Assignment Attempts. Issued work
+                remains with its original question.
               </p>
             </Show>
             <label class="assignment-editor-field" for="assignment-question-id">

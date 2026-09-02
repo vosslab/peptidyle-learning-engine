@@ -212,7 +212,7 @@ export function BlueprintAssignmentContentEditor(
                     <strong>{entrySummary(entry)}</strong>
                     <Show when={entry.kind === "pool"}>
                       <label class="blueprint-course-small-field">
-                        Draw each run
+                        Draw each Assignment Attempt
                         <input
                           type="number"
                           min="1"
@@ -342,10 +342,10 @@ export function BlueprintAssignmentContentEditor(
                 );
               }}
             >
-              <option value="first">First completed run</option>
-              <option value="latest">Latest completed run</option>
+              <option value="first">First completed Assignment Attempt</option>
+              <option value="latest">Latest completed Assignment Attempt</option>
               <option value="highest">Highest score</option>
-              <option value="instructorSelected">Instructor-selected run</option>
+              <option value="instructorSelected">Instructor-selected Assignment Attempt</option>
             </select>
           </label>
         </div>

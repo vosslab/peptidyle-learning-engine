@@ -54,7 +54,7 @@ function allowedEvaluation() {
       revision,
       selectedMoment,
       policy: effective_assignment_policy("accommodation"),
-      priorRunCount: 0,
+      priorAssignmentAttemptCount: 0,
     },
     active_student_course_membership: "activeStudentCourseMembership",
     effective_assignment_policy: effective_assignment_policy("accommodation"),

@@ -30,7 +30,7 @@ const ASSIGNMENT_SCORING_STATES = [
   "recalculating",
   "failed",
 ] as const satisfies ReadonlyArray<AssignmentScoringState>;
-const RUN_COMPLETION_STATUSES = [
+const ASSIGNMENT_ATTEMPT_COMPLETION_STATUSES = [
   "inProgress",
   "completed",
 ] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
@@ -65,7 +65,7 @@ export function decodeGradedQuestionSubmissionReceipt(
     assignmentAttemptCompletion: decodeStringEnum(
       field(record, "assignmentAttemptCompletion", path),
       `${path}.assignmentAttemptCompletion`,
-      RUN_COMPLETION_STATUSES,
+      ASSIGNMENT_ATTEMPT_COMPLETION_STATUSES,
     ),
     nextIssued: decodeNullable(
       field(record, "nextIssued", path),
@@ -88,7 +88,7 @@ export function decodeGradedQuestionSubmissionReceipt(
     receipt.assignmentAttemptCompletion === "completed" &&
     (receipt.nextIssued !== null || receipt.nextPending)
   ) {
-    throw new DecodeError(path, "a completed run without successor delivery state");
+    throw new DecodeError(path, "a completed Assignment Attempt without successor delivery state");
   }
   if (
     receipt.assignmentScoringState !== "current" &&

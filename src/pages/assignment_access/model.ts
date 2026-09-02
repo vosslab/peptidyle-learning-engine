@@ -102,7 +102,7 @@ export function startLabel(
     notYetAvailable: "Not yet available",
     closed: "Closed",
     attemptLimitReached: "Attempt limit reached",
-    lateWorkRefused: "Due date prevents a new run",
+    lateWorkRefused: "Due date prevents a new Assignment Attempt",
   };
   return labels[start];
 }

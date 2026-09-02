@@ -104,7 +104,7 @@ export type AssignmentFixedItemReplacementFailure =
   | { readonly kind: "staleRevision"; readonly message: string }
   | { readonly kind: "retryable"; readonly message: string };
 
-/** Maps the focused future-run replacement boundary to user-safe recovery copy. */
+/** Maps the focused future Assignment Attempt replacement boundary to user-safe recovery copy. */
 export function resolveAssignmentFixedItemReplacementFailure(
   error: unknown,
 ): AssignmentFixedItemReplacementFailure {

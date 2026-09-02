@@ -223,7 +223,7 @@ async function completeDeliveredPoolRun(
   await advanceToNextIssuedQuestion(page);
 
   const deliveredQuestionPoolItemIndexes: number[] = [];
-  const questionHeading = page.locator(".run-header h1");
+  const questionHeading = page.locator(".assignment-attempt-header h1");
   for (let position = 0; position < 2; position += 1) {
     await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
       `Server-selected Question Pool item ${position + 1} of 2 for this Assignment Attempt.`,
@@ -250,18 +250,20 @@ async function completeDeliveredPoolRun(
     if (position === 0) {
       await advanceToNextIssuedQuestion(page);
     } else {
-      await page.getByRole("button", { name: "View completed run", exact: true }).click();
+      await page
+        .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+        .click();
     }
   }
   expect(deliveredQuestionPoolItemIndexes).toEqual(
     [...deliveredQuestionPoolItemIndexes].sort((a, b) => a - b),
   );
   const summary = page.locator(".attempt-summary");
-  await expect(summary.getByText("Your completed run is recorded.")).toBeVisible();
+  await expect(summary.getByText("Your completed Assignment Attempt is recorded.")).toBeVisible();
   await expect(summary.getByRole("region", { name: "Assignment score" })).toContainText("100%");
   await page.reload();
   await expect(
-    page.locator(".attempt-summary").getByText("Your completed run is recorded."),
+    page.locator(".attempt-summary").getByText("Your completed Assignment Attempt is recorded."),
   ).toBeVisible();
 }
 

@@ -123,12 +123,12 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 ### WN1-A exact Student-role allocation
 
 The binding current-name to target-name allocation is embedded in the
-[implementation status registry](../implementation_status.md) under `WN1-SR3 exact run and Store
+[implementation status registry](../implementation_status.md) under `WN1-SR3 exact Assignment Attempt and Store
 register`, `WN1-SR4 exact browser register`, and `WN1-SR5 exact PostgreSQL register`. These tables
 are part of WN1-A, not optional supporting material. Implementation changes every listed name in
 its one closure; it adds neither aliases nor parallel role vocabulary.
 
-- SR3 names every public and `_impl` Store/RunStore method, `learner_submission_status`, run-screen
+- SR3 names every public and `_impl` Assignment Attempt Store method, `learner_submission_status`, Assignment Attempt screen
   model, Student-work/store type, module, server projection, and local/function target.
 - SR4 names `LearnerAssignmentPresentationDelivery`, `LearnerAssignmentPresentationData`,
   `LearnerAssignmentPresentationProps`, `toLearnerAssignmentPresentationData`,
@@ -139,7 +139,7 @@ its one closure; it adds neither aliases nor parallel role vocabulary.
   converter, and each browser client/runtime member target.
 - SR5 maps every legacy student-work broker function to its exact successor target in the ledger,
   including assignment, attempt, audience, course, enrollment, group-member, group, member,
-  prefetch, run, and summary operations. It also names the fence and the three exact current
+  prefetch, Assignment Attempt, and summary operations. It also names the fence and the three exact current
   function names and targets in the ledger.
 
 Fresh WN1-A review checked those embedded tables against current material source before WN1-B and
@@ -169,7 +169,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
-| C3      | Run/attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                                                    |
+| C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                            |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                                         |
@@ -271,7 +271,7 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   `WN1-QM-PRESENTATION-COURSE-BANNER-REFERENCE`; it precedes `WN1-F`.
 - Outcome: replace the PLE-owned Course Appearance projection meaning with the direct reader
   object `CourseAppearanceView`: exactly `{ theme, revision, banner }`, where `theme` is
-  `CourseThemeId`, `revision` is `CourseAppearanceRevision`, and `banner` is absent or the
+  `CourseTheme`, `revision` is `CourseAppearanceRevision`, and `banner` is absent or the
   independently closed `CourseBanner`. Complete that direct name through the existing Question
   Model/public facade, generated TypeScript declaration, strict browser decoder, route-reader/client
   contracts and consumers, focused fixtures/tests, and directly affected documentation. Retire the

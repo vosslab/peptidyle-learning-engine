@@ -40,7 +40,7 @@ former installation-scope model to these identities.
   Course Membership relationships. They do not inherit authority from a
   Product Role or a visible Course Reference.
 - Published Question Library content is immutable and shared. Courses, memberships,
-  enrollments, runs, attempts, jobs, and protected objects are independent
+  enrollments, Assignment Attempts, Question Attempts, jobs, and protected objects are independent
   records that may refer to it.
 - Rust uses distinct newtypes where mixing values would be a correctness risk.
   UUID strings appear only at a trusted server or defined browser boundary.

@@ -254,21 +254,25 @@ async function claimCourseAndCompleteAssignment(
     feedback.getByRole("heading", { name: "Correct Feedback", exact: true }),
   ).toBeVisible();
   await captureVisibleState(page, scenarioInput, "learner_delivery_feedback_correct", feedback);
-  await page.getByRole("button", { name: "View completed run", exact: true }).click();
+  await page
+    .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
+    .click();
   const summary = page.locator(".attempt-summary");
-  await expect(summary.getByText("Your completed run is recorded.")).toBeVisible();
+  await expect(summary.getByText("Your completed Assignment Attempt is recorded.")).toBeVisible();
   const assignmentScore = summary.getByRole("region", { name: "Assignment score" });
   await expect(assignmentScore).toContainText(
     "Score available: Current 100%, Latest 100%, Best 100%.",
   );
-  await expect(assignmentScore).toContainText("This run: 100%");
+  await expect(assignmentScore).toContainText("This Assignment Attempt: 100%");
   await captureVisibleState(page, scenarioInput, "learner_delivery_completion", summary);
   await summary.getByRole("button", { name: "Start fresh practice" }).click();
-  await expect(page.locator("[data-route-surface=runAttempt]")).toBeVisible();
-  const runHeader = page.locator(".run-header");
-  await expect(runHeader).toBeVisible();
-  await expect(runHeader.getByText("Practice run 2", { exact: true })).toBeVisible();
-  await expect(runHeader.getByRole("heading")).toBeVisible();
+  await expect(page.locator("[data-route-surface=assignmentAttempt]")).toBeVisible();
+  const assignmentAttemptHeader = page.locator(".assignment-attempt-header");
+  await expect(assignmentAttemptHeader).toBeVisible();
+  await expect(
+    assignmentAttemptHeader.getByText("Practice Assignment Attempt 2", { exact: true }),
+  ).toBeVisible();
+  await expect(assignmentAttemptHeader.getByRole("heading")).toBeVisible();
   await expect(page.locator("header.site-header")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   await restoreViewportOrigin(page);
@@ -296,12 +300,12 @@ async function observeCompletedRunInFreshSession(
     .locator("..")
     .getByRole("status");
   await expect(scoreStatus).toHaveText("Score available: Current 100%, Latest 100%, Best 100%.");
-  await expect(facts.getByText("Completed runs", { exact: true })).toBeVisible();
-  const completedRuns = facts
-    .getByText("Completed runs", { exact: true })
+  await expect(facts.getByText("Completed Assignment Attempts", { exact: true })).toBeVisible();
+  const completedAssignmentAttempts = facts
+    .getByText("Completed Assignment Attempts", { exact: true })
     .locator("..")
     .locator("dd");
-  await expect(completedRuns).toHaveText(/[1-9]\d*/u);
+  await expect(completedAssignmentAttempts).toHaveText(/[1-9]\d*/u);
   await captureVisibleState(
     page,
     scenarioInput,
@@ -317,7 +321,7 @@ async function observeInstructorOutcomesAndAccess(
   scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   // Leave the invitation-era roster instance so the visible return performs a
-  // fresh server read after Mary's claim and completed run.
+  // fresh server read after Mary's claim and completed Assignment Attempt.
   await openCourseAssignments(page);
   await page.getByRole("link", { name: "Students" }).click();
   await expect(page.locator("[data-route-surface=courseRoster]")).toBeVisible();

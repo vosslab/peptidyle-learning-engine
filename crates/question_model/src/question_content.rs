@@ -521,7 +521,7 @@ pub struct DraftQuestionContent {
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// How content varies between students and runs.
+    /// How content varies between students and Assignment Attempts.
     pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,
@@ -576,7 +576,7 @@ pub struct QuestionRevision {
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// How content varies between students and runs.
+    /// How content varies between students and Assignment Attempts.
     pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,

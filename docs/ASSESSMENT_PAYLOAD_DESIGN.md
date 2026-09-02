@@ -145,7 +145,7 @@ Content-Type: application/json
 }
 ```
 
-The current server authenticates the session, loads the RLS-visible attempt and owning run, validates
+The current server authenticates the session, loads the RLS-visible Question Attempt and owning Assignment Attempt, validates
 the response against the checksummed issued public snapshot, and atomically records immutable
 accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
 matching server-only grading envelope, grades under server authority, and commits the completed
@@ -383,7 +383,7 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 | --------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
 | Question Presentation Checksum    | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
-| Authenticated attempt             | Student ownership, course/run binding, lifecycle, timing, backend, and immutable version                  | That the browser rendered every asset                          |
+| Authenticated Question Attempt    | Student ownership, Course/Assignment Attempt binding, lifecycle, timing, backend, and immutable version   | That the browser rendered every asset                          |
 | Idempotency record                | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
 
 An ordinary transport checksum is unnecessary because TLS and HTTP already detect transfer
@@ -420,7 +420,7 @@ For PLE Question JSON Questions, PLE owns both immutable content and grading. Th
 4. Decode the type-free `answer` using the issued public Question Response Format.
 5. Map rendered IDs to durable internal IDs.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
-7. Atomically persist response, score events, attempt/run transitions, and idempotency result.
+7. Atomically persist response, score events, Question Attempt/Assignment Attempt transitions, and idempotency result.
 8. Return only the policy-permitted receipt.
 
 This keeps rich type information inside Rust where exhaustive enums are useful while keeping the
@@ -543,17 +543,17 @@ is smaller and easier to secure.
 
 One-time synthetic wire-fixture measurements from the accepted decision recorded:
 
-| Current artifact                       |                             Recorded size |
-| -------------------------------------- | ----------------------------------------: |
-| Answer-free PLE envelope               |                               1,091 bytes |
-| Full PLE attempt                       |                                 977 bytes |
-| One-attempt page                       |                               1,007 bytes |
-| Current MC submit body                 |                                  59 bytes |
-| Current submission receipt             |                               1,039 bytes |
-| Current run-screen JSON bodies         | 3,757 bytes over at least seven responses |
-| Two-choice private WeBWorK render form |                                 310 bytes |
-| Two-choice private WeBWorK grade form  |                                 334 bytes |
-| Recorded private WeBWorK JSON response |                               1,221 bytes |
+| Current artifact                              |                             Recorded size |
+| --------------------------------------------- | ----------------------------------------: |
+| Answer-free PLE envelope                      |                               1,091 bytes |
+| Full PLE attempt                              |                                 977 bytes |
+| One-attempt page                              |                               1,007 bytes |
+| Current MC submit body                        |                                  59 bytes |
+| Current submission receipt                    |                               1,039 bytes |
+| Current Assignment Attempt screen JSON bodies | 3,757 bytes over at least seven responses |
+| Two-choice private WeBWorK render form        |                                 310 bytes |
+| Two-choice private WeBWorK grade form         |                                 334 bytes |
+| Recorded private WeBWorK JSON response        |                               1,221 bytes |
 
 These figures describe synthetic payload fixtures, not fictional live-demo records, production
 percentiles, or permanent limits. Real prompt HTML and media can be much larger. PLE permits a bounded
@@ -566,7 +566,7 @@ The end-to-end submission path contains:
 
 1. browser-to-PLE network round trip;
 2. authentication and bounded JSON parsing;
-3. RLS-visible attempt, run, question, and idempotency reads;
+3. RLS-visible Question Attempt, Assignment Attempt, question, and idempotency reads;
 4. presentation and response validation;
 5. PLE grading or private PLE-to-WeBWorK round trip and execution;
 6. atomic persistence and summary updates; and
@@ -575,7 +575,7 @@ The end-to-end submission path contains:
 Removing a roughly 20-byte `kind` field improves clarity but is not a meaningful latency
 optimization by itself. The higher-value actions are:
 
-- collapse the run-screen request fan-out into one projection;
+- collapse the Assignment Attempt screen request fan-out into one projection;
 - cache immutable assets and safe renders;
 - avoid inline binary media;
 - remove the normal extra WeBWorK rerender;
@@ -667,7 +667,7 @@ easy to navigate without duplicating its exact migration and codec specification
 ### WP-P3: PLE API cutover
 
 - Owner: server and PLE grading implementation.
-- Files: run-screen and submission projections, PLE Question Backend validation, route tests, API fixtures,
+- Files: Assignment Attempt screen and submission projections, PLE Question Backend validation, route tests, API fixtures,
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
   digest and idempotency before grading, and return compact receipts.
@@ -692,7 +692,7 @@ easy to navigate without duplicating its exact migration and codec specification
 ### WP-P5: Browser recovery
 
 - Owner: SolidJS browser implementation with HCI review.
-- Files: API decoders/query owner, run page, attempt state, question response controls, Wasm bridge, and
+- Files: API decoders/query owner, Assignment Attempt page, Question Attempt state, question response controls, Wasm bridge, and
   Playwright scenarios.
 - Behavior: consume the single student screen, compute/verify through Wasm, gate required asset
   readiness, submit the compact body, and recover compatible drafts after same-attempt refresh.

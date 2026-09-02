@@ -160,13 +160,13 @@ fn ordered_after(
 pub struct BlueprintAssignmentDefaults {
     /// Whole Assignment Attempt time limit, if the reusable content establishes one.
     pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Number of Student runs, if the reusable content establishes one.
+    /// Number of Student Assignment Attempts, if the reusable content establishes one.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Late-work treatment copied into the future assignment policy.
     pub late_work_rule: LateWorkRule,
     /// Server deadline action copied into the future assignment policy.
     pub assignment_deadline_rule: AssignmentDeadlineRule,
-    /// Independent run behavior copied into the future assignment policy.
+    /// Independent Assignment Attempt behavior copied into the future assignment policy.
     pub activity_rules: AssignmentActivityRules,
     /// Student-release policy copied into the future assignment policy.
     #[serde(rename = "student_feedback_release_rule")]
@@ -259,7 +259,7 @@ pub struct BlueprintAssignmentContentInput {
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in authored order.
     pub entries: Vec<BlueprintAssignmentEntryInput>,
-    /// Reusable delivery and run defaults.
+    /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
     /// Optional local calendar-relative timing defaults.
     pub schedule: RelativeAssignmentSchedule,
@@ -363,7 +363,7 @@ pub struct BlueprintAssignmentContentView {
     pub instructions: AssignmentInstructions,
     /// Fixed items and pools in retained authored order.
     pub entries: Vec<BlueprintAssignmentEntryView>,
-    /// Reusable delivery and run defaults.
+    /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
     /// Optional local calendar-relative timing defaults.
     pub schedule: RelativeAssignmentSchedule,

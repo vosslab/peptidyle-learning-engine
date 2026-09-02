@@ -321,7 +321,7 @@ active deliverable position and valid policies. This makes an honest multi-page 
 possible without browser-only state or a combined write.
 
 The Student-view route retains the Instructor identity and exact course authority, returns
-`Cache-Control: no-store`, and creates no enrollment, run, attempt, submission, receipt, grade, or
+`Cache-Control: no-store`, and creates no enrollment, Assignment Attempt, Question Attempt, submission, receipt, grade, or
 preview record. It reuses the shared answer-free student landing presentation and course-wide base
 delivery facts. Only an ordinary enrolled Student entry creates student work; that server-owned
 grading path remains the source of scores and Instructor gradebook evidence.

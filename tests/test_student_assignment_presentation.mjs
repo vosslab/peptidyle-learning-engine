@@ -44,7 +44,7 @@ test("Student detail adapts available entries and Question Pool selections witho
     ],
   });
 
-  assert.equal(presentation.questionsPerRun, 5);
+  assert.equal(presentation.questionsPerAssignmentAttempt, 5);
   assert.equal(presentation.delivery.lateStatus, "on_time");
   assert.equal("id" in presentation, false);
 });
@@ -55,7 +55,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
     instructions: "Use your notes.",
     timeZone: "America/Chicago",
     delivery: instructorDelivery,
-    questionsPerRun: 4,
+    questionsPerAssignmentAttempt: 4,
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "newVariation",
     studentFeedbackReleaseRule: {
@@ -68,7 +68,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
     },
   });
 
-  assert.equal(presentation.questionsPerRun, 4);
+  assert.equal(presentation.questionsPerAssignmentAttempt, 4);
   assert.equal(presentation.questionPoolReuseRule, "selectAgain");
   assert.equal(presentation.questionVariationRule, "newVariation");
   assert.equal(presentation.studentFeedbackReleaseRule?.feedback_text, "after_due");

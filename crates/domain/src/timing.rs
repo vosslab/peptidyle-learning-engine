@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAttemptTimingEvaluation {
-    /// Authored timing and grace policy for the question or run.
+    /// Authored timing and grace policy for the Question or Assignment Attempt.
     pub policy: QuestionAttemptTimeLimit,
     /// Server-recorded issue, base-deadline, and submission timestamps.
     pub timer: QuestionAttemptTiming,

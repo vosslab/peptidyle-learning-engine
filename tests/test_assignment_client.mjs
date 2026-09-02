@@ -17,7 +17,7 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
       lateWorkRule: "accept",
       assignmentDeadlineRule: "autoSubmit",
     },
-    questionsPerRun: 0,
+    questionsPerAssignmentAttempt: 0,
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "newVariation",
     studentFeedbackReleaseRule: {
@@ -29,7 +29,7 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
       class_statistics: "never",
     },
   });
-  assert.equal(view.questionsPerRun, 0);
+  assert.equal(view.questionsPerAssignmentAttempt, 0);
   assert.equal(view.questionPoolReuseRule, "selectAgain");
   assert.equal(view.questionVariationRule, "newVariation");
   assert.equal("lateStatus" in view.delivery, false);

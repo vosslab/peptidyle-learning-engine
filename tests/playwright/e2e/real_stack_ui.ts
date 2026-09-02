@@ -110,7 +110,7 @@ export async function selectVisibleCourse(page: Page, title: string): Promise<vo
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 
-export type RouteDataSurface = "assignmentOverview" | "runAttempt";
+export type RouteDataSurface = "assignmentOverview" | "assignmentAttempt";
 
 export async function waitForRouteDataSurface(
   page: Page,
@@ -122,7 +122,7 @@ export async function waitForRouteDataSurface(
 }
 
 /**
- * Enter the current assignment's authoritative student run.
+ * Enter the current assignment's authoritative Student Assignment Attempt.
  *
  * Locator readiness uses the scenario-owned page timeout. Playwright assertions
  * have a separate five-second default, which is not the live-stack operation
@@ -130,7 +130,7 @@ export async function waitForRouteDataSurface(
  */
 export async function startOrContinuePractice(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Start or continue practice", exact: true }).click();
-  await waitForRouteDataSurface(page, "runAttempt");
+  await waitForRouteDataSurface(page, "assignmentAttempt");
 }
 
 export async function restoreViewportOrigin(page: Page): Promise<void> {

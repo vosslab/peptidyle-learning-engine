@@ -132,7 +132,7 @@ test("Student Issued Question excludes durable Question Pool Selection evidence"
 });
 
 test("Assignment Attempt summary decoder accepts only its compact redacted wire shape", () => {
-  const assignmentAttempt = publishedQuestionFixture.runs[0];
+  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
   const summary = {
     course: {
       summary: publishedQuestionFixture.course,

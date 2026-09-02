@@ -3,7 +3,7 @@
 ## Status and authority
 
 WP-INST-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
-acceptance path over ordinary assignments, student runs, grading, evidence, and Instructor
+acceptance path over ordinary assignments, Student Assignment Attempts, grading, evidence, and Instructor
 inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
 product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
@@ -15,7 +15,7 @@ allocation.
 PLE has one assignment-execution model:
 
 - Instructors author, publish, preview current policy, and inspect audited student work.
-- Students exercise the actual assignment delivery path through ordinary enrollments, runs,
+- Students exercise the actual assignment delivery path through ordinary enrollments, Assignment Attempts,
   attempts, submissions, immutable receipts, grades, and repeat practice.
 - Deterministic graders execute on the server from issuance-owned private material.
 - Browser contracts contain the visible question and response shape needed for interaction while
@@ -65,7 +65,7 @@ owning broker. Server composition routes every operation through the narrow capa
 
 The connected acceptance path uses one disposable HTTPS production stack. Instructor workflows
 create the course, assignment, policies, and roster state through visible UI actions. Student
-workflows create runs and submissions through the visible student UI. Instructor pages then show
+workflows create Assignment Attempts and submissions through the visible Student UI. Instructor pages then show
 the resulting grade settings, gradebook, and audited student-work evidence. Narrow backend setup is
 reserved for installation baselines and controlled infrastructure faults.
 
@@ -101,7 +101,7 @@ Focused implementation evidence:
 8. Reset regenerates the seeded baseline, discards installation-scoped process-isolation credentials, and preserves
    the ordinary live-state and full-capability contracts.
 9. `source source_me.sh && ./all_test.sh` passes on the final material tree with every required gate
-   run and every owned cleanup receipt empty.
+   Assignment Attempt and every owned cleanup receipt empty.
 
 ## Acceptance
 

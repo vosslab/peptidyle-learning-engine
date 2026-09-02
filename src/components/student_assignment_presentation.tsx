@@ -27,7 +27,7 @@ export interface StudentAssignmentPresentationDelivery {
 /**
  * The answer-free data needed to render an assignment landing surface.
  *
- * This is deliberately independent of route, session, and run state. The
+ * This is deliberately independent of route, session, and Assignment Attempt state. The
  * Instructor Student-view projection can provide the same shape without
  * introducing student identity or mutation capabilities.
  */
@@ -36,7 +36,7 @@ export interface StudentAssignmentPresentationData {
   readonly instructions: string;
   readonly timeZone: string;
   readonly delivery: StudentAssignmentPresentationDelivery;
-  readonly questionsPerRun: number;
+  readonly questionsPerAssignmentAttempt: number;
   readonly questionPoolReuseRule?: QuestionPoolReuseRule;
   readonly questionVariationRule?: AssignmentQuestionVariationRule;
   readonly studentFeedbackReleaseRule?: StudentFeedbackReleaseRule;
@@ -55,13 +55,13 @@ export interface StudentAssignmentPresentationProps {
 export function toStudentAssignmentPresentationData(
   assignment: StudentAssignmentDetail | InstructorStudentView,
 ): StudentAssignmentPresentationData {
-  if ("questionsPerRun" in assignment) {
+  if ("questionsPerAssignmentAttempt" in assignment) {
     return {
       title: assignment.title,
       instructions: assignment.instructions,
       timeZone: assignment.timeZone,
       delivery: assignment.delivery,
-      questionsPerRun: assignment.questionsPerRun,
+      questionsPerAssignmentAttempt: assignment.questionsPerAssignmentAttempt,
       questionPoolReuseRule: assignment.questionPoolReuseRule,
       questionVariationRule: assignment.questionVariationRule,
       studentFeedbackReleaseRule: assignment.studentFeedbackReleaseRule,
@@ -82,7 +82,7 @@ export function toStudentAssignmentPresentationData(
       assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
       lateStatus: assignment.delivery.late_status,
     },
-    questionsPerRun: assignment.entries.reduce(
+    questionsPerAssignmentAttempt: assignment.entries.reduce(
       (count, entry) =>
         entry.kind === "fixedQuestion"
           ? count + (entry.availability === "available" ? 1 : 0)
@@ -266,7 +266,7 @@ export function StudentAssignmentPresentation(
             </dd>
           </div>
           <div>
-            <dt>Whole-run limit</dt>
+            <dt>Whole Assignment Attempt limit</dt>
             <dd>
               {formatAssignmentAttemptTimeLimit(
                 props.assignment.delivery.assignmentAttemptTimeLimitSeconds,
@@ -299,8 +299,8 @@ export function StudentAssignmentPresentation(
       </section>
       <dl class="assignment-facts">
         <div>
-          <dt>Questions per run</dt>
-          <dd>{props.assignment.questionsPerRun}</dd>
+          <dt>Questions per Assignment Attempt</dt>
+          <dd>{props.assignment.questionsPerAssignmentAttempt}</dd>
         </div>
         <div>
           <dt>Later Assignment Attempt</dt>
@@ -344,7 +344,7 @@ export function StudentAssignmentPresentation(
                 </div>
               </Show>
               <div>
-                <dt>Completed runs</dt>
+                <dt>Completed Assignment Attempts</dt>
                 <dd>{progress().completed_assignment_attempt_count}</dd>
               </div>
               <div>

@@ -478,12 +478,12 @@ function decodeAssignmentAttemptContinuationRule(
       if (strict) requireOnlyFields(record, path, ["kind"]);
       return { kind: practice };
     case "capped": {
-      if (strict) requireOnlyFields(record, path, ["kind", "maxAdditionalRuns"]);
+      if (strict) requireOnlyFields(record, path, ["kind", "maxAdditionalAssignmentAttempts"]);
       const decoded = {
         kind: practice,
-        maxAdditionalRuns: decodeNonnegativeInteger(
-          field(record, "maxAdditionalRuns", path),
-          `${path}.maxAdditionalRuns`,
+        maxAdditionalAssignmentAttempts: decodeNonnegativeInteger(
+          field(record, "maxAdditionalAssignmentAttempts", path),
+          `${path}.maxAdditionalAssignmentAttempts`,
         ),
       } satisfies AssignmentAttemptContinuationRule;
       return decoded;

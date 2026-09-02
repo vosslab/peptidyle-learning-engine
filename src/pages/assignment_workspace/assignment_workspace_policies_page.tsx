@@ -204,12 +204,15 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       }));
     }
     if (
-      field === "additionalRuns" &&
+      field === "additionalAssignmentAttempts" &&
       policies().assignmentAttemptContinuationRule.kind === "capped"
     ) {
       setPolicies((current) => ({
         ...current,
-        assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalRuns: value },
+        assignmentAttemptContinuationRule: {
+          kind: "capped",
+          maxAdditionalAssignmentAttempts: value,
+        },
       }));
     }
   }
@@ -239,10 +242,13 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setPolicies((current) => ({ ...current, assignmentAttemptContinuationRule: { kind } }));
       return;
     }
-    const parsed = nonnegativeIntegerDraft(activityRuleDraft().additionalRuns);
+    const parsed = nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts);
     setPolicies((current) => ({
       ...current,
-      assignmentAttemptContinuationRule: { kind, maxAdditionalRuns: parsed.value ?? 3 },
+      assignmentAttemptContinuationRule: {
+        kind,
+        maxAdditionalAssignmentAttempts: parsed.value ?? 3,
+      },
     }));
   }
 
@@ -250,13 +256,13 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     const active =
       (field === "completionFraction" &&
         policies().assignmentCompletionRule.kind === "scoreAtLeast") ||
-      (field === "additionalRuns" &&
+      (field === "additionalAssignmentAttempts" &&
         policies().assignmentAttemptContinuationRule.kind === "capped");
     if (!active) return undefined;
     const parsed =
       field === "completionFraction"
         ? scoreFractionDraft(activityRuleDraft().completionFraction)
-        : nonnegativeIntegerDraft(activityRuleDraft().additionalRuns);
+        : nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts);
     if (!parsed.valid) {
       return field === "completionFraction"
         ? "Enter a decimal from 0 through 1."
@@ -306,9 +312,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     }
     if (
       policies().assignmentAttemptContinuationRule.kind === "capped" &&
-      !nonnegativeIntegerDraft(activityRuleDraft().additionalRuns).valid
+      !nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts).valid
     ) {
-      return "additionalRuns";
+      return "additionalAssignmentAttempts";
     }
     if (!optionalPositiveIntegerDraft(assignmentAttemptTimeLimitSecondsDraft()).valid)
       return "assignmentAttemptTimeLimitSeconds";
@@ -330,7 +336,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       const label =
         invalidField === "completionFraction"
           ? "Required score fraction"
-          : invalidField === "additionalRuns"
+          : invalidField === "additionalAssignmentAttempts"
             ? "Additional Assignment Attempts"
             : invalidField === "assignmentAttemptTimeLimitSeconds"
               ? "Whole Assignment Attempt seconds"

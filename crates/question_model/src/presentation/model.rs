@@ -4,7 +4,7 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionReference;
-use crate::course_appearance::CourseThemeId;
+use crate::course_appearance::CourseTheme;
 use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 use crate::generation::QuestionSeed;
 use crate::student_work::{AssignmentId, CourseId, QuestionAttemptId, Timestamp};
@@ -338,7 +338,7 @@ pub struct StudentAttemptDescriptor {
 pub struct StudentAssignmentAttemptScreenScope {
     pub course: CourseId,
     pub assignment: AssignmentId,
-    pub theme: CourseThemeId,
+    pub theme: CourseTheme,
 }
 
 /// Student-visible Assignment Attempt context, without storage or policy internals.

@@ -26,7 +26,7 @@ function gradedAcknowledgement(response, attemptId) {
       accepted: true,
       attempt: {
         id: attemptId,
-        run: "run-a",
+        assignmentAttempt: "assignment-attempt-a",
         problem: "problem-a",
         questionRevision: { questionId: "ABC-1234", revisionNumber: 1 },
         assignmentPosition: 0,

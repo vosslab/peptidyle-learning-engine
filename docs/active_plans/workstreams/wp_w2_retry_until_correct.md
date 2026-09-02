@@ -10,7 +10,7 @@ J3-J5/J8, onboarding, all-family coverage, scoring reconstruction, or answer-key
 
 - J2 opens the exact visible Mastery href through Tab/Shift+Tab and native Enter.
 - It uses the rendered Start/resume result: visible radios proceed directly, while a visible
-  `Start another practice run` button is reached by Tab and activated with Space.
+  `Start another practice Assignment Attempt` button is reached by Tab and activated with Space.
 - The private native retry lifecycle now issues an immutable server-authorized successor attempt;
   the browser refreshes the current screen and remounts response state for that successor.
 - J2 selects exactly two visible unchecked radios through bounded native forward/reverse tab entry,

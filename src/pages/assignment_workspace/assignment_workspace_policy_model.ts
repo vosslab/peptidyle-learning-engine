@@ -13,7 +13,7 @@ export type PolicyFocusTarget =
   | "assignmentAttemptTimeLimitSeconds"
   | "attemptLimit"
   | "completionFraction"
-  | "additionalRuns"
+  | "additionalAssignmentAttempts"
   | "questionPoolReuseRule"
   | "questionVariationRule"
   | "questions"
@@ -204,12 +204,13 @@ export type PositiveIntegerDraft = {
   readonly valid: boolean;
 };
 
-export type AssignmentActivityRuleDraftField = "completionFraction" | "additionalRuns";
+export type AssignmentActivityRuleDraftField =
+  "completionFraction" | "additionalAssignmentAttempts";
 
 /** Raw number controls stay local until their typed policy value is valid. */
 export type AssignmentActivityRuleDraft = {
   readonly completionFraction: string;
-  readonly additionalRuns: string;
+  readonly additionalAssignmentAttempts: string;
 };
 
 export type FractionDraft = {
@@ -263,9 +264,9 @@ export function activityRuleDraftFromRules(
         ? policies.assignmentCompletionRule.fraction
         : 0.8,
     ),
-    additionalRuns: numberDraft(
+    additionalAssignmentAttempts: numberDraft(
       policies.assignmentAttemptContinuationRule.kind === "capped"
-        ? policies.assignmentAttemptContinuationRule.maxAdditionalRuns
+        ? policies.assignmentAttemptContinuationRule.maxAdditionalAssignmentAttempts
         : 3,
     ),
   };
@@ -281,10 +282,10 @@ export function mergeSavedActivityRuleDraft(
       saved.assignmentCompletionRule.kind === "scoreAtLeast"
         ? numberDraft(saved.assignmentCompletionRule.fraction)
         : current.completionFraction,
-    additionalRuns:
+    additionalAssignmentAttempts:
       saved.assignmentAttemptContinuationRule.kind === "capped"
-        ? numberDraft(saved.assignmentAttemptContinuationRule.maxAdditionalRuns)
-        : current.additionalRuns,
+        ? numberDraft(saved.assignmentAttemptContinuationRule.maxAdditionalAssignmentAttempts)
+        : current.additionalAssignmentAttempts,
   };
 }
 

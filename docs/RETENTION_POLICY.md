@@ -109,7 +109,7 @@ lease token, and course-retention row. A stale generation, reclaimed lease, mism
 malformed payload cannot commit an old worker's result. The worker accepts only exact course-scoped typed
 `StudentRecord` keys; an already absent object is an idempotent success.
 
-The archive access predicate is reused by CourseInstance student records, runs, summaries, feedback,
+The archive access predicate is reused by CourseInstance Student Records, Assignment Attempts, summaries, feedback,
 exports, iMathAS Question Backend paths, and protected StudentRecord assets. It also denies access as soon as
 the current archive/delete stage has started, preventing a cleanup race from leaking a record.
 BlueprintCourse reads never grant CourseInstance or Student access.
@@ -124,7 +124,7 @@ lifecycle become `archived`.
 
 Permanent deletion creates and replays its own manifest. It has an independent object set because
 newly discovered objects must not be silently added to a retry of the archive-stage manifest. The
-delete preparation also records private, indexed run, attempt, and export work sets. They avoid
+delete preparation also records private, indexed Assignment Attempt, Question Attempt, and export work sets. They avoid
 whole-course ID arrays in process memory, fence only the course being purged, and are erased before
 the terminal tombstone is written.
 
@@ -135,7 +135,7 @@ the same prepared delete manifest. It cannot report permanent deletion early.
 
 The deleted student graph includes:
 
-- enrollments, student course membership, assignment summaries, runs, attempts, submissions,
+- enrollments, Student course membership, assignment summaries, Assignment Attempts, Question Attempts, submissions,
   evaluations, grades, timers, feedback, and item-analysis rows;
 - prefetch, provider replay, idempotency, scoring, and per-student statistics receipts;
 - student-record audit events, exports, protected deliveries, and iMathAS Question Backend Sessions and
@@ -223,7 +223,7 @@ set an RPO/RTO, or prove object-store recovery.
 
 On 2026-08-09, a one-time isolated PostgreSQL and MinIO deletion exercise drove a populated permanent
 deletion request through the retention worker. The completed manifest matched the exact typed
-student-record object. The worker removed that object and the student enrollment, run, attempt,
+Student Record object. The worker removed that object and the Student enrollment, Assignment Attempt, Question Attempt,
 submission, evaluation, score, feedback, receipt, delivery, access-log, audit, and course-analysis
 rows. It retained the Assignment and Instructor membership, Published Question, Question Revision, and Question Source,
 workspace draft, and anonymous global statistics aggregate. Independent typed-object reads and

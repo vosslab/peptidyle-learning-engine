@@ -245,7 +245,7 @@ pub struct IssuedQuestion {
     pub assignment_entry: AssignmentEntryId,
     /// Entry index in the Assignment Content when the Assignment Attempt began.
     pub assignment_content_entry_index: u32,
-    /// Expanded zero-based delivery order inside this run.
+    /// Expanded zero-based delivery order inside this Assignment Attempt.
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
     pub reference: QuestionRevisionReference,
@@ -255,7 +255,7 @@ pub struct IssuedQuestion {
     pub scoring_rule: AssignmentEntryScoringRule,
     /// Whether this issued item may contribute to cross-course learning evidence.
     ///
-    /// The value is frozen when the run begins so later assignment scoring
+    /// The value is frozen when the Assignment Attempt begins so later assignment scoring
     /// changes cannot rewrite the validity of an observed student response.
     pub statistics_eligible: bool,
     /// Immutable Question Pool Selection that produced this item, if it was drawn.
@@ -824,10 +824,13 @@ mod tests {
     #[test]
     fn every_activity_identifier_stays_distinct_but_round_trips() {
         let raw = Uuid::from_u128(7);
-        let run = AssignmentAttemptId::from_uuid(raw);
+        let assignment_attempt = AssignmentAttemptId::from_uuid(raw);
         let attempt = QuestionAttemptId::from_uuid(raw);
 
-        assert_eq!((run.as_uuid(), attempt.as_uuid()), (raw, raw));
+        assert_eq!(
+            (assignment_attempt.as_uuid(), attempt.as_uuid()),
+            (raw, raw)
+        );
     }
 
     #[test]

@@ -86,7 +86,7 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
 }
 
 /// Failures that are confined to this backend and can become a WeBWorK-only
-/// degraded run state at the HTTP boundary.
+/// degraded Assignment Attempt state at the HTTP boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WebworkAdapterError {
     /// A non-WeBWorK question reached this adapter.

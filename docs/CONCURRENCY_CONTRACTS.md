@@ -140,7 +140,7 @@ immutable publication, never as changed historical question content.
 ### Attempt identity
 
 An issued `QuestionAttemptId` binds the authenticated Student Account, exact course,
-assignment/run item, immutable question revision, seed, timing state, and
+Assignment Attempt Question Pool Item, immutable Question Revision, seed, timing state, and
 grading backend. It is the primary response authority. The browser sends the
 minimal Student response plus an `Idempotency-Key`; it does not choose an
 Account, course, key, seed, grading backend, or question kind. The exact browser
@@ -271,14 +271,14 @@ Required ordering for a new multi-row mutation:
 
 1. Establish `AuthenticatedSession` and authorize the exact course, Student, workspace,
    or leased operation target.
-2. Lock the highest shared owner first: course/assignment or run, as applicable.
+2. Lock the highest shared owner first: Course/Assignment or Assignment Attempt, as applicable.
 3. Lock its direct child next: enrollment or assignment item.
 4. Lock attempt, receipt, candidate, or projection rows last, in stable ID or
    assignment-position order when there is more than one.
 5. Acquire an external lease before preparation; re-check it inside the final
    account-and-relationship-scoped transaction before publishing an effect.
 
-Existing run/prefetch paths follow run, enrollment, predecessor attempt, then
+Existing Assignment Attempt/prefetch paths follow Assignment Attempt, enrollment, predecessor Question Attempt, then
 prefetch/receipt order. Existing scoring paths lock the assignment owner before
 staging/current projection rows. New code that needs a different order must
 document why it cannot use this hierarchy and add a focused concurrent

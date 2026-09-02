@@ -199,7 +199,7 @@ pub struct ResolveEffectivePolicyInput {
     pub active_student_course_membership: ActiveStudentCourseMembershipDecision,
     pub authorization: AuthorizationGate,
     pub now: Timestamp,
-    pub prior_run_count: u32,
+    pub prior_assignment_attempt_count: u32,
     pub base: BaseAssignmentPolicy,
     pub accommodation: Option<Accommodation>,
 }
@@ -210,7 +210,7 @@ pub struct ResolveSyntheticPreviewPolicyInput {
     pub active_student_course_membership: SyntheticPreviewAdmissionDecision,
     pub authorization: AuthorizationGate,
     pub now: Timestamp,
-    pub prior_run_count: u32,
+    pub prior_assignment_attempt_count: u32,
     pub base: BaseAssignmentPolicy,
     pub hypothetical_accommodation: Option<HypotheticalAccommodation>,
 }
@@ -353,7 +353,7 @@ pub fn resolve_effective_policy(
     }
     resolve_authorized_policy(
         input.now,
-        input.prior_run_count,
+        input.prior_assignment_attempt_count,
         input.base,
         input
             .accommodation
@@ -391,7 +391,7 @@ pub fn resolve_synthetic_preview_policy(
 
     resolve_authorized_policy(
         input.now,
-        input.prior_run_count,
+        input.prior_assignment_attempt_count,
         input.base,
         input
             .hypothetical_accommodation
@@ -401,7 +401,7 @@ pub fn resolve_synthetic_preview_policy(
 
 fn resolve_authorized_policy(
     now: Timestamp,
-    prior_run_count: u32,
+    prior_assignment_attempt_count: u32,
     base: BaseAssignmentPolicy,
     accommodation: Option<AccommodationAdjustmentInput>,
 ) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
@@ -410,7 +410,7 @@ fn resolve_authorized_policy(
         apply_accommodation_adjustment(&mut policy, accommodation)?;
     }
     validate_schedule(&policy)?;
-    let start_decision = assignment_start_decision(&policy, now, prior_run_count);
+    let start_decision = assignment_start_decision(&policy, now, prior_assignment_attempt_count);
     Ok(AssignmentAccessDecision::Allowed {
         policy: Box::new(policy),
         start_decision,
@@ -591,7 +591,7 @@ fn validate_schedule_values(
 fn assignment_start_decision(
     policy: &EffectiveAssignmentPolicy,
     now: Timestamp,
-    prior_run_count: u32,
+    prior_assignment_attempt_count: u32,
 ) -> AssignmentStartDecision {
     if policy.closes_at.value.is_some_and(|closes| now >= closes) {
         return AssignmentStartDecision::Closed;
@@ -606,7 +606,7 @@ fn assignment_start_decision(
     if policy
         .attempt_limit
         .value
-        .is_some_and(|limit| prior_run_count >= limit.get())
+        .is_some_and(|limit| prior_assignment_attempt_count >= limit.get())
     {
         return AssignmentStartDecision::AttemptLimitReached;
     }

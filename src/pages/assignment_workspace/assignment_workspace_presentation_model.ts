@@ -83,11 +83,15 @@ function assignmentAttemptContinuationRuleSummary(
   if (input.policies.assignmentAttemptContinuationRule.kind === "closed") {
     return "Closed after completion";
   }
-  const additionalRuns = nonnegativeIntegerDraft(input.activityRuleDraft.additionalRuns);
-  if (!additionalRuns.valid || additionalRuns.value === null) {
+  const additionalAssignmentAttempts = nonnegativeIntegerDraft(
+    input.activityRuleDraft.additionalAssignmentAttempts,
+  );
+  if (!additionalAssignmentAttempts.valid || additionalAssignmentAttempts.value === null) {
     return "Additional Assignment Attempt limit needs correction";
   }
-  return `${additionalRuns.value} additional Assignment Attempt${additionalRuns.value === 1 ? "" : "s"}`;
+  return `${additionalAssignmentAttempts.value} additional Assignment Attempt${
+    additionalAssignmentAttempts.value === 1 ? "" : "s"
+  }`;
 }
 
 function disclosureSummary(rule: StudentFeedbackReleaseRule): string {

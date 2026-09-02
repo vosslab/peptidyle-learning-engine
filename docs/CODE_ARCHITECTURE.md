@@ -97,7 +97,7 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Component           | Canonical owner                                         | Responsibility                                                                                                                                    |
 | ------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Question model      | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, adoption commands, previews, and browser-safe projections. |
-| Domain              | `crates/domain/`                                        | Pure timing, policy, disclosure, run, scoring, generation, and validation behavior without database or wall-clock reads.                          |
+| Domain              | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.           |
 | Grading             | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                           |
 | Store contracts     | `crates/learning-data-access/src/contracts/`            | `BlueprintCourseStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations.                                       |
 | Retired Memory seam | `crates/learning-data-access/src/in_memory/`            | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path.      |
@@ -163,13 +163,13 @@ Blueprint projection.
 ## Assessment and delivery boundary
 
 Published Questions remain shared Question Library content. Course assignments, Student
-records, runs, attempts, responses, grades, accommodations, and issued evidence
+records, Assignment Attempts, Question Attempts, responses, grades, accommodations, and issued evidence
 are exact CourseInstance records. The normal assessment flow is:
 
 ```text
 published immutable question
   -> CourseInstance assignment and entitlement
-  -> server-issued answer-free attempt presentation
+  -> server-issued answer-free Question Attempt presentation
   -> accepted immutable Student response
   -> sealed worker grading and receipt
   -> current policy-controlled score and feedback projection

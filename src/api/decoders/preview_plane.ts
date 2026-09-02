@@ -280,7 +280,7 @@ function studentViewScenario(value: unknown, path: string): StudentViewScenario 
     "revision",
     "selectedMoment",
     "policy",
-    "priorRunCount",
+    "priorAssignmentAttemptCount",
   ]);
   return {
     kind: decodeStringEnum(record.kind, `${path}.kind`, ["synthetic", "derived"] as const),
@@ -288,7 +288,10 @@ function studentViewScenario(value: unknown, path: string): StudentViewScenario 
     revision: revision(record.revision, `${path}.revision`),
     selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
     policy: effective_assignment_policy(record.policy, `${path}.policy`),
-    priorRunCount: nonnegativeInteger(record.priorRunCount, `${path}.priorRunCount`),
+    priorAssignmentAttemptCount: nonnegativeInteger(
+      record.priorAssignmentAttemptCount,
+      `${path}.priorAssignmentAttemptCount`,
+    ),
   };
 }
 

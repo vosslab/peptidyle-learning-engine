@@ -224,7 +224,7 @@ function AttemptExperience(props: {
     const acknowledgement = feedbackState()?.acknowledgement;
     if (acknowledgement === undefined) return;
     if (acknowledgement.nextPending) {
-      await advanceFromCurrentRun(null);
+      await advanceFromCurrentAssignmentAttempt(null);
       return;
     }
     const receiptNext = acknowledgement.nextIssued;
@@ -267,7 +267,7 @@ function AttemptExperience(props: {
       void loadSummary();
       return;
     }
-    await advanceFromCurrentRun(receiptNext);
+    await advanceFromCurrentAssignmentAttempt(receiptNext);
   }
 
   function applyRecoveredSuccessorScreen(): void {
@@ -286,7 +286,9 @@ function AttemptExperience(props: {
     requestPrefetch(recovered.attempt.id);
   }
 
-  async function advanceFromCurrentRun(expected: NextIssuedAttempt | null): Promise<void> {
+  async function advanceFromCurrentAssignmentAttempt(
+    expected: NextIssuedAttempt | null,
+  ): Promise<void> {
     const predecessor = machine.state().context.attemptId;
     recoveredSuccessorScreen = null;
     await machine.advance(async () => {
@@ -497,12 +499,12 @@ function AttemptExperience(props: {
 
   return (
     <section
-      class="page run-page"
-      data-route-surface="runAttempt"
+      class="page assignment-attempt-page"
+      data-route-surface="assignmentAttempt"
       data-attempt-id={currentAttemptId()}
       aria-busy={currentState()?.phase === "loading" || currentState()?.phase === "advancing"}
     >
-      <header class="run-header">
+      <header class="assignment-attempt-header">
         <div>
           <p class="eyebrow">Assignment Attempt {screen().assignmentAttempt.attemptNumber}</p>
           <h1>{currentEnvelope().title}</h1>
@@ -596,7 +598,7 @@ function AttemptExperience(props: {
               type="button"
               onClick={() => void startAnotherPractice()}
             >
-              Start another practice
+              Start another practice Assignment Attempt
             </button>
           </Show>
           <Show when={practiceError()}>{(message) => <p class="inline-error">{message()}</p>}</Show>

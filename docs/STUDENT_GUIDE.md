@@ -17,9 +17,9 @@ discards them and recreates the same fictional baseline.
 
 ![Student Peptide Bond Planarity problem showing the selected resonance response](screenshots/student/delivery/04_response_selected.png)
 
-![Student completed-run summary showing a correct score and keyboard focus on Start another practice run](screenshots/student/delivery/06_completion.png)
+![Student completed Assignment Attempt summary showing a correct score and keyboard focus on Start another practice Assignment Attempt](screenshots/student/delivery/06_completion.png)
 
-![Student Peptide Bond Planarity practice run 2 showing a fresh unanswered response](screenshots/student/delivery/07_repeat_run.png)
+![Student Peptide Bond Planarity practice Assignment Attempt 2 showing a fresh unanswered response](screenshots/student/delivery/07_repeat_run.png)
 <!-- screenshots:end -->
 
 ## Before you begin
@@ -42,7 +42,7 @@ discards them and recreates the same fictional baseline.
 The complete accessibility contract is in
 [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
 
-## Complete the first run
+## Complete the first Assignment Attempt
 
 1. Open the assignment and read **Instructions** and **Delivery details**. Schedule times are already
    resolved by the server and shown in the course time zone; the browser does not infer policy or a
@@ -68,12 +68,12 @@ not expose instructor policy or provenance through the Student route.
 ## Practice again
 
 The completed summary keeps **Start fresh practice** available. Activating it opens the captured
-**Practice run 2** screen with no response selected, proving that the student entered a new run rather
+**Practice Assignment Attempt 2** screen with no response selected, proving that the Student entered a new Assignment Attempt rather
 than reopening the completed one. This demo assignment is untimed; timed assignments display a fresh
 server-authoritative deadline. The completed assignment remains recorded. Leaving an unsubmitted
-response and resuming the active run clears that response, so the Student returns to an intentional
+response and resuming the active Assignment Attempt clears that response, so the Student returns to an intentional
 fresh choice.
 
-After a completed run, the instructor can verify the score summary and history described in
+After a completed Assignment Attempt, the Instructor can verify the score summary and history described in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md). Continued practice remains available after completion;
 completion and the opportunity to learn are not the same event.

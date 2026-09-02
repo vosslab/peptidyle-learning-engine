@@ -150,8 +150,8 @@ pub struct AssignmentOverview {
     pub instructions: AssignmentInstructions,
     /// Course scheduling zone used to present delivery facts.
     pub time_zone: CourseTimeZone,
-    /// Number of active questions a student receives in one run.
-    pub questions_per_run: u32,
+    /// Number of active questions a student receives in one Assignment Attempt.
+    pub questions_per_assignment_attempt: u32,
     /// Student-visible Question Pool Reuse Rule.
     pub question_pool_reuse_rule: crate::QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
@@ -162,7 +162,7 @@ pub struct AssignmentOverview {
 
 /// Student-safe Assignment Content.
 ///
-/// This projection deliberately omits course identities, run and
+/// This projection deliberately omits course identities, Assignment Attempt and
 /// disclosure policy, and other server authority inputs. Student routes use
 /// it instead of [`AssignmentSummary`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -201,9 +201,9 @@ pub struct StudentAssignmentDelivery {
     pub due_at: Option<Timestamp>,
     /// Resolved hard instant after which new work closes.
     pub closes_at: Option<Timestamp>,
-    /// Resolved whole-run time limit when one applies.
+    /// Resolved whole Assignment Attempt time limit when one applies.
     pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Resolved maximum number of runs when one applies.
+    /// Resolved maximum number of Assignment Attempts when one applies.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Resolved treatment of work after the ordinary due instant.
     pub late_work_rule: LateWorkRule,
@@ -217,7 +217,7 @@ pub struct StudentAssignmentDelivery {
 ///
 /// Paginated Student list rows deliberately omit this potentially large
 /// material. The server admits this detail only after the same effective
-/// policy gate used to issue a run.
+/// policy gate used to issue an Assignment Attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentAssignmentDetail {
@@ -389,7 +389,7 @@ mod tests {
                 instructions: AssignmentInstructions::try_new("Read the legend.".to_string())
                     .expect("valid instructions"),
                 time_zone: CourseTimeZone::parse("America/Chicago").expect("known zone"),
-                questions_per_run: 0,
+                questions_per_assignment_attempt: 0,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),

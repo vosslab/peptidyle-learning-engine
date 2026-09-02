@@ -49,7 +49,7 @@ discards them and recreates the same fictional baseline.
 5. Activate **Create Course Instance**, then open the new Course Instance card.
 
 The source Blueprint contributes reusable definitions, policies, theme defaults, and reviewed
-relative schedule offsets. The new Course Instance starts with no Students, invitations, runs,
+relative schedule offsets. The new Course Instance starts with no Students, invitations, Assignment Attempts,
 responses, grades, retention state, or issued work copied from another course. Its live dates are
 resolved against this instance's term and time zone. The form never guesses a browser time zone. If
 a term value is invalid, it preserves all inputs, announces and focuses the field to correct, and
@@ -105,7 +105,7 @@ The assignment-local navigation keeps delivery work together:
 - **Policies** owns instance delivery and publishing: Student instructions, lifecycle, schedule,
   limits, Assignment activity rules, and Student Feedback visibility. Its save action is separate from Questions.
 - **Student view** is a stable-identity, answer-free inspection of the current live assignment. It
-  keeps the Instructor session and creates no Student run, submission, grade, or other work.
+  keeps the Instructor session and creates no Student Assignment Attempt, submission, grade, or other work.
 
 Use the assignment title link to return to **Overview**. The supported paths are
 `/instructor/courses/:courseRef/assignments/:assignmentRef`, with `/questions`, `/policies`, or
@@ -152,7 +152,7 @@ other delivery settings remain instance-owned after every operation.
 
 From the assignment workspace, open **Student view** to inspect the current live Student landing.
 The view has a stable assignment identity, contains no answer material, and leaves the Instructor
-session in place. It is an inspection surface only: it does not start a run or create graded work.
+session in place. It is an inspection surface only: it does not start an Assignment Attempt or create graded work.
 
 For graded work, sign out, choose a seeded Student and authorized Course Instance, open the assignment
 through the ordinary Student course page, and choose **Start assignment**. Submit through the visible
@@ -161,7 +161,7 @@ feedback or an instructor-attention state appears. When attention appears, sign 
 Instructor, open **Grading operations**, review the metadata-only recovery row, and choose its
 currently enabled named action when the operation is eligible. Follow the operation's current state
 and available action, then open **Gradebook** and confirm the current score. Ordinary Student entry
-creates the real Student run, submission, receipt, grade, and Instructor-visible Gradebook history.
+creates the real Student Assignment Attempt, submission, receipt, grade, and Instructor-visible Gradebook history.
 
 ## Configure course grades
 
@@ -186,9 +186,9 @@ row count, and timestamp metadata.
 
 ## Review learning
 
-After a Student completes and repeats an assignment, open **Gradebook** and expand **View run
+After a Student completes and repeats an assignment, open **Gradebook** and expand **View Assignment Attempt
 history** for the assignment row. Confirm Best and Latest scores, Completed count, and the authorized
-run-history entries after a fresh read.
+Assignment Attempt-history entries after a fresh read.
 
 The companion [STUDENT_GUIDE.md](STUDENT_GUIDE.md) follows the Student path. The platform keyboard
 contract is documented in [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).

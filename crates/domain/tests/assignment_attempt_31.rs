@@ -40,7 +40,7 @@ fn thirty_first_assignment_attempt_updates_the_transactional_summary() {
             },
             AssignmentAttemptGradeRule::Highest,
         )
-        .expect("completed run should update the summary");
+        .expect("completed Assignment Attempt should update the summary");
     }
 
     let expected = AssignmentProgressRecord {

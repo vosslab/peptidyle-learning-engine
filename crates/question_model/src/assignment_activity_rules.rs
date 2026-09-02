@@ -158,7 +158,7 @@ pub enum AssignmentAttemptContinuationRule {
     /// A bounded number of new Assignment Attempts may be started after completion.
     Capped {
         /// Assignment Attempts allowed after the first completed Assignment Attempt.
-        max_additional_runs: u32,
+        max_additional_assignment_attempts: u32,
     },
     /// The assignment closes once complete.
     Closed,

@@ -92,7 +92,7 @@ recover an uncertain submission by issuing a different attempt.
   evaluation, execution, and ready job. An exact retry returns the same durable acceptance rather
   than creating another grading operation. A changed response or incompatible replay conflicts.
 - After `202 Accepted`, the browser uses the route-bound submission-status read. The sealed worker
-  commits the result, attempt/run/enrollment transitions, projections, and completed receipt in one
+  commits the result, Question Attempt/Assignment Attempt/enrollment transitions, projections, and completed receipt in one
   transaction; status reads converge on that receipt without re-grading.
 - If the browser loses the response, it preserves the same request body and idempotency key, then
   retries that exact logical submission after connectivity returns. It must not create a new key

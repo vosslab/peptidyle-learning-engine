@@ -349,7 +349,7 @@ export interface ApiClient
     input: AssignmentContentInput,
     assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
-  /** Replaces one existing fixed slot for future runs without changing issued student work. */
+  /** Replaces one existing fixed slot for future Assignment Attempts without changing issued Student work. */
   readonly replaceAssignmentFixedItem: (
     courseId: CourseId,
     assignmentId: AssignmentId,

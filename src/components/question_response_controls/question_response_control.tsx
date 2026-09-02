@@ -26,7 +26,7 @@ export {
 } from "./imathas_question_backend";
 export { handleQuestionResponseControlKeyDown } from "./keyboard";
 
-/** Standalone multiple-choice entry point retained for the reference run screen. */
+/** Standalone multiple-choice entry point retained for the reference Assignment Attempt screen. */
 export function MultipleChoiceResponse(
   props: import("./common").MultipleChoiceResponseProps,
 ): JSX.Element {

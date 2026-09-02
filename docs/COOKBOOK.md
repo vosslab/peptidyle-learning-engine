@@ -50,7 +50,7 @@ See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the identity and disposable-state
    channel.
 6. Confirm **Invitation pending**, then **Active** after the Student claims it.
 
-The Course Instance is real PostgreSQL-backed state. It receives no Students, invitations, runs,
+The Course Instance is real PostgreSQL-backed state. It receives no Students, invitations, Assignment Attempts,
 responses, grades, retention state, or issued work from the source. Relative schedule defaults are
 resolved against the instance term and time zone. Invalid term values preserve the form for
 correction. The invitation remains single-use; a queued email is not proof of mailbox delivery. See
@@ -91,21 +91,21 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
    Arrange fixed Questions, add Question Pools with Question IDs and selection counts, and choose **Save questions
    and order**. Pool samples create no Student work.
 3. Open **Policies**. Enter Student instructions, availability and due/close times in the Course
-   Instance time zone, run limits, completion and continued-practice rules, late behavior, and
+   Instance time zone, Assignment Attempt limits, completion and continued-practice rules, late behavior, and
    disclosure settings. Choose **Save assignment policies**.
 4. Read **Release requirements** on **Overview**. Resolve every Assignment Release Issue. Choose
    **Released - eligible for Student access** in the lifecycle control and save it. Until that save
    succeeds, the Assignment remains **Unreleased - students cannot access it**.
 5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
-   Instructor session and creates no Student run or grade.
+   Instructor session and creates no Student Assignment Attempt or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course
    Instance and released assignment, choose **Start assignment**, answer, and submit.
 7. If **Response received** appears, use **Check grading status** until feedback and **View completed
-   run** appear. If attention is required, use the currently enabled action in **Grading operations**.
+   Assignment Attempt** appear. If attention is required, use the currently enabled action in **Grading operations**.
 8. Return to the Instructor session and confirm the score and authorized evidence in **Gradebook**.
 
 Assignments pin exact immutable questions for issued Student work. A Questions replacement applies to
-future runs; existing runs keep their original question. Prefer saved-assignment reuse for a group of
+future Assignment Attempts; existing Assignment Attempts keep their original question. Prefer saved-assignment reuse for a group of
 questions. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) and
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
 
@@ -143,9 +143,9 @@ After a Student submits, let the visible status determine the next operation:
 2. If the status says **Your response needs instructor attention**, sign in as the Instructor and
    open **Grading operations**. Review the answer-free operation row and choose its enabled action
    when eligible.
-3. Return to the Student session and choose **Check grading status** until **Your completed run is
+3. Return to the Student session and choose **Check grading status** until **Your completed Assignment Attempt is
    recorded.** appears. Then open **Gradebook** and choose **Inspect submitted work**.
-4. Confirm the Student's score, latest run, completed-run count, and authorized submission evidence
+4. Confirm the Student's score, latest Assignment Attempt, completed Assignment Attempt count, and authorized submission evidence
    after a fresh read.
 
 Configure **Grade settings** before relying on totals. The supported modes are total points and
