@@ -452,10 +452,10 @@ mod tests {
 
     #[test]
     fn question_type_is_separate_from_the_question_response_control() {
-        let response = crate::response::QuestionResponseFormat::ExternalTool {};
+        let response = crate::response::QuestionResponseFormat::ImathasQuestionBackend {};
         assert_eq!(
             response.control(),
-            crate::response::QuestionResponseControl::ExternalTool
+            crate::response::QuestionResponseControl::ImathasQuestionBackend
         );
         assert!(response.supports_question_type(QuestionType::Numeric));
         assert_eq!(

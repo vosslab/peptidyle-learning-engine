@@ -65,7 +65,7 @@ import type {
   CourseCreateInput,
   CourseSummary,
   CursorPage,
-  ExternalToolLaunch,
+  ImathasQuestionBackendLaunch,
   FeedbackReleaseResponse,
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
@@ -410,11 +410,11 @@ export interface ApiClient
     signal?: AbortSignal,
   ) => Promise<PrefetchedNextQuestion | null>;
   /** Creates a broker launch by same-origin POST, then returns its inert shell route. */
-  readonly beginExternalToolLaunch: (
+  readonly beginImathasQuestionBackendLaunch: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<ExternalToolLaunch>;
+  ) => Promise<ImathasQuestionBackendLaunch>;
   readonly submitResponse: (
     courseId: CourseId,
     assignmentId: AssignmentId,

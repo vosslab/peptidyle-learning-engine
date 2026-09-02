@@ -130,7 +130,7 @@ fn envelope_asset_ids(envelope: &QuestionVariationPresentation) -> BTreeSet<Ques
         | question_model::response::QuestionResponseFormat::ShortText { .. }
         | question_model::response::QuestionResponseFormat::MultiBlank { .. }
         | question_model::response::QuestionResponseFormat::Matching { .. }
-        | question_model::response::QuestionResponseFormat::ExternalTool {} => {}
+        | question_model::response::QuestionResponseFormat::ImathasQuestionBackend {} => {}
         question_model::response::QuestionResponseFormat::Hotspot { surface, .. } => {
             assets.insert(surface.asset);
         }

@@ -13,7 +13,7 @@ use question_model::{
 use super::*;
 
 #[derive(Clone)]
-struct RecordedProvider {
+struct RecordedImathasQuestionBackend {
     renders: Arc<AtomicUsize>,
     grades: Arc<AtomicUsize>,
     outage: bool,
@@ -29,89 +29,144 @@ enum Mismatch {
     LaunchSessionAuthentication,
 }
 
-impl sealed::ProviderSealed for RecordedProvider {}
+impl sealed::QuestionBackendSealed for RecordedImathasQuestionBackend {}
 
 #[async_trait]
-impl ImathasProvider for RecordedProvider {
+impl QuestionBackend for RecordedImathasQuestionBackend {
     async fn snapshot(
         &self,
         locator: &ImathasQuestionLocation,
-    ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure> {
-        assert_eq!(locator.provider_reference().as_str(), "recorded-provider");
+    ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure> {
+        assert_eq!(locator.deployment_reference().as_str(), "recorded-imathas");
         assert_eq!(locator.item_reference().as_str(), "item-17");
         Ok((b"{\"recorded\":true}".to_vec(), profile()))
     }
 
     async fn render(
         &self,
-        request: ProviderRenderRequest<'_>,
-    ) -> Result<SafeProviderRender, ProviderFailure> {
+        request: ImathasRenderRequest<'_>,
+    ) -> Result<SafeImathasQuestionRender, ImathasQuestionBackendFailure> {
         self.renders.fetch_add(1, Ordering::SeqCst);
         tokio::task::yield_now().await;
         if self.outage {
-            return Err(ProviderFailure::Unavailable);
+            return Err(ImathasQuestionBackendFailure::Unavailable);
         }
         assert_eq!(request.snapshot, b"{\"recorded\":true}");
         assert_eq!(request.profile, "recorded-v1");
-        Ok(SafeProviderRender {
-            title: "Recorded external question".into(),
+        Ok(SafeImathasQuestionRender {
+            title: "Recorded iMathAS question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete this iMathAS activity.".into(),
             }],
         })
     }
 
-    async fn verify_grade(
+    async fn verify_result(
         &self,
-        request: ProviderGradeRequest<'_>,
-    ) -> Result<VerifiedProviderGrade, ProviderFailure> {
+        request: ImathasResultRequest<'_>,
+    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure> {
         self.grades.fetch_add(1, Ordering::SeqCst);
         if self.outage {
-            return Err(ProviderFailure::Timeout);
+            return Err(ImathasQuestionBackendFailure::Timeout);
         }
-        let mut verdict = VerifiedProviderGrade::verified(
-            GradingResult {
-                correct: true,
-                points_earned: 1.0,
-                points_possible: 1.0,
-            },
-            request.attempt(),
-            request.question_revision().clone(),
-            request.seed(),
+        let mut verdict = VerifiedImathasQuestionBackendResult::verified(
+            learning_data_access::ImathasQuestionBackendResult::new(
+                learning_data_access::ImathasQuestionBackendNormalizedScore::try_from_f64(1.0)
+                    .expect("recorded score is valid"),
+            ),
+            request.grading_context().clone(),
             request.launch_session_authentication(),
+            verified_token_checksum(),
         );
         match self.mismatch {
             Some(Mismatch::Attempt) => {
-                verdict.attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(99))
+                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                    QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
+                    verdict.grading_context.question_revision().clone(),
+                    verdict.grading_context.question_seed(),
+                )
             }
             Some(Mismatch::Problem) => {
-                verdict.question_revision = QuestionRevisionReference {
-                    question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
-                        .expect("Question ID"),
-                    revision_number: verdict.question_revision.revision_number,
-                }
+                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                    verdict.grading_context.question_attempt(),
+                    QuestionRevisionReference {
+                        question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
+                            .expect("Question ID"),
+                        revision_number: verdict
+                            .grading_context
+                            .question_revision()
+                            .revision_number,
+                    },
+                    verdict.grading_context.question_seed(),
+                )
             }
             Some(Mismatch::Version) => {
-                verdict.question_revision.revision_number =
-                    QuestionRevisionNumber::new(99).expect("positive version")
+                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                    verdict.grading_context.question_attempt(),
+                    QuestionRevisionReference {
+                        question_id: verdict
+                            .grading_context
+                            .question_revision()
+                            .question_id
+                            .clone(),
+                        revision_number: QuestionRevisionNumber::new(99).expect("positive version"),
+                    },
+                    verdict.grading_context.question_seed(),
+                )
             }
-            Some(Mismatch::QuestionSeed) => verdict.seed = QuestionSeed::new(99),
-            Some(Mismatch::LaunchSessionAuthentication) => {
-                verdict.launch_session_authentication =
-                    "wrong-server-launch_session_authentication".into()
+            Some(Mismatch::QuestionSeed) => {
+                verdict.grading_context = learning_data_access::ImathasQuestionBackendGradingContext::new(
+                    verdict.grading_context.question_attempt(),
+                    verdict.grading_context.question_revision().clone(),
+                    QuestionSeed::new(99),
+                )
             }
+            Some(Mismatch::LaunchSessionAuthentication) => verdict.launch_session_authentication =
+                learning_data_access::ImathasQuestionBackendSessionAuthentication::from_server_value(
+                    format!("aa.{}", "c".repeat(64)),
+                )
+                .expect("authentication"),
             None => {}
         }
         Ok(verdict)
     }
 }
 
-fn profile() -> SupportedProfile {
-    SupportedProfile::new("recorded-v1", true, true, true).unwrap()
+fn verified_token_checksum() -> learning_data_access::ImathasQuestionBackendResultTokenChecksum {
+    let token = learning_data_access::ImathasQuestionBackendResultToken::from_server_adapter_bytes(
+        b"recorded iMathAS result".to_vec(),
+    )
+    .expect("bounded iMathAS result token");
+    learning_data_access::ImathasQuestionBackendResultTokenChecksum::from_verified_token(&token)
 }
 
-fn provider() -> RecordedProvider {
-    RecordedProvider {
+fn profile() -> SupportedImathasProfile {
+    SupportedImathasProfile::new(
+        ImathasProfile::new("recorded-v1").expect("recorded profile"),
+        true,
+        true,
+        true,
+    )
+    .expect("recorded capabilities")
+}
+
+fn binding() -> ImathasQuestionBackendBinding {
+    ImathasQuestionBackendBinding::new(
+        ImathasDeploymentReference::new("recorded-imathas").expect("recorded deployment"),
+        ImathasItemReference::new("item-17").expect("recorded item"),
+        ImathasProfile::new("recorded-v1").expect("recorded profile"),
+    )
+}
+
+fn draft_binding() -> DraftImathasQuestionBackendBinding {
+    DraftImathasQuestionBackendBinding::new(
+        ImathasDeploymentReference::new("recorded-imathas").expect("recorded deployment"),
+        ImathasItemReference::new("item-17").expect("recorded item"),
+    )
+}
+
+fn question_backend() -> RecordedImathasQuestionBackend {
+    RecordedImathasQuestionBackend {
         renders: Arc::new(AtomicUsize::new(0)),
         grades: Arc::new(AtomicUsize::new(0)),
         outage: false,
@@ -124,14 +179,10 @@ fn question() -> QuestionRevision {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        backend_locator: QuestionBackendLocator::Imathas {
-            provider: "recorded-provider".into(),
-            item_ref: "item-17".into(),
-            integration_profile: "recorded-v1".into(),
-        },
+        backend_locator: QuestionBackendLocator::Imathas { binding: binding() },
         question_format: QuestionFormat::Imathas,
         prompt: Vec::new(),
-        response: question_model::QuestionResponseFormat::ExternalTool {},
+        response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
@@ -188,52 +239,23 @@ async fn stored_source(
 
 #[tokio::test]
 async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned() {
-    let provider = provider();
-    let adapter = ImathasAdapter::new(MemoryObjectStore::default(), provider, [profile()]);
+    let question_backend = question_backend();
+    let adapter = ImathasAdapter::new(MemoryObjectStore::default(), question_backend, [profile()]);
     let prepared = adapter
         .prepare_snapshot(&DraftQuestionBackendLocator::Imathas {
-            provider: "recorded-provider".into(),
-            item_ref: "item-17".into(),
+            binding: draft_binding(),
         })
         .await
         .unwrap();
     assert_eq!(prepared.bytes(), b"{\"recorded\":true}");
-    assert_eq!(prepared.profile().name(), "recorded-v1");
+    assert_eq!(prepared.profile().profile().as_str(), "recorded-v1");
     assert!(!format!("{prepared:?}").contains("recorded\\\":true"));
-    assert!(
-        ImathasQuestionLocation::from_draft_backend_locator(
-            &DraftQuestionBackendLocator::Imathas {
-                provider: "https://untrusted.example".into(),
-                item_ref: "item-17".into(),
-            }
-        )
-        .is_err()
-    );
-    for item_ref in [
-        "https://provider.example/item",
-        "17?token=secret",
-        "17#fragment",
-        "item with-space",
-        "item\n17",
-        &"a".repeat(129),
-    ] {
-        assert!(
-            ImathasQuestionLocation::from_draft_backend_locator(
-                &DraftQuestionBackendLocator::Imathas {
-                    provider: "recorded-provider".into(),
-                    item_ref: item_ref.into(),
-                }
-            )
-            .is_err()
-        );
-    }
     assert_eq!(
         format!(
             "{:?}",
             ImathasQuestionLocation::from_draft_backend_locator(
                 &DraftQuestionBackendLocator::Imathas {
-                    provider: "recorded-provider".into(),
-                    item_ref: "item-17".into(),
+                    binding: draft_binding(),
                 }
             )
             .unwrap()
@@ -245,7 +267,7 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned(
 #[tokio::test]
 async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt() {
     let store = MemoryObjectStore::default();
-    let recorded = provider();
+    let recorded = question_backend();
     let renders = recorded.renders.clone();
     let adapter = ImathasAdapter::new(store.clone(), recorded, [profile()]);
     let (question, source, _) = stored_source(&store).await;
@@ -270,33 +292,38 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     assert!(!first.cache_hit);
     assert!(second.cache_hit);
     assert_eq!(renders.load(Ordering::SeqCst), 1);
-    assert_eq!(first.envelope.title, "Recorded external question");
+    assert_eq!(first.envelope.title, "Recorded iMathAS question");
     assert_eq!(second.envelope.title, first.envelope.title);
     assert!(matches!(
         first.envelope.response,
-        question_model::QuestionResponseFormat::ExternalTool {}
+        question_model::QuestionResponseFormat::ImathasQuestionBackend {}
     ));
     let serialized = serde_json::to_string(&first.envelope).unwrap();
     for forbidden in ["token", "launch", "score", "correct", "recorded\\\":true"] {
         assert!(!serialized.contains(forbidden));
     }
     let result = adapter
-        .grade(
+        .verify_imathas_question_backend_result(
             &question,
             &source,
-            QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            QuestionSeed::new(17),
-            &launch_session_authentication(&question, QuestionSeed::new(17)),
+            &grading_context(&question, QuestionSeed::new(17)),
+            &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
         )
         .await
         .unwrap();
-    assert!(result.result().correct);
+    assert_eq!(
+        result
+            .imathas_question_backend_result()
+            .normalized_score()
+            .value(),
+        1.0
+    );
 }
 
 #[tokio::test]
-async fn historical_invalid_metadata_title_is_refused_before_provider_or_cache() {
+async fn historical_invalid_metadata_title_is_refused_before_question_backend_or_cache() {
     let store = MemoryObjectStore::default();
-    let recorded = provider();
+    let recorded = question_backend();
     let renders = recorded.renders.clone();
     let adapter = ImathasAdapter::new(store.clone(), recorded, [profile()]);
     let (mut question, source, _) = stored_source(&store).await;
@@ -320,35 +347,38 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
     let store = MemoryObjectStore::default();
     let (question, source, _) = stored_source(&store).await;
     let mut changed_source = source.clone();
-    changed_source.provider = "different-provider".into();
+    changed_source.binding = ImathasQuestionBackendBinding::new(
+        ImathasDeploymentReference::new("different-imathas").expect("different deployment"),
+        ImathasItemReference::new("item-17").expect("recorded item"),
+        ImathasProfile::new("recorded-v1").expect("recorded profile"),
+    );
     assert_eq!(
         verify_binding(&question, &changed_source),
         Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
     );
     let wrong = ImathasAdapter::new(
         store.clone(),
-        RecordedProvider {
+        RecordedImathasQuestionBackend {
             mismatch: Some(Mismatch::Version),
-            ..provider()
+            ..question_backend()
         },
         [profile()],
     );
     let error = wrong
-        .grade(
+        .verify_imathas_question_backend_result(
             &question,
             &source,
-            QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-            QuestionSeed::new(17),
-            &launch_session_authentication(&question, QuestionSeed::new(17)),
+            &grading_context(&question, QuestionSeed::new(17)),
+            &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
         )
         .await
         .unwrap_err();
     assert_eq!(error, ImathasAdapterError::VerificationRefused);
     let outage = ImathasAdapter::new(
         store,
-        RecordedProvider {
+        RecordedImathasQuestionBackend {
             outage: true,
-            ..provider()
+            ..question_backend()
         },
         [profile()],
     );
@@ -361,7 +391,9 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
                 Timestamp::from_unix_millis(2)
             )
             .await,
-        Err(ImathasAdapterError::Provider(ProviderFailure::Unavailable))
+        Err(ImathasAdapterError::QuestionBackend(
+            ImathasQuestionBackendFailure::Unavailable
+        ))
     ));
 }
 
@@ -378,64 +410,128 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     ] {
         let adapter = ImathasAdapter::new(
             store.clone(),
-            RecordedProvider {
+            RecordedImathasQuestionBackend {
                 mismatch: Some(mismatch),
-                ..provider()
+                ..question_backend()
             },
             [profile()],
         );
         assert_eq!(
             adapter
-                .grade(
+                .verify_imathas_question_backend_result(
                     &question,
                     &source,
-                    QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                    QuestionSeed::new(17),
-                    &launch_session_authentication(&question, QuestionSeed::new(17)),
+                    &grading_context(&question, QuestionSeed::new(17)),
+                    &launch_session_authentication(&grading_context(
+                        &question,
+                        QuestionSeed::new(17)
+                    )),
                 )
                 .await
                 .unwrap_err(),
             ImathasAdapterError::VerificationRefused
         );
     }
-    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
-    let binding = ExternalToolGradingContext {
-        attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        question_revision: QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        },
-        seed: QuestionSeed::new(17),
-    };
-    let challenge = ExternalToolLaunchChallenge::from_server_random([8; 32]).unwrap();
-    let restored = codec.authenticate(&binding, &challenge);
-    let adapter = ImathasAdapter::new(store.clone(), provider(), [profile()]);
-    assert!(
+    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
+    let binding = grading_context(&question, QuestionSeed::new(17));
+    let challenge =
+        learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
+    let restored = codec.authenticate_for_lda(&binding, &challenge);
+    let adapter = ImathasAdapter::new(store.clone(), question_backend(), [profile()]);
+    assert_eq!(
         adapter
-            .grade(&question, &source, binding.attempt, binding.seed, &restored,)
+            .verify_imathas_question_backend_result(&question, &source, &binding, &restored)
             .await
             .unwrap()
-            .result()
-            .correct
+            .imathas_question_backend_result()
+            .normalized_score()
+            .value(),
+        1.0
     );
-    let altered_challenge = ExternalToolLaunchChallenge::from_server_random([9; 32]).unwrap();
-    assert_ne!(restored, codec.authenticate(&binding, &altered_challenge));
+    let altered_challenge =
+        learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
     assert_ne!(
         restored,
-        ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
+        codec.authenticate_for_lda(&binding, &altered_challenge)
+    );
+    assert_ne!(
+        restored,
+        ImathasLaunchSessionAuthenticationCodec::from_server_secret([9; 32])
             .unwrap()
-            .authenticate(&binding, &challenge)
+            .authenticate_for_lda(&binding, &challenge)
     );
     assert_ne!(
         restored,
-        codec.authenticate(
-            &ExternalToolGradingContext {
-                seed: QuestionSeed::new(18),
-                ..binding
-            },
+        codec.authenticate_for_lda(
+            &learning_data_access::ImathasQuestionBackendGradingContext::new(
+                binding.question_attempt(),
+                binding.question_revision().clone(),
+                QuestionSeed::new(18),
+            ),
             &challenge
         )
     );
+}
+
+#[test]
+fn grading_context_dimensions_change_hmac_and_binding_digest() {
+    let question = question();
+    let baseline = grading_context(&question, QuestionSeed::new(17));
+    let challenge =
+        learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
+    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
+    let baseline_authentication = codec.authenticate_for_lda(&baseline, &challenge);
+    let baseline_digest = crate::result_verification::launch_binding_digest(
+        &baseline,
+        "item-17",
+        &"a".repeat(64),
+        crate::result_verification::normalize_imathas_seed(baseline.question_seed()),
+        baseline_authentication.as_str(),
+    );
+
+    let alternatives = [
+        learning_data_access::ImathasQuestionBackendGradingContext::new(
+            QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
+            baseline.question_revision().clone(),
+            baseline.question_seed(),
+        ),
+        learning_data_access::ImathasQuestionBackendGradingContext::new(
+            baseline.question_attempt(),
+            QuestionRevisionReference {
+                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').unwrap(),
+                revision_number: baseline.question_revision().revision_number,
+            },
+            baseline.question_seed(),
+        ),
+        learning_data_access::ImathasQuestionBackendGradingContext::new(
+            baseline.question_attempt(),
+            QuestionRevisionReference {
+                question_id: baseline.question_revision().question_id.clone(),
+                revision_number: QuestionRevisionNumber::new(99).unwrap(),
+            },
+            baseline.question_seed(),
+        ),
+        learning_data_access::ImathasQuestionBackendGradingContext::new(
+            baseline.question_attempt(),
+            baseline.question_revision().clone(),
+            QuestionSeed::new(99),
+        ),
+    ];
+
+    for alternative in alternatives {
+        let authentication = codec.authenticate_for_lda(&alternative, &challenge);
+        assert_ne!(authentication, baseline_authentication);
+        assert_ne!(
+            crate::result_verification::launch_binding_digest(
+                &alternative,
+                "item-17",
+                &"a".repeat(64),
+                crate::result_verification::normalize_imathas_seed(alternative.question_seed()),
+                authentication.as_str(),
+            ),
+            baseline_digest
+        );
+    }
 }
 
 #[tokio::test]
@@ -458,7 +554,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
         })
         .await
         .unwrap();
-    let adapter = ImathasAdapter::new(store.clone(), provider(), [profile()]);
+    let adapter = ImathasAdapter::new(store.clone(), question_backend(), [profile()]);
     assert_eq!(
         adapter
             .issue(
@@ -473,25 +569,27 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
     );
     let outage = ImathasAdapter::new(
         store,
-        RecordedProvider {
+        RecordedImathasQuestionBackend {
             outage: true,
-            ..provider()
+            ..question_backend()
         },
         [profile()],
     );
     assert!(matches!(
         outage
-            .grade(
+            .verify_imathas_question_backend_result(
                 &question,
                 &source,
-                QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-                QuestionSeed::new(17),
-                &launch_session_authentication(&question, QuestionSeed::new(17)),
+                &grading_context(&question, QuestionSeed::new(17)),
+                &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
             )
             .await,
-        Err(ImathasAdapterError::Provider(ProviderFailure::Timeout))
+        Err(ImathasAdapterError::QuestionBackend(
+            ImathasQuestionBackendFailure::Timeout
+        ))
     ));
-    let text = ImathasAdapterError::Provider(ProviderFailure::Unavailable).to_string();
+    let text = ImathasAdapterError::QuestionBackend(ImathasQuestionBackendFailure::Unavailable)
+        .to_string();
     assert!(!text.contains("token"));
     assert!(text.len() < 100);
 }
@@ -499,7 +597,7 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
 #[tokio::test]
 async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     let store = MemoryObjectStore::default();
-    let recorded = provider();
+    let recorded = question_backend();
     let adapter = ImathasAdapter::new(store.clone(), recorded, [profile()]);
     let (question, source, _) = stored_source(&store).await;
     let first = adapter.issue(
@@ -521,19 +619,25 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
     assert_eq!(first.envelope, second.envelope);
 }
 
-fn launch_session_authentication(
+fn grading_context(
     question: &QuestionRevision,
-    seed: QuestionSeed,
-) -> ExternalToolLaunchSessionAuthentication {
-    let codec = ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([7; 32]).unwrap();
-    let binding = ExternalToolGradingContext {
-        attempt: QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        question_revision: QuestionRevisionReference {
+    question_seed: QuestionSeed,
+) -> learning_data_access::ImathasQuestionBackendGradingContext {
+    learning_data_access::ImathasQuestionBackendGradingContext::new(
+        QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
+        QuestionRevisionReference {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
         },
-        seed,
-    };
-    let challenge = ExternalToolLaunchChallenge::from_server_random([7; 32]).unwrap();
-    codec.authenticate(&binding, &challenge)
+        question_seed,
+    )
+}
+
+fn launch_session_authentication(
+    grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+) -> learning_data_access::ImathasQuestionBackendSessionAuthentication {
+    let codec = ImathasLaunchSessionAuthenticationCodec::from_server_secret([7; 32]).unwrap();
+    let challenge =
+        learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
+    codec.authenticate_for_lda(grading_context, &challenge)
 }

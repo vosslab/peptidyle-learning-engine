@@ -1,6 +1,5 @@
 // index.ts - the only browser boundary around generated wasm-bindgen glue.
 
-import type { ResponseItemReference } from "../../generated/api/ResponseItemReference";
 import type { QuestionAssetRendition } from "../../generated/api/QuestionAssetRendition";
 import type { Timestamp } from "../../generated/api/Timestamp";
 import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptTiming";
@@ -14,40 +13,17 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
 import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
-import type { ResponseSelectionRule } from "../../generated/api/ResponseSelectionRule";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { decodeQuestionRevisionReference } from "../api/decoders/shared";
 import { decodeKeyFreeDraftPreview } from "../api/decoders/question_model";
-
-export type StudentResponseFormatIssue =
-  | { readonly kind: "responseKindMismatch" }
-  | { readonly kind: "numericNotFinite" }
-  | {
-      readonly kind: "selectionCount";
-      readonly expected: ResponseSelectionRule;
-      readonly actual: number;
-    }
-  | { readonly kind: "duplicateChoice"; readonly choice: ResponseItemReference }
-  | { readonly kind: "unknownChoice"; readonly choice: ResponseItemReference }
-  | {
-      readonly kind: "textTooLong";
-      readonly maxLength: number;
-      readonly actualLength: number;
-    }
-  | { readonly kind: "blankSlotsMismatch" }
-  | { readonly kind: "matchingPromptsMismatch" }
-  | { readonly kind: "duplicateMatchChoice"; readonly choice: ResponseItemReference }
-  | { readonly kind: "unknownMatchChoice"; readonly choice: ResponseItemReference }
-  | { readonly kind: "orderingItemsMismatch" }
-  | { readonly kind: "duplicateHotspotRegion"; readonly region: ResponseItemReference }
-  | { readonly kind: "unknownHotspotRegion"; readonly region: ResponseItemReference }
-  | { readonly kind: "missingUploadReference" };
-
-export interface StudentResponseFormatCheck {
-  readonly violations: ReadonlyArray<StudentResponseFormatIssue>;
-}
+import { decodeStudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
+export type {
+  StudentResponseFormatCheck,
+  StudentResponseFormatIssue,
+} from "../api/decoders/student_response_format_check";
+import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
 
 export type FormatValidator = (
   definition: QuestionResponseFormat,
@@ -234,80 +210,14 @@ export function decodePleDraftPreviewResult(json: string): PleDraftPreviewResult
 function requiredString(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   if (typeof value !== "string") {
-    throw new Error(`WASM validation report field ${key} must be a string`);
+    throw new Error(`WASM draft-preview result field ${key} must be a string`);
   }
   return value;
-}
-
-function requiredNumber(record: Record<string, unknown>, key: string): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`WASM validation report field ${key} must be a finite number`);
-  }
-  return value;
-}
-
-function parseResponseSelectionRule(value: unknown): ResponseSelectionRule {
-  if (!isRecord(value)) {
-    throw new Error("WASM Response Selection Rule must be an object");
-  }
-  const kind = requiredString(value, "kind");
-  switch (kind) {
-    case "exactlyOne":
-    case "anyNumber":
-    case "atLeastOne":
-      return { kind };
-    case "exactly":
-      return { kind, count: requiredNumber(value, "count") };
-    default:
-      throw new Error(`Unknown WASM Response Selection Rule ${kind}`);
-  }
-}
-
-function parseStudentResponseFormatIssue(value: unknown): StudentResponseFormatIssue {
-  if (!isRecord(value)) {
-    throw new Error("WASM format violation must be an object");
-  }
-  const kind = requiredString(value, "kind");
-  switch (kind) {
-    case "responseKindMismatch":
-    case "numericNotFinite":
-    case "orderingItemsMismatch":
-    case "blankSlotsMismatch":
-    case "matchingPromptsMismatch":
-    case "missingUploadReference":
-      return { kind };
-    case "selectionCount":
-      return {
-        kind,
-        expected: parseResponseSelectionRule(value["expected"]),
-        actual: requiredNumber(value, "actual"),
-      };
-    case "duplicateChoice":
-    case "unknownChoice":
-    case "duplicateMatchChoice":
-    case "unknownMatchChoice":
-      return { kind, choice: requiredString(value, "choice") };
-    case "duplicateHotspotRegion":
-    case "unknownHotspotRegion":
-      return { kind, region: requiredString(value, "region") };
-    case "textTooLong":
-      return {
-        kind,
-        maxLength: requiredNumber(value, "maxLength"),
-        actualLength: requiredNumber(value, "actualLength"),
-      };
-    default:
-      throw new Error(`Unknown WASM format violation ${kind}`);
-  }
 }
 
 function parseStudentResponseFormatCheck(json: string): StudentResponseFormatCheck {
   const value: unknown = JSON.parse(json);
-  if (!isRecord(value) || !Array.isArray(value["violations"])) {
-    throw new Error("WASM format report must contain a violations array");
-  }
-  return { violations: value["violations"].map(parseStudentResponseFormatIssue) };
+  return decodeStudentResponseFormatCheck(value, "WASM Student Response Format Check");
 }
 
 function parseQuestionAttemptTimingDecision(json: string): QuestionAttemptTimingDecision {

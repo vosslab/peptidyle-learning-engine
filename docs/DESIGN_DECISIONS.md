@@ -43,7 +43,7 @@ boundaries. This index gives those entries their product and architectural ratio
 ### Question agnosticism
 
 **Decision.** PLE is a learning engine, not a question-authoring language or a single renderer.
-PLE Question JSON Questions, WeBWorK, bounded QTI import/runtime, and contracted external tools sit
+PLE Question JSON Questions, WeBWorK, bounded QTI import/runtime, and iMathAS Question Backend operations sit
 behind typed server-side adapters.
 
 **Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
@@ -752,11 +752,11 @@ contracts in [CONTRACTS.md](CONTRACTS.md#browser-contracts).
 **Planned closure.** Each new Question Type supplies its own keyboard evidence as it lands; it
 does not wait for a generic final audit.
 
-## External systems and evidence
+## Question Backend systems and evidence
 
-### External grading backends remain private adapters
+### Question Backends remain private adapters
 
-**Decision.** PLE, never a student browser, contacts WeBWorK or a contracted external provider. PLE
+**Decision.** PLE, never a student browser, contacts a managed Question Backend such as WeBWorK or iMathAS. PLE
 owns published source, issued seed, response projection, credentials, timeout, sanitization, and
 result translation.
 
@@ -764,8 +764,8 @@ result translation.
 stable browser contracts nor safe student authority.
 
 **Consequence.** The accepted WeBWorK path is the four reviewed Chapter 1 PGML sources, comprising
-one radio and one matching question per chapter, via the private external standalone `/render-api`;
-browser data is a PLE-native response. Raw source, hidden fields, sessions, provider values, and
+one radio and one matching question per chapter, via the private standalone `/render-api` Question Backend;
+browser data is a PLE-native response. Raw source, hidden fields, sessions, Question Backend values, and
 renderer output do not cross the PLE browser boundary.
 
 **Owner.** [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md),
@@ -951,40 +951,42 @@ toy or forcing the full release corpus into every walkthrough.
 
 ## Content and grading formats
 
+### iMathAS Session, Context, and evidence have one owner
+
+**Decision.** Question Model owns the typed `ImathasQuestionBackendBinding`: iMathAS Deployment Reference, iMathAS Item Reference, and the pinned `imathas_remote_grading_v1` profile.
+LDA owns the sole server-only iMathAS Question Backend Session, persists that exact binding, and owns its typed Session Reference, preparation/restore/lease/iMathAS Result Exchange Store boundary, and XChaCha20-Poly1305 backend-state protection with rotation.
+The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State protocol bytes, iMathAS Render Cache Entry, and iMathAS Launch/Result HMAC and protocol verification. LDA mints the Session's OS-CSPRNG 256-bit Challenge, which iMathAS carries only as signed `ple_launch_challenge`.
+`ImathasGradingContext` remains exactly its redacted non-Serde `{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` triple, expires with its Session, and preserves `authentication_payload_v1`; the separate required `QuestionGradingRule` is an issue-time Session fact.
+The iMathAS Result Token and checksum are LDA evidence after server-to-server verification; raw bytes never persist or enter browser/generated/log/Debug output.
+
+**Why.** One owner lets `2026090102` enforce exact restore, RLS, forward iMathAS Session/Result Exchange transitions, and four-axis context mismatch refusal without a parallel adapter or browser identity boundary. The browser launch shell accepts only validated `{ launchUrl }`; its LDA-backed Rust route, cookie/env backend composition, and live-backend acceptance remain separate work.
+
+### iMathAS Result uses Ready-to-Commit then worker commit
+
+**Decision.** The approved durable model is Ready-to-Commit plus worker-leased idempotent grading commit. A Question is never Remote or External; `ImathasQuestionBackend`/`imathasQuestionBackend` is the exact renamed response/control/Student Response marker. After iMathAS verification outside PostgreSQL, authenticated staging consumes the exact active iMathAS Session and atomically writes the iMathAS Result Exchange's finite `[0,1]` nonnegative-zero normalized-score-only iMathAS Result, its LDA checksum `SHA-256("ple:imathas-result:v1\\0" || IEEE-754-binary64(score))`, separate iMathAS Result Token checksum, the marker Question Submission, pending Question Submission Grading, and ready typed `grade_accepted_submission` Job. A worker holding that exact Job lease rechecks the lineage and atomically derives the PLE Grading Result plus LDA-owned redacted/non-Serde Automated Grading Receipt Checksum from the fixed v1 prefix, lineage UUID bytes, two Result Exchange checksums, correct byte, canonical big-endian binary64 points, and signed big-endian commit milliseconds; the same transaction writes the Receipt, completes the Job, marks grading graded, and advances the iMathAS Result Exchange to committed.
+
+**Why.** Ready-to-Commit survives interruption without another backend request; an expired Job lease permits a later claim. Final execution failure belongs to the Job and Question Submission Grading (`instructor_attention`), retaining immutable ready evidence for a separately authorized recovery Job. Exact matching staging/commit replays are idempotent; committed replay returns the stored Receipt, Result, and checksum rather than accepting a candidate checksum. The checksum is never command/API/browser/adapter input. The iMathAS Result belongs to its iMathAS Result Exchange and is distinct from raw-token evidence and PLE Grading Result. LTI remains future registered-protocol planning with no current record or schema.
+
+**Consequence.** RQB2 directly amends fresh migration `2026090102`; no alias or compatibility layer is retained, and the accepted submission, lifecycle, relationship, procedure, browser-launch, security, and test boundaries keep their behavior. **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
+
 ### PLE Question JSON is the static-Question authority
 
-**Decision.** Versioned PLE Question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH,
-ORDER, and HOTSPOT. YAML may compile once into that contract; QTI is an import, export, and archival
-adapter rather than internal authority.
+**Decision.** Versioned PLE Question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. YAML may compile once into that contract; QTI is an import, export, and archival adapter rather than internal authority.
 
-**Why.** One deterministic cross-language contract avoids competing source models. Adapter formats
-can preserve interchange without dictating the engine's internal representation.
+**Why.** One deterministic cross-language contract avoids competing source models. Adapter formats can preserve interchange without dictating the engine's internal representation.
 
 ### Native interactions adapt the QTI self-test model
 
-**Decision.** PLE Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit,
-visible response state, per-part completion, plain-language feedback, reset, and completed state.
-PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
+**Decision.** PLE Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit, visible response state, per-part completion, plain-language feedback, reset, and completed state. PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
 
-**Why.** Students should learn one clear interaction vocabulary without importing client-side
-answers, drag-only controls, result-string protocols, or inaccessible presentation choices.
+**Why.** Students should learn one clear interaction vocabulary without importing client-side answers, drag-only controls, result-string protocols, or inaccessible presentation choices.
 
 ### Binary question assets use object storage
 
-**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and
-authorization in typed PLE object storage rather than JSON or database rows. Optional correct and
-incorrect feedback remain shared sidecars and do not determine validity.
+**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and authorization in typed PLE object storage rather than JSON or database rows. Optional correct and incorrect feedback remain shared sidecars and do not determine validity.
 
-**Why.** Typed storage preserves authorization and lifecycle boundaries while keeping the canonical
-question contract compact even when author feedback is incomplete.
+**Why.** Typed storage preserves authorization and lifecycle boundaries while keeping the canonical question contract compact even when author feedback is incomplete.
 
-## Identity, authentication, and compliance
+## Related decisions
 
-The settled identity, authentication, privacy, recovery, and Blueprint-collaboration decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md).
-
-## Repository and runtime policy
-
-## Focused operational decisions
-
-The focused local-stack, Gradebook, wire-contract, and Blueprint-operation
-decisions are retained in `DESIGN_DECISIONS_OPERATIONS.md`.
+The settled identity, authentication, privacy, recovery, and Blueprint-collaboration decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md). The focused local-stack, Gradebook, wire-contract, and Blueprint-operation decisions are retained in [DESIGN_DECISIONS_OPERATIONS.md](DESIGN_DECISIONS_OPERATIONS.md).

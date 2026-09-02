@@ -98,12 +98,14 @@ validate and publish before an Instructor can place it in an assignment, so an
 assignment cannot contain private question content.
 
 `QuestionSummary` is the current hot Question Search projection. It contains the Question
-ID, Question Backend, capabilities, metadata, Current Question Revision Availability, and publication time,
-but not prompt, response, private source-locator fields, or the opaque internal
-pair. Trusted server work resolves the Question ID and loads the separate
-internal `QuestionRevision` payload. Question Details uses that safe
-Question-ID projection and presents one selected immutable version within the
-stable lineage. Approved
+ID, exact `latestQuestionRevision` reference, Question Backend, capabilities,
+metadata, Question Revision Availability, and publication time, but not prompt,
+response, private source-locator fields, or private source data. Latest means
+the accepted revision with the greatest Question Revision Number in the stable
+lineage; it is independent of Question Revision Availability. Trusted server
+work resolves the exact reference and loads the separate internal
+`QuestionRevision` payload. Question Details uses that safe Question-ID
+projection and presents one selected immutable version within the stable lineage. Approved
 Instructors may inspect this published content even when another course
 references it; that access does not expose the other course's assignment
 composition or Student records.
@@ -244,20 +246,20 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionRevision` carries the fields the specification names:
 
-| Field                         | Type                          | Purpose                                                                        |
-| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------ |
-| `questionId`                  | `QuestionId`                  | Stable Question lineage                                                        |
-| `revisionNumber`               | `QuestionRevisionNumber`       | Exact immutable version within the lineage                                     |
-| `workspace`                   | `WorkspaceId`                 | Authoring workspace                                                            |
-| `backendLocator`               | `QuestionBackendLocator`                            | Backend-specific location, separate from the stored Question Source            |
-| `prompt`                      | `Vec<QuestionContentBlock>`   | Renderable content, in order                                                   |
-| `questionType`                | `QuestionType`                | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
-| `response`                    | `QuestionResponseFormat`      | Accepted Student Response shape and constraints                                |
-| `questionAttemptLimit`        | `QuestionAttemptLimit`        | Retry bound for this Question                                                  |
-| `questionAttemptTimeLimit`    | `QuestionAttemptTimeLimit`    | Time limits, with grace                                                        |
-| `questionVariationRule`       | `QuestionVariationRule`       | Static or seeded rule for how this Question varies                             |
-| `grading`                     | `QuestionGradingRule`         | How a response is judged                                                       |
-| `metadata`                    | `QuestionMetadata`            | Title, tags, Question Classifications, Question License, language              |
+| Field                      | Type                        | Purpose                                                                        |
+| -------------------------- | --------------------------- | ------------------------------------------------------------------------------ |
+| `questionId`               | `QuestionId`                | Stable Question lineage                                                        |
+| `revisionNumber`           | `QuestionRevisionNumber`    | Exact immutable version within the lineage                                     |
+| `workspace`                | `WorkspaceId`               | Authoring workspace                                                            |
+| `backendLocator`           | `QuestionBackendLocator`    | Backend-specific location, separate from the stored Question Source            |
+| `prompt`                   | `Vec<QuestionContentBlock>` | Renderable content, in order                                                   |
+| `questionType`             | `QuestionType`              | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
+| `response`                 | `QuestionResponseFormat`    | Accepted Student Response shape and constraints                                |
+| `questionAttemptLimit`     | `QuestionAttemptLimit`      | Retry bound for this Question                                                  |
+| `questionAttemptTimeLimit` | `QuestionAttemptTimeLimit`  | Time limits, with grace                                                        |
+| `questionVariationRule`    | `QuestionVariationRule`     | Static or seeded rule for how this Question varies                             |
+| `grading`                  | `QuestionGradingRule`       | How a response is judged                                                       |
+| `metadata`                 | `QuestionMetadata`          | Title, tags, Question Classifications, Question License, language              |
 
 ### Response shapes
 
@@ -271,10 +273,10 @@ response carries only selected Hotspot Region references.
 `ResponseItemReference` is the durable semantic identifier used by this shared
 model; it is not a visible letter or display position.
 
-`QuestionResponseControl` names the browser interaction. `ExternalTool` is a
+`QuestionResponseControl` names the browser interaction. `RemoteQuestionBackendResponseControl` is a
 fieldless marker variant in both response enums. It carries no
 provider, launch, answer, score, token, or completion material. The server
-owns the later provider exchange through its external-tool broker, so the
+owns the later Remote Question Backend Result Exchange through its server-owned boundary, so the
 question envelope and generic submission record remain answer-free.
 
 Agreement _between_ the two and variant-specific format rules live in
@@ -308,15 +310,15 @@ rendered IDs while preserving the exact response shape. The schema currently
 covers the eight PLE Question JSON Question Types:
 
 | `QuestionPresentationResponseFormat` | Shared Question Response Format |
-| -------------------------------- | ------------------------------- |
-| `singleChoice`                   | exactly-one multiple choice     |
-| `multipleAnswer`                 | one-or-more multiple choice     |
-| `fillIn`                         | short text                      |
-| `multiFillIn`                    | multi-blank                     |
-| `numerical`                      | numeric                         |
-| `matching`                       | matching                        |
-| `ordering`                       | ordering                        |
-| `hotspot`                        | hotspot                         |
+| ------------------------------------ | ------------------------------- |
+| `singleChoice`                       | exactly-one multiple choice     |
+| `multipleAnswer`                     | one-or-more multiple choice     |
+| `fillIn`                             | short text                      |
+| `multiFillIn`                        | multi-blank                     |
+| `numerical`                          | numeric                         |
+| `matching`                           | matching                        |
+| `ordering`                           | ordering                        |
+| `hotspot`                            | hotspot                         |
 
 The durable Question Response Format names the item role at the model boundary:
 Multiple Choice has Question Choices; MATCH has Matching Prompts and Matching
@@ -324,7 +326,7 @@ Choices; Ordering has Ordering Items. Each record combines its Response Item
 Reference with the learner-visible content. This keeps similar wire shapes from
 becoming interchangeable application meanings.
 
-`ExternalTool` intentionally has no `QuestionPresentationResponseFormat` variant.
+`RemoteQuestionBackendResponseControl` intentionally has no `QuestionPresentationResponseFormat` variant.
 The presentation builder rejects it until its server-owned provider route has a
 complete delivery contract.
 
@@ -596,7 +598,7 @@ fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
-Student payload. It does not claim file-upload or external-tool authoring
+Student payload. It does not claim file-upload or Remote Question Backend authoring
 support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only Answer Key and Question Feedback.
 

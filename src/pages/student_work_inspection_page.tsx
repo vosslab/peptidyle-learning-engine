@@ -82,7 +82,7 @@ function responseItemLabel(question: QuestionVariationPresentation, item: string
     case "numeric":
     case "shortText":
     case "hotspot":
-    case "externalTool":
+    case "imathasQuestionBackend":
       return item;
   }
 }
@@ -152,8 +152,8 @@ function InspectedResponse(props: {
             </ol>
           )}
         </Match>
-        <Match when={props.response.kind === "externalTool" ? props.response : undefined}>
-          <p>External-tool submission recorded.</p>
+        <Match when={props.response.kind === "imathasQuestionBackend" ? props.response : undefined}>
+          <p>iMathAS Question Backend submission recorded.</p>
         </Match>
       </Switch>
     </section>

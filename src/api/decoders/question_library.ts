@@ -76,6 +76,7 @@ import {
   decodeAssignmentTitle,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
+  decodeQuestionRevisionReference,
   decodeQuestionRevisionAvailability,
   decodeCursor,
   decodeEnvelopeTitle,
@@ -111,6 +112,7 @@ export function decodeQuestionSummary(
   if (strict) {
     requireOnlyFields(record, path, [
       "questionId",
+      "latestQuestionRevision",
       "backend",
       "questionType",
       "capabilities",
@@ -122,6 +124,11 @@ export function decodeQuestionSummary(
   }
   const decoded = {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
+    latestQuestionRevision: decodeQuestionRevisionReference(
+      field(record, "latestQuestionRevision", path),
+      `${path}.latestQuestionRevision`,
+      strict,
+    ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
@@ -152,6 +159,12 @@ export function decodeQuestionSummary(
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
   } satisfies QuestionSummary;
+  if (decoded.latestQuestionRevision.questionId !== decoded.questionId) {
+    throw new DecodeError(
+      `${path}.latestQuestionRevision.questionId`,
+      "the Question Summary questionId",
+    );
+  }
   return decoded;
 }
 

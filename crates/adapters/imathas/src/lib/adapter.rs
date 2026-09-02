@@ -6,9 +6,9 @@ use objects::{ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    GradingResult, QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionBackendLocator,
-    QuestionRendererVersion, QuestionRevision, QuestionRevisionReference,
-    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference, Timestamp,
+    QuestionAttemptReproductionDetails, QuestionBackendLocator, QuestionRendererVersion,
+    QuestionRevision, QuestionRevisionReference, QuestionVariationPresentation,
+    SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -16,21 +16,19 @@ use crate::cache::{
     CachedRender, backend_version, decode_cache, grader_version, parameter_hash, render_key,
     validate_cache,
 };
-use crate::external_question_provider;
+use crate::imathas_question_backend;
 use crate::{
-    ADAPTER_ID, ADAPTER_VERSION, ExternalToolGradingContext,
-    ExternalToolLaunchSessionAuthentication, GRADING_ID, GRADING_VERSION, ImathasAdapterError,
-    ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,
-    ProviderRenderRequest, SupportedProfile, VerifiedProviderGrade, hex, verify_binding,
+    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, ImathasAdapterError,
+    ImathasQuestionLocation, ImathasRenderRequest, ImathasResultRequest, PreparedSnapshot,
+    QuestionBackend, SupportedImathasProfile, VerifiedImathasQuestionBackendResult, hex,
+    verify_binding,
 };
 
 /// Exact immutable source loaded through trusted storage.
 #[derive(Clone)]
 pub struct ResolvedImathasQuestionSource {
     resolved: ResolvedQuestionSource,
-    pub(crate) provider: String,
-    pub(crate) item_ref: String,
-    pub(crate) profile: String,
+    pub(crate) binding: question_model::ImathasQuestionBackendBinding,
 }
 
 impl std::fmt::Debug for ResolvedImathasQuestionSource {
@@ -50,12 +48,7 @@ impl ResolvedImathasQuestionSource {
         source_object_reference: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, ImathasAdapterError> {
-        let QuestionBackendLocator::Imathas {
-            provider,
-            item_ref,
-            integration_profile,
-        } = &question.backend_locator
-        else {
+        let QuestionBackendLocator::Imathas { binding } = &question.backend_locator else {
             return Err(ImathasAdapterError::UnsupportedSource);
         };
         let question_revision = QuestionRevisionReference {
@@ -72,9 +65,7 @@ impl ResolvedImathasQuestionSource {
         .map_err(ImathasAdapterError::QuestionSourceResolution)?;
         Ok(Self {
             resolved,
-            provider: provider.clone(),
-            item_ref: item_ref.clone(),
-            profile: integration_profile.clone(),
+            binding: binding.clone(),
         })
     }
 
@@ -96,9 +87,14 @@ impl ResolvedImathasQuestionSource {
     pub fn bytes(&self) -> &[u8] {
         self.resolved.bytes()
     }
+
+    /// Exact iMathAS backend binding pinned by this Question Revision.
+    pub fn binding(&self) -> &question_model::ImathasQuestionBackendBinding {
+        &self.binding
+    }
 }
 
-/// Key-free issued external-tool question.
+/// Key-free issued iMathAS Question Backend response control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImathasIssuedAttempt {
     pub envelope: QuestionVariationPresentation,
@@ -107,44 +103,26 @@ pub struct ImathasIssuedAttempt {
     pub cache_hit: bool,
 }
 
-/// Server-only verified grade receipt. The attempt store persists the first
-/// receipt under its own idempotency key and returns it on replay; this adapter
-/// intentionally performs no process-local grade caching.
-#[derive(Debug, Clone, PartialEq)]
-pub struct VerifiedGradeReceipt {
-    result: GradingResult,
-    binding: ExternalToolGradingContext,
-}
-
-impl VerifiedGradeReceipt {
-    /// The result accepted from the authenticated provider verifier.
-    pub fn result(&self) -> GradingResult {
-        self.result
-    }
-
-    /// Exact identity the API/store must use when persisting the first receipt.
-    pub fn binding(&self) -> ExternalToolGradingContext {
-        self.binding.clone()
-    }
-}
-
 /// iMathAS adapter with immutable source and deterministic, browser-safe cache.
 pub struct ImathasAdapter<S, P> {
     store: S,
-    provider: P,
-    profiles: BTreeSet<String>,
+    question_backend: P,
+    profiles: BTreeSet<question_model::ImathasProfile>,
 }
 
-impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
+impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
     pub fn new(
         store: S,
-        provider: P,
-        profiles: impl IntoIterator<Item = SupportedProfile>,
+        question_backend: P,
+        profiles: impl IntoIterator<Item = SupportedImathasProfile>,
     ) -> Self {
         Self {
             store,
-            provider,
-            profiles: profiles.into_iter().map(|profile| profile.name).collect(),
+            question_backend,
+            profiles: profiles
+                .into_iter()
+                .map(|profile| profile.profile)
+                .collect(),
         }
     }
 
@@ -155,11 +133,11 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     ) -> Result<PreparedSnapshot, ImathasAdapterError> {
         let locator = ImathasQuestionLocation::from_draft_backend_locator(draft)?;
         let (bytes, profile) = self
-            .provider
+            .question_backend
             .snapshot(&locator)
             .await
-            .map_err(ImathasAdapterError::Provider)?;
-        if bytes.is_empty() || !self.profiles.contains(profile.name()) {
+            .map_err(ImathasAdapterError::QuestionBackend)?;
+        if bytes.is_empty() || !self.profiles.contains(profile.profile()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         Ok(PreparedSnapshot {
@@ -173,16 +151,12 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
     pub fn capabilities(
         &self,
         source: &QuestionBackendLocator,
-        profile: &SupportedProfile,
+        profile: &SupportedImathasProfile,
     ) -> Result<QuestionBackendCapabilities, ImathasAdapterError> {
-        let QuestionBackendLocator::Imathas {
-            integration_profile,
-            ..
-        } = source
-        else {
+        let QuestionBackendLocator::Imathas { binding } = source else {
             return Err(ImathasAdapterError::UnsupportedSource);
         };
-        if integration_profile != profile.name() || !self.profiles.contains(profile.name()) {
+        if binding.profile() != profile.profile() || !self.profiles.contains(profile.profile()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         let mut values = vec![Capability::QuestionAttemptTimeLimit];
@@ -198,7 +172,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         Ok(QuestionBackendCapabilities::from_iter(values))
     }
 
-    /// Issues an external-tool marker and safe provider prompt. Repeated exact
+    /// Issues a iMathAS Question Backend marker and safe iMathAS prompt. Repeated exact
     /// version/seed requests are served from immutable cache storage.
     pub async fn issue(
         &self,
@@ -212,7 +186,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             .validate_title()
             .map_err(ImathasAdapterError::InvalidTitle)?;
         verify_binding(question, source)?;
-        if !self.profiles.contains(&source.profile) {
+        if !self.profiles.contains(source.binding.profile()) {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         let question_revision = QuestionRevisionReference {
@@ -230,24 +204,23 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
             Err(error) => return Err(ImathasAdapterError::ObjectStore(error)),
         }
         let safe = self
-            .provider
-            .render(ProviderRenderRequest {
+            .question_backend
+            .render(ImathasRenderRequest {
                 snapshot: source.bytes(),
-                profile: &source.profile,
+                profile: source.binding.profile().as_str(),
                 question_revision: question_revision.clone(),
                 seed,
             })
             .await
-            .map_err(ImathasAdapterError::Provider)?;
+            .map_err(ImathasAdapterError::QuestionBackend)?;
         if question_model::validate_question_title(&safe.title).is_err() {
-            return Err(ImathasAdapterError::InvalidProviderRender);
+            return Err(ImathasAdapterError::InvalidImathasQuestionBackendRender);
         }
         let record = CachedRender {
             schema: 1,
             source: source.artifact().clone(),
             source_object_checksum: source.source_object_checksum().clone(),
-            provider: source.provider.clone(),
-            profile: source.profile.clone(),
+            binding: source.binding.clone(),
             envelope: QuestionVariationPresentation {
                 variation: question_model::QuestionVariation::static_variation(
                     question_revision.clone(),
@@ -255,7 +228,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 ),
                 title: safe.title,
                 prompt: safe.prompt,
-                response: question_model::QuestionResponseFormat::ExternalTool {},
+                response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
             },
         };
         validate_cache(&record, question, seed, source)?;
@@ -301,7 +274,7 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(QuestionRendererVersion {
                     name: "imathas-profile".to_string(),
-                    version: source.profile.clone(),
+                    version: source.binding.profile().as_str().to_owned(),
                 }),
                 generator: None,
                 source_object_reference: Some(source.artifact().clone()),
@@ -315,105 +288,89 @@ impl<S: ObjectStore, P: ImathasProvider> ImathasAdapter<S, P> {
         })
     }
 
-    /// Accepts only a provider-verifier result matching every server-held binding.
-    pub async fn grade(
+    /// Accepts only an iMathAS-verifier result matching every server-held binding.
+    pub async fn verify_imathas_question_backend_result(
         &self,
         question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
-        attempt: QuestionAttemptId,
-        seed: QuestionSeed,
-        launch_session_authentication: &ExternalToolLaunchSessionAuthentication,
-    ) -> Result<VerifiedGradeReceipt, ImathasAdapterError> {
+        grading_context: &learning_data_access::ImathasQuestionBackendGradingContext,
+        launch_session_authentication: &learning_data_access::ImathasQuestionBackendSessionAuthentication,
+    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
         verify_binding(question, source)?;
         let question_revision = QuestionRevisionReference {
             question_id: question.question_id.clone(),
             revision_number: question.revision_number,
         };
+        if grading_context.question_revision() != &question_revision {
+            return Err(ImathasAdapterError::VerificationRefused);
+        }
         let verdict = self
-            .provider
-            .verify_grade(ProviderGradeRequest {
+            .question_backend
+            .verify_result(ImathasResultRequest {
                 snapshot: source.bytes(),
-                profile: &source.profile,
-                attempt,
-                question_revision: question_revision.clone(),
-                seed,
+                profile: source.binding.profile().as_str(),
+                grading_context,
                 launch_session_authentication,
             })
             .await
-            .map_err(ImathasAdapterError::Provider)?;
-        if verdict.attempt != attempt
-            || verdict.question_revision != question_revision
-            || verdict.seed != seed
-            || verdict.launch_session_authentication != launch_session_authentication.0
+            .map_err(ImathasAdapterError::QuestionBackend)?;
+        if verdict.grading_context != *grading_context
+            || verdict.launch_session_authentication != *launch_session_authentication
         {
             return Err(ImathasAdapterError::VerificationRefused);
         }
-        Ok(VerifiedGradeReceipt {
-            result: verdict.result,
-            binding: ExternalToolGradingContext {
-                attempt,
-                question_revision,
-                seed,
-            },
-        })
+        Ok(verdict)
     }
 }
 
-// The protected scored-embed path is deliberately an opt-in extension. A
-// render-only provider cannot acquire launch or result-verification ability.
-impl<S, T> ImathasAdapter<S, external_question_provider::ContractedScoredEmbedProvider<T>>
+// A render-only iMathAS Question Backend cannot acquire iMathAS Question Backend
+// Launch or Result Verification ability.
+impl<S, T> ImathasAdapter<S, imathas_question_backend::ImathasQuestionBackend<T>>
 where
     S: ObjectStore,
-    T: external_question_provider::ScoredEmbedTransport,
+    T: imathas_question_backend::ImathasQuestionBackendTransport,
 {
-    pub fn contracted_provider_key(&self) -> &str {
-        self.provider.provider_key()
+    pub fn imathas_question_backend_deployment_reference(&self) -> &str {
+        self.question_backend.deployment_reference()
     }
-    pub fn contracted_launch_lifetime_millis(&self) -> u32 {
-        self.provider.launch_lifetime_millis()
+    pub fn imathas_question_backend_launch_lifetime_millis(&self) -> u32 {
+        self.question_backend.launch_lifetime_millis()
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub async fn begin_contracted_launch(
+    pub async fn prepare_imathas_question_backend_launch(
         &self,
         question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
-        attempt: QuestionAttemptId,
-        seed: QuestionSeed,
-        launch_session_authentication: ExternalToolLaunchSessionAuthentication,
-        challenge: crate::ExternalToolLaunchChallenge,
+        validation: &learning_data_access::ImathasQuestionBackendLaunchPreparationValidation,
         now: Timestamp,
-    ) -> Result<external_question_provider::ContractedLaunchSession, ImathasAdapterError> {
-        self.provider
-            .begin_launch(
-                question,
-                source,
-                attempt,
-                seed,
-                launch_session_authentication,
-                challenge,
-                now,
-            )
+    ) -> Result<imathas_question_backend::ImathasLaunchPreparation, ImathasAdapterError> {
+        self.question_backend
+            .prepare_imathas_question_backend_launch(question, source, validation, now)
             .await
     }
 
-    pub async fn retrieve_contracted_grade(
+    pub async fn retrieve_verified_imathas_question_backend_result(
         &self,
-        session: &mut external_question_provider::ContractedLaunchSession,
+        validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
+        imathas_launch_state: &imathas_question_backend::ImathasLaunchState,
         now: Timestamp,
-    ) -> Result<VerifiedProviderGrade, ImathasAdapterError> {
-        self.provider.retrieve_and_verify(session, now).await
+    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasAdapterError> {
+        self.question_backend
+            .retrieve_and_verify(validation, imathas_launch_state, now)
+            .await
     }
 
-    pub async fn proxy_contracted_activity(
+    pub async fn proxy_imathas_question_backend_activity(
         &self,
-        session: &external_question_provider::ContractedLaunchSession,
-        method: external_question_provider::ProxyMethod,
+        validation: &learning_data_access::ImathasQuestionBackendSessionValidation,
+        imathas_launch_state: &imathas_question_backend::ImathasLaunchState,
+        method: imathas_question_backend::ProxyMethod,
         body: &[u8],
         now: Timestamp,
-    ) -> Result<external_question_provider::ProxyResponse, ImathasAdapterError> {
-        self.provider
-            .proxy_activity(session, method, body, now)
+    ) -> Result<imathas_question_backend::ProxyResponse, ImathasAdapterError> {
+        self.question_backend
+            .proxy_activity(validation, imathas_launch_state, method, body, now)
             .await
     }
 }

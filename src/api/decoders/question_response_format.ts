@@ -208,7 +208,7 @@ export function questionResponseFormatSupportsType(
       return questionType === "ordering";
     case "hotspot":
       return questionType === "hotspot";
-    case "externalTool":
+    case "imathasQuestionBackend":
       return true;
   }
 }
@@ -360,7 +360,7 @@ export function decodeQuestionResponseFormat(
           strict,
         ),
       } satisfies QuestionResponseFormat;
-    case "externalTool":
+    case "imathasQuestionBackend":
       if (strict) requireOnlyFields(record, path, ["kind"]);
       return { kind: response } satisfies QuestionResponseFormat;
     default:

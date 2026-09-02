@@ -269,6 +269,9 @@ impl From<&DraftQuestionBackendLocator> for QuestionBackend {
 pub struct QuestionSummary {
     /// Sole human-facing identity of this immutable published question.
     pub question_id: QuestionId,
+    /// Exact accepted Question Revision with the greatest revision number in
+    /// this Question lineage. This is independent of selection availability.
+    pub latest_question_revision: QuestionRevisionReference,
     /// Question Backend, without private source-locator fields.
     pub backend: QuestionBackend,
     /// Immutable browser-safe Question Type derived at publication time.
@@ -598,6 +601,10 @@ mod tests {
         let detail = QuestionDetails {
             summary: QuestionSummary {
                 question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+                latest_question_revision: QuestionRevisionReference {
+                    question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+                    revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
+                },
                 backend: QuestionBackend::Ple,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),

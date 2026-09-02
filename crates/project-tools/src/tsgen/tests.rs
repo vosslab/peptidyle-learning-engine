@@ -298,6 +298,21 @@ fn transparent_nonzero_integer_newtypes_use_their_numeric_wire_type() {
     assert_eq!(generated.body, "number");
     assert!(generated.dependencies.is_empty());
 }
+
+#[test]
+fn tagged_enum_flattened_struct_preserves_the_flat_wire_shape() {
+    let item: syn::ItemEnum = syn::parse_quote! {
+        #[derive(Serialize)]
+        #[serde(tag = "backend", rename_all = "camelCase", rename_all_fields = "camelCase")]
+        pub enum Locator {
+            Imathas { #[serde(flatten)] binding: ImathasBinding },
+        }
+    };
+    let generated = generate_enum(&item).expect("generation should support flattened bindings");
+    assert!(generated.body.contains("backend: \"imathas\";"));
+    assert!(generated.body.contains("& ImathasBinding"));
+    assert!(!generated.body.contains("binding:"));
+}
 #[test]
 fn omitted_option_becomes_an_optional_property() {
     let item: syn::ItemStruct = syn::parse_quote! { #[derive(Serialize)] #[serde(rename_all = "camelCase")] pub struct Holder { #[serde(skip_serializing_if = "Option::is_none")] pub secret: Option<String>, } };

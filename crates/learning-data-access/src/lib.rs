@@ -14,6 +14,7 @@ mod pagination;
 pub mod postgres;
 mod question_source;
 mod random_uuid;
+mod remote_question_backend_session;
 pub mod session;
 #[path = "contracts/store_error.rs"]
 mod store_error;
@@ -40,6 +41,33 @@ pub use question_source::{
     DraftQuestionRevision, DraftQuestionRevisionNumber, DraftQuestionRevisionReference,
     DraftQuestionSourceInput, DraftQuestionSourceStore, DraftQuestionUuid,
     QuestionPublicBindingChecksum, QuestionSourceUuid,
+};
+pub use remote_question_backend_session::{
+    AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
+    CommitStagedRemoteQuestionBackendResultGrading, GradingResultId, JobId,
+    LoadedRemoteQuestionBackendSession, MAX_REMOTE_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
+    MAX_REMOTE_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryRemoteQuestionBackendSessionStore,
+    QualifiedLaunchBindingDigest, QuestionSubmissionGradingId, RemoteQuestionBackendGradingContext,
+    RemoteQuestionBackendGradingJobLease, RemoteQuestionBackendLaunchPreparationValidation,
+    RemoteQuestionBackendNormalizedScore, RemoteQuestionBackendResponseChecksum,
+    RemoteQuestionBackendResult, RemoteQuestionBackendResultChecksum,
+    RemoteQuestionBackendResultExchangeIdempotencyKey, RemoteQuestionBackendResultToken,
+    RemoteQuestionBackendResultTokenChecksum, RemoteQuestionBackendSession,
+    RemoteQuestionBackendSessionAuthentication, RemoteQuestionBackendSessionChallenge,
+    RemoteQuestionBackendSessionCreate, RemoteQuestionBackendSessionLease,
+    RemoteQuestionBackendSessionPreparationContext, RemoteQuestionBackendSessionReference,
+    RemoteQuestionBackendSessionRestoreExpectation, RemoteQuestionBackendSessionStore,
+    RemoteQuestionBackendSessionValidation, RemoteQuestionBackendStateCipher,
+    RemoteQuestionBackendStateKeyId, RemoteQuestionBackendStateKeyRing,
+    RemoteQuestionBackendStatePlaintext, StageVerifiedRemoteQuestionBackendResult,
+    derive_remote_question_backend_grading_result,
+};
+#[allow(unused_imports)] // Crate-private PostgreSQL Store row-binding surface.
+pub(crate) use remote_question_backend_session::{
+    RemoteQuestionBackendGradingJobLeaseParts, RemoteQuestionBackendSessionCreateParts,
+    RemoteQuestionBackendSessionLeaseParts, RemoteQuestionBackendSessionRestoreParts,
+    RemoteQuestionBackendSessionStorageParts, RemoteQuestionBackendStateCipherStorageParts,
+    StageVerifiedRemoteQuestionBackendResultParts,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

@@ -147,7 +147,7 @@ pub struct QuestionVariationPresentation {
     /// The exact reproducible variation this presentation renders.
     pub variation: QuestionVariation,
     /// A bounded student-facing title from published metadata or a safe imported
-    /// provider label. This deliberately excludes authored source and grading
+    /// Question Backend label. This deliberately excludes authored source and grading
     /// material while letting the student identify the issued question.
     pub title: String,
     /// The prompt, in render order.

@@ -149,11 +149,10 @@ locals {
     { name = "PLE_TEMP_PROCESSING_KMS_KEY_ARN", value = aws_kms_key.object["temp_processing"].arn }
   ]
   api_required_secret_keys = ["DATABASE_URL", "PLE_AUTOMATED_GRADING_DATABASE_URL", "PLE_WEBAUTHN_ORIGIN", "PLE_WEBAUTHN_RP_ID", "PLE_WEBAUTHN_RP_NAME", "PLE_TRUSTED_PROXY_CIDRS", "PLE_PUBLIC_ASSET_BASE_URL", "PLE_QUESTION_ID_SECRET"]
-  imathas_secret_keys      = ["PLE_IMATHAS_BASE_URL", "PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS", "PLE_IMATHAS_MAX_TRANSPORT_BYTES", "PLE_IMATHAS_MAX_SNAPSHOT_BYTES", "PLE_IMATHAS_MAX_RESULT_BYTES", "PLE_IMATHAS_LAUNCH_TTL_MILLIS", "PLE_IMATHAS_LAUNCH_STATE_SECRET", "PLE_IMATHAS_CORRELATION_SECRET", "PLE_IMATHAS_LAUNCH_SIGNING_SECRET", "PLE_IMATHAS_RESULT_VERIFICATION_SECRET", "PLE_IMATHAS_PROVIDER_KEY", "PLE_IMATHAS_PROVIDER_AUTH_HEADER_NAME", "PLE_IMATHAS_PROVIDER_AUTH_VALUE"]
   smtp_secret_keys         = ["PLE_SMTP_RELAY", "PLE_SMTP_PORT", "PLE_SMTP_TLS_MODE", "PLE_SMTP_USERNAME", "PLE_SMTP_FROM", "PLE_PUBLIC_APP_BASE_URL"]
   webwork_secret_keys      = ["PLE_WEBWORK_RENDERER_BASE_URL", "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "PLE_WEBWORK_MAX_RESPONSE_BYTES", "PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_RENDERER_VERSION"]
   api_secrets = [
-    for key in concat(local.api_required_secret_keys, var.enable_imathas ? local.imathas_secret_keys : [], var.enable_smtp ? local.smtp_secret_keys : [], var.enable_webwork ? local.webwork_secret_keys : []) :
+    for key in concat(local.api_required_secret_keys, var.enable_smtp ? local.smtp_secret_keys : [], var.enable_webwork ? local.webwork_secret_keys : []) :
     { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }
   ]
   fast_path_secrets = [

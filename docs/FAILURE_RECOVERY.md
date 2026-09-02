@@ -63,7 +63,7 @@ attached diagnostic text.
 | `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative projection and ask the user to review before retrying.                       |
 | `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                           |
 | `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                   |
-| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                        | Do not retry unchanged; return the bounded, route-approved validation message.                        |
+| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                        |
 | `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                   |
 
 HTTP routes project this classification narrowly. For example,
@@ -157,32 +157,32 @@ Workers log only `StoreError` categories and aggregate pass counts. Diagnostics
 must not serialize a raw error object because it may contain identifiers or
 dependency-specific text.
 
-## Effectful external-tool dispatch
+## Effectful Remote Question Backend dispatch
 
-An external question engine can receive an effectful POST after PLE has sent
+A Remote Question Backend can receive an effectful POST after PLE has sent
 bytes but before PLE receives a valid response. Retrying that request as though
 nothing happened could duplicate an upstream action or make PLE and the
-provider disagree about the attempt. The external-tool activity lease therefore
+backend disagree about the attempt. The Remote Question Backend activity lease therefore
 uses a durable pre-dispatch fence:
 
 1. while the exact activity lease is still valid, PLE atomically records an
-   indeterminate marker bound to the lease-token hash before the provider POST;
-2. it sends the one server-built provider request; and
+   indeterminate marker bound to the lease-token hash before the backend POST;
+2. it sends the one server-built backend request; and
 3. it clears that exact marker only after a valid, accepted response has been
    processed.
 
 A timeout, transport error, malformed response, process crash, or lease-loss
 after step 1 leaves the marker in place. Reclaim, relaunch, grade finalization,
 and normal revocation reject that attempt rather than issuing another effectful
-provider POST. The browser receives bounded unavailable/conflict behavior and
+backend POST. The browser receives bounded unavailable/conflict behavior and
 must not auto-retry with a new launch. This is deliberately conservative: it
 preserves at-most-once local dispatch rather than guessing whether the external
 side effect occurred.
 
 The marker is durable evidence, not an automatic recovery protocol. Resolving
-an indeterminate external result requires an authorized operator procedure and
-provider-specific evidence that can establish the outcome without replaying
-the POST. Until such a procedure is designed and tested for a provider, the
+an indeterminate Remote Question Backend result requires an authorized operator procedure and
+backend-specific evidence that can establish the outcome without replaying
+the POST. Until such a procedure is designed and tested for a backend, the
 attempt remains fenced. Read-only grade/result retrieval must remain
 structurally side-effect-free; it may not be used as a hidden dispatch retry.
 

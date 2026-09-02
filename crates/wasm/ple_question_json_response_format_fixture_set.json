@@ -14,7 +14,7 @@
         "selection": { "kind": "exactlyOne" }
       },
       "response": { "kind": "multipleChoice", "selected": ["phenylketonuria"] },
-      "expectedReport": { "violations": [] }
+      "expectedCheck": { "issues": [] }
     },
     {
       "name": "ple-question-json-v2-single-choice-empty-selection",
@@ -30,8 +30,8 @@
         "selection": { "kind": "exactlyOne" }
       },
       "response": { "kind": "multipleChoice", "selected": [] },
-      "expectedReport": {
-        "violations": [
+      "expectedCheck": {
+        "issues": [
           { "kind": "selectionCount", "expected": { "kind": "exactlyOne" }, "actual": 0 }
         ]
       }
@@ -56,7 +56,7 @@
           { "prompt": "hydrocarbon", "choice": "carboxyl" }
         ]
       },
-      "expectedReport": { "violations": [] }
+      "expectedCheck": { "issues": [] }
     },
     {
       "name": "ple-question-json-v2-matching-empty-response",
@@ -72,7 +72,7 @@
         ]
       },
       "response": { "kind": "matching", "matches": [] },
-      "expectedReport": { "violations": [{ "kind": "matchingPromptsMismatch" }] }
+      "expectedCheck": { "issues": [{ "kind": "matchingPromptsMismatch" }] }
     }
   ]
 }

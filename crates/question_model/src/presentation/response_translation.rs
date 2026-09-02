@@ -29,7 +29,8 @@ pub enum RenderedResponseTranslationError {
 ///
 /// This is deliberately a closed projection.  It contains only the Student's
 /// submitted values and the rendered identifiers from the issued presentation;
-/// answer keys, grader material, durable Object Addresses, and provider payloads
+/// answer keys, grader material, durable Object Addresses, and Remote Question
+/// Backend payloads
 /// have no representation here.  The server creates it after it has verified
 /// the issued presentation witness.  ASVS 14.1.1 and 14.2.1: sensitive
 /// educational-record data has one minimized response shape.
@@ -76,10 +77,10 @@ pub enum StudentResponseInspection {
         /// Issued rendered Hotspot Region identifiers selected by the Student.
         selected_regions: Vec<PresentationResponseItemReference>,
     },
-    /// Coarse external-tool completion state.
-    ExternalTool {
-        /// Safe completion state, without provider data or launch authority.
-        completion: InspectedExternalToolState,
+    /// Coarse iMathAS Question Backend completion state.
+    ImathasQuestionBackend {
+        /// Safe completion state, without iMathAS Question Backend data or launch authority.
+        completion: InspectedImathasQuestionBackendState,
     },
 }
 
@@ -103,11 +104,11 @@ pub struct InspectedMatchPair {
     pub choice: PresentationResponseItemReference,
 }
 
-/// Safe external-tool fact. Provider data and launch authority stay private.
+/// Safe iMathAS Question Backend fact. Backend data and launch authority stay private.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum InspectedExternalToolState {
-    /// The external-tool submission was recorded; provider details remain private.
+pub enum InspectedImathasQuestionBackendState {
+    /// The iMathAS Question Backend submission was recorded; backend details remain private.
     SubmissionRecorded,
 }
 
@@ -121,7 +122,7 @@ impl std::fmt::Debug for StudentResponseInspection {
             Self::Matching { .. } => "matching",
             Self::Ordering { .. } => "ordering",
             Self::Hotspot { .. } => "hotspot",
-            Self::ExternalTool { .. } => "external_tool",
+            Self::ImathasQuestionBackend { .. } => "imathas_question_backend",
         };
         formatter
             .debug_struct("StudentResponseInspection")
@@ -233,7 +234,9 @@ pub fn translate_rendered_response(
                 })
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::ExternalTool {} => Ok(StudentResponse::ExternalTool {}),
+        StudentResponse::ImathasQuestionBackend {} => {
+            Ok(StudentResponse::ImathasQuestionBackend {})
+        }
     }
 }
 
@@ -297,9 +300,11 @@ pub fn project_durable_response_to_rendered(
                 .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolState::SubmissionRecorded,
-        }),
+        StudentResponse::ImathasQuestionBackend {} => {
+            Ok(StudentResponseInspection::ImathasQuestionBackend {
+                completion: InspectedImathasQuestionBackendState::SubmissionRecorded,
+            })
+        }
     }
 }
 
@@ -365,9 +370,11 @@ pub fn project_rendered_response_for_inspection(
                 .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
                 .collect::<Result<_, _>>()?,
         }),
-        StudentResponse::ExternalTool {} => Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolState::SubmissionRecorded,
-        }),
+        StudentResponse::ImathasQuestionBackend {} => {
+            Ok(StudentResponseInspection::ImathasQuestionBackend {
+                completion: InspectedImathasQuestionBackendState::SubmissionRecorded,
+            })
+        }
     }
 }
 

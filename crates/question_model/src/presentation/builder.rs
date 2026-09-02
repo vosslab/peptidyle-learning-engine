@@ -447,7 +447,7 @@ fn pending_items(
                 )?;
             }
         }
-        QuestionResponseFormat::ExternalTool {} => {
+        QuestionResponseFormat::ImathasQuestionBackend {} => {
             return Err(PresentationBuildError::UnsupportedResponse);
         }
     }
@@ -672,7 +672,7 @@ fn public_envelope(
                 maximum,
             }
         }
-        QuestionResponseFormat::ExternalTool {} => {
+        QuestionResponseFormat::ImathasQuestionBackend {} => {
             return Err(PresentationBuildError::UnsupportedResponse);
         }
     };

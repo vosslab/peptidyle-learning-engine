@@ -1,6 +1,7 @@
 //! MOD-ADP-IMATHAS: isolated iMathAS/MyOpenMath adapter.
 //!
-//! A provider is deployment configuration selected by an opaque key. This
+//! An iMathAS Deployment Reference is deployment configuration selected by an
+//! opaque key. This
 //! crate never accepts author-supplied endpoints or browser Answer Keys,
 //! Question Feedback, Question Answer Explanations, or Question Grading Input.
 
@@ -8,14 +9,14 @@
 mod adapter;
 #[path = "lib/cache.rs"]
 mod cache;
-pub mod external_question_provider;
 #[path = "lib/grade.rs"]
 mod grade;
 #[cfg(feature = "http-transport")]
 pub mod http_transport;
-#[path = "lib/provider.rs"]
-mod provider;
-pub mod scored_embed;
+pub mod imathas_question_backend;
+#[path = "lib/question_backend.rs"]
+mod question_backend;
+pub mod result_verification;
 #[cfg(feature = "test-support")]
 pub mod test_support;
 
@@ -23,27 +24,27 @@ pub mod test_support;
 pub const ADAPTER_ID: &str = "imathas-adapter";
 /// Current compatible adapter implementation.
 pub const ADAPTER_VERSION: &str = "1";
-/// Stable identity for server-verified provider grading.
+/// Stable identity for server-verified iMathAS grading.
 pub const GRADING_ID: &str = "imathas-verified-grader";
 /// Current compatible server verifier implementation.
 pub const GRADING_VERSION: &str = "1";
 
-pub use adapter::{
-    ImathasAdapter, ImathasIssuedAttempt, ResolvedImathasQuestionSource, VerifiedGradeReceipt,
-};
-pub use external_question_provider::ExternalToolLaunchSessionAuthenticationCodec;
+pub use adapter::{ImathasAdapter, ImathasIssuedAttempt, ResolvedImathasQuestionSource};
 pub use grade::{
-    ExternalToolGradingContext, ExternalToolLaunchChallenge,
-    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ProviderFailure,
-    VerifiedProviderGrade,
+    ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult,
 };
-pub use provider::{
-    ImathasProvider, ImathasQuestionLocation, PreparedSnapshot, ProviderGradeRequest,
-    ProviderRenderRequest, SafeProviderRender, SupportedProfile,
+pub use imathas_question_backend::ImathasLaunchSessionAuthenticationCodec;
+pub use question_backend::{
+    ImathasQuestionLocation, ImathasRenderRequest, ImathasResultRequest, PreparedSnapshot,
+    QuestionBackend, SafeImathasQuestionRender, SupportedImathasProfile,
+};
+pub use question_model::{
+    DraftImathasQuestionBackendBinding, ImathasDeploymentReference, ImathasItemReference,
+    ImathasProfile, ImathasQuestionBackendBinding,
 };
 
 pub(crate) use cache::{constant_time_eq, hex, verify_binding};
-pub(crate) use provider::sealed;
+pub(crate) use question_backend::sealed;
 
 #[cfg(test)]
 use cache::render_key;
@@ -62,9 +63,8 @@ use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
 #[cfg(test)]
 use question_model::{
-    GradingResult, ObjectId, QuestionAttemptId, QuestionBackendLocator, QuestionId,
-    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
-    Timestamp,
+    ObjectId, QuestionAttemptId, QuestionBackendLocator, QuestionId, QuestionRevisionNumber,
+    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 #[cfg(test)]
 use uuid::Uuid;

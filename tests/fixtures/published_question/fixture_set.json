@@ -7,14 +7,13 @@
   "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
   "questionSummary": {
     "questionId": "7K3-M9QP",
+    "latestQuestionRevision": {
+      "questionId": "7K3-M9QP",
+      "revisionNumber": 1
+    },
     "backend": "ple",
     "questionType": "multipleChoice",
-    "capabilities": [
-      "clientRendering",
-      "serverGrading",
-      "hints",
-      "questionAttemptTimeLimit"
-    ],
+    "capabilities": ["clientRendering", "serverGrading", "hints", "questionAttemptTimeLimit"],
     "metadata": {
       "title": "Peptide bond resonance and planarity",
       "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",

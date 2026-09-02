@@ -37,7 +37,7 @@ test("question decoders reject answer-bearing and provider-secret fields", () =>
   );
 });
 
-test("issued external-tool envelopes accept only their public marker", () => {
+test("issued remote-question-backend envelopes accept only their public marker", () => {
   const envelope = {
     variation: {
       questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
@@ -45,9 +45,11 @@ test("issued external-tool envelopes accept only their public marker", () => {
     },
     title: "External practice item",
     prompt: [],
-    response: { kind: "externalTool" },
+    response: { kind: "remoteQuestionBackend" },
   };
-  assert.deepEqual(decodeQuestionPresentation(envelope).response, { kind: "externalTool" });
+  assert.deepEqual(decodeQuestionPresentation(envelope).response, {
+    kind: "remoteQuestionBackend",
+  });
   assert.throws(
     () =>
       decodeQuestionPresentation({
@@ -63,7 +65,7 @@ test("issued external-tool envelopes accept only their public marker", () => {
     () =>
       decodeQuestionPresentation({
         ...envelope,
-        response: { kind: "externalTool", token: "secret" },
+        response: { kind: "remoteQuestionBackend", token: "secret" },
       }),
     DecodeError,
   );
@@ -235,31 +237,34 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
   assert.deepEqual(prefetched?.questionPoolSelectionPosition, { itemNumber: 1, itemCount: 2 });
 });
 
-test("external-tool launch is a strict same-origin route projection", async () => {
+test("remote-question-backend launch is a strict same-origin route projection", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
+  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  assert.deepEqual(await client.beginExternalToolLaunch(course.id, assignment.id, attempt.id), {
-    launchUrl,
-  });
+  assert.deepEqual(
+    await client.beginRemoteQuestionBackendLaunch(course.id, assignment.id, attempt.id),
+    {
+      launchUrl,
+    },
+  );
   assert.equal(requests[0]?.method, "POST");
   assert.equal(requests[0]?.url, `https://client.example.test${launchUrl}`);
   assert.equal(await requests[0]?.text(), "");
 });
 
-test("external-tool launch rejects absolute, foreign, and decorated routes", async () => {
+test("remote-question-backend launch rejects absolute, foreign, and decorated routes", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch`;
+  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch`;
   const routes = [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
@@ -276,7 +281,7 @@ test("external-tool launch rejects absolute, foreign, and decorated routes", asy
       fetch: async () => jsonResponse({ launchUrl }),
     });
     await assert.rejects(
-      client.beginExternalToolLaunch(course.id, assignment.id, attempt.id),
+      client.beginRemoteQuestionBackendLaunch(course.id, assignment.id, attempt.id),
       DecodeError,
       launchUrl,
     );
@@ -347,7 +352,7 @@ test("submission status uses its route-bound same-origin no-store GET", async ()
   assert.equal(await request.text(), "");
 });
 
-test("external-tool submission sends only the marker with its caller idempotency key", async () => {
+test("remote-question-backend submission sends only the marker with its caller idempotency key", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
@@ -361,7 +366,7 @@ test("external-tool submission sends only the marker with its caller idempotency
         ...receiptAttempt,
         submission: {
           ...receiptAttempt.submission,
-          response: { kind: "externalTool" },
+          response: { kind: "remoteQuestionBackend" },
           gradingResult: null,
         },
       },
@@ -380,16 +385,16 @@ test("external-tool submission sends only the marker with its caller idempotency
     course.id,
     assignment.id,
     attempt.id,
-    { kind: "externalTool" },
-    "external-tool-once",
+    { kind: "remoteQuestionBackend" },
+    "remote-question-backend-once",
   );
   const request = requests[0];
   assert.ok(request);
   assert.equal(
     request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/external-tool/launch/submission`,
+    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/remote-question-backend/launch/submission`,
   );
   assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), "external-tool-once");
-  assert.deepEqual(await request.json(), { response: { kind: "externalTool" } });
+  assert.equal(request.headers.get("idempotency-key"), "remote-question-backend-once");
+  assert.deepEqual(await request.json(), { response: { kind: "remoteQuestionBackend" } });
 });

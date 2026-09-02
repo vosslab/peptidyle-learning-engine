@@ -7,16 +7,16 @@ complete inventory of every route-local signal.
 
 ## Reactivity map
 
-| State                                | Primitive                                     | Owner                    | Update contract                                                                                                                                                                                       |
-| ------------------------------------ | --------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Session identity and roles           | Context containing a signal accessor          | `SessionProvider`        | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                                 |
-| Shared key-free Wasm facade          | Resource and context                          | `WasmRuntimeProvider`    | One startup resource loads the facade before widgets mount. Consumers read context; fallback validation stays behind the same facade.                                                                 |
-| Course route identity and appearance | Route `createAsync` resource and context      | `CourseThemeScope`       | One route-owned query loads the authorized course projection for course, run, and summary paths. Descendants consume it without a second transport request.                                           |
-| Course-theme CSS variables           | JSX-derived token functions                   | `CourseThemeScope`       | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                                  |
-| PLE PLE Question JSON draft              | Signals, memos, effects, and `<For>`          | `PleQuestionJsonEditorPage` | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                                      |
-| Student-equivalent author preview    | Signal and answer-free projection             | `PleQuestionJsonPreview`    | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check.           |
-| External-tool launch                 | Signals, refs, effect, and lifecycle cleanup  | `ExternalToolResponse`   | The browser receives a same-origin broker path only after activation. Readiness is presentation state; it cannot provide a score, provider identity, or grading input.                                |
-| Route-local screens                  | Signals or router `createAsync` resources     | Owning route             | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                                       |
+| State                                | Primitive                                    | Owner                                  | Update contract                                                                                                                                                                             |
+| ------------------------------------ | -------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session identity and roles           | Context containing a signal accessor         | `SessionProvider`                      | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                       |
+| Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                  | One startup resource loads the facade before widgets mount. Consumers read context; fallback validation stays behind the same facade.                                                       |
+| Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                     | One route-owned query loads the authorized course projection for course, run, and summary paths. Descendants consume it without a second transport request.                                 |
+| Course-theme CSS variables           | JSX-derived token functions                  | `CourseThemeScope`                     | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                        |
+| PLE PLE Question JSON draft          | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`            | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                            |
+| Student-equivalent author preview    | Signal and answer-free projection            | `PleQuestionJsonPreview`               | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check. |
+| Remote Question Backend launch       | Signals, refs, effect, and lifecycle cleanup | `RemoteQuestionBackendResponseControl` | The browser receives a same-origin launch path only after activation. Readiness is presentation state; it cannot provide a score, backend identity, or grading input.                       |
+| Route-local screens                  | Signals or router `createAsync` resources    | Owning route                           | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                             |
 
 Use a signal for one independently changing scalar or discriminated state. Use a resource for an
 async owner whose pending/error state belongs to the route or provider. Use a store only for a
@@ -46,7 +46,7 @@ function.
 
 The app owns one Wasm loader resource at startup. Route components read the shared facade from
 context; they do not instantiate modules independently. The same ownership rule applies to the API
-runtime and session bootstrap. `ExternalToolResponse` installs the same-origin `message` listener at mount and removes it
+runtime and session bootstrap. `RemoteQuestionBackendResponseControl` installs the same-origin `message` listener at mount and removes it
 on disposal; a request counter rejects late launch results after a new attempt or disposal.
 
 ## Routing and async data
@@ -94,14 +94,14 @@ Selecting a value updates the controlled input and calls the shared Wasm format 
 monotonically increasing validation request number keeps a slow older result from replacing a newer
 result. No client state guesses correctness.
 
-The external-tool variant is also implemented. It follows its own local phase progression:
+The Remote Question Backend control is also implemented. It follows its own local phase progression:
 
 ```text
 idle -> loading -> awaitingReady -> ready -> submitting -> submitted
                  `-> failed
 ```
 
-Opening the tool first persists only the ordinary external-tool response marker, then asks the PLE
+Opening the remote backend first persists only the ordinary Remote Question Backend response marker, then asks the PLE
 API for a protected same-origin launch path. The iframe is sandboxed; its ready message must come
 from that origin and that iframe. The final submission remains the ordinary PLE response flow.
 
@@ -111,14 +111,14 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                        |
 | Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                  |
-| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                    |
+| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                     |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, provenance, and atomic draft replacement |
 | External iframe presentation and same-origin readiness status                    | Broker launch authorization, provider configuration, correlation, verification, correctness, and grade recording           |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                       |
 
 Everything crossing the browser boundary is JSON-serializable except browser-local `File`, DOM ref,
 and object-URL state, which never crosses it. The generated client surface derives from
-`crates/question_model`; answer-bearing `crates/grading` types never enter it. The external-tool
+`crates/question_model`; answer-bearing `crates/grading` types never enter it. The Remote Question Backend
 launch DTO is intentionally only a same-origin path, never a provider URL, token, score, source,
 or provenance record. The durable broker roles remain narrow and subject to forced RLS; see
 `docs/DATABASE_AUTHORIZATION.md#row-level-security` and `docs/ADAPTER_DEVELOPMENT.md`.

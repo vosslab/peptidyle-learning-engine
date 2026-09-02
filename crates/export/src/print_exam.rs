@@ -141,7 +141,10 @@ impl PrintExam {
             let mut reason = None;
             if !capabilities.supports(Capability::PrintExport) {
                 reason = Some("the backend does not declare printExport".to_string());
-            } else if matches!(question.response, QuestionResponseFormat::ExternalTool {}) {
+            } else if matches!(
+                question.response,
+                QuestionResponseFormat::ImathasQuestionBackend {}
+            ) {
                 reason = Some(
                     "this response requires an online interaction and cannot be completed on paper"
                         .to_string(),
@@ -452,7 +455,7 @@ fn append_response_flow(
                 }
             }
         }
-        QuestionResponseFormat::ExternalTool {} => {
+        QuestionResponseFormat::ImathasQuestionBackend {} => {
             unreachable!("validated before print build")
         }
     }

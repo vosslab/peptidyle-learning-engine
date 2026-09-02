@@ -150,7 +150,7 @@ convention:
 | `crates/adapters/ple`      | First-party generated questions and strict static PLE JSON                    | `question_model`, `domain`, `grading`            |
 | `crates/adapters/webwork`     | Private renderer client, deterministic rendering, grading delegation          | `question_model`, `domain`, `grading`, `objects` |
 | `crates/adapters/qti`         | Hardened package import and opt-in published runtime                          | `question_model`, `domain`, `grading`, `objects` |
-| `crates/adapters/imathas`     | Contracted or self-hosted, server-brokered scored embed                       | `question_model`, `objects`                      |
+| `crates/adapters/imathas`     | PLE-managed iMathAS Remote Question Backend and Result Verification           | `question_model`, `objects`                      |
 | `crates/adapters/h5p`         | Package import into ungraded practice; scored execution is unavailable        | `question_model`                                 |
 | `crates/export`               | Print model, DOCX and PDF writers                                             | `question_model`, `objects`                      |
 | `crates/wasm`                 | The `wasm-bindgen` bridge, delegating every call to `domain`                  | `question_model`, `domain`                       |

@@ -519,19 +519,19 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 
 ### Decisions from comparison
 
-| Concern             | ADAPT observation                                    | PLE decision                                             |
-| ------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| Render sanitization | Strips correct responses and feedback by role/policy | Adopt and preserve                                       |
-| Determinism         | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt |
-| Server-inferred type | Server infers `questionType`                        | Remove submission `kind` in PLE v1                       |
-| Server-held identity | Browser sends assignment and question IDs           | Use one attempt ID that already binds both                |
-| ADAPT render scope  | Rich assignment/question records                     | Return one minimal active student screen                 |
-| Matching response   | Whole mutated objects                                | Send only rendered-ID relationships                      |
-| Backend selector    | Browser sends `technology`                           | Derive backend from the attempt                          |
-| Partial credit      | Server computes it                                   | Preserve server-only scoring                             |
-| External context    | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE       |
-| Renderer result     | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt               |
-| Presentation check  | No ADAPT digest found                                | Bind the answer to a Question Presentation Token verified against its complete Question Presentation Checksum |
+| Concern              | ADAPT observation                                    | PLE decision                                                                                                  |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Render sanitization  | Strips correct responses and feedback by role/policy | Adopt and preserve                                                                                            |
+| Determinism          | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt                                                      |
+| Server-inferred type | Server infers `questionType`                         | Remove submission `kind` in PLE v1                                                                            |
+| Server-held identity | Browser sends assignment and question IDs            | Use one attempt ID that already binds both                                                                    |
+| ADAPT render scope   | Rich assignment/question records                     | Return one minimal active student screen                                                                      |
+| Matching response    | Whole mutated objects                                | Send only rendered-ID relationships                                                                           |
+| Backend selector     | Browser sends `technology`                           | Derive backend from the attempt                                                                               |
+| Partial credit       | Server computes it                                   | Preserve server-only scoring                                                                                  |
+| External context     | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE                                                            |
+| Renderer result      | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt                                                                    |
+| Presentation check   | No ADAPT digest found                                | Bind the answer to a Question Presentation Token verified against its complete Question Presentation Checksum |
 
 PLE should not copy ADAPT merely because ADAPT has more features. It should adopt the mature ideas
 that match PLE's goals and intentionally differ where an attempt-bound, server-mediated architecture
@@ -759,8 +759,8 @@ The pre-production cutover:
 6. rejects retired route/body usage with stable `410 contract_retired`.
 
 Historical records remain available through bounded history and summary projections. Production data
-is never deleted or recreated as a shortcut. External-tool submission contracts stay out of this v1
-cutover because they require a separate broker design.
+is never deleted or recreated as a shortcut. Remote Question Backend submission contracts stay out of this v1
+cutover because they require their own backend-session design.
 
 ## Final decisions
 

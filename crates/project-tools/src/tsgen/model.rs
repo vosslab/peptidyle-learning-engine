@@ -5,8 +5,8 @@ use anyhow::{Result, bail};
 use syn::{Attribute, Expr, Fields, Lit, Meta, Type};
 
 use super::serde::{
-    effective_name, is_skipped, rename_all, rename_all_fields, serde_string_value, serde_tag,
-    skips_when_none,
+    effective_name, is_flattened, is_skipped, rename_all, rename_all_fields, serde_string_value,
+    serde_tag, skips_when_none,
 };
 
 const PRINT_WIDTH: usize = 100;
@@ -243,8 +243,16 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                     property_key(tag_name),
                     wire_string_literal(&name)
                 )];
+                let mut flattened = Vec::new();
                 for field in &fields.named {
                     if is_skipped(&field.attrs) {
+                        continue;
+                    }
+                    if is_flattened(&field.attrs) {
+                        if skips_when_none(&field.attrs) {
+                            bail!("flattened optional fields are unsupported");
+                        }
+                        flattened.push(map_type(&field.ty, &mut dependencies)?);
                         continue;
                     }
                     let Some(ident) = &field.ident else {
@@ -264,7 +272,12 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                         property_key(&field_name)
                     ));
                 }
-                members.push(format!("{{\n{}\n    }}", lines.join("\n")));
+                let object = format!("{{\n{}\n    }}", lines.join("\n"));
+                if flattened.is_empty() {
+                    members.push(object);
+                } else {
+                    members.push(format!("{object} & {}", flattened.join(" & ")));
+                }
             }
             _ => bail!(
                 "variant {}::{} has an unsupported shape",

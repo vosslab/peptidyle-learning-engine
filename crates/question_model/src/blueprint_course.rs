@@ -561,7 +561,8 @@ mod tests {
     use crate::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
         QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionAvailability,
-        QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
+        QuestionRevisionNumber, QuestionRevisionReference, QuestionStatistics, QuestionSummary,
+        QuestionType, Timestamp,
     };
     use uuid::Uuid;
 
@@ -630,6 +631,10 @@ mod tests {
         QuestionSearchResult {
             summary: QuestionSummary {
                 question_id: question_id(),
+                latest_question_revision: QuestionRevisionReference {
+                    question_id: question_id(),
+                    revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
+                },
                 backend: QuestionBackend::Ple,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),

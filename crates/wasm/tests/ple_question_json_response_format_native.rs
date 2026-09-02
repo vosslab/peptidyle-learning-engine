@@ -12,13 +12,13 @@ mod ple_question_json_response_format_fixture_set;
 #[test]
 fn ple_question_json_public_response_corpus_matches_native_bridge() {
     for case in ple_question_json_response_format_fixture_set::cases() {
-        let report = wasm_bridge::validate_response_format(
+        let check = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),
             &serde_json::to_string(&case.response).expect("response serializes"),
         )
         .expect("fixture has a valid public response shape");
-        let actual: Value = serde_json::from_str(&report).expect("bridge report is JSON");
-        assert_eq!(actual, case.expected_report, "native case {}", case.name);
+        let actual: Value = serde_json::from_str(&check).expect("bridge check is JSON");
+        assert_eq!(actual, case.expected_check, "native case {}", case.name);
     }
 }
 

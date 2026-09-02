@@ -80,6 +80,23 @@ pub(super) fn is_skipped(attrs: &[Attribute]) -> bool {
     skipped
 }
 
+/// Whether a field's serializable object members are merged into its parent.
+pub(super) fn is_flattened(attrs: &[Attribute]) -> bool {
+    let mut flattened = false;
+    for attr in attrs {
+        if !attr.path().is_ident("serde") {
+            continue;
+        }
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("flatten") {
+                flattened = true;
+            }
+            Ok(())
+        });
+    }
+    flattened
+}
+
 pub(super) fn skips_when_none(attrs: &[Attribute]) -> bool {
     serde_string_value(attrs, "skip_serializing_if").is_some_and(|value| value == "Option::is_none")
 }

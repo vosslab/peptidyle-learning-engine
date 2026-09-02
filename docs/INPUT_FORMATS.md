@@ -54,8 +54,9 @@ resolved answer to `/render-api`; the browser receives only the typed PLE presen
 and submits a PLE response. The four reviewed Chapter 1 sources are the current evidence boundary.
 See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
-iMathAS is likewise a provider/broker boundary, not a file format. Its verified launch and result
-tokens remain server-private; no generic hosted MyOpenMath import is accepted.
+iMathAS is a PLE-managed Question Backend, not a file format. Its Remote Question Backend Launch
+and Result Verification tokens remain server-private; no unverified hosted MyOpenMath import is
+accepted.
 
 ## Roster CSV import
 

@@ -1,4 +1,4 @@
-# MOD-ADP-IMATHAS: immutable-source, server-brokered iMathAS adapter.
+# MOD-ADP-IMATHAS: immutable-source, server-managed iMathAS adapter.
 [package]
 name = "adapter_imathas"
 version.workspace = true
@@ -9,7 +9,7 @@ rust-version.workspace = true
 default = []
 # Local/dev server tests only. Production composition must not enable this.
 test-support = []
-# Adapter-owned private provider client. Server composition must opt in.
+# Adapter-owned private iMathAS transport client. Server composition must opt in.
 http-transport = ["dep:reqwest"]
 
 [dependencies]

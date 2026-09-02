@@ -105,7 +105,7 @@ entries retain the acting `AccountId` and distinguish who performed the action.
 | Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student projection in own course | No general course authority                                 |
 | Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                      | No general FERPA authority                                  |
 | Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                             | Narrow audited roster support only where separately granted |
-| Create or publish a question                                    | Allow for active Instructor Account        | Allow for active Instructor Account        | No                                             | Platform operation only when separately authorized          |
+| Create or publish a question                                    | Allow for active Instructor Account       | Allow for active Instructor Account       | No                                             | Platform operation only when separately authorized          |
 
 Course Invitation, acceptance, update, and revocation are atomic,
 audited course-membership operations. Invitation acceptance verifies the target
@@ -320,7 +320,7 @@ camelCase contracts and reject unknown fields:
 
 | Data object            | Browser fields                                                                                                                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuestionSummary`      | `questionId`, `backend`, `questionType`, `capabilities`, `metadata`, `authorship`, `availability`, `publishedAt`                                                                                                                       |
+| `QuestionSummary`      | `questionId`, `latestQuestionRevision`, `backend`, `questionType`, `capabilities`, `metadata`, `authorship`, `availability`, `publishedAt`                                                                                             |
 | `QuestionStatistics`   | Insufficient: `state`; available: `state`, `formulaVersion`, `observedCourseCount`, `independentLearnerObservationCount`, `difficultyIndex`, `attemptsMean`, `timeMedianSecondsEstimate`, optional `discriminationIndex`, `evidenceAt` |
 | `QuestionSearchResult` | `summary`, `evidence`                                                                                                                                                                                                                  |
 | `QuestionUseSummary`   | `globalCourseCount`, `globalAssignmentCount`, `ownCourseCount`, `ownAssignmentCount`                                                                                                                                                   |

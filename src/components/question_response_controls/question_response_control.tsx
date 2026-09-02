@@ -3,7 +3,7 @@
 import type { JSX } from "solid-js";
 
 import { QUESTION_RESPONSE_CONTROL_STYLES } from "../question_response_control_styles";
-import { ExternalToolResponse } from "./external_tool";
+import { ImathasQuestionBackendResponse } from "./imathas_question_backend";
 import { HotspotResponse } from "./hotspot";
 import { MatchingResponse } from "./matching";
 import { MultipleChoiceResponse as MultipleChoiceController } from "./multiple_choice";
@@ -20,7 +20,10 @@ export {
   type MultipleChoiceResponseProps,
   type QuestionResponseControlProps,
 } from "./common";
-export { isExternalToolReadyMessage, isSafeExternalToolLaunchPath } from "./external_tool";
+export {
+  isImathasQuestionBackendReadyMessage,
+  isSafeImathasQuestionBackendLaunchPath,
+} from "./imathas_question_backend";
 export { handleQuestionResponseControlKeyDown } from "./keyboard";
 
 /** Standalone multiple-choice entry point retained for the reference run screen. */
@@ -120,15 +123,15 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
         />
       );
       break;
-    case "externalTool":
+    case "imathasQuestionBackend":
       body = (
-        <ExternalToolResponse
+        <ImathasQuestionBackendResponse
           attemptId={props.attemptId}
           onSubmit={props.onSubmit}
           onEscape={props.onEscape}
           onResponseChange={props.onResponseChange}
           studentWorkRoute={props.studentWorkRoute}
-          beginExternalToolLaunch={props.beginExternalToolLaunch}
+          beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
         />
       );
       break;

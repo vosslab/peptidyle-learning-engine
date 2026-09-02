@@ -34,11 +34,11 @@ pub fn bridge_version() -> String {
 ///
 /// Inputs and output use the same JSON shapes as the generated browser API.
 /// Malformed JSON raises a JavaScript error; a well-formed but invalid student
-/// response returns every safe format violation.
+/// response returns every safe format issue.
 ///
 /// # Errors
 ///
-/// Returns a JavaScript error when either input is malformed or the report
+/// Returns a JavaScript error when either input is malformed or the check
 /// cannot be serialized.
 #[wasm_bindgen]
 pub fn validate_response_format(
@@ -51,9 +51,15 @@ pub fn validate_response_format(
         })?;
     let response: StudentResponse = serde_json::from_str(response_json)
         .map_err(|error| JsValue::from_str(&format!("invalid student response: {error}")))?;
-    let report = validation::validate_response_format(&definition, &response);
-    serde_json::to_string(&report)
-        .map_err(|error| JsValue::from_str(&format!("could not serialize format report: {error}")))
+    // Typed domain deserialization keeps this browser boundary allow-listed and
+    // answer-free before trusted validation evaluates the response shape
+    // (ASVS 1.5.2, 2.2.1).
+    let check = validation::validate_response_format(&definition, &response);
+    serde_json::to_string(&check).map_err(|error| {
+        JsValue::from_str(&format!(
+            "could not serialize Student Response Format Check: {error}"
+        ))
+    })
 }
 
 /// Evaluates one server-authored timer record without reading a browser clock.
@@ -148,13 +154,13 @@ mod tests {
 
     #[test]
     fn format_validation_delegates_to_the_key_free_domain_module() {
-        let report = validate_response_format(
+        let check = validate_response_format(
             r#"{"kind":"shortText","matchMode":"normalized","maxLength":20}"#,
             r#"{"kind":"shortText","text":"peptide"}"#,
         )
-        .expect("valid JSON should produce a report");
+        .expect("valid JSON should produce a Student Response Format Check");
 
-        assert_eq!(report, r#"{"violations":[]}"#);
+        assert_eq!(check, r#"{"issues":[]}"#);
     }
 
     #[test]

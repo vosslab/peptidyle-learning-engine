@@ -92,6 +92,7 @@ function publicDefinition(includeVersion = false) {
 function publicationSummary(backend = "ple") {
   return {
     questionId: "7K3-M9QP",
+    latestQuestionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
     backend,
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],

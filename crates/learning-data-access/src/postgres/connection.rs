@@ -26,6 +26,8 @@ const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
 pub enum ProductionLoginProfile {
     /// Browser/API process: course data plus passwordless account sessions.
     Api,
+    /// Remote Question Backend grading worker: claim and commit procedures only.
+    RemoteQuestionBackendGradingWorker,
 }
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {
@@ -330,7 +332,7 @@ pub(super) fn map_sqlx_error(error: sqlx::Error) -> StoreError {
     {
         return mapped;
     }
-    StoreError::Unavailable("database operation failed".to_string())
+    StoreError::Unavailable(format!("database operation failed: {error}"))
 }
 
 fn map_database_error(code: Option<&str>, constraint: Option<&str>) -> Option<StoreError> {

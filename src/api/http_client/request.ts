@@ -692,8 +692,8 @@ export function createRequestClient(
     ): ReturnType<ApiClient["submitResponse"]> => {
       const decoded = decodeStudentResponse(response, "request.response");
       const path =
-        decoded.kind === "externalTool"
-          ? `${studentAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch/submission`
+        decoded.kind === "imathasQuestionBackend"
+          ? `${studentAttemptPath(courseId, assignmentId, attemptId)}/imathas-question-backend/launch/submission`
           : `${studentAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
       const status = await requestJson(
         fetchImplementation,

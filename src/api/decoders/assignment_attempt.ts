@@ -39,18 +39,12 @@ import type {
   AssignmentAttemptSummaryResponse,
   SignedOutResponse,
 } from "../contracts";
-import type {
-  CapabilityViolation,
-  StudentResponseFormatCheck,
-  StudentResponseFormatIssue,
-  QuestionAttemptTimingDecision,
-} from "../../wasm/index";
+import type { CapabilityViolation, QuestionAttemptTimingDecision } from "../../wasm/index";
 import {
   DecodeError,
   decodeArray,
   decodeBoolean,
   decodeFiniteNumber,
-  decodeNonemptyString,
   decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
@@ -71,11 +65,9 @@ import {
   decodeQuestionClassification,
   decodeTimestamp,
   field,
-  kind,
   requireOnlyFields,
 } from "./shared";
 import { decodeStudentAssignmentLandingSummary } from "./question_library";
-import { decodeResponseSelectionRule } from "./question_model";
 import {
   decodeGradingResult,
   decodeStudentFeedback,
@@ -722,65 +714,6 @@ export function decodeAttemptPage(
   path = "response",
 ): CursorPage<StudentQuestionAttempt> {
   return decodeCursorPage(value, path, decodeStudentQuestionAttempt);
-}
-
-function decodeStudentResponseFormatIssue(
-  value: unknown,
-  path: string,
-): StudentResponseFormatIssue {
-  const record = decodeRecord(value, path);
-  const violation = kind(record, path);
-  switch (violation) {
-    case "responseKindMismatch":
-    case "numericNotFinite":
-    case "orderingItemsMismatch":
-    case "missingUploadReference":
-      return { kind: violation };
-    case "selectionCount": {
-      const decoded = {
-        kind: violation,
-        expected: decodeResponseSelectionRule(field(record, "expected", path), `${path}.expected`),
-        actual: decodeNonnegativeInteger(field(record, "actual", path), `${path}.actual`),
-      } satisfies StudentResponseFormatIssue;
-      return decoded;
-    }
-    case "duplicateChoice":
-    case "unknownChoice": {
-      const decoded = {
-        kind: violation,
-        choice: decodeNonemptyString(field(record, "choice", path), `${path}.choice`),
-      } satisfies StudentResponseFormatIssue;
-      return decoded;
-    }
-    case "textTooLong": {
-      const decoded = {
-        kind: violation,
-        maxLength: decodeNonnegativeInteger(field(record, "maxLength", path), `${path}.maxLength`),
-        actualLength: decodeNonnegativeInteger(
-          field(record, "actualLength", path),
-          `${path}.actualLength`,
-        ),
-      } satisfies StudentResponseFormatIssue;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known response-format violation");
-  }
-}
-
-export function decodeStudentResponseFormatCheck(
-  value: unknown,
-  path = "response",
-): StudentResponseFormatCheck {
-  const record = decodeRecord(value, path);
-  const decoded = {
-    violations: decodeArray(
-      field(record, "violations", path),
-      `${path}.violations`,
-      decodeStudentResponseFormatIssue,
-    ),
-  } satisfies StudentResponseFormatCheck;
-  return decoded;
 }
 
 export function decodeQuestionAttemptTimingDecision(

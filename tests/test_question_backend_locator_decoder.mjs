@@ -12,17 +12,17 @@ test("Question Backend Locator accepts locations while refusing Question Source 
     decodeQuestionBackendLocator(
       {
         backend: "imathas",
-        provider: "recorded-provider",
-        itemRef: "item-17",
-        integrationProfile: "recorded-v1",
+        deploymentReference: "recorded-imathas",
+        itemReference: "item-17",
+        profile: "recorded-v1",
       },
       "locator",
     ),
     {
       backend: "imathas",
-      provider: "recorded-provider",
-      itemRef: "item-17",
-      integrationProfile: "recorded-v1",
+      deploymentReference: "recorded-imathas",
+      itemReference: "item-17",
+      profile: "recorded-v1",
     },
   );
   for (const sourceReference of [
@@ -34,13 +34,24 @@ test("Question Backend Locator accepts locations while refusing Question Source 
     },
     {
       backend: "imathas",
-      provider: "recorded-provider",
-      itemRef: "item-17",
-      integrationProfile: "recorded-v1",
+      deploymentReference: "recorded-imathas",
+      itemReference: "item-17",
+      profile: "recorded-v1",
       snapshot: "00000000-0000-0000-0000-000000000017",
       snapshotSha256: "a".repeat(64),
     },
   ]) {
     assert.throws(() => decodeQuestionBackendLocator(sourceReference, "locator"));
   }
+  assert.throws(() =>
+    decodeQuestionBackendLocator(
+      {
+        backend: "imathas",
+        deploymentReference: "https://untrusted.example",
+        itemReference: "item..17",
+        profile: "imathas_remote_grading_v1",
+      },
+      "locator",
+    ),
+  );
 });

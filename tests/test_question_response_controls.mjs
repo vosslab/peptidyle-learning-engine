@@ -8,8 +8,8 @@ import { createRoot } from "solid-js";
 import {
   createSubmissionController,
   handleQuestionResponseControlKeyDown,
-  isExternalToolReadyMessage,
-  isSafeExternalToolLaunchPath,
+  isRemoteQuestionBackendReadyMessage,
+  isSafeRemoteQuestionBackendLaunchPath,
   numericResponseFromInput,
   validateResponseLocally,
 } from "../src/components/question_response_controls/question_response_control.tsx";
@@ -23,7 +23,7 @@ test("invalid input is locally checked and issues no submission request", async 
     mode: "wasm",
     validateResponseFormat: async () => {
       validationCalls += 1;
-      return { violations: [{ kind: "numericNotFinite" }] };
+      return { issues: [{ kind: "numericNotFinite" }] };
     },
   };
   const response = {
@@ -42,12 +42,12 @@ test("invalid input is locally checked and issues no submission request", async 
       },
     }),
   );
-  const report = await validateResponseLocally(validator, numericDefinition, response);
+  const check = await validateResponseLocally(validator, numericDefinition, response);
   await controller.validate(response);
   await controller.submit(response);
 
   assert.equal(validationCalls, 3);
-  assert.equal(report.violations[0]?.kind, "numericNotFinite");
+  assert.equal(check.issues[0]?.kind, "numericNotFinite");
   assert.equal(submitCalls, 0);
   assert.equal(controller.phase().kind, "invalid");
 });
@@ -62,7 +62,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
       validationCalls += 1;
       assert.equal(candidate.kind, "numeric");
       assert.equal(Number.isNaN(candidate.value), true);
-      return { violations: [{ kind: "numericNotFinite" }] };
+      return { issues: [{ kind: "numericNotFinite" }] };
     },
   };
   const controller = createRoot(() =>
@@ -107,7 +107,7 @@ test("initial controlled responses are checked before a student edits them", asy
           mode: "wasm",
           validateResponseFormat: async (_definition, response) => {
             assert.deepEqual(response, initialOrder);
-            return { violations: [] };
+            return { issues: [] };
           },
         },
         onEscape: () => undefined,
@@ -135,7 +135,7 @@ test("initial controlled responses are checked before a student edits them", asy
         validator: {
           mode: "wasm",
           validateResponseFormat: async () => ({
-            violations: [{ kind: "orderingItemsMismatch" }],
+            issues: [{ kind: "orderingItemsMismatch" }],
           }),
         },
         onEscape: () => undefined,
@@ -165,7 +165,7 @@ test("a fresh issued empty response stays neutral until the student interacts", 
           mode: "wasm",
           validateResponseFormat: async () => {
             validationCalls += 1;
-            return { violations: [{ kind: "numericNotFinite" }] };
+            return { issues: [{ kind: "numericNotFinite" }] };
           },
         },
         onEscape: () => undefined,
@@ -222,12 +222,12 @@ test("local validation is key-free and preserves a ready response for the attemp
     validateResponseFormat: async (definition, candidate) => {
       assert.equal(definition, numericDefinition);
       assert.deepEqual(candidate, response);
-      return { violations: [] };
+      return { issues: [] };
     },
   };
 
   assert.deepEqual(await validateResponseLocally(validator, numericDefinition, response), {
-    violations: [],
+    issues: [],
   });
 });
 
@@ -239,7 +239,7 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
   let submitCalls = 0;
   const validator = {
     mode: "wasm",
-    validateResponseFormat: async () => ({ violations: [] }),
+    validateResponseFormat: async () => ({ issues: [] }),
   };
   const controller = createRoot(() =>
     createSubmissionController({
@@ -283,7 +283,7 @@ test("reset replaces a stale format check with the restored local response witho
         validateResponseFormat: async (_definition, response) => {
           seen.push(response.value);
           if (response.value === 9) return firstValidation;
-          return { violations: [] };
+          return { issues: [] };
         },
       },
       onEscape: () => undefined,
@@ -296,7 +296,7 @@ test("reset replaces a stale format check with the restored local response witho
 
   const stale = controller.validate({ kind: "numeric", value: 9 });
   await controller.reset({ kind: "numeric", value: 3 });
-  resolveFirst({ violations: [{ kind: "numericNotFinite" }] });
+  resolveFirst({ issues: [{ kind: "numericNotFinite" }] });
   await stale;
 
   assert.deepEqual(seen, [9, 3]);
@@ -313,7 +313,7 @@ test("a rejected submission keeps the response editable for a corrected resubmis
       definition: numericDefinition,
       validator: {
         mode: "wasm",
-        validateResponseFormat: async () => ({ violations: [] }),
+        validateResponseFormat: async () => ({ issues: [] }),
       },
       onEscape: () => undefined,
       onSubmit: async (response) => {
@@ -343,26 +343,29 @@ test("a rejected submission keeps the response editable for a corrected resubmis
   assert.deepEqual(submitted, [refused, corrected]);
 });
 
-test("external-tool readiness and route values admit only the narrow browser contract", () => {
+test("remote-question-backend readiness and route values admit only the narrow browser contract", () => {
   const courseId = "course-external";
   const assignmentId = "assignment-external";
   const attemptId = "attempt-external";
   assert.equal(
-    isExternalToolReadyMessage({ kind: "ple.externalTool.ready", attemptId }, attemptId),
+    isRemoteQuestionBackendReadyMessage(
+      { kind: "ple.remoteQuestionBackend.ready", attemptId },
+      attemptId,
+    ),
     true,
   );
   for (const message of [
-    { kind: "ple.externalTool.ready", attemptId: "other-attempt" },
-    { kind: "ple.externalTool.ready", attemptId, score: 1 },
-    { kind: "ple.externalTool.ready", attemptId, provider: "foreign" },
-    { kind: "ple.externalTool.complete", attemptId },
+    { kind: "ple.remoteQuestionBackend.ready", attemptId: "other-attempt" },
+    { kind: "ple.remoteQuestionBackend.ready", attemptId, score: 1 },
+    { kind: "ple.remoteQuestionBackend.ready", attemptId, provider: "foreign" },
+    { kind: "ple.remoteQuestionBackend.complete", attemptId },
   ]) {
-    assert.equal(isExternalToolReadyMessage(message, attemptId), false);
+    assert.equal(isRemoteQuestionBackendReadyMessage(message, attemptId), false);
   }
   const origin = "https://client.example.test";
   assert.equal(
-    isSafeExternalToolLaunchPath(
-      "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/external-tool/launch",
+    isSafeRemoteQuestionBackendLaunchPath(
+      "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/remote-question-backend/launch",
       courseId,
       assignmentId,
       attemptId,
@@ -371,7 +374,7 @@ test("external-tool readiness and route values admit only the narrow browser con
     true,
   );
   const expected =
-    "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/external-tool/launch";
+    "/api/courses/course-external/assignments/assignment-external/attempts/attempt-external/remote-question-backend/launch";
   for (const unsafe of [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
@@ -383,10 +386,10 @@ test("external-tool readiness and route values admit only the narrow browser con
     `${expected}#fragment`,
     expected.replace("courses/course-external", "courses/../foreign"),
     expected.replace("courses/course-external", "courses/%2e%2e/foreign"),
-    expected.replace("/external-tool/", "\\external-tool\\"),
+    expected.replace("/remote-question-backend/", "\\remote-question-backend\\"),
   ]) {
     assert.equal(
-      isSafeExternalToolLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
+      isSafeRemoteQuestionBackendLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
       false,
       unsafe,
     );

@@ -20,14 +20,14 @@ fn committed_seed_vectors_match_browser_generation() {
 #[wasm_bindgen_test]
 fn ple_question_json_public_response_corpus_matches_browser_wasm() {
     for case in ple_question_json_response_format_fixture_set::cases() {
-        let report = wasm_bridge::validate_response_format(
+        let check = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),
             &serde_json::to_string(&case.response).expect("response serializes"),
         )
         .expect("public fixture shape is valid");
         assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&report).expect("report is JSON"),
-            case.expected_report,
+            serde_json::from_str::<serde_json::Value>(&check).expect("check is JSON"),
+            case.expected_check,
             "browser Wasm case {}",
             case.name
         );

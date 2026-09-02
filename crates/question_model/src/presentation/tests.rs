@@ -16,7 +16,7 @@ use super::builder::{
 };
 use super::codec::{crc16_ccitt_false, descriptor_bytes};
 use super::{
-    InspectedExternalToolState, QuestionPresentationBinding, QuestionPresentationNonce,
+    InspectedImathasQuestionBackendState, QuestionPresentationBinding, QuestionPresentationNonce,
     QuestionPresentationResponseFormat, QuestionPresentationToken,
     RenderedResponseTranslationError, ResponseItemRole, StudentAttemptDescriptor,
     StudentResponseInspection, project_durable_response_to_rendered,
@@ -443,7 +443,7 @@ fn rendered_response_translation_preserves_scalar_question_types() {
             text: "alpha".to_owned(),
         },
         StudentResponse::Hotspot { selections: vec![] },
-        StudentResponse::ExternalTool {},
+        StudentResponse::ImathasQuestionBackend {},
     ] {
         assert_eq!(
             translate_rendered_response(&response, &presentation).expect("scalar response"),
@@ -530,9 +530,12 @@ fn durable_response_projection_uses_only_issued_rendered_identifiers_and_safe_st
         })
     );
     assert_eq!(
-        project_durable_response_to_rendered(&StudentResponse::ExternalTool {}, &multiple),
-        Ok(StudentResponseInspection::ExternalTool {
-            completion: InspectedExternalToolState::SubmissionRecorded
+        project_durable_response_to_rendered(
+            &StudentResponse::ImathasQuestionBackend {},
+            &multiple
+        ),
+        Ok(StudentResponseInspection::ImathasQuestionBackend {
+            completion: InspectedImathasQuestionBackendState::SubmissionRecorded
         })
     );
 }

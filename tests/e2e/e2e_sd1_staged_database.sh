@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # e2e_sd1_staged_database.sh - disposable SD1 PostgreSQL staging acceptance.
-# The public entry point delegates the lease, private manifest, and fixed
-# Compose ownership to local_stack_control.sd1_staged_database_owner. The private child owns only this PostgreSQL 17 oracle.
+# The public entry point delegates the lease, private manifest, and fixed Compose ownership to local_stack_control.sd1_staged_database_owner; the private child owns only this PostgreSQL 17 oracle.
 set -euo pipefail
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$script_directory/../.." && pwd -P)"
@@ -34,29 +33,18 @@ fail() {
 require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
 }
-compose() {
-	(
-		cd "$REPO_ROOT"
-		python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"
-	)
-}
+compose() { (cd "$REPO_ROOT"; python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"); }
 capture_postgres_volume() {
 	local container_ids container_id volume_projects
-	container_ids="$(podman ps -aq \
-		--filter "label=io.podman.compose.project=$PROJECT_NAME" \
-		--filter 'label=io.podman.compose.service=postgres')"
+	container_ids="$(podman ps -aq --filter "label=io.podman.compose.project=$PROJECT_NAME" --filter 'label=io.podman.compose.service=postgres')"
 	if [ "$(printf '%s\n' "$container_ids" | sed '/^$/d' | wc -l | tr -d ' ')" -ne 1 ]; then
 		fail "could not resolve exactly one labelled PostgreSQL container"
 	fi
 	container_id="$container_ids"
-	postgres_volume_name="$(podman inspect --format \
-		'{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' \
-		"$container_id")"
+	postgres_volume_name="$(podman inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$container_id")"
 	[ -n "$postgres_volume_name" ] || fail "PostgreSQL container has no data volume"
-	podman volume inspect "$postgres_volume_name" >/dev/null 2>&1 || \
-		fail "captured PostgreSQL volume is unavailable"
-	volume_projects="$(podman volume inspect "$postgres_volume_name" --format \
-		'{{index .Labels "io.podman.compose.project"}}|{{index .Labels "com.docker.compose.project"}}')"
+	podman volume inspect "$postgres_volume_name" >/dev/null 2>&1 || fail "captured PostgreSQL volume is unavailable"
+	volume_projects="$(podman volume inspect "$postgres_volume_name" --format '{{index .Labels "io.podman.compose.project"}}|{{index .Labels "com.docker.compose.project"}}')"
 	case "$volume_projects" in
 		*'|containers|'* | 'containers|'* | *'|containers')
 			fail "refused to claim the ordinary containers volume"
@@ -68,10 +56,7 @@ cleanup() {
 	local status="$?"
 	local cleanup_failed=0
 	if [ "$compose_started" = "1" ]; then
-		(
-			cd "$REPO_ROOT"
-			python3 -m local_stack_control.disposable_stack_command cleanup --manifest "$RUNTIME_MANIFEST_PATH"
-		) || cleanup_failed=1
+		(cd "$REPO_ROOT"; python3 -m local_stack_control.disposable_stack_command cleanup --manifest "$RUNTIME_MANIFEST_PATH") || cleanup_failed=1
 	fi
 	if [ "$cleanup_failed" = "0" ]; then
 		if [ -n "$postgres_volume_name" ] && podman volume inspect "$postgres_volume_name" >/dev/null 2>&1; then
@@ -96,14 +81,7 @@ psql_in_container() {
 	shift
 	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$login" "$@"
 }
-run_staged_tool() {
-	(
-		cd "$WORKSPACE"
-		PLE_ACCEPTANCE_RUNTIME_MANIFEST="$SD1_RUNTIME_MANIFEST_PATH" \
-		cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
-			database "$@" --acceptance-runtime
-	)
-}
+run_staged_tool() { (cd "$WORKSPACE"; PLE_ACCEPTANCE_RUNTIME_MANIFEST="$SD1_RUNTIME_MANIFEST_PATH" cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- database "$@" --acceptance-runtime); }
 expect_denied() {
 	local label="$1"
 	shift
@@ -126,6 +104,14 @@ BEGIN
 	IF current_database() <> 'ple_e2e_baseline' THEN
 		RAISE EXCEPTION 'oracle connected to an unexpected database';
 	END IF;
+	IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name IN ('question_attempt_id', 'imathas_deployment_reference', 'imathas_item_reference', 'imathas_profile', 'question_seed', 'qualified_launch_binding_digest', 'remote_question_backend_state_key_id', 'remote_question_backend_state_nonce', 'remote_question_backend_state_ciphertext') AND is_nullable = 'NO') <> 9
+		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'attempt_id')
+		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_result_token_sha256')
+		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_result_exchange' AND column_name = 'remote_question_backend_result_token_sha256' AND data_type = 'bytea' AND is_nullable = 'YES') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND pg_get_constraintdef(oid) LIKE '%octet_length(remote_question_backend_result_token_sha256) = 32%')
+		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_session'::regclass AND conname = 'remote_question_backend_session_state_key_nonce_is_unique')
+		OR (SELECT count(*) FROM pg_proc proc JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace JOIN pg_roles owner_role ON owner_role.oid = proc.proowner WHERE namespace.nspname = 'ple_api' AND proc.proname IN ('create_remote_question_backend_session', 'load_remote_question_backend_session', 'lease_remote_question_backend_session', 'stage_verified_remote_question_backend_result') AND owner_role.rolname = 'ple_api_owner' AND proc.prosecdef AND array_to_string(proc.proconfig, ',') LIKE 'search_path=pg_catalog,%' AND has_function_privilege('ple_app', proc.oid, 'EXECUTE') AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 4 THEN
+		RAISE EXCEPTION 'Remote Question Backend Session Store schema/API boundary is incomplete';
+	END IF;
 	IF (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()) <> 'ple_database_owner' THEN
 		RAISE EXCEPTION 'database owner is not ple_database_owner';
 	END IF;
@@ -137,10 +123,7 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'ple_migrator attributes are not exact';
 	END IF;
-	FOREACH role_name IN ARRAY ARRAY[
-		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
-	] LOOP
+	FOREACH role_name IN ARRAY ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
 			AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
@@ -152,23 +135,25 @@ BEGIN
 	END LOOP;
 	SELECT count(*)::integer INTO role_count
 	FROM pg_roles
-	WHERE rolname = ANY (ARRAY[
-		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
-	]);
-	IF role_count <> 8 THEN
+	WHERE rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker']);
+	IF role_count <> 9 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
+	END IF;
+	IF NOT has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_api', 'USAGE')
+		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_private', 'USAGE')
+		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_data', 'USAGE')
+		OR has_schema_privilege('ple_remote_question_backend_grading_worker', 'ple_audit', 'USAGE')
+		OR NOT has_function_privilege('ple_remote_question_backend_grading_worker', 'ple_api.claim_remote_question_backend_result_grading_job(uuid,uuid,timestamp with time zone)', 'EXECUTE')
+		OR NOT has_function_privilege('ple_remote_question_backend_grading_worker', 'ple_api.commit_remote_question_backend_result_grading(uuid,uuid,timestamp with time zone)', 'EXECUTE') THEN
+		RAISE EXCEPTION 'Remote Question Backend grading worker capability is not execute-only';
 	END IF;
 	SELECT count(*)::integer INTO membership_count
 	FROM pg_auth_members membership
 	JOIN pg_roles member ON member.oid = membership.member
 	JOIN pg_roles parent ON parent.oid = membership.roleid
 	WHERE member.rolname = 'ple_migrator'
-	AND parent.rolname = ANY (ARRAY[
-		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
-	]);
-	IF membership_count <> 12 THEN
+	AND parent.rolname = ANY (ARRAY['ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker']);
+	IF membership_count <> 13 THEN
 		RAISE EXCEPTION 'unexpected membership count: %', membership_count;
 	END IF;
 	SELECT string_agg(
@@ -201,10 +186,7 @@ BEGIN
 	)
 	AND NOT (
 		member.rolname = 'ple_migrator'
-		AND parent.rolname = ANY (ARRAY[
-			'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-			'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
-		])
+		AND parent.rolname = ANY (ARRAY['ple_data_owner', 'ple_private_owner', 'ple_audit_owner', 'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'])
 		AND grantor.rolname = 'ple_e2e_migrator'
 		AND NOT membership.inherit_option
 		AND NOT membership.set_option AND membership.admin_option
@@ -531,13 +513,27 @@ BEGIN
 		) THEN
 		RAISE EXCEPTION 'Grading Result does not bind one Question Submission grading lifecycle, Job, and receipt';
 	END IF;
-	IF to_regclass('ple_private.course_object_metadata') IS NOT NULL OR to_regclass('ple_private.course_object_reference') IS NULL OR to_regclass('ple_private.external_tool_provider_cache') IS NOT NULL OR to_regclass('ple_private.external_question_provider_cache_entry') IS NULL OR to_regclass('ple_private.external_tool_passback_state') IS NOT NULL OR to_regclass('ple_private.lti_grade_return') IS NULL OR to_regclass('ple_private.course_retention_plan') IS NOT NULL OR to_regclass('ple_audit.retention_lifecycle_event') IS NOT NULL OR to_regclass('ple_private.course_retention_plan_revision') IS NULL OR to_regclass('ple_audit.course_retention_event') IS NULL OR to_regclass('ple_private.webauthn_ceremony') IS NOT NULL OR to_regclass('ple_private.passkey_ceremony') IS NULL OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('external_tool_launch_session', 'external_tool_exchange') AND column_name = 'provider_key') OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'external_tool_launch_session' AND column_name = 'external_tool_launch_session_authentication' AND is_nullable = 'NO') OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'external_tool_launch_session' AND column_name = 'external_tool_launch_challenge' AND is_nullable = 'NO') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'external_tool_exchange' AND column_name IN ('attempt_id', 'course_id', 'assignment_id', 'account_id', 'provider_reference', 'question_id', 'revision_number', 'source_object_id', 'source_object_checksum', 'integration_profile', 'response_sha256', 'correlation')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.external_tool_exchange'::regclass AND conname = 'external_tool_exchange_launch_session_matches') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'lti_grade_return' AND column_name = 'question_attempt_id') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.lti_grade_return'::regclass AND conname = 'lti_grade_return_launch_session_matches') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('assignment_export_request', 'assignment_export_artifact') AND column_name IN ('export_id', 'artifact_kind', 'state')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.external_tool_exchange'::regclass AND conname = 'external_tool_exchange_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.lti_grade_return'::regclass AND conname = 'lti_grade_return_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_course_retention_plan_revision_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_assignment_export_matches') OR EXISTS (
+	IF to_regclass('ple_private.course_object_metadata') IS NOT NULL OR to_regclass('ple_private.course_object_reference') IS NULL OR to_regclass('ple_private.imathas_render_cache_entry') IS NULL OR to_regclass('ple_private.course_retention_plan') IS NOT NULL OR to_regclass('ple_audit.retention_lifecycle_event') IS NOT NULL OR to_regclass('ple_private.course_retention_plan_revision') IS NULL OR to_regclass('ple_audit.course_retention_event') IS NULL OR to_regclass('ple_private.webauthn_ceremony') IS NOT NULL OR to_regclass('ple_private.passkey_ceremony') IS NULL OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_session_authentication' AND is_nullable = 'NO') OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_session' AND column_name = 'remote_question_backend_session_challenge' AND is_nullable = 'NO') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'remote_question_backend_result_exchange' AND column_name IN ('attempt_id', 'course_id', 'assignment_id', 'account_id', 'imathas_deployment_reference', 'question_id', 'revision_number', 'source_object_id', 'source_object_checksum', 'imathas_profile', 'remote_question_backend_response_sha256', 'correlation')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND conname = 'remote_question_backend_result_exchange_session_matches') OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name IN ('assignment_export_request', 'assignment_export_artifact') AND column_name IN ('export_id', 'artifact_kind', 'state')) OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.remote_question_backend_result_exchange'::regclass AND conname = 'remote_question_backend_result_exchange_state_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_course_retention_plan_revision_matches') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.job'::regclass AND conname = 'job_assignment_export_matches') OR EXISTS (
 			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name IN ('scope', 'owner_student_record_id', 'sha256') ) OR NOT EXISTS (
 			SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'course_object_reference' AND column_name = 'object_checksum' AND is_nullable = 'NO'
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_audit.object_delivery_access_event'::regclass AND conname = 'object_delivery_access_event_decision_is_closed'
 		) THEN
-		RAISE EXCEPTION 'Course Object Reference, External Question Provider Cache Entry, or Object Delivery Access Event lacks its exact boundary';
+		RAISE EXCEPTION 'Course Object Reference, iMathAS Render Cache Entry, or Object Delivery Access Event lacks its exact boundary';
+	END IF;
+	IF (SELECT count(*) FROM information_schema.columns
+	    WHERE table_schema = 'ple_private' AND table_name = 'imathas_render_cache_entry'
+	      AND column_name IN (
+	          'imathas_deployment_reference', 'question_id', 'revision_number',
+	          'imathas_normalized_question_seed', 'imathas_profile',
+	          'source_payload_digest', 'encrypted_render_data', 'fetched_at', 'expires_at'
+	      ) AND is_nullable = 'NO') <> 9
+	    OR NOT EXISTS (
+	        SELECT 1 FROM pg_constraint
+	        WHERE conrelid = 'ple_private.imathas_render_cache_entry'::regclass
+	          AND conname = 'imathas_render_cache_entry_question_revision_matches'
+	    ) THEN
+		RAISE EXCEPTION 'iMathAS Render Cache Entry does not retain its exact iMathAS render identity';
 	END IF;
 	IF to_regclass('ple_private.account_state_event') IS NULL
 		OR NOT EXISTS (
@@ -755,9 +751,6 @@ BEGIN
 	END IF;
 	END $$;
 SQL
-	local private_question_records_sql
-	private_question_records_sql="$(<"$script_directory/private_question_records.sql")"
-	psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c "$private_question_records_sql"
 }
 legacy_assert_catalog() {
 	echo "SD1 staged database E2E: exact principal, schema, ACL, and membership catalog"
@@ -787,7 +780,7 @@ BEGIN
 	END IF;
 	FOREACH role_name IN ARRAY ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
 	] LOOP
 		IF NOT EXISTS (
 			SELECT 1 FROM pg_roles WHERE rolname = role_name AND NOT rolcanlogin
@@ -802,13 +795,13 @@ BEGIN
 	FROM pg_roles
 	WHERE rolname = ANY (ARRAY[
 		'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
+		'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
 	]);
-	IF role_count <> 8 THEN
+	IF role_count <> 9 THEN
 		RAISE EXCEPTION 'reserved role set is incomplete or duplicated';
 	END IF;
 	SELECT count(*)::integer INTO membership_count FROM pg_auth_members;
-	IF membership_count <> 12 THEN
+	IF membership_count <> 13 THEN
 		RAISE EXCEPTION 'unexpected membership count: %', membership_count;
 	END IF;
 	IF EXISTS (
@@ -821,7 +814,7 @@ BEGIN
 			member.rolname = 'ple_migrator'
 			AND parent.rolname = ANY (ARRAY[
 				'ple_database_owner', 'ple_data_owner', 'ple_private_owner', 'ple_audit_owner',
-				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student'
+				'ple_api_owner', 'ple_app', 'ple_auth', 'ple_student', 'ple_remote_question_backend_grading_worker'
 			])
 			AND grantor.rolname = 'ple_e2e_migrator'
 			AND NOT membership.inherit_option AND NOT membership.set_option AND membership.admin_option
@@ -898,7 +891,21 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'capability role has ambient data-schema usage';
 	END IF;
-END $$; DO $$ BEGIN INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256, issued_at, deadline_at, question_attempt_state, reproduction_details) VALUES ('00000000-0000-0000-0000-00000000f101', '00000000-0000-5000-8000-000000000115', 1, repeat('ab', 32), '2026-01-01 00:00:00+00', NULL, 'open', '{}'::jsonb); INSERT INTO ple_private.assignment_grade_calculation (assignment_grade_calculation_id, student_record_id, assignment_id, calculated_at, grade, generation) VALUES ('00000000-0000-0000-0000-00000000f102', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '2026-01-01 00:00:00+00', '{}'::jsonb, 1); INSERT INTO ple_private.assignment_grade (assignment_grade_id, student_record_id, assignment_id, assignment_grade_calculation_id, selected_at) VALUES ('00000000-0000-0000-0000-00000000f103', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f102', '2026-01-01 00:00:00+00'); BEGIN INSERT INTO ple_private.external_tool_launch_session (launch_session_id, course_id, assignment_id, attempt_id, account_id, provider_reference, question_id, revision_number, source_object_id, source_object_checksum, integration_profile, response_sha256, token_sha256, external_tool_launch_challenge, external_tool_launch_session_authentication, issued_at, expires_at) VALUES ('00000000-0000-0000-0000-00000000f104', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f105', decode(repeat('ab', 32), 'hex'), 'scored-embed', decode(repeat('ab', 32), 'hex'), decode(repeat('ab', 32), 'hex'), decode(repeat('00', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00'); RAISE EXCEPTION 'External Tool Launch Session accepted zero challenge'; EXCEPTION WHEN check_violation THEN NULL; END; BEGIN INSERT INTO ple_private.external_tool_launch_session (launch_session_id, course_id, assignment_id, attempt_id, account_id, provider_reference, question_id, revision_number, source_object_id, source_object_checksum, integration_profile, response_sha256, token_sha256, external_tool_launch_challenge, external_tool_launch_session_authentication, issued_at, expires_at) VALUES ('00000000-0000-0000-0000-00000000f106', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f107', decode(repeat('ab', 32), 'hex'), 'scored-embed', decode(repeat('ab', 32), 'hex'), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to('malformed', 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00'); RAISE EXCEPTION 'External Tool Launch Session accepted malformed authentication'; EXCEPTION WHEN check_violation THEN NULL; END; INSERT INTO ple_private.external_tool_launch_session (launch_session_id, course_id, assignment_id, attempt_id, account_id, provider_reference, question_id, revision_number, source_object_id, source_object_checksum, integration_profile, response_sha256, token_sha256, external_tool_launch_challenge, external_tool_launch_session_authentication, issued_at, expires_at, activity_lease_token_sha256, activity_lease_expires_at) VALUES ('00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f109', decode(repeat('ab', 32), 'hex'), 'scored-embed', decode(repeat('ab', 32), 'hex'), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', decode(repeat('aa', 32), 'hex'), '2026-01-02 00:00:00+00'); INSERT INTO ple_private.external_tool_exchange (launch_session_id, idempotency_key, state, lease_token_sha256, lease_expires_at, created_at, updated_at) VALUES ('00000000-0000-0000-0000-00000000f108', 'launch-auth-oracle', 'verifying', decode(repeat('aa', 32), 'hex'), '2026-01-02 00:00:00+00', '2026-01-01 00:00:00+00', '2026-01-01 00:01:00+00'); UPDATE ple_private.external_tool_exchange SET state = 'ready_to_commit', lease_token_sha256 = NULL, lease_expires_at = NULL, verification_token_sha256 = decode(repeat('bb', 32), 'hex'), external_tool_result = '{}'::jsonb, external_tool_result_checksum = decode(repeat('cc', 32), 'hex'), updated_at = '2026-01-01 00:02:00+00' WHERE launch_session_id = '00000000-0000-0000-0000-00000000f108'; BEGIN UPDATE ple_private.external_tool_exchange SET state = 'verifying', lease_token_sha256 = decode(repeat('aa', 32), 'hex'), lease_expires_at = '2026-01-02 00:00:00+00', verification_token_sha256 = NULL, external_tool_result = NULL, external_tool_result_checksum = NULL, updated_at = '2026-01-01 00:03:00+00' WHERE launch_session_id = '00000000-0000-0000-0000-00000000f108'; RAISE EXCEPTION 'External Tool Exchange accepted backward transition'; EXCEPTION WHEN check_violation THEN NULL; END; BEGIN UPDATE ple_private.external_tool_launch_session SET consumed_at = '2026-01-01 00:03:00+00' WHERE launch_session_id = '00000000-0000-0000-0000-00000000f108'; RAISE EXCEPTION 'External Tool Launch Session accepted replay consumption'; EXCEPTION WHEN check_violation THEN NULL; END; INSERT INTO ple_private.account (account_id, role, created_at) VALUES ('00000000-0000-0000-0000-00000000f110', 'student', '2026-01-01 00:00:00+00'); INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ('00000000-0000-0000-0000-00000000f111', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-00000000f110', '2026-01-01 00:00:00+00'); INSERT INTO ple_private.assignment_grade_calculation (assignment_grade_calculation_id, student_record_id, assignment_id, calculated_at, grade, generation) VALUES ('00000000-0000-0000-0000-00000000f112', '00000000-0000-0000-0000-00000000f111', '00000000-0000-0000-0000-000000000110', '2026-01-01 00:00:00+00', '{}'::jsonb, 1); INSERT INTO ple_private.assignment_grade (assignment_grade_id, student_record_id, assignment_id, assignment_grade_calculation_id, selected_at) VALUES ('00000000-0000-0000-0000-00000000f113', '00000000-0000-0000-0000-00000000f111', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f112', '2026-01-01 00:00:00+00'); BEGIN INSERT INTO ple_private.lti_grade_return (lti_grade_return_id, launch_session_id, assignment_grade_id, delivery_state, lti_grade_return_payload_digest, created_at) VALUES ('00000000-0000-0000-0000-00000000f114', '00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-00000000f113', 'requested', decode(repeat('ab', 32), 'hex'), '2026-01-01 00:03:00+00'); RAISE EXCEPTION 'LTI Grade Return accepted unrelated Assignment Grade'; EXCEPTION WHEN check_violation THEN NULL; END; INSERT INTO ple_private.lti_grade_return (lti_grade_return_id, launch_session_id, assignment_grade_id, delivery_state, lti_grade_return_payload_digest, created_at) VALUES ('00000000-0000-0000-0000-00000000f115', '00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-00000000f103', 'requested', decode(repeat('bc', 32), 'hex'), '2026-01-01 00:03:00+00'); UPDATE ple_private.lti_grade_return SET delivery_state = 'delivered', delivered_at = '2026-01-01 00:04:00+00' WHERE lti_grade_return_id = '00000000-0000-0000-0000-00000000f115'; BEGIN UPDATE ple_private.lti_grade_return SET delivery_state = 'requested', delivered_at = NULL WHERE lti_grade_return_id = '00000000-0000-0000-0000-00000000f115'; RAISE EXCEPTION 'LTI Grade Return accepted backward transition'; EXCEPTION WHEN check_violation THEN NULL; END; END $$;
+END $$;
+DO $$ BEGIN INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256, issued_at, deadline_at, question_attempt_state, reproduction_details) VALUES ('00000000-0000-0000-0000-00000000f101', '00000000-0000-5000-8000-000000000115', 1, repeat('ab', 32), '2026-01-01 00:00:00+00', NULL, 'open', '{}'::jsonb);
+INSERT INTO ple_private.assignment_grade_calculation (assignment_grade_calculation_id, student_record_id, assignment_id, calculated_at, grade, generation) VALUES ('00000000-0000-0000-0000-00000000f102', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '2026-01-01 00:00:00+00', '{}'::jsonb, 1);
+INSERT INTO ple_private.assignment_grade (assignment_grade_id, student_record_id, assignment_id, assignment_grade_calculation_id, selected_at) VALUES ('00000000-0000-0000-0000-00000000f103', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f102', '2026-01-01 00:00:00+00');
+BEGIN INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f104', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-104', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f105', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('00', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-104', decode(repeat('04', 24), 'hex'), decode(repeat('ef', 17), 'hex')); RAISE EXCEPTION 'Remote Question Backend Session accepted zero challenge'; EXCEPTION WHEN check_violation THEN NULL; END;
+BEGIN INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f106', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-106', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f107', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to('malformed', 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', 'key-106', decode(repeat('06', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
+RAISE EXCEPTION 'Remote Question Backend Session accepted malformed authentication';
+EXCEPTION WHEN check_violation THEN NULL;
+END;
+INSERT INTO ple_private.remote_question_backend_session (remote_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference, imathas_item_reference, question_id, revision_number, source_object_id, source_object_checksum, imathas_profile, question_seed, question_grading_rule, question_points_possible, qualified_launch_binding_digest, remote_question_backend_response_sha256, remote_question_backend_session_challenge, remote_question_backend_session_authentication, issued_at, expires_at, activity_lease_token_sha256, activity_lease_expires_at, remote_question_backend_state_key_id, remote_question_backend_state_nonce, remote_question_backend_state_ciphertext) VALUES ('00000000-0000-0000-0000-00000000f108', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-00000000f101', '00000000-0000-0000-0000-000000000101', 'self-hosted-imathas', 'item-108', 'ABC-DEF0', 1, '00000000-0000-0000-0000-00000000f109', decode(repeat('ab', 32), 'hex'), 'imathas_remote_grading_v1', 1, 'all_or_nothing', 1, repeat('ab', 32), decode(repeat('ab', 32), 'hex'), decode(repeat('11', 32), 'hex'), convert_to(repeat('ab', 36) || '.' || repeat('cd', 32), 'UTF8'), '2026-01-01 00:00:00+00', '2026-01-02 00:00:00+00', decode(repeat('aa', 32), 'hex'), '2026-01-02 00:00:00+00', 'key-108', decode(repeat('08', 24), 'hex'), decode(repeat('ef', 17), 'hex'));
+BEGIN UPDATE ple_private.remote_question_backend_session SET consumed_at = '2026-01-01 00:03:00+00' WHERE remote_question_backend_session_id = '00000000-0000-0000-0000-00000000f108';
+RAISE EXCEPTION 'Remote Question Backend Session accepted replay consumption';
+EXCEPTION WHEN check_violation THEN NULL;
+END;
+END $$;
 SQL
 }
 assert_restricted_logins() {
@@ -913,12 +920,9 @@ GRANT ple_student TO ple_sd1_student_probe WITH INHERIT FALSE, SET TRUE, ADMIN F
 GRANT CONNECT ON DATABASE ple_e2e_baseline TO ple_sd1_app_probe, ple_sd1_auth_probe,
     ple_sd1_student_probe;
 SQL
-	psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c \
-		'SET ROLE ple_app; SELECT version, success, checksum FROM ple_api.ple_migration_state LIMIT 1' >/dev/null
-	expect_denied "ple_app direct migration-ledger read" psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c \
-		'SET ROLE ple_app; SELECT 1 FROM public._sqlx_migrations LIMIT 1'
-	expect_denied "ple_app data-schema usage" psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c \
-		'SET ROLE ple_app; SELECT 1 FROM ple_data.sd1_probe'
+	psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c 'SET ROLE ple_app; SELECT version, success, checksum FROM ple_api.ple_migration_state LIMIT 1' >/dev/null
+	expect_denied "ple_app direct migration-ledger read" psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c 'SET ROLE ple_app; SELECT 1 FROM public._sqlx_migrations LIMIT 1'
+	expect_denied "ple_app data-schema usage" psql_in_container ple_sd1_app_probe -d "$DATABASE_NAME" -c 'SET ROLE ple_app; SELECT 1 FROM ple_data.sd1_probe'
 	local probe capability
 	for probe in ple_sd1_auth_probe ple_sd1_student_probe; do
 		case "$probe" in
@@ -926,15 +930,17 @@ SQL
 			ple_sd1_student_probe) capability="ple_student" ;;
 			*) fail "unknown restricted SD1 probe $probe" ;;
 		esac
-		expect_denied "$probe API read" psql_in_container "$probe" -d "$DATABASE_NAME" -c \
-			"SET ROLE $capability; SELECT 1 FROM ple_api.ple_migration_state LIMIT 1"
-		expect_denied "$probe data-schema usage" psql_in_container "$probe" -d "$DATABASE_NAME" -c \
-			"SET ROLE $capability; SELECT 1 FROM ple_data.sd1_probe"
-		expect_denied "$probe owner SET ROLE" psql_in_container "$probe" -d "$DATABASE_NAME" -c \
-			'SET ROLE ple_data_owner'
-		expect_denied "$probe object creation" psql_in_container "$probe" -d "$DATABASE_NAME" -c \
-			"SET ROLE $capability; CREATE TABLE ple_api.sd1_probe_denied (id integer)"
+			expect_denied "$probe API read" psql_in_container "$probe" -d "$DATABASE_NAME" -c "SET ROLE $capability; SELECT 1 FROM ple_api.ple_migration_state LIMIT 1"
+			expect_denied "$probe data-schema usage" psql_in_container "$probe" -d "$DATABASE_NAME" -c "SET ROLE $capability; SELECT 1 FROM ple_data.sd1_probe"
+			expect_denied "$probe owner SET ROLE" psql_in_container "$probe" -d "$DATABASE_NAME" -c 'SET ROLE ple_data_owner'
+			expect_denied "$probe object creation" psql_in_container "$probe" -d "$DATABASE_NAME" -c "SET ROLE $capability; CREATE TABLE ple_api.sd1_probe_denied (id integer)"
 	done
+}
+assert_remote_question_backend_service_logins() {
+	echo "SD1 staged database E2E: Remote Question Backend API/worker authority probes"
+	expect_denied "API login cannot assume procedure owner" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'; expect_denied "worker login cannot assume procedure owner" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'
+	expect_denied "API login cannot assume grading worker" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_remote_question_backend_grading_worker'; expect_denied "grading worker cannot assume API capability" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_app'
+	expect_denied "API login cannot read Remote Question Backend Sessions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.remote_question_backend_session LIMIT 1'; expect_denied "grading worker cannot read Remote Question Backend Sessions directly" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.remote_question_backend_session LIMIT 1'
 }
 cd "$REPO_ROOT"
 require_command podman
@@ -956,44 +962,33 @@ for _ in {1..30}; do
 	sleep 1
 done
 [ "$ready" = "1" ] || fail "disposable PostgreSQL did not become ready"
-version_major="$(psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -At -c \
-	"SELECT split_part(current_setting('server_version'), '.', 1)")"
+version_major="$(psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -At -c "SELECT split_part(current_setting('server_version'), '.', 1)")"
 [ "$version_major" = "17" ] || fail "disposable PostgreSQL is not major 17 (got $version_major)"
-# The official image bootstrap login is used only to create the canonical
-# migration login and empty target. The staged command then installs that
-# role for SQLx; no bootstrap secret is copied into the child or SQL text.
 psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" <<'SQL'
-CREATE ROLE ple_database_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE
-    NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;
+CREATE ROLE ple_database_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE ple_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;
 GRANT ple_database_owner TO ple_migrator WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 CREATE DATABASE ple_e2e_baseline OWNER ple_database_owner;
 SQL
-# The password remains in the mode-0600 runtime workspace. This dedicated
-# emitter keeps it out of shell arguments and ordinary process environments.
-(
-	cd "$REPO_ROOT"
-	python3 -m local_stack_control.runtime_manifest --emit-sd1-staged-bootstrap "$WORKSPACE"
-) | psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB"
-psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c \
-	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $DATABASE_NAME FROM PUBLIC; GRANT CONNECT ON DATABASE $DATABASE_NAME TO ple_migrator"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c \
-	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
+(cd "$REPO_ROOT"; python3 -m local_stack_control.runtime_manifest --emit-sd1-staged-bootstrap "$WORKSPACE") | psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB"
+psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c "REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $DATABASE_NAME FROM PUBLIC; GRANT CONNECT ON DATABASE $DATABASE_NAME TO ple_migrator"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c 'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
 echo "SD1 staged database E2E: staged status is pending before apply"
 initial_status="$(run_staged_tool sd1-staged-status)"
 printf '%s\n' "$initial_status"
-printf '%s\n' "$initial_status" | grep -Eq "$STAGED_MIGRATION.*pending" || \
-	fail "staged status did not report $STAGED_MIGRATION as pending"
+printf '%s\n' "$initial_status" | grep -Eq "$STAGED_MIGRATION.*pending" || fail "staged status did not report $STAGED_MIGRATION as pending"
 echo "SD1 staged database E2E: fresh apply and second-run no-op"
 run_staged_tool sd1-staged-migrate
 second_apply="$(run_staged_tool sd1-staged-migrate)"
 printf '%s\n' "$second_apply"
-printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || \
-	fail "second staged apply did not report a no-op-compatible result"
+printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || fail "second staged apply did not report a no-op-compatible result"
 run_staged_tool sd1-staged-verify
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/private_question_records.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_credit_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 assert_catalog
 assert_restricted_logins
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/remote_question_backend_session_postgres_oracle.sql"
+assert_remote_question_backend_service_logins
+bash "$REPO_ROOT/tests/e2e/e2e_remote_question_backend_session_postgres_oracle.sh" "$WORKSPACE"
 echo "SD1 staged database E2E: PASS (fresh apply, no-op, PostgreSQL 17 catalog, restricted probes)"

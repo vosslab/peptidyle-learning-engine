@@ -33,7 +33,7 @@ function keyFreePreview(seed = 17) {
 function wasmFacade(previewPleDraft) {
   return {
     mode: "wasm",
-    validateResponseFormat: async () => ({ violations: [] }),
+    validateResponseFormat: async () => ({ issues: [] }),
     questionAttemptTimingDecision: async () => "unlimited",
     validateAssignmentConfig: async () => [],
     previewPleDraft,

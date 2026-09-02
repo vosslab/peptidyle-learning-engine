@@ -40,7 +40,7 @@ narrow broker functions derive exact current membership, Student ownership, or
 workspace collaboration from durable rows. A worker receives one typed lease:
 claims one durable, typed lease and derives its course, workspace, Question Library, or
 system target from the locked job row. Leases, Object Addresses, adapter handles,
-and provider state remain typed server-side values, not browser DTO fields.
+and Question Backend state remain typed server-side values, not browser DTO fields.
 
 ## Grading boundary
 
@@ -215,11 +215,9 @@ first-party session contract.
 
 Every unsafe cookie-authenticated request must present the exact canonical
 HTTPS `Host` and same `Origin`; duplicate or malformed cookie inputs are
-rejected. The sole narrow exception is the external-tool form POST with
-`Origin: null`: it additionally requires the exact single session and an
-AEAD-protected, HttpOnly, `SameSite=Strict` launch cookie. The API does not
-grant credentialed cross-origin CORS. These checks supplement, rather than
-replace, `SameSite=Lax`.
+rejected. The API does not grant credentialed cross-origin CORS. These checks
+supplement, rather than replace, `SameSite=Lax`. No Remote Question Backend browser
+cookie or cross-origin exception is mounted.
 
 Passwordless email and passkey ceremonies persist only hashed/serialized
 server state. Email challenges are atomic, browser-bound, short-lived, and
@@ -248,36 +246,79 @@ blanket-encrypt public published content in the application: immutable public
 objects need CDN delivery and integrity comes from their canonical SHA-256
 binding, publication authority, and object-store immutability. Application
 encryption is selective: AEAD protects secrets that must be stored and later
-used, such as external-tool launch state. Keys, database URLs, SMTP credentials,
-and provider credentials stay in deployment secret storage and least-privilege
+used, such as Remote Question Backend launch state. Keys, database URLs, SMTP credentials,
+and Question Backend credentials stay in deployment secret storage and least-privilege
 runtime roles, never tracked configuration or browser DTOs.
 
-## Contracted iMathAS provider
+## Remote Question Backend Session
 
-iMathAS is disabled unless its complete contracted-provider configuration is
-present. The server accepts only a deployment-owned HTTPS base URL, bounded
-private transport, immutable-source revalidation, and the contracted
-scored-embed profile. Generic hosted MyOpenMath remains refused because it
-does not establish immutable execution and server-grade binding.
+Question Model owns `ImathasQuestionBackendBinding`; LDA persists that binding and owns the server-only Remote Question Backend Session, typed Reference,
+preparation/restore/lease/verified-Result-Exchange Store boundary, and backend-state
+protection. The stored state uses XChaCha20-Poly1305 with a key identifier,
+fresh nonce, associated exact session facts, bounded ciphertext, and key
+rotation. iMathAS owns only strict versioned opaque iMathAS Launch State bytes,
+HMAC authentication over exact Grading Context and Challenge, and iMathAS Launch/Result
+protocol verification. The binding pins `imathas_remote_grading_v1`. `2026090102` enforces exact fields, full restore,
+half-open validity, immutable binding, forward revocation, Exchange-only
+consumption, and RLS/least-privilege SECURITY DEFINER functions.
 
-Provider authentication, launch signing, result verification, correlation,
-and launch-state encryption are server-only settings. The attempt-scoped
-launch cookie is HttpOnly, Secure, SameSite=Strict, and AEAD-protected.
-Provider handles, JWTs, source bytes, result tokens, and grades never enter
-URLs, shell HTML, browser messages, logs, or DTOs. Provider reachability is
-not a startup or health dependency; an outage is question-local.
+LDA mints the one immutable 256-bit Remote Question Backend Session Challenge with the OS
+CSPRNG, retries all-zero output, and reconstructs it only from validated private
+storage. It expires with its Session and is accepted once only through verified
+Exchange. iMathAS carries and verifies the signed `ple_launch_challenge` claim;
+the PostgreSQL oracle directly proves `ple_api_owner` cannot mutate it.
 
-The optional block starts with `PLE_IMATHAS_PROVIDER_KEY`; when present it
-requires `PLE_IMATHAS_BASE_URL`, `PLE_IMATHAS_REQUEST_TIMEOUT_SECONDS`,
-`PLE_IMATHAS_MAX_TRANSPORT_BYTES`, `PLE_IMATHAS_MAX_SNAPSHOT_BYTES`,
-`PLE_IMATHAS_MAX_RESULT_BYTES`, `PLE_IMATHAS_LAUNCH_TTL_MILLIS`,
-`PLE_IMATHAS_LAUNCH_STATE_SECRET`, `PLE_IMATHAS_CORRELATION_SECRET`,
-`PLE_IMATHAS_LAUNCH_SIGNING_SECRET`, and
-`PLE_IMATHAS_RESULT_VERIFICATION_SECRET`. Private provider authentication is
-optional but paired: `PLE_IMATHAS_PROVIDER_AUTH_HEADER_NAME` must be exactly
-`x-ple-provider-auth` and is valid only with nonempty
-`PLE_IMATHAS_PROVIDER_AUTH_VALUE`. Secret values belong only in deployment
-secret storage, never tracked examples.
+LDA also owns the private, redacted, non-Serde Remote Question Backend Grading Context:
+exact Question Attempt ID, Question Revision Reference, and Question Seed. It
+inherits Student, Course, and Assignment authority from the owning Session and
+Question Attempt, and expires with that Session. Its accepted
+`authentication_payload_v1` bytes differ from the content-derived Qualified
+Launch Binding Digest, Challenge, Result Token, and Remote Question Backend
+Result. The direct `question_attempt_id` schema cutover and live four-axis
+mismatch cases protect every member; the browser receives no Context DTO.
+
+LDA owns the bounded `1..=8192` opaque Remote Question Backend Result Token and
+its redacted non-Serde checksum. iMathAS receives raw bytes server-to-server,
+verifies the iMathAS protocol, and derives the checksum only after success.
+Raw bytes never reach browser state, generated contracts, durable records,
+logs, or Debug output. The checksum is written only as
+`remote_question_backend_result_token_sha256` on the verified Result Exchange in the atomic consume
+transition; it is absent from the Launch Session and verification state.
+
+The Result Exchange exclusively owns the immutable server-only Remote Question Backend Result.
+Its first profile has only a validated finite `[0,1]` normalized score with one
+accepted zero representation; LDA derives, rather than accepts, its checksum
+from `ple:remote-question-backend-result:v1\\0` followed by the score's IEEE-754 binary64
+bytes. That checksum is never the Result Token checksum and neither
+belongs on a Grading Result. `RemoteQuestionBackendGradingContext` remains exactly its
+three identity fields; the required `QuestionGradingRule` is a separate
+issue-time Launch Session fact. Authenticated staging consumes the Session and
+creates the marker `StudentResponse::RemoteQuestionBackend {}` Question Submission,
+pending Question Submission Grading, and ready typed Job with ready Result Exchange
+evidence. Only a worker holding that Job's lease can atomically recheck the
+lineage, derive the PLE Grading Result, write its Automated Grading Receipt,
+and commit the Result Exchange. Lease expiry enables a later claim; final execution
+failure is the Job/Question Submission Grading's `instructor_attention`, not a
+rewrite of the immutable evidence. No Remote Question Backend Result DTO or raw result
+is generated or exposed to the browser. LTI remains future registered-protocol planning
+with no current schema path.
+
+`AutomatedGradingReceiptChecksum` is LDA-owned, redacted, and non-Serde. Only
+the atomic worker commit derives it, after locked lineage and final Result
+validation, from fixed ordered v1 bytes: the ASCII version prefix; Receipt,
+Result, grading, Submission, Attempt, Job, and Session UUID bytes; both
+Exchange evidence checksums; correct byte; validated canonical big-endian
+binary64 points; and signed big-endian commit milliseconds. It excludes raw
+tokens, credentials, keys, and browser material. No command, API, browser, or
+adapter supplies it; exact committed replay returns the stored checksum rather
+than accepting a candidate value.
+
+The SolidJS launch shell POSTs the same-origin request, accepts only validated
+`{ launchUrl }`, and opens an iframe without Challenge, Session, or backend-secret
+state. Its LDA-backed Rust route, cookie/env production backend composition, and
+live-backend acceptance remain absent. iMathAS protocol handles, source bytes, tokens,
+and grades remain server-only. Generic hosted MyOpenMath remains outside the
+supported boundary.
 
 ## Published QTI runtime
 
@@ -303,7 +344,7 @@ Student records are FERPA data and treated as radioactive: course-scoped,
 Student-owned where applicable, minimized, and excluded from general logs and analytics;
 reusable published content is not. Every
 student-facing Store and PostgreSQL path checks the same course-retention access predicate, so
-archive cannot be bypassed through runs, summaries, feedback, exports, external tools, or protected
+archive cannot be bypassed through runs, summaries, feedback, exports, Remote Question Backend operations, or protected
 StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
 lifecycle, fixed notification copy, and a strong revision-not student, object,
 job, lease, or generation identity. This payload-free lifecycle authority is
@@ -351,7 +392,7 @@ nonparticipants, and unshared workspaces. Responses are `no-store`.
 
 The author route never serializes `AnswerKey`, Question Feedback, Question
 Answer Explanation, Question Grading Input, source
-locator, Object Address, provider credential, or published identity. A supported
+locator, Object Address, Question Backend credential, or published identity. A supported
 PLE Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
 content through its server-only adapter seam. External sources and PLE
 PLE Question Implementations without a reviewed presentation return an explicit unavailable state;
@@ -451,7 +492,7 @@ display label, assignment identity, and `completed` or `not_completed` state. A
 named completion row never includes a score, grade, response, attempt detail,
 feedback, accommodation, enrollment detail, Student-record asset, or arbitrary
 course record. The projection exposes no private source, answer key, grading
-rule, rubric, provider payload, or hidden diagnostic.
+rule, rubric, Question Backend payload, or hidden diagnostic.
 
 The Course Observer aggregate-grade projection is a different typed result. It
 contains only an anonymous, formula-labeled, privacy-safe course aggregate after the
@@ -522,7 +563,7 @@ the transaction to fail.
 The worker resolves only that frozen manifest through its active typed export
 lease and builds the standard and accessible DOCX/PDF bundle from browser-safe
 published question presentation and immutable capabilities. It never loads an
-answer key, private grader state, source locator, or provider credential.
+answer key, private grader state, source locator, or Question Backend credential.
 Published figures are rechecked against their exact asset binding and checksum.
 Output is written bytes-first to typed course-record `StudentRecord` keys; an
 exact immutable object may be reused after a pre-commit crash, while different
@@ -562,7 +603,7 @@ Run reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
 `StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
-prefetch, feedback-release, issuance, submission, and external-tool paths.
+prefetch, feedback-release, issuance, submission, and Remote Question Backend paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record projection after removal;
@@ -622,18 +663,18 @@ points, but never an answer key, expected value, private rubric, or checker
 state. Full teaching feedback uses an explicit sanitized disclosure DTO; it
 never serializes the server-only key as a shortcut.
 
-## External-tool indeterminate-effect boundary
+## Remote Question Backend indeterminate-effect boundary
 
-An external tool is an untrusted, potentially effectful service. Before PLE
-dispatches a provider `POST`, the Store atomically records a pre-dispatch
+An untrusted Remote Question Backend operation can be effectful. Before PLE
+dispatches a backend `POST`, the Store atomically records a pre-dispatch
 marker tied to the current, unexpired activity-lease token. Only a valid
-provider response can clear that exact marker. A timeout, I/O failure, process
+iMathAS response can clear that exact marker. A timeout, I/O failure, process
 death, lease expiry, or later launch leaves the attempt permanently
 indeterminate and fail-closed: it cannot be reclaimed, relaunched, graded, or
-finalized automatically. Read-only provider retrieval is structurally a GET;
-the browser has no generic provider proxy. The student receives a generic
+finalized automatically. Read-only backend retrieval is structurally a GET;
+the browser has no generic backend proxy. The student receives a generic
 accessible recovery message directing them to the instructor, rather than
-details that could disclose provider state or invite a duplicate action.
+details that could disclose backend state or invite a duplicate action.
 
 ## Asset delivery boundary
 
@@ -677,11 +718,11 @@ Diagnostics preserve enough evidence to investigate a boundary failure without
 becoming another delivery path. Browser responses carry only short,
 route-approved messages. They do not contain raw SQL, Object Addresses, bucket
 names, signed URLs, protected account or course identities, leases, source
-archives, provider state, answer keys, or raw backend errors.
+archives, Question Backend state, answer keys, or raw backend errors.
 
 Server and worker diagnostics use bounded error categories and safe record
 identities only where an operator needs correlation. Credentials, raw session
-cookies, provider launch values, renderer fields, source bytes, private grading
+cookies, Question Backend launch values, renderer fields, source bytes, private grading
 payloads, raw Student uploads, and raw Student answers are never general log
 fields. A new diagnostic must use the [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
 class of each field and record the appropriate authorization and retention
@@ -716,7 +757,7 @@ response before submission. If yes, it belongs on the server-only side.
 Security controls require evidence at the boundary they claim to protect.
 Wasm closure and export-allowlist tests prove browser exclusion; Memory tests
 prove pure and Store behavior; live PostgreSQL tests prove migrations, roles,
-grants, and forced RLS; private renderer checks prove a provider protocol; and
+grants, and forced RLS; private renderer checks prove a Question Backend protocol; and
 browser traces prove what a student-facing page actually receives. No one
 class substitutes for another. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
 defines those limits, while the active release plan names the required gate for

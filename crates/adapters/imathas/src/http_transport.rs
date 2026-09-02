@@ -1,7 +1,7 @@
-//! Private fixed-dialect HTTP transport for contracted iMathAS scored embeds.
+//! Private fixed-dialect HTTP transport for iMathAS iMathAS Question Backend.
 //!
 //! This module is feature-gated because deployment composition, not authored
-//! question data, selects a provider host. It accepts no browser URL, header,
+//! question data, selects an iMathAS deployment host. It accepts no browser URL, header,
 //! path, redirect, or cookie input.
 
 use std::time::Duration;
@@ -12,11 +12,11 @@ use reqwest::header::{CONTENT_TYPE, HeaderName, HeaderValue, LOCATION, SET_COOKI
 use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 
-use crate::SafeProviderRender;
-use crate::external_question_provider::{
-    ContractedSnapshot, ExternalToolLaunchReference, ProtectedLaunchRequest, ProxyMethod,
-    ProxyRequest, ProxyResponse, RenderTransportRequest, ResultTransportRequest,
-    ScoredEmbedTransport, ScoredEmbedTransportFailure, SnapshotTransportRequest,
+use crate::SafeImathasQuestionRender;
+use crate::imathas_question_backend::{
+    ImathasLaunchReference, ImathasQuestionBackendSnapshot, ImathasQuestionBackendTransport,
+    ImathasTransportFailure, ProtectedLaunchRequest, ProxyMethod, ProxyRequest, ProxyResponse,
+    RenderTransportRequest, ResultTransportRequest, SnapshotTransportRequest,
 };
 
 const SNAPSHOT_PATH: &str = "v1/imathas/snapshot";
@@ -25,7 +25,7 @@ const LAUNCH_PATH: &str = "v1/imathas/launch";
 const RESULT_PATH: &str = "v1/imathas/result/";
 const PROXY_PATH: &str = "v1/imathas/proxy/";
 const MAX_BODY: usize = 1_048_576;
-const PRIVATE_AUTH: &str = "x-ple-provider-auth";
+const PRIVATE_AUTH: &str = "x-ple-imathas-backend-auth";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpTransportConfigError {
@@ -42,15 +42,15 @@ impl std::error::Error for HttpTransportConfigError {}
 
 /// Fixed protected deployment configuration. Debug never includes auth value.
 #[derive(Clone)]
-pub struct HttpContractedScoredEmbedConfig {
+pub struct HttpImathasQuestionBackendConfig {
     base: Url,
     timeout: Duration,
     max_body: usize,
     auth: Option<HeaderValue>,
 }
-impl std::fmt::Debug for HttpContractedScoredEmbedConfig {
+impl std::fmt::Debug for HttpImathasQuestionBackendConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HttpContractedScoredEmbedConfig")
+        f.debug_struct("HttpImathasQuestionBackendConfig")
             .field("base", &self.base)
             .field("timeout", &self.timeout)
             .field("max_body", &self.max_body)
@@ -58,7 +58,7 @@ impl std::fmt::Debug for HttpContractedScoredEmbedConfig {
             .finish()
     }
 }
-impl HttpContractedScoredEmbedConfig {
+impl HttpImathasQuestionBackendConfig {
     pub fn https(
         base: &str,
         timeout: Duration,
@@ -122,19 +122,19 @@ impl HttpContractedScoredEmbedConfig {
 }
 
 #[derive(Clone)]
-pub struct HttpContractedScoredEmbedTransport {
+pub struct HttpImathasQuestionBackendTransport {
     client: Client,
-    config: HttpContractedScoredEmbedConfig,
+    config: HttpImathasQuestionBackendConfig,
 }
-impl std::fmt::Debug for HttpContractedScoredEmbedTransport {
+impl std::fmt::Debug for HttpImathasQuestionBackendTransport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HttpContractedScoredEmbedTransport")
+        f.debug_struct("HttpImathasQuestionBackendTransport")
             .field("config", &self.config)
             .finish()
     }
 }
-impl HttpContractedScoredEmbedTransport {
-    pub fn new(config: HttpContractedScoredEmbedConfig) -> Result<Self, HttpTransportConfigError> {
+impl HttpImathasQuestionBackendTransport {
+    pub fn new(config: HttpImathasQuestionBackendConfig) -> Result<Self, HttpTransportConfigError> {
         let client = Client::builder()
             .connect_timeout(config.timeout)
             .timeout(config.timeout)
@@ -143,17 +143,17 @@ impl HttpContractedScoredEmbedTransport {
             .map_err(|_| HttpTransportConfigError::InvalidLimits)?;
         Ok(Self { client, config })
     }
-    fn url(&self, path: &str) -> Result<Url, ScoredEmbedTransportFailure> {
+    fn url(&self, path: &str) -> Result<Url, ImathasTransportFailure> {
         self.config
             .base
             .join(path)
-            .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)
+            .map_err(|_| ImathasTransportFailure::InvalidResponse)
     }
     fn request(
         &self,
         method: reqwest::Method,
         path: &str,
-    ) -> Result<reqwest::RequestBuilder, ScoredEmbedTransportFailure> {
+    ) -> Result<reqwest::RequestBuilder, ImathasTransportFailure> {
         let mut request = self
             .client
             .request(method, self.url(path)?)
@@ -167,9 +167,9 @@ impl HttpContractedScoredEmbedTransport {
         &self,
         response: reqwest::Response,
         accepted: &[StatusCode],
-    ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {
+    ) -> Result<Vec<u8>, ImathasTransportFailure> {
         if response.status().is_server_error() {
-            return Err(ScoredEmbedTransportFailure::Unavailable);
+            return Err(ImathasTransportFailure::Unavailable);
         }
         if !accepted.contains(&response.status())
             || response.headers().contains_key(LOCATION)
@@ -180,44 +180,44 @@ impl HttpContractedScoredEmbedTransport {
                 .and_then(|v| v.to_str().ok())
                 .is_some_and(|v| v.starts_with("application/json"))
         {
-            return Err(ScoredEmbedTransportFailure::InvalidResponse);
+            return Err(ImathasTransportFailure::InvalidResponse);
         }
         if response
             .content_length()
             .is_some_and(|n| n as usize > self.config.max_body)
         {
-            return Err(ScoredEmbedTransportFailure::InvalidResponse);
+            return Err(ImathasTransportFailure::InvalidResponse);
         }
         let mut out = Vec::new();
         let mut response = response;
         while let Some(chunk) = response.chunk().await.map_err(map_error)? {
             if out.len().saturating_add(chunk.len()) > self.config.max_body {
-                return Err(ScoredEmbedTransportFailure::InvalidResponse);
+                return Err(ImathasTransportFailure::InvalidResponse);
             }
             out.extend_from_slice(&chunk);
         }
         Ok(out)
     }
 }
-fn map_error(error: reqwest::Error) -> ScoredEmbedTransportFailure {
+fn map_error(error: reqwest::Error) -> ImathasTransportFailure {
     if error.is_timeout() {
-        ScoredEmbedTransportFailure::Timeout
+        ImathasTransportFailure::Timeout
     } else if error.is_connect() {
-        ScoredEmbedTransportFailure::Unavailable
+        ImathasTransportFailure::Unavailable
     } else {
-        ScoredEmbedTransportFailure::InvalidResponse
+        ImathasTransportFailure::InvalidResponse
     }
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SnapshotRequest<'a> {
-    provider: &'a str,
-    item_ref: &'a str,
+    deployment_reference: &'a str,
+    item_reference: &'a str,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderRequest<'a> {
-    provider: &'a str,
+    deployment_reference: &'a str,
     snapshot_base64: String,
     version: String,
     seed: u64,
@@ -225,9 +225,9 @@ struct RenderRequest<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LaunchRequest<'a> {
-    provider: &'a str,
-    item_ref: &'a str,
-    provider_seed: u16,
+    deployment_reference: &'a str,
+    item_reference: &'a str,
+    imathas_seed: u16,
     source_digest: &'a str,
     signed_launch_jwt: &'a str,
 }
@@ -244,40 +244,40 @@ struct RenderResponse {
 }
 
 #[async_trait]
-impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
+impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
     async fn fetch_snapshot(
         &self,
         request: SnapshotTransportRequest<'_>,
-    ) -> Result<ContractedSnapshot, ScoredEmbedTransportFailure> {
+    ) -> Result<ImathasQuestionBackendSnapshot, ImathasTransportFailure> {
         let response = self
             .request(reqwest::Method::POST, SNAPSHOT_PATH)?
             .json(&SnapshotRequest {
-                provider: request.provider_key(),
-                item_ref: request.item_ref(),
+                deployment_reference: request.deployment_reference(),
+                item_reference: request.item_reference(),
             })
             .send()
             .await
             .map_err(map_error)?;
         let bytes = self.body(response, &[StatusCode::OK]).await?;
-        let payload: serde_json::Value = serde_json::from_slice(&bytes)
-            .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
+        let payload: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|_| ImathasTransportFailure::InvalidResponse)?;
         let source = payload
             .get("snapshotBase64")
             .and_then(|v| v.as_str())
-            .ok_or(ScoredEmbedTransportFailure::InvalidResponse)?;
+            .ok_or(ImathasTransportFailure::InvalidResponse)?;
         let snapshot = base64::engine::general_purpose::STANDARD
             .decode(source)
-            .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
-        ContractedSnapshot::from_protected_bytes(snapshot)
+            .map_err(|_| ImathasTransportFailure::InvalidResponse)?;
+        ImathasQuestionBackendSnapshot::from_protected_bytes(snapshot)
     }
     async fn render_safe(
         &self,
         request: RenderTransportRequest<'_>,
-    ) -> Result<SafeProviderRender, ScoredEmbedTransportFailure> {
+    ) -> Result<SafeImathasQuestionRender, ImathasTransportFailure> {
         let response = self
             .request(reqwest::Method::POST, RENDER_PATH)?
             .json(&RenderRequest {
-                provider: request.provider_key(),
+                deployment_reference: request.deployment_reference(),
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
                 version: request.question_revision().revision_number.to_string(),
@@ -287,9 +287,9 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
             .await
             .map_err(map_error)?;
         let bytes = self.body(response, &[StatusCode::OK]).await?;
-        let parsed: RenderResponse = serde_json::from_slice(&bytes)
-            .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
-        Ok(SafeProviderRender {
+        let parsed: RenderResponse =
+            serde_json::from_slice(&bytes).map_err(|_| ImathasTransportFailure::InvalidResponse)?;
+        Ok(SafeImathasQuestionRender {
             title: parsed.title,
             prompt: parsed.prompt,
         })
@@ -297,14 +297,14 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
     async fn start_protected_launch(
         &self,
         request: ProtectedLaunchRequest,
-    ) -> Result<ExternalToolLaunchReference, ScoredEmbedTransportFailure> {
+    ) -> Result<ImathasLaunchReference, ImathasTransportFailure> {
         let response = self
             .request(reqwest::Method::POST, LAUNCH_PATH)?
             .json(&LaunchRequest {
-                provider: request.provider_key(),
-                item_ref: request.item_ref(),
-                provider_seed: request.provider_seed(),
-                source_digest: request.source_digest(),
+                deployment_reference: request.deployment_reference(),
+                item_reference: request.item_reference(),
+                imathas_seed: request.imathas_seed(),
+                source_digest: request.source_object_checksum(),
                 signed_launch_jwt: request.signed_launch_jwt(),
             })
             .send()
@@ -313,14 +313,14 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
         let bytes = self
             .body(response, &[StatusCode::OK, StatusCode::CREATED])
             .await?;
-        let parsed: HandleResponse = serde_json::from_slice(&bytes)
-            .map_err(|_| ScoredEmbedTransportFailure::InvalidResponse)?;
-        ExternalToolLaunchReference::from_server_handle(parsed.handle)
+        let parsed: HandleResponse =
+            serde_json::from_slice(&bytes).map_err(|_| ImathasTransportFailure::InvalidResponse)?;
+        ImathasLaunchReference::from_server_handle(parsed.handle)
     }
     async fn fetch_signed_grade_get(
         &self,
         request: ResultTransportRequest<'_>,
-    ) -> Result<Vec<u8>, ScoredEmbedTransportFailure> {
+    ) -> Result<Vec<u8>, ImathasTransportFailure> {
         let path = format!("{RESULT_PATH}{}", request.handle().protected_value());
         let response = self
             .request(reqwest::Method::GET, &path)?
@@ -332,7 +332,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
     async fn proxy_activity(
         &self,
         request: ProxyRequest<'_>,
-    ) -> Result<ProxyResponse, ScoredEmbedTransportFailure> {
+    ) -> Result<ProxyResponse, ImathasTransportFailure> {
         let path = format!("{PROXY_PATH}{}", request.handle().protected_value());
         let method = match request.method() {
             ProxyMethod::Get => reqwest::Method::GET,
@@ -349,7 +349,7 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
         }
         let response = call.send().await.map_err(map_error)?;
         if response.status().is_server_error() {
-            return Err(ScoredEmbedTransportFailure::Unavailable);
+            return Err(ImathasTransportFailure::Unavailable);
         }
         if response.status() != StatusCode::OK
             || response.headers().contains_key(LOCATION)
@@ -360,19 +360,19 @@ impl ScoredEmbedTransport for HttpContractedScoredEmbedTransport {
                 .and_then(|v| v.to_str().ok())
                 .is_some_and(|v| v.starts_with("text/html"))
         {
-            return Err(ScoredEmbedTransportFailure::InvalidResponse);
+            return Err(ImathasTransportFailure::InvalidResponse);
         }
         if response
             .content_length()
             .is_some_and(|n| n as usize > self.config.max_body)
         {
-            return Err(ScoredEmbedTransportFailure::InvalidResponse);
+            return Err(ImathasTransportFailure::InvalidResponse);
         }
         let mut out = Vec::new();
         let mut response = response;
         while let Some(chunk) = response.chunk().await.map_err(map_error)? {
             if out.len().saturating_add(chunk.len()) > self.config.max_body {
-                return Err(ScoredEmbedTransportFailure::InvalidResponse);
+                return Err(ImathasTransportFailure::InvalidResponse);
             }
             out.extend_from_slice(&chunk);
         }
@@ -487,8 +487,11 @@ mod tests {
     fn locator() -> crate::ImathasQuestionLocation {
         crate::ImathasQuestionLocation::from_draft_backend_locator(
             &question_model::DraftQuestionBackendLocator::Imathas {
-                provider: "self-hosted-imathas".into(),
-                item_ref: "17".into(),
+                binding: question_model::DraftImathasQuestionBackendBinding::new(
+                    question_model::ImathasDeploymentReference::new("self-hosted-imathas")
+                        .expect("deployment"),
+                    question_model::ImathasItemReference::new("17").expect("item"),
+                ),
             },
         )
         .unwrap()
@@ -497,7 +500,7 @@ mod tests {
     #[ignore = "opt-in loopback HTTP transport acceptance"]
     async fn recorded_http_snapshot_is_bounded_fixed_and_hostile_responses_refuse_redacted() {
         let (fixture, base) = fixture().await;
-        let config = HttpContractedScoredEmbedConfig::loopback_http_for_test(
+        let config = HttpImathasQuestionBackendConfig::loopback_http_for_test(
             &base,
             Duration::from_secs(1),
             1024,
@@ -506,10 +509,10 @@ mod tests {
         .with_private_auth("fixture-secret")
         .unwrap();
         assert!(!format!("{config:?}").contains("fixture-secret"));
-        let transport = HttpContractedScoredEmbedTransport::new(config).unwrap();
+        let transport = HttpImathasQuestionBackendTransport::new(config).unwrap();
         let request = SnapshotTransportRequest {
             locator: &locator(),
-            provider_key: "self-hosted-imathas",
+            deployment_reference: "self-hosted-imathas",
         };
         let snapshot = transport.fetch_snapshot(request).await.unwrap();
         assert_eq!(snapshot.bytes(), br#"{"recorded":true}"#);
@@ -518,11 +521,11 @@ mod tests {
             let error = transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "self-hosted-imathas",
+                    deployment_reference: "self-hosted-imathas",
                 })
                 .await
                 .unwrap_err();
-            assert_eq!(error, ScoredEmbedTransportFailure::InvalidResponse);
+            assert_eq!(error, ImathasTransportFailure::InvalidResponse);
             assert!(!format!("{error:?}").contains("fixture-secret"));
         }
         *fixture.0.lock().unwrap() = "error";
@@ -530,18 +533,18 @@ mod tests {
             transport
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "self-hosted-imathas"
+                    deployment_reference: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),
-            ScoredEmbedTransportFailure::Unavailable
+            ImathasTransportFailure::Unavailable
         );
         assert!(
-            HttpContractedScoredEmbedConfig::https("http://127.0.0.1/", Duration::from_secs(1), 1)
+            HttpImathasQuestionBackendConfig::https("http://127.0.0.1/", Duration::from_secs(1), 1)
                 .is_err()
         );
         assert!(
-            HttpContractedScoredEmbedConfig::https(
+            HttpImathasQuestionBackendConfig::https(
                 "https://x.example/?token=bad",
                 Duration::from_secs(1),
                 1
@@ -554,8 +557,8 @@ mod tests {
     #[ignore = "opt-in loopback HTTP transport acceptance"]
     async fn recorded_http_exercises_remaining_fixed_operations() {
         let (_, base) = fixture().await;
-        let transport = HttpContractedScoredEmbedTransport::new(
-            HttpContractedScoredEmbedConfig::loopback_http_for_test(
+        let transport = HttpImathasQuestionBackendTransport::new(
+            HttpImathasQuestionBackendConfig::loopback_http_for_test(
                 &base,
                 Duration::from_secs(1),
                 1024,
@@ -567,7 +570,7 @@ mod tests {
             transport
                 .render_safe(RenderTransportRequest {
                     snapshot: b"{}",
-                    provider_key: "self-hosted-imathas",
+                    deployment_reference: "self-hosted-imathas",
                     question_revision: question_model::QuestionRevisionReference {
                         question_id: question_model::QuestionId::from_canonical_parts(
                             "ABCDEF", 'G'
@@ -585,35 +588,35 @@ mod tests {
         );
         let handle = transport
             .start_protected_launch(ProtectedLaunchRequest {
-                provider_key: "self-hosted-imathas".into(),
-                item_ref: "17".into(),
-                provider_seed: 7,
-                source_digest: "a".repeat(64),
+                deployment_reference: "self-hosted-imathas".into(),
+                item_reference: "17".into(),
+                imathas_seed: 7,
+                source_object_checksum: "a".repeat(64),
                 signed_launch_jwt: "protected.jwt.value".into(),
             })
             .await
             .unwrap();
-        let binding = crate::ExternalToolGradingContext {
-            attempt: question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
-            question_revision: question_model::QuestionRevisionReference {
+        let binding = learning_data_access::ImathasQuestionBackendGradingContext::new(
+            question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
+            question_model::QuestionRevisionReference {
                 question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
                     .expect("Question ID"),
                 revision_number: question_model::QuestionRevisionNumber::new(4)
                     .expect("positive version"),
             },
-            seed: question_model::generation::QuestionSeed::new(7),
-        };
+            question_model::generation::QuestionSeed::new(7),
+        );
         let codec =
-            crate::ExternalToolLaunchSessionAuthenticationCodec::from_server_secret([1; 32])
-                .unwrap();
-        let challenge = crate::ExternalToolLaunchChallenge::from_server_random([2; 32]).unwrap();
-        let launch_session_authentication = codec.authenticate(&binding, &challenge);
+            crate::ImathasLaunchSessionAuthenticationCodec::from_server_secret([1; 32]).unwrap();
+        let challenge =
+            learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
+        let launch_session_authentication = codec.authenticate_for_lda(&binding, &challenge);
         assert_eq!(
             transport
                 .fetch_signed_grade_get(ResultTransportRequest {
                     handle: &handle,
-                    launch_session_authentication: &launch_session_authentication,
-                    provider_key: "self-hosted-imathas"
+                    launch_session_authentication: launch_session_authentication.as_str(),
+                    deployment_reference: "self-hosted-imathas"
                 })
                 .await
                 .unwrap(),
@@ -650,8 +653,8 @@ mod tests {
     async fn timeout_and_refused_connection_are_redacted_unavailable_categories() {
         let (fixture, base) = fixture().await;
         *fixture.0.lock().unwrap() = "slow";
-        let timeout = HttpContractedScoredEmbedTransport::new(
-            HttpContractedScoredEmbedConfig::loopback_http_for_test(
+        let timeout = HttpImathasQuestionBackendTransport::new(
+            HttpImathasQuestionBackendConfig::loopback_http_for_test(
                 &base,
                 Duration::from_millis(5),
                 1024,
@@ -664,14 +667,14 @@ mod tests {
         let error = timeout
             .fetch_snapshot(SnapshotTransportRequest {
                 locator: &locator(),
-                provider_key: "self-hosted-imathas",
+                deployment_reference: "self-hosted-imathas",
             })
             .await
             .unwrap_err();
-        assert_eq!(error, ScoredEmbedTransportFailure::Timeout);
+        assert_eq!(error, ImathasTransportFailure::Timeout);
         assert!(!format!("{error:?}").contains("timeout-secret"));
-        let refused = HttpContractedScoredEmbedTransport::new(
-            HttpContractedScoredEmbedConfig::loopback_http_for_test(
+        let refused = HttpImathasQuestionBackendTransport::new(
+            HttpImathasQuestionBackendConfig::loopback_http_for_test(
                 "http://127.0.0.1:9/",
                 Duration::from_millis(30),
                 1024,
@@ -683,11 +686,11 @@ mod tests {
             refused
                 .fetch_snapshot(SnapshotTransportRequest {
                     locator: &locator(),
-                    provider_key: "self-hosted-imathas"
+                    deployment_reference: "self-hosted-imathas"
                 })
                 .await
                 .unwrap_err(),
-            ScoredEmbedTransportFailure::Unavailable
+            ImathasTransportFailure::Unavailable
         );
     }
 }

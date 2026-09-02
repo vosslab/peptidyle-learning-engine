@@ -40,15 +40,15 @@ const { cases: pleQuestionJsonParityCases } = JSON.parse(
 );
 
 for (const parityCase of pleQuestionJsonParityCases) {
-  const report = JSON.parse(
+  const check = JSON.parse(
     bridge.validate_response_format(
       JSON.stringify(parityCase.definition),
       JSON.stringify(parityCase.response),
     ),
   );
   assert.deepEqual(
-    report,
-    parityCase.expectedReport,
+    check,
+    parityCase.expectedCheck,
     `ple-question-json-v2 Node parity: ${parityCase.name}`,
   );
 }
@@ -57,17 +57,17 @@ const repeatedCase = pleQuestionJsonParityCases.find(
   ({ name }) => name === "ple-question-json-v2-matching-full-permutation",
 );
 assert.ok(repeatedCase, "ple-question-json-v2 repeated-call test case is present");
-const firstRepeatedReport = bridge.validate_response_format(
+const firstRepeatedCheck = bridge.validate_response_format(
   JSON.stringify(repeatedCase.definition),
   JSON.stringify(repeatedCase.response),
 );
-const secondRepeatedReport = bridge.validate_response_format(
+const secondRepeatedCheck = bridge.validate_response_format(
   JSON.stringify(repeatedCase.definition),
   JSON.stringify(repeatedCase.response),
 );
 assert.equal(
-  secondRepeatedReport,
-  firstRepeatedReport,
+  secondRepeatedCheck,
+  firstRepeatedCheck,
   "ple-question-json-v2 format validation is stateless",
 );
 
@@ -95,14 +95,14 @@ assert.equal(
   `bridge_version() returned ${actualVersion}, expected ${expectedVersion}`,
 );
 
-const report = JSON.parse(
+const check = JSON.parse(
   bridge.validate_response_format(
     JSON.stringify({ kind: "shortText", matchMode: "normalized", maxLength: 2 }),
     JSON.stringify({ kind: "shortText", text: "abc" }),
   ),
 );
-assert.deepEqual(report, {
-  violations: [{ kind: "textTooLong", maxLength: 2, actualLength: 3 }],
+assert.deepEqual(check, {
+  issues: [{ kind: "textTooLong", maxLength: 2, actualLength: 3 }],
 });
 
 const questionAttemptTimingDecision = JSON.parse(

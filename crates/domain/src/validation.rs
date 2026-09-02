@@ -84,14 +84,14 @@ pub enum StudentResponseFormatIssue {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudentResponseFormatCheck {
-    /// Every format problem found, in stable validation order.
-    pub violations: Vec<StudentResponseFormatIssue>,
+    /// Every format issue found, in stable validation order.
+    pub issues: Vec<StudentResponseFormatIssue>,
 }
 
 impl StudentResponseFormatCheck {
     /// Whether the response is structurally ready for server submission.
     pub fn is_valid(&self) -> bool {
-        self.violations.is_empty()
+        self.issues.is_empty()
     }
 }
 
@@ -103,25 +103,25 @@ pub fn validate_response_format(
     definition: &QuestionResponseFormat,
     response: &StudentResponse,
 ) -> StudentResponseFormatCheck {
-    let mut violations = Vec::new();
+    let mut issues = Vec::new();
 
     match (definition, response) {
         (QuestionResponseFormat::Numeric { .. }, StudentResponse::Numeric { value }) => {
             if !value.is_finite() {
-                violations.push(StudentResponseFormatIssue::NumericNotFinite);
+                issues.push(StudentResponseFormatIssue::NumericNotFinite);
             }
         }
         (
             QuestionResponseFormat::MultipleChoice { choices, selection },
             StudentResponse::MultipleChoice { selected },
-        ) => validate_selection(choices, *selection, selected, &mut violations),
+        ) => validate_selection(choices, *selection, selected, &mut issues),
         (
             QuestionResponseFormat::ShortText { max_length, .. },
             StudentResponse::ShortText { text },
         ) => {
             let actual_length = count(text.chars());
             if actual_length > u64::from(*max_length) {
-                violations.push(StudentResponseFormatIssue::TextTooLong {
+                issues.push(StudentResponseFormatIssue::TextTooLong {
                     max_length: *max_length,
                     actual_length,
                 });
@@ -131,12 +131,12 @@ pub fn validate_response_format(
             QuestionResponseFormat::MultiBlank { blanks },
             StudentResponse::MultiBlank { answers },
         ) => {
-            validate_multi_blank(blanks, answers, &mut violations);
+            validate_multi_blank(blanks, answers, &mut issues);
         }
         (
             QuestionResponseFormat::Matching { prompts, choices },
             StudentResponse::Matching { matches },
-        ) => validate_matching(prompts, choices, matches, &mut violations),
+        ) => validate_matching(prompts, choices, matches, &mut issues),
         (QuestionResponseFormat::Ordering { items }, StudentResponse::Ordering { order }) => {
             let expected: BTreeSet<ResponseItemReference> =
                 items.iter().map(|item| item.id.clone()).collect();
@@ -146,7 +146,7 @@ pub fn validate_response_format(
                 || order.len() != items.len()
                 || actual != expected
             {
-                violations.push(StudentResponseFormatIssue::OrderingItemsMismatch);
+                issues.push(StudentResponseFormatIssue::OrderingItemsMismatch);
             }
         }
         (
@@ -154,12 +154,15 @@ pub fn validate_response_format(
                 regions, selection, ..
             },
             StudentResponse::Hotspot { selections },
-        ) => validate_hotspot(regions, *selection, selections, &mut violations),
-        (QuestionResponseFormat::ExternalTool {}, StudentResponse::ExternalTool {}) => {}
-        _ => violations.push(StudentResponseFormatIssue::ResponseKindMismatch),
+        ) => validate_hotspot(regions, *selection, selections, &mut issues),
+        (
+            QuestionResponseFormat::ImathasQuestionBackend {},
+            StudentResponse::ImathasQuestionBackend {},
+        ) => {}
+        _ => issues.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
 
-    StudentResponseFormatCheck { violations }
+    StudentResponseFormatCheck { issues }
 }
 
 /// Validates a student response against the answer-free schema frozen with an
@@ -173,7 +176,7 @@ pub fn validate_presentation_response_format(
     schema: &QuestionPresentationResponseFormat,
     response: &StudentResponse,
 ) -> StudentResponseFormatCheck {
-    let mut violations = Vec::new();
+    let mut issues = Vec::new();
 
     match (schema, response) {
         (
@@ -181,14 +184,14 @@ pub fn validate_presentation_response_format(
             StudentResponse::Numeric { value },
         ) => {
             if !value.is_finite() {
-                violations.push(StudentResponseFormatIssue::NumericNotFinite);
+                issues.push(StudentResponseFormatIssue::NumericNotFinite);
             }
         }
         (
             QuestionPresentationResponseFormat::SingleChoice { choices },
             StudentResponse::MultipleChoice { selected },
         ) => {
-            validate_presented_selection(choices, 1, 1, selected, &mut violations);
+            validate_presented_selection(choices, 1, 1, selected, &mut issues);
         }
         (
             QuestionPresentationResponseFormat::MultipleAnswer {
@@ -197,18 +200,18 @@ pub fn validate_presentation_response_format(
                 maximum,
             },
             StudentResponse::MultipleChoice { selected },
-        ) => validate_presented_selection(choices, *minimum, *maximum, selected, &mut violations),
+        ) => validate_presented_selection(choices, *minimum, *maximum, selected, &mut issues),
         (
             QuestionPresentationResponseFormat::FillIn { max_characters },
             StudentResponse::ShortText { text },
         ) => {
-            validate_text_length(*max_characters, text, &mut violations);
+            validate_text_length(*max_characters, text, &mut issues);
         }
         (
             QuestionPresentationResponseFormat::MultiFillIn { blanks },
             StudentResponse::MultiBlank { answers },
         ) => {
-            validate_presented_multi_blank(blanks, answers, &mut violations);
+            validate_presented_multi_blank(blanks, answers, &mut issues);
         }
         (
             QuestionPresentationResponseFormat::Matching {
@@ -217,9 +220,7 @@ pub fn validate_presentation_response_format(
                 reuse_choices,
             },
             StudentResponse::Matching { matches },
-        ) => {
-            validate_presented_matching(prompts, choices, *reuse_choices, matches, &mut violations)
-        }
+        ) => validate_presented_matching(prompts, choices, *reuse_choices, matches, &mut issues),
         (
             QuestionPresentationResponseFormat::Ordering { items },
             StudentResponse::Ordering { order },
@@ -234,7 +235,7 @@ pub fn validate_presentation_response_format(
                 || order.len() != items.len()
                 || actual != expected
             {
-                violations.push(StudentResponseFormatIssue::OrderingItemsMismatch);
+                issues.push(StudentResponseFormatIssue::OrderingItemsMismatch);
             }
         }
         (
@@ -249,12 +250,12 @@ pub fn validate_presentation_response_format(
             *minimum,
             *maximum,
             selections,
-            &mut violations,
+            &mut issues,
         ),
-        _ => violations.push(StudentResponseFormatIssue::ResponseKindMismatch),
+        _ => issues.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
 
-    StudentResponseFormatCheck { violations }
+    StudentResponseFormatCheck { issues }
 }
 
 fn validate_presented_selection<T: PresentedResponseItemContent>(
@@ -262,11 +263,11 @@ fn validate_presented_selection<T: PresentedResponseItemContent>(
     minimum: u32,
     maximum: u32,
     selected: &[ResponseItemReference],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let actual = count(selected.iter());
     if actual < u64::from(minimum) || actual > u64::from(maximum) {
-        violations.push(StudentResponseFormatIssue::SelectionCount {
+        issues.push(StudentResponseFormatIssue::SelectionCount {
             expected: response_selection_rule(minimum, maximum, choices.len()),
             actual,
         });
@@ -278,12 +279,12 @@ fn validate_presented_selection<T: PresentedResponseItemContent>(
     let mut observed = BTreeSet::new();
     for choice in selected {
         if !observed.insert(choice.clone()) {
-            violations.push(StudentResponseFormatIssue::DuplicateChoice {
+            issues.push(StudentResponseFormatIssue::DuplicateChoice {
                 choice: choice.clone(),
             });
         }
         if !available.contains(choice) {
-            violations.push(StudentResponseFormatIssue::UnknownChoice {
+            issues.push(StudentResponseFormatIssue::UnknownChoice {
                 choice: choice.clone(),
             });
         }
@@ -302,20 +303,16 @@ fn response_selection_rule(minimum: u32, maximum: u32, available: usize) -> Resp
         // Presentation construction only emits the four source cardinalities
         // above. A checksum-valid but externally malformed schema is still
         // rejected by the numeric bounds check; this fallback preserves the
-        // existing browser-safe violation shape without inventing a new wire
+        // existing browser-safe issue shape without inventing a new wire
         // contract solely for corrupt storage.
         (minimum, _) => ResponseSelectionRule::Exactly { count: minimum },
     }
 }
 
-fn validate_text_length(
-    max_length: u32,
-    text: &str,
-    violations: &mut Vec<StudentResponseFormatIssue>,
-) {
+fn validate_text_length(max_length: u32, text: &str, issues: &mut Vec<StudentResponseFormatIssue>) {
     let actual_length = count(text.chars());
     if actual_length > u64::from(max_length) {
-        violations.push(StudentResponseFormatIssue::TextTooLong {
+        issues.push(StudentResponseFormatIssue::TextTooLong {
             max_length,
             actual_length,
         });
@@ -325,7 +322,7 @@ fn validate_text_length(
 fn validate_presented_multi_blank(
     blanks: &[PresentedTextEntrySlot],
     answers: &[question_model::response::StudentTextEntry],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let expected: BTreeSet<_> = blanks
         .iter()
@@ -337,7 +334,7 @@ fn validate_presented_multi_blank(
         || answers.len() != blanks.len()
         || actual != expected
     {
-        violations.push(StudentResponseFormatIssue::BlankSlotsMismatch);
+        issues.push(StudentResponseFormatIssue::BlankSlotsMismatch);
         return;
     }
     for answer in answers {
@@ -345,7 +342,7 @@ fn validate_presented_multi_blank(
             .iter()
             .find(|blank| blank.id.as_str() == answer.slot.as_str())
             .expect("validated blank slot set is exact");
-        validate_text_length(blank.max_characters, &answer.text, violations);
+        validate_text_length(blank.max_characters, &answer.text, issues);
     }
 }
 
@@ -357,7 +354,7 @@ fn validate_presented_matching<
     choices: &[Choice],
     reuse_choices: bool,
     matches: &[question_model::response::StudentMatch],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let expected_prompts: BTreeSet<_> = prompts
         .iter()
@@ -369,7 +366,7 @@ fn validate_presented_matching<
         || matches.len() != prompts.len()
         || actual_prompts != expected_prompts
     {
-        violations.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
+        issues.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
     }
     let available_choices: BTreeSet<_> = choices
         .iter()
@@ -378,12 +375,12 @@ fn validate_presented_matching<
     let mut observed = BTreeSet::new();
     for pair in matches {
         if !available_choices.contains(&pair.choice) {
-            violations.push(StudentResponseFormatIssue::UnknownMatchChoice {
+            issues.push(StudentResponseFormatIssue::UnknownMatchChoice {
                 choice: pair.choice.clone(),
             });
         }
         if !reuse_choices && !observed.insert(pair.choice.clone()) {
-            violations.push(StudentResponseFormatIssue::DuplicateMatchChoice {
+            issues.push(StudentResponseFormatIssue::DuplicateMatchChoice {
                 choice: pair.choice.clone(),
             });
         }
@@ -395,11 +392,11 @@ fn validate_presented_hotspot(
     minimum: u32,
     maximum: u32,
     selections: &[question_model::response::StudentHotspotSelection],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let actual = count(selections.iter());
     if actual < u64::from(minimum) || actual > u64::from(maximum) {
-        violations.push(StudentResponseFormatIssue::SelectionCount {
+        issues.push(StudentResponseFormatIssue::SelectionCount {
             expected: response_selection_rule(minimum, maximum, regions.len()),
             actual,
         });
@@ -408,13 +405,13 @@ fn validate_presented_hotspot(
         .iter()
         .map(|region| ResponseItemReference::new(region.id.as_str()))
         .collect();
-    validate_hotspot_region_references(selections, &available, violations);
+    validate_hotspot_region_references(selections, &available, issues);
 }
 
 fn validate_multi_blank(
     blanks: &[TextEntrySlot],
     answers: &[question_model::response::StudentTextEntry],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let expected: BTreeSet<_> = blanks.iter().map(|blank| blank.id.clone()).collect();
     let actual: BTreeSet<_> = answers.iter().map(|answer| answer.slot.clone()).collect();
@@ -423,7 +420,7 @@ fn validate_multi_blank(
         || answers.len() != blanks.len()
         || actual != expected
     {
-        violations.push(StudentResponseFormatIssue::BlankSlotsMismatch);
+        issues.push(StudentResponseFormatIssue::BlankSlotsMismatch);
         return;
     }
     for answer in answers {
@@ -433,7 +430,7 @@ fn validate_multi_blank(
             .expect("validated slot set is exact");
         let actual_length = count(answer.text.chars());
         if actual_length > u64::from(blank.max_length) {
-            violations.push(StudentResponseFormatIssue::TextTooLong {
+            issues.push(StudentResponseFormatIssue::TextTooLong {
                 max_length: blank.max_length,
                 actual_length,
             });
@@ -445,7 +442,7 @@ fn validate_matching(
     prompts: &[question_model::response::MatchingPrompt],
     choices: &[question_model::response::MatchingChoice],
     matches: &[question_model::response::StudentMatch],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let expected_prompts: BTreeSet<_> = prompts.iter().map(|prompt| prompt.id.clone()).collect();
     let actual_prompts: BTreeSet<_> = matches.iter().map(|pair| pair.prompt.clone()).collect();
@@ -454,18 +451,18 @@ fn validate_matching(
         || matches.len() != prompts.len()
         || actual_prompts != expected_prompts
     {
-        violations.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
+        issues.push(StudentResponseFormatIssue::MatchingPromptsMismatch);
     }
     let available_choices: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
     let mut observed = BTreeSet::new();
     for pair in matches {
         if !available_choices.contains(&pair.choice) {
-            violations.push(StudentResponseFormatIssue::UnknownMatchChoice {
+            issues.push(StudentResponseFormatIssue::UnknownMatchChoice {
                 choice: pair.choice.clone(),
             });
         }
         if !observed.insert(pair.choice.clone()) {
-            violations.push(StudentResponseFormatIssue::DuplicateMatchChoice {
+            issues.push(StudentResponseFormatIssue::DuplicateMatchChoice {
                 choice: pair.choice.clone(),
             });
         }
@@ -476,27 +473,27 @@ fn validate_hotspot(
     regions: &[HotspotRegion],
     selection: ResponseSelectionRule,
     selections: &[question_model::response::StudentHotspotSelection],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
-    validate_selection_count(selection, selections.len(), violations);
+    validate_selection_count(selection, selections.len(), issues);
     let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
-    validate_hotspot_region_references(selections, &available, violations);
+    validate_hotspot_region_references(selections, &available, issues);
 }
 
 fn validate_hotspot_region_references(
     selections: &[question_model::response::StudentHotspotSelection],
     available: &BTreeSet<ResponseItemReference>,
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let mut observed = BTreeSet::new();
     for selection in selections {
         if !available.contains(&selection.region) {
-            violations.push(StudentResponseFormatIssue::UnknownHotspotRegion {
+            issues.push(StudentResponseFormatIssue::UnknownHotspotRegion {
                 region: selection.region.clone(),
             });
         }
         if !observed.insert(selection.region.clone()) {
-            violations.push(StudentResponseFormatIssue::DuplicateHotspotRegion {
+            issues.push(StudentResponseFormatIssue::DuplicateHotspotRegion {
                 region: selection.region.clone(),
             });
         }
@@ -506,7 +503,7 @@ fn validate_hotspot_region_references(
 fn validate_selection_count(
     selection: ResponseSelectionRule,
     actual: usize,
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let valid = match selection {
         ResponseSelectionRule::ExactlyOne => actual == 1,
@@ -515,7 +512,7 @@ fn validate_selection_count(
         ResponseSelectionRule::AtLeastOne => actual >= 1,
     };
     if !valid {
-        violations.push(StudentResponseFormatIssue::SelectionCount {
+        issues.push(StudentResponseFormatIssue::SelectionCount {
             expected: selection,
             actual: actual as u64,
         });
@@ -527,7 +524,7 @@ fn validate_selection(
     choices: &[question_model::response::QuestionChoice],
     selection: ResponseSelectionRule,
     selected: &[ResponseItemReference],
-    violations: &mut Vec<StudentResponseFormatIssue>,
+    issues: &mut Vec<StudentResponseFormatIssue>,
 ) {
     let actual = count(selected.iter());
     let cardinality_matches = match selection {
@@ -537,7 +534,7 @@ fn validate_selection(
         ResponseSelectionRule::AtLeastOne => actual >= 1,
     };
     if !cardinality_matches {
-        violations.push(StudentResponseFormatIssue::SelectionCount {
+        issues.push(StudentResponseFormatIssue::SelectionCount {
             expected: selection,
             actual,
         });
@@ -548,19 +545,19 @@ fn validate_selection(
     let mut observed = BTreeSet::new();
     for choice in selected {
         if !observed.insert(choice.clone()) {
-            violations.push(StudentResponseFormatIssue::DuplicateChoice {
+            issues.push(StudentResponseFormatIssue::DuplicateChoice {
                 choice: choice.clone(),
             });
         }
         if !available.contains(choice) {
-            violations.push(StudentResponseFormatIssue::UnknownChoice {
+            issues.push(StudentResponseFormatIssue::UnknownChoice {
                 choice: choice.clone(),
             });
         }
     }
 }
 
-/// Converts an iterator count without target-width differences in the report.
+/// Converts an iterator count without target-width differences in the check.
 fn count(values: impl Iterator) -> u64 {
     u64::try_from(values.count()).expect("supported usize values fit u64")
 }
@@ -613,7 +610,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).violations,
+            validate_response_format(&definition, &response).issues,
             vec![StudentResponseFormatIssue::ResponseKindMismatch]
         );
     }
@@ -627,7 +624,7 @@ mod tests {
 
         assert_eq!(
             validate_response_format(&definition, &StudentResponse::Numeric { value: f64::NAN })
-                .violations,
+                .issues,
             vec![StudentResponseFormatIssue::NumericNotFinite]
         );
     }
@@ -647,7 +644,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).violations,
+            validate_response_format(&definition, &response).issues,
             vec![
                 StudentResponseFormatIssue::SelectionCount {
                     expected: ResponseSelectionRule::ExactlyOne,
@@ -677,18 +674,18 @@ mod tests {
     }
 
     #[test]
-    fn violation_json_uses_the_browser_camel_case_contract() {
-        let report = StudentResponseFormatCheck {
-            violations: vec![StudentResponseFormatIssue::TextTooLong {
+    fn issue_json_uses_the_browser_camel_case_contract() {
+        let check = StudentResponseFormatCheck {
+            issues: vec![StudentResponseFormatIssue::TextTooLong {
                 max_length: 2,
                 actual_length: 3,
             }],
         };
 
         assert_eq!(
-            serde_json::to_value(report).expect("format report should serialize"),
+            serde_json::to_value(check).expect("Student Response Format Check should serialize"),
             serde_json::json!({
-                "violations": [{
+                "issues": [{
                     "kind": "textTooLong",
                     "maxLength": 2,
                     "actualLength": 3
@@ -710,7 +707,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).violations,
+            validate_response_format(&definition, &response).issues,
             vec![StudentResponseFormatIssue::OrderingItemsMismatch]
         );
     }
@@ -743,7 +740,7 @@ mod tests {
                     }],
                 },
             )
-            .violations,
+            .issues,
             vec![StudentResponseFormatIssue::BlankSlotsMismatch]
         );
 
@@ -767,7 +764,7 @@ mod tests {
                     ],
                 },
             )
-            .violations,
+            .issues,
             vec![
                 StudentResponseFormatIssue::MatchingPromptsMismatch,
                 StudentResponseFormatIssue::DuplicateMatchChoice {
@@ -801,7 +798,7 @@ mod tests {
                     }],
                 },
             )
-            .violations,
+            .issues,
             vec![StudentResponseFormatIssue::UnknownHotspotRegion {
                 region: ResponseItemReference::new("unknown"),
             }]
@@ -809,9 +806,12 @@ mod tests {
     }
 
     #[test]
-    fn external_tool_accepts_only_its_marker_response() {
-        let external = QuestionResponseFormat::ExternalTool {};
-        assert!(validate_response_format(&external, &StudentResponse::ExternalTool {}).is_valid());
+    fn imathas_question_backend_accepts_only_its_marker_response() {
+        let imathas = QuestionResponseFormat::ImathasQuestionBackend {};
+        assert!(
+            validate_response_format(&imathas, &StudentResponse::ImathasQuestionBackend {})
+                .is_valid()
+        );
 
         for response in [
             StudentResponse::Numeric { value: 1.0 },
@@ -822,7 +822,7 @@ mod tests {
             StudentResponse::Ordering { order: vec![] },
         ] {
             assert_eq!(
-                validate_response_format(&external, &response).violations,
+                validate_response_format(&imathas, &response).issues,
                 vec![StudentResponseFormatIssue::ResponseKindMismatch]
             );
         }
@@ -832,7 +832,7 @@ mod tests {
             unit: None,
         };
         assert_eq!(
-            validate_response_format(&numeric, &StudentResponse::ExternalTool {}).violations,
+            validate_response_format(&numeric, &StudentResponse::ImathasQuestionBackend {}).issues,
             vec![StudentResponseFormatIssue::ResponseKindMismatch]
         );
     }

@@ -141,12 +141,12 @@ test("the response controller exposes 422 and receipt failures for correction be
         definition: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
         validator: {
           mode: "wasm",
-          validateResponseFormat: async () => ({ violations: [] }),
+          validateResponseFormat: async () => ({ issues: [] }),
         },
         onEscape: () => undefined,
         onResponseChange: (response, validation) => {
           machine.setResponse(response, {
-            valid: validation.violations.length === 0,
+            valid: validation.issues.length === 0,
             message: null,
           });
         },

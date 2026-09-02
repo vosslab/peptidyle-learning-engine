@@ -39,7 +39,7 @@ import {
   decodeCoursePage,
   decodeCourseSummary,
   decodeDraftQuestionContent,
-  decodeExternalToolLaunch,
+  decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
   decodeQuestionPresentation,
   decodeIssuedPresentationEnvelope,
@@ -304,7 +304,7 @@ export function createResponseClient(
   | "listQuestionAttempts"
   | "getAttempt"
   | "getIssuedQuestion"
-  | "beginExternalToolLaunch"
+  | "beginImathasQuestionBackendLaunch"
   | "getAssignmentActivitySummary"
   | "getAssignmentAttemptScreen"
   | "fetchCourseBanner"
@@ -508,13 +508,13 @@ export function createResponseClient(
         attempt,
       );
     },
-    beginExternalToolLaunch: (courseId, assignmentId, attemptId) =>
+    beginImathasQuestionBackendLaunch: (courseId, assignmentId, attemptId) =>
       requestJson(
         fetchImplementation,
         basePath,
-        `${studentAttemptPath(courseId, assignmentId, attemptId)}/external-tool/launch`,
+        `${studentAttemptPath(courseId, assignmentId, attemptId)}/imathas-question-backend/launch`,
         (value, path = "response") =>
-          decodeExternalToolLaunch(value, path, courseId, assignmentId, attemptId),
+          decodeImathasQuestionBackendLaunch(value, path, courseId, assignmentId, attemptId),
         { method: "POST" },
       ),
     getAssignmentActivitySummary: (studentRecordId) =>

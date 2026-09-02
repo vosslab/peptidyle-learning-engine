@@ -1,33 +1,33 @@
-//! Provider-facing, answer-safe contracts and draft snapshot preparation.
+//! iMathAS Question Backend-facing, answer-safe contracts and draft snapshot preparation.
 
 use async_trait::async_trait;
 use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionAttemptId, QuestionRevisionReference};
-
-use crate::{
-    ExternalToolLaunchSessionAuthentication, ImathasAdapterError, ProviderFailure,
-    VerifiedProviderGrade,
-    cache::{valid_item_ref, valid_opaque_key},
+use question_model::{
+    ImathasDeploymentReference, ImathasItemReference, ImathasProfile, QuestionRevisionReference,
 };
 
-/// A provider's publication-safe integration profile.
+use crate::{
+    ImathasAdapterError, ImathasQuestionBackendFailure, VerifiedImathasQuestionBackendResult,
+};
+
+/// An iMathAS deployment's publication-safe integration profile.
 ///
 /// No endpoint, credential, accepted origin, or launch protocol is carried in
-/// this value. Those belong to deployment configuration behind `provider`.
+/// this value. Those belong to its iMathAS Deployment Reference.
 #[derive(Clone, PartialEq, Eq)]
-pub struct SupportedProfile {
-    pub(crate) name: String,
+pub struct SupportedImathasProfile {
+    pub(crate) profile: ImathasProfile,
     pub(crate) deterministic_seeded_render: bool,
     pub(crate) verified_server_grading: bool,
     pub(crate) partial_credit: bool,
 }
 
-impl std::fmt::Debug for SupportedProfile {
+impl std::fmt::Debug for SupportedImathasProfile {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
-            .debug_struct("SupportedProfile")
-            .field("name", &self.name)
+            .debug_struct("SupportedImathasProfile")
+            .field("profile", &self.profile)
             .field(
                 "deterministic_seeded_render",
                 &self.deterministic_seeded_render,
@@ -38,20 +38,19 @@ impl std::fmt::Debug for SupportedProfile {
     }
 }
 
-impl SupportedProfile {
+impl SupportedImathasProfile {
     /// Constructs an explicitly supported protocol profile.
     pub fn new(
-        name: impl Into<String>,
+        profile: ImathasProfile,
         deterministic_seeded_render: bool,
         verified_server_grading: bool,
         partial_credit: bool,
     ) -> Result<Self, ImathasAdapterError> {
-        let name = name.into();
-        if name.is_empty() || name.len() > 128 || (partial_credit && !verified_server_grading) {
+        if partial_credit && !verified_server_grading {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         Ok(Self {
-            name,
+            profile,
             deterministic_seeded_render,
             verified_server_grading,
             partial_credit,
@@ -59,68 +58,40 @@ impl SupportedProfile {
     }
 
     /// Pinned profile name persisted with a published source.
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn profile(&self) -> &ImathasProfile {
+        &self.profile
     }
 }
 
-/// Opaque configured External Question Provider Reference.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ExternalQuestionProviderReference(String);
-
-impl ExternalQuestionProviderReference {
-    /// Opaque provider key selected by trusted deployment configuration.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// Provider-local iMathAS Item Reference.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ImathasItemReference(String);
-
-impl ImathasItemReference {
-    /// Opaque provider-local item key.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// The configured provider and iMathAS Item Reference used to retrieve a draft snapshot.
+/// The configured iMathAS Deployment Reference and iMathAS Item Reference used
+/// to retrieve a Draft Question snapshot.
 /// It contains no source bytes, endpoint, or credential.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasQuestionLocation {
-    provider: ExternalQuestionProviderReference,
+    deployment_reference: ImathasDeploymentReference,
     item: ImathasItemReference,
 }
 
 impl ImathasQuestionLocation {
-    /// Creates the provider/item location from a Draft Question Backend Locator.
+    /// Creates the iMathAS location from a Draft Question Backend Locator.
     pub fn from_draft_backend_locator(
         locator: &question_model::DraftQuestionBackendLocator,
     ) -> Result<Self, ImathasAdapterError> {
         match locator {
-            question_model::DraftQuestionBackendLocator::Imathas { provider, item_ref }
-                if valid_opaque_key(provider) && valid_item_ref(item_ref) =>
-            {
-                Ok(Self {
-                    provider: ExternalQuestionProviderReference(provider.clone()),
-                    item: ImathasItemReference(item_ref.clone()),
-                })
-            }
-            question_model::DraftQuestionBackendLocator::Imathas { .. } => {
-                Err(ImathasAdapterError::InvalidDraft)
-            }
+            question_model::DraftQuestionBackendLocator::Imathas { binding } => Ok(Self {
+                deployment_reference: binding.deployment_reference().clone(),
+                item: binding.item_reference().clone(),
+            }),
             _ => Err(ImathasAdapterError::UnsupportedSource),
         }
     }
 
     /// Opaque deployment configuration selector.
-    pub fn provider_reference(&self) -> &ExternalQuestionProviderReference {
-        &self.provider
+    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+        &self.deployment_reference
     }
 
-    /// Provider-local item reference.
+    /// iMathAS-backend-local item reference.
     pub fn item_reference(&self) -> &ImathasItemReference {
         &self.item
     }
@@ -138,7 +109,7 @@ impl std::fmt::Debug for ImathasQuestionLocation {
 pub struct PreparedSnapshot {
     pub(crate) bytes: Vec<u8>,
     pub(crate) sha256: String,
-    pub(crate) profile: SupportedProfile,
+    pub(crate) profile: SupportedImathasProfile,
 }
 
 impl PreparedSnapshot {
@@ -153,7 +124,7 @@ impl PreparedSnapshot {
     }
 
     /// Validated integration profile.
-    pub fn profile(&self) -> &SupportedProfile {
+    pub fn profile(&self) -> &SupportedImathasProfile {
         &self.profile
     }
 }
@@ -168,47 +139,47 @@ impl std::fmt::Debug for PreparedSnapshot {
     }
 }
 
-/// Browser-safe provider rendering material. It cannot contain iframe markup,
+/// Browser-safe iMathAS Question Backend render material. It cannot contain iframe markup,
 /// launch URLs, tokens, callbacks, answers, or scores.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SafeProviderRender {
+pub struct SafeImathasQuestionRender {
     /// Plain prompt blocks, already constrained by the adapter boundary.
     pub prompt: Vec<QuestionContentBlock>,
-    /// A browser-safe label for the external tool.
+    /// A browser-safe Question title.
     pub title: String,
 }
 
-/// Implementation seal: external crates cannot install a provider that
+/// Implementation seal: external crates cannot install an iMathAS Question Backend that
 /// constructs a grade proof without the adapter-owned verifier.
 pub(crate) mod sealed {
-    pub trait ProviderSealed {}
+    pub trait QuestionBackendSealed {}
 }
 
-/// Server-side provider client. Implementations keep provider URLs,
+/// Server-side iMathAS Question Backend client. Implementations keep deployment URLs,
 /// credentials, network timeout policy, and trust verification private.
 #[async_trait]
-pub trait ImathasProvider: sealed::ProviderSealed + Send + Sync {
+pub trait QuestionBackend: sealed::QuestionBackendSealed + Send + Sync {
     /// Fetches exact source bytes and an explicitly supported profile for an unversioned draft.
     async fn snapshot(
         &self,
         locator: &ImathasQuestionLocation,
-    ) -> Result<(Vec<u8>, SupportedProfile), ProviderFailure>;
+    ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure>;
 
     /// Produces only browser-safe prompt material from archived source bytes.
     async fn render(
         &self,
-        request: ProviderRenderRequest<'_>,
-    ) -> Result<SafeProviderRender, ProviderFailure>;
+        request: ImathasRenderRequest<'_>,
+    ) -> Result<SafeImathasQuestionRender, ImathasQuestionBackendFailure>;
 
     /// Authenticates and correlates an upstream grade server-to-server.
-    async fn verify_grade(
+    async fn verify_result(
         &self,
-        request: ProviderGradeRequest<'_>,
-    ) -> Result<VerifiedProviderGrade, ProviderFailure>;
+        request: ImathasResultRequest<'_>,
+    ) -> Result<VerifiedImathasQuestionBackendResult, ImathasQuestionBackendFailure>;
 }
 
-/// Immutable inputs for an external render. No browser data is present.
-pub struct ProviderRenderRequest<'a> {
+/// Immutable inputs for one iMathAS render. No browser data is present.
+pub struct ImathasRenderRequest<'a> {
     /// Exact archived source bytes.
     pub snapshot: &'a [u8],
     /// Pinned source profile.
@@ -219,36 +190,32 @@ pub struct ProviderRenderRequest<'a> {
     pub seed: QuestionSeed,
 }
 
-/// Server-held, attempt-bound provider grade request. Private fields prevent a
+/// Server-held, attempt-bound iMathAS result request. Private fields prevent a
 /// browser request from constructing a launch_session_authentication or score payload.
-pub struct ProviderGradeRequest<'a> {
+pub struct ImathasResultRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) profile: &'a str,
-    pub(crate) attempt: QuestionAttemptId,
-    pub(crate) question_revision: QuestionRevisionReference,
-    pub(crate) seed: QuestionSeed,
-    pub(crate) launch_session_authentication: &'a ExternalToolLaunchSessionAuthentication,
+    pub(crate) grading_context: &'a learning_data_access::ImathasQuestionBackendGradingContext,
+    pub(crate) launch_session_authentication:
+        &'a learning_data_access::ImathasQuestionBackendSessionAuthentication,
 }
 
-impl<'a> ProviderGradeRequest<'a> {
+impl<'a> ImathasResultRequest<'a> {
     pub fn snapshot(&self) -> &'a [u8] {
         self.snapshot
     }
     pub fn profile(&self) -> &'a str {
         self.profile
     }
-    pub fn attempt(&self) -> QuestionAttemptId {
-        self.attempt
-    }
-    pub fn question_revision(&self) -> &QuestionRevisionReference {
-        &self.question_revision
-    }
-    pub fn seed(&self) -> QuestionSeed {
-        self.seed
+    /// Exact server-owned grading identity for this iMathAS request.
+    pub fn grading_context(&self) -> &learning_data_access::ImathasQuestionBackendGradingContext {
+        self.grading_context
     }
 
-    /// Opaque server-held value transmitted only by the provider client.
-    pub fn launch_session_authentication(&self) -> &ExternalToolLaunchSessionAuthentication {
+    /// Opaque server-held value transmitted only by the iMathAS Question Backend client.
+    pub fn launch_session_authentication(
+        &self,
+    ) -> &learning_data_access::ImathasQuestionBackendSessionAuthentication {
         self.launch_session_authentication
     }
 }

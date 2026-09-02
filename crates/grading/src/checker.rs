@@ -43,12 +43,8 @@ pub enum GradingError {
 impl std::fmt::Display for GradingError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidResponse(violations) => {
-                write!(
-                    formatter,
-                    "response has {} format violation(s)",
-                    violations.len()
-                )
+            Self::InvalidResponse(issues) => {
+                write!(formatter, "response has {} format issue(s)", issues.len())
             }
             Self::MissingAnswerKey => formatter.write_str("graded question has no answer key"),
             Self::UnexpectedAnswerKey => {
@@ -79,7 +75,7 @@ impl std::error::Error for GradingError {}
 ///
 /// # Errors
 ///
-/// Returns [`GradingError`] for response-format violations, missing or
+/// Returns [`GradingError`] for response-format issues, missing or
 /// mismatched keys, invalid public parameters, backend-owned partial credit,
 /// or other backend-owned grading behavior. This checker never fabricates a
 /// numeric grade.
@@ -88,9 +84,9 @@ pub fn grade(
     response: &StudentResponse,
     key: Option<&AnswerKey>,
 ) -> Result<QuestionGradingOutcome, GradingError> {
-    let report = validate_response_format(&question.response, response);
-    if !report.is_valid() {
-        return Err(GradingError::InvalidResponse(report.violations));
+    let check = validate_response_format(&question.response, response);
+    if !check.is_valid() {
+        return Err(GradingError::InvalidResponse(check.issues));
     }
 
     let points = match question.grading {
@@ -126,9 +122,9 @@ pub fn question_statistics_observation(
     response: &StudentResponse,
     outcome: &QuestionGradingOutcome,
 ) -> Result<Option<QuestionStatisticsObservation>, GradingError> {
-    let report = validate_response_format(&question.response, response);
-    if !report.is_valid() {
-        return Err(GradingError::InvalidResponse(report.violations));
+    let check = validate_response_format(&question.response, response);
+    if !check.is_valid() {
+        return Err(GradingError::InvalidResponse(check.issues));
     }
     let QuestionGradingOutcome::Graded(result) = outcome else {
         return Ok(None);

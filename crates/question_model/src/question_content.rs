@@ -32,6 +32,207 @@ pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
 /// Maximum Unicode scalar values permitted in an Instructor-facing Question Description.
 pub const MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS: usize = 4_000;
 
+/// Maximum bytes in an opaque iMathAS deployment, item, or profile identifier.
+///
+/// These identifiers are configuration and source-location keys, not URLs,
+/// credentials, or arbitrary path fragments.  Keeping their grammar in the
+/// Question Model makes the authored, published, adapter, and storage
+/// boundaries agree before a draft can reach an adapter.
+pub const MAX_IMATHAS_IDENTIFIER_BYTES: usize = 128;
+
+/// Why an iMathAS deployment, item, or profile identifier is not safe to
+/// retain in a Question Backend binding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImathasQuestionBackendBindingError {
+    InvalidDeploymentReference,
+    InvalidItemReference,
+    InvalidProfile,
+}
+
+impl std::fmt::Display for ImathasQuestionBackendBindingError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidDeploymentReference => {
+                formatter.write_str("iMathAS deployment reference is invalid")
+            }
+            Self::InvalidItemReference => formatter.write_str("iMathAS item reference is invalid"),
+            Self::InvalidProfile => formatter.write_str("iMathAS profile is invalid"),
+        }
+    }
+}
+
+impl std::error::Error for ImathasQuestionBackendBindingError {}
+
+fn has_imathas_identifier_grammar(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_IMATHAS_IDENTIFIER_BYTES
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+/// Opaque configured iMathAS deployment selector.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ImathasDeploymentReference(String);
+
+impl ImathasDeploymentReference {
+    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
+        let value = value.into();
+        if !has_imathas_identifier_grammar(&value) {
+            return Err(ImathasQuestionBackendBindingError::InvalidDeploymentReference);
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for ImathasDeploymentReference {
+    type Error = ImathasQuestionBackendBindingError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<ImathasDeploymentReference> for String {
+    fn from(value: ImathasDeploymentReference) -> Self {
+        value.0
+    }
+}
+
+/// iMathAS-backend-local item selector.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ImathasItemReference(String);
+
+impl ImathasItemReference {
+    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
+        let value = value.into();
+        if !has_imathas_identifier_grammar(&value) || value.contains("..") {
+            return Err(ImathasQuestionBackendBindingError::InvalidItemReference);
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for ImathasItemReference {
+    type Error = ImathasQuestionBackendBindingError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<ImathasItemReference> for String {
+    fn from(value: ImathasItemReference) -> Self {
+        value.0
+    }
+}
+
+/// Pinned iMathAS profile selected at publication.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ImathasProfile(String);
+
+impl ImathasProfile {
+    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
+        let value = value.into();
+        if !has_imathas_identifier_grammar(&value) {
+            return Err(ImathasQuestionBackendBindingError::InvalidProfile);
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for ImathasProfile {
+    type Error = ImathasQuestionBackendBindingError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<ImathasProfile> for String {
+    fn from(value: ImathasProfile) -> Self {
+        value.0
+    }
+}
+
+/// Immutable iMathAS backend location and profile pinned by a Question Revision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImathasQuestionBackendBinding {
+    deployment_reference: ImathasDeploymentReference,
+    item_reference: ImathasItemReference,
+    profile: ImathasProfile,
+}
+
+impl ImathasQuestionBackendBinding {
+    pub fn new(
+        deployment_reference: ImathasDeploymentReference,
+        item_reference: ImathasItemReference,
+        profile: ImathasProfile,
+    ) -> Self {
+        Self {
+            deployment_reference,
+            item_reference,
+            profile,
+        }
+    }
+
+    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+        &self.deployment_reference
+    }
+
+    pub fn item_reference(&self) -> &ImathasItemReference {
+        &self.item_reference
+    }
+
+    pub fn profile(&self) -> &ImathasProfile {
+        &self.profile
+    }
+}
+
+/// iMathAS location permitted before source snapshot preparation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DraftImathasQuestionBackendBinding {
+    deployment_reference: ImathasDeploymentReference,
+    item_reference: ImathasItemReference,
+}
+
+impl DraftImathasQuestionBackendBinding {
+    pub fn new(
+        deployment_reference: ImathasDeploymentReference,
+        item_reference: ImathasItemReference,
+    ) -> Self {
+        Self {
+            deployment_reference,
+            item_reference,
+        }
+    }
+
+    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
+        &self.deployment_reference
+    }
+
+    pub fn item_reference(&self) -> &ImathasItemReference {
+        &self.item_reference
+    }
+}
+
 /// The authored or imported representation of a Question.
 ///
 /// Question Format describes source representation and interchange. It is
@@ -155,17 +356,14 @@ pub enum QuestionBackendLocator {
         /// H5P content type, for example `H5P.MultiChoice`.
         content_type: String,
     },
-    /// An iMathAS item resolved through a configured integration profile.
+    /// An iMathAS item resolved through its configured deployment and profile.
     ///
-    /// The provider name is an opaque deployment-configured key. The private
+    /// The deployment reference is an opaque configured key. The private
     /// Question Source holds the immutable snapshot bytes separately.
     Imathas {
-        /// Opaque configured provider key, never a URL or credential.
-        provider: String,
-        /// Provider-local item reference captured in the immutable snapshot.
-        item_ref: String,
-        /// Supported integration profile pinned at publication time.
-        integration_profile: String,
+        /// The typed iMathAS binding is flattened to its browser contract.
+        #[serde(flatten)]
+        binding: ImathasQuestionBackendBinding,
     },
 }
 
@@ -197,7 +395,11 @@ pub enum DraftQuestionBackendLocator {
     /// An H5P activity.
     H5p { content_type: String },
     /// Private iMathAS sandbox locator, never an endpoint or credential.
-    Imathas { provider: String, item_ref: String },
+    Imathas {
+        /// The typed draft binding is flattened to its browser contract.
+        #[serde(flatten)]
+        binding: DraftImathasQuestionBackendBinding,
+    },
 }
 
 impl TryFrom<DraftQuestionBackendLocator> for QuestionBackendLocator {
@@ -473,12 +675,62 @@ mod tests {
 
     #[test]
     fn imathas_sandbox_source_cannot_become_published_without_a_snapshot() {
+        let binding = DraftImathasQuestionBackendBinding::new(
+            ImathasDeploymentReference::new("myopenmath").expect("valid deployment"),
+            ImathasItemReference::new("12345").expect("valid item"),
+        );
+        let draft = DraftQuestionBackendLocator::Imathas {
+            binding: binding.clone(),
+        };
         assert_eq!(
-            QuestionBackendLocator::try_from(DraftQuestionBackendLocator::Imathas {
-                provider: "myopenmath".to_string(),
-                item_ref: "12345".to_string(),
-            }),
+            serde_json::to_value(&draft).expect("draft serializes"),
+            serde_json::json!({
+                "backend": "imathas",
+                "deploymentReference": "myopenmath",
+                "itemReference": "12345",
+            })
+        );
+        assert_eq!(
+            QuestionBackendLocator::try_from(draft),
             Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
+        );
+    }
+
+    #[test]
+    fn imathas_bindings_are_typed_but_keep_the_flat_browser_locator_shape() {
+        let binding = ImathasQuestionBackendBinding::new(
+            ImathasDeploymentReference::new("self-hosted-imathas").expect("valid deployment"),
+            ImathasItemReference::new("item-17").expect("valid item"),
+            ImathasProfile::new("imathas_remote_grading_v1").expect("valid profile"),
+        );
+        let locator = QuestionBackendLocator::Imathas { binding };
+
+        let json = serde_json::to_value(&locator).expect("locator serializes");
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "backend": "imathas",
+                "deploymentReference": "self-hosted-imathas",
+                "itemReference": "item-17",
+                "profile": "imathas_remote_grading_v1",
+            })
+        );
+        assert!(
+            serde_json::from_value::<QuestionBackendLocator>(serde_json::json!({
+                "backend": "imathas",
+                "deploymentReference": "https://untrusted.example",
+                "itemReference": "item-17",
+                "profile": "imathas_remote_grading_v1",
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn imathas_item_reference_refuses_path_traversal_segments() {
+        assert_eq!(
+            ImathasItemReference::new("item..17"),
+            Err(ImathasQuestionBackendBindingError::InvalidItemReference)
         );
     }
 

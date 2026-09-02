@@ -54,6 +54,9 @@ impl LoginContract {
     pub(super) fn expected_login(self) -> &'static str {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
+            Self::Production(ProductionLoginProfile::RemoteQuestionBackendGradingWorker) => {
+                "ple_worker_login"
+            }
         }
     }
 
@@ -69,6 +72,12 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
+            Self::Production(ProductionLoginProfile::RemoteQuestionBackendGradingWorker) => {
+                &[ExpectedMembership {
+                    role_name: "ple_remote_question_backend_grading_worker",
+                    set_option: true,
+                }]
+            }
         }
     }
 
@@ -98,6 +107,20 @@ mod tests {
                     set_option: true,
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn remote_question_backend_grading_worker_login_has_one_exact_capability() {
+        let worker =
+            LoginContract::Production(ProductionLoginProfile::RemoteQuestionBackendGradingWorker);
+
+        assert_eq!(
+            worker.expected_memberships(),
+            [ExpectedMembership {
+                role_name: "ple_remote_question_backend_grading_worker",
+                set_option: true,
+            }]
         );
     }
 }

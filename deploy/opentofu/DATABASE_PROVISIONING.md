@@ -14,7 +14,9 @@ VPC; do not run it from an ECS API or worker task.
    `ple_grading_reader` with the
    memberships and attributes the production pool verifier attests. `ple_api_login` has direct
    `SET`-only membership in `ple_app` and `ple_auth`. `ple_worker_login` has direct `SET`-only
-   membership in `ple_app` for ordinary worker jobs. `ple_accepted_submission_recovery_login`
+   membership in `ple_remote_question_backend_grading_worker` for Remote Question Backend
+   grading claim and commit work. That capability has only `ple_api` usage plus execution of
+   those two procedures, with no direct protected-table access. `ple_accepted_submission_recovery_login`
    has only direct `SET`-only membership in `ple_accepted_submission_execution`; the execution
    capability is worker-only and grants the sealed accepted-submission loader without direct
    private-table access. `ple_publisher_login` has only `SET` membership in

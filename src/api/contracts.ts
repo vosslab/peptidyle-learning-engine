@@ -374,7 +374,7 @@ export type PublicationResponseKind =
   | "matching"
   | "ordering"
   | "hotspot"
-  | "externalTool";
+  | "imathasQuestionBackend";
 
 export interface PublicationResult {
   readonly summary: QuestionSummary;
@@ -385,12 +385,12 @@ export interface PublicationRequest {
 }
 
 /**
- * Per-attempt route to a server-owned external-tool broker.
+ * Per-attempt route to the server-owned iMathAS Question Backend broker.
  *
  * This is deliberately a same-origin path only. It carries no provider URL,
  * token, correlation identifier, score, or immutable question content.
  */
-export interface ExternalToolLaunch {
+export interface ImathasQuestionBackendLaunch {
   readonly launchUrl: string;
 }
 

@@ -98,7 +98,7 @@ can defeat a design that treats `Lax` as complete CSRF protection. See
 - **False confidence:** `SameSite=Lax`, a frontend-only CSRF token, CORS denial alone, escaping one
   template, or a CSP that does not cover the actual response are incomplete defenses.
 - **Applicability:** **Code evidence target.** An answer-free browser payload can reduce grading
-  disclosure, but it cannot reduce session, author-content, or external-tool browser risk. Treat
+  disclosure, but it cannot reduce session, author-content, or Remote Question Backend browser risk. Treat
   that payload property as current only when the active audit links the response-contract tests.
 
 ## Host, cache, and parser boundaries

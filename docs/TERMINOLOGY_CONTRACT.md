@@ -453,15 +453,21 @@ Question Answer. Outcome-controlled choice, correct, or incorrect content maps
 to its matching Question Feedback form, and a model solution maps to Question
 Answer Explanation.
 
-**Question Backend** identifies the server-side adapter selected for one Draft
-Question Revision or Question Revision independently of its Question Source. It
-performs its exact validation, issue, reproduction, and automated-grading
-operations. Use exact names such as WeBWorK PG Path or iMathAS Item Reference
-for an external location. A **PLE Question Implementation** is the current
-first-party implementation registered for an exact Question Format and Question
-Type. It validates and executes the stored Question Source. An
-**External Question Provider** is a configured external system used through a
-Question Backend for its exact launch, exchange, render, or grade operations.
+**Question Backend** identifies the server-side adapter selected independently
+of Question Source and performs exact validation, issue, reproduction, and
+automated grading. `QuestionBackend::Imathas` remains the closed backend
+identity; **iMathAS Deployment Reference** (`deployment_reference`) identifies
+its configured deployment. Use exact names such as WeBWorK PG Path or iMathAS
+Item Reference for a backend-owned location. A **PLE Question Implementation**
+is the first-party implementation registered for one exact Question Format and
+Type. WeBWorK and iMathAS are PLE-managed Question Backends. An adapter,
+another process, or a network service is a technical boundary within a
+Question Backend rather than another PLE product concept.
+
+**Question Backend** is the backend-agnostic interface term. iMathAS server-managed operations use the exact iMathAS Question Backend Session, iMathAS Result Exchange, iMathAS Result, and iMathAS Question Backend Transport terms; a Question is never Remote or External.
+Question Model owns the typed **ImathasQuestionBackendBinding**: iMathAS Deployment Reference, iMathAS Item Reference, and the pinned `imathas_remote_grading_v1` iMathAS Profile.
+The LDA-owned iMathAS Question Backend Session persists that exact binding with its iMathAS Session Challenge, iMathAS Session Authentication, iMathAS Grading Context, iMathAS Result Token, iMathAS Result Exchange, and iMathAS Result; its existing response/control/Student Response marker is exactly `ImathasQuestionBackend`.
+The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State, iMathAS Render Cache Entry, and iMathAS Launch/Result protocol verification. iMathAS is the current scored operation; no generic remote-backend item reference, profile, or shared cross-backend cache record exists.
 
 **Question Presentation** is the answer-free state issued for one exact
 Question Attempt. It contains the Question Prompt, Question Asset Renditions,
@@ -476,7 +482,8 @@ The authored Question Response Format retains durable Response Item References.
 presentation-scoped Response Item References for one Question Presentation.
 Question Response Control names the browser interaction used to collect that
 response. The Question Presentation declares the control, keeping the Student
-interface independent of Question Type and Question Format.
+interface independent of Question Type and Question Format. The exact iMathAS
+marker is `ImathasQuestionBackend`/`imathasQuestionBackend` where that control is used.
 
 **Question Presentation Binding** is the server-held evidence that pairs one
 Question Presentation Nonce with its complete Question Presentation Checksum.
@@ -485,12 +492,9 @@ Question, its Question Presentation, and that binding. These terms preserve the
 presentation and integrity evidence boundaries. Question Revision remains the
 Question content lifecycle.
 
-**Keyboard Instructions** are persistent text that explains how to operate a
-Question Response Control with the keyboard. A **Keyboard Tooltip** is transient
-hover or focus help attached to one keyboard action. A **Response Format
-Message** reports whether the current entry has the required
-correctness-neutral shape. These interface terms are distinct from Question
-Hint and Question Feedback.
+**Student Response Format Check** is the answer-free result of applying one Question Response Format to a proposed Student Response. It owns an ordered set of **Student Response Format Issues**, each naming one exact shape or constraint mismatch. The closed issue set belongs to the domain contract and is shared unchanged by browser and server format validation. A **Response Format Message** is visible interface text derived from that check; it is not the check or an issue record.
+
+**Keyboard Instructions** are persistent text that explains how to operate a Question Response Control with the keyboard. A **Keyboard Tooltip** is transient hover or focus help attached to one keyboard action. A **Response Format Message** reports whether the current entry has the required correctness-neutral shape. These interface terms are distinct from Question Hint and Question Feedback.
 
 **Text Response Match Rule** is the public Exact, Case Insensitive, or
 Normalized comparison rule declared by a text-bearing Question Response Format.
@@ -500,8 +504,9 @@ Format. Both rules describe accepted-response behavior only; the Answer Key
 retains the correct text or numeric value on the server.
 
 **Question Submission** is the immutable acceptance event for one Student
-Response on one Question Attempt. It owns that accepted response. A **Grading
-Result** is a distinct immutable evaluation of one Question Submission and is
+Response on one Question Attempt. It owns that accepted response, including the
+exact `ImathasQuestionBackend` marker when the accepted iMathAS Result Exchange flow supplies it.
+A **Grading Result** is a distinct immutable evaluation of one Question Submission and is
 bound through the containing Question Attempt to its exact Question Attempt
 Reproduction Details.
 **Answer Key** and **Question Grading Input** name server-held correctness
@@ -873,8 +878,9 @@ means the server ended the attempt without inventing a Question Submission or
 Student Response. A **Question Submission Receipt** records accepted response
 submission. A **Grading Result** records the later evaluation, and an
 **Automated Grading Receipt** binds that result to its exact automated
-operation. This record path keeps server-only Answer Keys, Question Grading
-Input, and FERPA records out of Student-visible data.
+operation. This record path keeps
+server-only Answer Keys, Question Grading Input, and FERPA records out of
+Student-visible data.
 
 **Question Submission Grading State** is the authoritative grading-progress
 fact for one accepted Question Submission: Pending, Graded, Instructor

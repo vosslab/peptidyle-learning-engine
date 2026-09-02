@@ -169,7 +169,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
-| C3      | Run/attempt/prefetch/submit/status/summary/feedback, external-tool PLE wrapper, author preview, three validation fallbacks                                                                                               |
+| C3      | Run/attempt/prefetch/submit/status/summary/feedback, Remote Question Backend PLE wrapper, author preview, three validation fallbacks                                                                                     |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                                         |
@@ -286,6 +286,61 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   and `git diff --check`. Targeted active-owner and generated-import inspection are one-time
   evidence. Focused evidence and independent review are required before accepting the child and
   checking vocabulary row 469.
+
+### WP-SD1-A-TERM-01-RQB1: Remote Question Backend terminology cutover
+
+- **In progress (2026-09-01).** This package directly establishes `Question Backend` as the product
+  category and `Remote Question Backend` as the LDA/server-managed Session, state, result,
+  and launch/return boundary where a selected backend runs separately. iMathAS adapter-local
+  records use iMathAS names; registered protocol claims, including `ple_launch_challenge`, retain
+  their protocol spelling.
+- **Superseded terminology evidence:** `ETLS1`, `ETLC1`, `ETGC1`, and `ETPRT1` retain their
+  implementation receipts only as evidence pending this cutover; their checked terminology targets
+  are not canonical. `ETRGR1` is absorbed here and cannot complete independently. RQB1 reopens and
+  directly replaces their source, schema, API, generated-artifact, documentation, and validation
+  language, including the row-535 result-to-grading lineage.
+- **Owned model and inheritance:** `Question Revision -> Question Backend -> iMathAS Question
+  Backend Binding (Deployment Reference, Item Reference, pinned Profile) -> Remote Question Backend
+  Session -> Challenge, Authentication, Grading Context, encrypted State, Result Token, and Result
+  Exchange -> immutable Remote Question Backend Result -> marker Question Submission -> Question
+  Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Question Model owns the
+  typed binding, LDA persists it as a Session fact, and the iMathAS adapter owns Launch State, cache,
+  and protocol behavior. The Result Exchange inherits authority
+  through its Session and introduces no duplicate learner, Course, Assignment, Question Attempt,
+  Question Revision, Seed, or Question Grading Rule columns. The marker carries no backend bytes,
+  token, or score.
+- **Direct cutover:** rename the Question Model response control/marker and generated browser
+  contract to `RemoteQuestionBackend`; rename the LDA aggregate, Store, iMathAS adapter boundary,
+  SQL tables/functions/policies, service-oracle names, fixtures, and active documentation together.
+  Use the shared typed iMathAS binding at every Question Model, LDA, adapter, and SQL boundary; name
+  iMathAS-only transport records `Imathas*`. Remove the orphaned `lti_grade_return` table, trigger,
+  function,
+  policies, grants, and staged-database assertions. `LTI` stays only where it identifies a current
+  registered protocol boundary; the current product has none. No alias, compatibility DTO, old wire
+  value, old SQL procedure, transitional schema view, or successor migration is introduced.
+- **Migration allocation:** rewrite both unshipped migrations directly. `2026082927` owns the
+  Remote Question Backend cache/session/exchange schema and removes the orphaned LTI schema;
+  `2026090102` owns the Session/Exchange lifecycle, encrypted-state fields, result-token checksum,
+  marker Submission, pending ordinary-grading Job, worker-leased idempotent Grading Result and
+  Automated Grading Receipt lineage. Neither migration is shared with a superseded package.
+- **Dependency order:** (1) terminology contract/checklist allocation, (2) Question Model marker
+  and generated contracts, (3) LDA and iMathAS adapter aggregate cutover, (4) both migrations and
+  PostgreSQL Store procedures, (5) existing service oracle/staged schema checks, (6) active docs
+  and one-time retirement review, then (7) focused gates, full aggregate, and independent review.
+- **Permanent gates:** retain and rename the deterministic LDA and iMathAS behavior tests already
+  present in the absorbed ETLS/ETRGR working tree for
+  bounded/redacted state, protocol verification, exact Context/Authentication binding, one-use
+  stage/replay, result-to-grading derivation, receipt checksum, and Memory lease behavior. They use
+  production-generated capabilities with outcome-independent assertions. Use only those existing
+  behavior tests as permanent evidence; keep source inventories and connected browser work in their
+  one-time or service lanes.
+- **Disposable and one-time gates:** rename and run the existing ignored PostgreSQL Store test,
+  its explicit E2E runner, and the existing staged-database acceptance as service evidence; retain
+  no real service connection in default Rust or pytest lanes. Use the vocabulary-count script and
+  focused contextual searches as one-time closure evidence, not permanent tests. Run generated
+  contracts, format, strict Clippy, documentation links/source-size gates, `git diff --check`, and
+  `source source_me.sh && ./all_test.sh` on the final tree. Check the affected vocabulary rows only
+  after those required gates and independent review accept the direct replacement.
 
 ### WN1-WA: Wasm and adapter-local PLE JSON
 

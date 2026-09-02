@@ -196,7 +196,7 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
         }
         QuestionResponseFormat::Numeric { .. }
         | QuestionResponseFormat::ShortText { .. }
-        | QuestionResponseFormat::ExternalTool {} => {}
+        | QuestionResponseFormat::ImathasQuestionBackend {} => {}
     }
 }
 

@@ -13,8 +13,8 @@ pub struct ParityCase {
     pub name: String,
     pub definition: Value,
     pub response: Value,
-    #[serde(rename = "expectedReport")]
-    pub expected_report: Value,
+    #[serde(rename = "expectedCheck")]
+    pub expected_check: Value,
 }
 
 pub fn cases() -> Vec<ParityCase> {

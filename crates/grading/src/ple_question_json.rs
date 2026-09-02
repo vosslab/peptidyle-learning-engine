@@ -654,7 +654,7 @@ fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemRef
         QuestionResponseFormat::Numeric { .. }
         | QuestionResponseFormat::ShortText { .. }
         | QuestionResponseFormat::MultiBlank { .. }
-        | QuestionResponseFormat::ExternalTool {} => BTreeSet::new(),
+        | QuestionResponseFormat::ImathasQuestionBackend {} => BTreeSet::new(),
     }
 }
 

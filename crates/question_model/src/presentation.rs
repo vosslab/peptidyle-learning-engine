@@ -33,7 +33,7 @@ pub use model::{
     StudentAttemptDescriptor,
 };
 pub use response_translation::{
-    InspectedExternalToolState, InspectedMatchPair, InspectedTextEntry,
+    InspectedImathasQuestionBackendState, InspectedMatchPair, InspectedTextEntry,
     RenderedResponseTranslationError, StudentResponseInspection,
     project_durable_response_to_rendered, project_rendered_response_for_inspection,
     translate_rendered_response,

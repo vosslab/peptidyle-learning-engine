@@ -98,6 +98,32 @@ const QUESTION_FORMATS = [
   "imathas",
 ] as const satisfies ReadonlyArray<QuestionFormat>;
 
+const IMATHAS_IDENTIFIER = /^[A-Za-z0-9._-]{1,128}$/;
+
+function decodeImathasDeploymentReference(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (!IMATHAS_IDENTIFIER.test(decoded)) {
+    throw new DecodeError(path, "an iMathAS deployment reference");
+  }
+  return decoded;
+}
+
+function decodeImathasItemReference(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (!IMATHAS_IDENTIFIER.test(decoded) || decoded.includes("..")) {
+    throw new DecodeError(path, "an iMathAS item reference");
+  }
+  return decoded;
+}
+
+function decodeImathasProfile(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (!IMATHAS_IDENTIFIER.test(decoded)) {
+    throw new DecodeError(path, "an iMathAS profile");
+  }
+  return decoded;
+}
+
 /** Strict decoder for the authored or imported Question representation. */
 export function decodeQuestionFormat(value: unknown, path: string): QuestionFormat {
   return decodeStringEnum(value, path, QUESTION_FORMATS);
@@ -168,15 +194,23 @@ export function decodeQuestionBackendLocator(value: unknown, path: string): Ques
       return decoded;
     }
     case "imathas": {
-      requireOnlyFields(record, path, ["backend", "provider", "itemRef", "integrationProfile"]);
+      requireOnlyFields(record, path, [
+        "backend",
+        "deploymentReference",
+        "itemReference",
+        "profile",
+      ]);
       const decoded = {
         backend,
-        provider: decodeNonemptyString(field(record, "provider", path), `${path}.provider`),
-        itemRef: decodeNonemptyString(field(record, "itemRef", path), `${path}.itemRef`),
-        integrationProfile: decodeNonemptyString(
-          field(record, "integrationProfile", path),
-          `${path}.integrationProfile`,
+        deploymentReference: decodeImathasDeploymentReference(
+          field(record, "deploymentReference", path),
+          `${path}.deploymentReference`,
         ),
+        itemReference: decodeImathasItemReference(
+          field(record, "itemReference", path),
+          `${path}.itemReference`,
+        ),
+        profile: decodeImathasProfile(field(record, "profile", path), `${path}.profile`),
       } satisfies QuestionBackendLocator;
       return decoded;
     }
@@ -218,11 +252,17 @@ export function decodeDraftQuestionBackendLocator(
         ),
       } satisfies DraftQuestionBackendLocator;
     case "imathas":
-      requireOnlyFields(record, path, ["backend", "provider", "itemRef"]);
+      requireOnlyFields(record, path, ["backend", "deploymentReference", "itemReference"]);
       return {
         backend,
-        provider: decodeNonemptyString(field(record, "provider", path), `${path}.provider`),
-        itemRef: decodeNonemptyString(field(record, "itemRef", path), `${path}.itemRef`),
+        deploymentReference: decodeImathasDeploymentReference(
+          field(record, "deploymentReference", path),
+          `${path}.deploymentReference`,
+        ),
+        itemReference: decodeImathasItemReference(
+          field(record, "itemReference", path),
+          `${path}.itemReference`,
+        ),
       } satisfies DraftQuestionBackendLocator;
     default:
       throw new DecodeError(`${path}.backend`, "a known draft question backend");
@@ -574,7 +614,7 @@ function decodeQuestionPublicationReviewSummary(
       "matching",
       "ordering",
       "hotspot",
-      "externalTool",
+      "imathasQuestionBackend",
     ],
   );
   const optionCount = decodeNullable(

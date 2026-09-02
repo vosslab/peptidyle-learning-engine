@@ -49,7 +49,7 @@ import {
 } from "../features/question_attempt/question_attempt_state";
 import { prefetchMatchesIssuedSuccessor } from "../features/question_attempt/prefetch_binding";
 import { projectStudentResponse } from "../features/question_attempt/student_response";
-import type { StudentResponseFormatCheck } from "../wasm/index";
+import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
 import { useWasmFacade } from "../wasm/context";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
@@ -205,8 +205,8 @@ function AttemptExperience(props: {
     validation: StudentResponseFormatCheck,
   ): void {
     machine.setResponse(response, {
-      valid: validation.violations.length === 0,
-      message: validation.violations.length === 0 ? null : "Response format needs attention.",
+      valid: validation.issues.length === 0,
+      message: validation.issues.length === 0 ? null : "Response format needs attention.",
     });
   }
 
@@ -699,8 +699,8 @@ function AttemptExperience(props: {
                                 courseId: screen().course.summary.id,
                                 assignmentId: screen().assignment.id,
                               }}
-                              beginExternalToolLaunch={() =>
-                                runtime.client.beginExternalToolLaunch(
+                              beginImathasQuestionBackendLaunch={() =>
+                                runtime.client.beginImathasQuestionBackendLaunch(
                                   screen().course.summary.id,
                                   screen().assignment.id,
                                   attemptId,

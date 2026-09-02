@@ -1,7 +1,7 @@
 //! Closed browser-safe contracts for automated-grading recovery.
 //!
 //! These values describe state and safe next actions. They carry neither a
-//! Student response nor a grade, answer, provider diagnostic, or private source.
+//! Student response nor a grade, answer, iMathAS Question Backend diagnostic, or private source.
 
 use std::collections::BTreeMap;
 

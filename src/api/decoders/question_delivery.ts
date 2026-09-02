@@ -6,8 +6,8 @@ import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionC
 import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
 import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { ExternalToolLaunch, PublicationResult } from "../contracts";
-import { isCanonicalExternalToolLaunchPath } from "../external_tool_launch";
+import type { ImathasQuestionBackendLaunch, PublicationResult } from "../contracts";
+import { isCanonicalImathasQuestionBackendLaunchPath } from "../imathas_question_backend_launch";
 import {
   DecodeError,
   decodeArray,
@@ -240,19 +240,19 @@ export function decodeQuestionPresentation(
   return decoded;
 }
 
-/** Decodes the route-only external-tool broker projection. */
-export function decodeExternalToolLaunch(
+/** Decodes the route-only iMathAS Question Backend broker projection. */
+export function decodeImathasQuestionBackendLaunch(
   value: unknown,
   path: string,
   courseId: string,
   assignmentId: string,
   attemptId: string,
-): ExternalToolLaunch {
+): ImathasQuestionBackendLaunch {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["launchUrl"]);
   const launchUrl = decodeNonemptyString(field(record, "launchUrl", path), `${path}.launchUrl`);
   if (
-    !isCanonicalExternalToolLaunchPath(
+    !isCanonicalImathasQuestionBackendLaunchPath(
       launchUrl,
       courseId,
       assignmentId,
@@ -365,7 +365,7 @@ export function decodeStudentResponse(value: unknown, path = "response"): Studen
         ),
       } satisfies StudentResponse;
     }
-    case "externalTool":
+    case "imathasQuestionBackend":
       requireOnlyFields(record, path, ["kind"]);
       return { kind: response } satisfies StudentResponse;
     default:

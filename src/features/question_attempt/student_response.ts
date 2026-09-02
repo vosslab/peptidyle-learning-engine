@@ -107,7 +107,7 @@ export function projectStudentResponse(
       );
       return selected.flatMap((region) => region.label);
     }
-    case "externalTool":
-      return [text("Your external-tool response was recorded.")];
+    case "imathasQuestionBackend":
+      return [text("Your iMathAS Question Backend response was recorded.")];
   }
 }

@@ -91,6 +91,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
 - Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
+- WeBWorK and iMathAS are PLE-managed Question Backends. Use Remote Question
+  Backend for a server-managed remote operation.
 - **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`. where the final character is a checksum.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
 - **Published Questions** should have a limit on the amount of change allowed, to avoid trolling or completely changing the content.

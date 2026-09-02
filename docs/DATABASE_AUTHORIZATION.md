@@ -17,7 +17,7 @@ implementation only.
 The server derives `AuthenticatedSession { account_id, session_id }` from a valid global Authenticated Session. Each
 protected database transaction sets only the trusted, transaction-local `ple.session_account_id` value.
 Forced RLS accepts the resolved authenticated Account value for the operation.
-Routes, browser fields, queue payloads, Object Addresses, and provider responses are evidence or input;
+Routes, browser fields, queue payloads, Object Addresses, and Question Backend responses are evidence or input;
 they establish only their exact membership, workspace, course, or worker authority.
 
 ## Authority relationships
@@ -53,15 +53,15 @@ remain private until successful validated publication.
 `Sysadmin` is a platform role, not ambient FERPA authority. A Sysadmin reads or changes Student work
 only through a narrow, audited support capability or an ordinary current Instructor membership.
 
-| Durable target                          | Database authority                               | Boundary that remains private                            |
-| --------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| Account, session, passkey               | Exact global account/session                     | Credentials and authentication evidence                  |
-| Published Question                      | Active Instructor Account                         | Answer keys, private grading, source, and credentials    |
-| Draft Question authoring                | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
-| Draft Blueprint Revision contribution   | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
-| Course, roster, assignment              | `current_course_instructor`                      | Other courses and former memberships                     |
-| Run, attempt, response, grade, artifact | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
-| Job, export, object, provider state     | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
+| Durable target                              | Database authority                               | Boundary that remains private                            |
+| ------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Account, session, passkey                   | Exact global account/session                     | Credentials and authentication evidence                  |
+| Published Question                          | Active Instructor Account                        | Answer keys, private grading, source, and credentials    |
+| Draft Question authoring                    | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
+| Draft Blueprint Revision contribution       | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
+| Course, roster, assignment                  | `current_course_instructor`                      | Other courses and former memberships                     |
+| Run, attempt, response, grade, artifact     | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
+| Job, export, object, Question Backend state | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
 
 Question Revision Availability does not narrow Active Instructor Account discovery. The Question Library safely
 returns Question Revision Availability on every Published Question. Assignment creation
@@ -106,16 +106,19 @@ function.
 Security-definer brokers implement only a registered capability whose arguments, authenticated Account, durable
 target, and audit effect they verify. Broker owners may have the limited privilege necessary for
 that one operation, while ordinary application roles receive no direct shortcut to private grading,
-retention, queue, object, or provider data. Session lookup, migration tooling, API Store work,
-workers, grading, and brokers use distinct database credentials or roles with only their needed
-grants.
+retention, queue, object, or Question Backend data. `ple_app` performs only authenticated Session
+create, load, lease, and stage operations. `ple_worker_login` may `SET ROLE` only to
+`ple_remote_question_backend_grading_worker`; that capability executes only the grading
+claim/commit `SECURITY DEFINER` procedures and has no direct protected-table access. Session lookup,
+migration tooling, API Store work, workers, grading, and registered capabilities use distinct database
+credentials or roles with only their needed grants.
 
 ## Typed operations and objects
 
 A worker first locks a current lease. The immutable job manifest and lease derive the job's typed
 course, workspace, Question Library, object, export, retention, or system target. Job Kind Registration,
 generation, broker grant, and target type must agree before a handler reads, writes, dispatches, or
-finalizes anything. Queue payloads, retry input, provider responses, and object references cannot
+finalizes anything. Queue payloads, retry input, Question Backend responses, and object references cannot
 widen that scope.
 
 Each object metadata and delivery record has one typed scope: Question Library presentation asset, private
@@ -123,9 +126,9 @@ workspace asset, or course-record asset. Public Question Library presentation de
 private source delivery. Course-record delivery rechecks its course/Student authority and retention
 fence; opaque object identifiers and signed URLs do not bypass it.
 
-External launches, provider cache, exports, and retention operations bind to their exact course,
-assignment, attempt, export, or retention target. Provider credentials and answer-bearing payloads
-remain server-only.
+Remote Question Backend Sessions, iMathAS Render Cache Entries, exports, and retention operations
+bind to their exact course, assignment, attempt, export, or retention target. Question Backend
+credentials and answer-bearing payloads remain server-only.
 
 ## Radioactive records and retention
 
@@ -135,15 +138,15 @@ receive the same account-and-relationship-scoped RLS, minimum-field, audit, rete
 handling. Partition children, views, staging relations, query results, exports, diagnostics, and
 restores inherit the highest label of their inputs.
 
-| Family                                | Radioactive relations                                                                                                                                                                              |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roster and invitation                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                   |
-| Student work and Gradebook evidence   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`          |
-| Assignment Analysis                   | `assignment_analysis`, `assignment_item_analysis`, `assignment_analysis_receipt`                                                                                                                   |
-| Student exports                       | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                          |
-| Course and attempt linkage            | `course_instance`, `course_object_reference`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records |
-| External, delivery, and audit linkage | `external_tool_exchange`, `external_tool_launch_session`, External Question Provider Reference, `external_question_provider_cache_entry`, `lti_grade_return`, `object_delivery`, exact Object Delivery owner relationships, Object Delivery Access Event (Account, allowed-or-denied decision, and access time), `job`                               |
-| Retention evidence                    | `course_retention_plan_revision`, `course_retention_event`                                                                                                                                         |
+| Family                                      | Radioactive relations                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roster and invitation                       | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                                                        |
+| Student work and Gradebook evidence         | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                                               |
+| Assignment Analysis                         | `assignment_analysis`, `assignment_item_analysis`, `assignment_analysis_receipt`                                                                                                                                                                                                                        |
+| Student exports                             | `assignment_export_request`, `assignment_export_artifact`                                                                                                                                                                                                                                               |
+| Course and attempt linkage                  | `course_instance`, `course_object_reference`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                           |
+| Remote-backend, delivery, and audit linkage | `remote_question_backend_result_exchange`, `remote_question_backend_session`, Remote Question Backend Reference, `imathas_render_cache_entry`, `object_delivery`, exact Object Delivery owner relationships, Object Delivery Access Event (Account, allowed-or-denied decision, and access time), `job` |
+| Retention evidence                          | `course_retention_plan_revision`, `course_retention_event`                                                                                                                                                                                                                                              |
 
 Global account/session records are restricted account/security data, not FERPA data by themselves.
 Private source, Answer Keys, Question Feedback, Question Answer Explanations,
@@ -154,7 +157,7 @@ radioactive because small cohorts can be identifiable.
 
 Retention keeps shared published Question Library content and private drafts outside course-record deletion.
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
-Student-facing records, exports, external-tool records, and course-record assets as archive or
+Student-facing records, exports, Remote Question Backend records, and course-record assets as archive or
 deletion starts. Authorized current Instructors may retain course and Assignment Content without
 restoring student records. A retention broker uses the exact course/stage/generation manifest and a
 renewed lease, so stale work cannot commit after a newer retention generation.
@@ -165,16 +168,16 @@ SD1-C creates the single-installation schema only on freshly cleaned disposable 
 not preserve an installation-scope compatibility layer. The migration ledger allocates the exact next available
 number in these ranges:
 
-| Range                                                | Capability family                                                                                                                                       |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                         |
-| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation   |
-| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                              |
-| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                            |
-| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                  |
-| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                |
-| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                             |
-| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, external-tool state                                                                                            |
+| Range                                                | Capability family                                                                                                                                        |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                          |
+| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation    |
+| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                               |
+| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                             |
+| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                   |
+| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                 |
+| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                              |
+| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, Remote Question Backend state                                                                                   |
 | `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
@@ -191,7 +194,7 @@ conformance.
 Recurring service acceptance proves fresh migration convergence; RLS refusal without a resolved Account; Student
 self versus other-Student and other-course denial; Teaching Team Member mutation and Gradebook read;
 immediate membership revocation and approval-withdrawal denial; narrow audited Sysadmin support;
-observer non-escalation; typed worker confused-deputy refusal; object delivery; external adapter;
+observer non-escalation; typed worker confused-deputy refusal; object delivery; Remote Question Backend;
 export; retention; cleanup; and migration idempotency/checksum status.
 
 Production-browser acceptance proves Question Library discovery/reuse, equal Teaching Team Member behavior,

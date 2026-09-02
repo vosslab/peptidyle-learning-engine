@@ -312,7 +312,7 @@ function isStudentResponse(value: unknown): value is StudentResponse {
       )
     );
   }
-  return value.kind === "externalTool" && keys.length === 1;
+  return value.kind === "imathasQuestionBackend" && keys.length === 1;
 }
 
 function serializeBuffer(buffer: AttemptBuffer): string {
@@ -341,7 +341,7 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
   if (left.kind === "hotspot" && right.kind === "hotspot") {
     return JSON.stringify(left.selections) === JSON.stringify(right.selections);
   }
-  if (left.kind === "externalTool" && right.kind === "externalTool") return true;
+  if (left.kind === "imathasQuestionBackend" && right.kind === "imathasQuestionBackend") return true;
   return false;
 }
 
@@ -511,9 +511,9 @@ export function createQuestionAttemptStateMachine(
     definition: QuestionResponseFormat,
   ): Promise<void> {
     try {
-      const report = await options.validateSavedResponse!(definition, buffer.response);
+      const check = await options.validateSavedResponse!(definition, buffer.response);
       if (disposed) return;
-      if (report.violations.length > 0) {
+      if (check.issues.length > 0) {
         discardUnsafeBuffer();
         publishAnswering(null);
         return;

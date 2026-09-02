@@ -723,12 +723,12 @@ test("a withheld receipt is explicitly awaiting and never infers a grade from su
   assert.deepEqual(fixture.machine.state().feedback, { kind: "awaiting", feedback: null });
 });
 
-test("an injected external-tool local buffer with provider data is discarded", () => {
+test("an injected remote-question-backend local buffer with provider data is discarded", () => {
   const storage = createStorage();
   storage.setItem(
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
-      response: { kind: "externalTool", score: 100, token: "forged" },
+      response: { kind: "remoteQuestionBackend", score: 100, token: "forged" },
       idempotencyKey: "key-forged",
     }),
   );
@@ -737,13 +737,13 @@ test("an injected external-tool local buffer with provider data is discarded", (
   assert.equal(fixture.machine.state().response, null);
 });
 
-test("a marker-only external-tool local buffer restores unchanged", () => {
+test("a marker-only remote-question-backend local buffer restores unchanged", () => {
   const storage = createStorage();
   storage.setItem(
     "ple:attempt:assignment-attempt-a:attempt-a",
-    JSON.stringify({ response: { kind: "externalTool" }, idempotencyKey: "key-external" }),
+    JSON.stringify({ response: { kind: "remoteQuestionBackend" }, idempotencyKey: "key-external" }),
   );
   const fixture = createMachine({ storage });
   fixture.machine.start();
-  assert.deepEqual(fixture.machine.state().response, { kind: "externalTool" });
+  assert.deepEqual(fixture.machine.state().response, { kind: "remoteQuestionBackend" });
 });

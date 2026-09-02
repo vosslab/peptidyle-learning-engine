@@ -504,7 +504,7 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           renderedItemId,
         ),
       };
-    case "externalTool":
+    case "imathasQuestionBackend":
       requireOnlyFields(record, path, ["kind", "completion"]);
       return {
         kind: responseKind,

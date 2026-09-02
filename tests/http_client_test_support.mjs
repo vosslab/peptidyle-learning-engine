@@ -52,15 +52,15 @@ export async function validateSavedResponse(definition, response) {
     const unique = new Set(response.selected);
     return unique.size === response.selected.length &&
       response.selected.every((id) => validIds.has(id))
-      ? { violations: [] }
-      : { violations: [{ kind: "invalidSelection" }] };
+      ? { issues: [] }
+      : { issues: [{ kind: "unknownChoice", choice: "invalid-selection" }] };
   }
   if (definition.kind === "ordering" && response.kind === "ordering") {
     const expected = new Set(definition.items.map((item) => item.id));
     const actual = new Set(response.order);
     return actual.size === definition.items.length && [...actual].every((id) => expected.has(id))
-      ? { violations: [] }
-      : { violations: [{ kind: "invalidOrder" }] };
+      ? { issues: [] }
+      : { issues: [{ kind: "orderingItemsMismatch" }] };
   }
-  return { violations: [{ kind: "responseKindMismatch" }] };
+  return { issues: [{ kind: "responseKindMismatch" }] };
 }

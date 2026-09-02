@@ -13,6 +13,8 @@ mod object_record;
 #[cfg(feature = "postgres")]
 mod question_source;
 #[cfg(feature = "postgres")]
+mod remote_question_backend_session;
+#[cfg(feature = "postgres")]
 mod sessions;
 
 #[cfg(feature = "postgres")]
@@ -29,6 +31,8 @@ pub use migrations::{
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
 #[cfg(feature = "postgres")]
 pub use question_source::PostgresDraftQuestionSourceStore;
+#[cfg(feature = "postgres")]
+pub use remote_question_backend_session::PostgresRemoteQuestionBackendSessionStore;
 #[cfg(feature = "postgres")]
 pub use sessions::PostgresSessionStore;
 

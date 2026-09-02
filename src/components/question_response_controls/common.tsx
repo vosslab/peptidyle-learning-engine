@@ -7,13 +7,13 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { ExternalToolLaunch } from "../../api/contracts";
-import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
+import type { ImathasQuestionBackendLaunch } from "../../api/contracts";
 import type {
   StudentResponseFormatCheck,
   StudentResponseFormatIssue,
-  WasmFacade,
-} from "../../wasm/index";
+} from "../../api/decoders/student_response_format_check";
+import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
+import type { WasmFacade } from "../../wasm/index";
 
 export type MultipleChoiceDefinition = Extract<QuestionResponseFormat, { kind: "multipleChoice" }>;
 export type NumericDefinition = Extract<QuestionResponseFormat, { kind: "numeric" }>;
@@ -49,9 +49,9 @@ export interface QuestionResponseControlBaseProps {
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
   ) => void;
-  /** Exact navigation scope required to activate an external-tool response. */
+  /** Exact navigation scope required to activate an iMathAS Question Backend response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
-  readonly beginExternalToolLaunch?: () => Promise<ExternalToolLaunch>;
+  readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
 }
 
 export interface QuestionResponseControlProps extends QuestionResponseControlBaseProps {
@@ -125,15 +125,13 @@ function issueMessage(issue: StudentResponseFormatIssue): string {
       return "Choose each labeled image region only once.";
     case "unknownHotspotRegion":
       return "Choose one of the available labeled image regions.";
-    case "missingUploadReference":
-      return "Choose an uploaded file before submitting.";
     case "responseKindMismatch":
       return "This response does not match the question format.";
   }
 }
 
 function checkMessage(check: StudentResponseFormatCheck): string {
-  const first = check.violations[0];
+  const first = check.issues[0];
   return first === undefined ? "Student Response Format is ready to submit." : issueMessage(first);
 }
 
@@ -194,13 +192,13 @@ export function createSubmissionController(
     const request = validationRequest;
     setPhase({ kind: "validating" });
     try {
-      const report = await validateResponseLocally(props.validator, props.definition, response);
+      const check = await validateResponseLocally(props.validator, props.definition, response);
       if (request !== validationRequest || phase().kind === "submitting") return;
-      props.onResponseChange?.(response, report);
+      props.onResponseChange?.(response, check);
       setPhase(
-        report.violations.length === 0
+        check.issues.length === 0
           ? { kind: "ready" }
-          : { kind: "invalid", message: checkMessage(report) },
+          : { kind: "invalid", message: checkMessage(check) },
       );
     } catch (error: unknown) {
       if (request !== validationRequest || phase().kind === "submitting") return;
@@ -256,18 +254,18 @@ export function createSubmissionController(
     ) {
       return;
     }
-    // A restored response supersedes every earlier asynchronous format report.
+    // A restored response supersedes every earlier asynchronous format check.
     validationRequest += 1;
     const request = validationRequest;
     setPhase({ kind: "validating" });
     try {
-      const report = await validateResponseLocally(props.validator, props.definition, response);
+      const check = await validateResponseLocally(props.validator, props.definition, response);
       if (request !== validationRequest || phase().kind === "submitting") return;
-      props.onResponseChange?.(response, report);
+      props.onResponseChange?.(response, check);
       setPhase(
-        report.violations.length === 0
+        check.issues.length === 0
           ? { kind: "restored" }
-          : { kind: "invalid", message: checkMessage(report) },
+          : { kind: "invalid", message: checkMessage(check) },
       );
     } catch (error: unknown) {
       if (request !== validationRequest || phase().kind === "submitting") return;

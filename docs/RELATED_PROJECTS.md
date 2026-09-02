@@ -98,10 +98,10 @@ current acceptance status remains in
   automatically graded homework and tests with a full gradebook.
 - Evidence: the [official iMathAS site](https://www.imathas.com/) documents algorithmically generated
   questions, computer grading, learning management, and a full gradebook; PLE's
-  [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records its contracted or
-  self-hosted scored-embed boundary.
-- Notes: PLE supports its reviewed server-brokered provider contract, not a generic browser-trusted
-  hosted score flow.
+  [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records its reviewed
+  self-hosted Remote Question Backend boundary.
+- Notes: PLE retains the Remote Question Backend Session, verifies each iMathAS Result server-side,
+  and gives the browser no authority to supply a score.
 
 ### H5P
 
@@ -202,7 +202,7 @@ current acceptance status remains in
   launch and grade-passback implementation to WP-RC9 in the
   [active release plan](active_plans/active/release_completion_plan.md).
 - Confidence: likely
-- Notes: this is a planned PLE integration reference, not a currently accepted provider capability.
+- Notes: this is a planned registered-protocol reference, not a current PLE Question Backend capability.
 
 ## Evidence notes
 

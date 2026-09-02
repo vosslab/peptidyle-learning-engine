@@ -208,10 +208,13 @@ pub use crate::question_authorship::{
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
-    DraftQuestionBackendLocator, DraftQuestionContent, DraftQuestionSummary,
-    MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS, MAX_QUESTION_TITLE_UNICODE_SCALARS,
-    QuestionBackendLocator, QuestionBackendLocatorPreparationError, QuestionDescriptionError,
-    QuestionFormat, QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
+    DraftImathasQuestionBackendBinding, DraftQuestionBackendLocator, DraftQuestionContent,
+    DraftQuestionSummary, ImathasDeploymentReference, ImathasItemReference, ImathasProfile,
+    ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
+    MAX_IMATHAS_IDENTIFIER_BYTES, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionBackendLocator,
+    QuestionBackendLocatorPreparationError, QuestionDescriptionError, QuestionFormat,
+    QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
     validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{

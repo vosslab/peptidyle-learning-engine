@@ -253,6 +253,50 @@ INSERT INTO ple_data.question_publication_event (
 
 COMMIT;
 
+-- Latest Question Revision is derived from immutable acceptance evidence,
+-- rather than from Question Revision Availability or a mutable pointer.
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, published_at, public_metadata
+) VALUES (
+    'SRC-0001', 2, 'ple', '2026-09-01T00:00:00Z',
+    jsonb_build_object('questionDescription', 'Accepted successor Question Revision')
+);
+INSERT INTO ple_data.question_revision_acceptance (
+    question_id, revision_number, parent_revision_number, editor_account_id,
+    accepted_by_account_id, accepted_at, reason_for_edit
+) VALUES (
+    'SRC-0001', 2, 1, '00000000-0000-0000-0000-000000000901',
+    '00000000-0000-0000-0000-000000000901', '2026-09-01T00:00:00Z',
+    'Accepted successor Question Revision'
+);
+
+DO $$
+DECLARE
+    latest_revision_number integer;
+BEGIN
+    SET LOCAL ROLE ple_app;
+    PERFORM pg_catalog.set_config(
+        'ple.session_account_id', '00000000-0000-0000-0000-000000000901', true
+    );
+    SELECT summary.latest_question_revision_number
+      INTO latest_revision_number
+      FROM ple_api.published_question_summary AS summary
+     WHERE summary.question_id = 'SRC-0001';
+    IF latest_revision_number IS DISTINCT FROM 2 THEN
+        RAISE EXCEPTION 'Question Summary did not derive the greatest accepted Question Revision Number';
+    END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+    SET LOCAL ROLE ple_app;
+    IF EXISTS (SELECT 1 FROM ple_api.published_question_summary) THEN
+        RAISE EXCEPTION 'Question Summary exposed Question Library rows without an Instructor session';
+    END IF;
+END;
+$$;
+
 -- An authorized Instructor binds a Draft Question to one exact source revision.
 -- Only the trusted publication coordinator can bind that same source to a
 -- separate Published Question lineage.

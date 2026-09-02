@@ -1,6 +1,6 @@
 {
-  "profile": "imathas_scored_embed_broker_v1",
-  "provider": "self-hosted-imathas",
+  "profile": "imathas_remote_grading_v1",
+  "deploymentReference": "self-hosted-imathas",
   "snapshot": {
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "objectId": "redacted",
@@ -8,7 +8,7 @@
   },
   "launch": {
     "pleSeed": 10001,
-    "providerSeed": 3,
+    "imathasSeed": 3,
     "expiresAt": "redacted",
     "launchSessionAuthentication": "redacted"
   },
@@ -16,7 +16,7 @@
     "html": "redacted-safe-fragment",
     "sha256": "redacted"
   },
-  "providerScoreResponse": {
+  "imathasResultResponse": {
     "resultJwt": "redacted",
     "questionIdentity": "17",
     "score": 0.75,

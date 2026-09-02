@@ -140,6 +140,14 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         "Question summary type must match the stored published Question"
     );
     ensure!(
+        fixture_set.question_summary.latest_question_revision
+            == QuestionRevisionReference {
+                question_id: fixture_set.published_question_revision.question_id.clone(),
+                revision_number: fixture_set.published_question_revision.revision_number,
+            },
+        "Question Summary Latest Question Revision must match the stored published Question Revision"
+    );
+    ensure!(
         fixture_set.question_summary.capabilities
             == adapter.capabilities(&fixture_set.published_question_revision)?,
         "Question summary capabilities must derive from the stored published Question"

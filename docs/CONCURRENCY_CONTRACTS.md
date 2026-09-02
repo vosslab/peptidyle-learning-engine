@@ -53,7 +53,7 @@ operation final.
 | Student submission outcome             | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
 | Background work ownership              | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
 | Current analytic projection            | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
-| Published Question Revision             | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
+| Published Question Revision            | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
 | Cross-system object inventory repair   | Database/object-store reconciliation job                        | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
 
 ## Account-scoped transactions and retries
@@ -211,27 +211,27 @@ Assignment Content change, accepted-submission completion, authorized
 attempt support, or a timer adjustment. The future scoring and auto-submit
 Stores must enforce the same generation check.
 
-### External-tool sessions and exchanges
+### Remote Question Backend Sessions and Result Exchanges
 
-An external-tool launch session is server-created and bound to the exact
+A Remote Question Backend Session is server-created and bound to the exact
 course/Student/attempt scope, expiry-bound, and revocable. Its random bearer token is stored only as a
-hash; provider state is encrypted before persistence. The browser-visible
+hash; backend state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
-An external exchange is separately idempotent, lease-fenced, and
+A Remote Question Backend Result Exchange is separately idempotent, lease-fenced, and
 indeterminate-safe. It binds the attempt/version/seed/source checksum,
-response digest, provider correlation, and idempotency key before verification.
-Before an effectful provider POST, the holder must atomically prove the exact
+response digest, backend correlation, and idempotency key before verification.
+Before an effectful backend POST, the holder must atomically prove the exact
 launch-token hash and an unexpired authoritative lease, then write the durable
 pre-dispatch marker. A crash or ambiguous outcome leaves that marker in place:
 no retry, new claim/launch, grade, finalization, or revocation may guess that
-the provider did or did not act. A valid verified outcome clears the marker
+the backend did or did not act. A valid verified outcome clears the marker
 only in the same final persistence transition. Grade retrieval is a
-structurally safe GET-only operation, never a fall-through provider action.
+structurally safe GET-only operation, never a fall-through backend action.
 Only the holder of the active lease can move it from `verifying` to `ready_to_commit`;
 a verified token then binds the final commit. `failed` records a safe failure code,
-and `cancelled` records its terminal time; neither permits a retained provider result.
-This is a deferred external-tool Store and adapter requirement.
+and `cancelled` records its terminal time; neither permits a retained backend result.
+This is a deferred Remote Question Backend Store and adapter requirement.
 
 ## Cross-system commit boundaries
 

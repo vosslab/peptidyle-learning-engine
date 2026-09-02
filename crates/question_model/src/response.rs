@@ -15,7 +15,7 @@ use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 ///
 /// Question Type is independent of Question Format, Question Backend, and the
 /// browser control used to collect a Student Response. In particular, an
-/// external tool or file-upload control still declares the educational type it
+/// iMathAS Question Backend or file-upload control still declares the educational type it
 /// serves rather than becoming a type itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,7 +61,7 @@ pub enum QuestionResponseControl {
     Matching,
     Ordering,
     Hotspot,
-    ExternalTool,
+    ImathasQuestionBackend,
 }
 
 /// Identifies one response item within a Question Response Format.
@@ -243,11 +243,11 @@ pub enum QuestionResponseFormat {
         /// Number of regions the student must select.
         selection: ResponseSelectionRule,
     },
-    /// A server-brokered external learning tool.
+    /// A server-brokered iMathAS Question Backend.
     ///
-    /// This marker deliberately contains no provider, launch, answer, score,
-    /// token, or completion data. The server owns the later provider exchange.
-    ExternalTool {},
+    /// This marker deliberately contains no iMathAS Question Backend identity, launch, answer, score,
+    /// token, or completion data. The server owns the later iMathAS Result Exchange.
+    ImathasQuestionBackend {},
 }
 
 impl QuestionResponseFormat {
@@ -261,13 +261,13 @@ impl QuestionResponseFormat {
             Self::Matching { .. } => QuestionResponseControl::Matching,
             Self::Ordering { .. } => QuestionResponseControl::Ordering,
             Self::Hotspot { .. } => QuestionResponseControl::Hotspot,
-            Self::ExternalTool {} => QuestionResponseControl::ExternalTool,
+            Self::ImathasQuestionBackend {} => QuestionResponseControl::ImathasQuestionBackend,
         }
     }
 
     /// Whether this response shape can collect work for the declared Question Type.
     ///
-    /// External Tool is a control, so it remains compatible with the separately
+    /// iMathAS Question Backend is a control, so it remains compatible with the separately
     /// declared educational Question Type.
     pub const fn supports_question_type(&self, question_type: QuestionType) -> bool {
         match self {
@@ -283,7 +283,7 @@ impl QuestionResponseFormat {
             Self::Matching { .. } => matches!(question_type, QuestionType::Matching),
             Self::Ordering { .. } => matches!(question_type, QuestionType::Ordering),
             Self::Hotspot { .. } => matches!(question_type, QuestionType::Hotspot),
-            Self::ExternalTool {} => true,
+            Self::ImathasQuestionBackend {} => true,
         }
     }
 }
@@ -335,11 +335,11 @@ pub enum StudentResponse {
         /// Region selections in Student selection order.
         selections: Vec<StudentHotspotSelection>,
     },
-    /// The student used the ordinary submission action for an external tool.
+    /// The student used the ordinary submission action for an iMathAS Question Backend.
     ///
-    /// It is intentionally a marker only; browser-supplied provider material
+    /// It is intentionally a marker only; browser-supplied iMathAS Question Backend material
     /// can never enter the generic submission record through this variant.
-    ExternalTool {},
+    ImathasQuestionBackend {},
 }
 
 #[cfg(test)]
@@ -361,28 +361,30 @@ mod tests {
     }
 
     #[test]
-    fn external_tool_markers_round_trip_as_kind_only() {
-        let definition = QuestionResponseFormat::ExternalTool {};
-        let response = StudentResponse::ExternalTool {};
+    fn imathas_question_backend_markers_round_trip_as_kind_only() {
+        let definition = QuestionResponseFormat::ImathasQuestionBackend {};
+        let response = StudentResponse::ImathasQuestionBackend {};
 
         assert_eq!(
             serde_json::to_value(&definition).unwrap(),
-            serde_json::json!({"kind": "externalTool"})
+            serde_json::json!({"kind": "imathasQuestionBackend"})
         );
         assert_eq!(
             serde_json::to_value(&response).unwrap(),
-            serde_json::json!({"kind": "externalTool"})
+            serde_json::json!({"kind": "imathasQuestionBackend"})
         );
         assert_eq!(
             serde_json::from_value::<QuestionResponseFormat>(
-                serde_json::json!({"kind": "externalTool"})
+                serde_json::json!({"kind": "imathasQuestionBackend"})
             )
             .unwrap(),
             definition
         );
         assert_eq!(
-            serde_json::from_value::<StudentResponse>(serde_json::json!({"kind": "externalTool"}))
-                .unwrap(),
+            serde_json::from_value::<StudentResponse>(
+                serde_json::json!({"kind": "imathasQuestionBackend"})
+            )
+            .unwrap(),
             response
         );
     }
@@ -393,11 +395,12 @@ mod tests {
             "score",
             "correct",
             "result",
+            // A hostile legacy-shaped field; strict decoding refuses it.
             "provider",
             "token",
             "launchUrl",
         ] {
-            let value = serde_json::json!({"kind": "externalTool", extra: true});
+            let value = serde_json::json!({"kind": "imathasQuestionBackend", extra: true});
             assert!(serde_json::from_value::<QuestionResponseFormat>(value.clone()).is_err());
             assert!(serde_json::from_value::<StudentResponse>(value).is_err());
         }

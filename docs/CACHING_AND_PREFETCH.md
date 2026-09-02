@@ -20,12 +20,12 @@ in [implementation_plan.md](active_plans/implementation_plan.md) and
 
 PLE uses distinct caches with deliberately different contents and lifetimes.
 
-| Layer                     | May contain                                                                           | Key or binding                                                                                                              | Never contains                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Browser run state         | Current authoritative screen and one speculative envelope                             | Current route and active attempt                                                                                            | Answers, grade keys, durable prefetch reservation                                                   |
-| Browser asset cache       | Delivered image and other asset bytes                                                 | Delivery URL and content checksum                                                                                           | Private source or a signed protected URL retained by PLE                                            |
-| CDN public assets         | Public immutable `QuestionAsset` renditions in `PublicAssets`                         | Typed immutable public Object Address and checksum                                                                              | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
-| Adapter render cache      | Answer-free envelope, safe markup, source binding, renderer identity                  | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw provider output                                      |
+| Layer                     | May contain                                                                           | Key or binding                                                                                                               | Never contains                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Browser run state         | Current authoritative screen and one speculative envelope                             | Current route and active attempt                                                                                             | Answers, grade keys, durable prefetch reservation                                                   |
+| Browser asset cache       | Delivered image and other asset bytes                                                 | Delivery URL and content checksum                                                                                            | Private source or a signed protected URL retained by PLE                                            |
+| CDN public assets         | Public immutable `QuestionAsset` renditions in `PublicAssets`                         | Typed immutable public Object Address and checksum                                                                           | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
+| Adapter render cache      | Answer-free envelope, safe markup, source binding, renderer identity                  | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw Question Backend output                              |
 | Attempt and prefetch rows | Question Attempt Reproduction Details, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
@@ -136,18 +136,18 @@ mappings in the public render cache; they are server-only Question Grading Input
 ### iMathAS
 
 The iMathAS adapter uses the same immutable `ProblemRender` shape for an
-answer-free external-tool envelope. It validates the pinned Source Object Reference,
-provider, integration profile, version, seed, and response shape on every
-read. A cache miss asks the configured verified provider for a safe render;
+answer-free Remote Question Backend envelope. It validates the pinned Source Object Reference,
+Remote Question Backend configuration, `imathas_remote_grading_v1` profile, version, seed, and response shape on every
+read. A cache miss asks the configured verified backend for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable
-object. Grade verification remains a server-to-provider operation bound to exact
+object. iMathAS Result verification remains a server-to-server operation bound to exact
 CourseId/StudentRecordId/AssignmentAttemptId/AttemptId, immutable QuestionRevisionReference, seed, and server correlation. It has
 no process-local grade cache.
 
-Provider metadata is retained only as external protocol data. Provider names, integration profiles,
-renderer identities, upstream handles, and field/value mappings may be sent on the private
-PLE-to-provider exchange, but cannot establish CourseId, StudentRecordId, Assignment Attempt, authorization, or
-cache identity. Raw provider responses, credentials, and answer-bearing material remain server-only.
+Question Backend metadata is retained only as iMathAS protocol data. iMathAS Deployment Reference,
+the `imathas_remote_grading_v1` profile, renderer identities, upstream handles, and field/value mappings may be sent on the private
+PLE-to-iMathAS exchange, but cannot establish CourseId, StudentRecordId, Assignment Attempt, authorization, or
+cache identity. Raw iMathAS responses, credentials, and answer-bearing material remain server-only.
 
 ## Reservation and promotion
 
@@ -171,7 +171,7 @@ idempotent; a conflicting request cannot rewrite its immutable variation.
 The reservation's private execution material is not a browser capability. The Store keeps
 Question Backend-specific grading contracts and replay mappings behind the server-owned typed capability, or derives
 them from a locked worker lease whose target is the same exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`,
-predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and seed. No caller-supplied scope or provider
+predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and seed. No caller-supplied scope or Question Backend
 metadata can widen that lease.
 
 PLE Question JSON and WeBWorK reservations additionally retain their typed,
@@ -230,17 +230,17 @@ The following outcomes are intentional safety behavior:
 | Cache schema, checksum, source, version, seed, title, or renderer mismatch                       | Refuse the entry; re-render only where the adapter contract permits                            |
 | WeBWorK replay state missing                                                                     | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
 | Prefetch descriptor differs from receipt                                                         | Drop browser memory and use the ordinary run-screen route                                      |
-| Renderer or provider outage                                                                      | Do not substitute a new question or guess a grade; surface the backend-local failure           |
+| Renderer or Question Backend outage                                                              | Do not substitute a new question or guess a grade; surface the backend-local failure           |
 | Protected asset delivery                                                                         | Authorize and audit every request; do not place the signed URL in a reusable cache             |
 
 ## Observability and future work
 
 Measure meaningful work before reducing JSON fields by a few bytes. The
 relevant stages are browser-to-PLE time, route authorization and Store access,
-PLE issue or adapter cache lookup, PLE-to-provider/renderer time, grading,
+PLE issue or adapter cache lookup, PLE-to-Question-Backend/renderer time, grading,
 promotion and persistence, asset transfer, and return to the browser. Record
 bounded aggregate latency and hit/miss/error counts without attempt IDs,
-responses, asset URLs, provider payloads, or answer-bearing content.
+responses, asset URLs, Question Backend payloads, or answer-bearing content.
 
 Current WeBWorK adapter-cache witnesses intentionally expose only
 `renderer_call` and `cache_hit`; persisted attempt-snapshot reads emit neither.

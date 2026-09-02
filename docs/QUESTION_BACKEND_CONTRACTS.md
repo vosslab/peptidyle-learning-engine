@@ -32,13 +32,13 @@ them without creating a second product vocabulary.
 
 | Concern                               | Common PLE rule                                                                                                                                                                                                                                              |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or provider.                                                                      |
+| Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or backend configuration.                                                       |
 | Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
 | Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                        |
-| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, External Tool Launch Session authentication state, source identity, renderer field, or answer key.                            |
-| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; an external-tool backend may atomically commit a verified broker result.                                                                   |
+| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                            |
+| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                              |
 | Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                           |
-| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or provider is not converted into a student incorrect response.                                                                                                        |
+| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                         |
 | Capabilities                          | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                             |
 
 The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
@@ -48,13 +48,13 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 ## Backend comparison
 
-| Backend              | Current authority                                                        | Browser response                                           | Server grading authority                            | Current scope                                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE Question JSON    | Immutable PLE Question Source and private Question Grading Input          | Typed PLE Question JSON response                            | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
-| QTI profile          | Immutable staged/published archive plus profile conversion evidence      | Typed PLE response                                         | `QtiBackend` plus least-privilege `QtiGradingStore` | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                  |
-| WeBWorK              | Immutable licensed PGML source and private renderer                      | Opaque PLE choice or match IDs                             | Private external `/render-api`                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                        |
-| iMathAS              | Immutable server snapshot and deployment-selected provider profile       | `ExternalTool` marker through protected same-origin routes | Server broker and verified provider result          | Explicitly configured contracted scored-embed provider only                                                                                  |
-| External-tool broker | Exact course/Student attempt, launch session, and protected exchange row | `ExternalTool {}` marker plus HttpOnly launch proof        | Backend-owned atomic verified-result commit         | Shared mechanism used by the contracted iMathAS path                                                                                         |
+| Backend                         | Current authority                                                                                                                                                | Browser response                  | Server grading authority                                    | Current scope                                                                                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE Question JSON               | Immutable PLE Question Source and private Question Grading Input                                                                                                 | Typed PLE Question JSON response  | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
+| QTI profile                     | Immutable staged/published archive plus profile conversion evidence                                                                                              | Typed PLE response                | `QtiBackend` plus least-privilege `QtiGradingStore`         | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                                    |
+| WeBWorK                         | Immutable licensed PGML source and private renderer                                                                                                              | Opaque PLE choice or match IDs    | Private `/render-api` Question Backend                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                                          |
+| iMathAS                         | Immutable Question Source resolution plus strict versioned iMathAS Launch State bytes                                                                            | Same-origin `{ launchUrl }` only  | iMathAS Launch/Result HMAC and protocol verification        | Browser shell has no Challenge/Session/backend secrets; LDA-backed Rust route and backend composition remain downstream                                        |
+| iMathAS Question Backend Session | Exact Account/course/Student attempt, Question Revision, `ImathasQuestionBackendBinding`, seed, Challenge, authentication, and verified Result Exchange checksum | No Session/Challenge/token output | LDA Store with one-use forward transition                   | Browser launch shell is mounted; LDA-backed Rust route, cookie/env backend composition, and live backend remain absent                                         |
 
 ## PLE Question JSON Questions
 
@@ -138,7 +138,7 @@ not enable them.
 
 **Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
-private external standalone `/render-api` service. The browser receives only a PLE envelope,
+private standalone `/render-api` Question Backend service. The browser receives only a PLE envelope,
 sanitized prompt markup, and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
 
@@ -179,97 +179,82 @@ control needs its own projection, private replay mapping, response contract, bro
 and acceptance evidence.
 The detailed protocol is in [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
-## iMathAS broker
+## iMathAS Question Backend Session
 
-### Source, render, and launch
+**Current server-only boundary.** Question Model owns `ImathasQuestionBackendBinding` with its
+iMathAS Deployment Reference, iMathAS Item Reference, and pinned `imathas_remote_grading_v1`
+profile. LDA persists that binding and owns the sole `ImathasQuestionBackendSession`, typed
+Reference, preparation/restore/lease/verified-Result-Exchange Store operations, and backend-state
+protection. `ImathasLaunchState` is iMathAS-owned, strict versioned opaque backend-handle bytes;
+the adapter owns iMathAS Launch/Result HMAC and protocol verification plus iMathAS Render Cache
+Entry. It cannot own a parallel Session, lifecycle, or backend-state encryption model.
 
-**Current contracted boundary.** iMathAS begins with a server-authorized backend locator containing
-an opaque, deployment-configured provider key and provider-local item reference. Before publication,
-the server creates the immutable Question Source snapshot, records its Source Object Reference and
-Source Object Checksum, and pins the integration profile. A published Question Revision stores no
-source bytes, endpoint, credential, launch material, or mutable provider location.
+LDA solely mints the fresh 256-bit iMathAS Session Challenge, keeps it immutable in one
+Session, and accepts it once only through verified Exchange. iMathAS carries and verifies the
+signed `ple_launch_challenge` protocol claim; it owns no duplicate Challenge type. The Challenge
+expires with the Session and has no browser or generated DTO.
 
-The adapter creates a safe render from that snapshot and caches only answer-free public rendering by
-immutable identity. The student response is not provider data: it is PLE's `ExternalTool {}` marker.
-The external activity loads only from PLE's protected same-origin launch route.
+LDA solely owns the private, redacted, non-Serde iMathAS Grading Context
+`{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` across Session, Store, and
+adapter validation. It inherits Student/Course/Assignment authority through its owning Session and
+Question Attempt and expires with the Session. `authentication_payload_v1` keeps its accepted bytes;
+the Context is distinct from Qualified Launch Binding Digest, Challenge, Result Token, and
+iMathAS Result. The browser launch shell has no Context DTO.
 
-### Verified result and persistence
+LDA also owns the bounded opaque iMathAS Result Token and its redacted checksum. iMathAS verifies
+the exact server-to-server response before deriving the checksum. Raw response bytes have no browser,
+generated, durable, log, or Debug representation; the checksum is Exchange-only evidence, distinct
+from the iMathAS Result checksum.
 
-PLE creates a short-lived exact course/Student/attempt-bound launch session only after reproducing the
-issued attempt, through nested
-`POST /api/courses/{course}/assignments/{assignment}/attempts/{attempt}/external-tool/launch`.
-The exact typed route binding is broker-verified before provider work and enters neither JSON nor
-provider data. The browser receives an HttpOnly, Secure, SameSite=Strict cookie scoped to launch.
-The corresponding GET is an inert same-origin shell: it cannot create or renew a session or disclose
-a provider URL. The shell uses a sandboxed iframe and constrained message bridge. Provider state is
-AEAD-wrapped before protected store persistence and is never a JSON field.
+Migration `2026090102` persists the exact Context, separate required issue-time `QuestionGradingRule`,
+`ImathasQuestionBackendBinding`, source, `imathas_remote_grading_v1` profile, seed, response checksum, Challenge, authentication, binding digest,
+expiry/revocation/consumption, lease, and encrypted backend state. Its Result Exchange owns one immutable
+normalized-score-only iMathAS Result and LDA-derived checksum, alongside the Result
+Token checksum. After iMathAS verification outside PostgreSQL, authenticated staging atomically
+consumes the exact Session into Ready-to-Commit, creates the marker `StudentResponse::ImathasQuestionBackend {}`
+Question Submission, pending Question Submission Grading, and ready typed grading Job. Only a worker
+holding that Job's lease may idempotently commit the derived PLE Grading Result and Automated Grading
+Receipt. A lease-expiry recovery claim is permitted; final worker failure belongs to the Job and
+Question Submission Grading (`instructor_attention`) while ready evidence remains for an authorized
+recovery Job. RLS and least-privilege SECURITY DEFINER functions require the authenticated active
+Student and exact restore tuple; validity is half-open, binding immutable, and direct mutation refused.
+iMathAS Result is distinct from the Result Token and PLE Grading Result; no browser/generated
+Result DTO is created. LTI remains future registered-protocol planning only.
 
-The server creates a broker binding over the authenticated Account, exact course/Student attempt, problem, version, seed, immutable source,
-profile, and canonical marker response. Before an effectful provider POST it durably records an
-indeterminate-dispatch marker under the active, unexpired lease and exact launch-token hash. A
-crash or ambiguous transport result leaves the attempt fenced rather than retrying an action that
-may have reached the provider; claim, new launch, grade, finalization, and revocation refuse until
-the operator-safe resolution path decides the state. A valid provider result is verified against the
-binding and atomically clears the marker while persisting the first verified result under the
-idempotency key. Replay returns the committed record, not another provider call. Grade retrieval is
-structurally GET-only and side-effect free; it cannot be substituted for an effectful provider POST.
+**Composition status.** The SolidJS browser launch shell POSTs the same-origin launch request,
+accepts only `{ launchUrl }`, validates the exact safe path, and opens an iframe. It carries no
+Challenge, Session, or backend secret. An LDA-backed Rust route, cookie/env production backend
+composition, and live-backend acceptance remain absent. The ordinary separately implemented
+indeterminate-effect policy continues to govern effectful iMathAS Question Backend requests where it is used.
 
-Provider results are intentionally non-serializable. External Tool Launch Session authentication
-state, provider state, launch proof, and lease token redact debug output. Timeout, authentication
-failure, malformed provider response, invalid launch-session authentication state, or verification
-mismatch is unavailable/invalid, never an incorrect student result.
-
-### Capability and scope
-
-The configured provider declares `algorithmicGeneration`, `serverGrading`, and `partialCredit`.
-Profile, transport, provider identity, and verifier belong to deployment composition, not authors or
-students.
-
-**Planned or refused.** Generic hosted MyOpenMath/iMathAS execution, arbitrary endpoints,
-browser-trusted launch URLs or scores, and unverified provider callbacks are refused. Live provider
-acceptance is not implied by the implemented broker boundary and recorded fixtures.
-
-## External-tool broker path
-
-The external-tool transaction is reusable server-side machinery, currently exercised by contracted
-iMathAS. It allows an external activity UI without handing it PLE grading authority.
-
-| Stage     | Current contract                                                                                                                                                                                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authorize | Authenticate, load an RLS-visible attempt, and prove ownership of its run before launch, proxy, or submission work.                                                                                                                            |
-| Bind      | `ExternalToolBinding` covers provider, problem/version, seed, immutable source checksum, profile, and SHA-256 of canonical `ExternalTool {}`.                                                                                                  |
-| Launch    | POST creates a server-owned session with opaque random token; GET is only an inert shell. A protected cookie is required for activity and submit.                                                                                              |
-| Proxy     | Browser calls same-origin PLE activity route. Only the sandboxed activity POST may carry `Origin: null`, and it must also present the launch cookie and AEAD-bound context. PLE alone contacts the provider using encrypted server-held state. |
-| Lease     | Broker returns a committed replay, verified-pending result, in-progress state, or one unexpired lease holder. A pre-dispatch indeterminate marker fences an ambiguous provider POST, so concurrent retries cannot duplicate grading.           |
-| Verify    | Backend accepts only a server-verified result matching the authenticated Account, exact course/Student attempt, Question Revision, Question Seed, and External Tool Launch Session authentication state.                                           |
-| Commit    | Backend atomically commits verified grade and receipt; PLE then applies disclosure and gradebook policy.                                                                                                                                       |
-
-The marker does not mean "trust the external tool." It means the current attempt requires the
-server-held launch and verification protocol. A new external backend may use this transaction only
-with immutable source identity, protected launch state, authenticated result verification, bounded
-proxy policy, replay/idempotency semantics, and a closed capability declaration.
+**Adapter protocol vocabulary.** iMathAS Item Reference names the iMathAS-local logical item;
+Source Object Reference and Source Object Checksum name immutable stored Question Source bytes;
+the qualified Launch Binding Digest is the exact content-derived launch-match value. These facts
+remain server-only and never become browser-selected endpoints, source bytes, scores, or cookies.
+Generic hosted MyOpenMath, arbitrary endpoints, browser-trusted launch URLs/scores, and unverified
+iMathAS callbacks remain outside the supported boundary.
 
 ## Extension rules
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
 2. Pin source bytes, checksum, license, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
-3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, External Tool Launch Session authentication state, and raw results server-only.
+3. Issue an answer-free envelope; keep keys, rubrics, mappings, credentials, iMathAS Session Authentication state, and raw results server-only.
 4. At issue, capture the exact version/seed render, compare the complete Question Attempt Reproduction Details, and persist its
    answer-free public snapshot plus server-only grading envelope. Retry, submitted delivery, and
    grade validate those artifacts rather than rerendering.
-5. Choose one grading authority: private PLE material, private renderer, or verified external result.
+5. Choose one grading authority: private PLE material, private renderer, or verified iMathAS Result.
 6. Cache only immutable answer-free render output. Bind private replay state to the exact course/Student attempt, never shared cache.
 7. Declare only implemented capabilities, and make assignment validation refuse unsupported policy before issue.
-8. Add deterministic conformance tests. Label recorded provider fixtures separately from live service acceptance.
+8. Add deterministic conformance tests. Label recorded iMathAS fixtures separately from live service acceptance.
 
 ## Contract locations
 
 | Contract                                                        | Primary locations                                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared Question model and Question Attempt Reproduction Details | `crates/question_model/src/{question_library.rs,student_work.rs,envelope.rs,capability.rs}`                                                                             |
-| Adapter operations                                              | `crates/adapters/{ple,webwork,imathas,qti}`                                                                                                                          |
+| Adapter operations                                              | `crates/adapters/{ple,webwork,imathas,qti}`                                                                                                                             |
 | Server composition                                              | `crates/server/src/{application.rs,composition.rs}`; Question delivery composition remains unmounted                                                                    |
 | WeBWorK renderer                                                | `crates/adapters/webwork` and [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md)                                                                      |
-| iMathAS broker                                                  | `crates/adapters/imathas`                                                                                                                                               |
+| iMathAS Question Backend                                        | `crates/adapters/imathas`                                                                                                                                               |
 | Student payload design                                          | [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)                                                                                                            |
 | Security and storage                                            | [SECURITY_MODEL.md](SECURITY_MODEL.md), [OBJECT_STORAGE.md](OBJECT_STORAGE.md), and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#typed-operations-and-objects) |
