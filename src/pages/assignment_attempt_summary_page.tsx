@@ -7,7 +7,7 @@ import type {
   AssignmentAttemptSummaryOutcome,
   AssignmentAttemptSummaryResponse,
 } from "../api/contracts";
-import { FeedbackPanel } from "../components/feedback_panel";
+import { StudentFeedbackPanel } from "../components/student_feedback_panel";
 import { useApplicationApi } from "../api/application_api";
 import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { assignmentAttemptRouteReference } from "../navigation/public_route";
@@ -117,7 +117,7 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
             </button>
             <For each={rows()}>
               {(outcome) => (
-                <FeedbackPanel
+                <StudentFeedbackPanel
                   disclosure={
                     outcome.feedback === null
                       ? {

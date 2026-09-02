@@ -90,7 +90,7 @@ function imathasQuestionBackendStatus(phase: ImathasQuestionBackendPhase): strin
     case "recoveryPending":
       return phase.message;
     case "submitted":
-      return "Response recorded. Server feedback will appear when it is released.";
+      return "Response recorded. Student Feedback will appear when it is released.";
   }
 }
 

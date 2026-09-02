@@ -4,9 +4,9 @@ use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
 use super::{
     AssignmentImportReceipt, AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference,
-    BlueprintOperationRetryToken, BoundedResolvedScheduleSet, CourseInstanceCreationReservation,
-    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, QuestionRevisionSubstitutions,
-    RequestChecksum,
+    BoundedResolvedScheduleSet, CourseInstanceCreationReservation, CourseInstanceSnapshot,
+    CourseOrigin, CourseRolloverManifest, QuestionRevisionSubstitutions, RequestChecksum,
+    RequestRetryToken,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,7 +16,7 @@ pub struct CopyCourseForNewTermCommand {
     target_term: CourseTerm,
     manifest: CourseRolloverManifest,
     creation: CourseInstanceCreationReservation,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
 }
 
 impl CopyCourseForNewTermCommand {
@@ -47,7 +47,7 @@ impl CopyCourseForNewTermCommand {
     pub fn creation(&self) -> &CourseInstanceCreationReservation {
         &self.creation
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
 }
@@ -60,7 +60,7 @@ pub struct ShiftCourseDatesCommand {
     schedules: BoundedResolvedScheduleSet,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
 }
 
 impl ShiftCourseDatesCommand {
@@ -94,7 +94,7 @@ impl ShiftCourseDatesCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
 }
@@ -107,7 +107,7 @@ pub struct ApplyBlueprintUpdateCommand {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
 }
 
 impl ApplyBlueprintUpdateCommand {
@@ -141,7 +141,7 @@ impl ApplyBlueprintUpdateCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
 }
@@ -155,7 +155,7 @@ pub struct CopyAssignmentFromBlueprintCommand {
     replacements: QuestionRevisionSubstitutions,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
 }
 
 impl CopyAssignmentFromBlueprintCommand {
@@ -193,7 +193,7 @@ impl CopyAssignmentFromBlueprintCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
 }
@@ -204,7 +204,7 @@ pub struct ReconcileCourseInstanceCommand {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
 }
 
 impl ReconcileCourseInstanceCommand {
@@ -230,7 +230,7 @@ impl ReconcileCourseInstanceCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
 }

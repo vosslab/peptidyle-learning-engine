@@ -3,7 +3,7 @@
 //! The assignment-policy resolver has already resolved the Student's effective
 //! assignment window and access verdict. This module only
 //! consumes that verdict and an authoritative supplied timestamp. It neither
-//! reconstructs access decisions nor records a feedback-release receipt.
+//! reconstructs access decisions nor records a Student Feedback Release receipt.
 
 use question_model::{
     AssignmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,

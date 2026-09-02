@@ -5,8 +5,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-/// Largest browser-supplied retry token accepted by one Blueprint operation.
-pub const MAX_BLUEPRINT_OPERATION_RETRY_TOKEN_BYTES: usize = 128;
+/// Largest browser-supplied Request Retry Token accepted by one write request.
+pub const MAX_REQUEST_RETRY_TOKEN_BYTES: usize = 128;
 
 /// Exact SHA-256 checksum supplied by the trusted server request boundary for one operation.
 ///
@@ -27,22 +27,25 @@ impl RequestChecksum {
     }
 }
 
-/// A validated opaque browser token that binds a completed Blueprint-operation retry.
+/// A validated opaque browser token for one exact retried Instructor write request.
+///
+/// The authenticated Account, exact Request Checksum, and typed request/Receipt context bind
+/// the token. It grants no authority by itself.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintOperationRetryToken(String);
+pub struct RequestRetryToken(String);
 
-impl BlueprintOperationRetryToken {
-    /// Parses the bounded opaque key used for one completed retry.
-    pub fn parse(value: &str) -> Result<Self, BlueprintOperationRetryTokenError> {
+impl RequestRetryToken {
+    /// Parses the bounded opaque token used for one completed request retry.
+    pub fn parse(value: &str) -> Result<Self, RequestRetryTokenError> {
         let valid = !value.is_empty()
-            && value.len() <= MAX_BLUEPRINT_OPERATION_RETRY_TOKEN_BYTES
+            && value.len() <= MAX_REQUEST_RETRY_TOKEN_BYTES
             && value
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
         valid
             .then(|| Self(value.to_owned()))
-            .ok_or(BlueprintOperationRetryTokenError)
+            .ok_or(RequestRetryTokenError)
     }
 
     /// Returns the opaque browser value without assigning any authority to it.
@@ -51,37 +54,37 @@ impl BlueprintOperationRetryToken {
     }
 }
 
-impl TryFrom<String> for BlueprintOperationRetryToken {
-    type Error = BlueprintOperationRetryTokenError;
+impl TryFrom<String> for RequestRetryToken {
+    type Error = RequestRetryTokenError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(&value)
     }
 }
 
-impl From<BlueprintOperationRetryToken> for String {
-    fn from(value: BlueprintOperationRetryToken) -> Self {
+impl From<RequestRetryToken> for String {
+    fn from(value: RequestRetryToken) -> Self {
         value.0
     }
 }
 
-impl std::fmt::Debug for BlueprintOperationRetryToken {
+impl std::fmt::Debug for RequestRetryToken {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("BlueprintOperationRetryToken([opaque])")
+        formatter.write_str("RequestRetryToken([opaque])")
     }
 }
 
-/// An idempotency key was blank, oversized, or outside the opaque-key alphabet.
+/// A Request Retry Token was blank, oversized, or outside the opaque-token alphabet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlueprintOperationRetryTokenError;
+pub struct RequestRetryTokenError;
 
-impl std::fmt::Display for BlueprintOperationRetryTokenError {
+impl std::fmt::Display for RequestRetryTokenError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Blueprint operation retry token is invalid")
+        formatter.write_str("request retry token is invalid")
     }
 }
 
-impl std::error::Error for BlueprintOperationRetryTokenError {}
+impl std::error::Error for RequestRetryTokenError {}
 
 /// Strong revision evidence for one durable curriculum import.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

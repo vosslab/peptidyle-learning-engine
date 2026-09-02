@@ -18,7 +18,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { waitForAutomatedFeedback } from "./automated_grading_ui";
+import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -302,7 +302,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
       ).toBeVisible();
       await mary.getByRole("radio", { name: originalChoice, exact: true }).check();
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
-      await waitForAutomatedFeedback(mary);
+      await waitForAutomatedStudentFeedback(mary);
       await mary.getByRole("button", { name: "View completed run", exact: true }).click();
       await expect(
         mary.getByRole("button", { name: "Start fresh practice", exact: true }),

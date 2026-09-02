@@ -167,7 +167,7 @@ function phaseMessage(phase: WidgetPhase): string {
     case "recoveryPending":
       return phase.message;
     case "submitted":
-      return "Answer submitted. Server feedback will appear when it is released.";
+      return "Answer submitted. Student Feedback will appear when it is released.";
   }
 }
 

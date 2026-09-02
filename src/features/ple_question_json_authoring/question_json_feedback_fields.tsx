@@ -19,12 +19,12 @@ export function PleQuestionJsonFeedbackFields(
   const incorrectError = (): string | undefined => props.fieldErrors?.["feedback.incorrect"];
   return (
     <fieldset>
-      <legend>Outcome feedback</legend>
+      <legend>Question Feedback</legend>
       <p class="ple-question-json-authoring__help">
-        This appears after the student's answer according to the feedback policy.
+        This appears after the student's answer according to the Student Feedback Release Rule.
       </p>
       <label class="ple-question-json-authoring__field">
-        <span>Correct-answer feedback (optional)</span>
+        <span>Correct Feedback (optional)</span>
         <textarea
           value={props.value.correct ?? ""}
           disabled={props.disabled}
@@ -49,7 +49,7 @@ export function PleQuestionJsonFeedbackFields(
         </p>
       </Show>
       <label class="ple-question-json-authoring__field">
-        <span>Incorrect-answer feedback (optional)</span>
+        <span>Incorrect Feedback (optional)</span>
         <textarea
           value={props.value.incorrect ?? ""}
           disabled={props.disabled}

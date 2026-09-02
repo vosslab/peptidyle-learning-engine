@@ -383,10 +383,10 @@ and the server evaluates it for current Student projections.
 
 A Question Hint is requested before a Student selects or submits a response.
 Question Feedback is selected only after automatic grading and remains three
-separate authoring levels: selected-choice feedback, correct-outcome feedback,
-and incorrect-outcome feedback. The assignment release rule controls whether
-the applicable post-grade feedback reaches the Student; it does not govern a
-Question Hint.
+separate optional authoring forms: Choice Feedback, Correct Feedback, and
+Incorrect Feedback. The Student Feedback Release Rule controls whether the
+applicable Question Feedback form reaches the Student as Student Feedback; it
+does not govern a Question Hint.
 For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
 deadline. MOD-TIME applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.

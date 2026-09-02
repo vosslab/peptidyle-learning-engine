@@ -1,4 +1,4 @@
-// feedback_panel.tsx - accessible display of server-disclosed student feedback.
+// student_feedback_panel.tsx - accessible display of server-disclosed Student Feedback.
 
 import {
   createEffect,
@@ -20,13 +20,13 @@ import {
   resolveSameOriginAssetUrl,
   type AssetUrlResolver,
 } from "./question_renderer";
-import { FEEDBACK_PANEL_STYLES } from "./feedback_panel_styles";
+import { STUDENT_FEEDBACK_PANEL_STYLES } from "./student_feedback_panel_styles";
 
 /**
  * An explicit presentation state prevents a null withheld record from looking like an empty,
  * released teaching response. The server is the only authority that constructs this union.
  */
-export type FeedbackPresentation =
+export type StudentFeedbackPresentation =
   | {
       readonly kind: "awaiting";
       readonly feedback: null;
@@ -38,16 +38,16 @@ export type FeedbackPresentation =
       readonly assignmentScoringState: AssignmentScoringState;
     };
 
-export interface FeedbackPanelProps {
-  readonly disclosure: FeedbackPresentation;
+export interface StudentFeedbackPanelProps {
+  readonly disclosure: StudentFeedbackPresentation;
   /** A server-projected record of what the student submitted, never a Question Revision. */
   readonly studentResponse?: ReadonlyArray<QuestionContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
-  /** Omit on read-only history surfaces so static feedback does not add a no-op tab stop. */
+  /** Omit on read-only history surfaces so static Student Feedback adds no no-op tab stop. */
   readonly onAdvance?: () => void;
   readonly advanceLabel?: string;
-  /** Gives assistive technology time to announce the feedback before the advance control receives focus. */
+  /** Gives assistive technology time to announce Student Feedback before the advance control receives focus. */
   readonly focusAdvanceDelayMs?: number;
 }
 
@@ -55,7 +55,7 @@ function assertNever(value: never): never {
   throw new Error(`Unknown feedback block: ${JSON.stringify(value)}`);
 }
 
-function outcomeHeading(disclosure: FeedbackPresentation): string {
+function outcomeHeading(disclosure: StudentFeedbackPresentation): string {
   if (disclosure.kind === "awaiting" || disclosure.assignmentScoringState !== "current") {
     return "Response recorded";
   }
@@ -69,7 +69,7 @@ function outcomeHeading(disclosure: FeedbackPresentation): string {
 }
 
 /** Exposed for focused behavior tests and so the neutral copy stays consistent with the heading. */
-export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
+export function studentFeedbackAnnouncement(disclosure: StudentFeedbackPresentation): string {
   if (disclosure.assignmentScoringState === "recalculating") {
     return "Your response was recorded. Your score is being updated.";
   }
@@ -77,16 +77,16 @@ export function feedbackAnnouncement(disclosure: FeedbackPresentation): string {
     return "Your response was recorded. Your score is waiting for instructor review.";
   }
   if (disclosure.kind === "awaiting") {
-    return "Your response was recorded. Feedback is not available for this response.";
+    return "Your response was recorded. Student Feedback is not available for this response.";
   }
-  return `Feedback released. ${outcomeHeading(disclosure)}.`;
+  return `Student Feedback released. ${outcomeHeading(disclosure)}.`;
 }
 
 function hasBlocks(blocks: ReadonlyArray<QuestionContentBlock> | undefined): boolean {
   return blocks !== undefined && blocks.length > 0;
 }
 
-function FeedbackBlock(props: {
+function StudentFeedbackBlock(props: {
   readonly block: QuestionContentBlock;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
@@ -96,7 +96,7 @@ function FeedbackBlock(props: {
     case "math":
       return (
         <p>
-          <span class="feedback-panel__math" aria-label={props.block.description}>
+          <span class="student-feedback-panel__math" aria-label={props.block.description}>
             {props.block.latex}
           </span>
         </p>
@@ -105,7 +105,7 @@ function FeedbackBlock(props: {
       return (
         <figure>
           <img
-            class="feedback-panel__image"
+            class="student-feedback-panel__image"
             src={resolveSameOriginAssetUrl(props.block.asset, props.assetUrl)}
             alt={props.block.description}
             onError={recoverProtectedAssetImage}
@@ -115,14 +115,14 @@ function FeedbackBlock(props: {
       );
     case "code":
       return (
-        <pre class="feedback-panel__code">
+        <pre class="student-feedback-panel__code">
           <code data-language={props.block.language}>{props.block.source}</code>
         </pre>
       );
     case "table":
       return (
-        <div class="feedback-panel__table-wrap">
-          <table class="feedback-panel__table">
+        <div class="student-feedback-panel__table-wrap">
+          <table class="student-feedback-panel__table">
             <caption>{props.block.description}</caption>
             <thead>
               <tr>
@@ -152,28 +152,28 @@ export function ContentBlockList(props: {
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
-    <div class="feedback-panel__blocks">
+    <div class="student-feedback-panel__blocks">
       <For each={props.blocks}>
-        {(block) => <FeedbackBlock block={block} assetUrl={props.assetUrl} />}
+        {(block) => <StudentFeedbackBlock block={block} assetUrl={props.assetUrl} />}
       </For>
     </div>
   );
 }
 
-function FeedbackSection(props: {
+function StudentFeedbackSection(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
-    <section class="feedback-panel__section">
+    <section class="student-feedback-panel__section">
       <h3>{props.title}</h3>
       <ContentBlockList blocks={props.blocks} assetUrl={props.assetUrl} />
     </section>
   );
 }
 
-function scoreText(feedback: StudentFeedback): string | undefined {
+function studentFeedbackScoreText(feedback: StudentFeedback): string | undefined {
   if (feedback.pointsEarned !== undefined && feedback.pointsPossible !== undefined) {
     return `Score: ${formatPointScore(feedback.pointsEarned, feedback.pointsPossible)}`;
   }
@@ -186,7 +186,7 @@ function scoreText(feedback: StudentFeedback): string | undefined {
   return undefined;
 }
 
-function scrollNewFeedbackIntoView(heading: HTMLHeadingElement): void {
+function scrollNewStudentFeedbackIntoView(heading: HTMLHeadingElement): void {
   const prefersReducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   if (!prefersReducedMotion) {
     heading.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -197,18 +197,18 @@ function scrollNewFeedbackIntoView(heading: HTMLHeadingElement): void {
  * Displays only the server-redacted DTO and an optional public student-response projection.
  * It has no grading, policy, question-definition, answer-key, or raw-response dependencies.
  */
-export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
-  const headingId = `feedback-panel-heading-${createUniqueId()}`;
+export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Element {
+  const headingId = `student-feedback-panel-heading-${createUniqueId()}`;
   const [heading, setHeading] = createSignal<HTMLHeadingElement>();
   const [advance, setAdvance] = createSignal<HTMLButtonElement>();
-  let focusedFeedback: StudentFeedback | undefined;
+  let focusedStudentFeedback: StudentFeedback | undefined;
 
   createEffect(() => {
     if (props.disclosure.kind === "awaiting") {
-      focusedFeedback = undefined;
+      focusedStudentFeedback = undefined;
       return;
     }
-    if (focusedFeedback === props.disclosure.feedback) {
+    if (focusedStudentFeedback === props.disclosure.feedback) {
       return;
     }
     const currentHeading = heading();
@@ -216,9 +216,9 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
     if (currentHeading === undefined || currentAdvance === undefined) {
       return;
     }
-    focusedFeedback = props.disclosure.feedback;
+    focusedStudentFeedback = props.disclosure.feedback;
     currentHeading.focus({ preventScroll: true });
-    scrollNewFeedbackIntoView(currentHeading);
+    scrollNewStudentFeedbackIntoView(currentHeading);
     const delay = props.focusAdvanceDelayMs ?? 250;
     const timer = globalThis.setTimeout(() => {
       if (document.activeElement === currentHeading) {
@@ -235,71 +235,79 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
   const response = (): ReadonlyArray<QuestionContentBlock> => props.studentResponse ?? [];
 
   return (
-    <section class="feedback-panel" aria-labelledby={headingId}>
-      <style>{FEEDBACK_PANEL_STYLES}</style>
+    <section class="student-feedback-panel" aria-labelledby={headingId}>
+      <style>{STUDENT_FEEDBACK_PANEL_STYLES}</style>
       <p class="visually-hidden" role="status" aria-live="polite">
-        {feedbackAnnouncement(props.disclosure)}
+        {studentFeedbackAnnouncement(props.disclosure)}
       </p>
-      <h2 id={headingId} class="feedback-panel__heading" ref={setHeading} tabindex="-1">
-        Feedback
+      <h2 id={headingId} class="student-feedback-panel__heading" ref={setHeading} tabindex="-1">
+        Student Feedback
       </h2>
 
       <Show when={hasBlocks(response())}>
-        <FeedbackSection title="Your response" blocks={response()} assetUrl={props.assetUrl} />
+        <StudentFeedbackSection
+          title="Your response"
+          blocks={response()}
+          assetUrl={props.assetUrl}
+        />
       </Show>
 
       <Show when={feedback()}>
         {(released) => (
           <>
-            <section class="feedback-panel__section">
+            <section class="student-feedback-panel__section">
               <h3>{outcomeHeading(props.disclosure)}</h3>
-              <Show when={scoreText(released())}>
-                {(score) => <p class="feedback-panel__score">{score()}</p>}
+              <Show when={studentFeedbackScoreText(released())}>
+                {(score) => <p class="student-feedback-panel__score">{score()}</p>}
               </Show>
               <Show
                 when={
-                  scoreText(released()) !== undefined ||
+                  studentFeedbackScoreText(released()) !== undefined ||
                   hasBlocks(released().choiceFeedback) ||
                   hasBlocks(released().correctFeedback) ||
                   hasBlocks(released().incorrectFeedback) ||
                   hasBlocks(released().questionAnswer) ||
                   hasBlocks(released().questionAnswerExplanation)
                 }
-                fallback={<p class="feedback-panel__empty">No additional feedback was provided.</p>}
+                fallback={
+                  <p class="student-feedback-panel__empty">
+                    No additional Student Feedback was provided.
+                  </p>
+                }
               >
                 <></>
               </Show>
             </section>
             <Show when={hasBlocks(released().choiceFeedback)}>
-              <FeedbackSection
-                title="About your choice"
+              <StudentFeedbackSection
+                title="Choice Feedback"
                 blocks={released().choiceFeedback ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
             <Show when={hasBlocks(released().correctFeedback)}>
-              <FeedbackSection
-                title="Correct-response feedback"
+              <StudentFeedbackSection
+                title="Correct Feedback"
                 blocks={released().correctFeedback ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
             <Show when={hasBlocks(released().incorrectFeedback)}>
-              <FeedbackSection
-                title="Incorrect-response feedback"
+              <StudentFeedbackSection
+                title="Incorrect Feedback"
                 blocks={released().incorrectFeedback ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
             <Show when={hasBlocks(released().questionAnswer)}>
-              <FeedbackSection
+              <StudentFeedbackSection
                 title="Question Answer"
                 blocks={released().questionAnswer ?? []}
                 assetUrl={props.assetUrl}
               />
             </Show>
             <Show when={hasBlocks(released().questionAnswerExplanation)}>
-              <FeedbackSection
+              <StudentFeedbackSection
                 title="Answer Explanation"
                 blocks={released().questionAnswerExplanation ?? []}
                 assetUrl={props.assetUrl}
@@ -314,15 +322,15 @@ export function FeedbackPanel(props: FeedbackPanelProps): JSX.Element {
           props.disclosure.assignmentScoringState !== "current"
         }
       >
-        <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
+        <p class="student-feedback-panel__empty">{studentFeedbackAnnouncement(props.disclosure)}</p>
       </Show>
       <Show when={props.disclosure.kind === "awaiting"}>
-        <p class="feedback-panel__empty">{feedbackAnnouncement(props.disclosure)}</p>
+        <p class="student-feedback-panel__empty">{studentFeedbackAnnouncement(props.disclosure)}</p>
       </Show>
 
       <Show when={props.onAdvance !== undefined}>
         <button
-          class="primary-action feedback-panel__advance"
+          class="primary-action student-feedback-panel__advance"
           type="button"
           ref={setAdvance}
           onClick={() => props.onAdvance?.()}

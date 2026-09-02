@@ -31,13 +31,13 @@ pub use pins::{
     ReplacementQuestionRevisionChoices, ReplacementQuestionRevisionChoicesError,
 };
 pub use scalars::{
-    BlueprintOperationRetryToken, BlueprintOperationRetryTokenError, CurriculumImportRevision,
-    CurriculumImportRevisionError, RequestChecksum,
+    CurriculumImportRevision, CurriculumImportRevisionError, RequestChecksum, RequestRetryToken,
+    RequestRetryTokenError,
 };
 pub use server_records::{
-    ApplyBlueprintUpdateApplyRecord, BlueprintOperationRequestBinding,
-    CopyAssignmentFromBlueprintApplyRecord, CopyCourseForNewTermApplyRecord,
-    CreateCourseFromBlueprintApplyRecord, ForkBlueprintCourseApplyRecord,
-    ReconcileCourseInstanceApplyRecord, ShiftCourseDatesApplyRecord,
+    ApplyBlueprintUpdateApplyRecord, CopyAssignmentFromBlueprintApplyRecord,
+    CopyCourseForNewTermApplyRecord, CreateCourseFromBlueprintApplyRecord,
+    ForkBlueprintCourseApplyRecord, ReconcileCourseInstanceApplyRecord, RequestRetryBinding,
+    ShiftCourseDatesApplyRecord,
 };
 pub use source::BlueprintRevisionReference;

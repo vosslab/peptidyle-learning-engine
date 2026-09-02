@@ -12,7 +12,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { waitForAutomatedFeedback } from "./automated_grading_ui";
+import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -129,7 +129,7 @@ async function completeVisibleWebworkRun(
   await choices.first().check();
   await expect(choices.first()).toBeChecked();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  const feedback = await waitForAutomatedFeedback(page);
+  const feedback = await waitForAutomatedStudentFeedback(page);
   await expect(feedback.getByRole("heading", { name: /^(Correct|Not quite)$/u })).toBeVisible();
   await page.getByRole("button", { name: "View completed run", exact: true }).click();
   await expect(page.getByText("Your completed run is recorded.")).toBeVisible();

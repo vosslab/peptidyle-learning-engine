@@ -55,7 +55,8 @@ export interface ResponseValidation {
   readonly message: string | null;
 }
 
-export type Feedback =
+/** Availability of the browser-safe Student Feedback view for one submitted response. */
+export type StudentFeedbackAvailability =
   | { readonly kind: "none" }
   | { readonly kind: "awaiting"; readonly feedback: null }
   | { readonly kind: "released"; readonly feedback: StudentFeedback };
@@ -108,7 +109,7 @@ interface StateBase {
   readonly response: StudentResponse | null;
   readonly validation: ResponseValidation;
   readonly remainingMilliseconds: number | null;
-  readonly feedback: Feedback;
+  readonly feedback: StudentFeedbackAvailability;
   readonly rendererFailure: string | null;
   /** Non-blocking notice that this response cannot survive a browser refresh. */
   readonly storageWarning: string | null;
@@ -124,7 +125,7 @@ export type QuestionAttemptExperienceState =
   | (StateBase & { readonly phase: "answering" })
   | (StateBase & { readonly phase: "submitting"; readonly idempotencyKey: IdempotencyKey })
   | (StateBase & {
-      readonly phase: "feedback";
+      readonly phase: "studentFeedback";
       readonly acknowledgement: SubmissionAcknowledgement;
       readonly checkingStatus: boolean;
       readonly statusMessage: string | null;
@@ -346,7 +347,7 @@ function responsesEqual(left: StudentResponse, right: StudentResponse): boolean 
   return false;
 }
 
-function feedbackFor(receipt: GradedQuestionSubmissionReceipt): Feedback {
+function feedbackFor(receipt: GradedQuestionSubmissionReceipt): StudentFeedbackAvailability {
   return receipt.feedback === null
     ? { kind: "awaiting", feedback: null }
     : { kind: "released", feedback: receipt.feedback };
@@ -579,7 +580,7 @@ export function createQuestionAttemptStateMachine(
     if (
       current.phase === "submitting" ||
       current.phase === "terminal" ||
-      current.phase === "feedback" ||
+      current.phase === "studentFeedback" ||
       current.phase === "acceptedPending" ||
       current.phase === "advancing" ||
       (current.phase === "recovering" && current.reason === "advanceFailed")
@@ -642,7 +643,7 @@ export function createQuestionAttemptStateMachine(
       const acknowledgement = completedAcknowledgement(status);
       const state = {
         ...base({ response, feedback }),
-        phase: "feedback" as const,
+        phase: "studentFeedback" as const,
         acknowledgement,
         checkingStatus: false,
         statusMessage: null,
@@ -706,18 +707,18 @@ export function createQuestionAttemptStateMachine(
 
   async function checkGradingStatus(): Promise<void> {
     const checkingStatus =
-      current.phase === "acceptedPending" || current.phase === "feedback"
+      current.phase === "acceptedPending" || current.phase === "studentFeedback"
         ? current.checkingStatus
         : false;
     const canCheck =
       (current.phase === "acceptedPending" ||
-        (current.phase === "feedback" &&
+        (current.phase === "studentFeedback" &&
           current.acknowledgement.assignmentScoringState !== "current")) &&
       !checkingStatus;
     if (!canCheck) return;
     const pending = current as Extract<
       QuestionAttemptExperienceState,
-      { readonly phase: "acceptedPending" | "feedback" }
+      { readonly phase: "acceptedPending" | "studentFeedback" }
     >;
     requestNumber += 1;
     const request = requestNumber;
@@ -739,7 +740,7 @@ export function createQuestionAttemptStateMachine(
       const acknowledgement = completedAcknowledgement(status);
       publish({
         ...base({ response: pending.response, feedback }),
-        phase: "feedback",
+        phase: "studentFeedback",
         acknowledgement,
         checkingStatus: false,
         statusMessage: null,
@@ -793,7 +794,7 @@ export function createQuestionAttemptStateMachine(
   function tick(): void {
     if (
       current.phase === "terminal" ||
-      current.phase === "feedback" ||
+      current.phase === "studentFeedback" ||
       current.phase === "acceptedPending" ||
       current.phase === "advancing"
     )
@@ -811,7 +812,7 @@ export function createQuestionAttemptStateMachine(
   }
 
   async function advance(loadNext: () => Promise<NextAttempt>): Promise<void> {
-    if (current.phase !== "feedback") return;
+    if (current.phase !== "studentFeedback") return;
     nextLoader = loadNext;
     await loadNextAttempt(loadNext);
   }

@@ -179,6 +179,8 @@ Manifest, and Receipt describe only their exact qualified operation. The
 operation name remains consistent across interface, API, schema, and code
 boundaries.
 
+**Request Retry Token** is an opaque value for one repeated Instructor write request, bound by the authenticated Account, exact Request Checksum, and typed request-and-Receipt context; it grants no authority. The typed context identifies the action, never a retried Blueprint. The current Question Model and browser contract define the value; a mounted route and durable replay boundary provide same-Receipt behavior when delivered.
+
 **Course Instance** is live teaching created from an exact Blueprint Revision.
 It owns enrollment, deadlines, releases, accommodations, grades, and other
 delivery-specific facts. Course Instance Creation atomically records its source
@@ -222,14 +224,11 @@ exact Course Instance. It contains the exact Course Schedule Revision Reference
 and ordered Assignment Revision References observed by the server; it grants no
 authority and is distinct from a Course Instance Creation Reservation.
 
-**Course Instance Creation Reservation** is server-held pre-creation evidence
-for one Course Instance. It binds the exact Blueprint or rollover source, target
-Course Term, authorizing Account, Request Checksum, Retry Token, and reserved
-Course Instance Reference; it creates no authority of its own.
+**Course Instance Creation Reservation** is server-held pre-creation evidence for one Course Instance. It binds the exact Blueprint or rollover source, target Course Term, authorizing Account, Request Checksum, Request Retry Token, and reserved Course Instance Reference; it creates no authority of its own.
 
 **Blueprint Fork Reservation** is server-held pre-creation evidence for one
 Blueprint Course fork. It binds the exact source Blueprint Revision, authorizing
-Account, Request Checksum, Retry Token, and reserved Blueprint Course Reference;
+Account, Request Checksum, Request Retry Token, and reserved Blueprint Course Reference;
 it creates no authority of its own.
 
 **Course Time Zone** is the one exact IANA time-zone name owned by a Course
@@ -425,11 +424,11 @@ enters, or submits a response. The server verifies the exact Issued Question
 before providing it. A Question Hint is separate from Question Feedback and
 Student Feedback.
 
-**Question Feedback** is teaching content selected only after automatic
-grading. **Choice Feedback** is bound to a selected Question Choice or other
-Response Item Reference. **Correct Feedback** is selected for a correct Grading
-Result. **Incorrect Feedback** is selected for an incorrect Grading Result.
-These are the three Question Feedback forms.
+**Question Feedback** is optional Question-authored teaching content selected
+only after automatic grading. **Choice Feedback** is bound to a selected
+Question Choice or other Response Item Reference. **Correct Feedback** is
+selected for a correct Grading Result. **Incorrect Feedback** is selected for
+an incorrect Grading Result. These are the three Question Feedback forms.
 
 A **Question Answer Explanation** is the optional display-ready explanation of
 how or why the Question Answer is reached. It is distinct from the Question
@@ -791,10 +790,11 @@ releases the explanatory teaching content. Neither control releases the Answer
 Key. Question Hint availability is separately authorized before a response and
 is not a Student Feedback Release field. **Student Feedback** is the
 browser-safe view derived for one authorized read from the exact Grading Result,
-Question Feedback, Question Answer, Question Answer Explanation, current
-release rule, and current time. Student Feedback reads are transient
-calculations. The Assignment Revision, exact grading records, and exact
-Question records form the durable audit trail.
+optional Question Feedback, Question Answer, Question Answer Explanation,
+current release rule, and current time. Student Feedback reads are transient
+calculations. A Student can receive an outcome and continue without Question
+Feedback being authored, released, or read. The Assignment Revision, exact
+grading records, and exact Question records form the durable audit trail.
 **Assignment Release Requirements** are the closed conditions an Assignment
 must satisfy before release. **Assignment Release Validation** evaluates the
 Assignment and returns its complete set of **Assignment Release

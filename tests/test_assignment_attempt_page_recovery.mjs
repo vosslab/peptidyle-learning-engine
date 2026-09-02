@@ -98,7 +98,7 @@ test("session expiry, reauthentication, and page retry submit one saved response
     submissions.map((submission) => submission.idempotencyKey),
     ["saved-key", "saved-key"],
   );
-  assert.equal(machine.state().phase, "feedback");
+  assert.equal(machine.state().phase, "studentFeedback");
 });
 
 test("the response controller exposes 422 and receipt failures for correction before resubmission", async () => {
@@ -173,7 +173,7 @@ test("the response controller exposes 422 and receipt failures for correction be
     await controller.validate(corrected);
     await controller.submit(corrected);
 
-    assert.equal(machine.state().phase, "feedback");
+    assert.equal(machine.state().phase, "studentFeedback");
     assert.equal(controller.phase().kind, "submitted");
     assert.deepEqual(submissionKeys, ["correction-key-1", "correction-key-2"]);
   }

@@ -12,7 +12,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { waitForAutomatedFeedback } from "./automated_grading_ui";
+import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
@@ -207,7 +207,7 @@ test("student gateway recovery: a saved response retries after the owner restore
     await retry.focus();
     await expect(retry).toBeFocused();
     await student.keyboard.press("Enter");
-    const feedback = await waitForAutomatedFeedback(student);
+    const feedback = await waitForAutomatedStudentFeedback(student);
     await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
     await feedback.scrollIntoViewIfNeeded();
     await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_recovered_feedback");

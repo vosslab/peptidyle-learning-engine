@@ -32,7 +32,10 @@ import {
   assignmentAttemptRouteReference,
 } from "../navigation/public_route";
 import { QuestionRenderer } from "../components/question_renderer";
-import { FeedbackPanel, type FeedbackPresentation } from "../components/feedback_panel";
+import {
+  StudentFeedbackPanel,
+  type StudentFeedbackPresentation,
+} from "../components/student_feedback_panel";
 import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
 import { resumeSessionAndRetry } from "./assignment_attempt_page_recovery";
 import {
@@ -444,18 +447,18 @@ function AttemptExperience(props: {
     return candidate?.phase === "recovering" ? candidate : undefined;
   };
   const feedbackState = ():
-    Extract<QuestionAttemptExperienceState, { readonly phase: "feedback" }> | undefined => {
+    Extract<QuestionAttemptExperienceState, { readonly phase: "studentFeedback" }> | undefined => {
     const candidate = state();
-    return candidate?.phase === "feedback" ? candidate : undefined;
+    return candidate?.phase === "studentFeedback" ? candidate : undefined;
   };
   const acceptedPendingState = ():
     Extract<QuestionAttemptExperienceState, { readonly phase: "acceptedPending" }> | undefined => {
     const candidate = state();
     return candidate?.phase === "acceptedPending" ? candidate : undefined;
   };
-  const feedbackPanelState = (
-    feedback: Extract<QuestionAttemptExperienceState, { readonly phase: "feedback" }>,
-  ): FeedbackPresentation =>
+  const studentFeedbackPresentation = (
+    feedback: Extract<QuestionAttemptExperienceState, { readonly phase: "studentFeedback" }>,
+  ): StudentFeedbackPresentation =>
     feedback.feedback.kind === "released"
       ? {
           kind: "released" as const,
@@ -539,7 +542,7 @@ function AttemptExperience(props: {
                 </section>
                 <For each={summaryOutcomes()}>
                   {(outcome) => (
-                    <FeedbackPanel
+                    <StudentFeedbackPanel
                       disclosure={
                         outcome.feedback === null
                           ? {
@@ -768,8 +771,8 @@ function AttemptExperience(props: {
                           </button>
                         </section>
                       </Show>
-                      <FeedbackPanel
-                        disclosure={feedbackPanelState(feedback())}
+                      <StudentFeedbackPanel
+                        disclosure={studentFeedbackPresentation(feedback())}
                         studentResponse={projectStudentResponse(
                           currentEnvelope(),
                           feedback().response,

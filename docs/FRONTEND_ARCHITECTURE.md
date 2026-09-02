@@ -165,13 +165,13 @@ adapters, strict decoding, and presentation models.
 
 The run page keeps one editable response and one idempotency key for the
 current run/attempt. It may use answer-free Wasm for format hints and timing
-display. It never stores keys, private envelopes, undisclosed feedback, or
+display. It never stores keys, private envelopes, unreleased Student Feedback, or
 provider state, and never derives correctness or completion.
 
 After accepted submission, the browser clears the response and polls an
 answer-free status projection. It does not resubmit known-accepted work.
-Feedback, score, item correctness, solution, class statistics, late status,
-and release are redacted or exposed only by the server's current policy.
+Student Feedback, score, item correctness, solution, class statistics, late status,
+and Student Feedback Release are redacted or exposed only by the server's current policy.
 
 CourseInstance pages use exact CourseId and Student relationship context.
 Instructor Student view is informational and creates no Student work. Gradebook,

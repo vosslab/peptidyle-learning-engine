@@ -9,22 +9,24 @@ import { expect, type Locator, type Page } from "@playwright/test";
 const AUTOMATED_GRADING_DEADLINE_MS = 150_000;
 const AUTOMATED_GRADING_POLL_MS = 2_000;
 
-export async function waitForAutomatedFeedback(page: Page): Promise<Locator> {
-  const feedback = page.getByRole("heading", { name: "Feedback", exact: true }).locator("..");
+export async function waitForAutomatedStudentFeedback(page: Page): Promise<Locator> {
+  const studentFeedback = page
+    .getByRole("heading", { name: "Student Feedback", exact: true })
+    .locator("..");
   const pending = page
     .getByRole("heading", { name: "Response received", exact: true })
     .locator("..");
-  const nonCurrentFeedback = page.getByRole("heading", {
+  const nonCurrentStudentFeedback = page.getByRole("heading", {
     name: /^(Score is being updated|Score update needs attention)$/u,
     exact: true,
   });
 
-  // Accept either a visible pending action or feedback because the worker may
+  // Accept either a visible pending action or Student Feedback because the worker may
   // complete between the submission click and the first browser observation.
   await expect
     .poll(
       async () => {
-        if (await feedback.isVisible()) return "feedback";
+        if (await studentFeedback.isVisible()) return "studentFeedback";
         const checkStatus = pending.getByRole("button", {
           name: "Check grading status",
           exact: true,
@@ -35,14 +37,16 @@ export async function waitForAutomatedFeedback(page: Page): Promise<Locator> {
       },
       { timeout: AUTOMATED_GRADING_DEADLINE_MS, intervals: [AUTOMATED_GRADING_POLL_MS] },
     )
-    .toMatch(/^(feedback|pending)$/u);
+    .toMatch(/^(studentFeedback|pending)$/u);
 
   // Status refresh is an idempotent visible action; keep driving it until the
-  // server-owned terminal feedback replaces the pending projection.
+  // server-owned terminal Student Feedback replaces the pending projection.
   await expect
     .poll(
       async () => {
-        if ((await feedback.isVisible()) && !(await nonCurrentFeedback.isVisible())) return true;
+        if ((await studentFeedback.isVisible()) && !(await nonCurrentStudentFeedback.isVisible())) {
+          return true;
+        }
         const checkStatus = page.getByRole("button", {
           name: /^(Check grading status|Check for updated score)$/u,
           exact: true,
@@ -50,12 +54,14 @@ export async function waitForAutomatedFeedback(page: Page): Promise<Locator> {
         if ((await checkStatus.isVisible()) && (await checkStatus.isEnabled())) {
           await checkStatus.click();
         }
-        return (await feedback.isVisible()) && !(await nonCurrentFeedback.isVisible());
+        return (
+          (await studentFeedback.isVisible()) && !(await nonCurrentStudentFeedback.isVisible())
+        );
       },
       { timeout: AUTOMATED_GRADING_DEADLINE_MS, intervals: [AUTOMATED_GRADING_POLL_MS] },
     )
     .toBe(true);
-  return feedback;
+  return studentFeedback;
 }
 
 export async function advanceToNextIssuedQuestion(page: Page): Promise<void> {

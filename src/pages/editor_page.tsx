@@ -9,7 +9,7 @@ import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
 import { QuestionRenderer } from "../components/question_renderer";
 import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
-import { ContentBlockList } from "../components/feedback_panel";
+import { ContentBlockList } from "../components/student_feedback_panel";
 import { WorkspaceConflictError } from "../api/http_client";
 import { parseReviewedQuestionAuthorship } from "../api/question_authorship";
 import type { WasmFacade } from "../wasm/index";

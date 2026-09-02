@@ -49,14 +49,17 @@ The complete accessibility contract is in
    deadline from its own clock.
 2. Activate **Start or resume practice**.
 3. Read the visible timer, then select a response and activate **Submit answer**.
-4. If **Response received** appears, activate **Check grading status** until feedback or an
-   instructor-attention message appears.
-5. When **Feedback** appears, read it and activate **Continue**.
+4. If **Response received** appears, activate **Check grading status** until your Student response
+   outcome or an instructor-attention message appears.
+5. When **Student Feedback** is available, use any released score, correctness, Question Answer,
+   Question Answer Explanation, or optional Question Feedback that helps you, then activate
+   **Continue**. You can continue when no optional Question Feedback was authored or released.
 6. When an instructor-attention message appears, stop and contact your instructor; the assignment
    keeps your accepted response while the instructor resolves the grading issue.
-7. After feedback, correct the retry and continue to the completed summary.
+7. Use another Assignment Attempt when the Assignment allows it, then continue to the completed
+   summary.
 
-The student receives visible feedback, but Answer Keys and the Question Grader remain on the
+The Student may receive released **Student Feedback**, but Answer Keys and the Question Grader remain on the
 server. The browser displays the countdown; the server decides whether a response arrived on time.
 When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
 scores; it never presents a missing score as zero. Unreleased, Closed, or otherwise unavailable work does

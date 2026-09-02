@@ -8,7 +8,10 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { advanceToNextIssuedQuestion, waitForAutomatedFeedback } from "./automated_grading_ui";
+import {
+  advanceToNextIssuedQuestion,
+  waitForAutomatedStudentFeedback,
+} from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -215,7 +218,7 @@ async function completeDeliveredPoolRun(
   await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveCount(0);
   await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  const fixedFeedback = await waitForAutomatedFeedback(page);
+  const fixedFeedback = await waitForAutomatedStudentFeedback(page);
   await expect(fixedFeedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
   await advanceToNextIssuedQuestion(page);
 
@@ -240,7 +243,7 @@ async function completeDeliveredPoolRun(
     }
     await page.getByRole("radio", { name: questionPoolItem!.correctChoice, exact: true }).check();
     await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-    const questionPoolItemFeedback = await waitForAutomatedFeedback(page);
+    const questionPoolItemFeedback = await waitForAutomatedStudentFeedback(page);
     await expect(
       questionPoolItemFeedback.getByRole("heading", { name: "Correct", exact: true }),
     ).toBeVisible();

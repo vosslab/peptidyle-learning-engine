@@ -12,7 +12,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { waitForAutomatedFeedback } from "./automated_grading_ui";
+import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -270,7 +270,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await startOrContinuePractice(mary);
       await mary.getByRole("checkbox", { name: correctChoice, exact: true }).check();
       await mary.getByRole("button", { name: "Submit answer", exact: true }).click();
-      const feedback = await waitForAutomatedFeedback(mary);
+      const feedback = await waitForAutomatedStudentFeedback(mary);
       await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
       await mary.getByRole("button", { name: "View completed run", exact: true }).click();
       const completedRun = mary.locator(".attempt-summary");

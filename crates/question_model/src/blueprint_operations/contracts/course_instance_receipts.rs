@@ -4,9 +4,9 @@ use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule, Timestamp};
 
 use super::{
     ApplyBlueprintUpdateEffect, AssignmentImportReceiptTarget, AssignmentSourceRecord,
-    AssignmentSourceSnapshot, BlueprintOperationRetryToken, BoundedResolvedScheduleSet,
-    CourseInstanceCreationReservation, CourseInstanceSnapshot, CourseOrigin,
-    CourseRolloverManifest, CurriculumImportRevision, RequestChecksum,
+    AssignmentSourceSnapshot, BoundedResolvedScheduleSet, CourseInstanceCreationReservation,
+    CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, CurriculumImportRevision,
+    RequestChecksum, RequestRetryToken,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +26,7 @@ pub struct CourseInstanceReceiptBinding {
     outcome: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
     request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
@@ -35,7 +35,7 @@ pub struct CourseInstanceReceiptBinding {
 struct CourseInstanceReceiptAuthority {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    retry_token: BlueprintOperationRetryToken,
+    retry_token: RequestRetryToken,
     request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
@@ -81,7 +81,7 @@ impl CourseInstanceReceiptBinding {
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         &self.retry_token
     }
     pub fn request_checksum(&self) -> RequestChecksum {
@@ -213,7 +213,7 @@ impl CopyCourseForNewTermReceipt {
     pub fn manifest(&self) -> &CourseRolloverManifest {
         &self.manifest
     }
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         self.created_from.retry_token()
     }
     pub fn request_checksum(&self) -> RequestChecksum {
@@ -570,7 +570,7 @@ impl AssignmentImportReceipt {
     }
 
     /// Returns the original import request's exact retry identity.
-    pub fn retry_token(&self) -> &BlueprintOperationRetryToken {
+    pub fn retry_token(&self) -> &RequestRetryToken {
         match self {
             Self::ApplyBlueprintUpdate(receipt) => receipt.binding().retry_token(),
             Self::CopyAssignmentFromBlueprint(receipt) => receipt.binding().retry_token(),

@@ -288,7 +288,8 @@ export interface AssignmentAttemptSummaryResponse {
   readonly outcomes: CursorPage<AssignmentAttemptSummaryOutcome>;
 }
 
-export interface FeedbackReleaseResponse {
+/** Receipt for an Instructor command that releases Student Feedback for one attempt. */
+export interface StudentFeedbackReleaseResponse {
   readonly released: true;
 }
 

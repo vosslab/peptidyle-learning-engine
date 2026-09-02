@@ -101,7 +101,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Full forks create a separate **Draft Question** with its own authorship while maintaining the source question's CC licensing and attribution.
 - Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the library as a **Published Question**.
 - Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
-- feedback for individual questions will be optional for question writers, so I do not expect many students to read it
+- Question writers may add Question Feedback when it helps. It remains optional Question-authored
+  teaching content, and Student workflows remain complete whether or not Students read it.
 
 ## Question library philosophy
 

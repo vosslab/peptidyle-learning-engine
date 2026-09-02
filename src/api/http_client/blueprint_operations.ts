@@ -64,7 +64,7 @@ function decodeApplyIntent(value: BlueprintOperationApplyIntent): BlueprintOpera
     !/^[A-Za-z0-9._-]+$/u.test(record.retry_token) ||
     new TextEncoder().encode(record.retry_token).length > 128
   ) {
-    throw new ApiProtocolError("API apply intent requires a bounded retry token");
+    throw new ApiProtocolError("API apply intent requires a bounded Request Retry Token");
   }
   return value;
 }

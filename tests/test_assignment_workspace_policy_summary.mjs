@@ -63,7 +63,7 @@ test("Assignment policy summary covers every Policies-owned decision in readable
   for (const category of [
     "Score",
     "correctness",
-    "feedback",
+    "Question Feedback",
     "Question Answer",
     "Explanation",
     "statistics",

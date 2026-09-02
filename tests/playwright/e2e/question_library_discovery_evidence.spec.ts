@@ -13,7 +13,7 @@ import { expect, test, type BrowserContext, type Locator, type Page } from "@pla
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
-import { waitForAutomatedFeedback } from "./automated_grading_ui";
+import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
@@ -162,7 +162,7 @@ async function completeAssignment(page: Page, assignmentTitle: string): Promise<
   await expect(response).toBeVisible();
   await response.check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  await waitForAutomatedFeedback(page);
+  await waitForAutomatedStudentFeedback(page);
   await page.getByRole("button", { name: "View completed run", exact: true }).click();
   await expect(
     page.locator(".attempt-summary").getByText("Your completed run is recorded."),

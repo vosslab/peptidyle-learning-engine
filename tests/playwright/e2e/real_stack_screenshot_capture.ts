@@ -256,7 +256,7 @@ async function validateVisibleCaptureState(page: Page, artifact: CorpusArtifact)
   }
   if (
     artifact.privacyChecks.includes("no_feedback") &&
-    (await page.locator(".feedback-panel").count()) !== 0
+    (await page.locator(".student-feedback-panel").count()) !== 0
   ) {
     throw new Error("pre-feedback screenshot state exposes an evaluation surface");
   }

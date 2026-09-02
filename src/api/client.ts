@@ -66,7 +66,7 @@ import type {
   CourseSummary,
   CursorPage,
   ImathasQuestionBackendLaunch,
-  FeedbackReleaseResponse,
+  StudentFeedbackReleaseResponse,
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
   WorkspaceDraftDetail,
@@ -428,10 +428,10 @@ export interface ApiClient
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<QuestionSubmissionAcknowledgement>;
-  /** Instructor command only; current feedback is read through a later summary GET. */
-  readonly releaseAttemptFeedback: (
+  /** Instructor command only; current Student Feedback is read through a later summary GET. */
+  readonly releaseStudentFeedback: (
     attemptId: QuestionAttemptId,
-  ) => Promise<FeedbackReleaseResponse>;
+  ) => Promise<StudentFeedbackReleaseResponse>;
   readonly getAssignmentActivitySummary: (
     studentRecordId: StudentRecordId,
   ) => Promise<AssignmentProgress>;

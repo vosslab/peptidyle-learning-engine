@@ -145,7 +145,7 @@ export function PleQuestionJsonMultipleAnswerEditor(
                   </p>
                 </Show>
                 <label class="ple-question-json-authoring__field">
-                  <span>Teaching feedback for this choice (optional)</span>
+                  <span>Choice Feedback (optional)</span>
                   <textarea
                     value={choice().feedback ?? ""}
                     disabled={props.disabled}

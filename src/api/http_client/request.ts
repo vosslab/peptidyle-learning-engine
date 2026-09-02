@@ -17,7 +17,7 @@ import type {
   AssignmentCreateInput,
   AssignmentPoliciesInput,
   ReplaceAssignmentFixedItemInput,
-  FeedbackReleaseResponse,
+  StudentFeedbackReleaseResponse,
   InstructorStudentView,
   PublicationResult,
   PublicationRequest,
@@ -38,7 +38,7 @@ import {
   decodeCourseSummary,
   decodeCourseTermValidationFailure,
   decodeDraftQuestionContent,
-  decodeFeedbackReleaseResponse,
+  decodeStudentFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
   decodeQuestionPublicationValidationUnavailable,
   decodePublicationResult,
@@ -388,7 +388,7 @@ export function createRequestClient(
   | "prefetchNextQuestion"
   | "submitResponse"
   | "getSubmissionStatus"
-  | "releaseAttemptFeedback"
+  | "releaseStudentFeedback"
   | "validateResponseFormatOnServer"
   | "questionAttemptTimingDecisionOnServer"
   | "validateAssignmentConfigOnServer"
@@ -722,12 +722,12 @@ export function createRequestClient(
       );
       return verifyQuestionSubmissionAcknowledgement(status, attemptId);
     },
-    releaseAttemptFeedback: (attemptId): Promise<FeedbackReleaseResponse> =>
+    releaseStudentFeedback: (attemptId): Promise<StudentFeedbackReleaseResponse> =>
       requestJson(
         fetchImplementation,
         basePath,
-        `/api/attempts/${encodedId(attemptId)}/feedback-release`,
-        decodeFeedbackReleaseResponse,
+        `/api/attempts/${encodedId(attemptId)}/student-feedback-release`,
+        decodeStudentFeedbackReleaseResponse,
         { method: "POST" },
       ),
     validateResponseFormatOnServer: (definition, response) =>

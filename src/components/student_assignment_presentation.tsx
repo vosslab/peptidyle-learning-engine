@@ -177,7 +177,7 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string
   const feedbackTiming = formatDisclosureTiming(rule.feedback_text);
   const questionAnswerTiming = formatDisclosureTiming(rule.question_answer);
   const questionAnswerExplanationTiming = formatDisclosureTiming(rule.question_answer_explanation);
-  return `Feedback is shown ${feedbackTiming}; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
+  return `Question Feedback is shown ${feedbackTiming}; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
 }
 
 function classStatisticsSummary(statistics: StudentClassStatistics): string {
@@ -312,10 +312,9 @@ export function StudentAssignmentPresentation(
           </dd>
         </div>
         <div>
-          <dt>Feedback</dt>
+          <dt>Student Feedback Release</dt>
           <dd>
-            {disclosure() ??
-              "Feedback and scores are available according to the assignment settings."}
+            {disclosure() ?? "Student Feedback is available according to the Assignment settings."}
           </dd>
         </div>
         <Show when={props.progress}>

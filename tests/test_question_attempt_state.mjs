@@ -163,7 +163,7 @@ test("a receipt with a pending successor preserves feedback without resubmitting
   await fixture.machine.submit();
 
   const state = fixture.machine.state();
-  assert.equal(state.phase, "feedback");
+  assert.equal(state.phase, "studentFeedback");
   assert.equal(state.acknowledgement.nextPending, true);
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(state.response.kind, "numeric");
@@ -191,7 +191,7 @@ test("a completed recalculation exposes status and refreshes without resubmittin
   ready(fixture.machine);
 
   await fixture.machine.submit();
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
   assert.equal(fixture.machine.state().acknowledgement.assignmentScoringState, "recalculating");
 
   await fixture.machine.checkGradingStatus();
@@ -241,7 +241,7 @@ test("an acknowledged pending submission clears its replay and checks status wit
 
   await fixture.machine.checkGradingStatus();
   assert.equal(statusReads, 2);
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
   assert.deepEqual(fixture.machine.state().response, numericResponse(11));
 });
 
@@ -262,7 +262,7 @@ test("offline submission keeps the controlled response locally and retries after
   fixture.setOnline(true);
   await fixture.machine.retryWhenOnline();
   assert.equal(fixture.submissionCalls.length, 1);
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
 });
 
 test("a browser transport outage retains the response and gives a stable restoration action", async () => {
@@ -495,7 +495,7 @@ test("server deadline submits the last valid response exactly once", async () =>
   await Promise.resolve();
   assert.equal(fixture.submissionCalls.length, 1);
   assert.equal(fixture.submissionCalls[0].key, "key-1");
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
 });
 
 test("a failed deadline delivery is retried only by an explicit recovery action", async () => {
@@ -522,7 +522,7 @@ test("a failed deadline delivery is retried only by an explicit recovery action"
   await fixture.machine.retry();
   assert.equal(fixture.submissionCalls.length, 2);
   assert.equal(fixture.submissionCalls[0].key, fixture.submissionCalls[1].key);
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
 });
 
 test("deadline ticks do not reissue an offline or reauthentication-blocked delivery", async () => {
@@ -654,7 +654,7 @@ test("a mismatched next envelope preserves feedback and exposes a recoverable co
     ready(fixture.machine);
     await fixture.machine.submit();
     const prior = fixture.machine.state();
-    assert.equal(prior.phase, "feedback");
+    assert.equal(prior.phase, "studentFeedback");
     const invalidNext = {
       context: createContext({
         attemptId: "attempt-b",
@@ -693,7 +693,7 @@ test("storage exceptions retain accepted state without exposing a raw receipt", 
   await fixture.machine.submit();
   const state = fixture.machine.state();
   assert.equal(fixture.submissionCalls.length, 1);
-  assert.equal(state.phase, "feedback");
+  assert.equal(state.phase, "studentFeedback");
   assert.match(state.storageWarning, /accepted|saved/i);
   assert.deepEqual(state.acknowledgement, {
     accepted: true,
@@ -719,7 +719,7 @@ test("a withheld receipt is explicitly awaiting and never infers a grade from su
   });
   ready(fixture.machine);
   await fixture.machine.submit();
-  assert.equal(fixture.machine.state().phase, "feedback");
+  assert.equal(fixture.machine.state().phase, "studentFeedback");
   assert.deepEqual(fixture.machine.state().feedback, { kind: "awaiting", feedback: null });
 });
 

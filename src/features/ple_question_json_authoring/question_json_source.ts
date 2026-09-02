@@ -38,7 +38,7 @@ export type PleQuestionJsonClassification = {
 export type PleQuestionJsonChoice = {
   readonly id: string;
   readonly text: string;
-  /** Null is canonical when a choice has no private teaching feedback. */
+  /** Null is canonical when a choice has no private Choice Feedback. */
   readonly feedback: string | null;
 };
 

@@ -10,7 +10,7 @@ export {
   type QuestionAttemptStateMachine,
   type QuestionAttemptStateMachineOptions,
   type AttemptStorage,
-  type Feedback,
+  type StudentFeedbackAvailability,
   type IdempotencyKey,
   type NextAttempt,
   type PendingSubmissionAcknowledgement,

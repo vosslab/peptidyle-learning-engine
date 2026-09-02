@@ -30,7 +30,7 @@ import type { QuestionClassification } from "../../../generated/api/QuestionClas
 import type {
   AuthenticatedSession,
   CursorPage,
-  FeedbackReleaseResponse,
+  StudentFeedbackReleaseResponse,
   StudentQuestionAttempt,
   PrefetchedNextQuestion,
   QuestionPoolSelectionPosition,
@@ -592,10 +592,10 @@ export function decodeAssignmentAttemptSummaryResponse(
   return decoded;
 }
 
-export function decodeFeedbackReleaseResponse(
+export function decodeStudentFeedbackReleaseResponse(
   value: unknown,
   path = "response",
-): FeedbackReleaseResponse {
+): StudentFeedbackReleaseResponse {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["released"]);
   return { released: decodeTrue(field(record, "released", path), `${path}.released`) };

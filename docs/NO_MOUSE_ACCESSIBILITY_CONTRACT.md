@@ -3,8 +3,8 @@
 ## Status and authority
 
 This is the durable interaction contract for every PLE-owned student browser surface. It applies to
-the course, assignment, run, response, feedback, summary, continued-practice, recovery, asset, and
-PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
+the course, assignment, run, response, Student Feedback, summary, continued-practice, recovery,
+asset, and PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
 must be possible with the keyboard alone. The primary path uses the browser platform contract: Tab
 and Shift+Tab move focus, and Space selects choices or activates focused buttons. Arrow keys,
 digits 1-9, Enter-to-submit from a response input, and Escape are documented widget extensions that
@@ -68,7 +68,7 @@ platform keyboard accessibility regression. An extension failure is a PLE shortc
 7. **Focus is always visible and never trapped.** A student can see the focused target, move away
    with ordinary keyboard commands, and return without losing the current response.
 8. **Dynamic changes are announced selectively.** Validation, ordering moves, submission state,
-   feedback release, errors, and recovery outcomes use concise status or alert semantics. PLE does
+   Student Feedback Release, errors, and recovery outcomes use concise status or alert semantics. PLE does
    not announce every keystroke or repeat the whole question.
 9. **Keyboard and pointer produce the same domain action.** The input method never changes the saved
    response, seed, grading backend, points, disclosure policy, or server-owned result.
@@ -94,12 +94,12 @@ native radio controls supply the behavior.
 | Answer                | The Question-Type-specific contract below works without a pointer                                  | The selected or entered response is visibly represented         |
 | Validate              | Format state is announced without grading or disclosing an answer                                  | Ready or actionable validation text is available                |
 | Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                | Pending state prevents a duplicate submission                   |
-| Read feedback         | Authorized feedback receives a heading and sensible focus; unreleased feedback is not inferred     | Student can read result and next action                         |
+| Read Student Feedback | Authorized Student Feedback receives a heading and sensible focus; unreleased Student Feedback is not inferred | Student can read result and next action                         |
 | Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice                      | The next question, assignment, or fresh-seed practice run opens |
 | Recover               | Error, offline, stale state, and reauthentication retain the response and expose a keyboard action | Retry uses the same logical submission identity where required  |
 
 Route changes focus the main content rather than leaving focus on a removed navigation element.
-Feedback may focus its heading and later its primary advance control only when the student has not
+Student Feedback may focus its heading and later its primary advance control only when the student has not
 moved focus elsewhere. A delayed focus helper never steals focus back from the student.
 
 ## Question Type contract
@@ -222,8 +222,8 @@ Permanent tests protect stable user behavior, not today's component layout:
   continued practice with the primary platform keys and no widget extension;
 - Question Type fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
   regressions while operating real production components;
-- the student question and feedback surfaces have no serious or critical axe findings;
-- focus management tests cover feedback, summaries, route changes, recovery, and avoidance of
+- the student question and Student Feedback surfaces have no serious or critical axe findings;
+- focus management tests cover Student Feedback, summaries, route changes, recovery, and avoidance of
   keyboard traps;
 - the live WebWork gate proves a keyboard-operated PLE-owned radio path and PLE-only network
   boundary; and
@@ -270,7 +270,7 @@ does not establish screen-reader comprehension, shortcut discoverability, or con
 
 The built mock single-choice journey proves the primary platform path. Mounted response fixtures
 prove the same Tab-and-Space path for multiple answer and ordering, then independently cover their
-arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Feedback and summary focus
+arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Student Feedback and summary focus
 tests, the iMathAS Question Backend browser fixture, and the live WeBWorK browser gate are also implemented; the
 live gate exercises an extension path and does not replace the platform-key journey.
 The Chapter 1 release gate now exercises static and WeBWorK MATCH through visible keyboard controls.
@@ -280,7 +280,7 @@ their Question Type acceptance rather than being deferred to a later generic acc
 
 The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
 run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,
-instructor course/roster/assignment setup, and student take/feedback/retry/repeat path. Canonical PLE
+instructor course/roster/assignment setup, and student take/Student Feedback/retry/repeat path. Canonical PLE
 email-code sign-in, Course Invitation claim, future Account credential settings, and any real
 third-party provider remain separate production-account accessibility evidence. Optional SSO account
 linking, if introduced later, needs its own focused accessibility evaluation and does not replace

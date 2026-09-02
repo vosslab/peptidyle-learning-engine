@@ -603,7 +603,7 @@ Run reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
 `StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
-prefetch, feedback-release, issuance, submission, and iMathAS Question Backend paths.
+prefetch, `/student-feedback-release`, issuance, submission, and iMathAS Question Backend paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record projection after removal;
@@ -653,14 +653,14 @@ committed receipt, while a changed key or response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
 still carries version, seed, parameter hash, provenance, implementation IDs,
-and source/asset identifiers. Feedback policy redacts answer-bearing material,
+and source/asset identifiers. The Student Feedback Release Rule redacts answer-bearing material,
 not that complete DTO. The payload plan's minimal student descriptor,
 digest-bound type-free response body, and compact receipt are accepted target
 work, not the current HTTP contract. Until that atomic cutover, clients must
 not treat current provenance fields or the tagged response `kind` as
 submission authority. Policy-permitted results may contain correctness and
 points, but never an answer key, expected value, private rubric, or checker
-state. Full teaching feedback uses an explicit sanitized disclosure DTO; it
+state. Student Feedback uses an explicit sanitized disclosure DTO; it
 never serializes the server-only key as a shortcut.
 
 ## iMathAS Question Backend indeterminate-effect boundary
@@ -746,7 +746,7 @@ makes:
   weights, and correctness decisions in `crates/grading`.
 - Expose a domain function through `crates/wasm` only when all inputs and
   outputs are safe for a student to inspect.
-- Return correctness and points through server-controlled feedback policy;
+- Return correctness and points through the server-controlled Student Feedback Release Rule;
   never return the key or checker state.
 
 When uncertain, ask whether the value would help a student infer the correct

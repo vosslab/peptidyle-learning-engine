@@ -136,12 +136,12 @@ function InstructorAnswerCheck(props: {
       </p>
       <Show when={props.check.correctFeedback !== null}>
         <p>
-          <strong>Correct-answer feedback:</strong> {props.check.correctFeedback}
+          <strong>Correct Feedback:</strong> {props.check.correctFeedback}
         </p>
       </Show>
       <Show when={props.check.incorrectFeedback !== null}>
         <p>
-          <strong>Incorrect-answer feedback:</strong> {props.check.incorrectFeedback}
+          <strong>Incorrect Feedback:</strong> {props.check.incorrectFeedback}
         </p>
       </Show>
     </aside>
