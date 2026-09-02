@@ -15,6 +15,7 @@ _temp*.?*
 # Propagation preserves this section.
 # Local container credentials. containers/env.example is the committed
 # template; the .local file holds real values and must never be committed.
+/plan-*.md
 /_temp/
 containers/env.local
 containers/local-identities.json
