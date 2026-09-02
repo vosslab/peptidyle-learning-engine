@@ -35,7 +35,7 @@ interface CourseThemeDefinition {
   readonly link?: string;
 }
 
-/* Theme projection recipe. These percentages are the single tuning point for
+/* Theme color-derivation recipe. These percentages are the single tuning point for
  * normal presentation; the stored three-color palettes remain unchanged. */
 const THEME_MIX = {
   surfaceCanvas: 58,

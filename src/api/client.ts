@@ -186,7 +186,7 @@ export interface ApiClient
     assignmentId: AssignmentId,
     student: CourseMembershipReference,
   ) => Promise<TeachingPreviewView>;
-  /** Instructor-only T3 schedule projection using public C-/A- route references. */
+  /** Instructor-only T3 Instructor Preview Schedule Page using public C-/A- route references. */
   readonly listPreviewSchedule: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
@@ -194,14 +194,16 @@ export interface ApiClient
     cursor?: string,
     pageSize?: number,
   ) => Promise<InstructorPreviewSchedulePage>;
-  /** Builds one identity-free synthetic subject and returns its server-resolved projection. */
+  /**
+   * Builds an identity-free synthetic subject; returns its server-resolved Preview Plane Response.
+   */
   readonly constructSyntheticPreview: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
     request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
-  /** Resolves one authorized M- request locator into an identity-free derived projection. */
+  /** Resolves one authorized M- request locator into an identity-free Preview Plane Response. */
   readonly constructDerivedPreview: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
@@ -312,7 +314,7 @@ export interface ApiClient
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;
   /** Resolves one copyable Instructor-facing ID to its exact answer-free Question Summary. */
   readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
-  /** Gets the safe immutable library projection, never a complete Question Revision. */
+  /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listQuestionClassifications: (
     cursor?: string,

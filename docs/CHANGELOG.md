@@ -4,6 +4,10 @@
 
 ### Fixes and Maintenance
 
+- Exempted three intentionally single-document Markdown owners from the source-file line cap: the
+  durable design-decision and terminology authorities, plus the transient active-plan status registry.
+  Code and other authored sources remain subject to the 999-line cap.
+
 - Recorded the owner-established role-qualified email boundary. A Student Account is global across
   courses and semesters, its institutional Student Authentication Email is immutable, Course
   Roster Import resolves or creates that Account by email, and each Course Instance owns its
@@ -13,6 +17,17 @@
   the Course Retention Plan independently of the Account lifetime. The terminology contract,
   account decisions, and still-open vocabulary migration row now agree; implementation and schema
   correction remain open.
+
+- Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-COURSE-ROUTE`: exactly two Course Appearance comments now
+  name the authorized `CourseRouteView` already loaded by route scope and the `THEME_MIX`
+  color-derivation recipe. `courseRouteView()` retains its established Course Route View, route data,
+  banner delivery, and CSS; `THEME_MIX` remains a local technical CSS `color-mix()` calculation, not a
+  product View. Routes, Course Appearance behavior/theme scope, CSS variables, JSON/wire/generated
+  contracts, persistence, fixtures, tests, behavior, and technical SQL/query projections remain
+  unchanged. Focused Course Appearance Node tests, TypeScript, target-source Prettier and line caps,
+  exact two-path retired-phrase searches, focused Markdown-link checks, and diff gates passed. No abstraction, test, or fixture
+  was added. The three remaining Support packages and PV5 remain open, so the broad Projection/View
+  ledger row remains unchecked.
 
 - Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-SESSION`: exactly two scoped comments now say browser-safe authenticated Account data in `AuthSessionResponse` and cached router query data at the browser session boundary. `AuthSessionResponse` and `AuthAccountResponse` remain technical DTO symbols; the Authenticated Session record, `Active Account -> Authenticated Session` path, `Authenticated Session -> Active Sysadmin Account -> exact audited support operation` path, routes, persistence, JSON/wire/generated contracts, fixtures, and behavior remain unchanged. The focused frontend session-boundary test, Rust formatting, TypeScript, exact-scope search, documentation/link, source-line-cap, and diff gates passed. The 18 Support residuals and PV5 remain open, so the broad Projection/View ledger row remains unchecked.
 
@@ -74,7 +89,7 @@
 - Completed `WP-SD1-A-TERM-01-PAO2`: nine operational documents, four active plans, and current operative status now use exact protected-operation, Authenticated Session Resolution, Job lifecycle, and iMathAS/WeBWorK Question Backend execution terms. MOD-WORKER is honestly planned/no current runtime, and connected accessibility evidence remains unrun. The final independent audit found zero Broker matches in source/schema/tests/generated; retained documentation is exact Message broker definition, checklist/audit evidence, explicit historical identifiers, immutable history, or package receipts. PAO1 supplies the predecessor source/schema and PostgreSQL evidence. This documentation-only correction adds no code, schema, API, test, fixture, or feature; row 415 is complete.
 - Completed `WP-SD1-A-TERM-01-PAO1`: the first generic Broker dependency slice removes four source/schema aliases and six security/authorization-document aliases in favor of exact Session, private-owner policy, Sysadmin Account Creation, authorization-function, retention-Job, and Job claim-and-lease names. Functions, roles, predicates, and security behavior remain unchanged. Focused LDA formatting/check/strict Clippy/35 tests, SQL line tests, independent reviews, documentation gates, and the final-tree staged PostgreSQL 17 fresh/no-op/catalog/restricted-login/RLS plus 2/2 iMathAS Session tests passed. PAO2 retains architecture/current active-plan documentation and final row-415 closure; no compatibility path, generated contract, API, fixture, new test, or feature was added.
 - Completed `WP-SD1-A-TERM-01-AB1`: current database structure, architecture, and authorization documentation now use Authorization Checks, Authenticated Session Resolution, and Credential Authentication Completion for existing database operations. Credential Authentication Completion remains baseline-present and application-unmounted; generic Broker work remains open. Independent review, documentation gates, exact searches, and the final-tree staged PostgreSQL fresh apply/no-op/catalog/restricted-login probes plus 2/2 iMathAS Session PostgreSQL tests passed. No code, schema, API, test, fixture, or feature changed.
-
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 ## 2026-09-01
 
 ### Fixes and Maintenance

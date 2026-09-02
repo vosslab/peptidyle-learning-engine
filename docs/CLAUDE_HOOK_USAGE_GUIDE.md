@@ -40,10 +40,10 @@ As older sections are touched, trim them toward this model.
 
 The permissions hook intercepts every Claude Code tool call and evaluates it against TOML config rules. Each call gets one of three outcomes:
 
-| Outcome         | Meaning                                                           |
-| --------------- | ----------------------------------------------------------------- |
-| **Allow**       | Tool call proceeds automatically                                  |
-| **Deny**        | Tool call is blocked with an error message                        |
+| Outcome | Meaning |
+| --- | --- |
+| **Allow** | Tool call proceeds automatically |
+| **Deny** | Tool call is blocked with an error message |
 | **Passthrough** | Falls back to Claude Code's default permission flow (user prompt) |
 
 ### Command decomposition
@@ -66,12 +66,12 @@ Commands with more than **5** chained sub-commands are denied automatically.
 
 `Read`, `Edit`, and `Write` are first-class Claude Code tool calls. The Grep/Glob tools are not exposed in this agent context, so Bash `grep`/`rg` is the primary file-search path. `grep`/`rg` against a file path is **allowed in safe zones** (CWD-relative, workspace, `/tmp`, narrow `~/.claude` subtrees) and denied only when the path escapes them (out-of-zone absolute, bare `~`, `..`). `find` is likewise allowed read-only in those safe zones. The columns below show denied Bash forms, preferred recovery paths, and Bash forms that remain allowed.
 
-| Denied Bash form                                                                                            | Preferred recovery                                                                                                                                                                  | Allowed Bash forms                                                                                               |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `cat /path/to/file`, `head -20 /path`, `tail -20 /path`                                                     | Read tool with `file_path`, `offset`, `limit`                                                                                                                                       | `... \| cat`, `... \| head -5`, `... \| tail -5` (pipeline, no file arg)                                         |
-| `grep root /etc/passwd`, `rg pat /usr/...` (out-of-zone), `/usr/bin/grep ...` (abs binary), `egrep`/`fgrep` | read a known file with the Read tool, or narrow to a relative/workspace path                                                                                                        | `grep -n pat src/file`, `rg pat docs/`, `grep foo /tmp/x`, `grep -n foo ~/<workspace>/repo/x`, `... \| grep pat` |
-| `find /etc -name '*.conf'`, `find . -delete`, `find /Users` (unsafe shapes)                                 | Use bounded read-only `find` in a safe path zone (`.`, `/tmp`, `~/<workspace>/...`, `/Users/<me>/<workspace>/...`). For repo content, `git ls-files <pathspec>` is still preferred. | `find . -name '*.py'`, `find /tmp -type f`, `find ~/<workspace>/repo -type f`                                    |
-| `sed -n '10,20p' file.txt`                                                                                  | Read tool with `offset=10`, `limit=11`                                                                                                                                              | `... \| sed -n '10,20p'` (pipeline)                                                                              |
+| Denied Bash form | Preferred recovery | Allowed Bash forms |
+| --- | --- | --- |
+| `cat /path/to/file`, `head -20 /path`, `tail -20 /path` | Read tool with `file_path`, `offset`, `limit` | `... \| cat`, `... \| head -5`, `... \| tail -5` (pipeline, no file arg) |
+| `grep root /etc/passwd`, `rg pat /usr/...` (out-of-zone), `/usr/bin/grep ...` (abs binary), `egrep`/`fgrep` | read a known file with the Read tool, or narrow to a relative/workspace path | `grep -n pat src/file`, `rg pat docs/`, `grep foo /tmp/x`, `grep -n foo ~/<workspace>/repo/x`, `... \| grep pat` |
+| `find /etc -name '*.conf'`, `find . -delete`, `find /Users` (unsafe shapes) | Use bounded read-only `find` in a safe path zone (`.`, `/tmp`, `~/<workspace>/...`, `/Users/<me>/<workspace>/...`). For repo content, `git ls-files <pathspec>` is still preferred. | `find . -name '*.py'`, `find /tmp -type f`, `find ~/<workspace>/repo -type f` |
+| `sed -n '10,20p' file.txt` | Read tool with `offset=10`, `limit=11` | `... \| sed -n '10,20p'` (pipeline) |
 
 The deny rules cover all binary variants (alternate names, absolute paths like
 `/usr/bin/grep` or `/opt/homebrew/.../grep`, `rg`). The fastest path through a
@@ -329,13 +329,13 @@ screenshot --help                 # allowed
 
 The `rm` command is denied by default, but these specific patterns are allowed:
 
-| Pattern                      | Example                                            |
-| ---------------------------- | -------------------------------------------------- |
-| Underscore-prefixed files    | `rm _temp.py`, `rm -f /path/to/_scratch.sh`        |
-| `/tmp/` paths                | `rm /tmp/test_output.json`                         |
-| Cache directories            | `rm -rf __pycache__`, `rm -r ~/Library/Caches/foo` |
-| `git rm` with relative paths | `git rm old_file.py`                               |
-| `rmdir` (empty-dir only)     | `rmdir /tmp/empty`, `rmdir src/content/old/`       |
+| Pattern | Example |
+| --- | --- |
+| Underscore-prefixed files | `rm _temp.py`, `rm -f /path/to/_scratch.sh` |
+| `/tmp/` paths | `rm /tmp/test_output.json` |
+| Cache directories | `rm -rf __pycache__`, `rm -r ~/Library/Caches/foo` |
+| `git rm` with relative paths | `git rm old_file.py` |
+| `rmdir` (empty-dir only) | `rmdir /tmp/empty`, `rmdir src/content/old/` |
 
 `rmdir` (including `rmdir -p`) is allowed because it only removes empty directories and fails if non-empty. Use to clean up empty source directories after `git mv` chains.
 
@@ -377,13 +377,13 @@ every agent context (`Grep` and `Glob` in particular -- see notes
 below). This guide recommends only recovery paths observed to be
 available in the target context.
 
-| Tool  | Allowed paths                                                                                         |
-| ----- | ----------------------------------------------------------------------------------------------------- |
-| Read  | `~/nsh/`, `~/.<dotdirs>`, site-packages, `/tmp/`, `/var/folders/`                                     |
-| Write | `~/nsh/`, `~/.claude/`, `/tmp/`                                                                       |
-| Edit  | `~/nsh/`, `~/.claude/`, `/tmp/`                                                                       |
-| Glob  | Supported defensively when exposed by Claude Code; not a standard recovery path in this agent context |
-| Grep  | Supported defensively when exposed by Claude Code; not a standard recovery path in this agent context |
+| Tool | Allowed paths |
+| --- | --- |
+| Read | `~/nsh/`, `~/.<dotdirs>`, site-packages, `/tmp/`, `/var/folders/` |
+| Write | `~/nsh/`, `~/.claude/`, `/tmp/` |
+| Edit | `~/nsh/`, `~/.claude/`, `/tmp/` |
+| Glob | Supported defensively when exposed by Claude Code; not a standard recovery path in this agent context |
+| Grep | Supported defensively when exposed by Claude Code; not a standard recovery path in this agent context |
 
 All file tools block path traversal (`..`). Reading `.env` and `.secret` files is denied.
 
@@ -417,18 +417,18 @@ The recurring principle: do local, first-party, read-only work directly; reach
 for a tool or a scratch file instead of an inline or out-of-zone shell form; and
 let the human own machine-changing and history-changing actions.
 
-| When you want to...               | Do this                                                                                                                                        |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read a file                       | Read tool with `file_path`/`offset`/`limit`, not `cat`/`head`/`tail`/`sed <file>`                                                              |
-| Search file contents              | `grep`/`rg` on a relative or workspace path (`grep -rn pat src/`); for an out-of-zone path, Read a known file or narrow the path               |
-| List files                        | `ls <dir>` or `git ls-files <pathspec>`; read-only `find` in a safe path zone                                                                  |
-| Run inline code                   | Write `_temp.py` / `_temp.mjs` and run it, not `python -c` / `node -e` / heredocs                                                              |
-| Run a loop                        | Put it in `_temp.sh` / `_temp.py`, not inline `for`/`while`                                                                                    |
-| Rename or move a file             | `git mv` for tracked files; `cp` plus a `_`-scratch otherwise                                                                                  |
-| Delete a file                     | Underscore-prefix scratch (`rm _temp.py`), a `/tmp/` path, or `git rm`; `rmdir` for empty dirs                                                 |
-| Commit work                       | Commit on an `agent/<task>` branch; prepare protected-branch merges with `git merge --no-commit --no-ff agent/<task>` and let the human commit |
-| Install, push, or run `gh`/`sudo` | Ask the user; installs and pushes stay gated for human approval                                                                                |
-| Run remote code                   | Download to a file, review it, then run it locally; never pipe a download into a shell                                                         |
+| When you want to... | Do this |
+| --- | --- |
+| Read a file | Read tool with `file_path`/`offset`/`limit`, not `cat`/`head`/`tail`/`sed <file>` |
+| Search file contents | `grep`/`rg` on a relative or workspace path (`grep -rn pat src/`); for an out-of-zone path, Read a known file or narrow the path |
+| List files | `ls <dir>` or `git ls-files <pathspec>`; read-only `find` in a safe path zone |
+| Run inline code | Write `_temp.py` / `_temp.mjs` and run it, not `python -c` / `node -e` / heredocs |
+| Run a loop | Put it in `_temp.sh` / `_temp.py`, not inline `for`/`while` |
+| Rename or move a file | `git mv` for tracked files; `cp` plus a `_`-scratch otherwise |
+| Delete a file | Underscore-prefix scratch (`rm _temp.py`), a `/tmp/` path, or `git rm`; `rmdir` for empty dirs |
+| Commit work | Commit on an `agent/<task>` branch; prepare protected-branch merges with `git merge --no-commit --no-ff agent/<task>` and let the human commit |
+| Install, push, or run `gh`/`sudo` | Ask the user; installs and pushes stay gated for human approval |
+| Run remote code | Download to a file, review it, then run it locally; never pipe a download into a shell |
 
 Search note: Bash `grep`/`rg` is the primary file-search path here (the
 Grep/Glob tools are not exposed). It is allowed against any relative, workspace,
@@ -443,13 +443,13 @@ Before evaluating allow or deny rules, the hook stats the target path of `Read`,
 
 ### Per-tool semantics
 
-| Tool                 | Requirement                                                 | Failure modes                                      |
-| -------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
-| `Read`               | `file_path` resolves to an existing, non-directory target   | missing path; path is a directory; broken symlink  |
-| `Edit` / `MultiEdit` | `file_path` exists, OR its parent directory exists          | both file and parent missing                       |
-| `Glob`               | resolved `path` is an existing directory                    | missing path; file passed where directory expected |
-| `Grep`               | resolved `path` (when provided) exists as file or directory | missing path                                       |
-| `Write`              | exempt                                                      | n/a -- Write creates new files by design           |
+| Tool | Requirement | Failure modes |
+| --- | --- | --- |
+| `Read` | `file_path` resolves to an existing, non-directory target | missing path; path is a directory; broken symlink |
+| `Edit` / `MultiEdit` | `file_path` exists, OR its parent directory exists | both file and parent missing |
+| `Glob` | resolved `path` is an existing directory | missing path; file passed where directory expected |
+| `Grep` | resolved `path` (when provided) exists as file or directory | missing path |
+| `Write` | exempt | n/a -- Write creates new files by design |
 
 Symlinks-to-existing-files are accepted for `Read`. Broken symlinks deny
 because `fs::metadata` follows the link and reports the missing target.
@@ -459,14 +459,14 @@ cwd fallback is trusted).
 
 ### Reason strings the agent sees
 
-| Condition                                                          | Reason                                                                                                                                         |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read target missing                                                | `Verify the file path before retrying. Read target does not exist: <path>.`                                                                    |
-| Read target is a directory                                         | ``Read targets a file, not a directory. Use `ls <dir>` or `git ls-files <pathspec>` to list directory contents. Path is a directory: <path>.`` |
-| Edit / MultiEdit both missing                                      | `Create the parent directory first or choose an existing path. Edit target and parent directory are both missing: <path>; parent: <parent>.`   |
-| Glob path missing or not a directory                               | `Choose an existing search directory before retrying. Glob path does not exist as a directory: <path>.`                                        |
-| Grep path missing                                                  | `Choose an existing file or directory before retrying. Grep path does not exist: <path>.`                                                      |
-| Stat failed for any reason other than NotFound (permissions, etc.) | `Verify the path before retrying. The hook could not confirm that this path exists: <path>.`                                                   |
+| Condition | Reason |
+| --- | --- |
+| Read target missing | `Verify the file path before retrying. Read target does not exist: <path>.` |
+| Read target is a directory | ``Read targets a file, not a directory. Use `ls <dir>` or `git ls-files <pathspec>` to list directory contents. Path is a directory: <path>.`` |
+| Edit / MultiEdit both missing | `Create the parent directory first or choose an existing path. Edit target and parent directory are both missing: <path>; parent: <parent>.` |
+| Glob path missing or not a directory | `Choose an existing search directory before retrying. Glob path does not exist as a directory: <path>.` |
+| Grep path missing | `Choose an existing file or directory before retrying. Grep path does not exist: <path>.` |
+| Stat failed for any reason other than NotFound (permissions, etc.) | `Verify the path before retrying. The hook could not confirm that this path exists: <path>.` |
 
 The pre-check distinguishes `Ok(false)` (path confirmed missing) from
 `Err(_)` (could not stat -- permission denied on a parent directory,
@@ -481,7 +481,7 @@ errors emit "could not confirm" so the message stays accurate.
   working directory, set `cwd` correctly or use an absolute path.
 - For Read of a directory, use `ls <dir>` or `git ls-files <pathspec>`
   to list contents. For Glob with a file argument, switch to Read for a
-  single file or `git ls-files <pathspec>` to list entries.
+  single file or `git ls-files <pathspec>` to list candidates.
 - For a brand-new file you intend to create, prefer `Write`; the pre-check
   is exempt for `Write`. `Edit` of a brand-new file is also accepted as long
   as the parent directory already exists.
@@ -513,14 +513,14 @@ significant side effects or security implications:
 These tools intentionally passthrough to Claude Code's default permission flow
 so the user sees interactive dialogs:
 
-| Tool              | Reason                                       |
-| ----------------- | -------------------------------------------- |
+| Tool | Reason |
+| --- | --- |
 | `AskUserQuestion` | User must see and answer the question dialog |
-| `EnterWorktree`   | User must consent to worktree creation       |
-| `ExitWorktree`    | User must consent to keep/remove decision    |
-| `CronCreate`      | User should approve scheduled recurring jobs |
-| `CronDelete`      | User should approve canceling scheduled jobs |
-| `CronList`        | Kept consistent with other Cron tools        |
+| `EnterWorktree` | User must consent to worktree creation |
+| `ExitWorktree` | User must consent to keep/remove decision |
+| `CronCreate` | User should approve scheduled recurring jobs |
+| `CronDelete` | User should approve canceling scheduled jobs |
+| `CronList` | Kept consistent with other Cron tools |
 
 Do NOT add these tools to any allow rule. Auto-approving them bypasses Claude Code's
 interactive UI dialogs, causing blank answers or skipped consent screens.

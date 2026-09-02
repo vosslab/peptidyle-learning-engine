@@ -11,32 +11,8 @@ _temp*.?*
 /OTHER_REPOS/
 /LOCAL_ONLY/
 
-# === LOCAL REPOSITORY RULES === [ADD CUSTOM IGNORES HERE]
-# Propagation preserves this section.
-# Local container credentials. containers/env.example is the committed
-# template; the .local file holds real values and must never be committed.
-/plan-*.md
-/_temp/
-containers/env.local
-containers/local-identities.json
-containers/local-login.txt
-containers/local-demo.json
-containers/local-webwork-demo.json
-containers/local-chapter-one-pilot.json
-containers/.runtime/
-containers/.secrets/
-/local_stack_state/
-.venv/
-.env
-# === PYTHON === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
-build/
-dist/
-sdist/
-*.egg
-*.egg-info/
-site/
-
 # === TYPESCRIPT === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
+dist/
 dist_*/
 _site/
 *.tsbuildinfo
@@ -55,7 +31,11 @@ stats.html
 **/*.rs.bk
 .rust_analyzer/
 
-# === OPENTOFU ===
-# Provider binaries and module caches are platform-local generated state.
-# Keep the reviewed provider checksum lockfile under deploy/opentofu tracked.
-**/.terraform/
+# -------------------- LOCAL REPOSITORY RULES --------------------
+# ADD YOUR CUSTOM IGNORES BELOW
+# Propagation preserves this section.
+# ------------------ END LOCAL REPOSITORY RULES ------------------
+/containers/.secrets/
+/containers/env.local
+/local_stack_state/
+/plan-*.md

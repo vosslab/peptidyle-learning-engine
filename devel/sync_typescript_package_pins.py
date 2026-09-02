@@ -25,14 +25,14 @@ older than today; ``>=`` avoids the npm 0.x caret quirk that would lock
 ``^0.25.0`` below the current 0.28.x line).
 
 This script ships to typescript consumer repos at
-``tools/sync_typescript_package_pins.py`` in each consumer (every file
+``devel/sync_typescript_package_pins.py`` in each consumer (every file
 under ``templates/typescript/`` ships at its relative path). The anchor
 is the CWD, not the script location, so run from ``~/nsh`` to sweep all
 repos or from a single repo to scope to that tree.
 
 Run:
 
-    python3 tools/sync_typescript_package_pins.py [--dry-run]
+    python3 devel/sync_typescript_package_pins.py [--dry-run]
 
 Default mode prints the per-target diff and writes the changes back.
 ``--dry-run`` (alias ``-n``) prints the diff and writes nothing.

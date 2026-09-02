@@ -16,10 +16,10 @@ import type { InstructorPreviewResult } from "./editor_instructor_preview";
 export type { DraftQuestionSummary };
 
 /**
- * The editor's deliberate browser projection of a workspace draft.
+ * The editor's deliberate browser-safe Editor Draft.
  *
  * It retains workspace ownership, but has neither a durable published identity nor any
- * server-only evaluation material. The live workspace API will construct this projection.
+ * server-only evaluation material. The live workspace API will construct this Editor Draft.
  */
 export interface EditorDraft {
   readonly workspace: WorkspaceId;
@@ -73,7 +73,10 @@ export interface QuestionPublicationReview {
   readonly sections: ReadonlyArray<QuestionPublicationReviewSection>;
 }
 
-/** Authoring projection that preserves the repository's private strong revision ownership. */
+/**
+ * InstructorPreviewProvider supplies Instructor Preview while preserving the repository's private
+ * strong revision ownership.
+ */
 export interface InstructorPreviewProvider {
   readonly requestPresentation: (
     draft: EditorDraft,

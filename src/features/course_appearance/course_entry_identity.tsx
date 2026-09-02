@@ -30,7 +30,7 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
 }
 `;
 
-/** Renders the authorized course projection already loaded by the route scope. */
+/** Renders the authorized Course Route View already loaded by the route scope. */
 export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApplicationApi();
   const routeData = useCourseThemeRouteData();

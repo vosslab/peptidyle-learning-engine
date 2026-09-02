@@ -56,7 +56,7 @@ function updateDefinition(
 
 /**
  * Retains the transport-only revision and complete draft record privately inside this adapter.
- * Editor state receives only the identity-safe projection, while saving faithfully round-trips
+ * Editor state receives only the identity-safe Editor Draft, while saving faithfully round-trips
  * fields this compact UI does not edit.
  */
 export function createWorkspaceEditorRepository(

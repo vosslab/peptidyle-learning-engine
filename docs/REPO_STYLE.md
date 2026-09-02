@@ -25,10 +25,13 @@ Core principles guide work in this repo. Cite them by name when making judgment 
 - **Finish the obvious.** Continue while the next safe step is defined by the plan, implied by the task, or required to verify the work. Obvious follow-on work is part of the task, not a bonus. Stop only at a real blocker, risky action, or change to the user's requested outcome.
 
 ## Repository structure
-
 - Prefer small, single-purpose scripts at the repo root.
 - Create topic folders only when a collection needs grouping.
 - Avoid deep nesting; keep paths short.
+- Place one native application, library, or helper package in its own named folder at the
+  repository root.
+- Use `packages/` as a grouping layer when the repository contains multiple native products or
+  packages.
 - Keep `README.md` and `AGENTS.md` at the repo root.
 - Determine REPO_ROOT with `git rev-parse --show-toplevel`, not by deriving paths from the current working directory.
 
@@ -83,7 +86,6 @@ Preferred structure:
 `[What it is] + [who/use case] + [distinctive detail]`
 
 ## Naming
-
 - Use SCREAMING_SNAKE_CASE for Markdown docs filenames, with the .md extension
 - For non-Markdown filenames, use only lowercase ASCII letters, numbers, and underscores.
 - Prefer snake_case for most filenames. Avoid CamelCase in filenames.
@@ -92,7 +94,6 @@ Preferred structure:
 - Keep filenames descriptive, and consistent with the primary thing the file provides.
 
 ## Git moves, renames, and index locks
-
 - Use `git mv` for all renames and moves.
 - Do not use `mv` plus add/remove as a fallback. Do not use `git rm` unless deleting a file permanently.
 - Only humans run `git commit`. AI agents update `docs/CHANGELOG.md` for human review before committing.
@@ -107,21 +108,22 @@ Preferred structure:
 - Error report must include: the command run and full stderr, plus a short next step: close other Git processes, remove a stale lock only if no process holds it, or fix `.git` permissions.
 
 ## Pytest failure triage
-
 - For pytest test-writing rules, commands, and failure triage, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
 ## Source file size
-
 - Tracked authored source files stay under 1000 physical lines: 999 passes; 1000 fails.
   `tests/test_source_file_line_limit.py` defines the scope.
+- Markdown beneath any `docs/active_plans/` or `docs/archive/` tree is planning or historical
+  material and stays outside this source-code line budget. Other source types in those trees remain
+  covered.
 - Managers may exempt tracked external sources in `tests/source_file_line_limit_overrides.txt`,
-  one exact repo-relative path per line.
+  using one exact repo-relative path per line. Encode universal folder-category exclusions in the
+  gate and reserve the repo-owned override list for individually approved files.
 
 ## Changelog rotation
-
 - Rotate `docs/CHANGELOG.md` once it exceeds 800 physical lines (`wc -l docs/CHANGELOG.md`).
 - Keep complete day blocks together. Do not split entries from the same `## YYYY-MM-DD` heading across files.
-- Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` when their complete text fits below the source-file line limit. When the two newest complete day blocks exceed that limit, retain the newest complete day block and archive the older one.
+- Keep the last two date-heading day blocks in active `docs/CHANGELOG.md` and move older day blocks to archive files.
 - Target 800-900 physical lines for each new archive. Keep every day block whole; when no
   day-block boundary fits the target, choose the closest grouping that remains strictly below
   1000 lines. Refuse a single day block at or above 1000 lines rather than writing an archive
@@ -145,7 +147,6 @@ Preferred structure:
 - Automation: [devel/rotate_changelog.py](../devel/rotate_changelog.py) enforces this rotation policy (keeps the two newest day blocks, partitions older blocks into target-sized archives below 1000 lines, and refuses to clobber boundary dates). [devel/query_changelog.py](../devel/query_changelog.py) searches the active changelog and archives by date range, category, keyword, or source. [devel/commit_changelog.py](../devel/commit_changelog.py) drafts the seed commit message from the changelog bullets newly ADDED in the working tree (via `git diff HEAD` on `docs/CHANGELOG.md`), then restricts those to the most recent run of consecutive day-block headings so an edited older bullet does not leak into the seed. All three share [devel/changelog_lib.py](../devel/changelog_lib.py) (parser/serializer, git helpers, console + prompt helpers).
 
 ## Active plans folder organization
-
 - Working planning artifacts under `docs/active_plans/` are filed into a closed set of subdirectories by kind.
 - The five subdirectories are the closed set; adding a new category requires editing this section first.
   - `docs/active_plans/active/` for in-flight plans currently being acted on.
@@ -160,13 +161,12 @@ Preferred structure:
 - When a plan is complete and no longer being acted on, close it by moving the file with `git mv` to `docs/archive/` so history is preserved.
 
 ## Versioning
-
 - Prefer `pyproject.toml` as the single source of truth when the repo is a single Python package with a single `pyproject.toml`.
 - If the repo contains multiple Python packages (multiple `pyproject.toml` files), keep package versions in sync across all `pyproject.toml` files. Unless otherwise stated.
 - Maintain a REPO_ROOT/`VERSION` file as well that is sync'd with the `pyproject.toml` version.
 - Store the version under `[project] version`.
 - Prefer CalVer-style zero-padded year/zero-padded month versioning for new releases, formatted as `0Y.0M.PATCH` (for example `25.02.3rc1`). See https://calver.org/
-- Use PEP 440 pre-release tags when needed: `aN` for alpha, `bN` for beta, and `rcN` for release entries.
+- Use PEP 440 pre-release tags when needed: `aN` for alpha, `bN` for beta, and `rcN` for release candidates.
 - When PATCH == 0, use shorthand `25.02b1` instead of `25.02.0b1`
 - Prefer zero-padded 0Y.0M for readability and lexicographic sorting. Packaging tools may normalize 25.02.* to 25.2.*; this does not affect version ordering.
 - Reference: [PyPA version specifiers](https://packaging.python.org/en/latest/specifications/version-specifiers/).
@@ -178,13 +178,22 @@ Preferred structure:
   `--dry-run` to preview all steps without mutating the repo, or `--write` to update the doc files.
 
 ## Scripts and executables
-
 - Keep scripts self-contained and single-purpose.
 - Add a shebang for executable scripts and keep them runnable directly.
+- `tools/` holds optional domain-facing utilities for regular users. Their inputs and outputs are
+  user data and useful domain artifacts.
+- `devel/` holds engineering commands for highly technical maintainers. Git, versioning, release,
+  dependency refresh, builds, source generation, lint, benchmarks, captures, and diagnostics live
+  here.
+- Primary product workflows belong in the application CLI. Reusable behavior belongs in an
+  importable package. Keep `tools/` and `devel/` as thin entry-point locations; `tests/` holds tests
+  and test-only support.
+- A large support command may delegate to a native helper package. Follow the repository-structure
+  rule: one named package stays at the root, while `packages/` groups multiple native packages.
 - For repo-local Python commands, use:
   - `source source_me.sh && python ...`
 - For pytest commands, use:
-  - `pytest tests/`
+  - `source source_me.sh && pytest tests/`
 - Avoid hard-coded interpreter paths in routine command examples.
 - Document shared helpers and modules in `docs/USAGE.md` when used across scripts.
 - Use `tests/test_pyflakes_code_lint.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes. `tests/test_markdown_links.py` is the repo-wide check that every local Markdown link is GitHub-browsable and well formed.
@@ -194,6 +203,16 @@ Preferred structure:
   REPO_ROOT = file_utils.get_repo_root()
   ```
   This module uses `git rev-parse --show-toplevel` and is propagated across repos automatically.
+
+### Root script budget
+
+Keep the repository root navigable by limiting tracked root scripts. Every tracked root `.py` and
+`.sh` file counts, including `source_me.sh`, whether or not it has an executable bit. A tracked
+root file with any other extension counts only when it has an executable bit and begins with a
+shebang; this catches standalone launchers without treating executable data or compiled artifacts
+as scripts. Seven or more counted files fails `tests/test_root_script_budget.py`. Five or six
+counted files pass but write a report naming the files; four or fewer pass silently and leave no
+report.
 
 ### source_me.sh contract
 
@@ -223,7 +242,6 @@ Preferred structure:
   ```
 
 ## Dependency manifests
-
 - Store Python standard dependencies in `pip_requirements.txt` at the repo root and developer dependencies, e.g., pytest in `pip_requirements-dev.txt`.
 - Use `pip_requirements.txt` not `requirements.txt` for clarity reasons
 - Store Homebrew packages in `Brewfile` at the repo root.
@@ -250,7 +268,6 @@ Preferred structure:
 - Keep sample inputs small and safe.
 
 ## Documentation
-
 - Keep repo docs in `docs/` unless a file is explicitly root-level.
 - Keep docs current. Remove or replace stale docs.
 - Use SCREAMING_SNAKE_CASE for Markdown docs filenames, with the .md extension
@@ -261,8 +278,8 @@ Preferred structure:
 - I prefer to use social media links instead of hard coding my email in repos. For example, Neil Voss, https://bsky.app/profile/neilvosslab.bsky.social
 - When referencing files, use Markdown links so users can click through. Markdown links are created using the syntax `[link text](URL)`, where "link text" is the clickable text that appears in the document, and "URL" is the web address or file path the link points to. This allows users to navigate between different content easily. Use file-path link text so readers know the exact filename (good: `[docs/MARKDOWN_STYLE.md](docs/MARKDOWN_STYLE.md)`, bad: `[Style Guide for Markdown](docs/MARKDOWN_STYLE.md)`). Only include a backticked path when the link text is not the path.
 
-### Recommended common docs
 
+### Recommended common docs
 - `AGENTS.md`: agent instructions, tool constraints, and repo-specific workflow guardrails.
 - `README.md`: project purpose, quick start, and links to deeper documentation.
 - `LICENSE.<SPDX>`: legal terms for using and redistributing the project; keep the complete
@@ -283,7 +300,6 @@ Preferred structure:
 - `docs/USAGE.md`: how to run the tool, CLI flags, and practical examples.
 
 ### Centrally maintained docs, do not edit locally
-
 - `docs/AUTHORS.md`: primary maintainers and notable contributors
 - `docs/CLAUDE_HOOK_USAGE_GUIDE.md`: generated hook behavior reference, not a repo style source of truth. If repo style differs from hook examples, update repo style docs and recommend a hook rule update upstream.
 - `docs/MARKDOWN_STYLE.md`: Markdown writing rules and formatting conventions for this repo.
@@ -293,22 +309,18 @@ Preferred structure:
 - `docs/REPO_STYLE.md`: repo-level organization, conventions, and file placement rules.
 
 ### Less common but acceptable
-
 - `docs/COOKBOOK.md`: extended, real-world scenarios that build on usage docs.
 - `docs/DEVELOPMENT.md`: local dev workflows, build steps, and release process.
 - `docs/FAQ.md`: short answers to common questions and misconceptions.
 
 ### File I/O
-
 Possible examples:
-
 - `docs/INPUT_FORMATS.md`: supported input formats, required fields, and validation rules.
 - `docs/OUTPUT_FORMATS.md`: generated outputs, schemas, naming rules, and destinations.
 - `docs/FILE_FORMATS.md`: combined reference for input and output formats when one doc is clearer.
 - `docs/YAML_FILE_FORMAT.md`: YAML schema, examples, and validation requirements.
 
 ### Docs not to use
-
 - `CONTRIBUTING.md`: probably better under the DEVELOPMENT.md page
 - `CODE_OF_CONDUCT.md`: avoid adding unless project scope changes and it will be maintained.
 - `COMMUNITY.md`: avoid adding; this repo does not run a community program.
@@ -317,7 +329,6 @@ Possible examples:
 - `SECURITY.md`: avoid adding unless security reporting is formally supported.
 
 ### Repo-specific docs are always encouraged
-
 - `docs/CONTAINER.md`: container image details, build steps, and run commands.
 - `docs/ENGINES.md`: supported external engines/services and how to select them.
 - `docs/EMWY_YAML_v2_SPEC.md`: specification for the EMWY YAML v2 format with examples.
@@ -325,7 +336,6 @@ Possible examples:
 - `docs/QUESTION_TYPES.md`: catalog of question types with expected fields and behavior.
 
 ## Licensing
-
 Check the license file to match these criteria.
 
 - Store each license as a real root file named `LICENSE.<SPDX>`, such as `LICENSE.GPL-3.0` or

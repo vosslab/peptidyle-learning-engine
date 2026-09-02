@@ -10,3 +10,10 @@ docs/CHANGELOG-2026-08a.md
 docs/active_plans/active/bot_traffic_cost_reduction_plan.md
 docs/active_plans/active/instructor_capability_architecture_plan.md
 docs/active_plans/implementation_plan.md
+
+# These long-form canonical Markdown authorities retain intentional single-document ownership.
+docs/DESIGN_DECISIONS.md
+docs/TERMINOLOGY_CONTRACT.md
+
+# This transient active-plan registry retains one mutable current-package handoff.
+docs/active_plans/implementation_status.md

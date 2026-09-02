@@ -22,23 +22,22 @@ AI agents frequently get these wrong. Read the full sections below for details.
 
 ## Python version
 
-- I like using one of the latest versions of python, but not the latest, of python3, currently **3.12**.
-- In this repo, run python commands through the bootstrap pattern:
-- `source source_me.sh && python ...`
+* I like using one of the latest versions of python, but not the latest, of python3, currently **3.12**.
+* In this repo, run python commands through the bootstrap pattern:
+* `source source_me.sh && python ...`
 
 ## FILENAMES
-
-- Prefer snake_case for Python filenames and module names.
-- Avoid CamelCase in filenames. Reserve CamelCase for class names.
-- Keep filenames descriptive, and consistent with the primary thing the file provides.
-- Use only lowercase letters, numbers, and underscores in filenames.
+* Prefer snake_case for Python filenames and module names.
+* Avoid CamelCase in filenames. Reserve CamelCase for class names.
+* Keep filenames descriptive, and consistent with the primary thing the file provides.
+* Use only lowercase letters, numbers, and underscores in filenames.
 
 ## USE TABS
 
-- Always use tabs for indentation in python3 code, never spaces!
-- I disagree with PEP 8 requirement of spaces. Using spaces causes a lot more deleting and formatting work.
-- I use tabs exclusively.
-- Tabs provide flexibility, because I can change the tab size to 2, 3, 4, or 8 spaces depending on the complexity of the code.
+* Always use tabs for indentation in python3 code, never spaces!
+* I disagree with PEP 8 requirement of spaces. Using spaces causes a lot more deleting and formatting work.
+* I use tabs exclusively.
+* Tabs provide flexibility, because I can change the tab size to 2, 3, 4, or 8 spaces depending on the complexity of the code.
 
 ## CODE STRUCTURE
 
@@ -110,14 +109,12 @@ verbose = config.get("verbose", False)
 - Every caller should import from submodules directly.
 
 Good:
-
 ```python
 # __init__.py
 """Package docstring."""
 ```
 
 Bad:
-
 ```python
 # __init__.py
 from .widget import Widget
@@ -127,33 +124,29 @@ _CLASS_MAP = {"widget": Widget}
 ```
 
 Good (caller imports from the submodule):
-
 ```python
 import mypackage.widget
 w = mypackage.widget.Widget()
 ```
 
 Bad (caller relies on re-exports in `__init__.py`):
-
 ```python
 import mypackage
 w = mypackage.Widget()
 ```
 
 ## QUOTING
-
-- Avoid backslash escaping quotes inside strings when possible.
-- Prefer alternating quote styles instead:
-- Use double quotes on the outside with single quotes inside.
-- Or use single quotes on the outside with double quotes inside.
-- This is especially useful for HTML like "<span style='...'>text</span>".
+* Avoid backslash escaping quotes inside strings when possible.
+* Prefer alternating quote styles instead:
+* Use double quotes on the outside with single quotes inside.
+* Or use single quotes on the outside with double quotes inside.
+* This is especially useful for HTML like "<span style='...'>text</span>".
 
 ## LAMBDA FUNCTIONS
-
-- Be conservative with lambda. Prefer def for anything more than a simple key or one-liner callback.
-- lambda is allowed when used as key= for sorted(), .sort(), min(), or max() and the expression is short and obvious.
-- Avoid lambda bodies that call major helper functions or hide important logic. If the lambda is doing real work, name it with def so it is readable, commentable, and testable.
-- If the lambda expression would be hard to understand without a comment, replace it with a named function.
+* Be conservative with lambda. Prefer def for anything more than a simple key or one-liner callback.
+* lambda is allowed when used as key= for sorted(), .sort(), min(), or max() and the expression is short and obvious.
+* Avoid lambda bodies that call major helper functions or hide important logic. If the lambda is doing real work, name it with def so it is readable, commentable, and testable.
+* If the lambda expression would be hard to understand without a comment, replace it with a named function.
 
 Allowed:
 gel_set = sorted(gel_set, key=lambda k: k["MW"])
@@ -170,9 +163,8 @@ return score
 choices = sorted(choices, key=score_choice)
 
 ## HTML UNITS IN MONOSPACE
-
-- When generating HTML for lab problems, render numeric values and their units in monospace for readability and alignment.
-- Use a span like:
+* When generating HTML for lab problems, render numeric values and their units in monospace for readability and alignment.
+* Use a span like:
 
 volume_text = f"<span style='font-family: monospace;'>{vol1:.1f} mL</span>"
 
@@ -183,17 +175,16 @@ volume_text = f"<span style='font-family: monospace;'>{vol1:.1f} mL</span>"
 - a good repo-wide pyflakes gate is `tests/test_pyflakes_code_lint.py` (run with pytest)
 - For pytest-specific style, test design, and command usage, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 - For slow end-to-end tests run outside pytest, see [E2E_TESTS.md](E2E_TESTS.md).
-
 ```bash
-pytest tests/test_pyflakes_code_lint.py
+source source_me.sh && pytest tests/test_pyflakes_code_lint.py
 ```
 
 ## DO NOT USE HEREDOCS
 
-- Do not use shell heredocs to run inline Python code.
-- Avoid patterns like `python3 - <<EOF`.
-- Python code should live in `.py` files or be passed explicitly as files or modules.
-- Heredocs make code harder to read, harder to lint, and harder to test.
+* Do not use shell heredocs to run inline Python code.
+* Avoid patterns like `python3 - <<EOF`.
+* Python code should live in `.py` files or be passed explicitly as files or modules.
+* Heredocs make code harder to read, harder to lint, and harder to test.
 
 ## ENVIRONMENT VARIABLES
 
@@ -231,23 +222,22 @@ export PYTHONDONTWRITEBYTECODE=1
 
 - Assume all import statements have been made at the top of the script file
 - Visually separate function with comment of only equal signs. It makes it easier to visually see the functions in the code. For example:
-
 ```python
 #============================================
 ```
 
-- Use Google style documentation style for functions. https://github.com/google/styleguide
-- I prefer to keep line lengths less than 100 characters
-- Comments should be on a line of their own before the code they are commenting
-- No emoji or special characters in comments, only ascii characters
+* Use Google style documentation style for functions. https://github.com/google/styleguide
+* I prefer to keep line lengths less than 100 characters
+* Comments should be on a line of their own before the code they are commenting
+* No emoji or special characters in comments, only ascii characters
 
 ## ASSERT
 
-- Do not put `assert` statements in plain `.py` scripts or library modules. All asserts live in `tests/test_*.py`, `tests/playwright/` (browser tests), or `tests/e2e/` (shell/Python E2E).
-- Reason: module-level asserts run at import time, which slows CLI startup. Tests pay the cost once, in the test suite.
-- Do not assert in functions that require user input or read/write to files; cover those with end-to-end checks instead. See [E2E_TESTS.md](E2E_TESTS.md).
-- Keep individual asserts short: under 4 lines and under 100 characters.
-- For pytest test structure and good/brittle assert patterns, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
+* Do not put `assert` statements in plain `.py` scripts or library modules. All asserts live in `tests/test_*.py`, `tests/playwright/` (browser tests), or `tests/e2e/` (shell/Python E2E).
+* Reason: module-level asserts run at import time, which slows CLI startup. Tests pay the cost once, in the test suite.
+* Do not assert in functions that require user input or read/write to files; cover those with end-to-end checks instead. See [E2E_TESTS.md](E2E_TESTS.md).
+* Keep individual asserts short: under 4 lines and under 100 characters.
+* For pytest test structure and good/brittle assert patterns, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
 ## TYPE HINTING
 
@@ -265,24 +255,21 @@ Use `collections.abc` for callable and iterable params (for example `collections
 `collections.abc.Iterable`). The `typing` module is not used in this repo.
 
 Good:
-
 ```python
 def func(arg: dict) -> tuple:
 ```
 
 Bad (uses `typing` module):
-
 ```python
 def func(arg: typing.Dict[str, typing.Any]) -> typing.Tuple[str, str, str]:
 ```
 
 ## IMPORTING
-
-- Never use import *
-- I prefer to keep the original module names, just import numpy is preferred over import numpy as np.
-- This one is flexible but I also prefer to avoid using 'from' in the import statements. 'import PIL.Image' over 'from PIL import Image'. I like to know where commands are coming from.
-- Never use relative imports (`from . import`, `from ..module import`). Always use absolute imports so it is clear where every name comes from. See `tests/test_import_dot.py` for enforcement.
-- Place import modules in the following order (1) external python/pip modules vs. local repo modules with commented headings (2) length of module name with the shortest first, (3) alphabetical 'os' comes before 're'. For example:
+* Never use import *
+* I prefer to keep the original module names, just import numpy is preferred over import numpy as np.
+* This one is flexible but I also prefer to avoid using 'from' in the import statements. 'import PIL.Image' over 'from PIL import Image'. I like to know where commands are coming from.
+* Never use relative imports (`from . import`, `from ..module import`). Always use absolute imports so it is clear where every name comes from. See `tests/test_import_dot.py` for enforcement.
+* Place import modules in the following order (1) external python/pip modules vs. local repo modules with commented headings (2) length of module name with the shortest first, (3) alphabetical 'os' comes before 're'. For example:
 
 ```python
 # Standard Library
@@ -318,14 +305,12 @@ If you add a new third-party import, add the package to the appropriate requirem
 
 Be conservative. Only add arguments users frequently need to change between runs.
 
-**Good entries:**
-
+**Good candidates:**
 - Input/output file paths
 - Mode switches (--dry-run, --verbose, --format)
 - Behavior toggles (--recursive, --force)
 
 **Hardcode instead:**
-
 - Backup suffixes, timeout durations, buffer sizes
 - Retry counts, column widths, formatting details
 - Any "what if someone wants to..." parameters
@@ -333,7 +318,6 @@ Be conservative. Only add arguments users frequently need to change between runs
 **Rule:** If you added it thinking "someone might want to configure this", remove it.
 
 #### Over-engineered (bad):
-
 ```python
 parser.add_argument('-t', '--timeout', type=int, default=30)
 parser.add_argument('-r', '--retries', type=int, default=3)
@@ -341,7 +325,6 @@ parser.add_argument('-s', '--suffix', default='.bak')
 ```
 
 #### Minimal (good):
-
 ```python
 parser.add_argument('-i', '--input', dest='input_file', required=True)
 parser.add_argument('-o', '--output', dest='output_file', required=True)
@@ -350,17 +333,14 @@ parser.add_argument('-n', '--dry-run', dest='dry_run', action='store_true')
 
 ### ARGPARSE DETAILS
 
-- Argparse value should have both a single letter cli flag and a full word cli flag. You should always specify the destination for the value, dest='flag_name'. See example below.
-- When doing an argparse boolean value. Provide both on and off flags and set the default with a different command, For example,
-
+* Argparse value should have both a single letter cli flag and a full word cli flag. You should always specify the destination for the value, dest='flag_name'. See example below.
+* When doing an argparse boolean value. Provide both on and off flags and set the default with a different command, For example,
 ```python
 	parser.add_argument('-e', '--send-email', dest='dry_run', help='send emails', action='store_false')
 	parser.add_argument('-n', '--dry-run', dest='dry_run', help='only display email', action='store_true')
 	parser.set_defaults(dry_run=True)
 ```
-
-- I like using argparse groups
-
+* I like using argparse groups
 ```python
 	question_group = parser.add_mutually_exclusive_group(required=True)
 	question_group.add_argument(
@@ -376,9 +356,7 @@ parser.add_argument('-n', '--dry-run', dest='dry_run', action='store_true')
 	)
 	parser.set_defaults(question_format='mc')
 ```
-
-- Use a separate function for argparse that returns args to the main() function at start
-
+* Use a separate function for argparse that returns args to the main() function at start
 ```python
 def parse_args():
 	"""
@@ -391,11 +369,10 @@ def parse_args():
 ```
 
 ## DATA FILES
-
-- YAML favorite, readable, editable
-- CSV spreadsheet input/output
-- JSON good for large, wordy data
-- PNG images, graphics, figures, pixel data
+* YAML favorite, readable, editable
+* CSV spreadsheet input/output
+* JSON good for large, wordy data
+* PNG images, graphics, figures, pixel data
 
 ## AVAILABLE MODULES
 

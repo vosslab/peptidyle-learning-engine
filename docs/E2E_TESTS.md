@@ -17,7 +17,8 @@ Both are excluded from `pytest tests/` via `collect_ignore = ["e2e", "playwright
 
 This repo organizes tests in four tiers, all under the `tests/` umbrella:
 
-- `tests/test_*.py` - fast pytest unit and integration tests. Run with `pytest tests/`.
+- `tests/test_*.py` - fast pytest unit and integration tests. Run with
+  `source source_me.sh && pytest tests/`.
 - `tests/test_*.mjs` - pure Node tests, if any (rare; not browser-driven).
 - `tests/playwright/` (with optional `tests/playwright/e2e/` subfolder) - browser-driven Playwright tests. TypeScript repos include `PLAYWRIGHT_USAGE.md` in their propagated `docs/` folder.
 - `tests/e2e/` - non-browser whole-system E2E. Shell/Python orchestration (`e2e_*.sh`, `e2e_*.py`). Run directly, not via pytest.
@@ -27,7 +28,7 @@ This repo organizes tests in four tiers, all under the `tests/` umbrella:
 Pytest is the fast lane. Tests under `tests/` should run in seconds so the
 suite stays useful during development. End-to-end tests are by nature slow:
 they invoke real scripts, read and write real files, and may hit the network
-or third-party services. Mixing them into `pytest tests/` makes the fast lane slow
+or external tools. Mixing them into `pytest tests/` makes the fast lane slow
 and discourages running it.
 
 Pytest's `collect_ignore = ["e2e", "playwright"]` in `tests/conftest.py` actively excludes
@@ -75,7 +76,7 @@ File naming conventions are enforced by `tests/test_test_naming_conventions.py`
   check the produced files or exit code.
 - I/O round trips: encode a file with one script, decode with another,
   compare to the original.
-- Integration with third-party services where mocking would defeat the point.
+- Integration with external tools where mocking would defeat the point.
 - Anything that needs user input or read/write to files (the `assert` rules
   forbid asserts in plain scripts entirely; cover that behavior here instead;
   see [PYTHON_STYLE.md](PYTHON_STYLE.md#assert)).

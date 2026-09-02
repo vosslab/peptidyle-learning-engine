@@ -145,7 +145,7 @@ function hasLocalDraftChanges(state: PleQuestionJsonEditorState): boolean {
 }
 
 /**
- * A purpose-built author surface. Student preview is a local answer-free projection; this component
+ * A purpose-built author surface. Student preview is a local answer-free PLE Question JSON Public Preview; this component
  * does not write source material to URLs, storage, or diagnostics.
  */
 export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps): JSX.Element {
@@ -165,7 +165,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   let headingFocusDelivered = false;
 
   // The draft accessor is the sole render-time source. Each reducer transition updates this
-  // projection together with workflow state, so a mounted response editor never captures a stale
+  // draft editor state together with workflow state, so a mounted response editor never captures a stale
   // Question Response Format branch.
   const [source, setSource] = createSignal<PleQuestionJsonDocument | null>(null);
   // Numeric source values are numbers. This local literal is intentionally separate so partially

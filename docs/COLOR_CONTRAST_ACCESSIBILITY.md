@@ -13,11 +13,11 @@ Target a **5.5:1** house contrast ratio for all foreground/background text
 pairs. This exceeds WCAG AA's 4.5:1 minimum for normal text and stops short of
 AAA.
 
-| WCAG level   | Minimum ratio (normal text) |
-| ------------ | --------------------------- |
-| AA           | 4.5:1                       |
-| House target | 5.5:1                       |
-| AAA          | 7:1                         |
+| WCAG level | Minimum ratio (normal text) |
+| --- | --- |
+| AA | 4.5:1 |
+| House target | 5.5:1 |
+| AAA | 7:1 |
 
 The maximum possible contrast ratio is 21:1 (black `#000000` on white
 `#ffffff`).

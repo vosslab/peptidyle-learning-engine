@@ -18,7 +18,7 @@ never goes stale against a sync run.
   never as a default. Live example: typescript-eslint caps the TypeScript it supports
   (currently `<6.1.0`); if TypeScript outruns typescript-eslint, a temporary `<` cap waits
   for the matching typescript-eslint release rather than breaking lint.
-- Refresh tool: `tools/sync_typescript_package_pins.py` rewrites every pin to `>={latest}`
+- Refresh command: `devel/sync_typescript_package_pins.py` rewrites every pin to `>={latest}`
   from the npm registry. It is a refresh HELPER, not a dependency solver: it writes `>=`
   uniformly and never emits `<` caps, compound ranges, non-`latest` dist-tags, or
   `workspace:*`, and it leaves private/E404 and consumer-extra packages untouched.
@@ -45,46 +45,45 @@ Required strict flags stay fixed regardless of version: `strict: true`, `noImpli
 by propagation and should not be edited locally.
 
 ## FILENAMES
-
-- Prefer snake_case for TypeScript filenames.
-- Avoid CamelCase in filenames. Reserve CamelCase for class names, type names, and interface names.
-- Keep filenames descriptive, and consistent with the primary thing the file provides.
-- Use only lowercase letters, numbers, and underscores in filenames.
+* Prefer snake_case for TypeScript filenames.
+* Avoid CamelCase in filenames. Reserve CamelCase for class names, type names, and interface names.
+* Keep filenames descriptive, and consistent with the primary thing the file provides.
+* Use only lowercase letters, numbers, and underscores in filenames.
 
 ## CODE STRUCTURE
 
-- Use small, single-task functions rather than one large function.
-- Prefer explicit named functions over deeply nested inline callbacks.
-- Keep top-level code minimal.
-- Prefer clear data flow with explicit parameters and return values.
-- Avoid hidden shared state when possible.
-- For scripts, use a `main()` function and call it at the bottom.
-- For library code, export small focused functions.
-- Use `async` and `await` rather than raw promise chains when possible.
-- Avoid broad `try/catch` blocks when possible. I find they often hide bugs.
-- Use `try/catch` rarely, and keep the scope small.
-- Throw `Error` objects rather than returning silent failure values.
-- Apply "fix the design, not the symptom" here too: do not paper over a misbehaving caller with a swallowed error or a silent default. See Design philosophy in docs/REPO_STYLE.md.
-- Return statements should be simple and should not build large objects or long strings inline. Store computed values first, then return the variable.
-- Add comments within the code to describe what different lines are doing, especially for complex lines.
-- Please only use ASCII characters in the script. If special characters are needed in output, escape them when appropriate.
+* Use small, single-task functions rather than one large function.
+* Prefer explicit named functions over deeply nested inline callbacks.
+* Keep top-level code minimal.
+* Prefer clear data flow with explicit parameters and return values.
+* Avoid hidden shared state when possible.
+* For scripts, use a `main()` function and call it at the bottom.
+* For library code, export small focused functions.
+* Use `async` and `await` rather than raw promise chains when possible.
+* Avoid broad `try/catch` blocks when possible. I find they often hide bugs.
+* Use `try/catch` rarely, and keep the scope small.
+* Throw `Error` objects rather than returning silent failure values.
+* Apply "fix the design, not the symptom" here too: do not paper over a misbehaving caller with a swallowed error or a silent default. See Design philosophy in docs/REPO_STYLE.md.
+* Return statements should be simple and should not build large objects or long strings inline. Store computed values first, then return the variable.
+* Add comments within the code to describe what different lines are doing, especially for complex lines.
+* Please only use ASCII characters in the script. If special characters are needed in output, escape them when appropriate.
 
 ## STRICT TYPES
 
-- Use TypeScript because the type system is useful, so use it.
-- Prefer explicit parameter types and return types for exported functions.
-- Add type annotations when they improve clarity.
-- Avoid `any` whenever possible.
-- Prefer narrow types over loose types.
-- Prefer `unknown` over `any` when the type is truly unknown.
-- Prefer simple inline object types or named `type` aliases.
-- Use `interface` only when it clearly improves readability or extension.
+* Use TypeScript because the type system is useful, so use it.
+* Prefer explicit parameter types and return types for exported functions.
+* Add type annotations when they improve clarity.
+* Avoid `any` whenever possible.
+* Prefer narrow types over loose types.
+* Prefer `unknown` over `any` when the type is truly unknown.
+* Prefer simple inline object types or named `type` aliases.
+* Use `interface` only when it clearly improves readability or extension.
 
 ### Good
 
 ```ts
 function greaterThan(a: number, b: number): boolean {
-  return a > b;
+	return a > b;
 }
 ```
 
@@ -92,23 +91,23 @@ function greaterThan(a: number, b: number): boolean {
 
 ```ts
 function processData(data: any): any {
-  return data;
+	return data;
 }
 ```
 
 ## CONST, LET, AND VAR
 
-- Never use `var`.
-- Prefer `const` by default.
-- Use `let` only when reassignment is actually needed.
+* Never use `var`.
+* Prefer `const` by default.
+* Use `let` only when reassignment is actually needed.
 
 ## FUNCTIONS
 
-- Prefer `function name()` for most named functions.
-- Be conservative with arrow functions.
-- Arrow functions are fine for short callbacks when the logic is obvious.
-- If the callback is doing real work, give it a name with `function`.
-- If a function would be hard to understand without a comment, rewrite it more clearly.
+* Prefer `function name()` for most named functions.
+* Be conservative with arrow functions.
+* Arrow functions are fine for short callbacks when the logic is obvious.
+* If the callback is doing real work, give it a name with `function`.
+* If a function would be hard to understand without a comment, rewrite it more clearly.
 
 ### Allowed
 
@@ -120,8 +119,8 @@ const valuesSorted = values.sort((a, b) => a.count - b.count);
 
 ```ts
 function compareCounts(a: Item, b: Item): number {
-  const diff = a.count - b.count;
-  return diff;
+	const diff = a.count - b.count;
+	return diff;
 }
 
 const valuesSorted = values.sort(compareCounts);
@@ -129,57 +128,57 @@ const valuesSorted = values.sort(compareCounts);
 
 ## CLASSES
 
-- Use classes only when they clearly match the problem.
-- Prefer plain functions and plain objects for simple scripts and data transformations.
-- Do not introduce classes just to look object-oriented.
+* Use classes only when they clearly match the problem.
+* Prefer plain functions and plain objects for simple scripts and data transformations.
+* Do not introduce classes just to look object-oriented.
 
 ## OBJECTS AND DATA
 
-- Prefer plain objects for structured data.
-- Keep object shapes consistent.
-- Avoid adding properties to objects far away from where the objects are created.
-- Prefer building a complete object in one place when practical.
+* Prefer plain objects for structured data.
+* Keep object shapes consistent.
+* Avoid adding properties to objects far away from where the objects are created.
+* Prefer building a complete object in one place when practical.
 
 ## NULL AND UNDEFINED
 
-- Be explicit about optional values.
-- Use `undefined` consistently for missing values unless there is a strong reason to use `null`.
-- Do not mix both without a clear reason.
+* Be explicit about optional values.
+* Use `undefined` consistently for missing values unless there is a strong reason to use `null`.
+* Do not mix both without a clear reason.
 
 ## STRINGS
 
-- Use template strings when interpolation helps readability.
-- Prefer simple string assembly over overly clever helpers.
-- Keep multiline text readable, but avoid unnecessary complexity.
+* Use template strings when interpolation helps readability.
+* Prefer simple string assembly over overly clever helpers.
+* Keep multiline text readable, but avoid unnecessary complexity.
 
 ## QUOTING
 
-- Avoid backslash escaping quotes inside strings when possible.
-- Prefer alternating quote styles instead.
-- Use double quotes on the outside with single quotes inside.
-- Or use single quotes on the outside with double quotes inside.
-- This is especially useful for HTML like `"<span style='color: red'>text</span>"`.
+* Avoid backslash escaping quotes inside strings when possible.
+* Prefer alternating quote styles instead.
+* Use double quotes on the outside with single quotes inside.
+* Or use single quotes on the outside with double quotes inside.
+* This is especially useful for HTML like `"<span style='color: red'>text</span>"`.
 
 ## ARRAYS
 
-- Prefer array methods when they improve clarity.
-- Do not chain too many methods if it hurts readability.
-- If `map().filter().reduce()` becomes hard to read, break it into steps.
+* Prefer array methods when they improve clarity.
+* Do not chain too many methods if it hurts readability.
+* If `map().filter().reduce()` becomes hard to read, break it into steps.
 
 ## ASYNC CODE
 
-- Prefer `async` and `await`.
-- Keep async flow easy to follow.
-- Avoid mixing `await` with `.then()` in the same block unless there is a clear reason.
-- For network requests, be polite to servers. Add a small delay when appropriate unless the official API says otherwise.
+* Prefer `async` and `await`.
+* Keep async flow easy to follow.
+* Avoid mixing `await` with `.then()` in the same block unless there is a clear reason.
+* For network requests, be polite to servers. Add a small delay when appropriate unless the official API says otherwise.
 
 ## IMPORTS
 
-- Never use wildcard imports.
-- Prefer explicit imports.
-- Keep imports grouped and ordered.
-- Standard library or platform imports first, then external packages, then local modules.
-- Within each group, keep the order consistent and easy to scan.
+* Never use wildcard imports.
+* Prefer explicit imports.
+* Keep imports grouped and ordered.
+* Standard library or platform imports first, then external packages, then local modules.
+* Within each group, keep the order consistent and easy to scan.
 
 ### Example
 
@@ -195,41 +194,41 @@ import { writeReport } from "./write_report";
 
 ## EXPORTS
 
-- Prefer named exports over default exports.
-- Named exports are easier to track and refactor.
+* Prefer named exports over default exports.
+* Named exports are easier to track and refactor.
 
 ## ERROR HANDLING
 
-- Do not swallow errors.
-- If an error matters, raise it clearly.
-- Keep `try/catch` blocks narrow.
-- Add useful context to thrown errors when needed.
+* Do not swallow errors.
+* If an error matters, raise it clearly.
+* Keep `try/catch` blocks narrow.
+* Add useful context to thrown errors when needed.
 
 ## COMMENTING
 
-- Use comments to explain why, not to restate obvious code.
-- Visually separate major functions with a comment of only equal signs when it helps readability. For example:
+* Use comments to explain why, not to restate obvious code.
+* Visually separate major functions with a comment of only equal signs when it helps readability. For example:
 
 ```ts
 //============================================
 ```
 
-- Keep line lengths less than 100 characters.
-- Comments should be on a line of their own before the code they are commenting.
-- No emoji or special characters in comments, only ASCII characters.
+* Keep line lengths less than 100 characters.
+* Comments should be on a line of their own before the code they are commenting.
+* No emoji or special characters in comments, only ASCII characters.
 
 ## TESTING
 
-- I like to test the code.
-- For small utility functions, a short simple test is good.
-- For real projects, use a normal test framework and keep tests in a `tests/` folder.
-- Keep tests small and deterministic.
-- Avoid network calls, random behavior, and time-based logic unless mocked.
-- Browser tests live under `tests/playwright/` (see the `PLAYWRIGHT_USAGE.md` doc where it ships). Pure Node unit tests via `node --test tests/test_*.mjs`. TS hygiene tests under `tests/test_typescript_*.py` enforce tsc, package.json schema, tsconfig canonical fields, and ESLint flat-config presence. ESLint correctness is gated by `check_codebase.sh` step 3 directly; no separate pytest wrapper.
-- Node unit tests are `.mjs` and run via `node --test tests/test_*.mjs` (canonical). A `.ts`
+* I like to test the code.
+* For small utility functions, a short simple test is good.
+* For real projects, use a normal test framework and keep tests in a `tests/` folder.
+* Keep tests small and deterministic.
+* Avoid network calls, random behavior, and time-based logic unless mocked.
+* Browser tests live under `tests/playwright/` (see the `PLAYWRIGHT_USAGE.md` doc where it ships). Pure Node unit tests via `node --test tests/test_*.mjs`. TS hygiene tests under `tests/test_typescript_*.py` enforce tsc, package.json schema, tsconfig canonical fields, and ESLint flat-config presence. ESLint correctness is gated by `check_codebase.sh` step 3 directly; no separate pytest wrapper.
+* Node unit tests are `.mjs` and run via `node --test tests/test_*.mjs` (canonical). A `.ts`
   test with the tsx loader (`node --import tsx --test`) is an accepted variant when the test
   itself needs TypeScript (`sports-life-game`).
-- `tsx` is a required canonical devDependency: `check_codebase.sh` step 5 runs
+* `tsx` is a required canonical devDependency: `check_codebase.sh` step 5 runs
   `node --import tsx --test 'tests/test_*.mjs'`, and the `--import tsx` flag loads the `tsx`
   npm package as a runtime loader so `.mjs` tests can import `.ts` source modules directly.
 
@@ -239,20 +238,20 @@ Use inline setup first. For fixture cases, see the Fixture policy in PYTEST_STYL
 
 ## FORMATTERS AND LINTERS
 
-- Use Prettier for formatting. Let Prettier own whitespace, semicolons, and line breaks.
-- Use ESLint for catching real bugs: unused variables, implicit `any`, unreachable code.
-- Do not fight Prettier on style choices. If Prettier formats it, that is the style.
-- ESLint rules should catch problems, not enforce cosmetic preferences that Prettier already handles.
-- Strict typing is preferred. Enable `noImplicitAny` and `strict` in `tsconfig.json`.
-- ESLint config lives at `eslint.config.js` at the repo root (canonical, propagated). Lint correctness is enforced by `check_codebase.sh` step 3 (`npx eslint --max-warnings 0 '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'`).
-- Do not edit `eslint.config.js` directly; propagation overwrites it every run. Repo-specific ESLint overrides go in `eslint.config.local.js` at the repo root: a consumer-owned file shipped once (never overwritten). The canonical config imports and spreads it last, so local entries refine or override canonical rules.
-- Browser globals are supplied to `tests/playwright/**` and `tests/e2e/**` (page.evaluate callbacks reference `window`, `document`, etc.); node-only tools keep `no-undef` so real bugs still surface. Give a repo-specific browser-context tool file its globals via `eslint.config.local.js`, not by widening the canonical glob.
-- `OTHER_REPOS/**` is in the ESLint `ignores`, matching the repo-wide gitignore for the sibling-repo checkout dir.
-- `_temp*` scratch names and `dist_*/` private lane-build directories are excluded by ESLint, Playwright, Prettier, and repo hygiene discovery. Each collector owns its exclusion; gitignore alone does not prevent directory-globbing tools from collecting an untracked scratch file.
-- Prettier scope in this repo is JS, TypeScript, MJS, CJS, TSX, MTS, CTS only. JSON, YAML, Markdown, and Python files are explicitly NOT prettier-managed.
-- Indent is two spaces for every prettier-managed extension (prettier default; documented in propagated `.prettierrc`). This differs from the Python tabs rule in `docs/PYTHON_STYLE.md`; agents editing `.py` use tabs, agents editing `.ts`/`.mjs`/etc use two spaces. Do not over-generalize one language's rule to the other.
-- Auto-fix path when `./check_codebase.sh` step 4 (`format:check`) fails: run `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` (the `npm run format:write` alias mirrors this).
-- `.prettierignore` ships from the template and covers scratch names (`_temp*`), private lane builds (`dist_*/`), and noisy generated trees (`node_modules/`, `dist/`, `dist-single/`, `_site/`, `generated/`, `coverage/`, `playwright-report/`, `test-results/`, `blob-report/`, `package-lock.json`).
+* Use Prettier for formatting. Let Prettier own whitespace, semicolons, and line breaks.
+* Use ESLint for catching real bugs: unused variables, implicit `any`, unreachable code.
+* Do not fight Prettier on style choices. If Prettier formats it, that is the style.
+* ESLint rules should catch problems, not enforce cosmetic preferences that Prettier already handles.
+* Strict typing is preferred. Enable `noImplicitAny` and `strict` in `tsconfig.json`.
+* ESLint config lives at `eslint.config.js` at the repo root (canonical, propagated). Lint correctness is enforced by `check_codebase.sh` step 3 (`npx eslint --max-warnings 0 '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'`).
+* Do not edit `eslint.config.js` directly; propagation overwrites it every run. Repo-specific ESLint overrides go in `eslint.config.local.js` at the repo root: a consumer-owned file shipped once (never overwritten). The canonical config imports and spreads it last, so local entries refine or override canonical rules.
+* Browser globals are supplied to `tests/playwright/**` and `tests/e2e/**` (page.evaluate callbacks reference `window`, `document`, etc.); node-only tools keep `no-undef` so real bugs still surface. Give a repo-specific browser-context tool file its globals via `eslint.config.local.js`, not by widening the canonical glob.
+* `OTHER_REPOS/**` is in the ESLint `ignores`, matching the repo-wide gitignore for the sibling-repo checkout dir.
+* `_temp*` scratch names and `dist_*/` private lane-build directories are excluded by ESLint, Playwright, Prettier, and repo hygiene discovery. Each collector owns its exclusion; gitignore alone does not prevent directory-globbing tools from collecting an untracked scratch file.
+* Prettier scope in this repo is JS, TypeScript, MJS, CJS, TSX, MTS, CTS only. JSON, YAML, Markdown, and Python files are explicitly NOT prettier-managed.
+* Indent is two spaces for every prettier-managed extension (prettier default; documented in propagated `.prettierrc`). This differs from the Python tabs rule in `docs/PYTHON_STYLE.md`; agents editing `.py` use tabs, agents editing `.ts`/`.mjs`/etc use two spaces. Do not over-generalize one language's rule to the other.
+* Auto-fix path when `./check_codebase.sh` step 4 (`format:check`) fails: run `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` (the `npm run format:write` alias mirrors this).
+* `.prettierignore` ships from the template and covers scratch names (`_temp*`), private lane builds (`dist_*/`), and noisy generated trees (`node_modules/`, `dist/`, `dist-single/`, `_site/`, `generated/`, `coverage/`, `playwright-report/`, `test-results/`, `blob-report/`, `package-lock.json`).
 
 ### ESLint canonical rules
 
@@ -284,28 +283,28 @@ path already skips typed rules via `tseslint.configs.disableTypeChecked`; this b
 
 ### tsconfig.json canonical fields
 
-| Field                              | Value                               | Why                                                                                      |
-| ---------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------- |
-| `target`                           | `es2020`                            | Widely-supported modern JavaScript (async/await, nullish coalescing, optional chaining). |
-| `module`                           | `esnext`                            | Native ESM, no transpilation to CJS.                                                     |
-| `moduleResolution`                 | `bundler`                           | Resolves as bundlers do (esbuild, webpack, parcel).                                      |
-| `strict`                           | `true`                              | Enables all strict type checks.                                                          |
-| `noImplicitAny`                    | `true`                              | Explicit type annotations required.                                                      |
-| `noUncheckedIndexedAccess`         | `true`                              | Accessing an array or object by index/key is `unknown` unless bounds-checked.            |
-| `noImplicitOverride`               | `true`                              | Derived class methods must mark `override` keyword.                                      |
-| `verbatimModuleSyntax`             | `true`                              | Import/export syntax must match module kind exactly.                                     |
-| `useUnknownInCatchVariables`       | `true`                              | Caught exceptions are `unknown`, not `any`.                                              |
-| `noEmit`                           | `true`                              | Type-check only; do not emit `.js` files.                                                |
-| `skipLibCheck`                     | `true`                              | Skip type-checking declaration files (speed).                                            |
-| `noFallthroughCasesInSwitch`       | `true`                              | Every case must break or return.                                                         |
-| `noImplicitReturns`                | `true`                              | All code paths must return a value.                                                      |
-| `noUnusedLocals`                   | `true`                              | Unused local variables are errors.                                                       |
-| `noUnusedParameters`               | `true`                              | Unused function parameters are errors.                                                   |
-| `forceConsistentCasingInFileNames` | `true`                              | Import paths must match filesystem case exactly.                                         |
-| `isolatedModules`                  | `true`                              | Files can be transpiled independently (no cross-file const enum).                        |
-| `esModuleInterop`                  | `true`                              | Interop helpers for CommonJS imports (rare; maintained for compat).                      |
-| `sourceMap`                        | `true`                              | Generate source maps for debugging.                                                      |
-| `lib`                              | `["dom", "dom.iterable", "esnext"]` | Browser APIs, DOM iteration, ESM features.                                               |
+| Field | Value | Why |
+| --- | --- | --- |
+| `target` | `es2020` | Widely-supported modern JavaScript (async/await, nullish coalescing, optional chaining). |
+| `module` | `esnext` | Native ESM, no transpilation to CJS. |
+| `moduleResolution` | `bundler` | Resolves as bundlers do (esbuild, webpack, parcel). |
+| `strict` | `true` | Enables all strict type checks. |
+| `noImplicitAny` | `true` | Explicit type annotations required. |
+| `noUncheckedIndexedAccess` | `true` | Accessing an array or object by index/key is `unknown` unless bounds-checked. |
+| `noImplicitOverride` | `true` | Derived class methods must mark `override` keyword. |
+| `verbatimModuleSyntax` | `true` | Import/export syntax must match module kind exactly. |
+| `useUnknownInCatchVariables` | `true` | Caught exceptions are `unknown`, not `any`. |
+| `noEmit` | `true` | Type-check only; do not emit `.js` files. |
+| `skipLibCheck` | `true` | Skip type-checking declaration files (speed). |
+| `noFallthroughCasesInSwitch` | `true` | Every case must break or return. |
+| `noImplicitReturns` | `true` | All code paths must return a value. |
+| `noUnusedLocals` | `true` | Unused local variables are errors. |
+| `noUnusedParameters` | `true` | Unused function parameters are errors. |
+| `forceConsistentCasingInFileNames` | `true` | Import paths must match filesystem case exactly. |
+| `isolatedModules` | `true` | Files can be transpiled independently (no cross-file const enum). |
+| `esModuleInterop` | `true` | Interop helpers for CommonJS imports (rare; maintained for compat). |
+| `sourceMap` | `true` | Generate source maps for debugging. |
+| `lib` | `["dom", "dom.iterable", "esnext"]` | Browser APIs, DOM iteration, ESM features. |
 
 ### Opt-in strict flags (not default)
 
@@ -415,23 +414,23 @@ Alias rules:
   intentionally non-idiomatic TypeScript; a TypeScript developer expects some
   `package.json` scripts.
 
-| Shell script                | npm alias                 | Job                                                |
-| --------------------------- | ------------------------- | -------------------------------------------------- |
-| `./check_codebase.sh`       | `npm run check`           | Typecheck, lint, format-check, Node unit tests     |
-| `./build_github_pages.sh`   | `npm run build`           | Build the esbuild bundle into `dist/`              |
-| `./run_web_server.sh`       | `npm run serve`           | Build and serve `dist/` on a random port           |
-| `./devel/clean_build.sh`    | `npm run clean`           | Remove `dist/`                                     |
+| Shell script | npm alias | Job |
+| --- | --- | --- |
+| `./check_codebase.sh` | `npm run check` | Typecheck, lint, format-check, Node unit tests |
+| `./build_github_pages.sh` | `npm run build` | Build the esbuild bundle into `dist/` |
+| `./run_web_server.sh` | `npm run serve` | Build and serve `dist/` on a random port |
+| `./devel/clean_build.sh` | `npm run clean` | Remove `dist/` |
 | `./run_playwright_tests.sh` | `npm run test:playwright` | Build as needed, then run Playwright browser tests |
 
 The remaining `package.json` aliases have no shell-script front door. Run their
 direct command instead of the alias when you are not in an npm workflow. Use the
 locally-installed form (`npx ...`) so the command works without a global install:
 
-| npm alias                  | Direct command                                            |
-| -------------------------- | --------------------------------------------------------- |
-| `npm run format:write`     | `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` |
-| `npm run setup`            | `./devel/setup_typescript.sh`                             |
-| `npm run setup:playwright` | `./devel/setup_playwright.sh`                             |
+| npm alias | Direct command |
+| --- | --- |
+| `npm run format:write` | `npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'` |
+| `npm run setup` | `./devel/setup_typescript.sh` |
+| `npm run setup:playwright` | `./devel/setup_playwright.sh` |
 
 The `tools/html_to_pdf.mjs` HTML-to-PDF tool is run directly
 (`node tools/html_to_pdf.mjs`), documented in the `PLAYWRIGHT_USAGE.md` doc
@@ -503,9 +502,9 @@ These repos deploy through GitHub Actions from the build output:
 
 ## CONFIGURATION
 
-- The program should not require custom environment variables to function.
-- Configuration must be explicit and visible via config files or command line arguments.
-- Environment variables may be read only when they are standard OS or ecosystem variables, not variables invented to control program behavior.
+* The program should not require custom environment variables to function.
+* Configuration must be explicit and visible via config files or command line arguments.
+* Environment variables may be read only when they are standard OS or ecosystem variables, not variables invented to control program behavior.
 
 ## Canonical repo shape
 
@@ -525,24 +524,24 @@ This is the canonical floor, not a ceiling. Per-repo additions (`src/*.ts` modul
 
 ## ARGUMENT PARSING
 
-- Be conservative. Only add arguments users frequently need to change between runs.
-- Good entries:
+* Be conservative. Only add arguments users frequently need to change between runs.
+* Good candidates:
   - Input and output file paths
   - Mode switches
   - Behavior toggles
-- Hardcode minor internal settings instead of turning everything into a flag.
-- If a script needs CLI parsing, keep it small and readable.
+* Hardcode minor internal settings instead of turning everything into a flag.
+* If a script needs CLI parsing, keep it small and readable.
 
 ## DATA FILES
 
-- YAML favorite, readable, editable
-- CSV spreadsheet input and output
-- JSON good for larger structured data
-- PNG images, graphics, figures, pixel data
+* YAML favorite, readable, editable
+* CSV spreadsheet input and output
+* JSON good for larger structured data
+* PNG images, graphics, figures, pixel data
 
 ## GENERAL STYLE
 
-- Prefer plain language in names and comments.
-- Keep the code easy to scan.
-- Avoid clever code when a direct version is easier to read.
-- I want code that is easy to maintain later, not code that tries to impress people.
+* Prefer plain language in names and comments.
+* Keep the code easy to scan.
+* Avoid clever code when a direct version is easier to read.
+* I want code that is easy to maintain later, not code that tries to impress people.

@@ -77,7 +77,7 @@ core remains directly callable by native tests and by the WASI entry point.
 
 ## Verify across the boundary
 
-Use the same fixed fixture set through native Rust and the Wasm export. Compare
+Use the same fixed fixture corpus through native Rust and the Wasm export. Compare
 exact output, serialized structures, or a documented numeric tolerance. Cover the
 boundary shapes the project exposes: empty input, boundary numbers, Unicode, large
 buffers, error conversion, repeated calls, and scheduled browser updates.

@@ -5,7 +5,7 @@ import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
  * The answer-bearing PLE ple-question-json v2 authoring contract.
  *
  * This type stays inside the authoring feature.  Student-facing code uses the
- * answer-free projection from question_json_public_preview.ts instead.
+ * answer-free PLE Question JSON Public Preview from question_json_public_preview.ts instead.
  */
 
 export const PLE_QUESTION_JSON_FORMAT = "pleQuestionJson";
@@ -54,7 +54,7 @@ export type PleQuestionJsonItem = {
   readonly text: string;
 };
 
-/** This private pair map is deliberately absent from the student preview projection. */
+/** This private pair map is deliberately absent from the PLE Question JSON Public Preview. */
 export type PleQuestionJsonMatch = {
   readonly prompt: string;
   readonly choice: string;

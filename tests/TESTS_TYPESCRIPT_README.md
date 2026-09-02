@@ -10,13 +10,13 @@ is the whole interface: drive the repo through them and you never need to open
 
 ## Front door shell scripts
 
-| Script                      | What it does                                               |
-| --------------------------- | ---------------------------------------------------------- |
-| `./check_codebase.sh`       | Fast gate: typecheck, lint, format check, Node unit tests. |
-| `./build_github_pages.sh`   | Bundle `src/` into `dist/` (the Pages artifact).           |
-| `./run_web_server.sh`       | Build `dist/`, serve a local preview on a random port.     |
-| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed.               |
-| `./dist_clean.sh`           | Wipe `dist/`.                                              |
+| Script | What it does |
+| --- | --- |
+| `./check_codebase.sh` | Fast gate: typecheck, lint, format check, Node unit tests. |
+| `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
+| `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
+| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed. |
+| `./dist_clean.sh` | Wipe `dist/`. |
 
 Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
 random port each run so the browser cache stays fresh; set `PORT` to override.
@@ -37,7 +37,7 @@ The repo has four test tiers. Pick the home by what you are testing.
 
 - Fast pytest hygiene under `tests/` covers markdown links, ASCII compliance,
   and file naming. These are cross-ecosystem checks, not the TypeScript
-  toolchain. Run them with `pytest tests/`. One guard, the test naming check,
+  toolchain. Run them with `source source_me.sh && pytest tests/`. One guard, the test naming check,
   enforces test file naming under `tests/e2e/` and `tests/playwright/`.
 - Node unit tests live in `tests/test_*.mjs`. Add one by dropping a
   `test_<name>.mjs` into `tests/`; `./check_codebase.sh` picks it up

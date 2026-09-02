@@ -129,7 +129,7 @@ export function decodeQuestionFormat(value: unknown, path: string): QuestionForm
   return decodeStringEnum(value, path, QUESTION_FORMATS);
 }
 
-/** Strict key-free preview projection shared by the local WASM boundary. */
+/** Strict key-free Draft Question Preview shared by the local WASM boundary. */
 export function decodeKeyFreeDraftPreview(
   value: unknown,
   path = "wasmPreview",
@@ -438,7 +438,7 @@ export function decodeQuestionGradingRule(
   }
 }
 
-/** Strict compact projection for an instructor-owned, unversioned workspace draft. */
+/** Strict compact Draft Question Summary for an instructor-owned, unversioned workspace draft. */
 export function decodeDraftQuestionSummary(
   value: unknown,
   path = "response",
