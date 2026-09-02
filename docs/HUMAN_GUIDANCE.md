@@ -183,6 +183,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.
+- Student email addresses are immmutable. Even students who change their legal name do not usually 
+get a new address during the semester and if they did I might just make them create a new account
 
 ## Course observers, student observers, and graders philosophy
 
