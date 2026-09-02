@@ -12,10 +12,8 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -34,16 +32,6 @@ const geneticsCourseTitle = "Genetics Practice Course";
 const baseAssignmentTitle = "Peptide Bonds: Structure and Resonance";
 const pleQuestionTitle = "Peptide bond resonance and planarity";
 const firstVisibleResponseIndex = 0;
-
-const evidenceArtifacts = [
-  { artifactId: "question_library_discovery_disclosed_evidence_laptop", viewport: "laptop" },
-] as const;
-const usageArtifacts = [
-  { artifactId: "question_library_discovery_authorized_usage_laptop", viewport: "laptop" },
-] as const;
-const libraryArtifacts = [
-  { artifactId: "question_library_discovery_filtered_library_laptop", viewport: "laptop" },
-] as const;
 
 const emails = {
   elena: "elena.rivera@live-demo.ple.example",
@@ -222,28 +210,14 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
 }
 
-async function captureLaptopState(
-  page: Page,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
-  target: Locator,
-  artifacts: ReadonlyArray<{
-    readonly artifactId: string;
-    readonly viewport: keyof typeof CORPUS_VIEWPORT_SIZES;
-  }>,
-): Promise<void> {
-  for (const artifact of artifacts) {
-    await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
-    // Place the captured evidence section at the top of the fixed viewport so
-    // its heading, authorized course row, and next-step link are visible
-    // together. `scrollIntoViewIfNeeded` can leave a partially visible section
-    // at the viewport edge when the preceding evidence panel is tall.
-    await target.evaluate((element) => {
-      element.scrollIntoView({ block: "start", inline: "nearest" });
-    });
-    await expect(target).toBeVisible();
-    await expectNoHorizontalOverflow(page);
-    await captureRealStackScreenshot(page, scenarioInput, artifact.artifactId);
-  }
+async function verifyVisibleLayout(page: Page, target: Locator): Promise<void> {
+  // Keep this evidence target at the top of the viewport because a tall
+  // preceding panel can otherwise leave it only partly visible.
+  await target.evaluate((element) => {
+    element.scrollIntoView({ block: "start", inline: "nearest" });
+  });
+  await expect(target).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 }
 
 async function verifyLibraryFilters(page: Page): Promise<void> {
@@ -264,7 +238,7 @@ async function verifyLibraryFilters(page: Page): Promise<void> {
 }
 
 async function verifyLaptopLibraryKeyboardPath(page: Page): Promise<void> {
-  await page.setViewportSize(CORPUS_VIEWPORT_SIZES.laptop);
+  await page.setViewportSize({ width: 1280, height: 800 });
   const results = page.getByRole("region", { name: "Published questions" });
   const result = results
     .getByRole("article")
@@ -418,25 +392,16 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await openLibraryDetail(elena);
         await assertFiveLearnerEvidence(elena);
         await expectUsageOnlyInCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-        await captureLaptopState(
+        await verifyVisibleLayout(
           elena,
-          scenarioInput,
           elena.getByRole("heading", { name: "Learning evidence", exact: true }),
-          evidenceArtifacts,
         );
-        await captureLaptopState(
+        await verifyVisibleLayout(
           elena,
-          scenarioInput,
           elena.getByRole("heading", { name: "Usage across PLE", exact: true }).locator(".."),
-          usageArtifacts,
         );
         await verifyLibraryFilters(elena);
-        await captureLaptopState(
-          elena,
-          scenarioInput,
-          elena.locator('[data-route-surface="library"]'),
-          libraryArtifacts,
-        );
+        await verifyVisibleLayout(elena, elena.locator('[data-route-surface="library"]'));
         await verifyLaptopLibraryKeyboardPath(elena);
       });
 

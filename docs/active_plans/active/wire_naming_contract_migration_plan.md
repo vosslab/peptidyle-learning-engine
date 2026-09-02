@@ -138,9 +138,10 @@ its one closure; it adds neither aliases nor parallel role vocabulary.
   `decodeLearnerAssignmentPage`, and `decodeLearnerSubmissionStatus`, the class-statistics
   converter, and each browser client/runtime member target.
 - SR5 maps every legacy Student-work protected database function to its exact successor target in the ledger,
-  including assignment, attempt, audience, course, enrollment, group-member, group, member,
-  prefetch, Assignment Attempt, and summary operations. It also names the fence and the three exact current
-  function names and targets in the ledger.
+  including retired wire names for assignment, attempt, audience, course, enrollment, group-member,
+  group, and member; their current relationship names are Course Membership and Active Student Course
+  Membership. It also maps prefetch, Assignment Attempt, and summary operations, and names the fence and
+  the three exact current function names and targets in the ledger.
 
 Fresh WN1-A review checked those embedded tables against current material source before WN1-B and
 accepted them on 2026-08-28. The allocation receipt makes no implementation or test-acceptance claim.
@@ -172,7 +173,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                            |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
 | C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
-| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority/groups/preview                                                                                         |
+| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority, Course Membership, and policy preview                                                                 |
 
 The [implementation status registry](../implementation_status.md) is the current route-by-route
 authority. No C7 is created.

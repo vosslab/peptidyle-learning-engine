@@ -13,12 +13,12 @@ mod ple_question_json_response_format_fixture_set;
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
-fn committed_seed_vectors_match_browser_generation() {
-    determinism_support::assert_committed_seed_vectors();
+fn deterministic_seed_vector_fixture_set_matches_browser_generation() {
+    determinism_support::assert_committed_deterministic_seed_vector_fixture_set();
 }
 
 #[wasm_bindgen_test]
-fn ple_question_json_public_response_corpus_matches_browser_wasm() {
+fn ple_question_json_public_response_fixture_set_matches_browser_wasm() {
     for case in ple_question_json_response_format_fixture_set::cases() {
         let check = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),

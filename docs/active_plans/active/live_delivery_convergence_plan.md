@@ -51,7 +51,7 @@ WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 `2026081814`, and `2026081816` through `2026081820`, plus `2026081823`:
 
 - Assignment and complete Assignment Content mutation with revision conflict checks;
-- course-group, entitlement, accommodation, and schedule-exception source authority;
+- Course Membership, entitlement, Student Accommodation, and schedule-exception source authority;
 - immutable issued-question source and private execution snapshots for normal student work;
 - session-derived course creation and co-instructor invitation mutations;
 - grade-scheme, export-audit, scoring preparation, and scoring finalization operations; and
@@ -87,7 +87,7 @@ Focused implementation evidence:
    access, server, and project-tools tests pass.
 2. Type generation converges and the TypeScript typecheck, lint, format, and Node tests pass.
 3. A fresh PostgreSQL cluster applies the final migration ledger and passes assignment mutation,
-   group/accommodation, student issuance/submission/replay, teaching authority, grade settings,
+   Course Membership and Student Accommodation, student issuance/submission/replay, teaching authority, grade settings,
    and scoring authority tests with exact least-privilege roles and forced RLS.
 4. The canonical production HTTPS browser suite exercises authoring, preview, student delivery,
    deterministic grading, grade settings, and Instructor review on ordinary live state.

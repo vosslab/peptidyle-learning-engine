@@ -22,10 +22,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			visible_observation=(
 				"instructor_question_curation_reuses_public_questions_from_private_question_folders"
 			),
-			screenshot_states=(
-				"curation_workspace",
-				"revision_recovery",
-				"assignment_picker",
-			),
 		),
 	)

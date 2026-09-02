@@ -3,6 +3,6 @@
 mod determinism_support;
 
 #[test]
-fn committed_seed_vectors_match_native_generation() {
-    determinism_support::assert_committed_seed_vectors();
+fn deterministic_seed_vector_fixture_set_matches_native_generation() {
+    determinism_support::assert_committed_deterministic_seed_vector_fixture_set();
 }

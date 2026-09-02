@@ -204,5 +204,5 @@ See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence boundary a
 
 ## Known gaps
 
-- Workflows outside the reviewed four-question Chapter 1 corpus need their own source and live
+- Workflows outside the reviewed four-question Chapter 1 Pilot Question Set need their own source and live
   evidence; see [USAGE.md](USAGE.md#known-gaps).

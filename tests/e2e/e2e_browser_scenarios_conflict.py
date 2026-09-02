@@ -13,6 +13,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			baseline_reads=("base_course",),
 			ui_creates=("course", "grade_scheme"),
 			visible_observation="stale_grade_settings_preserve_local_draft_and_retry_persists",
-			screenshot_states=("conflict_detected", "retry_saved", "remote_observed"),
 		),
 	)

@@ -1,4 +1,4 @@
-//! Shared native/WASM assertions for the committed determinism corpus.
+//! Shared native/WASM assertions for the committed Deterministic Seed Vector Fixture Set.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -8,20 +8,20 @@ use question_model::generation::{
 };
 use serde::Deserialize;
 
-/// Minimum corpus size required for every registered generator.
+/// Minimum vector count required for every registered generator.
 const MINIMUM_SEEDS_PER_GENERATOR: usize = 50;
 
 /// Versioned top-level seed-vector fixture.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SeedCorpus {
+struct DeterministicSeedVectorFixtureSet {
     format_version: u32,
-    generators: Vec<GeneratorCorpus>,
+    generators: Vec<QuestionGeneratorSeedVectorSet>,
 }
 
 /// One generator rule and its committed expected hashes.
 #[derive(Debug, Deserialize)]
-struct GeneratorCorpus {
+struct QuestionGeneratorSeedVectorSet {
     generator: QuestionGeneratorReference,
     rule: QuestionVariationRule,
     vectors: Vec<SeedVector>,
@@ -35,7 +35,7 @@ struct SeedVector {
     expected_output_sha256: String,
 }
 
-/// Parameter-shape branches that the corpus must exercise.
+/// Parameter-shape branches that the fixture set must exercise.
 #[derive(Debug, Default)]
 struct ParameterCoverage {
     integer_single: bool,
@@ -88,52 +88,61 @@ impl ParameterCoverage {
     }
 }
 
-/// Runs the exact same corpus and assertions on the native and browser targets.
-pub fn assert_committed_seed_vectors() {
-    let corpus: SeedCorpus = serde_json::from_str(include_str!("seed_vectors.json"))
-        .expect("seed vector fixture must be valid JSON");
-    assert_eq!(corpus.format_version, 1, "unsupported seed-vector format");
+/// Runs the exact fixture set and assertions on the native and browser targets.
+pub fn assert_committed_deterministic_seed_vector_fixture_set() {
+    let seed_vector_fixture_set: DeterministicSeedVectorFixtureSet =
+        serde_json::from_str(include_str!("seed_vectors.json"))
+            .expect("seed vector fixture must be valid JSON");
+    assert_eq!(
+        seed_vector_fixture_set.format_version, 1,
+        "unsupported seed-vector format"
+    );
     assert!(
-        !corpus.generators.is_empty(),
-        "seed corpus must name a generator"
+        !seed_vector_fixture_set.generators.is_empty(),
+        "seed vector fixture set must name a generator"
     );
 
     let mut generator_ids = BTreeSet::new();
-    for generator in corpus.generators {
+    for generator_seed_vector_set in seed_vector_fixture_set.generators {
         assert!(
-            generator_ids.insert(generator.generator.clone()),
-            "duplicate generator corpus: {}@{}",
-            generator.generator.id,
-            generator.generator.version
+            generator_ids.insert(generator_seed_vector_set.generator.clone()),
+            "duplicate Question Generator Seed Vector Set: {}@{}",
+            generator_seed_vector_set.generator.id,
+            generator_seed_vector_set.generator.version
         );
-        assert_generator_corpus(&generator);
+        assert_question_generator_seed_vector_set(&generator_seed_vector_set);
     }
 }
 
 /// Verifies coverage and hashes, stopping at the first divergent seed.
-fn assert_generator_corpus(corpus: &GeneratorCorpus) {
+fn assert_question_generator_seed_vector_set(
+    generator_seed_vector_set: &QuestionGeneratorSeedVectorSet,
+) {
     let QuestionVariationRule::Seeded {
         generator,
         parameters,
-    } = &corpus.rule
+    } = &generator_seed_vector_set.rule
     else {
         panic!(
-            "{}@{}: corpus rule must be seeded",
-            corpus.generator.id, corpus.generator.version
+            "{}@{}: seed vector fixture rule must be seeded",
+            generator_seed_vector_set.generator.id, generator_seed_vector_set.generator.version
         );
     };
     assert_eq!(
-        generator, &corpus.generator,
+        generator, &generator_seed_vector_set.generator,
         "fixture generator must match its rule"
     );
-    let generator_label = format!("{}@{}", corpus.generator.id, corpus.generator.version);
+    let generator_label = format!(
+        "{}@{}",
+        generator_seed_vector_set.generator.id, generator_seed_vector_set.generator.version
+    );
     assert!(
-        corpus.vectors.len() >= MINIMUM_SEEDS_PER_GENERATOR,
+        generator_seed_vector_set.vectors.len() >= MINIMUM_SEEDS_PER_GENERATOR,
         "{}: expected at least {MINIMUM_SEEDS_PER_GENERATOR} seeds, got {}",
         generator_label,
-        corpus.vectors.len()
+        generator_seed_vector_set.vectors.len()
     );
-    assert_strict_seed_order(corpus);
+    assert_strict_seed_order(generator_seed_vector_set);
     parameter_coverage(parameters).assert_complete(&generator_label);
 
     let mut observed: BTreeMap<String, BTreeSet<String>> = parameters
@@ -141,15 +150,18 @@ fn assert_generator_corpus(corpus: &GeneratorCorpus) {
         .map(|name| (name.clone(), BTreeSet::new()))
         .collect();
 
-    for vector in &corpus.vectors {
+    for vector in &generator_seed_vector_set.vectors {
         assert_hash_shape(&generator_label, vector);
-        let output =
-            generate(QuestionSeed::new(vector.seed), &corpus.rule).unwrap_or_else(|error| {
-                panic!(
-                    "generator `{}` first divergent seed {}: generation failed: {error}",
-                    generator_label, vector.seed
-                )
-            });
+        let output = generate(
+            QuestionSeed::new(vector.seed),
+            &generator_seed_vector_set.rule,
+        )
+        .unwrap_or_else(|error| {
+            panic!(
+                "generator `{}` first divergent seed {}: generation failed: {error}",
+                generator_label, vector.seed
+            )
+        });
         let actual = output.sha256().unwrap_or_else(|error| {
             panic!(
                 "generator `{}` first divergent seed {}: hashing failed: {error}",
@@ -173,13 +185,13 @@ fn assert_generator_corpus(corpus: &GeneratorCorpus) {
 }
 
 /// Confirms vectors have one deterministic first-divergence order.
-fn assert_strict_seed_order(corpus: &GeneratorCorpus) {
-    for pair in corpus.vectors.windows(2) {
+fn assert_strict_seed_order(generator_seed_vector_set: &QuestionGeneratorSeedVectorSet) {
+    for pair in generator_seed_vector_set.vectors.windows(2) {
         assert!(
             pair[0].seed < pair[1].seed,
             "{}@{}: seed vectors must be strictly increasing",
-            corpus.generator.id,
-            corpus.generator.version
+            generator_seed_vector_set.generator.id,
+            generator_seed_vector_set.generator.version
         );
     }
 }
@@ -253,7 +265,7 @@ fn assert_observed_variation(
     }
 }
 
-/// Stable display used only to count distinct values observed by the corpus.
+/// Stable display used only to count distinct values observed by the fixture set.
 fn observed_value(value: QuestionVariationParameterValue) -> String {
     match value {
         QuestionVariationParameterValue::Integer { value } => format!("integer:{value}"),

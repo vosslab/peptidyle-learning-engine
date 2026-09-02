@@ -9,7 +9,7 @@
 //   student claiming and the Start assignment control.
 // - src/pages/assignment_attempt_page.tsx and src/components/question_response_controls/common.tsx own the attempt surface
 //   and visible response controls.
-import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
@@ -27,7 +27,6 @@ import {
   startOrContinuePractice,
   writeContextOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const timeoutMs = 600_000;
@@ -127,7 +126,7 @@ async function startAssignmentAttempt(
   await page.getByRole("radio", { name: answer, exact: true }).check();
 }
 
-async function observeFreshScore(page: Page, course: string, assignment: string): Promise<Locator> {
+async function observeFreshScore(page: Page, course: string, assignment: string): Promise<void> {
   await chooseSeededIdentity(page, /Mary Okafor/u);
   await selectVisibleCourse(page, course);
   const card = page
@@ -137,7 +136,6 @@ async function observeFreshScore(page: Page, course: string, assignment: string)
   const facts = page.locator(".assignment-facts");
   const scoreStatus = facts.getByRole("status");
   await expect(scoreStatus).toHaveText("Score available: Current 100%, Latest 100%, Best 100%.");
-  return scoreStatus;
 }
 
 test.describe.configure({ mode: "serial" });
@@ -200,8 +198,6 @@ test("student gateway recovery: a saved response retries after the owner restore
     await expect(selectedResponse).toBeChecked();
     const retry = student.getByRole("button", { name: "Retry saved response" });
     await expect(retry).toBeVisible();
-    await retry.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_retry");
     handshake.notify("network_recovery_visible");
     await handshake.waitFor("gateway_recovered");
     await retry.focus();
@@ -209,8 +205,6 @@ test("student gateway recovery: a saved response retries after the owner restore
     await student.keyboard.press("Enter");
     const feedback = await waitForAutomatedStudentFeedback(student);
     await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-    await feedback.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(student, scenarioInput, "learner_gateway_recovered_feedback");
     await student
       .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
       .click();
@@ -218,12 +212,6 @@ test("student gateway recovery: a saved response retries after the owner restore
     await expect(
       completion.getByText("Your completed Assignment Attempt is recorded."),
     ).toBeVisible();
-    await completion.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(
-      student,
-      scenarioInput,
-      "learner_gateway_recovered_completion",
-    );
     await signOutVisible(student);
     await learnerContext.close();
     contexts.splice(contexts.indexOf(learnerContext), 1);
@@ -237,9 +225,7 @@ test("student gateway recovery: a saved response retries after the owner restore
     expect(await freshContext.storageState()).toEqual({ cookies: [], origins: [] });
     const fresh = await freshContext.newPage();
     configureContextAndPage(freshContext, fresh, actionTimeoutMs);
-    const freshScore = await observeFreshScore(fresh, course, assignment);
-    await freshScore.scrollIntoViewIfNeeded();
-    await captureRealStackScreenshot(fresh, scenarioInput, "learner_gateway_fresh_session_score");
+    await observeFreshScore(fresh, course, assignment);
     expectObservedOrigin(origins.instructor, expected);
     expectObservedOrigin(origins.student, expected);
     expectObservedOrigin(origins.fresh_learner, expected);

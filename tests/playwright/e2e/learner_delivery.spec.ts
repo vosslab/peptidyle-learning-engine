@@ -26,7 +26,6 @@ import {
   startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const journeyTimeoutMs = 600_000;
@@ -52,17 +51,6 @@ function assignmentArticle(page: Page, assignmentTitle: string): Locator {
   return page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-}
-
-async function captureVisibleState(
-  page: Page,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
-  artifactId: string,
-  focus: Locator,
-): Promise<void> {
-  await expect(focus).toBeVisible();
-  await focus.scrollIntoViewIfNeeded();
-  await captureRealStackScreenshot(page, scenarioInput, artifactId);
 }
 
 async function restoreViewportOrigin(page: Page): Promise<void> {
@@ -178,7 +166,6 @@ async function claimCourseAndCompleteAssignment(
   courseTitle: string,
   assignmentTitle: string,
   correctChoice: string,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   await chooseSeededIdentity(page, /Mary Okafor/u);
   await page.goto(invitationUrl);
@@ -208,41 +195,13 @@ async function claimCourseAndCompleteAssignment(
       }),
     )
     .toEqual({ description: "summary", progress: "progress" });
-  await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_assignment_list");
   await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
   await expect(page.locator("[data-route-surface=assignmentOverview]")).toBeVisible();
-  await captureRealStackScreenshot(
-    page,
-    scenarioInput,
-    "learner_delivery_assignment_overview_laptop",
-  );
-  await captureRealStackScreenshot(
-    page,
-    scenarioInput,
-    "learner_delivery_assignment_overview_tablet",
-  );
-  await captureRealStackScreenshot(
-    page,
-    scenarioInput,
-    "learner_delivery_assignment_overview_iphone_pro",
-  );
-  await captureRealStackScreenshot(
-    page,
-    scenarioInput,
-    "learner_delivery_assignment_overview_square",
-  );
   await startOrContinuePractice(page);
-  await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_problem_ready");
   const selectedResponse = page.getByRole("radio", { name: correctChoice, exact: true });
   await selectedResponse.focus();
   await page.keyboard.press("Space");
   await expect(selectedResponse).toBeChecked();
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_response_selected",
-    selectedResponse,
-  );
   const submitAnswer = page.getByRole("button", { name: "Submit answer" });
   await submitAnswer.focus();
   await page.keyboard.press("Enter");
@@ -253,7 +212,6 @@ async function claimCourseAndCompleteAssignment(
   await expect(
     feedback.getByRole("heading", { name: "Correct Feedback", exact: true }),
   ).toBeVisible();
-  await captureVisibleState(page, scenarioInput, "learner_delivery_feedback_correct", feedback);
   await page
     .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
     .click();
@@ -264,7 +222,6 @@ async function claimCourseAndCompleteAssignment(
     "Score available: Current 100%, Latest 100%, Best 100%.",
   );
   await expect(assignmentScore).toContainText("This Assignment Attempt: 100%");
-  await captureVisibleState(page, scenarioInput, "learner_delivery_completion", summary);
   await summary.getByRole("button", { name: "Start fresh practice" }).click();
   await expect(page.locator("[data-route-surface=assignmentAttempt]")).toBeVisible();
   const assignmentAttemptHeader = page.locator(".assignment-attempt-header");
@@ -277,18 +234,12 @@ async function claimCourseAndCompleteAssignment(
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   await restoreViewportOrigin(page);
   await expect(page.getByRole("radio", { name: correctChoice, exact: true })).not.toBeChecked();
-  await captureRealStackScreenshot(
-    page,
-    scenarioInput,
-    "learner_delivery_additional_assignment_attempt",
-  );
 }
 
 async function observeCompletedRunInFreshSession(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   await chooseSeededIdentity(page, /Mary Okafor/u);
   await selectVisibleCourse(page, courseTitle);
@@ -310,19 +261,12 @@ async function observeCompletedRunInFreshSession(
     .locator("..")
     .locator("dd");
   await expect(completedAssignmentAttempts).toHaveText(/[1-9]\d*/u);
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_fresh_session_score",
-    scoreStatus,
-  );
 }
 
 async function observeInstructorOutcomesAndAccess(
   page: Page,
   assignmentTitle: string,
   submittedResponse: string,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   // Leave the invitation-era roster instance so the visible return performs a
   // fresh server read after Mary's claim and completed Assignment Attempt.
@@ -331,12 +275,6 @@ async function observeInstructorOutcomesAndAccess(
   await expect(page.locator("[data-route-surface=courseRoster]")).toBeVisible();
   const activeLearner = page.getByRole("row", { name: /Mary Okafor/u });
   await expect(activeLearner).toBeVisible();
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_instructor_active_roster",
-    activeLearner,
-  );
 
   await page.getByRole("link", { name: "Gradebook" }).click();
   await expect(page.locator("[data-route-surface=gradebook]")).toBeVisible();
@@ -354,7 +292,6 @@ async function observeInstructorOutcomesAndAccess(
     exact: true,
   });
   await expect(inspectSubmittedWork).toHaveCount(1);
-  await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_instructor_gradebook");
 
   await inspectSubmittedWork.click();
   const inspectedWork = page.locator("[data-route-surface=studentWorkInspection]");
@@ -397,12 +334,6 @@ async function observeInstructorOutcomesAndAccess(
   await expect(allowedPreview).toBeVisible();
   await expect(allowedPreview).toContainText("Course time zone:");
   await expect(page.getByText("This student is not entitled to this assignment.")).toHaveCount(0);
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_access_preview_allowed",
-    allowedPreview,
-  );
 
   // Access has its own course-management navigation. Return through the visible
   // Assignments link and reacquire the article before following its semantic title link.
@@ -428,12 +359,6 @@ async function observeInstructorOutcomesAndAccess(
     .selectOption({ label: "Mary Okafor" });
   const deniedPreview = page.getByText("This student is not entitled to this assignment.");
   await expect(deniedPreview).toBeVisible();
-  await captureVisibleState(
-    page,
-    scenarioInput,
-    "learner_delivery_access_preview_denied",
-    deniedPreview,
-  );
 }
 
 test.describe.configure({ mode: "serial" });
@@ -481,7 +406,6 @@ test("student delivery: Mary completes and revisits an instructor-created assign
       courseTitle,
       assignmentTitle,
       correctChoice,
-      scenarioInput,
     );
     await signOutVisible(mary);
     await maryContext.close();
@@ -494,12 +418,12 @@ test("student delivery: Mary completes and revisits an instructor-created assign
     expect(await freshMaryContext.storageState()).toEqual({ cookies: [], origins: [] });
     const freshMary = await freshMaryContext.newPage();
     configurePage(freshMary);
-    await observeCompletedRunInFreshSession(freshMary, courseTitle, assignmentTitle, scenarioInput);
+    await observeCompletedRunInFreshSession(freshMary, courseTitle, assignmentTitle);
     await signOutVisible(freshMary);
     await freshMaryContext.close();
     contexts.splice(contexts.indexOf(freshMaryContext), 1);
 
-    await observeInstructorOutcomesAndAccess(elena, assignmentTitle, correctChoice, scenarioInput);
+    await observeInstructorOutcomesAndAccess(elena, assignmentTitle, correctChoice);
 
     expect(pageOrigins.size).toBeGreaterThan(0);
     expect(requestOrigins.size).toBeGreaterThan(0);

@@ -19,14 +19,12 @@ def test_scenario_registry_preserves_direct_role_security_journeys() -> None:
 	assert direct.personas == ("morgan_sysadmin",)
 	assert direct.ui_creates == ("passkey",)
 	assert direct.seed_state_transitions == ()
-	assert direct.screenshot_states == ("account_security_passkey",)
 	auth = browser_scenario_contract.require_contract("auth_authorization", registry)
 	assert "elena_instructor" in auth.personas
 	assert "passkey" in auth.ui_creates
 	assert auth.visible_observation.startswith("instructor_passkey_reauthentication")
 	pool = browser_scenario_contract.require_contract("item_pool_delivery", registry)
 	assert pool.personas == ("elena_instructor", "mary_student")
-	assert pool.screenshot_states == ("pool_preview", "learner_delivered_pool")
 
 
 @pytest.mark.parametrize("scenario_id", ["direct_role_entry", "auth_authorization"])

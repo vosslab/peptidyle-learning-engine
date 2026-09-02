@@ -9,7 +9,7 @@
 // - src/pages/course_list_page.tsx, src/pages/course_assignments_page.tsx, and
 //   src/pages/assignment_workspace/ own the visible course and assignment workflow.
 // - src/pages/gradebook_page.tsx:151 owns the calculated assignment-cell score observed here.
-import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
@@ -20,30 +20,14 @@ import {
   observeContextOrigins,
   relativeIsoDate,
   requireScenarioInput,
-  restoreViewportOrigin,
   selectVisibleCourse,
   startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const maryEmail = "mary.okafor@live-demo.ple.example";
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
-
-async function captureInstructorState(
-  page: Page,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
-  artifactId: string,
-  focus?: Locator,
-): Promise<void> {
-  await restoreViewportOrigin(page);
-  if (focus !== undefined) {
-    await expect(focus).toBeVisible();
-    await focus.scrollIntoViewIfNeeded();
-  }
-  await captureRealStackScreenshot(page, scenarioInput, artifactId);
-}
 
 test.describe("instructor authoring on the production PLE stack", () => {
   test.skip(
@@ -196,11 +180,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await elena.getByRole("link", { name: "Policies", exact: true }).click();
       await expect(elena.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
       await expect(elena.getByLabel("Lifecycle")).toHaveValue("unreleased");
-      await captureInstructorState(
-        elena,
-        scenarioInput,
-        "instructor_authoring_assignment_policies",
-      );
       await elena.getByLabel("Lifecycle").selectOption("released");
       await elena.getByRole("button", { name: "Save assignment policies", exact: true }).click();
       const publishedResult = elena
@@ -231,7 +210,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
       for (const name of ["Overview", "Questions", "Policies", "Student view"] as const) {
         await expect(workspaceNavigation.getByRole("link", { name, exact: true })).toBeInViewport();
       }
-      await captureInstructorState(elena, scenarioInput, "instructor_authoring_student_view");
 
       await elena.getByRole("link", { name: "Return to assignment", exact: true }).click();
       await expect(

@@ -27,10 +27,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			visible_observation=(
 				"five_independent_learners_across_two_courses_disclose_evidence_and_authorized_usage"
 			),
-			screenshot_states=(
-				"disclosed_evidence",
-				"authorized_usage",
-				"filtered_library",
-			),
 		),
 	)

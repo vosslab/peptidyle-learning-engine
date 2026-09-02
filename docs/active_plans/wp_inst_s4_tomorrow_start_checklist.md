@@ -17,19 +17,17 @@
 - Instructor and Sysadmin evidence uses exactly 1280 by 800 CSS pixels (16:10) on a laptop or
   desktop. Student evidence includes an allowed student surface and fail-closed denial of
   instructor-only routes.
-- Put committed evidence under `docs/screenshots/` by instructor, student, and the student/access
-  boundary; access artifacts use `docs/screenshots/student/access/`.
-  `tests/playwright/ui_corpus_manifest.ts` is the sole screenshot ownership authority.
-- Pair every access screenshot with no-transport assertions and direct route probes. Pixels alone
-  cannot prove authorization. The route boundary is centrally derived and fails closed before
-  instructor components or transport mount, including roster and gradebook.
+- Treat retained images under `docs/screenshots/` as historical reference, organized by instructor,
+  student, and the student/access boundary; access images use `docs/screenshots/student/access/`.
+- Use no-transport assertions and direct route probes to prove authorization. The route boundary is
+  centrally derived and fails closed before instructor components or transport mount, including roster
+  and gradebook.
 - Email is unavailable. Use local-development credentials or invitations for live evidence without
   claiming email delivery. Fictional deterministic `example.invalid` fixture addresses are allowed,
   while real email and identifying records are prohibited. Keep public and private evidence boundaries
   separate.
-- The accepted corpus contains fresh, inspected allowed-student and instructor-route-denial captures
-  at all four viewports. Manifest/provenance verification covers 32 artifacts; direct route and
-  no-transport tests remain the authorization proof because pixels alone are insufficient.
+- Current browser journeys retain direct route and no-transport checks as the authorization proof;
+  historical images do not substitute for those checks.
 
 ## Historical start sequence and completed closure
 

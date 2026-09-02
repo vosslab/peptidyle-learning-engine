@@ -13,6 +13,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			baseline_reads=("base_course",),
 			ui_creates=("question", "course", "assignment", "invitation"),
 			visible_observation="instructor_authoring_persists_after_reload",
-			screenshot_states=("assignment_policies", "student_view"),
 		),
 	)

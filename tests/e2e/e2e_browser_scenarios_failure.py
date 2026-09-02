@@ -14,11 +14,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			ui_creates=("question", "course", "assignment", "invitation", "response"),
 			visible_observation="saved_response_retries_after_gateway_recovery",
 			fault_transition="gateway_submit_outage",
-			screenshot_states=(
-				"gateway_retry",
-				"recovered_feedback",
-				"recovered_completion",
-				"fresh_session_score",
-			),
 		),
 	)

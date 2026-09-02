@@ -250,7 +250,7 @@ cargo test -p domain --test test_determinism -- --nocapture
 # Presentation descriptor, nonce, collision, and public-rebuild rules.
 cargo test -p question_model presentation
 
-# Rust and generated-Node execution of the shared answer-free PLE Question JSON v2 response corpus.
+# Rust and generated-Node execution of the shared answer-free Question Response Format Fixture Set.
 cargo test -p wasm_bridge --test ple_question_json_response_format_native
 ./pipeline/build_wasm.sh
 node tests/e2e/e2e_wasm_bridge.mjs
@@ -260,7 +260,7 @@ node tests/e2e/e2e_wasm_bridge.mjs
 ./run_playwright_tests.sh --scenario instructor_authoring
 ```
 
-The fixed corpus is `crates/wasm/ple_question_json_response_format_corpus.json`; Rust,
+The fixed Question Response Format Fixture Set is `crates/wasm/ple_question_json_response_format_fixture_set.json`; Rust,
 generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
 prove generated-parameter and key-free public-response parity; the canonical instructor scenario
 proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.

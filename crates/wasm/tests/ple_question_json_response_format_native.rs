@@ -1,6 +1,6 @@
 //! Native half of the ple-question-json-v2 public-response/Wasm-boundary parity gate.
 //!
-//! The shared corpus deliberately contains only compiled, answer-free response
+//! The shared Question Response Format Fixture Set deliberately contains only compiled, answer-free response
 //! definitions. Parsing source documents or grading them here would pull the
 //! server-only PLE Question JSON adapter and answer keys into the browser boundary.
 
@@ -10,7 +10,7 @@ use serde_json::Value;
 mod ple_question_json_response_format_fixture_set;
 
 #[test]
-fn ple_question_json_public_response_corpus_matches_native_bridge() {
+fn ple_question_json_public_response_fixture_set_matches_native_bridge() {
     for case in ple_question_json_response_format_fixture_set::cases() {
         let check = wasm_bridge::validate_response_format(
             &serde_json::to_string(&case.definition).expect("definition serializes"),

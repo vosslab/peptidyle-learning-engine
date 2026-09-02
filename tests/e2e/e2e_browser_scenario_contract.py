@@ -76,8 +76,6 @@ class ScenarioContract:
 	seed_state_transitions: tuple[str, ...] = ()
 	service_receipt: str | None = None
 	fault_transition: str | None = None
-	# Closed visual states exposed only when the suite runs its screenshot corpus.
-	screenshot_states: tuple[str, ...] = ()
 
 
 def scenario_contracts() -> tuple[ScenarioContract, ...]:
@@ -130,8 +128,6 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_visible_observation(contract.visible_observation)
 	_validate_service_receipt(contract.service_receipt)
 	_validate_fault_transition(contract.fault_transition)
-	if contract.screenshot_states:
-		_validate_screenshot_states(contract.screenshot_states)
 	_validate_seed_state_transitions(contract.seed_state_transitions)
 
 
@@ -259,11 +255,3 @@ def _validate_closed_values(
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")
 	if not set(values).issubset(allowed):
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")
-
-
-def _validate_screenshot_states(values: tuple[str, ...]) -> None:
-	"""Keep provider states unique while the JSON corpus owns their closed inventory."""
-	if not values or len(values) != len(set(values)):
-		raise ScenarioContractError("browser scenario screenshot state values are invalid")
-	for value in values:
-		_validate_identifier(value)

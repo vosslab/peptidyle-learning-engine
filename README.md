@@ -29,10 +29,9 @@ that implement it.
 <!-- screenshots:end -->
 
 The published screenshots show a connected teaching loop: Instructor policy setup, Student feedback,
-and Instructor Gradebook propagation. `tests/e2e/browser_screenshot_corpus.json` is the durable artifact
-and viewport authority; the repository screenshot publisher and its Publication Receipt are the
-publication authority. The demo records behave as ordinary live PLE data inside a disposable,
-production-shaped installation.
+and Instructor Gradebook propagation. They are historical reference images, not a currently owned
+browser-capture inventory or publication boundary. The demo records behave as ordinary live PLE data
+inside a disposable, production-shaped installation.
 [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) defines that boundary, and
 [docs/INSTRUCTOR_GUIDE.md](docs/INSTRUCTOR_GUIDE.md) and
 [docs/STUDENT_GUIDE.md](docs/STUDENT_GUIDE.md) explain the visible workflows.

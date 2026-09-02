@@ -23,7 +23,6 @@ import {
   startOrContinuePractice,
   writeOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
@@ -92,7 +91,6 @@ async function createCourseWithMixedPool(
   assignmentTitle: string,
   fixed: PublishedQuestion,
   questionPoolItems: ReadonlyArray<PublishedQuestion>,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<string> {
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await page.getByLabel("Course title").fill(courseTitle);
@@ -165,8 +163,6 @@ async function createCourseWithMixedPool(
   for (const sample of previewSample) {
     expect(previewQuestionPoolItems).toContain(sample);
   }
-  await preview.scrollIntoViewIfNeeded();
-  await captureRealStackScreenshot(page, scenarioInput, "item_pool_delivery_pool_preview");
   await savedPool.getByRole("button", { name: "Preview another draw", exact: true }).click();
   await expect(
     savedPool.getByRole("heading", { name: "Server-sampled draw", exact: true }),
@@ -200,7 +196,6 @@ async function completeDeliveredPoolRun(
   assignmentTitle: string,
   fixed: PublishedQuestion,
   questionPoolItems: ReadonlyArray<PublishedQuestion>,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
 ): Promise<void> {
   await chooseSeededIdentity(page, /Mary Okafor/u);
   await page.goto(invitationUrl);
@@ -234,13 +229,6 @@ async function completeDeliveredPoolRun(
     const questionPoolItemIndex = questionPoolItems.findIndex((item) => item.title === title);
     expect(questionPoolItemIndex).toBeGreaterThanOrEqual(0);
     deliveredQuestionPoolItemIndexes.push(questionPoolItemIndex);
-    if (position === 0) {
-      await captureRealStackScreenshot(
-        page,
-        scenarioInput,
-        "item_pool_delivery_learner_delivered_pool",
-      );
-    }
     await page.getByRole("radio", { name: questionPoolItem!.correctChoice, exact: true }).check();
     await page.getByRole("button", { name: "Submit answer", exact: true }).click();
     const questionPoolItemFeedback = await waitForAutomatedStudentFeedback(page);
@@ -380,7 +368,6 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         assignmentTitle,
         fixed,
         questionPoolItems,
-        scenarioInput,
       );
       await completeDeliveredPoolRun(
         mary,
@@ -389,7 +376,6 @@ test.describe("item-pool delivery on the production PLE stack", () => {
         assignmentTitle,
         fixed,
         questionPoolItems,
-        scenarioInput,
       );
       await inspectPostIssueEdits(inspectingElena, courseTitle, assignmentTitle);
 

@@ -10,9 +10,7 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
@@ -30,16 +28,6 @@ const scenarioTimeoutMs = 600_000;
 const pleQuestionTitle = "Peptide bond resonance and planarity";
 const privateFolderQuestionTitle = "Biochemistry Chapter 1: Functional group matching";
 const concurrentFolderQuestionTitle = "Genetics Chapter 1: Phenylalanine metabolism";
-
-const workspaceArtifacts = [
-  { artifactId: "question_curation_workspace_laptop", viewport: "laptop" },
-] as const;
-const recoveryArtifacts = [
-  { artifactId: "question_curation_revision_recovery_laptop", viewport: "laptop" },
-] as const;
-const pickerArtifacts = [
-  { artifactId: "question_curation_assignment_picker_laptop", viewport: "laptop" },
-] as const;
 
 interface CurationWireValue {
   readonly direction: "request" | "response";
@@ -84,23 +72,10 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
 }
 
-async function captureLaptop(
-  page: Page,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
-  target: Locator,
-  artifacts: ReadonlyArray<{
-    readonly artifactId: string;
-    readonly viewport: keyof typeof CORPUS_VIEWPORT_SIZES;
-  }>,
-): Promise<void> {
-  for (const artifact of artifacts) {
-    await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
-    await target.scrollIntoViewIfNeeded();
-    await expect(target).toBeVisible();
-    await expectNoHorizontalOverflow(page);
-    await captureRealStackScreenshot(page, scenarioInput, artifact.artifactId);
-  }
-  await page.setViewportSize(CORPUS_VIEWPORT_SIZES.laptop);
+async function verifyVisibleLayout(page: Page, target: Locator): Promise<void> {
+  await target.scrollIntoViewIfNeeded();
+  await expect(target).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 }
 
 function curationPath(url: string): string | null {
@@ -253,7 +228,7 @@ test.describe("question curation on the production PLE stack", () => {
     };
     const curationWire: CurationWireValue[] = [];
     const pendingCurationResponses: Promise<void>[] = [];
-    const options = { ignoreHTTPSErrors: true, viewport: CORPUS_VIEWPORT_SIZES.laptop };
+    const options = { ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } };
     let originEvidenceVerified = false;
     try {
       const elenaContext = await browser.newContext(options);
@@ -301,7 +276,7 @@ test.describe("question curation on the production PLE stack", () => {
         await expect(questionFolderItem(panel, concurrentTitle)).toContainText(
           "Private Question Folder",
         );
-        await captureLaptop(elena, scenarioInput, panel, workspaceArtifacts);
+        await verifyVisibleLayout(elena, panel);
 
         await elena.getByLabel("Search published questions").fill(pleQuestionTitle);
         await panel.getByRole("button", { name: "Save current search", exact: true }).click();
@@ -380,7 +355,7 @@ test.describe("question curation on the production PLE stack", () => {
           `${concurrentTitle} local revision`,
         );
         await expect(localEditor).toContainText("1 questions in this ordered Question Folder.");
-        await captureLaptop(elena, scenarioInput, panel, recoveryArtifacts);
+        await verifyVisibleLayout(elena, panel);
         await panel.getByRole("button", { name: "Reload curation", exact: true }).click();
         await expect(questionFolderItem(panel, remoteConcurrentTitle)).toBeVisible();
       });
@@ -429,7 +404,7 @@ test.describe("question curation on the production PLE stack", () => {
           pleQuestionTitle,
           "Add selected Questions to pool",
           async (picker) => {
-            await captureLaptop(elena, scenarioInput, picker, pickerArtifacts);
+            await verifyVisibleLayout(elena, picker);
           },
         );
         await expect(secondPool).toContainText(pleQuestionTitle);

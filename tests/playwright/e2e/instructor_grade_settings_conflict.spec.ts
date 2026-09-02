@@ -8,7 +8,6 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { CORPUS_VIEWPORT_SIZES } from "../ui_corpus_manifest";
 import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
 import {
   chooseSeededIdentity,
@@ -17,17 +16,11 @@ import {
   observeContextOrigins,
   relativeIsoDate,
   requireScenarioInput,
-  restoreViewportOrigin,
   selectVisibleCourse,
   writeContextOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 const actionTimeoutMs = 30_000;
-
-const remoteObservedLaptopArtifacts = [
-  { artifactId: "grade_settings_remote_observed_laptop", viewport: "laptop" },
-] as const;
 
 async function openGradeSettings(page: Page): Promise<void> {
   await page.getByRole("link", { name: "Grade settings", exact: true }).click();
@@ -56,18 +49,6 @@ async function expectRemoteObservedLaptopState(page: Page, localLabel: string): 
     viewportWidth: window.innerWidth,
   }));
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
-}
-
-async function captureRemoteObservedLaptopStates(
-  page: Page,
-  scenarioInput: ReturnType<typeof requireScenarioInput>,
-  localLabel: string,
-): Promise<void> {
-  for (const artifact of remoteObservedLaptopArtifacts) {
-    await page.setViewportSize(CORPUS_VIEWPORT_SIZES[artifact.viewport]);
-    await expectRemoteObservedLaptopState(page, localLabel);
-    await captureRealStackScreenshot(page, scenarioInput, artifact.artifactId);
-  }
 }
 
 test.describe("instructor grade-settings conflicts on the production PLE stack", () => {
@@ -152,26 +133,20 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
         await expect(gradeSettingsStatus(local)).toContainText("Your draft is preserved");
         const preservedDraft = local.getByRole("textbox", { name: "Label" }).last();
         await expect(preservedDraft).toHaveValue(localLabel);
-        await restoreViewportOrigin(local);
-        await gradeSettingsStatus(local).scrollIntoViewIfNeeded();
-        await captureRealStackScreenshot(local, scenarioInput, "grade_settings_conflict_detected");
 
         const retry = local.getByRole("button", { name: "Save grade settings" });
         await retry.focus();
         await expect(retry).toBeFocused();
         await local.keyboard.press("Enter");
         await expect(gradeSettingsStatus(local)).toHaveText("Grade settings saved.");
-        await restoreViewportOrigin(local);
         await expect(local.getByRole("heading", { name: "Course grade settings" })).toBeVisible();
-        await gradeSettingsStatus(local).scrollIntoViewIfNeeded();
-        await captureRealStackScreenshot(local, scenarioInput, "grade_settings_retry_saved");
       });
 
       await test.step("the second session reloads and observes the authoritative result", async () => {
         await remote.getByRole("button", { name: "Reload current settings" }).click();
         await expect(remote.getByRole("textbox", { name: "Label" }).last()).toHaveValue(localLabel);
         await expect(gradeSettingsStatus(remote)).toHaveText("Latest server settings loaded.");
-        await captureRemoteObservedLaptopStates(remote, scenarioInput, localLabel);
+        await expectRemoteObservedLaptopState(remote, localLabel);
       });
       expectObservedOrigin(origins.local, expectedOrigin);
       expectObservedOrigin(origins.remote, expectedOrigin);

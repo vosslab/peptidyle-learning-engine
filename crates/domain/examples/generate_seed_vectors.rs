@@ -1,4 +1,4 @@
-//! Regenerates the reviewed WP-C5 seed-vector baseline.
+//! Regenerates the reviewed Deterministic Seed Vector Fixture Set.
 
 use std::error::Error;
 use std::fs;
@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SeedCorpus {
+struct DeterministicSeedVectorFixtureSet {
     format_version: u32,
-    generators: Vec<GeneratorCorpus>,
+    generators: Vec<QuestionGeneratorSeedVectorSet>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GeneratorCorpus {
+struct QuestionGeneratorSeedVectorSet {
     generator: QuestionGeneratorReference,
     rule: QuestionVariationRule,
     vectors: Vec<SeedVector>,
@@ -32,16 +32,22 @@ struct SeedVector {
 fn main() -> Result<(), Box<dyn Error>> {
     let fixture_path = fixture_path();
     let source = fs::read_to_string(&fixture_path)?;
-    let mut corpus: SeedCorpus = serde_json::from_str(&source)?;
+    let mut seed_vector_fixture_set: DeterministicSeedVectorFixtureSet =
+        serde_json::from_str(&source)?;
 
-    for generator in &mut corpus.generators {
-        for vector in &mut generator.vectors {
-            vector.expected_output_sha256 =
-                generate_hash(QuestionSeed::new(vector.seed), &generator.rule)?;
+    for generator_seed_vector_set in &mut seed_vector_fixture_set.generators {
+        for vector in &mut generator_seed_vector_set.vectors {
+            vector.expected_output_sha256 = generate_hash(
+                QuestionSeed::new(vector.seed),
+                &generator_seed_vector_set.rule,
+            )?;
         }
     }
 
-    let output = format!("{}\n", serde_json::to_string_pretty(&corpus)?);
+    let output = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&seed_vector_fixture_set)?
+    );
     match std::env::args().nth(1).as_deref() {
         None => print!("{output}"),
         Some("--write") => {

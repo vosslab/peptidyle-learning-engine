@@ -101,7 +101,7 @@ under the course retention lifecycle.
 
 This includes, at minimum:
 
-- roster membership, roster email, optional external roster ID, and group data;
+- roster membership, roster email, and optional external roster ID;
 - Course Memberships, accommodations, Assignment Attempts, Question Attempts, responses, and
   feedback;
 - grades, item analysis, grading-operation evidence, and grade exports;

@@ -50,8 +50,8 @@ impl QuestionSeed {
 /// A single authored parameter a generator reads.
 ///
 /// Parameters are declared rather than computed inline so a preview can show
-/// an instructor the space a question draws from, and so the seed-vector
-/// corpus can cover every branch of it.
+/// an instructor the space a question draws from, and so the Deterministic
+/// Seed Vector Fixture Set can cover every branch of it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",

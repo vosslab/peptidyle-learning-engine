@@ -12,21 +12,11 @@ export interface BrowserScenarioInputV1 {
   readonly visibleObservation: string;
   readonly serviceReceipt?: string;
   readonly faultTransition?: "gateway_submit_outage" | "deterministic_grader_exception";
-  readonly screenshotCapture?: ScreenshotCapture;
-}
-export interface ScreenshotCapture {
-  readonly version: 1;
-  readonly artifacts: readonly ScreenshotArtifact[];
-}
-export interface ScreenshotArtifact {
-  readonly artifactId: string;
-  readonly stateId: string;
 }
 type Value = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9_]{0,95}$/u;
 const SERVICE_RECEIPTS = new Set(["renderer_delivery", "worker_completion"]);
 const INPUT_MAXIMUM_BYTES = 16_384;
-const SCREENSHOT_ARTIFACT_MAXIMUM = 64;
 
 function required(env: Environment, key: string): string {
   const value = env[key];
@@ -72,29 +62,6 @@ function exactOrigin(value: unknown): value is string {
     url.toString() === value
   );
 }
-function screenshotCapture(value: unknown): value is ScreenshotCapture {
-  if (
-    !record(value) ||
-    Object.keys(value).sort().join(",") !== "artifacts,version" ||
-    value.version !== 1 ||
-    !Array.isArray(value.artifacts) ||
-    value.artifacts.length === 0 ||
-    value.artifacts.length > SCREENSHOT_ARTIFACT_MAXIMUM
-  )
-    return false;
-  const artifactIds: string[] = [];
-  for (const artifact of value.artifacts) {
-    if (
-      !record(artifact) ||
-      Object.keys(artifact).sort().join(",") !== "artifactId,stateId" ||
-      !identifier(artifact.artifactId) ||
-      !identifier(artifact.stateId)
-    )
-      return false;
-    artifactIds.push(artifact.artifactId);
-  }
-  return new Set(artifactIds).size === artifactIds.length;
-}
 function parse(contents: string): BrowserScenarioInputV1 {
   if (!ascii(contents)) throw new Error("browser-suite input must use canonical ASCII JSON");
   let input: unknown;
@@ -115,7 +82,6 @@ function parse(contents: string): BrowserScenarioInputV1 {
   ];
   if (input.serviceReceipt !== undefined) expected.push("serviceReceipt");
   if (input.faultTransition !== undefined) expected.push("faultTransition");
-  if (input.screenshotCapture !== undefined) expected.push("screenshotCapture");
   if (
     Object.keys(input).sort().join(",") !== expected.sort().join(",") ||
     input.schemaVersion !== 2 ||
@@ -130,8 +96,7 @@ function parse(contents: string): BrowserScenarioInputV1 {
       (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt))) ||
     (input.faultTransition !== undefined &&
       input.faultTransition !== "gateway_submit_outage" &&
-      input.faultTransition !== "deterministic_grader_exception") ||
-    (input.screenshotCapture !== undefined && !screenshotCapture(input.screenshotCapture))
+      input.faultTransition !== "deterministic_grader_exception")
   )
     throw new Error("browser-suite input has an invalid shape");
   const result: BrowserScenarioInputV1 = {
@@ -144,9 +109,6 @@ function parse(contents: string): BrowserScenarioInputV1 {
     visibleObservation: input.visibleObservation,
     ...(input.serviceReceipt === undefined ? {} : { serviceReceipt: input.serviceReceipt }),
     ...(input.faultTransition === undefined ? {} : { faultTransition: input.faultTransition }),
-    ...(input.screenshotCapture === undefined
-      ? {}
-      : { screenshotCapture: input.screenshotCapture }),
   };
   if (JSON.stringify(result) !== contents)
     throw new Error("browser-suite input must use canonical ASCII JSON");

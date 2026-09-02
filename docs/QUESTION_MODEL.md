@@ -451,7 +451,7 @@ assignments and historical attempts.
 
 Parameters are declared as `QuestionGeneratorParameter` values rather than computed inline,
 so a preview can show an instructor the space a question draws from and the
-seed-vector corpus can cover every branch.
+Deterministic Seed Vector Fixture Set can cover every branch.
 
 `BTreeMap` holds parameters because iteration order reaches generated output,
 and byte-identical output on server and browser is what the WP-C5 parity gate

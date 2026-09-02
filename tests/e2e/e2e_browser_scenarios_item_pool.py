@@ -15,6 +15,5 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			visible_observation=(
 				"server_sampled_pool_draw_delivers_fixed_then_ordered_membership_and_preserves_issued_work"
 			),
-			screenshot_states=("pool_preview", "learner_delivered_pool"),
 		),
 	)

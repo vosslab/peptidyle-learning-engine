@@ -13,7 +13,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			baseline_reads=("genetics_practice_course",),
 			ui_creates=("passkey",),
 			visible_observation="direct_sysadmin_passkey_reauthentication",
-			screenshot_states=("account_security_passkey",),
 		),
 		ScenarioContract(
 			scenario_id="auth_authorization",
@@ -28,12 +27,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			ui_creates=("passkey", "teaching_invitation"),
 			visible_observation=(
 				"instructor_passkey_reauthentication_and_seeded_sessions_and_course_boundaries"
-			),
-			screenshot_states=(
-				"teaching_team_invited",
-				"teaching_operations_retention",
-				"pending_teaching_invitation",
-				"student_instructor_denial",
 			),
 		),
 	)

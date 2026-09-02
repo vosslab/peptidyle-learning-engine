@@ -14,12 +14,10 @@ import {
   chooseSeededIdentity,
   observeContextOrigins,
   requireScenarioInput,
-  restoreViewportOrigin,
   selectVisibleCourse,
   signOutVisible,
   writeOriginReceipt,
 } from "./real_stack_ui";
-import { captureRealStackScreenshot } from "./real_stack_screenshot_capture";
 
 async function enterThenReenter(page: Page, name: RegExp, course: string): Promise<void> {
   await chooseSeededIdentity(page, name);
@@ -86,13 +84,9 @@ test("authentication and authorization: sessions and course boundaries", async (
       await expect(teachingTeam.getByRole("status")).toHaveText(
         "An invitation was created for Avery Singh.",
       );
-      await teachingTeam.scrollIntoViewIfNeeded();
-      await captureRealStackScreenshot(elena, scenarioInput, "auth_teaching_team_invited");
 
       const retention = elena.getByRole("heading", { name: "Record retention" }).locator("..");
       await expect(retention).toBeVisible();
-      await retention.scrollIntoViewIfNeeded();
-      await captureRealStackScreenshot(elena, scenarioInput, "auth_teaching_operations_retention");
     });
 
     await test.step("Avery accepts and observes a fresh authorized teaching session", async () => {
@@ -102,8 +96,6 @@ test("authentication and authorization: sessions and course boundaries", async (
       await expect(
         avery.getByRole("heading", { name: "Pending teaching invitations" }),
       ).toBeVisible();
-      await restoreViewportOrigin(avery);
-      await captureRealStackScreenshot(avery, scenarioInput, "auth_pending_teaching_invitation");
       await avery.getByRole("button", { name: "Accept" }).click();
       await avery.getByRole("dialog").getByRole("button", { name: "Accept invitation" }).click();
       await expect(avery.getByRole("main").getByRole("status")).toHaveText("Invitation accepted.");
@@ -138,34 +130,6 @@ test("authentication and authorization: sessions and course boundaries", async (
       await mary.goto(`/instructor${basePath}/teaching-operations`);
       await expect(mary.getByRole("alert")).toContainText(
         "This page is available to instructors only",
-      );
-      await mary.setViewportSize({ width: 1280, height: 800 });
-      await restoreViewportOrigin(mary);
-      await captureRealStackScreenshot(
-        mary,
-        scenarioInput,
-        "auth_student_instructor_denial_laptop",
-      );
-      await mary.setViewportSize({ width: 800, height: 1280 });
-      await restoreViewportOrigin(mary);
-      await captureRealStackScreenshot(
-        mary,
-        scenarioInput,
-        "auth_student_instructor_denial_tablet",
-      );
-      await mary.setViewportSize({ width: 393, height: 852 });
-      await restoreViewportOrigin(mary);
-      await captureRealStackScreenshot(
-        mary,
-        scenarioInput,
-        "auth_student_instructor_denial_iphone_pro",
-      );
-      await mary.setViewportSize({ width: 800, height: 800 });
-      await restoreViewportOrigin(mary);
-      await captureRealStackScreenshot(
-        mary,
-        scenarioInput,
-        "auth_student_instructor_denial_square",
       );
     });
   } finally {
