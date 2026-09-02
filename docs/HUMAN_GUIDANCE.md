@@ -158,6 +158,8 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
 - Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
 - A **Sysadmin** does not receive general access to FERPA course records.
+- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal 
+  operation. They may access them when helping an Instructor resolve a specific course problem.
 
 ## Instructor philosophy
 
