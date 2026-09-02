@@ -344,7 +344,7 @@ Use this lifecycle document to find the right detailed contract:
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, Assignment Attempt, asset, and retention security boundaries.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed Object Addresses, bucket roles,
-  checksums, delivery, and reconciliation.
+  checksums, Object Delivery, Object Storage Check, and Object Storage Repair.
 - [CONTRACTS.md](CONTRACTS.md): module ownership, frozen contracts, and change
   rules.
 - [RETENTION_POLICY.md](RETENTION_POLICY.md): privacy lifecycle and anonymous

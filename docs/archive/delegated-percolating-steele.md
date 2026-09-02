@@ -3,7 +3,7 @@
 ## Purpose
 
 PLE is one installation with global Accounts. Its durable product vocabulary is
-owned by [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): Published and Draft
+owned by [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md): Published and Draft
 Questions, the global Question Library, Blueprint Courses, Course Instances,
 Sysadmins, Instructors, Students, Question Stars, Question Watches, Question
 Folders, and strictly automated grading.

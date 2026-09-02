@@ -83,7 +83,7 @@ protected authorization-function/RLS/grant helpers at 2026082929-2026082932.
 
 No Blueprint Course or Blueprint-operation Store implementation currently
 exists under `crates/learning-data-access/`. The future Store boundary will own
-the six exact operations, their idempotency, receipts, and reconciliation. It
+the six exact operations, their idempotency, receipts, and Assignment Import Repair. It
 will never grant a public Blueprint reader access to a private CourseInstance.
 
 ## Server application

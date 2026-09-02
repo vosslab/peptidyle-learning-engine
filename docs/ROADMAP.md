@@ -81,7 +81,8 @@ owns explicit migration status, migrate, and verify commands. The application an
 verified capabilities; neither owns DDL. The live-demo lifecycle should therefore be:
 
 1. A migration principal applies and verifies the compatible schema.
-2. A data-only host installer reconciles fictional baseline teaching data.
+2. A data-only host installation creates the known fictional, disposable
+   teaching-data baseline.
 3. The normal application, worker, storage, and browser paths exercise that live state.
 
 The product path is not redesigned by this database roadmap. [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)
@@ -90,13 +91,13 @@ determinism, ordinary teaching workflows, and demo identity boundaries.
 
 ## Dependency-ordered work
 
-| Stage | Work                                                                        | Exit evidence                                                                      |
-| ----- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| D1    | Finish the current Instructor package and its authority proofs              | Owning plan's focused gates and final Validation pass                              |
-| D2    | Reconcile the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters             |
-| D3    | Remove migration authority from the live-demo data installer                | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
-| D4    | Exercise release operations                                                 | Clean-volume lifecycle, real-stack browser, restore, and independent review pass   |
-| D5    | Human release decision                                                      | No unresolved required gate; deployment approval is explicitly recorded            |
+| Stage | Work                                                                                 | Exit evidence                                                                      |
+| ----- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| D1    | Finish the current Instructor package and its authority proofs                       | Owning plan's focused gates and final Validation pass                              |
+| D2    | Migration Check of the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters             |
+| D3    | Remove migration authority from the live-demo data installer                         | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
+| D4    | Exercise release operations                                                          | Clean-volume lifecycle, real-stack browser, restore, and independent review pass   |
+| D5    | Human release decision                                                               | No unresolved required gate; deployment approval is explicitly recorded            |
 
 Stages are intentionally serial where later work depends on accepted schema or package
 contracts. Any new schema work receives an allocation in the shared ledger before

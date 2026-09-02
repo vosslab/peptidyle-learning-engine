@@ -2,9 +2,9 @@
 
 This gallery is the visual map of PLE's Instructor interface. It is captured from a working demo
 environment with one coherent set of Blueprint Courses, Course Instances, questions, roster records,
-and grades. The complete Instructor and Sysadmin page map uses the fixed `laptop` evidence profile
-at exactly 1280 by 800 CSS pixels in a desktop 16:10 viewport. Student profiles remain variable and
-use the maintained profiles declared by the current screenshot corpus.
+and grades. The complete Instructor and Sysadmin page map uses the fixed 1280 by 800 CSS-pixel
+desktop 16:10 viewport profile. Student profiles remain variable and use the maintained viewport
+profiles declared below.
 
 Blueprint Courses show reusable course-level content and structure. Published Blueprint Courses are
 visible to all vetted Instructors; drafts are private to their owner and authorized collaborators.
@@ -54,8 +54,8 @@ entry creates real graded work through the visible Student path, and the Instruc
 in the Course Instance Gradebook. The Student view keeps the Instructor session and clearly points
 to ordinary Student entry for graded validation.
 
-The former screenshot corpus and its consumers are absent from the current
-tree. The retained gallery does not claim current acceptance. Keep private
+The former screenshot capture workflow and its consumers are absent from the current
+tree. This retained historical screenshot reference does not claim current acceptance. Keep private
 Instructor evidence separate from public or Student evidence under
 `docs/screenshots/`; a restored browser owner must create and review fresh
 evidence before a current UI change can claim visual acceptance.
@@ -86,10 +86,10 @@ passkey authentication adapters.
 ![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
 <!-- screenshots:end -->
 
-## Refreshing the corpus
+## Refreshing historical screenshot references
 
-The retired screenshot corpus and its publication command are absent from the
-current tree. This gallery is historical reference, not current acceptance.
+The retired screenshot capture workflow and its publication command are absent from the
+current tree. This gallery is historical screenshot reference, not current acceptance.
 
 Any Instructor UI, viewport, typography, theme, or navigation change requires
 a restored real-browser owner and a new human visual review before it can claim

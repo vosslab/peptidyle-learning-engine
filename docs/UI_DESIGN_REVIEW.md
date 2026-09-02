@@ -26,7 +26,7 @@ or learning semantics.
 | Student question                    | Keeps timer, prompt, figures, response, status, and actions in one visual sequence. Choices are compact grouped rows rather than independent heavy cards.                                                                                                                                                                                                                                              | [problem ready](screenshots/student/delivery/03_problem_ready.png), plus tablet and narrow-phone overflow checks                                                                               |
 | Optional accessibility presentation | Standard is the default. Increased contrast changes text, focus, and boundary tokens while retaining the course canvas and hue anchors. Forced colors remains an independent platform mode.                                                                                                                                                                                                            | Shared theme and forced-colors browser contracts                                                                                                                                               |
 
-The durable instructor corpus is collected in
+Historical instructor screenshot references are collected in
 [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md). Regenerable implementation evidence stays
 under `generated/ui/ui_design/` and `generated/ui/course_appearance/`, including the theme contact
 sheet and measured `palette_metrics.json` report.

@@ -464,13 +464,13 @@ pub enum CopyAssignmentFromBlueprintReadiness {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReconcileCourseInstanceReadiness {
+pub enum AssignmentImportRepairReadiness {
     Ready,
-    Blocked { issue: ReconcileCourseInstanceIssue },
+    Blocked { issue: AssignmentImportRepairIssue },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReconcileCourseInstanceIssue {
+pub enum AssignmentImportRepairIssue {
     IssuedWork {
         course: CourseInstanceReference,
     },
@@ -524,7 +524,7 @@ pub struct CopyAssignmentFromBlueprintPreviewRequest {
 /// A repair has an independent audit and retry identity. Callers reuse the
 /// key for a retry and issue a new key for a later repair action.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReconcileCourseInstanceIntent {
+pub struct AssignmentImportRepairIntent {
     pub original_import_receipt: AssignmentImportReceipt,
     pub retry_token: RequestRetryToken,
 }
@@ -631,21 +631,21 @@ pub struct CopyAssignmentFromBlueprintPreview {
     pub readiness: CopyAssignmentFromBlueprintReadiness,
 }
 
-/// Server-only reconciliation projection bound to one immutable Assignment import receipt.
+/// Server-only Assignment import repair projection bound to one immutable receipt.
 ///
 /// This is not a browser DTO: Store code retains the original import receipt while it
-/// rechecks current derived projections and consumes the matching reconciliation record.
+/// rechecks current derived projections and consumes the matching repair record.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReconcileCourseInstancePreview {
+pub struct AssignmentImportRepairPreview {
     original_import_receipt: AssignmentImportReceipt,
-    readiness: ReconcileCourseInstanceReadiness,
+    readiness: AssignmentImportRepairReadiness,
 }
 
-impl ReconcileCourseInstancePreview {
-    /// Creates a server-held reconciliation projection for exactly one Assignment import.
+impl AssignmentImportRepairPreview {
+    /// Creates a server-held repair projection for exactly one Assignment import.
     pub fn new(
         original_import_receipt: AssignmentImportReceipt,
-        readiness: ReconcileCourseInstanceReadiness,
+        readiness: AssignmentImportRepairReadiness,
     ) -> Self {
         Self {
             original_import_receipt,
@@ -653,13 +653,13 @@ impl ReconcileCourseInstancePreview {
         }
     }
 
-    /// Returns the immutable Assignment import selected for reconciliation.
+    /// Returns the immutable Assignment import selected for repair.
     pub fn original_import_receipt(&self) -> &AssignmentImportReceipt {
         &self.original_import_receipt
     }
 
-    /// Returns the server-computed reconciliation readiness.
-    pub fn readiness(&self) -> &ReconcileCourseInstanceReadiness {
+    /// Returns the server-computed repair readiness.
+    pub fn readiness(&self) -> &AssignmentImportRepairReadiness {
         &self.readiness
     }
 }
@@ -692,13 +692,6 @@ pub struct ApplyBlueprintUpdateCompleted {
 pub struct CopyAssignmentFromBlueprintCompleted {
     pub course: CourseInstanceReference,
     pub assignment: AssignmentReference,
-}
-
-/// Browser-safe completion for rebuilding derived projections from one receipt.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReconcileCourseInstanceCompleted {
-    pub course: CourseInstanceReference,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -754,7 +747,7 @@ impl CopyAssignmentFromBlueprintReadiness {
     }
 }
 
-impl ReconcileCourseInstanceReadiness {
+impl AssignmentImportRepairReadiness {
     pub(super) fn require_ready(&self) -> Result<(), CourseInstanceCommandError> {
         match self {
             Self::Ready => Ok(()),

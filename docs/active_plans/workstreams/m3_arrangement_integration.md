@@ -41,7 +41,8 @@ onboarding, all-family coverage, or release acceptance. See the independent
 - An independent elevated run of the same command also passed. Each reviewed
   report was private (directory mode 0700, file mode 0600), redacted, and held
   only the five public arrangement records. No SQL, account, or enrollment
-  fixture was used; product assignment creation reconciled the existing student.
+  fixture was used; Assignment Arrangement creation used the existing Student
+  Course Membership.
 - The normal runner cleanup is no-volume and left the selected project empty.
   During the independent check, a no-volume project `down --remove-orphans`
   raced normal shutdown and reported already-removed resources; the two prior

@@ -196,5 +196,5 @@ responsive composition. Canonical evidence includes 1280 by 800 instructor pages
 both 1280 by 800 and 800 by 1280, a narrow-phone overflow guard, and standard plus
 increased-contrast theme samples.
 The accepted implementation evidence and page-level findings live in
-[UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md). The current instructor surface corpus lives in
+[UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md). Historical instructor screenshot references live in
 [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md).

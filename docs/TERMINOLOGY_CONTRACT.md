@@ -381,6 +381,11 @@ Reference, rendition checksum, and intrinsic dimensions. The issued Question
 Presentation binds its Question Asset Renditions into the Question Presentation
 Checksum.
 
+Instructor-authored PLE Question JSON content is entered through Authoring
+Workspace text fields and structured controls. Adapter-owned Question imports
+may supply Question Assets through their registered Question Format boundary;
+PLE Question JSON authoring does not define a browser file-upload capability.
+
 **Question Asset Purpose** is the short Authoring Workspace-held explanation of
 how an Instructor intends to use a Question Asset, such as a hotspot surface.
 It is neither a Question Source nor Question Authorship or credit.
@@ -437,13 +442,11 @@ one graded Student Response, and a pre-response Question Hint. A Question
 Answer Explanation may repeat or reveal the Question Answer as part of its
 explanation.
 
-A stored Question-authored file used by a Hint, Feedback, Answer, or Answer
-Explanation is a **Question Hint Asset**, **Question Feedback Asset**,
-**Question Answer Asset**, or **Question Answer Explanation Asset**,
-respectively. Format-specific private grader records use the exact Question
-Format and **Question Grading Input** role. A **Student Feedback Attachment**
-is a Student-specific file released with one Student Feedback result and bound
-to its exact Question Submission and Student Record.
+Question Prompt, Question Hint, Question Feedback, Question Answer, and Question
+Answer Explanation content may reference the same Question Asset contract. The
+containing content supplies the Asset's teaching role; it does not create a
+parallel Asset concept. Format-specific private grader records use the exact
+Question Format and **Question Grading Input** role.
 
 At the QTI adapter boundary, a requested Hint maps to Question Hint even when
 QTI carries its displayed content in a feedback block. A correct-response
@@ -483,6 +486,12 @@ Question Response Control names the browser interaction used to collect that
 response. The Question Presentation declares the control, keeping the Student
 interface independent of Question Type and Question Format. The exact iMathAS
 marker is `ImathasQuestionBackend`/`imathasQuestionBackend` where that control is used.
+
+Student Responses contain only the values defined by the supported Question
+Response Format: selections, entered text or numbers, matches, ordering, or a
+hotspot selection. Files and Object References remain outside Student Response.
+Student Feedback contains authorized result data and optional Question-authored
+content blocks.
 
 **Question Presentation Binding** is the server-held evidence that pairs one
 Question Presentation Nonce with its complete Question Presentation Checksum.

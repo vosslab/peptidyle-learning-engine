@@ -15,7 +15,7 @@ pub enum BlueprintOperationKind {
     ShiftCourseDates,
     ApplyBlueprintUpdate,
     CopyAssignmentFromBlueprint,
-    ReconcileCourseInstance,
+    RepairAssignmentImport,
 }
 
 /// Immutable evidence shared by each CourseInstance operation receipt.
@@ -127,7 +127,7 @@ pub struct CopyAssignmentFromBlueprintReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReconcileCourseInstanceReceipt {
+pub struct AssignmentImportRepairReceipt {
     binding: CourseInstanceReceiptBinding,
     original_import_target: AssignmentImportReceiptTarget,
 }
@@ -502,10 +502,10 @@ fn selected_copy_outcome_matches(
         && outcome.assignment_revisions().last() == Some(&applied)
 }
 
-impl ReconcileCourseInstanceReceipt {
-    /// Builds immutable reconciliation evidence from its consumed receipt-targeted record.
+impl AssignmentImportRepairReceipt {
+    /// Builds immutable repair evidence from its consumed receipt-targeted record.
     pub fn from_server_record(
-        record: super::ReconcileCourseInstanceApplyRecord,
+        record: super::AssignmentImportRepairApplyRecord,
         server_time: Timestamp,
     ) -> Result<Self, AssignmentReceiptError> {
         let (
@@ -518,7 +518,7 @@ impl ReconcileCourseInstanceReceipt {
         let original_import_target = original_import_receipt.target();
         Ok(Self {
             binding: CourseInstanceReceiptBinding::new(
-                BlueprintOperationKind::ReconcileCourseInstance,
+                BlueprintOperationKind::RepairAssignmentImport,
                 original_import_receipt.destination().clone(),
                 original_import_receipt.destination().clone(),
                 CourseInstanceReceiptAuthority {
@@ -542,10 +542,10 @@ impl ReconcileCourseInstanceReceipt {
     }
 }
 
-/// Completed Assignment import evidence eligible for reconciliation.
+/// Completed Assignment import evidence eligible for repair.
 ///
-/// A reconciliation repairs projections derived from one Assignment import.  It
-/// cannot target a course rollover, a term shift, or a prior reconciliation.
+/// A repair rebuilds projections derived from one Assignment import. It cannot
+/// target a course rollover, a term shift, or an earlier repair.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentImportReceipt {
     ApplyBlueprintUpdate(ApplyBlueprintUpdateReceipt),
@@ -585,7 +585,7 @@ impl AssignmentImportReceipt {
         }
     }
 
-    /// Returns the exact immutable import receipt that reconciliation repairs.
+    /// Returns the exact immutable import receipt that this repair targets.
     pub fn target(&self) -> AssignmentImportReceiptTarget {
         match self {
             Self::ApplyBlueprintUpdate(receipt) => AssignmentImportReceiptTarget::new(

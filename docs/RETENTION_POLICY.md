@@ -183,7 +183,7 @@ enough to prove a completed action. It deletes student-facing audit and access e
 student graph. Operational logs, backup copies, and object-store inventory are separate deployment
 data classes; they must not become undeclared student-record archives.
 
-General bucket-to-database reconciliation remains planned in WP-RC7. Until it is accepted,
+General Object Storage Check and Repair remains planned in WP-RC7. Until it is accepted,
 operators must not claim automatic orphan cleanup or automatic repair of a missing referenced
 object. The safe response to a missing or checksum-mismatched referenced object is to stop delivery,
 preserve database evidence, alert, and use a normal recovery procedure.
@@ -233,7 +233,7 @@ shell harness were removed after recording the evidence.
 Permanent tests remain deterministic and offline. They cover authorization, conditional revisions,
 archive/delete replay, lifecycle truthfulness, lease/generation fencing, typed-object validation,
 and retained-versus-deleted content. Fresh PostgreSQL role/RLS exercises, populated purge graphs,
-live object-store deletion, multi-replica soaks, query plans, reconciliation, and backup restoration
+live object-store deletion, multi-replica soaks, query plans, Object Storage Check and Repair, and backup restoration
 are environment-dependent acceptance or deployment gates. Temporary reconstruction tests are useful
 evidence but do not become permanent fixture infrastructure.
 

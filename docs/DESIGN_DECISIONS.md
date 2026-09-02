@@ -809,8 +809,8 @@ status can claim the behavior is accepted.
 ### Viewport and visual evidence profiles
 
 **Decision.** Instructor and Sysadmin design and permanent visual evidence use the canonical 1280
-by 800 CSS-pixel desktop profile. The corpus label `laptop` is exactly the established 1280 by 800
-desktop 16:10 evidence profile. Student design also covers 800 by 1280 portrait
+by 800 CSS-pixel desktop 16:10 viewport profile. The historical screenshot filename label `laptop`
+identifies that exact 1280 by 800 evidence profile. Student design also covers 800 by 1280 portrait
 tablet, 393 by 852 narrow phone, and 800 by 800 square profiles; profile weights guide planning and
 do not create screenshot quotas or pixel-equivalence acceptance.
 
@@ -950,11 +950,11 @@ demo accessible without replacing authorization or claiming unverified email del
 ### The canonical walkthrough is a focused teaching loop
 
 **Decision.** The pilot walkthrough has an Instructor create a course, add an active Student, build
-a representative four-Question Chapter 1 Assignment from Published Questions, and observe the
+a representative four-Question Chapter 1 Assignment from Published Questions in the Question Library, and observe the
 Student's submitted and scored work. The complete eight-question sweep is a separate release gate.
 
 **Why.** A focused realistic loop demonstrates first success without substituting a one-question
-toy or forcing the full release corpus into every walkthrough.
+toy or forcing the full release Question Library into every walkthrough.
 
 ## Content and grading formats
 

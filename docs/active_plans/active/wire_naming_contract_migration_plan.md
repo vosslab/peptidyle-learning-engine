@@ -172,7 +172,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
 | C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                            |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
-| C5      | Curriculum preview/apply/inspection/reconciliation and PLE QTI import/conversion/publication wrappers                                                                                                                    |
+| C5      | Blueprint-operation preview/apply/inspection, Assignment Import Repair, and PLE QTI import/conversion/publication wrappers                                                                                               |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority, Course Membership, and policy preview                                                                 |
 
 The [implementation status registry](../implementation_status.md) is the current route-by-route

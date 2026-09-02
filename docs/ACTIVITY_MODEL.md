@@ -283,9 +283,7 @@ which it could infer a withheld result.
 
 The server omits withheld fields rather than sending placeholders or answer
 material. Private feedback generation, grading keys, correct answers, and
-Question Grader code remains server-only. `feedback_release` is immutable,
-retention-fenced audit evidence of an instructor action. It never unlocks or
-changes the student projection. See
+Question Grader code remains server-only. See
 [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) for the teaching
 rationale for independent disclosure choices.
 

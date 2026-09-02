@@ -127,7 +127,7 @@ projections.
 The current Question Model owns the Blueprint-operation transport contracts;
 there is no mounted learning-data-access Store implementation yet. A future
 Store must preserve immutable operation receipts separately from repairable
-current projections. Reconciliation may repair only the derived projection.
+current projections. Assignment Import Repair may repair only the derived projection.
 
 The fresh SD1 migration epoch is owned by the allocation in
 [implementation_status.md](active_plans/implementation_status.md). The

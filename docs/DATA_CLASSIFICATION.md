@@ -204,7 +204,7 @@ Opaque IDs reduce accidental disclosure; they do not replace authorization.
 The current raw file-response placeholder is intentionally unusable for
 Student submissions. Enabling an upload widget, accepting a browser-supplied
 key, or issuing a direct object-store write URL before the server-issued
-record, inspection worker, atomic consumption, and reconciliation path are
+record, inspection worker, atomic consumption, and Object Storage Check and Repair path are
 accepted would violate this classification contract.
 
 ### Statistics stay anonymous
@@ -228,7 +228,7 @@ contract test:
    reveal more than the approved projection?
 5. Which immutable identity, checksum, version, or Question Attempt Reproduction Details prove
    that the server is acting on the intended data?
-6. Which retention stage, object manifest, and reconciliation path remove the
+6. Which retention stage, object manifest, and Object Storage Check and Repair path remove the
    datum or deliberately preserve it?
 7. Is the behavior current-source-proven and validated, or is it a named
    future work package that must remain fail-closed today?
@@ -242,7 +242,7 @@ contract test:
   defines forced RLS, authenticated Account context, roles, and exact course, Student, and
   workspace ownership.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) defines typed Object Addresses, delivery,
-  publication, and reconciliation status.
+  publication, and Object Storage Check status.
 - [RETENTION_POLICY.md](RETENTION_POLICY.md) defines course lifecycle and
   backup limitations.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines the

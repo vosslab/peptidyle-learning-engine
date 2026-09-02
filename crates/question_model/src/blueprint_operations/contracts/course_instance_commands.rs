@@ -199,7 +199,7 @@ impl CopyAssignmentFromBlueprintCommand {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReconcileCourseInstanceCommand {
+pub struct AssignmentImportRepairCommand {
     original_import_receipt: AssignmentImportReceipt,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
@@ -207,8 +207,8 @@ pub struct ReconcileCourseInstanceCommand {
     retry_token: RequestRetryToken,
 }
 
-impl ReconcileCourseInstanceCommand {
-    pub fn from_server_record(record: super::ReconcileCourseInstanceApplyRecord) -> Self {
+impl AssignmentImportRepairCommand {
+    pub fn from_server_record(record: super::AssignmentImportRepairApplyRecord) -> Self {
         Self {
             original_import_receipt: record.original_import_receipt().clone(),
             course_origin: record.course_origin(),

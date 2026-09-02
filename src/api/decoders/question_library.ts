@@ -13,7 +13,7 @@ import type { QuestionSearchResult } from "../../../generated/api/QuestionSearch
 import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
-import type { QuestionPromptProjection } from "../../../generated/api/QuestionPromptProjection";
+import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionUseDetails } from "../../../generated/api/QuestionUseDetails";
 import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSummary";
@@ -390,11 +390,11 @@ function decodeQuestionUseDetails(value: unknown, path: string): QuestionUseDeta
   };
 }
 
-function decodeQuestionPromptProjection(value: unknown, path: string): QuestionPromptProjection {
+function decodeQuestionDetailsPromptView(value: unknown, path: string): QuestionDetailsPromptView {
   const record = decodeRecord(value, path);
   const projectionKind = kind(record, path);
   if (projectionKind !== "static" && projectionKind !== "generatedExample") {
-    throw new DecodeError(`${path}.kind`, "a known Question Prompt projection");
+    throw new DecodeError(`${path}.kind`, "a known Question Details Prompt View");
   }
   requireOnlyFields(record, path, ["kind", "blocks"]);
   return {
@@ -433,7 +433,7 @@ export function decodeQuestionDetails(value: unknown, path = "response"): Questi
   requireOnlyFields(record, path, ["summary", "prompt", "evidence", "usage"]);
   return {
     summary: decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
-    prompt: decodeQuestionPromptProjection(field(record, "prompt", path), `${path}.prompt`),
+    prompt: decodeQuestionDetailsPromptView(field(record, "prompt", path), `${path}.prompt`),
     evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
     usage: decodeQuestionUseDetails(field(record, "usage", path), `${path}.usage`),
   };

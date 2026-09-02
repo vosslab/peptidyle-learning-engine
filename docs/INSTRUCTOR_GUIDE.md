@@ -144,8 +144,9 @@ Use one explicit path for each kind of change:
   gap or ambiguity, and apply the witnessed proposal atomically. If work has been issued, use
   Copy Course for New Term instead; issued evidence keeps its original term context.
 
-Use **Check receipt evidence** after applying a proposal. An incomplete receipt refuses reconciliation
-and requires operator recovery. Course Instance deadlines, releases, accommodations, grades, and
+Use **Check Assignment Import Receipt Evidence** after applying a proposal. An incomplete receipt
+requires operator recovery; an authorized **Assignment Import Repair** handles only its derived
+Assignment import state. Course Instance deadlines, releases, accommodations, grades, and
 other delivery settings remain instance-owned after every operation.
 
 ## Inspect and run as a student

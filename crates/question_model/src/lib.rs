@@ -224,7 +224,7 @@ pub use crate::question_library::{
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
     MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionDetails,
-    QuestionId, QuestionPromptProjection, QuestionRevisionAvailability, QuestionRevisionReference,
+    QuestionDetailsPromptView, QuestionId, QuestionRevisionAvailability, QuestionRevisionReference,
     QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
     QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
     QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,

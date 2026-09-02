@@ -669,8 +669,8 @@ def purge_orphaned_session(
 	"""
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
 	try:
-		# ASVS 15.4.3: the lease stays held while engine validation and exact
-		# project reconciliation run, so another owner cannot enter between them.
+		# ASVS 15.4.3: the lease stays held while engine validation and the
+		# live-demo Browser Suite reset run, so another owner cannot enter between them.
 		local_stack_control.process.require_rootless_local_engine(runner, repository_root)
 		snapshot = local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, runner, repository_root

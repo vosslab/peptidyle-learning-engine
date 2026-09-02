@@ -202,6 +202,6 @@ immediate revocation, Student submission-to-Gradebook convergence, answer-free Q
 accessible interaction, and role-appropriate screenshots on the canonical real stack.
 
 Graphify maps, retired-identifier inventories, old-to-new schema allocation, clean-volume schema
-fingerprints, and migration-count reconciliation are one-time evidence. They are not permanent test
+fingerprints, and Migration Check evidence are one-time evidence. They are not permanent test
 cases. The final material tree runs `source source_me.sh && ./all_test.sh` only after focused and
 connected required gates are green; skipped required lanes keep the package incomplete.

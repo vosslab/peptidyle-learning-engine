@@ -24,7 +24,7 @@ specialized durable contracts own their detailed data shapes and operations:
   PostgreSQL authorization authority: it owns roles, RLS, transaction-local
   authenticated-session context, grants, and database-side capability predicates.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
-  object/database reconciliation.
+  Object Storage Check and Repair.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the student
   render, response, digest, and rendered-item wire contract.
 - [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and

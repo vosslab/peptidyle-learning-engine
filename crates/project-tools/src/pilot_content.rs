@@ -251,7 +251,7 @@ fn validate_question(
     if question.points != expected_points {
         bail!("{} must be worth {expected_points} point(s)", question.slug);
     }
-    let source = corpus_file(root, &question.source)?;
+    let source = pilot_question_set_file(root, &question.source)?;
     validate_digest(&source, &question.source_sha256)?;
     match question.backend {
         Backend::Webwork => validate_webwork(question, &source),
@@ -332,7 +332,7 @@ fn validate_flat(
         .payload_sha256
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("PLE Question JSON entry lacks its payload checksum"))?;
-    let payload = corpus_file(root, payload_relative)?;
+    let payload = pilot_question_set_file(root, payload_relative)?;
     validate_digest(&payload, payload_sha256)?;
     let bytes = std::fs::read(&payload)
         .with_context(|| format!("reading PLE Question JSON payload {}", payload.display()))?;
@@ -543,7 +543,7 @@ fn validate_source_item(source: &Path, item: &str, question_type: PilotQuestionT
     Ok(())
 }
 
-fn corpus_file(root: &Path, relative: &Path) -> Result<PathBuf> {
+fn pilot_question_set_file(root: &Path, relative: &Path) -> Result<PathBuf> {
     if relative.is_absolute()
         || relative
             .components()
@@ -591,7 +591,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tracked_chapter_one_corpus_has_the_required_human_guidance_shape() {
+    fn tracked_chapter_one_pilot_question_set_has_the_required_human_guidance_shape() {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../content/pilot/chapter_1_assignments.yaml");
         let report = validate(&manifest).expect("tracked pilot content should validate");

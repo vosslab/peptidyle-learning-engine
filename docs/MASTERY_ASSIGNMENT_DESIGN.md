@@ -159,8 +159,7 @@ one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
 S3-resolved effective-policy verdict and authoritative time to evaluate the
 current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
 corresponding boundary is absent; a withheld field is omitted rather than sent
-as a hidden null. `feedback_release` is immutable audit evidence of an
-instructor action, never a student-result unlock.
+as a hidden null.
 
 For the recommended mastery bundle, set all five fields to `AfterSubmit`.
 An assessment can instead schedule each field independently without changing

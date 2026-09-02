@@ -1,7 +1,7 @@
 //! Typed browser-safe previews and server-owned commands for exact Blueprint operations.
 //!
 //! This module is the stable public front door. Focused children keep scalar,
-//! source, preview, pin, recovery, receipt, inspection, and reconciliation
+//! source, preview, pin, recovery, receipt, inspection, and repair
 //! responsibilities independently readable and evolvable.
 
 mod assignment_source;
@@ -35,9 +35,9 @@ pub use scalars::{
     RequestRetryTokenError,
 };
 pub use server_records::{
-    ApplyBlueprintUpdateApplyRecord, CopyAssignmentFromBlueprintApplyRecord,
-    CopyCourseForNewTermApplyRecord, CreateCourseFromBlueprintApplyRecord,
-    ForkBlueprintCourseApplyRecord, ReconcileCourseInstanceApplyRecord, RequestRetryBinding,
+    ApplyBlueprintUpdateApplyRecord, AssignmentImportRepairApplyRecord,
+    CopyAssignmentFromBlueprintApplyRecord, CopyCourseForNewTermApplyRecord,
+    CreateCourseFromBlueprintApplyRecord, ForkBlueprintCourseApplyRecord, RequestRetryBinding,
     ShiftCourseDatesApplyRecord,
 };
 pub use source::BlueprintRevisionReference;

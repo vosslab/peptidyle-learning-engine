@@ -5,15 +5,14 @@
 //! an apply authority boundary.
 
 use super::{
-    ApplyBlueprintUpdateReadiness, AssignmentImportReceipt, AssignmentSourceSnapshot,
-    BlueprintAssignmentRevisionReference, BlueprintForkReservation, BlueprintRevisionReference,
-    BoundedResolvedScheduleSet, CopyAssignmentFromBlueprintReadiness,
+    ApplyBlueprintUpdateReadiness, AssignmentImportReceipt, AssignmentImportRepairReadiness,
+    AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference, BlueprintForkReservation,
+    BlueprintRevisionReference, BoundedResolvedScheduleSet, CopyAssignmentFromBlueprintReadiness,
     CopyCourseForNewTermReadiness, CourseInstanceCommandError, CourseInstanceCreationReservation,
     CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest,
     CreateCourseFromBlueprintCommandError, CreateCourseFromBlueprintReadiness,
     ForkBlueprintCourseCommandError, ForkBlueprintCourseReadiness, QuestionRevisionSubstitutions,
-    ReconcileCourseInstanceReadiness, RequestChecksum, RequestRetryToken,
-    ShiftCourseDatesReadiness,
+    RequestChecksum, RequestRetryToken, ShiftCourseDatesReadiness,
 };
 use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
@@ -459,14 +458,14 @@ impl CopyAssignmentFromBlueprintApplyRecord {
     }
 }
 
-/// Server-only reconciliation authority bound to one retained Assignment import receipt.
+/// Server-only repair authority bound to one retained Assignment import receipt.
 ///
 /// `original_import_receipt` identifies the immutable source evidence. `authorized_account`,
 /// Request Checksum, and Request Retry Token identify this new repair action, so a
 /// repair has its own audit identity and never collides with the original
 /// completed operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReconcileCourseInstanceApplyRecord {
+pub struct AssignmentImportRepairApplyRecord {
     original_import_receipt: AssignmentImportReceipt,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
@@ -474,15 +473,15 @@ pub struct ReconcileCourseInstanceApplyRecord {
     retry_token: RequestRetryToken,
 }
 
-impl ReconcileCourseInstanceApplyRecord {
-    /// Binds reconciliation to immutable receipt evidence rather than a browser preview.
+impl AssignmentImportRepairApplyRecord {
+    /// Binds repair to immutable receipt evidence rather than a browser preview.
     pub fn new(
         original_import_receipt: AssignmentImportReceipt,
         course_origin: CourseOrigin,
         authorized_account: AccountId,
         request_checksum: RequestChecksum,
         retry_token: RequestRetryToken,
-        readiness: ReconcileCourseInstanceReadiness,
+        readiness: AssignmentImportRepairReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
         let original_import_target = original_import_receipt.target();

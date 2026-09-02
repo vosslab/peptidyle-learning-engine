@@ -16,8 +16,8 @@ use super::connection::is_connection_error;
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../schemas/migrations");
 
 // ASCII `PLE_SCHM` in PostgreSQL's signed 64-bit advisory-lock keyspace. This
-// stable project key serializes the complete repository-owned schema epoch,
-// including the catalog-derived capability reconciliation after SQLx DDL.
+// stable project key serializes the complete repository-owned schema epoch
+// while SQLx applies its embedded DDL.
 const SCHEMA_EPOCH_LOCK_KEY: i64 = 0x504c_455f_5343_484d;
 
 /// Read-only state of one embedded migration relative to a database.

@@ -192,7 +192,7 @@ The reward loop is the engagement engine. Keep it generous and visible.
 - **Endless mode**: no length cap, retry queue ON. Use for "how far can
   you go" energy.
 - **Always pad choices.** Choice count never flickers (4 stays 4). Borrow
-  from full corpus as last resort if the same-lesson pool is too thin.
+  from the full Question Pool as a last resort if the same-lesson pool is too thin.
 
 ## Visual identity
 

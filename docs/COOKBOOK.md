@@ -117,8 +117,9 @@ questions. See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) and
    schedule. Correct any DST gap or ambiguity before preparing again.
 4. Choose **Apply proposal**. A newly added Blueprint assignment arrives **Unreleased**; current
    equal Teaching Team Members must review and release it in the instance.
-5. Choose **Check receipt evidence** after applying. An incomplete receipt refuses reconciliation and
-   requires operator recovery.
+5. Choose **Check Assignment Import Receipt Evidence** after applying. An incomplete receipt requires
+   operator recovery; an authorized **Assignment Import Repair** handles only its derived Assignment
+   import state.
 
 If instance work diverged, choose the explicit selected-copy or new-assignment action. PLE does not
 perform an implicit merge, and instance deadlines, releases, accommodations, grades, and other

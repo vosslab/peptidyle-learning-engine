@@ -90,7 +90,7 @@ the renderer identity, and the available engine without mutating the stack.
 
 - **`host artifact build failed (...)`:** inspect the reported build failure,
   correct the source or dependency, then retry `./run_live_demo.sh`. The owner
-  builds the production `dist/` bundle before Compose reconciliation.
+  builds the production `dist/` bundle before Compose startup.
 - **`PostgreSQL did not become ready`:** inspect retained services and database
   logs, correct the reported container, image, or volume problem, then retry:
 

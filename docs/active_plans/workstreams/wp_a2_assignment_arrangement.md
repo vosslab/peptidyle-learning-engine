@@ -20,8 +20,8 @@
 - Every response must carry valid public identifiers, the resolved course, and its requested
   policy. The returned DTO contains only the arrangement label and public identifiers.
 - The module has no authentication, account, course, membership, roster, invitation,
-  enrollment, SQL, or cleanup operation. Product assignment creation reconciles the existing
-  student enrollment.
+  enrollment, SQL, or cleanup operation. Assignment Arrangement creation uses
+  the existing Student Course Membership.
 
 ## Evidence
 

@@ -33,8 +33,9 @@ idempotency or compare-and-swap rule, and lock order before it can expose a
 result. A worker must name its lease and, when output can be superseded, its
 generation fence.
 
-**Planned boundaries.** General database/object inventory reconciliation is
-WP-RC7. Managed failover and recovery objectives are deployment work; this
+**Planned boundaries.** The general Object Storage Check and Repair package is
+WP-RC7.
+Managed failover and recovery objectives are deployment work; this
 document does not claim either is implemented.
 
 ## Authority model
@@ -46,15 +47,15 @@ PostgreSQL metadata to bytes. The browser can retry an authenticated request, wh
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
-| State or decision                      | Authoritative owner                                             | Status           | Main implementation owner                                                                                                                             |
-| -------------------------------------- | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity and row access        | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented      | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state | Revisioned PostgreSQL rows                                      | Deferred SD1-C/D | Store-backed authoring and course composition                                                                                                         |
-| Student submission outcome             | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
-| Background work ownership              | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
-| Current analytic projection            | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
-| Published Question Revision            | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
-| Cross-system object inventory repair   | Database/object-store reconciliation job                        | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
+| State or decision                              | Authoritative owner                                             | Status           | Main implementation owner                                                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented      | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Mutable authoring and assignment state         | Revisioned PostgreSQL rows                                      | Deferred SD1-C/D | Store-backed authoring and course composition                                                                                                         |
+| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
+| Background work ownership                      | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
+| Current analytic projection                    | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
+| Published Question Revision                    | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
+| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                             | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
 
 ## Account-scoped transactions and retries
 
@@ -252,7 +253,7 @@ another Course's object or undo a current pointer. [OBJECT_STORAGE.md](OBJECT_ST
 records the current typed-object boundary; it does not claim that durable
 promotion exists today.
 
-### Planned reconciliation fence
+### Planned Object Storage Check and Repair fence
 
 WP-RC7 owns the general Object Storage Check job. It must compare typed
 database records with bucket inventory, repair only evidence-backed

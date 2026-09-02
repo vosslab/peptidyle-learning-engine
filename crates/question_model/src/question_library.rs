@@ -397,7 +397,7 @@ pub struct QuestionSearchPage {
     pub facets: QuestionSearchFacets,
 }
 
-/// Safe immutable content projection for Question Library detail.
+/// Answer-free prompt view embedded in Question Details.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -405,7 +405,7 @@ pub struct QuestionSearchPage {
     rename_all_fields = "camelCase",
     deny_unknown_fields
 )]
-pub enum QuestionPromptProjection {
+pub enum QuestionDetailsPromptView {
     /// The immutable publication contains one fixed prompt.
     Static {
         /// Browser-safe prompt blocks in authored order.
@@ -426,7 +426,7 @@ pub struct QuestionDetails {
     pub summary: QuestionSummary,
     /// Static content or one server-generated example; source, response,
     /// Question Variation Definition, grading, keys, and preview seed are excluded.
-    pub prompt: QuestionPromptProjection,
+    pub prompt: QuestionDetailsPromptView,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: QuestionStatistics,
     /// Bounded current-Account usage evidence for this exact publication.
@@ -617,7 +617,7 @@ mod tests {
                 availability: QuestionRevisionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
-            prompt: QuestionPromptProjection::Static { blocks: Vec::new() },
+            prompt: QuestionDetailsPromptView::Static { blocks: Vec::new() },
             evidence: QuestionStatistics::InsufficientEvidence,
             usage: QuestionUseDetails {
                 summary: QuestionUseSummary {

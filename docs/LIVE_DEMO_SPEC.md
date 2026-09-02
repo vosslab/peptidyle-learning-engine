@@ -148,8 +148,9 @@ The demo should allow an Instructor to use the normal instructor workflows, incl
 - Build one ordered assignment from fixed questions and reusable question pools by using public Question IDs. Configure
   each pool's selection count and selected-Question order, then request fresh server-generated preview selections without creating Student
   work or changing grades.
-- Review an answer-free server preview before every live change. Completed changes return an immutable receipt and a
-  reconciliation result; the visible destination and next action remain available after apply.
+- Review an answer-free server preview before every live change. Completed changes return an immutable receipt;
+  the visible destination and next action remain available after apply. Assignment Import Repair remains a
+  server-held receipt-targeted boundary, not a Live Demo operation.
 - Add students to courses.
 - Preview current assignment policy, then exercise delivery and automated grading through the normal Student
   workflow.
