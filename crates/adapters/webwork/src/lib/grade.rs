@@ -31,7 +31,11 @@ pub(super) async fn grade<R: WebworkRenderer>(
             if points.is_finite()
                 && points >= 0.0
                 && crate::reviewed_webwork_source_capabilities(
-                    &question.backend_locator,
+                    question.question_backend,
+                    question
+                        .webwork_pg_path
+                        .as_deref()
+                        .ok_or(WebworkAdapterError::UnsupportedSource)?,
                     source.source_object_checksum().as_str(),
                 )?
                 .supports(Capability::PartialCredit) =>

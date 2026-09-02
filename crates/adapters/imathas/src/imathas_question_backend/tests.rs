@@ -46,7 +46,7 @@ mod launch_session_bridge {
     use question_model::{
         AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
         ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId,
-        QuestionBackendLocator, QuestionId, QuestionRevision, QuestionRevisionNumber,
+        QuestionBackend, QuestionId, QuestionRevision, QuestionRevisionNumber,
         QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
         WorkspaceId,
     };
@@ -86,14 +86,15 @@ mod launch_session_bridge {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("revision"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            backend_locator: QuestionBackendLocator::Imathas {
-                binding: ImathasQuestionBackendBinding::new(
-                    ImathasDeploymentReference::new("self-hosted-imathas").expect("deployment"),
-                    ImathasItemReference::new("item17").expect("item"),
-                    ImathasProfile::new(crate::result_verification::IMATHAS_GRADING_PROFILE_ID)
-                        .expect("profile"),
-                ),
-            },
+            question_backend: QuestionBackend::Imathas,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            imathas_question_backend_binding: Some(ImathasQuestionBackendBinding::new(
+                ImathasDeploymentReference::new("self-hosted-imathas").expect("deployment"),
+                ImathasItemReference::new("item17").expect("item"),
+                ImathasProfile::new(crate::result_verification::IMATHAS_GRADING_PROFILE_ID)
+                    .expect("profile"),
+            )),
             question_format: question_model::QuestionFormat::Imathas,
             prompt: Vec::new(),
             response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
@@ -230,7 +231,7 @@ mod launch_session_bridge {
         artifact: &SourceObjectReference,
         grading_context: learning_data_access::ImathasGradingContext,
         authentication: learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        digest: learning_data_access::QualifiedLaunchBindingDigest,
+        digest: learning_data_access::ImathasLaunchBindingChecksum,
     ) -> ImathasQuestionBackendSessionRestoreExpectation {
         let imathas_question_backend_binding = lda_imathas_backend();
         ImathasQuestionBackendSessionRestoreExpectation::new(
@@ -271,7 +272,7 @@ mod launch_session_bridge {
                 .item_reference()
                 .as_str(),
             codec.encode(validation.challenge.as_bytes()),
-            validation.qualified_launch_binding_digest.as_str(),
+            validation.imathas_launch_binding_checksum.as_str(),
         ));
         let signed = format!("{header}.{payload}");
         let mut mac = Hmac::<Sha256>::new_from_slice(b"recorded-result-secret")
@@ -323,7 +324,7 @@ mod launch_session_bridge {
             CourseId::from_uuid(Uuid::from_u128(2)),
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
         );
-        let digest = preparation.qualified_launch_binding_digest().clone();
+        let digest = preparation.imathas_launch_binding_checksum().clone();
         let reference = store
             .create_imathas_question_backend_session(
                 token,
@@ -437,8 +438,8 @@ mod launch_session_bridge {
             .preparation_validation()
             .authentication;
         let mismatched_context_digest =
-            learning_data_access::QualifiedLaunchBindingDigest::parse("b".repeat(64))
-                .expect("binding digest");
+            learning_data_access::ImathasLaunchBindingChecksum::parse("b".repeat(64))
+                .expect("iMathAS Launch Binding Checksum");
         let mismatched_context_reference = store
             .create_imathas_question_backend_session(
                 token,
@@ -491,8 +492,8 @@ mod launch_session_bridge {
             .preparation_validation()
             .authentication;
         let mismatched_authentication_digest =
-            learning_data_access::QualifiedLaunchBindingDigest::parse("c".repeat(64))
-                .expect("binding digest");
+            learning_data_access::ImathasLaunchBindingChecksum::parse("c".repeat(64))
+                .expect("iMathAS Launch Binding Checksum");
         let mismatched_authentication_reference = store
             .create_imathas_question_backend_session(
                 token,
@@ -568,10 +569,10 @@ mod launch_session_bridge {
         wrong_challenge.challenge =
             learning_data_access::ImathasQuestionBackendSessionChallenge::generate()
                 .expect("challenge");
-        let mut wrong_binding_digest = validation.clone();
-        wrong_binding_digest.qualified_launch_binding_digest =
-            learning_data_access::QualifiedLaunchBindingDigest::parse("d".repeat(64))
-                .expect("binding digest");
+        let mut wrong_binding_checksum = validation.clone();
+        wrong_binding_checksum.imathas_launch_binding_checksum =
+            learning_data_access::ImathasLaunchBindingChecksum::parse("d".repeat(64))
+                .expect("iMathAS Launch Binding Checksum");
         let mut expired = validation.clone();
         expired.expires_at = now();
         let mut wrong_deployment = validation.clone();
@@ -654,7 +655,7 @@ mod launch_session_bridge {
         for invalid in [
             wrong_hmac,
             wrong_challenge,
-            wrong_binding_digest,
+            wrong_binding_checksum,
             expired,
             wrong_deployment,
             wrong_profile,
@@ -867,8 +868,8 @@ mod launch_session_bridge {
                 response_checksum: prevalidation.response_checksum,
                 challenge: prevalidation.challenge,
                 authentication: prevalidation.authentication,
-                qualified_launch_binding_digest: preparation
-                    .qualified_launch_binding_digest()
+                imathas_launch_binding_checksum: preparation
+                    .imathas_launch_binding_checksum()
                     .clone(),
                 expires_at: prevalidation.expires_at,
             };

@@ -11,10 +11,10 @@ use question_model::classification::QuestionLicense;
 use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionBackendLocator, DraftQuestionContent, QuestionAnswer, QuestionAnswerExplanation,
-    QuestionAssetId, QuestionBackendLocator, QuestionFeedback, QuestionFormat, QuestionGradingRule,
-    QuestionId, QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionType,
-    SourceObjectChecksum, SourceObjectReference, StudentResponse, WorkspaceId,
+    DraftQuestionContent, QuestionAnswer, QuestionAnswerExplanation, QuestionAssetId,
+    QuestionBackend, QuestionFeedback, QuestionFormat, QuestionGradingRule, QuestionId,
+    QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionType, SourceObjectChecksum,
+    SourceObjectReference, StudentResponse, WorkspaceId,
 };
 use question_model::{
     QuestionAssetReference as PresentedQuestionAssetReference, QuestionContentBlock,
@@ -51,12 +51,8 @@ pub(super) fn ple_question_json_question() -> QuestionRevision {
         .expect("PLE Question JSON fixture should compile")
         .into_parts()
         .0;
-    QuestionRevision::from_draft(
-        draft,
-        question_id(),
-        revision_number(1),
-        QuestionBackendLocator::Ple,
-    )
+    QuestionRevision::from_draft(draft, question_id(), revision_number(1), None)
+        .expect("PLE fixture has valid backend fields")
 }
 
 fn metadata(title: &str) -> QuestionMetadata {
@@ -80,7 +76,11 @@ fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
     let question = ple_question_json_question();
     let mut draft = DraftQuestionContent {
         workspace: question.workspace,
-        backend_locator: DraftQuestionBackendLocator::Ple,
+        question_backend: QuestionBackend::Ple,
+        webwork_pg_path: None,
+        qti_package_item_identifier: None,
+        workspace_import_id: None,
+        draft_imathas_question_backend_binding: None,
         question_format: question.question_format,
         prompt: question.prompt,
         response: question.response,
@@ -147,7 +147,7 @@ fn ple_question_json_capabilities_are_installed_and_reproducible_without_answer_
     let public = serde_json::to_string(&issue.presentation)
         .expect("issued Question Presentation should serialize for student");
     assert!(!public.contains("correctChoice"));
-    assert!(!public.contains("publicSha256"));
+    assert!(!public.contains("publicContentChecksum"));
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn ple_draft_preview_matches_the_published_question_presentation() {
     let preview = preview_ple_draft(
         &DraftPreviewRequest {
             workspace: question.workspace,
-            backend_locator: DraftQuestionBackendLocator::Ple,
+            question_backend: QuestionBackend::Ple,
             title: question.metadata.title.clone(),
             prompt: question.prompt.clone(),
             response: question.response.clone(),
@@ -512,7 +512,10 @@ fn verified_grading_keeps_question_feedback_answer_and_explanation_distinct_for_
         question_id: question_id(),
         revision_number: revision_number(4),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        backend_locator: QuestionBackendLocator::Ple,
+        question_backend: QuestionBackend::Ple,
+        webwork_pg_path: None,
+        qti_package_item_identifier: None,
+        imathas_question_backend_binding: None,
         question_format: QuestionFormat::PleAlgorithmic,
         prompt: vec![QuestionContentBlock::Text {
             markdown: "Enter the reference value.".to_string(),
@@ -556,7 +559,7 @@ fn verified_grading_keeps_question_feedback_answer_and_explanation_distinct_for_
         StudentFeedbackReleaseDecision {
             score: false,
             per_item_correctness: false,
-            feedback_text: true,
+            question_feedback: true,
             question_answer: true,
             question_answer_explanation: true,
             class_statistics: false,
@@ -598,7 +601,10 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
         question_id: question_id(),
         revision_number: revision_number(3),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        backend_locator: QuestionBackendLocator::Ple,
+        question_backend: QuestionBackend::Ple,
+        webwork_pg_path: None,
+        qti_package_item_identifier: None,
+        imathas_question_backend_binding: None,
         question_format: QuestionFormat::PleAlgorithmic,
         prompt: vec![QuestionContentBlock::Text {
             markdown: "Enter the reference value.".to_string(),
@@ -701,7 +707,10 @@ fn versioned_numeric_question(version: &str) -> QuestionRevision {
         question_id: question_id(),
         revision_number: revision_number(if version == "1" { 5 } else { 6 }),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-        backend_locator: QuestionBackendLocator::Ple,
+        question_backend: QuestionBackend::Ple,
+        webwork_pg_path: None,
+        qti_package_item_identifier: None,
+        imathas_question_backend_binding: None,
         question_format: QuestionFormat::PleAlgorithmic,
         prompt: vec![QuestionContentBlock::Text {
             markdown: "Enter the generated reference value.".to_string(),

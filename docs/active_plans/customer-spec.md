@@ -125,7 +125,10 @@ For example:
 ```ts
 interface QuestionRevision {
   id: string;
-  source: QuestionBackendLocator;
+  questionBackend: QuestionBackend;
+  webworkPgPath?: string;
+  qtiPackageItemIdentifier?: string;
+  imathasQuestionBackendBinding?: ImathasQuestionBackendBinding;
   version: string;
   prompt: QuestionContent;
   responseFormat: QuestionResponseFormat;

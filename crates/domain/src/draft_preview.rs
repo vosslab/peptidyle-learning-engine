@@ -8,7 +8,7 @@ use question_model::QuestionContentBlock;
 use question_model::capability::Capability;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::question_library::QuestionBackend;
-use question_model::{QuestionBackend, QuestionResponseFormat, WorkspaceId};
+use question_model::{QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 use crate::generator::{GenerationError, QuestionVariationParameterValue, generate};
@@ -288,11 +288,8 @@ mod tests {
 
     #[test]
     fn ple_preview_is_key_free_and_builds_every_safe_text_field() {
-        let result = preview_ple_draft(
-            &request(QuestionBackend::Ple),
-            QuestionSeed::new(19),
-        )
-        .expect("valid preview");
+        let result = preview_ple_draft(&request(QuestionBackend::Ple), QuestionSeed::new(19))
+            .expect("valid preview");
         let DraftPreviewResult::Ready { preview } = result else {
             panic!("PLE Question Source is ready")
         };
@@ -313,11 +310,8 @@ mod tests {
 
     #[test]
     fn non_ple_sources_are_explicitly_unavailable() {
-        let result = preview_ple_draft(
-            &request(QuestionBackend::Webwork),
-            QuestionSeed::new(1),
-        )
-        .expect("unavailable is a valid result");
+        let result = preview_ple_draft(&request(QuestionBackend::Webwork), QuestionSeed::new(1))
+            .expect("unavailable is a valid result");
         assert_eq!(
             result,
             DraftPreviewResult::Unavailable {

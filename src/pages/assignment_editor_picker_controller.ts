@@ -17,7 +17,7 @@ import type { AssignmentEditorRepository } from "./assignment_editor_repository"
 import type { QuestionPickerSelection, QuestionPickerSource } from "../features/question_picker";
 
 export type AssignmentPickerMode =
-  /** A persisted workspace assignment whose Questions draft saves as one focused replacement. */
+  /** A persisted workspace assignment whose Questions draft saves as complete Assignment Content. */
   { readonly kind: "workspace"; readonly assignmentId: AssignmentId };
 
 export interface PendingPickerSelection {
@@ -33,7 +33,6 @@ export interface AssignmentEditorPickerControllerProps {
   readonly editorBusy: () => boolean;
   readonly setBusy: (value: boolean) => void;
   readonly onDraftChange: (draft: AssignmentEditorState) => void;
-  readonly onReplacementPrepared: (row: AssignmentQuestionRow, itemId: string) => void;
   readonly onMessage: (message: string) => void;
   readonly onError: (error: unknown, fallback: string) => void;
 }
@@ -125,16 +124,9 @@ export function createAssignmentEditorPickerController(
     if (currentIntent === undefined || props.editorBusy()) return;
     props.setBusy(true);
     try {
-      if (currentIntent.kind === "replacement") {
-        const questionId = selection.questionIds[0];
-        if (questionId === undefined) return;
-        const row = await props.repository.resolvePublished(questionId);
-        props.onReplacementPrepared(row, currentIntent.itemId);
-      } else {
-        const rows = await resolveRows(props.repository, selection.questionIds);
-        if (currentIntent.kind === "pool") addPoolRows(currentIntent.entryIndex, rows);
-        else addCreateRows(rows);
-      }
+      const rows = await resolveRows(props.repository, selection.questionIds);
+      if (currentIntent.kind === "pool") addPoolRows(currentIntent.entryIndex, rows);
+      else addCreateRows(rows);
       setIntent(undefined);
     } catch (error: unknown) {
       if (pendingSelection() === undefined) {

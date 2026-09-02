@@ -152,6 +152,21 @@ Blueprint Assignment. Each Relative Assignment Schedule Moment stores a signed
 calendar-day offset from Course Term start and one local time; it does not store
 an absolute delivery instant.
 
+**Blueprint Course Owner** is the Active Instructor Account accountable for one
+Blueprint Course's publication, fork, availability, and Draft Blueprint Revision
+collaboration decisions. Its inheritance path is Authenticated Session to Active
+Instructor Account to the exact Blueprint Course Owner relationship. The durable
+relationship can remain after that Account becomes inactive; it supplies no
+authority unless an Authenticated Session resolves the Account as active.
+
+**Blueprint Course Read Access** is the closed browser-safe classification for
+one returned Blueprint Course view. `BlueprintCourseOwner` means the current
+Active Instructor Account is the exact Blueprint Course Owner; `ActiveInstructor`
+means the current Active Instructor Account reads reusable published Blueprint
+content. Its inheritance path is Authenticated Session to Active Instructor
+Account to one published Blueprint Revision. The classification describes the
+returned view and grants no authority.
+
 **Resolved Assignment Schedule** is the target-term result of resolving one
 Relative Assignment Schedule. Each Resolved Assignment Schedule Moment pairs
 the resulting Course Local Date and Time with its exact absolute timestamp.

@@ -36,19 +36,6 @@ pub struct ReplaceAssignmentContentRequest {
     pub entries: Vec<AssignmentEntryRequest>,
 }
 
-/// Browser request to replace the immutable publication of one existing fixed
-/// assignment slot. The server derives the slot, assignment, course, Account,
-/// and publication version; this request names only the public Question ID.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ReplaceAssignmentFixedItemRequest {
-    /// Exact Assignment edit number reviewed before editing.
-    pub base_edit_number: AssignmentEditNumber,
-    /// Public Question ID resolved to an assignable immutable publication by
-    /// the authenticated server.
-    pub question_id: QuestionId,
-}
-
 /// Browser request that replaces the Policies-owned assignment slice.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

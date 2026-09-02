@@ -22,7 +22,7 @@ function row(displayId, title = "Question") {
   };
 }
 
-function canonicalQuestionIdFor(index) {
+function questionIdFor(index) {
   const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
   const characters = Array.from({ length: 7 }, () => "0");
   let remaining = index;
@@ -63,7 +63,7 @@ test("picker reorders the selected tray without changing membership", () => {
 
 test("picker enforces the shared bounded selection limit", () => {
   const rows = Array.from({ length: MAX_QUESTION_PICKER_SELECTION_CAP + 1 }, (_value, index) => {
-    return row(canonicalQuestionIdFor(index));
+    return row(questionIdFor(index));
   });
   assert.throws(
     () => questionPickerSelection("many", MAX_QUESTION_PICKER_SELECTION_CAP, rows),

@@ -9,11 +9,12 @@ import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.live_demo_target
 import local_stack_control.models
+import local_stack_control.private_files
 
 
 #============================================
 def selections() -> dict[str, str]:
-	"""Return the canonical target-writer selection shape."""
+	"""Return the required target-writer selection shape."""
 	return {
 		"PLE_WEBWORK_RENDERER_IMAGE": "renderer",
 		"PLE_WEBWORK_RENDERER_BASE_URL": "http://webwork-renderer:3000/",
@@ -26,6 +27,24 @@ def selections() -> dict[str, str]:
 		"PLE_MINIO_MC_IMAGE_SHA256": "minio-mc",
 		"PLE_SECRET_INIT_IMAGE_SHA256": "secret-init",
 	}
+
+
+#============================================
+def test_random_secret32_is_accepted_by_the_strict_private_secret_reader(
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""Generated private secrets satisfy the persisted secret representation."""
+	expected_secret = bytes(range(32))
+	monkeypatch.setattr(
+		local_stack_control.live_demo_target.secrets,
+		"token_bytes",
+		lambda _requested_bytes: expected_secret,
+	)
+	encoded_secret = local_stack_control.live_demo_target.random_secret32()
+	decoded_secret = local_stack_control.private_files.canonical_secret32(
+		encoded_secret.encode("ascii")
+	)
+	assert decoded_secret == expected_secret
 
 
 #============================================

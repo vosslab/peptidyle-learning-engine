@@ -1,9 +1,15 @@
 import { DecodeError } from "../../api/decoder";
 import { serializePleQuestionJsonSource } from "./question_json_codec";
+import {
+  createPleQuestionJsonMatchingChoice,
+  createPleQuestionJsonMatchingPrompt,
+  createPleQuestionJsonOrderingItem,
+} from "./question_json_source";
 import type {
   PleQuestionJsonAttemptLimit,
   PleQuestionJsonChoice,
-  PleQuestionJsonItem,
+  PleQuestionJsonMatchingChoice,
+  PleQuestionJsonMatchingPrompt,
   PleQuestionJsonOutcomeFeedback,
   PleQuestionJsonDocument,
   PleQuestionJsonClassification,
@@ -232,8 +238,16 @@ export function setMatchingItemText(
   const items = source.response[side];
   if (!items.some((item) => item.id === itemId))
     return refused(source, "That matching item no longer exists.");
-  const nextItems = items.map((item) => (item.id === itemId ? { ...item, text } : item));
-  return changed({ ...source, response: { ...source.response, [side]: nextItems } });
+  if (side === "prompts") {
+    const prompts = source.response.prompts.map((item) =>
+      item.id === itemId ? { ...item, text } : item,
+    );
+    return changed({ ...source, response: { ...source.response, prompts } });
+  }
+  const choices = source.response.choices.map((item) =>
+    item.id === itemId ? { ...item, text } : item,
+  );
+  return changed({ ...source, response: { ...source.response, choices } });
 }
 
 export function setMatchingPair(
@@ -270,8 +284,10 @@ export function addMatchingPair(source: PleQuestionJsonDocument): SourceEditResu
   }
   const promptId = nextMatchingId(source.response.prompts, "prompt");
   const choiceId = nextMatchingId(source.response.choices, "choice");
-  const prompts = [...source.response.prompts, { id: promptId, text: "New prompt" }];
-  const choices = [...source.response.choices, { id: choiceId, text: "New choice" }];
+  const prompt = createPleQuestionJsonMatchingPrompt(promptId, "New prompt");
+  const choice = createPleQuestionJsonMatchingChoice(choiceId, "New choice");
+  const prompts = [...source.response.prompts, prompt];
+  const choices = [...source.response.choices, choice];
   const matches = [...source.response.matches, { prompt: promptId, choice: choiceId }];
   return changed({ ...source, response: { ...source.response, prompts, choices, matches } });
 }
@@ -307,19 +323,30 @@ export function reorderMatchingItems(
   if (orderedIds.length !== items.length || new Set(orderedIds).size !== orderedIds.length) {
     return refused(source, "Use every matching item exactly once when reordering.");
   }
-  const byId = new Map(items.map((item) => [item.id, item]));
-  const reordered: PleQuestionJsonItem[] = [];
+  if (side === "prompts") {
+    const byId = new Map(source.response.prompts.map((item) => [item.id, item]));
+    const prompts: PleQuestionJsonMatchingPrompt[] = [];
+    for (const id of orderedIds) {
+      const item = byId.get(id);
+      if (item === undefined)
+        return refused(source, "Use every matching item exactly once when reordering.");
+      prompts.push(item);
+    }
+    return changed({ ...source, response: { ...source.response, prompts } });
+  }
+  const byId = new Map(source.response.choices.map((item) => [item.id, item]));
+  const choices: PleQuestionJsonMatchingChoice[] = [];
   for (const id of orderedIds) {
     const item = byId.get(id);
     if (item === undefined)
       return refused(source, "Use every matching item exactly once when reordering.");
-    reordered.push(item);
+    choices.push(item);
   }
-  return changed({ ...source, response: { ...source.response, [side]: reordered } });
+  return changed({ ...source, response: { ...source.response, choices } });
 }
 
-function nextMatchingId(
-  items: ReadonlyArray<PleQuestionJsonItem>,
+function nextMatchingId<T extends { readonly id: string }>(
+  items: ReadonlyArray<T>,
   prefix: "prompt" | "choice",
 ): string {
   let suffix = 1;
@@ -368,12 +395,12 @@ function defaultResponse(
       return {
         kind,
         prompts: [
-          { id: "prompt_a", text: "First prompt" },
-          { id: "prompt_b", text: "Second prompt" },
+          createPleQuestionJsonMatchingPrompt("prompt_a", "First prompt"),
+          createPleQuestionJsonMatchingPrompt("prompt_b", "Second prompt"),
         ],
         choices: [
-          { id: "choice_a", text: "First choice" },
-          { id: "choice_b", text: "Second choice" },
+          createPleQuestionJsonMatchingChoice("choice_a", "First choice"),
+          createPleQuestionJsonMatchingChoice("choice_b", "Second choice"),
         ],
         matches: [
           { prompt: "prompt_a", choice: "choice_a" },
@@ -384,9 +411,9 @@ function defaultResponse(
       return {
         kind,
         items: [
-          { id: "item_a", text: "First item" },
-          { id: "item_b", text: "Second item" },
-          { id: "item_c", text: "Third item" },
+          createPleQuestionJsonOrderingItem("item_a", "First item"),
+          createPleQuestionJsonOrderingItem("item_b", "Second item"),
+          createPleQuestionJsonOrderingItem("item_c", "Third item"),
         ],
         correctOrder: ["item_a", "item_b", "item_c"],
       };

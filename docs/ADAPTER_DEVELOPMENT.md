@@ -54,7 +54,8 @@ Use the following sequence for a question-agnostic adapter.
 
 1. Store one immutable Question Source and bind it through its Source Object Reference to the
    owning Draft Question Revision or Question Revision. Record the Question Backend separately,
-   with only its exact backend-specific locator; keep credentials and mutable locations outside
+   with only its exact backend-specific location field: WeBWorK PG Path, QTI package item
+   identifier, or `ImathasQuestionBackendBinding`. Keep credentials and mutable locations outside
    the stored relationship.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
    media type, Question License, Source Object Reference and Source Object Checksum, immutable Question Revision binding, and any required assets.

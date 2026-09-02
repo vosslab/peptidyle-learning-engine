@@ -187,5 +187,4 @@ test("shared picker caps each assignment destination before the dialog opens", (
   };
   assert.equal(assignmentPickerMaximum(draft, { kind: "fixedQuestion" }), 1022);
   assert.equal(assignmentPickerMaximum(draft, { kind: "pool", entryIndex: 1 }), 1023);
-  assert.equal(assignmentPickerMaximum(draft, { kind: "replacement", itemId: fixed.id }), 1);
 });

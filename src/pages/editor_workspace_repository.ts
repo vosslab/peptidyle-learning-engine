@@ -18,24 +18,28 @@ import type {
 } from "./editor_instructor_preview";
 
 interface LoadedDraft {
-  readonly definition: DraftQuestionContent;
+  readonly content: DraftQuestionContent;
   readonly revision: string;
 }
 
-function editorDraft(definition: DraftQuestionContent): EditorDraft {
+function editorDraft(content: DraftQuestionContent): EditorDraft {
   return {
-    workspace: definition.workspace,
-    title: definition.metadata.title,
-    backendLocator: definition.backendLocator,
-    prompt: definition.prompt,
-    response: definition.response,
-    questionAttemptLimit: definition.questionAttemptLimit,
-    questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    questionVariationRule: definition.questionVariationRule,
+    workspace: content.workspace,
+    title: content.metadata.title,
+    questionBackend: content.questionBackend,
+    webworkPgPath: content.webworkPgPath,
+    qtiPackageItemIdentifier: content.qtiPackageItemIdentifier,
+    workspaceImportId: content.workspaceImportId,
+    draftImathasQuestionBackendBinding: content.draftImathasQuestionBackendBinding,
+    prompt: content.prompt,
+    response: content.response,
+    questionAttemptLimit: content.questionAttemptLimit,
+    questionAttemptTimeLimit: content.questionAttemptTimeLimit,
+    questionVariationRule: content.questionVariationRule,
   };
 }
 
-function updateDefinition(
+function updateDraftQuestionContent(
   existing: DraftQuestionContent,
   draft: EditorDraft,
 ): DraftQuestionContent {
@@ -44,7 +48,11 @@ function updateDefinition(
   }
   return {
     ...existing,
-    backendLocator: draft.backendLocator,
+    questionBackend: draft.questionBackend,
+    webworkPgPath: draft.webworkPgPath,
+    qtiPackageItemIdentifier: draft.qtiPackageItemIdentifier,
+    workspaceImportId: draft.workspaceImportId,
+    draftImathasQuestionBackendBinding: draft.draftImathasQuestionBackendBinding,
     prompt: [...draft.prompt],
     response: draft.response,
     questionAttemptLimit: draft.questionAttemptLimit,
@@ -69,7 +77,7 @@ export function createWorkspaceEditorRepository(
     const current = loaded.get(workspace);
     if (current !== undefined) return current;
     const detail = await client.getWorkspaceDraft(workspace);
-    const retrieved = { definition: detail.draft, revision: detail.revision };
+    const retrieved = { content: detail.draft, revision: detail.revision };
     loaded.set(workspace, retrieved);
     return retrieved;
   }
@@ -79,7 +87,7 @@ export function createWorkspaceEditorRepository(
     if (detail.draft.workspace !== workspace) {
       throw new Error("Workspace detail identity does not match the requested workspace");
     }
-    loaded.set(workspace, { definition: detail.draft, revision: detail.revision });
+    loaded.set(workspace, { content: detail.draft, revision: detail.revision });
     return editorDraft(detail.draft);
   }
 
@@ -91,14 +99,10 @@ export function createWorkspaceEditorRepository(
     displayedRevision: (workspace): string | null => loaded.get(workspace)?.revision ?? null,
     saveDraft: async (draft: EditorDraft): Promise<EditorDraft> => {
       const current = await loadedDraft(draft.workspace);
-      const definition = updateDefinition(current.definition, draft);
+      const content = updateDraftQuestionContent(current.content, draft);
       try {
-        const saved = await client.saveWorkspaceDraft(
-          draft.workspace,
-          definition,
-          current.revision,
-        );
-        loaded.set(draft.workspace, { definition: saved.draft, revision: saved.revision });
+        const saved = await client.saveWorkspaceDraft(draft.workspace, content, current.revision);
+        loaded.set(draft.workspace, { content: saved.draft, revision: saved.revision });
         return editorDraft(saved.draft);
       } catch (error: unknown) {
         if (error instanceof WorkspaceConflictError) throw error;

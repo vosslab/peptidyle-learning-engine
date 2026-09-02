@@ -455,7 +455,7 @@ SELECT ple_api.register_draft_question_source(
     '00000000-0000-0000-0000-000000000920', 1,
     '00000000-0000-0000-0000-000000000902',
     'ple', 'pleQuestionJson', 'multipleChoice',
-    jsonb_build_object('backend', 'ple'),
+    NULL, NULL, NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-000000000922', repeat('ab', 32), repeat('cd', 32)
 );
 SELECT ple_api.register_draft_question_fork_source(
@@ -477,7 +477,7 @@ SET ROLE ple_api_owner;
 SELECT ple_private.transfer_draft_question_source_to_question_revision(
     '00000000-0000-0000-0000-000000000924',
     '00000000-0000-0000-0000-000000000920', 1,
-    'FRK-0001', 1,
+    'FRK-0001', 1, NULL,
     '00000000-0000-0000-0000-000000000925',
     jsonb_build_object(
         'kind', 'questionSource',

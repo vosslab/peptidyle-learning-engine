@@ -67,9 +67,14 @@ impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
         let question_type = wire_string(&input.question_type, "Question Type")?;
         let draft_question_revision_number =
             postgres_revision_number(input.draft_question_revision.revision_number)?;
-        let backend_locator = serde_json::to_value(&input.backend_locator).map_err(|_| {
-            StoreError::InvalidRecord("Question Backend locator cannot be encoded".to_string())
-        })?;
+        let imathas_deployment_reference = input
+            .draft_imathas_question_backend_binding
+            .as_ref()
+            .map(|binding| binding.deployment_reference().as_str().to_owned());
+        let imathas_item_reference = input
+            .draft_imathas_question_backend_binding
+            .as_ref()
+            .map(|binding| binding.item_reference().as_str().to_owned());
 
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
@@ -80,7 +85,7 @@ impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
         // transaction before it creates or returns an immutable record.
         let row = sqlx::query(
             "SELECT ple_api.register_draft_question_source(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16\
              ) AS question_source_uuid",
         )
         .bind(question_source_uuid)
@@ -90,10 +95,15 @@ impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
         .bind(input.question_backend.as_str())
         .bind(question_format)
         .bind(question_type)
-        .bind(backend_locator)
+        .bind(input.webwork_pg_path)
+        .bind(input.qti_package_item_identifier)
+        .bind(input.workspace_import_id.map(|id| id.as_uuid()))
+        .bind(imathas_deployment_reference)
+        .bind(imathas_item_reference)
+        .bind(Option::<String>::None)
         .bind(input.source_object_reference.object.as_uuid())
         .bind(input.source_object_checksum.as_str())
-        .bind(input.public_binding_checksum.as_str())
+        .bind(input.public_content_checksum.as_str())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

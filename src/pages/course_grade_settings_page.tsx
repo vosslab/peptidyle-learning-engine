@@ -13,7 +13,7 @@ import {
   useCourseThemeRouteData,
 } from "../features/course_appearance/course_theme_context";
 import {
-  canonicalizeAssignments,
+  renumberAssignmentsByCategory,
   gradeSettingsErrors,
   percentToBasisPoints,
 } from "./course_grade_settings_model";
@@ -83,7 +83,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
   );
 
   function replaceDraft(next: CourseGradeSchemeUpdateView): void {
-    setDraft(canonicalizeAssignments(next));
+    setDraft(renumberAssignmentsByCategory(next));
   }
   function checkDraft(current: CourseGradeSchemeUpdateView): boolean {
     const nextErrors = gradeSettingsErrors(current);

@@ -226,7 +226,7 @@ impl H5pImporter {
     /// Fails closed for unsupported content types, malformed source identity
     /// inputs, unsupported timing, and invalid multiple-choice structure.
     pub fn import(&self, request: H5pImportRequest) -> Result<ImportedH5pQuestion, H5pImportError> {
-        let package_import = canonicalize_package_import(request.package_import)?;
+        let package_import = validate_and_normalize_package_import(request.package_import)?;
         if package_import.content_type != MULTI_CHOICE_CONTENT_TYPE {
             return Err(H5pImportError::UnsupportedContentType(
                 package_import.content_type,
@@ -273,9 +273,9 @@ impl H5pImporter {
     ///
     /// The parser closure is intentionally supplied by the hostile-input
     /// worker: this small adapter does not parse H5P ZIP files itself. The
-    /// closure receives only the verified package bytes and the canonical
-    /// source reference. Its returned request must retain that source exactly,
-    /// preventing a parser from accidentally reattaching a different archive.
+    /// closure receives only the verified package bytes and the validated H5P
+    /// Package Import Reference. Its returned request must retain that reference
+    /// exactly, preventing a parser from accidentally reattaching a different archive.
     ///
     /// # Errors
     ///
@@ -291,7 +291,7 @@ impl H5pImporter {
         R: H5pArchiveResolver + ?Sized,
         P: FnOnce(&[u8], H5pPackageImportReference) -> Result<H5pImportRequest, H5pImportError>,
     {
-        let package_import = canonicalize_package_import(package_import)?;
+        let package_import = validate_and_normalize_package_import(package_import)?;
         let archived = resolver
             .get_archived_h5p(package_import.stored_package_object)
             .await
@@ -303,16 +303,17 @@ impl H5pImporter {
             });
         }
 
-        let actual_sha256 = sha256_hex(&archived.bytes);
-        if actual_sha256 != package_import.package_sha256 {
+        let retrieved_h5p_package_checksum = sha256_hex(&archived.bytes);
+        if retrieved_h5p_package_checksum != package_import.package_sha256 {
             return Err(H5pImportError::ArchiveChecksumMismatch {
-                expected: package_import.package_sha256,
-                actual: actual_sha256,
+                accepted_h5p_package_checksum: package_import.package_sha256,
+                retrieved_h5p_package_checksum,
             });
         }
 
         let request = parse_verified_package(&archived.bytes, package_import.clone())?;
-        let parsed_package_import = canonicalize_package_import(request.package_import.clone())?;
+        let parsed_package_import =
+            validate_and_normalize_package_import(request.package_import.clone())?;
         if parsed_package_import != package_import {
             return Err(H5pImportError::ReimportPackageImportMismatch);
         }
@@ -332,13 +333,13 @@ pub enum H5pImportError {
         /// Object identity returned by the resolver.
         actual: ObjectId,
     },
-    /// Retrieved bytes differ from the canonical package checksum retained by
-    /// the archived H5P package reference.
+    /// The retrieved H5P Package Checksum differs from the accepted H5P
+    /// Package Checksum retained by the archived H5P package reference.
     ArchiveChecksumMismatch {
-        /// Canonical SHA-256 retained at accepted import.
-        expected: String,
-        /// Canonical SHA-256 recomputed from the retrieved archive bytes.
-        actual: String,
+        /// Accepted H5P Package Checksum retained at accepted import.
+        accepted_h5p_package_checksum: String,
+        /// Retrieved H5P Package Checksum recomputed from the archive bytes.
+        retrieved_h5p_package_checksum: String,
     },
     /// A re-import parser attempted to substitute a different archived H5P package.
     ReimportPackageImportMismatch,
@@ -378,9 +379,12 @@ impl fmt::Display for H5pImportError {
                 formatter,
                 "archived H5P resolver returned object `{actual}` instead of `{expected}`"
             ),
-            Self::ArchiveChecksumMismatch { expected, actual } => write!(
+            Self::ArchiveChecksumMismatch {
+                accepted_h5p_package_checksum,
+                retrieved_h5p_package_checksum,
+            } => write!(
                 formatter,
-                "archived H5P checksum mismatch: expected `{expected}`, got `{actual}`; preserve the original package and investigate storage integrity"
+                "retrieved H5P Package Checksum `{retrieved_h5p_package_checksum}` differs from accepted H5P Package Checksum `{accepted_h5p_package_checksum}`; preserve the original package and investigate storage integrity"
             ),
             Self::ReimportPackageImportMismatch => write!(
                 formatter,
@@ -425,7 +429,7 @@ impl fmt::Display for H5pImportError {
 
 impl std::error::Error for H5pImportError {}
 
-fn canonicalize_package_import(
+fn validate_and_normalize_package_import(
     mut package_import: H5pPackageImportReference,
 ) -> Result<H5pPackageImportReference, H5pImportError> {
     if package_import.content_type.trim().is_empty() {
@@ -575,8 +579,13 @@ mod tests {
 
     #[test]
     fn supported_h5p_import_becomes_a_key_free_ungraded_internal_question() {
+        let mut import_request = request();
+        import_request
+            .package_import
+            .package_sha256
+            .make_ascii_uppercase();
         let imported = H5pImporter
-            .import(request())
+            .import(import_request)
             .expect("supported H5P imports");
         assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
@@ -686,8 +695,11 @@ mod tests {
             .expect_err("changed archived bytes must not be converted");
         assert!(matches!(
             error,
-            H5pImportError::ArchiveChecksumMismatch { expected, actual }
-                if expected == source.package_sha256 && actual == sha256_hex(b"changed package bytes")
+            H5pImportError::ArchiveChecksumMismatch {
+                accepted_h5p_package_checksum,
+                retrieved_h5p_package_checksum,
+            } if accepted_h5p_package_checksum == source.package_sha256
+                && retrieved_h5p_package_checksum == sha256_hex(b"changed package bytes")
         ));
     }
 
@@ -741,6 +753,27 @@ mod tests {
             H5pImporter.import(duplicate_choice),
             Err(H5pImportError::DuplicateChoiceId("amide".to_string()))
         );
+    }
+
+    #[test]
+    fn package_import_rejects_blank_source_fields() {
+        let mut blank_remote_reference = request();
+        blank_remote_reference
+            .package_import
+            .remote_package_reference = " \t".to_string();
+        assert_eq!(
+            H5pImporter.import(blank_remote_reference),
+            Err(H5pImportError::EmptyRemotePackageReference)
+        );
+
+        for content_type in ["", " \n"] {
+            let mut blank_content_type = request();
+            blank_content_type.package_import.content_type = content_type.to_string();
+            assert_eq!(
+                H5pImporter.import(blank_content_type),
+                Err(H5pImportError::EmptyContentType)
+            );
+        }
     }
 
     #[test]

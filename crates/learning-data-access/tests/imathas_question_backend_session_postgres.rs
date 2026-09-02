@@ -8,14 +8,14 @@ use learning_data_access::postgres::{
     local_development_pool,
 };
 use learning_data_access::{
-    CommitStagedImathasResultGrading, ImathasGradingContext, ImathasNormalizedScore,
-    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionPreparationContext,
+    CommitStagedImathasResultGrading, ImathasGradingContext, ImathasLaunchBindingChecksum,
+    ImathasNormalizedScore, ImathasQuestionBackendSessionAuthentication,
+    ImathasQuestionBackendSessionChallenge, ImathasQuestionBackendSessionPreparationContext,
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
     ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
     ImathasResultExchangeIdempotencyKey, ImathasResultToken, ImathasResultTokenChecksum,
-    QualifiedLaunchBindingDigest, SessionTokenHash, StageVerifiedImathasResult,
+    SessionTokenHash, StageVerifiedImathasResult,
 };
 use question_model::generation::QuestionSeed;
 use question_model::{
@@ -162,8 +162,9 @@ fn facts_with_grading_context(
         object: ObjectId::from_uuid(Uuid::from_u128(SOURCE_OBJECT)),
     };
     let checksum = SourceObjectChecksum::parse("aa".repeat(32)).expect("source checksum");
-    let qualified_digest =
-        QualifiedLaunchBindingDigest::parse(digest.to_string().repeat(64)).expect("binding digest");
+    let imathas_launch_binding_checksum =
+        ImathasLaunchBindingChecksum::parse(digest.to_string().repeat(64))
+            .expect("iMathAS Launch Binding Checksum");
     let question_grading_rule = QuestionGradingRule::PartialCredit { points: 1.0 };
     let authentication = ImathasQuestionBackendSessionAuthentication::from_server_value(format!(
         "aa.{}",
@@ -179,7 +180,7 @@ fn facts_with_grading_context(
         imathas_question_backend_binding.clone(),
         source.clone(),
         checksum.clone(),
-        qualified_digest.clone(),
+        imathas_launch_binding_checksum.clone(),
         authentication.clone(),
     );
     let preparation = ImathasQuestionBackendSessionPreparationContext::new(
@@ -249,7 +250,8 @@ fn create_for_attempt(
     (
         preparation
             .complete(
-                QualifiedLaunchBindingDigest::parse("c".repeat(64)).expect("binding digest"),
+                ImathasLaunchBindingChecksum::parse("c".repeat(64))
+                    .expect("iMathAS Launch Binding Checksum"),
                 ImathasQuestionBackendStatePlaintext::from_versioned_adapter_bytes(vec![1, 2, 3])
                     .expect("imathas state"),
             )
@@ -581,7 +583,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
             .1,
         ),
         (
-            "Qualified Launch Binding Digest",
+            "iMathAS Launch Binding Checksum",
             facts(
                 oracle.account,
                 issued_at,

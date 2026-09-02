@@ -53,7 +53,7 @@ pub enum AnswerKey {
     },
     /// Correct Hotspot Regions on a hotspot surface.
     Hotspot {
-        /// Exact correct region set; geometry remains in the public definition.
+        /// Exact correct region set; geometry remains in the public Question Response Format.
         correct: BTreeSet<ResponseItemReference>,
     },
 }

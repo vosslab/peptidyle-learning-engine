@@ -6,7 +6,7 @@ use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAt
 use question_model::classification::QuestionLicense;
 use question_model::generation::QuestionVariationRule;
 use question_model::{
-    DraftQuestionBackendLocator, QuestionFormat, QuestionGradingRule, QuestionMetadata,
+    QuestionBackend as ModelQuestionBackend, QuestionFormat, QuestionGradingRule, QuestionMetadata,
     QuestionRevision, QuestionType, WorkspaceId,
 };
 
@@ -23,7 +23,7 @@ struct RecordedImathasQuestionBackend {
 #[derive(Clone, Copy)]
 enum Mismatch {
     Attempt,
-    Problem,
+    QuestionRevision,
     Version,
     QuestionSeed,
     LaunchSessionAuthentication,
@@ -86,7 +86,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                     verdict.grading_context.question_seed(),
                 )
             }
-            Some(Mismatch::Problem) => {
+            Some(Mismatch::QuestionRevision) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     QuestionRevisionReference {
@@ -179,7 +179,10 @@ fn question() -> QuestionRevision {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        backend_locator: QuestionBackendLocator::Imathas { binding: binding() },
+        question_backend: ModelQuestionBackend::Imathas,
+        webwork_pg_path: None,
+        qti_package_item_identifier: None,
+        imathas_question_backend_binding: Some(binding()),
         question_format: QuestionFormat::Imathas,
         prompt: Vec::new(),
         response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
@@ -238,27 +241,17 @@ async fn stored_source(
 }
 
 #[tokio::test]
-async fn draft_snapshot_is_unversioned_and_publication_handoff_is_digest_pinned() {
+async fn draft_snapshot_is_unversioned_and_publication_handoff_is_source_object_checksum_pinned() {
     let question_backend = question_backend();
     let adapter = ImathasAdapter::new(MemoryObjectStore::default(), question_backend, [profile()]);
-    let prepared = adapter
-        .prepare_snapshot(&DraftQuestionBackendLocator::Imathas {
-            binding: draft_binding(),
-        })
-        .await
-        .unwrap();
+    let prepared = adapter.prepare_snapshot(&draft_binding()).await.unwrap();
     assert_eq!(prepared.bytes(), b"{\"recorded\":true}");
     assert_eq!(prepared.profile().profile().as_str(), "recorded-v1");
     assert!(!format!("{prepared:?}").contains("recorded\\\":true"));
     assert_eq!(
         format!(
             "{:?}",
-            ImathasQuestionLocation::from_draft_backend_locator(
-                &DraftQuestionBackendLocator::Imathas {
-                    binding: draft_binding(),
-                }
-            )
-            .unwrap()
+            ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&draft_binding())
         ),
         "ImathasQuestionLocation(REDACTED)"
     );
@@ -397,7 +390,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let (question, source, _) = stored_source(&store).await;
     for mismatch in [
         Mismatch::Attempt,
-        Mismatch::Problem,
+        Mismatch::QuestionRevision,
         Mismatch::Version,
         Mismatch::QuestionSeed,
         Mismatch::LaunchSessionAuthentication,
@@ -468,14 +461,14 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
 }
 
 #[test]
-fn grading_context_dimensions_change_hmac_and_binding_digest() {
+fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() {
     let question = question();
     let baseline = grading_context(&question, QuestionSeed::new(17));
     let challenge =
         learning_data_access::ImathasQuestionBackendSessionChallenge::generate().unwrap();
     let codec = ImathasSessionAuthenticationCodec::from_server_secret([8; 32]).unwrap();
     let baseline_authentication = codec.authenticate_for_lda(&baseline, &challenge);
-    let baseline_digest = crate::result_verification::launch_binding_digest(
+    let baseline_checksum = crate::result_verification::imathas_launch_binding_checksum(
         &baseline,
         "item-17",
         &"a".repeat(64),
@@ -516,14 +509,14 @@ fn grading_context_dimensions_change_hmac_and_binding_digest() {
         let authentication = codec.authenticate_for_lda(&alternative, &challenge);
         assert_ne!(authentication, baseline_authentication);
         assert_ne!(
-            crate::result_verification::launch_binding_digest(
+            crate::result_verification::imathas_launch_binding_checksum(
                 &alternative,
                 "item-17",
                 &"a".repeat(64),
                 crate::result_verification::normalize_imathas_seed(alternative.question_seed()),
                 authentication.as_str(),
             ),
-            baseline_digest
+            baseline_checksum
         );
     }
 }

@@ -177,7 +177,7 @@ def disposable_target(
 	policy = owner_policy(manifest.owner)
 	local_stack_control.compose.require_disposable_capability_file(manifest.capability_file)
 	local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
-	declared_names = local_stack_control.env_file.add_canonical_selections(
+	declared_names = local_stack_control.env_file.add_tracked_selections(
 		repo_root, manifest.env_file, canonical_image_selections(manifest)
 	)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(

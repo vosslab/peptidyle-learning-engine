@@ -5,6 +5,32 @@ import type { ApiClient } from "../../api/client";
 import type { WasmFacade } from "../../wasm/index";
 import type { PleQuestionJsonRead } from "./question_json_client";
 import type { PleQuestionJsonRepository } from "./question_json_repository";
+import type {
+  PleQuestionJsonMatchingChoice,
+  PleQuestionJsonMatchingPrompt,
+  PleQuestionJsonOrderingItem,
+} from "./question_json_source";
+
+type Assert<T extends true> = T;
+
+/** Private source roles share JSON members but stay non-assignable while authoring. */
+type PleQuestionJsonResponseMemberRolesAreDistinct = Assert<
+  [PleQuestionJsonMatchingPrompt] extends [PleQuestionJsonMatchingChoice]
+    ? false
+    : [PleQuestionJsonMatchingChoice] extends [PleQuestionJsonMatchingPrompt]
+      ? false
+      : [PleQuestionJsonMatchingPrompt] extends [PleQuestionJsonOrderingItem]
+        ? false
+        : [PleQuestionJsonOrderingItem] extends [PleQuestionJsonMatchingPrompt]
+          ? false
+          : [PleQuestionJsonMatchingChoice] extends [PleQuestionJsonOrderingItem]
+            ? false
+            : [PleQuestionJsonOrderingItem] extends [PleQuestionJsonMatchingChoice]
+              ? false
+              : true
+>;
+
+void (undefined as unknown as PleQuestionJsonResponseMemberRolesAreDistinct);
 
 export interface PleQuestionJsonEditorPageProps {
   readonly workspace: WorkspaceId;

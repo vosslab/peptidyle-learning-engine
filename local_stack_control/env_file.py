@@ -9,7 +9,7 @@ import local_stack_control.models
 
 
 SETTING_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CANONICAL_STACK_SELECTION_NAMES = (
+TRACKED_STACK_SELECTION_NAMES = (
 	"PLE_GATEWAY_IMAGE_SHA256",
 	"PLE_POSTGRES_IMAGE_SHA256",
 	"PLE_MINIO_IMAGE_SHA256",
@@ -99,11 +99,11 @@ def env_setting_names(env_file: pathlib.Path, allow_missing: bool = False) -> tu
 
 
 #============================================
-def canonical_stack_selections(repo_root: pathlib.Path) -> dict[str, str]:
+def tracked_stack_selections(repo_root: pathlib.Path) -> dict[str, str]:
 	"""Return the tracked image and renderer selections for disposable stacks."""
 	values = env_settings(repo_root / "containers/env.example")
 	result: dict[str, str] = {}
-	for name in CANONICAL_STACK_SELECTION_NAMES:
+	for name in TRACKED_STACK_SELECTION_NAMES:
 		if name not in values or values[name] == "":
 			raise local_stack_control.models.ControllerError(
 				f"containers/env.example must select {name}"
@@ -113,29 +113,29 @@ def canonical_stack_selections(repo_root: pathlib.Path) -> dict[str, str]:
 
 
 #============================================
-def add_canonical_selections(
+def add_tracked_selections(
 	repo_root: pathlib.Path,
 	env_file: pathlib.Path,
 	names: tuple[str, ...],
 ) -> tuple[str, ...]:
-	"""Add named canonical selections to one private disposable environment.
+	"""Add named tracked selections to one private disposable environment.
 
 	The tracked example owns image selection.  A disposable runner owns only its
 	private credentials, ports, and cleanup capability, so it receives selected
-	base-image values from that canonical source before Compose runs.
+	base-image values from that tracked source before Compose runs.
 	"""
 	values = env_settings(env_file)
-	selections = canonical_stack_selections(repo_root)
+	selections = tracked_stack_selections(repo_root)
 	additions: list[str] = []
 	for name in names:
 		if name not in selections:
 			raise local_stack_control.models.ControllerError(
-				f"containers/env.example does not define canonical selection {name}"
+				f"containers/env.example does not define tracked selection {name}"
 			)
 		if name in values:
 			if values[name] != selections[name]:
 				raise local_stack_control.models.ControllerError(
-					f"{env_file} must use the canonical selection for {name}"
+					f"{env_file} must use the tracked selection for {name}"
 				)
 			continue
 		additions.append(f"{name}={selections[name]}")

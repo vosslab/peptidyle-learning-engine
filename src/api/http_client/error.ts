@@ -100,30 +100,6 @@ export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentC
   };
 }
 
-export type AssignmentFixedItemReplacementFailure =
-  | { readonly kind: "staleRevision"; readonly message: string }
-  | { readonly kind: "retryable"; readonly message: string };
-
-/** Maps the focused future Assignment Attempt replacement boundary to user-safe recovery copy. */
-export function resolveAssignmentFixedItemReplacementFailure(
-  error: unknown,
-): AssignmentFixedItemReplacementFailure {
-  if (
-    (error instanceof AssignmentConflictError && error.status === 412) ||
-    (error instanceof ApiRequestError && error.status === 412)
-  ) {
-    return {
-      kind: "staleRevision",
-      message:
-        "This assignment changed before the selected question could be replaced. Reload the latest assignment before retrying.",
-    };
-  }
-  return {
-    kind: "retryable",
-    message: "The selected question could not be replaced. It remains selected so you can retry.",
-  };
-}
-
 /** A preview revision became stale; callers retain the hypothetical draft and reload it. */
 export class PreviewPlaneConflictError extends ApiRequestError {
   declare public readonly status: 412;

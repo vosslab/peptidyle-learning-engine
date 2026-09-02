@@ -498,7 +498,7 @@ impl std::fmt::Display for CourseScheduleRevisionNumberError {
 
 impl std::error::Error for CourseScheduleRevisionNumberError {}
 
-/// Exact immutable Course Schedule Revision locator.
+/// Exact immutable Course Schedule Revision Reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CourseScheduleRevisionReference {

@@ -29,8 +29,8 @@ function jsonResponse(value, options = {}) {
   });
 }
 
-function questionPublicationReviewCurrent(definition) {
-  const response = definition.response;
+function questionPublicationReviewCurrent(content) {
+  const response = content.response;
   const optionCount =
     response.kind === "multipleChoice"
       ? response.choices.length
@@ -38,20 +38,20 @@ function questionPublicationReviewCurrent(definition) {
         ? response.items.length
         : null;
   return {
-    questionBackend: definition.backendLocator.backend,
-    title: definition.metadata.title,
-    prompt: { blocks: definition.prompt.map((block) => block.kind) },
+    questionBackend: content.questionBackend,
+    title: content.metadata.title,
+    prompt: { blocks: content.prompt.map((block) => block.kind) },
     response: { kind: response.kind, optionCount },
-    questionAttemptLimit: definition.questionAttemptLimit,
-    questionAttemptTimeLimit: definition.questionAttemptTimeLimit,
-    questionVariationRule: { kind: definition.questionVariationRule.kind },
+    questionAttemptLimit: content.questionAttemptLimit,
+    questionAttemptTimeLimit: content.questionAttemptTimeLimit,
+    questionVariationRule: { kind: content.questionVariationRule.kind },
     metadata: {
-      questionDescription: definition.metadata.questionDescription,
-      tags: definition.metadata.tags,
-      classifications: definition.metadata.classifications,
-      questionLicense: definition.metadata.questionLicense,
-      questionCitation: definition.metadata.questionCitation,
-      language: definition.metadata.language,
+      questionDescription: content.metadata.questionDescription,
+      tags: content.metadata.tags,
+      classifications: content.metadata.classifications,
+      questionLicense: content.metadata.questionLicense,
+      questionCitation: content.metadata.questionCitation,
+      language: content.metadata.language,
     },
   };
 }
@@ -258,7 +258,7 @@ test("workspace CRUD uses no-store, exact ETags, and never permits a path/body m
               workspace,
               authoringWorkspace: "W-1",
               title: draft.metadata.title,
-              questionBackend: draft.backendLocator.backend,
+              questionBackend: draft.questionBackend,
             },
           ],
           nextCursor: null,

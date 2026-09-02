@@ -179,7 +179,7 @@ CREATE TABLE ple_audit.correction_recalculation_evidence (
     correction_generation integer NOT NULL CHECK (correction_generation > 0),
     recorded_at timestamp with time zone NOT NULL,
     outcome jsonb NOT NULL CHECK (jsonb_typeof(outcome) = 'object'),
-    digest bytea NOT NULL CHECK (pg_catalog.octet_length(digest) = 32),
+    outcome_checksum bytea NOT NULL CHECK (pg_catalog.octet_length(outcome_checksum) = 32),
     CONSTRAINT correction_recalculation_evidence_is_unique UNIQUE (correction_id, course_id, correction_generation)
 );
 ALTER TABLE ple_audit.forced_question_correction_assignment_target ENABLE ROW LEVEL SECURITY;

@@ -61,7 +61,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
     studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
-      feedback_text: "after_due",
+      question_feedback: "after_due",
       question_answer: "after_close",
       question_answer_explanation: "after_close",
       class_statistics: "never",
@@ -71,7 +71,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
   assert.equal(presentation.questionsPerAssignmentAttempt, 4);
   assert.equal(presentation.questionPoolReuseRule, "selectAgain");
   assert.equal(presentation.questionVariationRule, "newVariation");
-  assert.equal(presentation.studentFeedbackReleaseRule?.feedback_text, "after_due");
+  assert.equal(presentation.studentFeedbackReleaseRule?.question_feedback, "after_due");
   assert.equal("lateStatus" in presentation.delivery, false);
 });
 

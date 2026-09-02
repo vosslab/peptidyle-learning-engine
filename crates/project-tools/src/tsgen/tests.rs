@@ -304,7 +304,7 @@ fn tagged_enum_flattened_struct_preserves_the_flat_wire_shape() {
     let item: syn::ItemEnum = syn::parse_quote! {
         #[derive(Serialize)]
         #[serde(tag = "backend", rename_all = "camelCase", rename_all_fields = "camelCase")]
-        pub enum Locator {
+        pub enum FlattenedBindingVariant {
             Imathas { #[serde(flatten)] binding: ImathasBinding },
         }
     };

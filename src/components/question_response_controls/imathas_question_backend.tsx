@@ -4,7 +4,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch } from "../../api/contracts";
 import type { StudentResponseFormatCheck } from "../../api/decoders/student_response_format_check";
 import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
-import { isCanonicalImathasQuestionBackendLaunchPath } from "../../api/imathas_question_backend_launch";
+import { isExpectedImathasQuestionBackendLaunchPath } from "../../api/imathas_question_backend_launch";
 import type { StudentWorkRouteScope } from "../question_response_controls/common";
 
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -64,7 +64,7 @@ export function isSafeImathasQuestionBackendLaunchPath(
   attemptId: string,
   origin: string,
 ): boolean {
-  return isCanonicalImathasQuestionBackendLaunchPath(
+  return isExpectedImathasQuestionBackendLaunchPath(
     launchUrl,
     courseId,
     assignmentId,

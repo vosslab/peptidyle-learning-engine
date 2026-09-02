@@ -12,8 +12,8 @@ use std::fmt::Write as _;
 use question_model::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed, QuestionVariationRule,
 };
-use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -79,7 +79,7 @@ impl QuestionVariationParameters {
     }
 }
 
-/// Rejected parameter definition or output operation.
+/// Rejected Question Variation Rule parameter or output operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GenerationError {
     /// Integer lower bound exceeded its upper bound.
@@ -137,10 +137,11 @@ impl std::fmt::Display for GenerationError {
 
 impl std::error::Error for GenerationError {}
 
-/// Generates one exact parameter map from a seed and authored definition.
+/// Generates one exact Question Variation Parameters map from a seed and authored
+/// Question Variation Rule.
 ///
-/// Static definitions return empty Question Variation Parameters and consume no randomness.
-/// Seeded definitions iterate their `BTreeMap` in key order. Fixed and
+/// Static Question Variation Rules return empty Question Variation Parameters and consume no
+/// randomness. Seeded Question Variation Rules iterate their `BTreeMap` in key order. Fixed and
 /// single-value parameters consume no draw, so adding one cannot perturb
 /// unrelated random parameters.
 ///
@@ -344,7 +345,7 @@ mod tests {
     #[test]
     fn static_generation_is_an_explicit_empty_variant() {
         let output = generate(QuestionSeed::new(42), &QuestionVariationRule::Static)
-            .expect("static definitions should generate");
+            .expect("static Question Variation Rules should generate");
 
         assert_eq!(
             output,
@@ -403,11 +404,11 @@ mod tests {
         ];
 
         for spec in invalid_specs {
-            let definition = QuestionVariationRule::Seeded {
+            let rule = QuestionVariationRule::Seeded {
                 generator: test_generator(),
                 parameters: BTreeMap::from([("invalid".to_string(), spec)]),
             };
-            assert!(generate(QuestionSeed::new(1), &definition).is_err());
+            assert!(generate(QuestionSeed::new(1), &rule).is_err());
         }
     }
 

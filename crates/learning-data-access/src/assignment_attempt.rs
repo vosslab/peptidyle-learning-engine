@@ -15,14 +15,14 @@ use question_model::{
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Exact server-selected entries for one Question Pool Assignment Entry.
+/// Exact server-selected Question Pool Items for one Question Pool Assignment Entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedQuestionPoolSelection {
     /// Exact Question Pool Assignment Entry in the released Assignment Revision.
     pub question_pool_assignment_entry: AssignmentEntryId,
-    /// Earlier same-Student Selection whose exact entries are retained.
+    /// Earlier same-Student Selection whose exact Question Pool Items are retained.
     pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact selected entries in their frozen delivery order.
+    /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
 

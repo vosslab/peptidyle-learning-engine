@@ -44,7 +44,7 @@ function contentInput() {
       student_feedback_release_rule: {
         score: "after_submit",
         per_item_correctness: "after_submit",
-        feedback_text: "after_submit",
+        question_feedback: "after_submit",
         question_answer: "never",
         question_answer_explanation: "never",
         class_statistics: "never",
@@ -59,7 +59,7 @@ function blueprint(revision = "7") {
     reference: "BP-7",
     title: "Biochemistry sequence",
     revision,
-    access: "owner",
+    read_access: "blueprint_course_owner",
     modules: [
       {
         module_id: "module-7",
@@ -132,6 +132,9 @@ test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fi
   const hostile = structuredClone(blueprint());
   hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
+  const retiredAccess = structuredClone(blueprint());
+  retiredAccess.access = "owner";
+  assert.throws(() => decodeBlueprintCourseView(retiredAccess), DecodeError);
 });
 
 test("B1 client uses canonical Blueprint Course commands and matching ETags", async () => {

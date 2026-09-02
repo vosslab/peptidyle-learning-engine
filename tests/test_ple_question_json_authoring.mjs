@@ -55,7 +55,11 @@ function source() {
 function publicDefinition(includeVersion = false) {
   const definition = {
     workspace,
-    backendLocator: { backend: "ple" },
+    questionBackend: "ple",
+    webworkPgPath: null,
+    qtiPackageItemIdentifier: null,
+    workspaceImportId: null,
+    draftImathasQuestionBackendBinding: null,
     questionFormat: "pleQuestionJson",
     prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
     response: {

@@ -81,6 +81,43 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name = 'question_source'
+           AND column_definition.column_name = 'public_content_checksum'
+           AND column_definition.data_type = 'text'
+           AND column_definition.is_nullable = 'NO'
+    ) OR EXISTS (
+        SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name IN ('question_source', 'draft_question_answer_key')
+           AND column_definition.column_name = 'public_binding_sha256'
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM information_schema.columns AS column_definition
+         WHERE column_definition.table_schema = 'ple_private'
+           AND column_definition.table_name = 'draft_question_answer_key'
+           AND column_definition.column_name = 'public_content_checksum'
+           AND column_definition.data_type = 'text'
+           AND column_definition.is_nullable = 'NO'
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_proc AS procedure
+          JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+         WHERE namespace.nspname IN ('ple_private', 'ple_api')
+           AND procedure.proname = 'register_draft_question_source'
+           AND pg_get_function_arguments(procedure.oid) LIKE '%p_public_binding_sha256%'
+    ) OR (SELECT count(*) FROM pg_proc AS procedure
+          JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+         WHERE namespace.nspname IN ('ple_private', 'ple_api')
+           AND procedure.proname = 'register_draft_question_source'
+           AND pg_get_function_arguments(procedure.oid) LIKE '%p_public_content_checksum%') <> 2 THEN
+        RAISE EXCEPTION 'Question Source public-content checksum storage contract is incomplete';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
           FROM pg_class AS relation
           JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
          WHERE namespace.nspname = 'ple_private'
@@ -279,6 +316,7 @@ EXCEPTION
     WHEN invalid_parameter_value THEN NULL;
 END
 $$;
+
 COMMIT;
 
 DO $$
@@ -287,7 +325,7 @@ BEGIN
     PERFORM ple_private.transfer_draft_question_source_to_question_revision(
         '00000000-0000-0000-0000-000000000913',
         '00000000-0000-0000-0000-000000000905', 2,
-        'SRC-0001', 1,
+        'SRC-0001', 1, NULL,
         '00000000-0000-0000-0000-000000000914',
         jsonb_build_object(
             'kind', 'questionSource',
@@ -299,6 +337,205 @@ BEGIN
     RAISE EXCEPTION 'Question Source publication accepted a nonexistent Draft Question Revision Number';
 EXCEPTION
     WHEN check_violation THEN NULL;
+END
+$$;
+
+-- QTI keeps its Workspace Import ID while the Question is a draft. Publication
+-- transfers the exact QTI package item identifier but never that private ID.
+INSERT INTO ple_private.workspace_import (
+    workspace_id, import_id, question_format, format_import_data,
+    format_import_data_sha256, item_registry, item_registry_sha256,
+    grading_input_sha256, state, staged_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000915', 'qti', '{}'::jsonb,
+    repeat('a1', 32), '{}'::jsonb, repeat('b2', 32), repeat('c3', 32),
+    'staged', '2026-08-31T00:00:00Z'
+);
+INSERT INTO ple_private.draft_question (draft_question_uuid, workspace_id, created_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000916',
+    '00000000-0000-0000-0000-000000000902', '2026-08-31T00:00:00Z'
+);
+INSERT INTO ple_private.draft_question_revision (
+    draft_question_revision_uuid, draft_question_uuid, revision_number, title,
+    question_content, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000917',
+    '00000000-0000-0000-0000-000000000916', 1, 'QTI source', '{}'::jsonb,
+    '2026-08-31T00:00:00Z'
+);
+BEGIN;
+SET LOCAL ROLE ple_app;
+SELECT pg_catalog.set_config(
+    'ple.session_account_id', '00000000-0000-0000-0000-000000000901', true
+);
+SELECT ple_api.register_workspace_question_source_object(
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000918',
+    jsonb_build_object(
+        'kind', 'workspaceQuestionSource',
+        'workspace', '00000000-0000-0000-0000-000000000902'::uuid,
+        'object', '00000000-0000-0000-0000-000000000918'::uuid
+    ),
+    decode(repeat('d4', 32), 'hex'), 17, 'application/xml', 1777603200000
+);
+SELECT ple_api.register_draft_question_source(
+    '00000000-0000-0000-0000-000000000919',
+    '00000000-0000-0000-0000-000000000916', 1,
+    '00000000-0000-0000-0000-000000000902',
+    'qti', 'qti', 'multipleChoice',
+    NULL, 'qti-item-17', '00000000-0000-0000-0000-000000000915', NULL, NULL, NULL,
+    '00000000-0000-0000-0000-000000000918', repeat('d4', 32), repeat('e5', 32)
+);
+DO $$
+BEGIN
+    PERFORM ple_api.register_draft_question_source(
+        '00000000-0000-0000-0000-000000000919',
+        '00000000-0000-0000-0000-000000000916', 1,
+        '00000000-0000-0000-0000-000000000902',
+        'qti', 'qti', 'multipleChoice',
+        NULL, 'qti-item-17', '00000000-0000-0000-0000-000000000915', NULL, NULL, 'profile-v1',
+        '00000000-0000-0000-0000-000000000918', repeat('d4', 32), repeat('e5', 32)
+    );
+    RAISE EXCEPTION 'Question Source registration accepted an iMathAS Profile for QTI';
+EXCEPTION
+    WHEN invalid_parameter_value THEN NULL;
+END
+$$;
+COMMIT;
+INSERT INTO ple_data.published_question (question_id, created_at)
+VALUES ('QTX-0001', '2026-08-31T00:00:00Z');
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, published_at, public_metadata
+) VALUES (
+    'QTX-0001', 1, 'qti', '2026-08-31T00:00:00Z',
+    jsonb_build_object('questionDescription', 'Published QTI source')
+);
+BEGIN;
+SET LOCAL ROLE ple_api_owner;
+SELECT ple_private.transfer_draft_question_source_to_question_revision(
+    '00000000-0000-0000-0000-000000000920',
+    '00000000-0000-0000-0000-000000000916', 1,
+    'QTX-0001', 1, NULL,
+    '00000000-0000-0000-0000-000000000921',
+    jsonb_build_object(
+        'kind', 'questionSource',
+        'questionRevision', jsonb_build_object('questionId', 'QTX-0001', 'revisionNumber', 1),
+        'object', '00000000-0000-0000-0000-000000000921'::uuid
+    ),
+    decode(repeat('d4', 32), 'hex'), 17, 'application/xml', 1777603200000
+);
+COMMIT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.question_source AS source
+         WHERE source.question_id = 'QTX-0001'
+           AND source.revision_number = 1
+           AND source.qti_package_item_identifier = 'qti-item-17'
+           AND source.workspace_import_id IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Question Revision Source retained a draft-only Workspace Import ID';
+    END IF;
+END
+$$;
+
+-- iMathAS keeps exact Deployment and Item References on the draft while the
+-- iMathAS Profile is pinned only at publication.
+INSERT INTO ple_private.draft_question (draft_question_uuid, workspace_id, created_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000926',
+    '00000000-0000-0000-0000-000000000902', '2026-08-31T00:00:00Z'
+);
+INSERT INTO ple_private.draft_question_revision (
+    draft_question_revision_uuid, draft_question_uuid, revision_number, title,
+    question_content, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000927',
+    '00000000-0000-0000-0000-000000000926', 1, 'iMathAS source', '{}'::jsonb,
+    '2026-08-31T00:00:00Z'
+);
+BEGIN;
+SET LOCAL ROLE ple_app;
+SELECT pg_catalog.set_config(
+    'ple.session_account_id', '00000000-0000-0000-0000-000000000901', true
+);
+SELECT ple_api.register_workspace_question_source_object(
+    '00000000-0000-0000-0000-000000000902',
+    '00000000-0000-0000-0000-000000000928',
+    jsonb_build_object(
+        'kind', 'workspaceQuestionSource',
+        'workspace', '00000000-0000-0000-0000-000000000902'::uuid,
+        'object', '00000000-0000-0000-0000-000000000928'::uuid
+    ),
+    decode(repeat('f6', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+SELECT ple_api.register_draft_question_source(
+    '00000000-0000-0000-0000-000000000929',
+    '00000000-0000-0000-0000-000000000926', 1,
+    '00000000-0000-0000-0000-000000000902',
+    'imathas', 'imathas', 'multipleChoice',
+    NULL, NULL, NULL, 'deployment-17', 'item-17', NULL,
+    '00000000-0000-0000-0000-000000000928', repeat('f6', 32), repeat('a7', 32)
+);
+COMMIT;
+INSERT INTO ple_data.published_question (question_id, created_at)
+VALUES ('MTH-0001', '2026-08-31T00:00:00Z');
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, published_at, public_metadata
+) VALUES (
+    'MTH-0001', 1, 'imathas', '2026-08-31T00:00:00Z',
+    jsonb_build_object('questionDescription', 'Published iMathAS source')
+);
+DO $$
+BEGIN
+    SET LOCAL ROLE ple_api_owner;
+    PERFORM ple_private.transfer_draft_question_source_to_question_revision(
+        '00000000-0000-0000-0000-000000000930',
+        '00000000-0000-0000-0000-000000000926', 1,
+        'MTH-0001', 1, NULL,
+        '00000000-0000-0000-0000-000000000931',
+        jsonb_build_object(
+            'kind', 'questionSource',
+            'questionRevision', jsonb_build_object('questionId', 'MTH-0001', 'revisionNumber', 1),
+            'object', '00000000-0000-0000-0000-000000000931'::uuid
+        ),
+        decode(repeat('f6', 32), 'hex'), 17, 'application/json', 1777603200000
+    );
+    RAISE EXCEPTION 'iMathAS Question Source publication accepted a missing iMathAS Profile';
+EXCEPTION
+    WHEN invalid_parameter_value THEN NULL;
+END
+$$;
+BEGIN;
+SET LOCAL ROLE ple_api_owner;
+SELECT ple_private.transfer_draft_question_source_to_question_revision(
+    '00000000-0000-0000-0000-000000000930',
+    '00000000-0000-0000-0000-000000000926', 1,
+    'MTH-0001', 1, 'imathas-profile-v1',
+    '00000000-0000-0000-0000-000000000931',
+    jsonb_build_object(
+        'kind', 'questionSource',
+        'questionRevision', jsonb_build_object('questionId', 'MTH-0001', 'revisionNumber', 1),
+        'object', '00000000-0000-0000-0000-000000000931'::uuid
+    ),
+    decode(repeat('f6', 32), 'hex'), 17, 'application/json', 1777603200000
+);
+COMMIT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.question_source AS source
+         WHERE source.question_id = 'MTH-0001'
+           AND source.revision_number = 1
+           AND source.imathas_deployment_reference = 'deployment-17'
+           AND source.imathas_item_reference = 'item-17'
+           AND source.imathas_profile = 'imathas-profile-v1'
+           AND source.workspace_import_id IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Question Revision Source did not preserve the exact pinned iMathAS fields';
+    END IF;
 END
 $$;
 
@@ -334,7 +571,7 @@ SELECT ple_api.register_draft_question_source(
     '00000000-0000-0000-0000-000000000905', 1,
     '00000000-0000-0000-0000-000000000902',
     'ple', 'pleQuestionJson', 'multipleChoice',
-    jsonb_build_object('backend', 'ple'),
+    NULL, NULL, NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
 );
 -- A retry mints no second record and returns the established source identity.
@@ -343,7 +580,7 @@ SELECT ple_api.register_draft_question_source(
     '00000000-0000-0000-0000-000000000905', 1,
     '00000000-0000-0000-0000-000000000902',
     'ple', 'pleQuestionJson', 'multipleChoice',
-    jsonb_build_object('backend', 'ple'),
+    NULL, NULL, NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
 );
 DO $$
@@ -353,12 +590,29 @@ BEGIN
         '00000000-0000-0000-0000-000000000905', 1,
         '00000000-0000-0000-0000-000000000902',
         'ple', 'pleQuestionJson', 'multipleChoice',
-        jsonb_build_object('backend', 'ple'),
+        NULL, NULL, NULL, NULL, NULL, NULL,
         '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('cd', 32)
     );
     RAISE EXCEPTION 'Draft Question Source registration accepted different immutable facts';
 EXCEPTION
     WHEN unique_violation THEN NULL;
+END
+$$;
+-- The authorized registration boundary rejects a missing backend-owned field
+-- before any immutable source record is created.
+DO $$
+BEGIN
+    PERFORM ple_api.register_draft_question_source(
+        '00000000-0000-0000-0000-000000000908',
+        '00000000-0000-0000-0000-000000000905', 1,
+        '00000000-0000-0000-0000-000000000902',
+        'webwork', 'webworkPg', 'multipleChoice',
+        NULL, NULL, NULL, NULL, NULL, NULL,
+        '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
+    );
+    RAISE EXCEPTION 'Draft Question Source registration accepted a WeBWorK Question without its WeBWorK PG Path';
+EXCEPTION
+    WHEN invalid_parameter_value THEN NULL;
 END
 $$;
 DO $$
@@ -368,7 +622,7 @@ BEGIN
         '00000000-0000-0000-0000-000000000905', 2,
         '00000000-0000-0000-0000-000000000902',
         'ple', 'pleQuestionJson', 'multipleChoice',
-        jsonb_build_object('backend', 'ple'),
+        NULL, NULL, NULL, NULL, NULL, NULL,
         '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
     );
     RAISE EXCEPTION 'Draft Question Source registration accepted a nonexistent Draft Question Revision Number';
@@ -383,7 +637,7 @@ BEGIN
         '00000000-0000-0000-0000-000000000905', 1,
         '00000000-0000-0000-0000-000000000909',
         'ple', 'pleQuestionJson', 'multipleChoice',
-        jsonb_build_object('backend', 'ple'),
+        NULL, NULL, NULL, NULL, NULL, NULL,
         '00000000-0000-0000-0000-000000000903', repeat('ab', 32), repeat('ef', 32)
     );
     RAISE EXCEPTION 'Draft Question Source registration accepted an unauthorized workspace';
@@ -399,7 +653,13 @@ BEGIN
         SELECT 1
          FROM ple_private.question_source
          WHERE question_source_uuid = '00000000-0000-0000-0000-000000000907'
-           AND backend_locator = jsonb_build_object('backend', 'ple')
+           AND backend = 'ple'
+           AND webwork_pg_path IS NULL
+           AND qti_package_item_identifier IS NULL
+           AND workspace_import_id IS NULL
+           AND imathas_deployment_reference IS NULL
+           AND imathas_item_reference IS NULL
+           AND imathas_profile IS NULL
            AND source_object_id = '00000000-0000-0000-0000-000000000903'
            AND source_object_checksum = repeat('ab', 32)
     ) THEN
@@ -424,7 +684,7 @@ SET LOCAL ROLE ple_api_owner;
 SELECT ple_private.transfer_draft_question_source_to_question_revision(
     '00000000-0000-0000-0000-000000000910',
     '00000000-0000-0000-0000-000000000905', 1,
-    'SRC-0001', 1,
+    'SRC-0001', 1, NULL,
     '00000000-0000-0000-0000-000000000911',
     jsonb_build_object(
         'kind', 'questionSource',
@@ -437,7 +697,7 @@ SELECT ple_private.transfer_draft_question_source_to_question_revision(
 SELECT ple_private.transfer_draft_question_source_to_question_revision(
     '00000000-0000-0000-0000-000000000912',
     '00000000-0000-0000-0000-000000000905', 1,
-    'SRC-0001', 1,
+    'SRC-0001', 1, NULL,
     '00000000-0000-0000-0000-000000000911',
     jsonb_build_object(
         'kind', 'questionSource',
@@ -477,7 +737,7 @@ BEGIN
     PERFORM ple_private.transfer_draft_question_source_to_question_revision(
         '00000000-0000-0000-0000-000000000913',
         '00000000-0000-0000-0000-000000000905', 1,
-        'SRC-0001', 1,
+        'SRC-0001', 1, NULL,
         '00000000-0000-0000-0000-000000000914',
         jsonb_build_object(
             'kind', 'questionSource',

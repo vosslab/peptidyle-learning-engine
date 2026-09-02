@@ -14,9 +14,9 @@ use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
 };
 use question_model::{
-    DraftQuestionContent, GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionBackend,
-    QuestionFeedback, QuestionFormat,
-    QuestionGradingRule, QuestionMetadata, QuestionRevision, QuestionTitleError,
+    DraftQuestionContent, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionBackend, QuestionFeedback, QuestionFormat, QuestionGradingRule, QuestionMetadata,
+    QuestionRevision, QuestionTitleError,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -41,7 +41,7 @@ pub enum PleQuestionJsonError {
     UnsupportedVersion(u32),
     InvalidDocument(String),
     InvalidTitle(QuestionTitleError),
-    PublicBindingMismatch,
+    PublicContentChecksumMismatch,
     Grading(GradingError),
     Encoding(String),
 }
@@ -65,8 +65,8 @@ impl std::fmt::Display for PleQuestionJsonError {
                 write!(formatter, "invalid PLE Question JSON document: {message}")
             }
             Self::InvalidTitle(error) => error.fmt(formatter),
-            Self::PublicBindingMismatch => formatter.write_str(
-                "PLE Question JSON Private Grading does not match the public definition",
+            Self::PublicContentChecksumMismatch => formatter.write_str(
+                "PLE Question JSON Private Grading does not match the PLE Question JSON public content",
             ),
             Self::Grading(error) => error.fmt(formatter),
             Self::Encoding(message) => {
@@ -79,12 +79,12 @@ impl std::fmt::Display for PleQuestionJsonError {
 impl std::error::Error for PleQuestionJsonError {}
 
 /// Server-only Answer Key and Question Feedback bound to one exact public
-/// Question payload.
+/// Question payload by its PLE Question JSON Public Content Checksum.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PleQuestionJsonPrivateGrading {
     schema_version: u32,
-    public_sha256: String,
+    public_content_checksum: String,
     answer_key: AnswerKey,
     choice_feedback: Vec<PleQuestionJsonChoiceFeedback>,
     outcome_feedback: PleQuestionJsonOutcomeFeedback,
@@ -143,7 +143,7 @@ impl PleQuestionJsonPrivateGrading {
         validate_key_against_response(&draft.response, &answer_key)?;
         Ok(Self {
             schema_version: PRIVATE_SCHEMA_VERSION,
-            public_sha256: public_binding_sha256_for_draft(draft)?,
+            public_content_checksum: public_content_checksum_for_draft(draft)?,
             answer_key,
             choice_feedback: feedback,
             outcome_feedback: PleQuestionJsonOutcomeFeedback {
@@ -153,19 +153,18 @@ impl PleQuestionJsonPrivateGrading {
         })
     }
 
-    pub fn public_binding_sha256(&self) -> &str {
-        &self.public_sha256
+    pub fn public_content_checksum(&self) -> &str {
+        &self.public_content_checksum
     }
 
-    /// Rebinds the unchanged server-only Answer Key and Question Feedback to the
-    /// exact public draft
-    /// emitted during publication.
+    /// Rebinds the unchanged server-only Answer Key and Question Feedback to
+    /// the exact PLE Question JSON public content emitted during publication.
     ///
     /// Publication uses this only when a private HOTSPOT workspace asset is
-    /// assigned its fresh version-scoped Question Library asset identity.  The answer
-    /// key and feedback remain byte-for-byte unchanged; the public binding
-    /// digest changes because that browser-safe asset identifier is part of
-    /// the public Question Response Format.
+    /// assigned its fresh version-scoped Question Library asset identity. The
+    /// Answer Key and Question Feedback remain byte-for-byte unchanged; the
+    /// PLE Question JSON Public Content Checksum changes because that
+    /// browser-safe asset identifier is part of the public content.
     pub fn rebind_to_draft(
         &self,
         draft: &DraftQuestionContent,
@@ -174,13 +173,14 @@ impl PleQuestionJsonPrivateGrading {
         // The caller has already validated these private Question records against the
         // staged draft. Publication may now change only the version-scoped
         // HOTSPOT asset ID, so validate every semantic key/feedback relation
-        // against the new definition without requiring the old binding hash.
+        // against the new PLE Question JSON public content without requiring the old
+        // PLE Question JSON Public Content Checksum.
         validate_for_draft(draft)?;
         validate_key_against_response(&draft.response, &self.answer_key)?;
         self.validate_feedback_targets(&draft.response)?;
         Ok(Self {
             schema_version: self.schema_version,
-            public_sha256: public_binding_sha256_for_draft(draft)?,
+            public_content_checksum: public_content_checksum_for_draft(draft)?,
             answer_key: self.answer_key.clone(),
             choice_feedback: self.choice_feedback.clone(),
             outcome_feedback: self.outcome_feedback.clone(),
@@ -197,8 +197,8 @@ impl PleQuestionJsonPrivateGrading {
         draft: &DraftQuestionContent,
     ) -> Result<(), PleQuestionJsonError> {
         validate_for_draft(draft)?;
-        if public_binding_sha256_for_draft(draft)? != self.public_sha256 {
-            return Err(PleQuestionJsonError::PublicBindingMismatch);
+        if public_content_checksum_for_draft(draft)? != self.public_content_checksum {
+            return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
         }
         self.validate_private_shape()?;
         validate_key_against_response(&draft.response, &self.answer_key)?;
@@ -230,15 +230,15 @@ impl PleQuestionJsonPrivateGrading {
         response: &StudentResponse,
     ) -> Result<PleQuestionJsonEvaluation, PleQuestionJsonError> {
         validate_ple_question_json_question(question)?;
-        if public_binding_sha256_for_question(question)? != self.public_sha256 {
-            return Err(PleQuestionJsonError::PublicBindingMismatch);
+        if public_content_checksum_for_question(question)? != self.public_content_checksum {
+            return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
         }
         self.validate_against_question(question)?;
         let outcome = grade(question, response, Some(&self.answer_key))
             .map_err(PleQuestionJsonError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = outcome else {
             return Err(PleQuestionJsonError::Grading(
-                GradingError::InvalidDefinition(
+                GradingError::InvalidQuestionGradingRule(
                     "PLE Question JSON grading must produce a numeric result".to_string(),
                 ),
             ));
@@ -252,14 +252,14 @@ impl PleQuestionJsonPrivateGrading {
     }
 
     /// Verifies this PLE Question JSON Private Grading against one exact immutable published
-    /// definition before an issuance capability retains it for later grade.
+    /// PLE Question JSON public content before an issuance capability retains it for later grade.
     pub fn validate_for_question(
         &self,
         question: &QuestionRevision,
     ) -> Result<(), PleQuestionJsonError> {
         validate_ple_question_json_question(question)?;
-        if public_binding_sha256_for_question(question)? != self.public_sha256 {
-            return Err(PleQuestionJsonError::PublicBindingMismatch);
+        if public_content_checksum_for_question(question)? != self.public_content_checksum {
+            return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
         }
         self.validate_against_question(question)
     }
@@ -270,8 +270,10 @@ impl PleQuestionJsonPrivateGrading {
                 self.schema_version,
             ));
         }
-        if !is_hex_sha256(&self.public_sha256) {
-            return invalid("publicSha256 must be a 64-character lowercase hex digest");
+        if !is_hex_sha256(&self.public_content_checksum) {
+            return invalid(
+                "publicContentChecksum must be a 64-character lowercase SHA-256 checksum",
+            );
         }
         validate_optional_feedback(self.outcome_feedback.correct.as_deref())?;
         validate_optional_feedback(self.outcome_feedback.incorrect.as_deref())?;
@@ -305,7 +307,7 @@ impl PleQuestionJsonPrivateGrading {
             .iter()
             .any(|feedback| !available.contains(&ResponseItemReference::new(&feedback.choice)))
         {
-            return Err(PleQuestionJsonError::PublicBindingMismatch);
+            return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
         }
         Ok(())
     }
@@ -347,7 +349,7 @@ impl PleQuestionJsonPrivateGrading {
             &question.response,
             &self.answer_key,
         )?)
-        .ok_or(PleQuestionJsonError::PublicBindingMismatch)?;
+        .ok_or(PleQuestionJsonError::PublicContentChecksumMismatch)?;
         Ok(question_answer)
     }
 }
@@ -357,7 +359,7 @@ pub fn validate_for_draft(draft: &DraftQuestionContent) -> Result<(), PleQuestio
     if draft.question_backend != QuestionBackend::Ple
         || draft.question_format != QuestionFormat::PleQuestionJson
     {
-        return Err(PleQuestionJsonError::PublicBindingMismatch);
+        return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
     }
     validate_ple_question_json_shape(
         draft.question_type,
@@ -374,7 +376,7 @@ pub fn validate_ple_question_json_question(
     if question.question_backend != QuestionBackend::Ple
         || question.question_format != QuestionFormat::PleQuestionJson
     {
-        return Err(PleQuestionJsonError::PublicBindingMismatch);
+        return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
     }
     validate_ple_question_json_shape(
         question.question_type,
@@ -587,7 +589,7 @@ fn validate_key_against_response(
         ) => {
             let available: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
             if correct.is_empty() || !correct.is_subset(&available) {
-                return Err(PleQuestionJsonError::PublicBindingMismatch);
+                return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
             }
             Ok(())
         }
@@ -602,7 +604,7 @@ fn validate_key_against_response(
                 || accepted.keys().cloned().collect::<BTreeSet<_>>() != available
                 || accepted.values().any(Vec::is_empty)
             {
-                return Err(PleQuestionJsonError::PublicBindingMismatch);
+                return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
             }
             Ok(())
         }
@@ -617,7 +619,7 @@ fn validate_key_against_response(
                 || correct_choices.len() != correct.len()
                 || !correct_choices.is_subset(&choice_ids)
             {
-                return Err(PleQuestionJsonError::PublicBindingMismatch);
+                return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
             }
             Ok(())
         }
@@ -625,18 +627,18 @@ fn validate_key_against_response(
             let available: BTreeSet<_> = items.iter().map(|item| item.id.clone()).collect();
             let keyed: BTreeSet<_> = correct.iter().cloned().collect();
             if keyed.len() != correct.len() || keyed != available {
-                return Err(PleQuestionJsonError::PublicBindingMismatch);
+                return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
             }
             Ok(())
         }
         (QuestionResponseFormat::Hotspot { regions, .. }, AnswerKey::Hotspot { correct }) => {
             let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
             if correct.is_empty() || !correct.is_subset(&available) {
-                return Err(PleQuestionJsonError::PublicBindingMismatch);
+                return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
             }
             Ok(())
         }
-        _ => Err(PleQuestionJsonError::PublicBindingMismatch),
+        _ => Err(PleQuestionJsonError::PublicContentChecksumMismatch),
     }
 }
 
@@ -733,7 +735,7 @@ fn correct_response_blocks(
                 .flat_map(|region| region.label.clone())
                 .collect()
         }
-        _ => return Err(PleQuestionJsonError::PublicBindingMismatch),
+        _ => return Err(PleQuestionJsonError::PublicContentChecksumMismatch),
     };
     Ok(blocks)
 }
@@ -754,7 +756,7 @@ fn blocks_text(blocks: &[QuestionContentBlock]) -> String {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PublicBinding<'a> {
+struct PleQuestionJsonPublicContent<'a> {
     question_format: QuestionFormat,
     question_type: QuestionType,
     prompt: &'a [QuestionContentBlock],
@@ -765,17 +767,18 @@ struct PublicBinding<'a> {
     grading: &'a QuestionGradingRule,
     metadata: &'a QuestionMetadata,
 }
-/// Returns the checksum that binds the server-only Answer Key and Question Feedback
-/// to one exact browser-safe PLE Question JSON Revision.
-pub fn public_binding_sha256_for_draft(
+/// Returns the PLE Question JSON Public Content Checksum that binds the
+/// server-only Answer Key and Question Feedback to one exact browser-safe PLE
+/// Question JSON Revision.
+pub fn public_content_checksum_for_draft(
     draft: &DraftQuestionContent,
 ) -> Result<String, PleQuestionJsonError> {
     if draft.question_backend != QuestionBackend::Ple
         || draft.question_format != QuestionFormat::PleQuestionJson
     {
-        return Err(PleQuestionJsonError::PublicBindingMismatch);
+        return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
     }
-    public_binding_sha256(PublicBinding {
+    public_content_checksum(PleQuestionJsonPublicContent {
         question_format: draft.question_format,
         question_type: draft.question_type,
         prompt: &draft.prompt,
@@ -787,15 +790,15 @@ pub fn public_binding_sha256_for_draft(
         metadata: &draft.metadata,
     })
 }
-fn public_binding_sha256_for_question(
+fn public_content_checksum_for_question(
     question: &QuestionRevision,
 ) -> Result<String, PleQuestionJsonError> {
     if question.question_backend != QuestionBackend::Ple
         || question.question_format != QuestionFormat::PleQuestionJson
     {
-        return Err(PleQuestionJsonError::PublicBindingMismatch);
+        return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
     }
-    public_binding_sha256(PublicBinding {
+    public_content_checksum(PleQuestionJsonPublicContent {
         question_format: question.question_format,
         question_type: question.question_type,
         prompt: &question.prompt,
@@ -808,8 +811,10 @@ fn public_binding_sha256_for_question(
     })
 }
 
-fn public_binding_sha256(binding: PublicBinding<'_>) -> Result<String, PleQuestionJsonError> {
-    serde_json::to_vec(&binding)
+fn public_content_checksum(
+    content: PleQuestionJsonPublicContent<'_>,
+) -> Result<String, PleQuestionJsonError> {
+    serde_json::to_vec(&content)
         .map(|bytes| sha256_hex(&bytes))
         .map_err(|error| PleQuestionJsonError::Encoding(error.to_string()))
 }

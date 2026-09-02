@@ -69,7 +69,7 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
     student_feedback_release_rule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
-      feedback_text: "after_submit",
+      question_feedback: "after_submit",
       question_answer: "after_close",
       question_answer_explanation: "after_close",
       class_statistics: "never",

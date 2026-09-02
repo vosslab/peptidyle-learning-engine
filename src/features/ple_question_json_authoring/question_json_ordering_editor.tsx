@@ -2,14 +2,14 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import type { PleQuestionJsonItem } from "./question_json_source";
+import type { PleQuestionJsonOrderingItem } from "./question_json_source";
 
 const MINIMUM_ITEMS = 3;
 const MAXIMUM_ITEMS = 100;
 
 export interface PleQuestionJsonOrderingEditorProps {
   /** The ordered items are the private answer key; correctOrder is derived by the model. */
-  readonly items: () => ReadonlyArray<PleQuestionJsonItem>;
+  readonly items: () => ReadonlyArray<PleQuestionJsonOrderingItem>;
   readonly onItemTextChange: (itemId: string, text: string) => void;
   readonly onAddItem: () => void;
   readonly onRemoveItem: (itemId: string) => void;
@@ -46,7 +46,7 @@ export function PleQuestionJsonOrderingEditor(
       <ol class="ple-question-json-authoring__choice-list">
         <For each={props.items().map((item) => item.id)}>
           {(itemId, index): JSX.Element => {
-            const item = (): PleQuestionJsonItem => {
+            const item = (): PleQuestionJsonOrderingItem => {
               const current = props.items().find((candidate) => candidate.id === itemId);
               if (current === undefined) throw new Error("Ordering item identity is unavailable.");
               return current;

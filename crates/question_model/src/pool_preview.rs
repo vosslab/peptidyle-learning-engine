@@ -25,7 +25,7 @@ pub struct QuestionPoolPreviewRequest {
 /// preview.  A Question ID remains the sole human-facing question identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionPoolPreviewQuestion {
+pub struct QuestionPoolPreviewItem {
     pub question_id: QuestionId,
     pub title: String,
 }
@@ -42,8 +42,8 @@ pub struct QuestionPoolPreview {
     pub question_pool_label: String,
     pub selection_count: u32,
     pub selection_rule: QuestionPoolSelectionRule,
-    pub entries: Vec<QuestionPoolPreviewQuestion>,
-    pub selected: Vec<QuestionPoolPreviewQuestion>,
+    pub items: Vec<QuestionPoolPreviewItem>,
+    pub selected_items: Vec<QuestionPoolPreviewItem>,
 }
 
 #[cfg(test)]
@@ -52,12 +52,10 @@ mod tests {
 
     #[test]
     fn request_is_strict_and_result_serializes_only_public_question_identity() {
-        assert!(
-            serde_json::from_value::<QuestionPoolPreviewRequest>(
-                serde_json::json!({"assignmentEntryId": 2, "nonce": "browser-controlled"})
-            )
-            .is_err()
-        );
+        assert!(serde_json::from_value::<QuestionPoolPreviewRequest>(
+            serde_json::json!({"assignmentEntryId": 2, "nonce": "browser-controlled"})
+        )
+        .is_err());
         let question_id: QuestionId = "ABC-DEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
             assignment: "A-4".parse().expect("assignment reference"),
@@ -71,11 +69,11 @@ mod tests {
             selection_rule: QuestionPoolSelectionRule {
                 selected_question_order: crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
             },
-            entries: vec![QuestionPoolPreviewQuestion {
+            items: vec![QuestionPoolPreviewItem {
                 question_id: question_id.clone(),
                 title: "Pool entry".to_string(),
             }],
-            selected: vec![QuestionPoolPreviewQuestion {
+            selected_items: vec![QuestionPoolPreviewItem {
                 question_id,
                 title: "Pool entry".to_string(),
             }],
@@ -85,8 +83,8 @@ mod tests {
             serde_json::json!({
                 "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "entries":[{"questionId":"ABC-DEF1", "title":"Pool entry"}],
-                "selected":[{"questionId":"ABC-DEF1", "title":"Pool entry"}]
+                "items":[{"questionId":"ABC-DEF1", "title":"Pool entry"}],
+                "selectedItems":[{"questionId":"ABC-DEF1", "title":"Pool entry"}]
             })
         );
     }

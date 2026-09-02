@@ -145,7 +145,11 @@ const draftPreview = JSON.parse(
   bridge.preview_ple_draft(
     JSON.stringify({
       workspace: "00000000-0000-0000-0000-000000000001",
-      backendLocator: { backend: "ple" },
+      questionBackend: "ple",
+      webworkPgPath: null,
+      qtiPackageItemIdentifier: null,
+      workspaceImportId: null,
+      draftImathasQuestionBackendBinding: null,
       title: "Fixture",
       prompt: [{ kind: "text", markdown: "Value {{value}}" }],
       response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },

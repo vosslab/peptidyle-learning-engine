@@ -11,5 +11,5 @@ cd "$script_directory"
 # Aggregate Validation: run the four final gates in their authoritative order.
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && .venv/bin/python -m pytest tests/
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && pytest tests/
+source source_me.sh && local_stack.py acceptance

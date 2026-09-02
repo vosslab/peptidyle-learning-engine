@@ -25,7 +25,7 @@ export interface CourseThemeTokens {
   readonly border: string;
 }
 
-interface CourseThemeDefinition {
+interface CourseThemePalette {
   readonly name: string;
   readonly anchors: ThemeAnchors;
   readonly action: string;
@@ -52,21 +52,21 @@ function mix(first: string, firstShare: number, second: string): string {
   return `color-mix(in srgb, ${first} ${String(firstShare)}%, ${second})`;
 }
 
-function theme(definition: CourseThemeDefinition): CourseThemeTokens {
-  const { action, anchors } = definition;
+function theme(palette: CourseThemePalette): CourseThemeTokens {
+  const { action, anchors } = palette;
   return {
-    name: definition.name,
+    name: palette.name,
     anchors,
-    ink: definition.ink ?? mix(action, THEME_MIX.inkAction, "#485260"),
-    muted: definition.muted ?? mix(action, THEME_MIX.mutedAction, "#4c5663"),
+    ink: palette.ink ?? mix(action, THEME_MIX.inkAction, "#485260"),
+    muted: palette.muted ?? mix(action, THEME_MIX.mutedAction, "#4c5663"),
     surface: mix(anchors.canvas, THEME_MIX.surfaceCanvas, "white"),
     surfaceSoft: mix(anchors.canvas, THEME_MIX.softSurfaceCanvas, "white"),
     card: mix(anchors.canvas, THEME_MIX.cardCanvas, "white"),
     action,
     actionHover: mix(action, THEME_MIX.hoverAction, "#172033"),
     onAction: "#ffffff",
-    onSecondary: definition.onSecondary,
-    link: definition.link ?? mix(action, THEME_MIX.linkAction, "#485260"),
+    onSecondary: palette.onSecondary,
+    link: palette.link ?? mix(action, THEME_MIX.linkAction, "#485260"),
     focus: action,
     border: mix(action, THEME_MIX.borderAction, anchors.canvas),
   };

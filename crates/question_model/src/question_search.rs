@@ -2,12 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::Capability;
 use crate::classification::{QuestionClassification, QuestionLicense};
 use crate::question_library::{
-    MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS, QuestionBackend, QuestionId,
+    QuestionBackend, QuestionId, MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS,
 };
 use crate::response::QuestionType;
+use crate::Capability;
 
 /// Maximum Question Author name selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
@@ -169,7 +169,7 @@ pub struct QuestionSearchRequest {
     pub page_size: Option<u16>,
 }
 
-/// Canonical D1 filter meaning retained by a personal saved search.
+/// Normalized D1 filter meaning retained by a personal saved search.
 ///
 /// Pagination is intentionally absent: running a saved search always starts a
 /// fresh current-Question Search with a server-selected page size.
@@ -190,7 +190,7 @@ pub struct QuestionSearchFilter {
 }
 
 impl QuestionSearchFilter {
-    /// Normalizes durable filter meaning through the D1 query canonicalizer.
+    /// Normalizes durable filter meaning through the D1 query normalizer.
     pub fn normalized(self) -> Result<Self, QuestionSearchRequestError> {
         Self::from_query(QuestionSearchRequest::from(self).normalized()?)
     }
@@ -290,7 +290,7 @@ impl QuestionSearchRequest {
         self.text.as_deref()?.parse::<QuestionId>().ok()
     }
 
-    /// Produces the canonical query used for both rows and facet aggregates.
+    /// Normalizes one D1 query for both rows and facet aggregates.
     ///
     /// Text, Question Author display names, and tags use lowercased, whitespace-collapsed
     /// Unicode text. Controlled terms retain durable case after trimming.
@@ -486,7 +486,8 @@ mod tests {
             serde_json::to_value(&query).expect("query serializes")["authorship"],
             serde_json::json!("authoredByCurrentAccount")
         );
-        let filter = QuestionSearchFilter::from_query(query).expect("filter normalizes");
+        let filter =
+            QuestionSearchFilter::from_query(query).expect("filter produces normalized D1 meaning");
         assert_eq!(
             filter.authorship,
             QuestionSearchAuthorship::AuthoredByCurrentAccount
@@ -516,7 +517,8 @@ mod tests {
         assert!(query_json.get("responseFamilies").is_none());
         assert!(query_json.get("usedInMyCourses").is_none());
 
-        let filter = QuestionSearchFilter::from_query(query).expect("filter normalizes");
+        let filter =
+            QuestionSearchFilter::from_query(query).expect("filter produces normalized D1 meaning");
         let filter_json = serde_json::to_value(&filter).expect("filter serializes");
         assert_eq!(
             filter_json["question_types"],

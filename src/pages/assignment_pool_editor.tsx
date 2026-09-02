@@ -194,17 +194,17 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
             </p>
             <h5>Question Pool Items</h5>
             <ul>
-              <For each={preview().entries}>
-                {(entry) => (
+              <For each={preview().items}>
+                {(item) => (
                   <li>
-                    <strong>{entry.questionId}</strong> {entry.title}
+                    <strong>{item.questionId}</strong> {item.title}
                   </li>
                 )}
               </For>
             </ul>
             <h5>Server-selected Questions</h5>
             <ol>
-              <For each={preview().selected}>
+              <For each={preview().selectedItems}>
                 {(sample) => (
                   <li>
                     <strong>{sample.questionId}</strong> {sample.title}

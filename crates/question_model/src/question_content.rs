@@ -17,9 +17,15 @@ use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTime
 use crate::classification::{QuestionClassification, QuestionLicense, Tag};
 use crate::generation::QuestionVariationRule;
 use crate::identity::{QuestionAssetId, WorkspaceId, WorkspaceImportId};
+use crate::question_backend_fields::{
+    QuestionBackendFieldPresence, validate_question_backend_field_matrix,
+};
 use crate::question_citation::QuestionCitation;
 use crate::response::{QuestionResponseFormat, QuestionType};
-use crate::{QuestionBackend, QuestionId, QuestionRevisionNumber};
+use crate::{
+    DraftImathasQuestionBackendBinding, ImathasProfile, ImathasQuestionBackendBinding,
+    QuestionBackend, QuestionBackendFieldsError, QuestionId, QuestionRevisionNumber,
+};
 
 /// A reference to a stored asset used inside Question Content.
 ///
@@ -94,207 +100,6 @@ pub const MAX_QUESTION_TITLE_UNICODE_SCALARS: usize = 512;
 
 /// Maximum Unicode scalar values permitted in an Instructor-facing Question Description.
 pub const MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS: usize = 4_000;
-
-/// Maximum bytes in an opaque iMathAS deployment, item, or profile identifier.
-///
-/// These identifiers are configuration and source-location keys, not URLs,
-/// credentials, or arbitrary path fragments.  Keeping their grammar in the
-/// Question Model makes the authored, published, adapter, and storage
-/// boundaries agree before a draft can reach an adapter.
-pub const MAX_IMATHAS_IDENTIFIER_BYTES: usize = 128;
-
-/// Why an iMathAS deployment, item, or profile identifier is not safe to
-/// retain in a Question Backend binding.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImathasQuestionBackendBindingError {
-    InvalidDeploymentReference,
-    InvalidItemReference,
-    InvalidProfile,
-}
-
-impl std::fmt::Display for ImathasQuestionBackendBindingError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidDeploymentReference => {
-                formatter.write_str("iMathAS deployment reference is invalid")
-            }
-            Self::InvalidItemReference => formatter.write_str("iMathAS item reference is invalid"),
-            Self::InvalidProfile => formatter.write_str("iMathAS profile is invalid"),
-        }
-    }
-}
-
-impl std::error::Error for ImathasQuestionBackendBindingError {}
-
-fn has_imathas_identifier_grammar(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= MAX_IMATHAS_IDENTIFIER_BYTES
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
-}
-
-/// Opaque configured iMathAS deployment selector.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct ImathasDeploymentReference(String);
-
-impl ImathasDeploymentReference {
-    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
-        let value = value.into();
-        if !has_imathas_identifier_grammar(&value) {
-            return Err(ImathasQuestionBackendBindingError::InvalidDeploymentReference);
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ImathasDeploymentReference {
-    type Error = ImathasQuestionBackendBindingError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<ImathasDeploymentReference> for String {
-    fn from(value: ImathasDeploymentReference) -> Self {
-        value.0
-    }
-}
-
-/// iMathAS-backend-local item selector.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct ImathasItemReference(String);
-
-impl ImathasItemReference {
-    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
-        let value = value.into();
-        if !has_imathas_identifier_grammar(&value) || value.contains("..") {
-            return Err(ImathasQuestionBackendBindingError::InvalidItemReference);
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ImathasItemReference {
-    type Error = ImathasQuestionBackendBindingError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<ImathasItemReference> for String {
-    fn from(value: ImathasItemReference) -> Self {
-        value.0
-    }
-}
-
-/// Pinned iMathAS profile selected at publication.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct ImathasProfile(String);
-
-impl ImathasProfile {
-    pub fn new(value: impl Into<String>) -> Result<Self, ImathasQuestionBackendBindingError> {
-        let value = value.into();
-        if !has_imathas_identifier_grammar(&value) {
-            return Err(ImathasQuestionBackendBindingError::InvalidProfile);
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ImathasProfile {
-    type Error = ImathasQuestionBackendBindingError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl From<ImathasProfile> for String {
-    fn from(value: ImathasProfile) -> Self {
-        value.0
-    }
-}
-
-/// Immutable iMathAS backend location and profile pinned by a Question Revision.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentReference,
-    item_reference: ImathasItemReference,
-    profile: ImathasProfile,
-}
-
-impl ImathasQuestionBackendBinding {
-    pub fn new(
-        deployment_reference: ImathasDeploymentReference,
-        item_reference: ImathasItemReference,
-        profile: ImathasProfile,
-    ) -> Self {
-        Self {
-            deployment_reference,
-            item_reference,
-            profile,
-        }
-    }
-
-    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
-        &self.deployment_reference
-    }
-
-    pub fn item_reference(&self) -> &ImathasItemReference {
-        &self.item_reference
-    }
-
-    pub fn profile(&self) -> &ImathasProfile {
-        &self.profile
-    }
-}
-
-/// iMathAS location permitted before source snapshot preparation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct DraftImathasQuestionBackendBinding {
-    deployment_reference: ImathasDeploymentReference,
-    item_reference: ImathasItemReference,
-}
-
-impl DraftImathasQuestionBackendBinding {
-    pub fn new(
-        deployment_reference: ImathasDeploymentReference,
-        item_reference: ImathasItemReference,
-    ) -> Self {
-        Self {
-            deployment_reference,
-            item_reference,
-        }
-    }
-
-    pub fn deployment_reference(&self) -> &ImathasDeploymentReference {
-        &self.deployment_reference
-    }
-
-    pub fn item_reference(&self) -> &ImathasItemReference {
-        &self.item_reference
-    }
-}
 
 /// The authored or imported representation of a Question.
 ///
@@ -389,118 +194,6 @@ pub fn validate_question_description(description: &str) -> Result<(), QuestionDe
         return Err(QuestionDescriptionError::TooLong);
     }
     Ok(())
-}
-
-/// Why direct Question Backend fields do not describe one permitted backend record.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionBackendFieldsError {
-    /// The record omits the exact field required by its Question Backend.
-    MissingRequiredField,
-    /// The record carries a field owned by another Question Backend or stage.
-    UnexpectedField,
-    /// Publication changed the backend instead of preparing the same backend's exact facts.
-    BackendMismatch,
-}
-
-impl std::fmt::Display for QuestionBackendFieldsError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MissingRequiredField => formatter.write_str("Question Backend field is required"),
-            Self::UnexpectedField => {
-                formatter.write_str("Question Backend record carries an inapplicable field")
-            }
-            Self::BackendMismatch => formatter
-                .write_str("published Question Backend differs from the Draft Question Backend"),
-        }
-    }
-}
-
-impl std::error::Error for QuestionBackendFieldsError {}
-
-#[derive(Debug, Clone, Copy)]
-struct QuestionBackendFieldPresence {
-    webwork_pg_path: bool,
-    qti_package_item_identifier: bool,
-    workspace_import_id: bool,
-    imathas_question_backend_binding: bool,
-    draft_imathas_question_backend_binding: bool,
-}
-
-/// Validates the closed Question Backend field matrix shared by editable and
-/// published Question records.
-///
-/// This deliberately relates backend-owned location facts only. It carries no
-/// Question Source bytes, Source Object Reference, or Source Object Checksum.
-fn validate_question_backend_field_matrix(
-    question_backend: QuestionBackend,
-    fields: QuestionBackendFieldPresence,
-    is_draft: bool,
-) -> Result<(), QuestionBackendFieldsError> {
-    let QuestionBackendFieldPresence {
-        webwork_pg_path,
-        qti_package_item_identifier,
-        workspace_import_id,
-        imathas_question_backend_binding,
-        draft_imathas_question_backend_binding,
-    } = fields;
-
-    let no_location_fields = !webwork_pg_path
-        && !qti_package_item_identifier
-        && !workspace_import_id
-        && !imathas_question_backend_binding
-        && !draft_imathas_question_backend_binding;
-    match question_backend {
-        QuestionBackend::Ple if no_location_fields => Ok(()),
-        QuestionBackend::Ple => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Webwork
-            if webwork_pg_path
-                && !qti_package_item_identifier
-                && !workspace_import_id
-                && !imathas_question_backend_binding
-                && !draft_imathas_question_backend_binding =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Webwork if !webwork_pg_path => {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Webwork => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Qti
-            if qti_package_item_identifier
-                && (is_draft == workspace_import_id)
-                && !webwork_pg_path
-                && !imathas_question_backend_binding
-                && !draft_imathas_question_backend_binding =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Qti
-            if !qti_package_item_identifier || (is_draft && !workspace_import_id) =>
-        {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Qti => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Imathas
-            if !webwork_pg_path
-                && !qti_package_item_identifier
-                && !workspace_import_id
-                && ((is_draft
-                    && draft_imathas_question_backend_binding
-                    && !imathas_question_backend_binding)
-                    || (!is_draft
-                        && imathas_question_backend_binding
-                        && !draft_imathas_question_backend_binding)) =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Imathas
-            if (is_draft && !draft_imathas_question_backend_binding)
-                || (!is_draft && !imathas_question_backend_binding) =>
-        {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Imathas => Err(QuestionBackendFieldsError::UnexpectedField),
-    }
 }
 
 /// How a response is judged, without stating what the answer is.
@@ -637,11 +330,11 @@ impl DraftQuestionContent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftQuestionSummary {
-    /// Stable browser-safe Draft Question locator selected by the editor.
+    /// Stable browser-safe Draft Question Reference selected by the editor.
     pub draft_question: crate::DraftQuestionReference,
     /// Private Authoring Workspace relationship that authorizes the editor.
     pub workspace: WorkspaceId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Authoring Workspace Reference used in application navigation.
     pub authoring_workspace: crate::AuthoringWorkspaceReference,
     /// Human-facing draft title.
     pub title: String,
@@ -712,22 +405,35 @@ impl QuestionRevision {
         draft: DraftQuestionContent,
         question_id: QuestionId,
         revision_number: QuestionRevisionNumber,
-        question_backend: QuestionBackend,
-        webwork_pg_path: Option<String>,
-        qti_package_item_identifier: Option<String>,
-        imathas_question_backend_binding: Option<ImathasQuestionBackendBinding>,
+        imathas_profile: Option<ImathasProfile>,
     ) -> Result<Self, QuestionBackendFieldsError> {
         draft.validate_question_backend_fields()?;
-        if draft.question_backend != question_backend {
-            return Err(QuestionBackendFieldsError::BackendMismatch);
-        }
+        let imathas_question_backend_binding = match draft.question_backend {
+            QuestionBackend::Imathas => {
+                let draft_binding = draft
+                    .draft_imathas_question_backend_binding
+                    .as_ref()
+                    .ok_or(QuestionBackendFieldsError::MissingRequiredField)?;
+                let profile =
+                    imathas_profile.ok_or(QuestionBackendFieldsError::MissingRequiredField)?;
+                Some(ImathasQuestionBackendBinding::new(
+                    draft_binding.deployment_reference().clone(),
+                    draft_binding.item_reference().clone(),
+                    profile,
+                ))
+            }
+            _ if imathas_profile.is_some() => {
+                return Err(QuestionBackendFieldsError::UnexpectedField);
+            }
+            _ => None,
+        };
         let question_revision = Self {
             question_id,
             revision_number,
             workspace: draft.workspace,
-            question_backend,
-            webwork_pg_path,
-            qti_package_item_identifier,
+            question_backend: draft.question_backend,
+            webwork_pg_path: draft.webwork_pg_path,
+            qti_package_item_identifier: draft.qti_package_item_identifier,
             imathas_question_backend_binding,
             question_format: draft.question_format,
             prompt: draft.prompt,
@@ -749,6 +455,7 @@ mod tests {
     use super::*;
     use crate::answer::NumericResponseTolerance;
     use crate::generation::QuestionVariationRule;
+    use crate::{ImathasDeploymentReference, ImathasItemReference};
     use uuid::Uuid;
 
     #[test]
@@ -816,9 +523,6 @@ mod tests {
             sample_draft(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionBackend::Ple,
-            None,
-            None,
             None,
         )
         .expect("PLE draft publishes with no backend-specific fields");
@@ -866,22 +570,14 @@ mod tests {
             ImathasDeploymentReference::new("self-hosted-imathas").expect("valid deployment"),
             ImathasItemReference::new("item-17").expect("valid item"),
         );
-        let binding = ImathasQuestionBackendBinding::new(
-            ImathasDeploymentReference::new("self-hosted-imathas").expect("valid deployment"),
-            ImathasItemReference::new("item-17").expect("valid item"),
-            ImathasProfile::new("imathas_remote_grading_v1").expect("valid profile"),
-        );
         let mut draft = sample_draft();
         draft.question_backend = QuestionBackend::Imathas;
         draft.draft_imathas_question_backend_binding = Some(draft_binding);
         let published = QuestionRevision::from_draft(
-            draft,
+            draft.clone(),
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionBackend::Imathas,
-            None,
-            None,
-            Some(binding),
+            Some(ImathasProfile::new("imathas_remote_grading_v1").expect("valid profile")),
         );
         assert_eq!(
             published
@@ -892,14 +588,26 @@ mod tests {
                 .as_str(),
             "imathas_remote_grading_v1"
         );
+        assert_eq!(
+            QuestionRevision::from_draft(
+                draft,
+                "123-4567".parse().expect("valid Question ID"),
+                QuestionRevisionNumber::new(1).expect("positive version"),
+                None,
+            ),
+            Err(QuestionBackendFieldsError::MissingRequiredField)
+        );
     }
 
     #[test]
-    fn imathas_item_reference_refuses_path_traversal_segments() {
-        assert_eq!(
-            ImathasItemReference::new("item..17"),
-            Err(ImathasQuestionBackendBindingError::InvalidItemReference)
+    fn publication_rejects_a_profile_for_a_non_imathas_draft() {
+        let published = QuestionRevision::from_draft(
+            sample_draft(),
+            "123-4567".parse().expect("valid Question ID"),
+            QuestionRevisionNumber::new(1).expect("positive version"),
+            Some(ImathasProfile::new("imathas_remote_grading_v1").expect("valid profile")),
         );
+        assert_eq!(published, Err(QuestionBackendFieldsError::UnexpectedField));
     }
 
     #[test]
@@ -919,26 +627,32 @@ mod tests {
             draft,
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionBackend::Qti,
-            None,
-            Some("choice-1".to_string()),
             None,
         );
         assert!(published.is_ok());
     }
 
     #[test]
-    fn publication_cannot_change_a_draft_question_backend() {
-        let published = QuestionRevision::from_draft(
-            sample_draft(),
+    fn published_webwork_fields_are_derived_and_reject_incompatible_values() {
+        let mut draft = sample_draft();
+        draft.question_backend = QuestionBackend::Webwork;
+        draft.webwork_pg_path = Some("Library/Algebra/test.pg".to_string());
+        let mut published = QuestionRevision::from_draft(
+            draft,
             "123-4567".parse().expect("valid Question ID"),
             QuestionRevisionNumber::new(1).expect("positive version"),
-            QuestionBackend::Qti,
             None,
-            Some("choice-1".to_string()),
-            None,
+        )
+        .expect("WeBWorK draft publishes");
+        assert_eq!(
+            published.webwork_pg_path.as_deref(),
+            Some("Library/Algebra/test.pg")
         );
-        assert_eq!(published, Err(QuestionBackendFieldsError::BackendMismatch));
+        published.qti_package_item_identifier = Some("choice-1".to_string());
+        assert_eq!(
+            published.validate_question_backend_fields(),
+            Err(QuestionBackendFieldsError::UnexpectedField)
+        );
     }
 
     #[test]

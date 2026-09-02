@@ -14,7 +14,7 @@ use question_model::classification::QuestionLicense;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    ObjectId, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
+    ObjectId, QuestionBackend, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
     QuestionRendererVersion, QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
     QuestionVariation, SourceObjectChecksum, SourceObjectReference, WorkspaceId,
 };
@@ -169,9 +169,10 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
         workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        backend_locator: QuestionBackendLocator::Webwork {
-            pg_path: "Library/OPL/select-one.pg".to_string(),
-        },
+        question_backend: QuestionBackend::Webwork,
+        webwork_pg_path: Some("Library/OPL/select-one.pg".to_string()),
+        qti_package_item_identifier: None,
+        imathas_question_backend_binding: None,
         question_format: QuestionFormat::WebworkPg,
         question_type: QuestionType::MultipleChoice,
         prompt: Vec::new(),
@@ -383,7 +384,7 @@ async fn renderer_outage_is_an_explicit_backend_local_failure() {
     );
     assert!(
         adapter
-            .capabilities(&question.backend_locator)
+            .capabilities(&question)
             .expect("WeBWorK capability declaration remains available")
             .supports(Capability::ServerGrading)
     );
@@ -510,12 +511,9 @@ fn partial_credit_is_not_claimed_without_per_source_evidence() {
         MemoryObjectStore::default(),
         recorded_renderer(Arc::new(AtomicUsize::new(0))),
     );
-    let source = QuestionBackendLocator::Webwork {
-        pg_path: "Library/OPL/select-one.pg".to_string(),
-    };
     assert!(
         !adapter
-            .capabilities(&source)
+            .capabilities(&question_with_response(fixture_response()))
             .expect("WeBWorK source is supported")
             .supports(Capability::PartialCredit)
     );
@@ -533,27 +531,28 @@ fn reviewed_chapter_matching_sources_claim_partial_credit_without_widening_near_
             "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
         ),
     ] {
-        let source = QuestionBackendLocator::Webwork {
-            pg_path: pg_path.to_string(),
-        };
-        let capabilities = reviewed_webwork_source_capabilities(&source, source_sha256)
-            .expect("reviewed WeBWorK source is supported");
+        let capabilities =
+            reviewed_webwork_source_capabilities(QuestionBackend::Webwork, pg_path, source_sha256)
+                .expect("reviewed WeBWorK source is supported");
         assert!(capabilities.supports(Capability::PartialCredit));
         assert!(
-            !webwork_source_capabilities(&source)
+            !webwork_source_capabilities(QuestionBackend::Webwork)
                 .expect("arbitrary PG retains conservative support")
                 .supports(Capability::PartialCredit)
         );
         assert!(
-            !reviewed_webwork_source_capabilities(&source, &"0".repeat(64))
-                .expect("same-path source with different bytes retains common support")
-                .supports(Capability::PartialCredit)
+            !reviewed_webwork_source_capabilities(
+                QuestionBackend::Webwork,
+                pg_path,
+                &"0".repeat(64)
+            )
+            .expect("same-path source with different bytes retains common support")
+            .supports(Capability::PartialCredit)
         );
     }
     let near_miss = reviewed_webwork_source_capabilities(
-        &QuestionBackendLocator::Webwork {
-            pg_path: "content/pilot/sources/genetics/other-matching.pgml".to_string(),
-        },
+        QuestionBackend::Webwork,
+        "content/pilot/sources/genetics/other-matching.pgml",
         "ae59425dce95bbffe0992aa5e072cd01370b736ef958685e409004d7580d2718",
     )
     .expect("unreviewed WeBWorK source retains common support");
@@ -580,30 +579,31 @@ fn reviewed_chapter_sources_admit_immediate_correctness_without_widening_pg_supp
             "42c52281516511410623e56a315ed74f687f412a24c6ca1d028ffbe3eab12f17",
         ),
     ] {
-        let source = QuestionBackendLocator::Webwork {
-            pg_path: pg_path.to_string(),
-        };
         assert!(
-            reviewed_webwork_source_profile_capabilities(&source, source_sha256)
-                .expect("reviewed Chapter 1 source has a capability profile")
-                .supports(Capability::Hints)
+            reviewed_webwork_source_profile_capabilities(
+                QuestionBackend::Webwork,
+                pg_path,
+                source_sha256
+            )
+            .expect("reviewed Chapter 1 source has a capability profile")
+            .supports(Capability::Hints)
         );
     }
     let historical = reviewed_webwork_source_capabilities(
-        &QuestionBackendLocator::Webwork {
-            pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
-        },
+        QuestionBackend::Webwork,
+        "content/pilot/sources/genetics/genetic_disorders-which_one.pgml",
         "810fc1ed93a5ed60ec79e94aa86ded3caebe2bdf8627fb71d6fecd7c6b4f062c",
     )
     .expect("historical reviewed source has a conservative profile");
     assert!(!historical.supports(Capability::Hints));
-    let unreviewed = QuestionBackendLocator::Webwork {
-        pg_path: "content/pilot/sources/genetics/genetic_disorders-which_one.pgml".to_string(),
-    };
     assert!(
-        !reviewed_webwork_source_capabilities(&unreviewed, &"0".repeat(64))
-            .expect("changed source bytes keep only conservative capabilities")
-            .supports(Capability::Hints)
+        !reviewed_webwork_source_capabilities(
+            QuestionBackend::Webwork,
+            "content/pilot/sources/genetics/genetic_disorders-which_one.pgml",
+            &"0".repeat(64),
+        )
+        .expect("changed source bytes keep only conservative capabilities")
+        .supports(Capability::Hints)
     );
 }
 

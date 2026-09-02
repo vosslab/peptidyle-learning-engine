@@ -43,7 +43,7 @@ test("Student view presentation stays answer-free and preserves live delivery fa
     studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
-      feedback_text: "after_due",
+      question_feedback: "after_due",
       question_answer: "after_close",
       question_answer_explanation: "after_close",
       class_statistics: "never",

@@ -41,9 +41,10 @@
     "questionId": "7K3-M9QP",
     "revisionNumber": 1,
     "workspace": "0198e000-0000-7000-8000-000000000002",
-    "backendLocator": {
-      "backend": "ple"
-    },
+    "questionBackend": "ple",
+    "webworkPgPath": null,
+    "qtiPackageItemIdentifier": null,
+    "imathasQuestionBackendBinding": null,
     "questionFormat": "pleQuestionJson",
     "questionType": "multipleChoice",
     "prompt": [
@@ -134,9 +135,11 @@
   },
   "draft": {
     "workspace": "0198e000-0000-7000-8000-000000000002",
-    "backendLocator": {
-      "backend": "ple"
-    },
+    "questionBackend": "ple",
+    "webworkPgPath": null,
+    "qtiPackageItemIdentifier": null,
+    "workspaceImportId": null,
+    "draftImathasQuestionBackendBinding": null,
     "questionFormat": "pleQuestionJson",
     "questionType": "multipleChoice",
     "prompt": [
@@ -279,7 +282,7 @@
     "disclosurePolicy": {
       "score": "after_submit",
       "per_item_correctness": "after_submit",
-      "feedback_text": "after_submit",
+      "question_feedback": "after_submit",
       "question_answer": "after_submit",
       "question_answer_explanation": "after_submit",
       "class_statistics": "never"
@@ -287,7 +290,7 @@
     "studentFeedbackReleaseRule": {
       "score": "after_submit",
       "per_item_correctness": "after_submit",
-      "feedback_text": "after_submit",
+      "question_feedback": "after_submit",
       "question_answer": "after_submit",
       "question_answer_explanation": "after_submit",
       "class_statistics": "never"

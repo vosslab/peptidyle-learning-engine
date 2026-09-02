@@ -11,7 +11,7 @@ use crate::{AccountId, CourseId, CourseMembershipId, CourseMembershipRole, Times
 /// Stable internal identifier for one target-bound Course Invitation.
 ///
 /// It has no display implementation because it is never a user-facing
-/// locator. Later HTTP contracts should use a course-scoped opaque action.
+/// Reference. Later HTTP contracts should use a course-scoped opaque action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CourseInvitationId(Uuid);
 

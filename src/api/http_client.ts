@@ -33,13 +33,9 @@ export {
   PublicationValidationError,
   WorkspaceConflictError,
   resolveAssignmentContentSaveFailure,
-  resolveAssignmentFixedItemReplacementFailure,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
-export type {
-  AssignmentContentSaveFailure,
-  AssignmentFixedItemReplacementFailure,
-} from "./http_client/error";
+export type { AssignmentContentSaveFailure } from "./http_client/error";
 export { browserFetch };
 
 /** Creates the strict same-origin transport from independently owned capabilities. */

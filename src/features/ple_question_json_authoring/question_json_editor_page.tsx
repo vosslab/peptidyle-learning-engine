@@ -36,7 +36,7 @@ import { PleQuestionJsonPreview } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
-import type { PleQuestionJsonDocument } from "./question_json_source";
+import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
 
 export type {
@@ -109,9 +109,7 @@ function answerCheck(source: PleQuestionJsonDocument): PleQuestionJsonInstructor
     if (items.some((item) => item === undefined)) return null;
     return {
       kind: "ordering",
-      items: items.filter(
-        (item): item is { readonly id: string; readonly text: string } => item !== undefined,
-      ),
+      items: items.filter((item): item is PleQuestionJsonOrderingItem => item !== undefined),
     };
   }
   if (response.kind === "matching") {

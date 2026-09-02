@@ -2,7 +2,7 @@
 
 use objects::{ObjectStore, QuestionSourceResolutionError, ResolvedQuestionSource};
 use question_model::{
-    QuestionBackendLocator, QuestionRevision, QuestionRevisionReference, SourceObjectChecksum,
+    QuestionBackend, QuestionRevision, QuestionRevisionReference, SourceObjectChecksum,
     SourceObjectReference,
 };
 
@@ -59,8 +59,11 @@ impl ResolvedWebworkQuestionSource {
 pub(super) fn webwork_identity(
     question: &QuestionRevision,
 ) -> Result<(QuestionRevisionReference, &str), WebworkAdapterError> {
-    match &question.backend_locator {
-        QuestionBackendLocator::Webwork { pg_path } => Ok((
+    match (
+        question.question_backend,
+        question.webwork_pg_path.as_deref(),
+    ) {
+        (QuestionBackend::Webwork, Some(pg_path)) => Ok((
             QuestionRevisionReference {
                 question_id: question.question_id.clone(),
                 revision_number: question.revision_number,

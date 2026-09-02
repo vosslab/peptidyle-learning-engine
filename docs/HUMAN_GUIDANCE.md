@@ -8,9 +8,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
 <!-- VENDORED HEADER: END -->
 
-This file contains terse owner guidance. Engineering interpretation belongs in
-[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), the active plans, or focused technical documents.
-
 ## Guidance Format
 
 - Guidance bullets should start with the subject when practical. This makes the guidance easier to scan.
@@ -183,8 +180,7 @@ This file contains terse owner guidance. Engineering interpretation belongs in
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.
-- Student email addresses are immmutable. Even students who change their legal name do not usually
-get a new address during the semester and if they did I might just make them create a new account
+- Student email addresses are immmutable. Even students who change their legal name do not usually get a new address during the semester and if they did I might just make them create a new account
 - Student Accounts persist across courses and semesters.
 - A Student Account is global and is not owned by or permanently tied to a Course Instance.
 - When an Instructor uploads a roster, PLE uses the institutional email to find an existing Student Account or creates one when none exists.

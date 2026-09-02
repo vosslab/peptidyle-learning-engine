@@ -36,7 +36,7 @@ fragment, URL, or focus target.
   helper. They contain no direct route, storage, private API, answer, pointer,
   or direct-focus shortcut. The separate arranged confirmation test is
   intentionally pointer-driven and is not a keyboard journey.
-- Each post-helper J1-J4 assignment locator is now explicitly required to be
+- Each post-helper J1-J4 Assignment Reference is now explicitly required to be
   exactly one visible rendered link; J5 likewise requires exactly one visible
   gradebook row before it reaches that row's history control. These guards
   restore the source-level uniqueness/visibility contract without changing the

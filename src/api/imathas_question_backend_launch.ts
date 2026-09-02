@@ -1,4 +1,4 @@
-/** Shared canonical contract for the server-owned iMathAS Question Backend Transport route. */
+/** Shared expected-route contract for the server-owned iMathAS Question Backend Transport. */
 
 export function imathasQuestionBackendLaunchPath(
   courseId: string,
@@ -13,7 +13,7 @@ export function imathasQuestionBackendLaunchPath(
  * Keeping the route equality here prevents transport and UI validators from
  * drifting into different same-origin interpretations.
  */
-export function isCanonicalImathasQuestionBackendLaunchPath(
+export function isExpectedImathasQuestionBackendLaunchPath(
   launchUrl: string,
   courseId: string,
   assignmentId: string,

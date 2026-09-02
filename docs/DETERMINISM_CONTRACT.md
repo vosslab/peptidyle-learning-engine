@@ -15,7 +15,7 @@ attempt uses the stored values.
 
 | Layer                         | Authoritative inputs                                                                 | Exact result                                                                                                                                                    | Owner                              |
 | ----------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Question Variation Parameters | generator reference, definition, seed                                                | `QuestionVariationParameters` and SHA-256                                                                                                                       | `domain` and Wasm                  |
+| Question Variation Parameters | Question Variation Rule, seed                                                        | `QuestionVariationParameters` and SHA-256                                                                                                                       | `domain` and Wasm                  |
 | PLE Question Backend render   | immutable Question Revision, seed                                                    | Question Variation Presentation and Question Attempt Reproduction Details                                                                                       | trusted server backend             |
 | WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                     | private adapter/renderer           |
 | Student issuance              | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, rendered IDs, and Question Presentation Checksum | trusted server; browser may verify |
@@ -31,7 +31,7 @@ Published question identity is the pair of durable problem and immutable
 version IDs. A seeded `QuestionVariationRule` additionally carries a
 `QuestionGeneratorReference` with a stable generator ID and additive generator
 version. A changed generator implementation therefore requires a new generator
-version and a new published question revision; historical definitions remain
+version and a new published question revision; historical Question Variation Rules remain
 resolvable.
 
 An issued `QuestionAttempt` records its immutable problem version, server-owned
@@ -155,7 +155,7 @@ other internal identities remain server-side.
 | Value                                  | Detects or proves                                                                             | Does not provide                                                 |
 | -------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Source-source_object_reference SHA-256 | immutable source bytes match their published record                                           | authorization or a rendered output                               |
-| Generated-variant SHA-256              | same generator definition and seed produced the reviewed values                               | a student presentation or grade                                  |
+| Generated-variant SHA-256              | same Question Variation Rule and seed produced the reviewed Question Variation Parameters     | a student presentation or grade                                  |
 | Safe-render SHA-256                    | cached WeBWorK safe render has a stable Source Object Reference and Question Renderer Version | private replay state or student authorization                    |
 | Full presentation SHA-256              | persisted descriptor agrees with a reconstructed public presentation                          | authentication, transport integrity, or pixel rendering          |
 | `pd1_` 128-bit public token            | compact browser/server presentation-consistency comparison                                    | a durable secret or a substitute for the full stored digest      |

@@ -485,16 +485,13 @@ mod tests {
         (fixture, format!("http://{address}/"))
     }
     fn locator() -> crate::ImathasQuestionLocation {
-        crate::ImathasQuestionLocation::from_draft_backend_locator(
-            &question_model::DraftQuestionBackendLocator::Imathas {
-                binding: question_model::DraftImathasQuestionBackendBinding::new(
-                    question_model::ImathasDeploymentReference::new("self-hosted-imathas")
-                        .expect("deployment"),
-                    question_model::ImathasItemReference::new("17").expect("item"),
-                ),
-            },
+        crate::ImathasQuestionLocation::from_draft_imathas_question_backend_binding(
+            &question_model::DraftImathasQuestionBackendBinding::new(
+                question_model::ImathasDeploymentReference::new("self-hosted-imathas")
+                    .expect("deployment"),
+                question_model::ImathasItemReference::new("17").expect("item"),
+            ),
         )
-        .unwrap()
     }
     #[tokio::test]
     #[ignore = "opt-in loopback HTTP transport acceptance"]

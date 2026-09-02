@@ -105,7 +105,7 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
   return [
     `Score ${timing[rule.score]}`,
     `correctness ${timing[rule.per_item_correctness]}`,
-    `Question Feedback ${timing[rule.feedback_text]}`,
+    `Question Feedback ${timing[rule.question_feedback]}`,
     `Question Answer ${timing[rule.question_answer]}`,
     `Answer Explanation ${timing[rule.question_answer_explanation]}`,
     `statistics ${timing[rule.class_statistics]}`,

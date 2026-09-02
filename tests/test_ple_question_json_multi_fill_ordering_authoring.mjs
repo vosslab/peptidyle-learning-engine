@@ -121,7 +121,7 @@ test("MULTI-FIB generated IDs do not reuse a live stable blank ID", () => {
   );
 });
 
-test("ORDER maintains one canonical private order and derives correctOrder after movement", () => {
+test("ORDER treats items as the source of truth and derives correctOrder after movement", () => {
   const moved = moveOrderingItem(orderingSource(), "replication", "earlier");
   assert.equal(moved.changed, true);
   assert.equal(moved.focusId, "replication");

@@ -42,7 +42,7 @@ CREATE TABLE ple_private.question_attempt (
         question_seed >= 0 AND question_seed <= 18446744073709551615
     ),
     generated_parameter_sha256 text NOT NULL
-        CONSTRAINT question_attempt_generated_parameter_sha256_is_canonical
+        CONSTRAINT question_attempt_generated_parameter_sha256_is_lowercase_hex
         CHECK (generated_parameter_sha256 ~ '^[0-9a-f]{64}$'),
     issued_at timestamp with time zone NOT NULL,
     deadline_at timestamp with time zone,

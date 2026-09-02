@@ -11,15 +11,14 @@ use super::connection::map_sqlx_error;
 use crate::imathas_question_backend_session::StagedImathasResultReceipt;
 use crate::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, CommitStagedImathasResultGrading,
-    ImathasGradingJobLease, ImathasQuestionBackendSession,
+    ImathasGradingJobLease, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionLease,
     ImathasQuestionBackendSessionReference, ImathasQuestionBackendSessionRestoreExpectation,
     ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendSessionStore,
     ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
     ImathasQuestionBackendStateKeyRing, ImathasResponseChecksum,
-    LoadedImathasQuestionBackendSession, QualifiedLaunchBindingDigest, SessionTokenHash,
-    StageVerifiedImathasResult, StoreError,
+    LoadedImathasQuestionBackendSession, SessionTokenHash, StageVerifiedImathasResult, StoreError,
 };
 
 /// PostgreSQL implementation of the durable iMathAS Question Backend Session boundary.
@@ -108,7 +107,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(parts.grading_context.question_seed().value().to_string())
         .bind(question_grading_rule_mode(&parts.question_grading_rule))
         .bind(question_grading_rule_points(&parts.question_grading_rule))
-        .bind(parts.qualified_launch_binding_digest.as_str())
+        .bind(parts.imathas_launch_binding_checksum.as_str())
         .bind(parts.response_checksum.as_bytes().to_vec())
         .bind(parts.challenge.as_bytes().to_vec())
         .bind(parts.authentication.as_str())
@@ -211,7 +210,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(context.grading_context.question_seed().value().to_string())
         .bind(question_grading_rule_mode(&context.question_grading_rule))
         .bind(question_grading_rule_points(&context.question_grading_rule))
-        .bind(context.qualified_launch_binding_digest.as_str())
+        .bind(context.imathas_launch_binding_checksum.as_str())
         .bind(lease_parts.capability_checksum.as_bytes().to_vec())
         .bind(lease_parts.expires_at.as_unix_millis())
         .execute(&mut *transaction)
@@ -281,7 +280,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(context.grading_context.question_seed().value().to_string())
         .bind(question_grading_rule_mode(&context.question_grading_rule))
         .bind(question_grading_rule_points(&context.question_grading_rule))
-        .bind(context.qualified_launch_binding_digest.as_str())
+        .bind(context.imathas_launch_binding_checksum.as_str())
         .bind(lease.capability_checksum.as_bytes().to_vec())
         .bind(transition_parts.idempotency_key.as_str())
         .bind(
@@ -392,7 +391,7 @@ async fn load_row(
 ) -> Result<PgRow, StoreError> {
     sqlx::query(
         "SELECT imathas_question_backend_session_id, imathas_item_reference, question_seed::text AS question_seed, \
-                imathas_profile, qualified_launch_binding_digest, imathas_response_sha256, \
+                imathas_profile, imathas_launch_binding_checksum, imathas_response_sha256, \
                 imathas_question_backend_session_challenge, convert_from(imathas_question_backend_session_authentication, 'UTF8') AS authentication, \
                 floor(extract(epoch FROM issued_at) * 1000)::bigint AS issued_at_millis, \
                 floor(extract(epoch FROM expires_at) * 1000)::bigint AS expires_at_millis, \
@@ -440,7 +439,7 @@ async fn load_row(
     .bind(question_grading_rule_points(
         &expectation.storage_parts().question_grading_rule,
     ))
-    .bind(expectation.storage_parts().qualified_launch_binding_digest.as_str())
+    .bind(expectation.storage_parts().imathas_launch_binding_checksum.as_str())
     .fetch_one(&mut **transaction)
     .await
     .map_err(map_sqlx_error)
@@ -486,8 +485,8 @@ fn decode_imathas_question_backend_session_row(
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| invalid_stored_session())?;
-    let digest = QualifiedLaunchBindingDigest::parse(
-        row.try_get::<String, _>("qualified_launch_binding_digest")
+    let imathas_launch_binding_checksum = ImathasLaunchBindingChecksum::parse(
+        row.try_get::<String, _>("imathas_launch_binding_checksum")
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| invalid_stored_session())?;
@@ -535,7 +534,7 @@ fn decode_imathas_question_backend_session_row(
         response_checksum: ImathasResponseChecksum::from_bytes(response),
         challenge,
         authentication,
-        qualified_launch_binding_digest: digest,
+        imathas_launch_binding_checksum,
         issued_at,
         expires_at,
         revoked_at: None,

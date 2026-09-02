@@ -21,7 +21,7 @@ use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssi
 pub struct StudentFeedbackReleaseDecision {
     pub score: bool,
     pub per_item_correctness: bool,
-    pub feedback_text: bool,
+    pub question_feedback: bool,
     pub question_answer: bool,
     pub question_answer_explanation: bool,
     pub class_statistics: bool,
@@ -63,7 +63,7 @@ pub fn project_student_feedback(
             disclosed.points_possible = Some(result.points_possible);
         }
     }
-    if decision.feedback_text {
+    if decision.question_feedback {
         disclosed.choice_feedback = question_feedback.choice_feedback.clone();
         disclosed.correct_feedback = question_feedback.correct_feedback.clone();
         disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
@@ -77,7 +77,7 @@ pub fn project_student_feedback(
     }
     (decision.per_item_correctness
         || decision.score
-        || decision.feedback_text
+        || decision.question_feedback
         || decision.question_answer
         || decision.question_answer_explanation)
         .then_some(disclosed)
@@ -157,8 +157,8 @@ pub fn evaluate_allowed_student_feedback_release(
             policy.due_at.value,
             policy.closes_at.value,
         ),
-        feedback_text: timing_released(
-            rule.feedback_text,
+        question_feedback: timing_released(
+            rule.question_feedback,
             now,
             submitted_at,
             policy.due_at.value,

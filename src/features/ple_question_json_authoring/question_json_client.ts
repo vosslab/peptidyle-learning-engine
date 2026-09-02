@@ -190,7 +190,7 @@ function requirePleQuestionJsonContract(
   response: PleQuestionJsonDocument["response"] | undefined,
   responseKind: "save" | "publication",
 ): void {
-  if (draft.backendLocator.backend !== "ple" || draft.questionFormat !== "pleQuestionJson") {
+  if (draft.questionBackend !== "ple" || draft.questionFormat !== "pleQuestionJson") {
     throw new PleQuestionJsonProtocolError(
       `PLE Question JSON ${responseKind} response must use PLE Question JSON schema version 2 format`,
     );

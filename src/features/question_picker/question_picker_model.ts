@@ -16,10 +16,10 @@ import {
 /** The largest selection any current D2 consumer can request. */
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 
-/** A stable browser locator for a curation aggregate owned by a later server route. */
+/** A stable browser Question Folder Reference owned by a later server route. */
 export type QuestionFolderReference = string;
 
-/** A stable browser locator for one retained course content. */
+/** Stable browser References for one retained Course Instance Assignment. */
 export interface RetainedAssignmentReference {
   readonly course: string;
   readonly assignment: string;
@@ -111,20 +111,20 @@ function selectionLimit(mode: QuestionPickerSelectionMode, maximumSelection: num
   return mode === "one" ? 1 : maximumSelection;
 }
 
-function canonicalQuestionId(value: string): string {
+function normalizeQuestionId(value: string): string {
   const questionId = normalizeQuestionIdSyntax(value);
   if (questionId === null)
     throw new Error("A selected question must have a canonical Question ID.");
   return questionId;
 }
 
-function rowsWithUniqueQuestionIds(
+function rowsWithNormalizedUniqueQuestionIds(
   rows: ReadonlyArray<QuestionSearchResult>,
 ): ReadonlyArray<QuestionSearchResult> {
   const known = new Set<string>();
   const unique: QuestionSearchResult[] = [];
   for (const row of rows) {
-    const questionId = canonicalQuestionId(row.displayId);
+    const questionId = normalizeQuestionId(row.displayId);
     if (known.has(questionId)) continue;
     known.add(questionId);
     unique.push(row);
@@ -138,13 +138,13 @@ export function questionPickerSelection(
   maximumSelection: number,
   rows: ReadonlyArray<QuestionSearchResult>,
 ): QuestionPickerSelection {
-  const uniqueRows = rowsWithUniqueQuestionIds(rows);
+  const uniqueRows = rowsWithNormalizedUniqueQuestionIds(rows);
   const maximum = selectionLimit(mode, maximumSelection);
   if (uniqueRows.length > maximum) {
     throw new Error(`Choose at most ${maximum} question${maximum === 1 ? "" : "s"} here.`);
   }
   const questions = uniqueRows.map((row) => ({
-    questionId: canonicalQuestionId(row.displayId),
+    questionId: normalizeQuestionId(row.displayId),
     row,
   }));
   const questionIds = questions.map((question) => question.questionId);
@@ -159,7 +159,7 @@ export function toggleQuestionPickerSelection(
   row: QuestionSearchResult,
   selected: boolean,
 ): QuestionPickerSelection {
-  const questionId = canonicalQuestionId(row.displayId);
+  const questionId = normalizeQuestionId(row.displayId);
   const withoutCurrent = selection.questions.filter(
     (question) => question.questionId !== questionId,
   );
@@ -435,7 +435,7 @@ export class QuestionPickerSession {
       const raw = await this.repository.search({ source, query: this.#query, cursor });
       const page = decodeQuestionSearchPage(raw);
       if (generation !== this.#generation) return;
-      const rows = rowsWithUniqueQuestionIds(
+      const rows = rowsWithNormalizedUniqueQuestionIds(
         replace ? page.items : [...retainedRows, ...page.items],
       );
       this.setState(

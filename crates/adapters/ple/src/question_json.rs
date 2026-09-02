@@ -4,7 +4,7 @@
 //! Parsing produces two values:
 //! a browser-safe draft and PLE Question JSON Private Grading. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
-//! definition it grades.
+//! PLE Question JSON public content it grades.
 
 use std::fmt::Write as _;
 
@@ -32,7 +32,7 @@ mod schema_v2;
 /// Canonical media type for canonical PLE Question JSON source payloads.
 pub const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
 
-/// Maximum accepted source size, matching the plan's problem-payload backstop.
+/// Maximum accepted source size, matching the plan's PLE Question JSON payload backstop.
 pub const MAX_PLE_QUESTION_JSON_BYTES: usize =
     grading::ple_question_json::MAX_PLE_QUESTION_JSON_BYTES;
 
@@ -290,7 +290,7 @@ impl PleQuestionJsonDocument {
     /// identity substituted for the private workspace image identity.
     ///
     /// The returned source remains answer-bearing and canonical, so the
-    /// published Source Object Reference, public definition, and server-only key can
+    /// published Source Object Reference, PLE Question JSON public content, and server-only key can
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,

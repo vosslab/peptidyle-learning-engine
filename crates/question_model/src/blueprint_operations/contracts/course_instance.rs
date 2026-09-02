@@ -250,7 +250,7 @@ pub enum ApplyBlueprintUpdateEffect {
     SourceRevisionOnly,
 }
 
-/// Exact server-only locator for an immutable assignment-import receipt.
+/// Exact server-only Assignment Import Receipt identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentImportReceiptTarget {
     receipt_account: AccountId,

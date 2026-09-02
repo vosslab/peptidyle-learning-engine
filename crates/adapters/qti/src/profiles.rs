@@ -1,7 +1,7 @@
 //! Closed QTI profile identities and integrity contracts.
 //!
 //! This module names the profile a future parser has proven, but does not
-//! parse vendor XML.  Keeping the evidence and digest contract here prevents
+//! parse vendor XML. Keeping the evidence and checksum contract here prevents
 //! a parser, HTTP route, or persistence backend from inventing an ad-hoc
 //! compatibility label.
 
@@ -148,7 +148,7 @@ impl QtiProfileVersion {
     }
 }
 
-/// Version of the mapping and digest encoding for a profile.
+/// Version of the mapping and checksum encoding for a profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum QtiMappingVersion {
     V1,

@@ -859,8 +859,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                           assetUrl={(asset) => safeAssetUrl(asset.asset)}
                           onRetry={() => void renderInstructorPreview()}
                         />
-                        <section aria-labelledby="instructor-correct-response-heading">
-                          <h4 id="instructor-correct-response-heading">Correct response</h4>
+                        <section aria-labelledby="instructor-question-answer-heading">
+                          <h4 id="instructor-question-answer-heading">Question Answer</h4>
                           <ContentBlockList
                             blocks={state().presentation.questionAnswer}
                             assetUrl={(asset) => safeAssetUrl(asset.asset)}

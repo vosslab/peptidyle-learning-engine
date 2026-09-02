@@ -11,7 +11,11 @@ export function createEditorPreviewFacade(wasm: WasmFacade): PreviewFacade {
       const result = await wasm.previewPleDraft(
         {
           workspace: draft.workspace,
-          backendLocator: draft.backendLocator,
+          questionBackend: draft.questionBackend,
+          webworkPgPath: draft.webworkPgPath,
+          qtiPackageItemIdentifier: draft.qtiPackageItemIdentifier,
+          workspaceImportId: draft.workspaceImportId,
+          draftImathasQuestionBackendBinding: draft.draftImathasQuestionBackendBinding,
           title: draft.title,
           prompt: draft.prompt,
           response: draft.response,

@@ -10,7 +10,17 @@
   Feedback, Question Answer Explanation, Question Hint, and format-specific records; Migration
   Check Result; precise Object Cleanup Receipt outcomes; registered HTTP headers; and SQLx's
   platform migration ledger. Workspace Import Item Result Store/service projection (row 508),
-  Course Retention rows 585--593, and Envelope/Witness/Locator review remain open.
+  Course Retention rows 585--593 and Envelope review remain open.
+
+- Completed the Tier 2 Witness and Locator terminology closures. Question Statistics Observation
+  Receipt now has an atomic accepted-grade recording path that derives correctness from the stored
+  Grading Result; its PostgreSQL oracle proves eligibility, replay idempotency, ineligible
+  non-contribution, and direct-execute denial. Current Question Model, browser, and test comments
+  name their exact References, Question Sources, or request facts; generated API comments were
+  regenerated from those owners. Remaining raw terms are classified third-party Playwright APIs,
+  host-runtime mechanics, exact iMathAS transport values, strict retired-wire rejection tests, or
+  retained evidence. Focused generation, Question Model/project-tools, TypeScript, browser-decoder,
+  Markdown-link, source-line, shell-syntax, formatting, and diff gates passed.
 
 - Completed the broad Projection-to-View terminology closure. Independent current-tree review
   classified all 88 remaining `projection` matches as precise technical mechanics, the terminology
@@ -118,6 +128,7 @@
 - Completed `WP-SD1-A-TERM-01-PAO1`: the first generic Broker dependency slice removes four source/schema aliases and six security/authorization-document aliases in favor of exact Session, private-owner policy, Sysadmin Account Creation, authorization-function, retention-Job, and Job claim-and-lease names. Functions, roles, predicates, and security behavior remain unchanged. Focused LDA formatting/check/strict Clippy/35 tests, SQL line tests, independent reviews, documentation gates, and the final-tree staged PostgreSQL 17 fresh/no-op/catalog/restricted-login/RLS plus 2/2 iMathAS Session tests passed. PAO2 retains architecture/current active-plan documentation and final row-415 closure; no compatibility path, generated contract, API, fixture, new test, or feature was added.
 - Completed `WP-SD1-A-TERM-01-AB1`: current database structure, architecture, and authorization documentation now use Authorization Checks, Authenticated Session Resolution, and Credential Authentication Completion for existing database operations. Credential Authentication Completion remains baseline-present and application-unmounted; generic Broker work remains open. Independent review, documentation gates, exact searches, and the final-tree staged PostgreSQL fresh apply/no-op/catalog/restricted-login probes plus 2/2 iMathAS Session PostgreSQL tests passed. No code, schema, API, test, fixture, or feature changed.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
+
 ## 2026-09-01
 
 ### Fixes and Maintenance

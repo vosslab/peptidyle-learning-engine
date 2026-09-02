@@ -76,7 +76,7 @@ pub(super) fn normalized_qti_item_fingerprint(
 mod tests {
     use super::*;
 
-    fn digest(
+    fn fingerprint(
         profile: QtiProfileId,
         title: &str,
         prompt: &str,
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn normalized_fingerprint_is_golden_and_deterministic() {
-        let first = digest(
+        let first = fingerprint(
             QtiProfileId::CANVAS,
             "Favorite color",
             "What is my favorite color?",
@@ -109,7 +109,7 @@ mod tests {
             "1.0",
             false,
         );
-        let second = digest(
+        let second = fingerprint(
             QtiProfileId::CANVAS,
             "Favorite color",
             "What is my favorite color?",
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn normalized_fingerprint_is_sensitive_to_retained_source_semantics() {
-        let base = digest(
+        let base = fingerprint(
             QtiProfileId::CANVAS,
             "Title",
             "Prompt",
@@ -138,7 +138,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Other",
                 "Prompt",
@@ -150,7 +150,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Other",
@@ -162,7 +162,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Prompt",
@@ -174,7 +174,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Prompt",
@@ -186,7 +186,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Prompt",
@@ -198,7 +198,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Prompt",
@@ -210,7 +210,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::CANVAS,
                 "Title",
                 "Prompt",
@@ -222,7 +222,7 @@ mod tests {
         );
         assert_ne!(
             base,
-            digest(
+            fingerprint(
                 QtiProfileId::BLACKBOARD,
                 "Title",
                 "Prompt",

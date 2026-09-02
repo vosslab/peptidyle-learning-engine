@@ -2,7 +2,6 @@
 
 import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
-import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
@@ -199,7 +198,7 @@ export interface ApiClient
     revision: TeachingOperationRevision,
     request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
-  /** Resolves one authorized M- request locator into an identity-free Preview Plane Response. */
+  /** Resolves one authorized Course Membership Reference into an identity-free Preview Plane Response. */
   readonly constructDerivedPreview: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
@@ -329,15 +328,6 @@ export interface ApiClient
     assignmentId: AssignmentId,
     assignmentReference: AssignmentReference,
     input: AssignmentContentInput,
-    assignmentRevisionEtag: string,
-  ) => Promise<AssignmentEditorDetail>;
-  /** Replaces one existing fixed slot for future Assignment Attempts without changing issued Student work. */
-  readonly replaceAssignmentFixedItem: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    assignmentReference: AssignmentReference,
-    itemId: AssignmentEntryId,
-    questionId: QuestionId,
     assignmentRevisionEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces only Policies-owned disclosure, Assignment Activity, and teaching settings. */

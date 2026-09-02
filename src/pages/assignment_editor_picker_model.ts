@@ -7,16 +7,13 @@ import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../generated/api/MAX_ASSI
 import type { AssignmentEditorState } from "./assignment_editor_model";
 
 export type AssignmentPickerIntent =
-  | { readonly kind: "fixedQuestion" }
-  | { readonly kind: "pool"; readonly entryIndex: number }
-  | { readonly kind: "replacement"; readonly itemId: string };
+  { readonly kind: "fixedQuestion" } | { readonly kind: "pool"; readonly entryIndex: number };
 
 /** Computes the destination-specific capacity before a shared picker opens. */
 export function assignmentPickerMaximum(
   draft: AssignmentEditorState,
   intent: AssignmentPickerIntent,
 ): number {
-  if (intent.kind === "replacement") return 1;
   if (intent.kind === "fixedQuestion") {
     return Math.max(0, MAX_ASSIGNMENT_ORDERED_ENTRIES - draft.entries.length);
   }

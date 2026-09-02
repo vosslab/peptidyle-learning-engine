@@ -11,8 +11,9 @@ import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
-import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
+import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
 import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
+import type { WorkspaceImportId } from "../../generated/api/WorkspaceImportId";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
@@ -66,7 +67,11 @@ export type CapabilityValidator = (
 /** Key-free browser inputs for deterministic workspace-draft preview. */
 export interface PleDraftPreviewRequest {
   readonly workspace: string;
-  readonly backendLocator: DraftQuestionBackendLocator;
+  readonly questionBackend: QuestionBackend;
+  readonly webworkPgPath: string | null;
+  readonly qtiPackageItemIdentifier: string | null;
+  readonly workspaceImportId: WorkspaceImportId | null;
+  readonly draftImathasQuestionBackendBinding: DraftImathasQuestionBackendBinding | null;
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
@@ -346,7 +351,7 @@ async function initializeWasmFacade(
       previewPleDraft: (request) =>
         Promise.resolve({
           kind: "unavailable",
-          backend: request.backendLocator.backend,
+          backend: request.questionBackend,
           capability: "offlinePreview",
         }),
       verifyPresentationDescriptor: () => Promise.resolve({ kind: "unavailable" }),

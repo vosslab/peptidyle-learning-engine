@@ -1,4 +1,4 @@
-// Live discovery, inspection, and owner editing for reusable Blueprint Courses.
+// Live discovery, inspection, and Blueprint Course Owner editing for reusable Blueprint Courses.
 
 import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
@@ -170,8 +170,8 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                       <A href={referencePath(course.reference)}>
                         <strong>{course.title}</strong>
                         <span>
-                          {course.access === "owner"
-                            ? "You own this Blueprint Course."
+                          {course.read_access === "blueprint_course_owner"
+                            ? "You are the Blueprint Course Owner."
                             : "Inspect its reusable modules."}{" "}
                           Revision {course.revision}.
                         </span>
@@ -250,7 +250,7 @@ export function BlueprintCourseDetailWorkspace(
       setNotice({
         kind: "status",
         text:
-          result.blueprintCourse.access === "owner"
+          result.blueprintCourse.read_access === "blueprint_course_owner"
             ? "Blueprint Course loaded. Update its Blueprint Assignments deliberately."
             : "Blueprint Course loaded. Inspect its answer-free reusable structure.",
       });
@@ -361,7 +361,7 @@ export function BlueprintCourseDetailWorkspace(
                   settings.
                 </p>
               </header>
-              <Show when={loaded.view.access === "owner"}>
+              <Show when={loaded.view.read_access === "blueprint_course_owner"}>
                 <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
                   <button type="button" disabled={saving()} onClick={() => void save()}>
                     {saving() ? "Saving..." : "Save Blueprint Course"}
@@ -383,7 +383,7 @@ export function BlueprintCourseDetailWorkspace(
                           <section class="blueprint-course-content-card">
                             <BlueprintAssignmentContentEditor
                               content={assignment.content}
-                              editable={loaded.view.access === "owner"}
+                              editable={loaded.view.read_access === "blueprint_course_owner"}
                               pickerRepository={props.pickerRepository}
                               pickerSources={props.pickerSources}
                               onChange={(content, text) =>

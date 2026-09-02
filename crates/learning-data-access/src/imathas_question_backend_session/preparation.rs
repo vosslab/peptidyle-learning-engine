@@ -21,7 +21,7 @@ pub struct ImathasQuestionBackendSessionPreparationContext {
     expires_at: Timestamp,
 }
 
-/// Server-only adapter facts available before binding-digest derivation and imathas_question_backend launch.
+/// Server-only adapter facts available before iMathAS Launch Binding Checksum derivation and imathas_question_backend launch.
 #[derive(Clone, PartialEq)]
 pub struct ImathasQuestionBackendLaunchPreparationValidation {
     pub grading_context: ImathasGradingContext,
@@ -91,7 +91,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
 
     pub fn complete(
         self,
-        qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+        imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
     ) -> Result<ImathasQuestionBackendSessionCreate, StoreError> {
         ImathasQuestionBackendSessionCreate::new(
@@ -106,7 +106,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
             self.response_checksum,
             self.challenge,
             self.authentication,
-            qualified_launch_binding_digest,
+            imathas_launch_binding_checksum,
             self.issued_at,
             self.expires_at,
             imathas_question_backend_state,

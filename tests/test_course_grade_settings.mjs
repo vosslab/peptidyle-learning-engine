@@ -14,7 +14,7 @@ import {
   createHttpApiClient,
 } from "../src/api/http_client.ts";
 import {
-  canonicalizeAssignments,
+  renumberAssignmentsByCategory,
   gradeSettingsErrors,
   percentToBasisPoints,
 } from "../src/pages/course_grade_settings_model.ts";
@@ -94,14 +94,14 @@ test("course-grade read and write decoders keep server titles out of strict writ
   assert.throws(() => decodeCourseGradeSchemeView(unsafeRead), /known field/u);
 });
 
-test("course-grade decoder rejects noncanonical mappings, weights, and private total fields", () => {
+test("course-grade decoder rejects out-of-sequence mappings, weights, and private total fields", () => {
   const badWeight = structuredClone(weightedView);
   badWeight.scheme.categories[1].weightBasisPoints = 5_999;
   assert.throws(() => decodeCourseGradeSchemeView(badWeight), /totaling 10000/u);
 
   const badPosition = structuredClone(weightedView);
   badPosition.assignments[1].position = 1;
-  assert.throws(() => decodeCourseGradeSchemeView(badPosition), /canonical positions/u);
+  assert.throws(() => decodeCourseGradeSchemeView(badPosition), /sequential positions/u);
 
   const safeTotals = {
     mode: "totalPoints",
@@ -131,7 +131,7 @@ test("course-grade decoder rejects noncanonical mappings, weights, and private t
   }
 });
 
-test("course-grade model canonicalizes order and explains invalid weighted drafts", () => {
+test("course-grade model renumbers category positions and explains invalid weighted drafts", () => {
   const update = {
     scheme: structuredClone(weightedView.scheme),
     assignments: [
@@ -150,7 +150,7 @@ test("course-grade model canonicalizes order and explains invalid weighted draft
     ],
   };
   assert.deepEqual(
-    canonicalizeAssignments(update).assignments.map((assignment) => assignment.position),
+    renumberAssignmentsByCategory(update).assignments.map((assignment) => assignment.position),
     [1, 0],
   );
   update.scheme.categories[0].dropLowest = 2;

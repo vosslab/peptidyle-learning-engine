@@ -25,6 +25,7 @@ CREATE FUNCTION ple_private.transfer_draft_question_source_to_question_revision(
     p_draft_question_revision_number integer,
     p_question_id text,
     p_revision_number integer,
+    p_imathas_profile text,
     p_source_object_id uuid,
     p_source_object_address jsonb,
     p_source_object_sha256 bytea,
@@ -74,6 +75,12 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Revision Backend must match its Draft Question Source Backend';
     END IF;
+    IF (source_record.backend = 'imathas'
+            AND NOT COALESCE(p_imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$', false))
+       OR (source_record.backend <> 'imathas' AND p_imathas_profile IS NOT NULL) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Revision Source requires a pinned iMathAS Profile only for iMathAS';
+    END IF;
     IF p_question_source_uuid = source_record.question_source_uuid
        OR p_source_object_id = source_record.source_object_id THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -119,13 +126,18 @@ BEGIN
 
     INSERT INTO ple_private.question_source (
         question_source_uuid, question_id, revision_number, backend, question_format,
-        question_type, backend_locator, source_object_id, source_object_checksum,
-        public_binding_sha256, created_at, updated_at
+        question_type, webwork_pg_path, qti_package_item_identifier,
+        imathas_deployment_reference, imathas_item_reference, imathas_profile,
+        source_object_id, source_object_checksum,
+        public_content_checksum, created_at, updated_at
     ) VALUES (
         p_question_source_uuid, p_question_id, p_revision_number, source_record.backend,
-        source_record.question_format, source_record.question_type, source_record.backend_locator,
+        source_record.question_format, source_record.question_type,
+        source_record.webwork_pg_path, source_record.qti_package_item_identifier,
+        source_record.imathas_deployment_reference, source_record.imathas_item_reference,
+        p_imathas_profile,
         p_source_object_id, source_record.source_object_checksum,
-        source_record.public_binding_sha256, expected_created_at, expected_created_at
+        source_record.public_content_checksum, expected_created_at, expected_created_at
     ) ON CONFLICT DO NOTHING
     RETURNING question_source_uuid INTO resolved_question_source_uuid;
     IF FOUND THEN
@@ -143,10 +155,15 @@ BEGIN
        AND source.backend = source_record.backend
        AND source.question_format = source_record.question_format
        AND source.question_type = source_record.question_type
-       AND source.backend_locator = source_record.backend_locator
+       AND source.webwork_pg_path IS NOT DISTINCT FROM source_record.webwork_pg_path
+       AND source.qti_package_item_identifier IS NOT DISTINCT FROM source_record.qti_package_item_identifier
+       AND source.workspace_import_id IS NULL
+       AND source.imathas_deployment_reference IS NOT DISTINCT FROM source_record.imathas_deployment_reference
+       AND source.imathas_item_reference IS NOT DISTINCT FROM source_record.imathas_item_reference
+       AND source.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
        AND source.source_object_id = p_source_object_id
        AND source.source_object_checksum = source_record.source_object_checksum
-       AND source.public_binding_sha256 = source_record.public_binding_sha256;
+       AND source.public_content_checksum = source_record.public_content_checksum;
     IF FOUND THEN
         PERFORM ple_private.publish_question_fork_source(
             p_draft_question_uuid, p_question_id
@@ -175,10 +192,10 @@ $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.question_revision_has_question_source(text, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.question_revision_has_question_source(text, integer) TO ple_data_owner;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.transfer_draft_question_source_to_question_revision(
-    uuid, uuid, integer, text, integer, uuid, jsonb, bytea, bigint, text, bigint
+    uuid, uuid, integer, text, integer, text, uuid, jsonb, bytea, bigint, text, bigint
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.transfer_draft_question_source_to_question_revision(
-    uuid, uuid, integer, text, integer, uuid, jsonb, bytea, bigint, text, bigint
+    uuid, uuid, integer, text, integer, text, uuid, jsonb, bytea, bigint, text, bigint
 ) TO ple_api_owner;
 
 RESET ROLE;
@@ -210,7 +227,7 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON FUNCTION ple_private.transfer_draft_question_source_to_question_revision(
-    uuid, uuid, integer, text, integer, uuid, jsonb, bytea, bigint, text, bigint
+    uuid, uuid, integer, text, integer, text, uuid, jsonb, bytea, bigint, text, bigint
 ) IS 'Private publication-coordinator helper that resolves one exact Draft Question Revision, then records one copied immutable Question Source Object and one exact Question Revision Source relationship; no direct browser capability.';
 COMMENT ON FUNCTION ple_private.question_revision_has_question_source(text, integer) IS
     'Private source-existence predicate used by the Question Publication Event integrity trigger.';

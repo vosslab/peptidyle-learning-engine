@@ -98,7 +98,7 @@ AFTER INSERT ON ple_private.account
 FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_state();
 
 -- The opaque browser credential is never stored or selected.  Its fixed-size
--- digest and the composite foreign key bind every session to the account's
+-- Session Token Hash and the composite foreign key bind every session to the account's
 -- sole immutable role.  ASVS 2.3.3, 8.2.2, and 8.3.1.
 CREATE TABLE ple_private.authenticated_session (
     session_id uuid PRIMARY KEY,
@@ -195,8 +195,8 @@ COMMENT ON TABLE ple_private.account IS
 COMMENT ON COLUMN ple_private.account.role IS
     'Closed lower-camel AccountRole value: student, instructor, or sysadmin.';
 COMMENT ON TABLE ple_private.authenticated_session IS
-    'Server-only opaque-session digest, expiry, revocation, and account-role binding.';
+    'Server-only Session Token Hash, expiry, revocation, and account-role binding.';
 COMMENT ON COLUMN ple_private.authenticated_session.token_hash IS
-    'Fixed-size digest of an opaque browser credential; raw credentials are never stored.';
+    'Fixed-size Session Token Hash for an opaque browser credential; raw credentials are never stored.';
 
 RESET ROLE;

@@ -1,6 +1,7 @@
-// question_json_ordering_editor_model.ts - canonical private ordering edits with stable item IDs.
+// question_json_ordering_editor_model.ts - private ordering edits with stable item IDs.
 
-import type { PleQuestionJsonItem, PleQuestionJsonDocument } from "./question_json_source";
+import { createPleQuestionJsonOrderingItem } from "./question_json_source";
+import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 
 const MINIMUM_ITEMS = 3;
 const MAXIMUM_ITEMS = 100;
@@ -35,12 +36,12 @@ function orderingResponse(
 }
 
 /**
- * The format carries both display items and correctOrder for wire compatibility. This editor keeps
- * one private canonical order: items are in the intended sequence and correctOrder is derived.
+ * The format carries both display items and correctOrder for wire compatibility. Items are the
+ * source of truth and correctOrder is derived.
  */
-function withCanonicalOrder(
+function withDerivedCorrectOrder(
   source: PleQuestionJsonDocument,
-  items: ReadonlyArray<PleQuestionJsonItem>,
+  items: ReadonlyArray<PleQuestionJsonOrderingItem>,
   focusId: string | null,
   status: string,
 ): PleQuestionJsonOrderingEditResult {
@@ -66,7 +67,7 @@ export function setOrderingItemText(
   const items = response.items.map((current) =>
     current.id === itemId ? { ...current, text } : current,
   );
-  return withCanonicalOrder(source, items, itemId, "Updated ordering item text.");
+  return withDerivedCorrectOrder(source, items, itemId, "Updated ordering item text.");
 }
 
 export function addOrderingItem(
@@ -78,8 +79,8 @@ export function addOrderingItem(
     return refused(source, `A question can have at most ${MAXIMUM_ITEMS} ordering items.`);
   }
   const id = nextOrderingItemId(response.items);
-  const item: PleQuestionJsonItem = { id, text: "New ordering item" };
-  return withCanonicalOrder(
+  const item = createPleQuestionJsonOrderingItem(id, "New ordering item");
+  return withDerivedCorrectOrder(
     source,
     [...response.items, item],
     id,
@@ -102,7 +103,7 @@ export function removeOrderingItem(
   const focusItem = items[Math.min(index, items.length - 1)];
   if (focusItem === undefined)
     return refused(source, "Choose a remaining item before removing this one.");
-  return withCanonicalOrder(
+  return withDerivedCorrectOrder(
     source,
     items,
     focusItem.id,
@@ -131,7 +132,7 @@ export function moveOrderingItem(
   items[index] = neighbor;
   items[nextIndex] = item;
   const position = nextIndex + 1;
-  return withCanonicalOrder(
+  return withDerivedCorrectOrder(
     source,
     items,
     itemId,
@@ -139,7 +140,7 @@ export function moveOrderingItem(
   );
 }
 
-function nextOrderingItemId(items: ReadonlyArray<PleQuestionJsonItem>): string {
+function nextOrderingItemId(items: ReadonlyArray<PleQuestionJsonOrderingItem>): string {
   const ids = new Set(items.map((item) => item.id));
   let index = 1;
   while (ids.has(`item_${index}`)) index += 1;

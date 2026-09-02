@@ -10,6 +10,8 @@
 pub mod active_student_course_membership;
 /// Continued-practice eligibility and shared Assignment Activity errors.
 pub mod assignment_activity;
+/// Current course-owned Assignment Question Analysis projections (MOD-STATS).
+pub mod assignment_question_analysis;
 /// Attempt state machine (MOD-STATE).
 /// Completion derivation within an Assignment Attempt (MOD-STATE).
 pub mod completion;
@@ -21,8 +23,6 @@ pub mod draft_preview;
 pub mod effective_assignment_policy;
 /// Seeded question generation (MOD-GEN).
 pub mod generator;
-/// Current course-owned item-analysis projections (MOD-STATS).
-pub mod item_analysis;
 /// Assignment configuration validation (MOD-CAP).
 pub mod policy;
 /// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-INST-T3).

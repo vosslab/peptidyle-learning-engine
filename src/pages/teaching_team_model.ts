@@ -14,7 +14,7 @@ export function appendTeachingTeamPage<T extends ReferenceRow>(
   return appendTeachingTeamRows(current, next, (row) => row.reference);
 }
 
-/** Appends a cursor page using the API row's stable, browser-safe locator. */
+/** Appends a cursor page using the API row's stable, browser-safe Reference. */
 export function appendTeachingTeamRows<T>(
   current: ReadonlyArray<T>,
   next: ReadonlyArray<T>,

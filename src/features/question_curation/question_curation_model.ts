@@ -236,7 +236,7 @@ export function folderDraftFrom(
     reference: folder.reference,
     title: folder.title,
     editNumber: folder.editNumber,
-    questionIds: canonicalQuestionIds(entries.map((entry) => entry.questionId)),
+    questionIds: normalizedUniqueQuestionIds(entries.map((entry) => entry.questionId)),
   };
 }
 
@@ -245,7 +245,7 @@ export function appendFolderQuestionIds(
   current: ReadonlyArray<string>,
   additions: ReadonlyArray<string>,
 ): ReadonlyArray<string> {
-  return canonicalQuestionIds([...current, ...additions]);
+  return normalizedUniqueQuestionIds([...current, ...additions]);
 }
 
 /** Removes one selected public Question ID from the whole-list draft. */
@@ -253,8 +253,8 @@ export function removeFolderQuestionId(
   current: ReadonlyArray<string>,
   questionId: string,
 ): ReadonlyArray<string> {
-  const canonical = canonicalQuestionId(questionId);
-  return canonicalQuestionIds(current).filter((candidate) => candidate !== canonical);
+  const normalized = normalizeQuestionId(questionId);
+  return normalizedUniqueQuestionIds(current).filter((candidate) => candidate !== normalized);
 }
 
 /** Moves one visible Question Folder Entry while preserving all other order. */
@@ -263,7 +263,7 @@ export function moveFolderQuestionId(
   index: number,
   direction: -1 | 1,
 ): ReadonlyArray<string> {
-  const ids = [...canonicalQuestionIds(current)];
+  const ids = [...normalizedUniqueQuestionIds(current)];
   const destination = index + direction;
   if (index < 0 || destination < 0 || destination >= ids.length) return ids;
   const item = ids[index];
@@ -352,20 +352,20 @@ export function libraryQueryFromSavedSearch(search: SavedQuestionSearchView): Qu
   };
 }
 
-function canonicalQuestionId(value: string): string {
-  const canonical = normalizeQuestionIdSyntax(value);
-  if (canonical === null) throw new Error("Choose a canonical public Question ID.");
-  return canonical;
+function normalizeQuestionId(value: string): string {
+  const normalized = normalizeQuestionIdSyntax(value);
+  if (normalized === null) throw new Error("Choose a canonical public Question ID.");
+  return normalized;
 }
 
-function canonicalQuestionIds(values: ReadonlyArray<string>): ReadonlyArray<string> {
+function normalizedUniqueQuestionIds(values: ReadonlyArray<string>): ReadonlyArray<string> {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const value of values) {
-    const canonical = canonicalQuestionId(value);
-    if (seen.has(canonical)) continue;
-    seen.add(canonical);
-    result.push(canonical);
+    const normalized = normalizeQuestionId(value);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
   }
   return result;
 }

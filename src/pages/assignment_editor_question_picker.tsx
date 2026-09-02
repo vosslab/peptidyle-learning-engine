@@ -16,7 +16,6 @@ function pickerTitle(
   intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
 ): string {
   if (intent.kind === "pool") return "Choose Questions for pool";
-  if (intent.kind === "replacement") return "Choose a replacement question";
   return "Choose assignment questions";
 }
 
@@ -24,15 +23,7 @@ function pickerConfirmLabel(
   intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
 ): string {
   if (intent.kind === "pool") return "Add selected Questions to pool";
-  if (intent.kind === "replacement") return "Select replacement";
   return "Add selected questions";
-}
-
-function pickerInstructions(
-  intent: NonNullable<ReturnType<AssignmentEditorPickerController["intent"]>>,
-): string | undefined {
-  if (intent.kind !== "replacement") return undefined;
-  return "Select one replacement question. You will return to Questions to use Replace selected question in a separate action.";
 }
 
 /** Keeps the native dialog mounted only while one assignment destination is active. */
@@ -51,12 +42,11 @@ export function AssignmentEditorQuestionPicker(
           <QuestionPicker
             repository={props.repository.questionPickerRepository}
             sources={props.controller.sources()}
-            mode={intent.kind === "replacement" ? "one" : "many"}
+            mode="many"
             maximumSelection={props.controller.maximum(intent)}
             trigger={props.controller.trigger()}
             title={pickerTitle(intent)}
             confirmLabel={pickerConfirmLabel(intent)}
-            instructions={pickerInstructions(intent)}
             onConfirm={(selection) => void props.controller.useSelection(selection)}
             onCancel={props.controller.cancel}
           />

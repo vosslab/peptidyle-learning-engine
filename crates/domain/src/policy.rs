@@ -34,8 +34,9 @@ pub struct AssignmentConfig {
     /// Assignment-wide features every selected backend must support.
     ///
     /// Client rendering, print export, and offline preview are requested here.
-    /// Question-authored generation, grading, and timing requirements
-    /// are derived directly from each definition and need no second flag.
+    /// Question-authored Question Variation Rule, Question Grading Rule, and Question Attempt
+    /// Time Limit requirements are derived directly from the Question Revision and need no
+    /// second flag.
     pub required_capabilities: Vec<Capability>,
 }
 
@@ -64,8 +65,8 @@ pub struct PublicationViolation {
 /// Returns every unsupported capability in deterministic display order.
 ///
 /// The function has no storage or adapter dependency. API routes resolve the
-/// selected definitions and adapter declarations, then pass that browser-safe
-/// data here. Duplicate assignment requirements collapse to one violation per
+/// selected Question Revisions and Question Backend capability declarations, then pass that
+/// browser-safe data here. Duplicate assignment requirements collapse to one violation per
 /// question and capability.
 pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
     let assignment_requirements: BTreeSet<_> =
@@ -178,15 +179,15 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use question_model::QuestionContentBlock;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
     use question_model::classification::{QuestionLicense, Tag};
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
+    use question_model::QuestionContentBlock;
     use question_model::{
-        QuestionBackendLocator, QuestionFormat, QuestionId, QuestionMetadata,
-        QuestionRevisionNumber, QuestionRevisionReference, QuestionType, WorkspaceId,
+        QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
+        QuestionRevisionReference, QuestionType, WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -222,7 +223,10 @@ mod tests {
             question_id: question_revision.question_id,
             revision_number: question_revision.revision_number,
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(100)),
-            backend_locator: QuestionBackendLocator::Ple,
+            question_backend: QuestionBackend::Ple,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            imathas_question_backend_binding: None,
             question_format: QuestionFormat::PleAlgorithmic,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Capability fixture".to_string(),

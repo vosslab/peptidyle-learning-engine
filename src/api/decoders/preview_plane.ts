@@ -15,7 +15,7 @@ import type { StudentViewScenario } from "../../../generated/api/StudentViewScen
 import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
 import type {
   QuestionPoolPreview,
-  QuestionPoolPreviewQuestion,
+  QuestionPoolPreviewItem,
   QuestionPoolPreviewRequest,
 } from "../contracts";
 import {
@@ -70,7 +70,7 @@ function revision(value: unknown, path: string): string {
   return parsed;
 }
 
-function previewQuestion(value: unknown, path: string): QuestionPoolPreviewQuestion {
+function previewItem(value: unknown, path: string): QuestionPoolPreviewItem {
   const record = closed(value, path, ["questionId", "title"]);
   return {
     questionId: questionId(record.questionId, `${path}.questionId`),
@@ -103,34 +103,40 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     "questionPoolLabel",
     "selectionCount",
     "selectionRule",
-    "entries",
-    "selected",
+    "items",
+    "selectedItems",
   ]);
-  const entries = decodeBoundedArray(
-    record.entries,
-    `${path}.entries`,
+  const items = decodeBoundedArray(
+    record.items,
+    `${path}.items`,
     MAX_TEACHING_PAGE_SIZE,
-    previewQuestion,
+    previewItem,
   );
-  const selected = decodeBoundedArray(
-    record.selected,
-    `${path}.selected`,
+  const selectedItems = decodeBoundedArray(
+    record.selectedItems,
+    `${path}.selectedItems`,
     MAX_TEACHING_PAGE_SIZE,
-    previewQuestion,
+    previewItem,
   );
   const selectionCount = decodeSafeInteger(record.selectionCount, `${path}.selectionCount`);
   const assignmentEntryId = decodeIdentifier(record.assignmentEntryId, `${path}.assignmentEntryId`);
-  if (selectionCount < 1 || selectionCount > entries.length || selected.length !== selectionCount)
+  if (
+    selectionCount < 1 ||
+    selectionCount > items.length ||
+    selectedItems.length !== selectionCount
+  )
     throw new DecodeError(
       `${path}.selectionCount`,
       "a valid selection count for the returned pool",
     );
-  const selectedIds = new Set(selected.map((question) => question.questionId));
+  const selectedIds = new Set(selectedItems.map((item) => item.questionId));
   if (
-    selectedIds.size !== selected.length ||
-    !selected.every((question) => entries.some((entry) => entry.questionId === question.questionId))
+    selectedIds.size !== selectedItems.length ||
+    !selectedItems.every((item) =>
+      items.some((poolItem) => poolItem.questionId === item.questionId),
+    )
   )
-    throw new DecodeError(`${path}.selected`, "unique Question Pool Item Question IDs");
+    throw new DecodeError(`${path}.selectedItems`, "unique Question Pool Item Question IDs");
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
@@ -138,8 +144,8 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
     selectionCount,
     selectionRule: selectionRule(record.selectionRule, `${path}.selectionRule`),
-    entries,
-    selected,
+    items,
+    selectedItems,
   };
 }
 

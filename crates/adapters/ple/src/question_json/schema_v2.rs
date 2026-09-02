@@ -14,8 +14,8 @@ use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
 use question_model::{
-    DraftQuestionContent, QuestionAssetId, QuestionBackend, QuestionFormat,
-    QuestionGradingRule, QuestionHint, QuestionMetadata, WorkspaceId,
+    DraftQuestionContent, QuestionAssetId, QuestionBackend, QuestionFormat, QuestionGradingRule,
+    QuestionHint, QuestionMetadata, WorkspaceId,
 };
 use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
@@ -94,12 +94,12 @@ enum PleQuestionJsonResponse {
         unit: Option<String>,
     },
     Matching {
-        prompts: Vec<PleQuestionJsonItem>,
-        choices: Vec<PleQuestionJsonItem>,
+        prompts: Vec<PleQuestionJsonMatchingPrompt>,
+        choices: Vec<PleQuestionJsonMatchingChoice>,
         matches: Vec<PleQuestionJsonMatch>,
     },
     Ordering {
-        items: Vec<PleQuestionJsonItem>,
+        items: Vec<PleQuestionJsonOrderingItem>,
         correct_order: Vec<String>,
     },
     Hotspot {
@@ -160,10 +160,47 @@ impl From<&PleQuestionJsonNumericResponseTolerance> for NumericResponseTolerance
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PleQuestionJsonItem {
+struct PleQuestionJsonMatchingPrompt {
     id: String,
     text: String,
 }
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PleQuestionJsonMatchingChoice {
+    id: String,
+    text: String,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PleQuestionJsonOrderingItem {
+    id: String,
+    text: String,
+}
+
+trait PleQuestionJsonResponseMember {
+    fn id(&self) -> &str;
+    fn text(&self) -> &str;
+}
+
+macro_rules! response_member {
+    ($type:ident) => {
+        impl PleQuestionJsonResponseMember for $type {
+            fn id(&self) -> &str {
+                &self.id
+            }
+
+            fn text(&self) -> &str {
+                &self.text
+            }
+        }
+    };
+}
+
+response_member!(PleQuestionJsonMatchingPrompt);
+response_member!(PleQuestionJsonMatchingChoice);
+response_member!(PleQuestionJsonOrderingItem);
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -579,7 +616,7 @@ fn compile_choices(
     )
 }
 
-fn compile_matching_prompts(items: &[PleQuestionJsonItem]) -> Vec<MatchingPrompt> {
+fn compile_matching_prompts(items: &[PleQuestionJsonMatchingPrompt]) -> Vec<MatchingPrompt> {
     items
         .iter()
         .map(|item| MatchingPrompt {
@@ -589,7 +626,7 @@ fn compile_matching_prompts(items: &[PleQuestionJsonItem]) -> Vec<MatchingPrompt
         .collect()
 }
 
-fn compile_matching_choices(items: &[PleQuestionJsonItem]) -> Vec<MatchingChoice> {
+fn compile_matching_choices(items: &[PleQuestionJsonMatchingChoice]) -> Vec<MatchingChoice> {
     items
         .iter()
         .map(|item| MatchingChoice {
@@ -599,7 +636,7 @@ fn compile_matching_choices(items: &[PleQuestionJsonItem]) -> Vec<MatchingChoice
         .collect()
 }
 
-fn compile_ordering_items(items: &[PleQuestionJsonItem]) -> Vec<OrderingItem> {
+fn compile_ordering_items(items: &[PleQuestionJsonOrderingItem]) -> Vec<OrderingItem> {
     items
         .iter()
         .map(|item| OrderingItem {
@@ -712,9 +749,9 @@ fn validate_nonnegative_finite(name: &str, value: f64) -> Result<(), PleQuestion
     }
 }
 
-fn validate_items(
+fn validate_items<T: PleQuestionJsonResponseMember>(
     name: &str,
-    items: &[PleQuestionJsonItem],
+    items: &[T],
     minimum: usize,
 ) -> Result<HashSet<String>, PleQuestionJsonError> {
     if items.len() < minimum || items.len() > MAX_CHOICES {
@@ -722,18 +759,18 @@ fn validate_items(
     }
     let mut ids = HashSet::new();
     for item in items {
-        validate_choice_id(&item.id)?;
-        if !ids.insert(item.id.clone()) {
+        validate_choice_id(item.id())?;
+        if !ids.insert(item.id().to_string()) {
             return invalid(&format!("{name} identifiers must be unique"));
         }
-        validate_markdown(name, &item.text, MAX_CHOICE_TEXT_CHARS)?;
+        validate_markdown(name, item.text(), MAX_CHOICE_TEXT_CHARS)?;
     }
     Ok(ids)
 }
 
 fn validate_matching(
-    prompts: &[PleQuestionJsonItem],
-    choices: &[PleQuestionJsonItem],
+    prompts: &[PleQuestionJsonMatchingPrompt],
+    choices: &[PleQuestionJsonMatchingChoice],
     matches: &[PleQuestionJsonMatch],
 ) -> Result<(), PleQuestionJsonError> {
     let prompt_ids = validate_items("matching prompt", prompts, 2)?;
@@ -756,7 +793,7 @@ fn validate_matching(
 }
 
 fn validate_ordering(
-    items: &[PleQuestionJsonItem],
+    items: &[PleQuestionJsonOrderingItem],
     order: &[String],
 ) -> Result<(), PleQuestionJsonError> {
     let ids = validate_items("ordering item", items, 3)?;

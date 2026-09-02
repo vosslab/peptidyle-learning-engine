@@ -2,10 +2,13 @@
 
 import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemptLimit";
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
-import type { DraftQuestionBackendLocator } from "../../../generated/api/DraftQuestionBackendLocator";
+import type { DraftImathasQuestionBackendBinding } from "../../../generated/api/DraftImathasQuestionBackendBinding";
 import type { QuestionGradingRule } from "../../../generated/api/QuestionGradingRule";
 import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
-import type { QuestionBackendLocator } from "../../../generated/api/QuestionBackendLocator";
+import type { ImathasQuestionBackendBinding } from "../../../generated/api/ImathasQuestionBackendBinding";
+import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
+import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
+import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionContent";
 import type { QuestionVariationRule } from "../../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
@@ -157,96 +160,206 @@ export function decodeKeyFreeDraftPreview(
   };
 }
 
-export function decodeQuestionBackendLocator(value: unknown, path: string): QuestionBackendLocator {
+function decodeQuestionBackend(value: unknown, path: string): QuestionBackend {
+  return decodeStringEnum(value, path, QUESTION_BACKENDS);
+}
+
+function decodeDraftImathasQuestionBackendBinding(
+  value: unknown,
+  path: string,
+): DraftImathasQuestionBackendBinding {
   const record = decodeRecord(value, path);
-  const backend = decodeString(field(record, "backend", path), `${path}.backend`);
-  switch (backend) {
-    case "ple": {
-      requireOnlyFields(record, path, ["backend"]);
-      const decoded = { backend } satisfies QuestionBackendLocator;
-      return decoded;
-    }
-    case "webwork": {
-      requireOnlyFields(record, path, ["backend", "pgPath"]);
-      const decoded = {
-        backend,
-        pgPath: decodeNonemptyString(field(record, "pgPath", path), `${path}.pgPath`),
-      } satisfies QuestionBackendLocator;
-      return decoded;
-    }
-    case "qti": {
-      requireOnlyFields(record, path, ["backend", "itemId"]);
-      const decoded = {
-        backend,
-        itemId: decodeNonemptyString(field(record, "itemId", path), `${path}.itemId`),
-      } satisfies QuestionBackendLocator;
-      return decoded;
-    }
-    case "imathas": {
-      requireOnlyFields(record, path, [
-        "backend",
-        "deploymentReference",
-        "itemReference",
-        "profile",
-      ]);
-      const decoded = {
-        backend,
-        deploymentReference: decodeImathasDeploymentReference(
-          field(record, "deploymentReference", path),
-          `${path}.deploymentReference`,
-        ),
-        itemReference: decodeImathasItemReference(
-          field(record, "itemReference", path),
-          `${path}.itemReference`,
-        ),
-        profile: decodeImathasProfile(field(record, "profile", path), `${path}.profile`),
-      } satisfies QuestionBackendLocator;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.backend`, "a known question backend");
+  requireOnlyFields(record, path, ["deploymentReference", "itemReference"]);
+  return {
+    deploymentReference: decodeImathasDeploymentReference(
+      field(record, "deploymentReference", path),
+      `${path}.deploymentReference`,
+    ),
+    itemReference: decodeImathasItemReference(
+      field(record, "itemReference", path),
+      `${path}.itemReference`,
+    ),
+  } satisfies DraftImathasQuestionBackendBinding;
+}
+
+function decodeImathasQuestionBackendBinding(
+  value: unknown,
+  path: string,
+): ImathasQuestionBackendBinding {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["deploymentReference", "itemReference", "profile"]);
+  return {
+    deploymentReference: decodeImathasDeploymentReference(
+      field(record, "deploymentReference", path),
+      `${path}.deploymentReference`,
+    ),
+    itemReference: decodeImathasItemReference(
+      field(record, "itemReference", path),
+      `${path}.itemReference`,
+    ),
+    profile: decodeImathasProfile(field(record, "profile", path), `${path}.profile`),
+  } satisfies ImathasQuestionBackendBinding;
+}
+
+function questionBackendFieldsAreAllowed(
+  questionBackend: QuestionBackend,
+  webworkPgPath: string | null,
+  qtiPackageItemIdentifier: string | null,
+  workspaceImportId: string | null,
+  imathasQuestionBackendBinding: ImathasQuestionBackendBinding | null,
+  draftImathasQuestionBackendBinding: DraftImathasQuestionBackendBinding | null,
+  path: string,
+  draft: boolean,
+): void {
+  const invalid = (): never => {
+    throw new DecodeError(path, "the exact fields permitted for its Question Backend");
+  };
+  switch (questionBackend) {
+    case "ple":
+      if (
+        webworkPgPath !== null ||
+        qtiPackageItemIdentifier !== null ||
+        workspaceImportId !== null ||
+        imathasQuestionBackendBinding !== null ||
+        draftImathasQuestionBackendBinding !== null
+      ) {
+        invalid();
+      }
+      return;
+    case "webwork":
+      if (
+        webworkPgPath === null ||
+        qtiPackageItemIdentifier !== null ||
+        workspaceImportId !== null ||
+        imathasQuestionBackendBinding !== null ||
+        draftImathasQuestionBackendBinding !== null
+      ) {
+        invalid();
+      }
+      return;
+    case "qti":
+      if (
+        qtiPackageItemIdentifier === null ||
+        (draft && workspaceImportId === null) ||
+        (!draft && workspaceImportId !== null) ||
+        webworkPgPath !== null ||
+        imathasQuestionBackendBinding !== null ||
+        draftImathasQuestionBackendBinding !== null
+      ) {
+        invalid();
+      }
+      return;
+    case "imathas":
+      if (
+        webworkPgPath !== null ||
+        qtiPackageItemIdentifier !== null ||
+        workspaceImportId !== null ||
+        (draft
+          ? imathasQuestionBackendBinding !== null || draftImathasQuestionBackendBinding === null
+          : imathasQuestionBackendBinding === null || draftImathasQuestionBackendBinding !== null)
+      ) {
+        invalid();
+      }
+      return;
   }
 }
 
-export function decodeDraftQuestionBackendLocator(
-  value: unknown,
+export function decodeQuestionRevisionBackendFields(
+  record: Record<string, unknown>,
   path: string,
-): DraftQuestionBackendLocator {
-  const record = decodeRecord(value, path);
-  const backend = decodeString(field(record, "backend", path), `${path}.backend`);
-  switch (backend) {
-    case "ple":
-      requireOnlyFields(record, path, ["backend"]);
-      return { backend } satisfies DraftQuestionBackendLocator;
-    case "webwork":
-      requireOnlyFields(record, path, ["backend", "pgPath"]);
-      return {
-        backend,
-        pgPath: decodeNonemptyString(field(record, "pgPath", path), `${path}.pgPath`),
-      } satisfies DraftQuestionBackendLocator;
-    case "qti":
-      requireOnlyFields(record, path, ["backend", "itemId", "importId"]);
-      return {
-        backend,
-        itemId: decodeNonemptyString(field(record, "itemId", path), `${path}.itemId`),
-        importId: decodeIdentifier(field(record, "importId", path), `${path}.importId`),
-      } satisfies DraftQuestionBackendLocator;
-    case "imathas":
-      requireOnlyFields(record, path, ["backend", "deploymentReference", "itemReference"]);
-      return {
-        backend,
-        deploymentReference: decodeImathasDeploymentReference(
-          field(record, "deploymentReference", path),
-          `${path}.deploymentReference`,
-        ),
-        itemReference: decodeImathasItemReference(
-          field(record, "itemReference", path),
-          `${path}.itemReference`,
-        ),
-      } satisfies DraftQuestionBackendLocator;
-    default:
-      throw new DecodeError(`${path}.backend`, "a known draft question backend");
-  }
+): Pick<
+  QuestionRevision,
+  "questionBackend" | "webworkPgPath" | "qtiPackageItemIdentifier" | "imathasQuestionBackendBinding"
+> {
+  const questionBackend = decodeQuestionBackend(
+    field(record, "questionBackend", path),
+    `${path}.questionBackend`,
+  );
+  const webworkPgPath = decodeNullable(
+    field(record, "webworkPgPath", path),
+    `${path}.webworkPgPath`,
+    decodeNonemptyString,
+  );
+  const qtiPackageItemIdentifier = decodeNullable(
+    field(record, "qtiPackageItemIdentifier", path),
+    `${path}.qtiPackageItemIdentifier`,
+    decodeNonemptyString,
+  );
+  const imathasQuestionBackendBinding = decodeNullable(
+    field(record, "imathasQuestionBackendBinding", path),
+    `${path}.imathasQuestionBackendBinding`,
+    decodeImathasQuestionBackendBinding,
+  );
+  questionBackendFieldsAreAllowed(
+    questionBackend,
+    webworkPgPath,
+    qtiPackageItemIdentifier,
+    null,
+    imathasQuestionBackendBinding,
+    null,
+    path,
+    false,
+  );
+  return {
+    questionBackend,
+    webworkPgPath,
+    qtiPackageItemIdentifier,
+    imathasQuestionBackendBinding,
+  };
+}
+
+export function decodeDraftQuestionBackendFields(
+  record: Record<string, unknown>,
+  path: string,
+): Pick<
+  DraftQuestionContent,
+  | "questionBackend"
+  | "webworkPgPath"
+  | "qtiPackageItemIdentifier"
+  | "workspaceImportId"
+  | "draftImathasQuestionBackendBinding"
+> {
+  const questionBackend = decodeQuestionBackend(
+    field(record, "questionBackend", path),
+    `${path}.questionBackend`,
+  );
+  const webworkPgPath = decodeNullable(
+    field(record, "webworkPgPath", path),
+    `${path}.webworkPgPath`,
+    decodeNonemptyString,
+  );
+  const qtiPackageItemIdentifier = decodeNullable(
+    field(record, "qtiPackageItemIdentifier", path),
+    `${path}.qtiPackageItemIdentifier`,
+    decodeNonemptyString,
+  );
+  const workspaceImportId = decodeNullable(
+    field(record, "workspaceImportId", path),
+    `${path}.workspaceImportId`,
+    decodeIdentifier,
+  );
+  const draftImathasQuestionBackendBinding = decodeNullable(
+    field(record, "draftImathasQuestionBackendBinding", path),
+    `${path}.draftImathasQuestionBackendBinding`,
+    decodeDraftImathasQuestionBackendBinding,
+  );
+  questionBackendFieldsAreAllowed(
+    questionBackend,
+    webworkPgPath,
+    qtiPackageItemIdentifier,
+    workspaceImportId,
+    null,
+    draftImathasQuestionBackendBinding,
+    path,
+    true,
+  );
+  return {
+    questionBackend,
+    webworkPgPath,
+    qtiPackageItemIdentifier,
+    workspaceImportId,
+    draftImathasQuestionBackendBinding,
+  };
 }
 
 export function decodeGeneratorReference(

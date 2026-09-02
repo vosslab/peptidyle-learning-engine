@@ -34,8 +34,10 @@ pub enum GradingError {
     UnexpectedAnswerKey,
     /// The Question Response Format, submitted response, and key were not parallel variants.
     KindMismatch,
-    /// Public grading or tolerance parameters were invalid.
-    InvalidDefinition(String),
+    /// The Question Grading Rule, Answer Key, or response-format tolerance was invalid.
+    InvalidQuestionGradingRule(String),
+    /// The accepted grade could not produce a valid Question Statistics Observation.
+    InvalidQuestionStatisticsObservation(String),
     /// Partial-credit rules remain owned by a capable deterministic backend.
     PartialCreditRequiresBackend,
 }
@@ -53,8 +55,14 @@ impl std::fmt::Display for GradingError {
             Self::KindMismatch => formatter.write_str(
                 "Question Response Format, Student Response, and Answer Key kinds must agree",
             ),
-            Self::InvalidDefinition(message) => {
+            Self::InvalidQuestionGradingRule(message) => {
                 write!(formatter, "invalid Question Grading Rule: {message}")
+            }
+            Self::InvalidQuestionStatisticsObservation(message) => {
+                write!(
+                    formatter,
+                    "invalid Question Statistics Observation: {message}"
+                )
             }
             Self::PartialCreditRequiresBackend => {
                 formatter.write_str("partial credit requires a deterministic backend checker")
@@ -138,25 +146,25 @@ pub fn question_statistics_observation(
     };
     QuestionStatisticsObservation::new(result.correct, selections)
         .map(Some)
-        .map_err(|error| GradingError::InvalidDefinition(error.to_string()))
+        .map_err(|error| GradingError::InvalidQuestionStatisticsObservation(error.to_string()))
 }
 
 fn validated_points(points: f64) -> Result<f64, GradingError> {
     if points.is_finite() && points >= 0.0 {
         Ok(points)
     } else {
-        Err(GradingError::InvalidDefinition(
+        Err(GradingError::InvalidQuestionGradingRule(
             "points must be finite and nonnegative".to_string(),
         ))
     }
 }
 
 fn answer_is_correct(
-    definition: &QuestionResponseFormat,
+    response_format: &QuestionResponseFormat,
     response: &StudentResponse,
     key: &AnswerKey,
 ) -> Result<bool, GradingError> {
-    match (definition, response, key) {
+    match (response_format, response, key) {
         (
             QuestionResponseFormat::Numeric { tolerance, .. },
             StudentResponse::Numeric { value },
@@ -169,7 +177,7 @@ fn answer_is_correct(
         ) => {
             let available: BTreeSet<_> = choices.iter().map(|choice| choice.id.clone()).collect();
             if !correct.is_subset(&available) {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "multiple-choice key names an unavailable choice".to_string(),
                 ));
             }
@@ -188,7 +196,7 @@ fn answer_is_correct(
             if accepted.len() != blanks.len()
                 || blanks.iter().any(|blank| !accepted.contains_key(&blank.id))
             {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "multi-blank key must name every available slot exactly once".to_string(),
                 ));
             }
@@ -213,7 +221,7 @@ fn answer_is_correct(
                 || correct.keys().cloned().collect::<BTreeSet<_>>() != prompt_ids
                 || correct.values().any(|choice| !choice_ids.contains(choice))
             {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "matching key must bind every prompt to an available choice".to_string(),
                 ));
             }
@@ -230,7 +238,7 @@ fn answer_is_correct(
                 items.iter().map(|item| item.id.clone()).collect();
             let keyed: BTreeSet<ResponseItemReference> = correct.iter().cloned().collect();
             if keyed.len() != correct.len() || keyed != available {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "ordering key must contain every available item exactly once".to_string(),
                 ));
             }
@@ -243,7 +251,7 @@ fn answer_is_correct(
         ) => {
             let available: BTreeSet<_> = regions.iter().map(|region| region.id.clone()).collect();
             if !correct.is_subset(&available) {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "hotspot key names an unavailable region".to_string(),
                 ));
             }
@@ -263,7 +271,7 @@ fn numeric_is_correct(
     tolerance: &NumericResponseTolerance,
 ) -> Result<bool, GradingError> {
     if !expected.is_finite() {
-        return Err(GradingError::InvalidDefinition(
+        return Err(GradingError::InvalidQuestionGradingRule(
             "numeric key must be finite".to_string(),
         ));
     }
@@ -279,7 +287,7 @@ fn numeric_is_correct(
         }
         NumericResponseTolerance::SignificantFigures { digits } => {
             if *digits == 0 {
-                return Err(GradingError::InvalidDefinition(
+                return Err(GradingError::InvalidQuestionGradingRule(
                     "significant figures must be at least one".to_string(),
                 ));
             }
@@ -292,7 +300,7 @@ fn validate_nonnegative_finite(name: &str, value: f64) -> Result<(), GradingErro
     if value.is_finite() && value >= 0.0 {
         Ok(())
     } else {
-        Err(GradingError::InvalidDefinition(format!(
+        Err(GradingError::InvalidQuestionGradingRule(format!(
             "{name} must be finite and nonnegative"
         )))
     }
@@ -346,8 +354,8 @@ mod tests {
     use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
-        QuestionBackendLocator, QuestionFormat, QuestionId, QuestionMetadata,
-        QuestionRevisionNumber, WorkspaceId,
+        QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
+        WorkspaceId,
     };
     use uuid::Uuid;
 
@@ -373,7 +381,10 @@ mod tests {
             question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-            backend_locator: QuestionBackendLocator::Ple,
+            question_backend: QuestionBackend::Ple,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            imathas_question_backend_binding: None,
             question_format: QuestionFormat::PleAlgorithmic,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Fixture".to_string(),
@@ -616,7 +627,7 @@ mod tests {
                 &StudentResponse::Numeric { value: 1.0 },
                 Some(&AnswerKey::Numeric { expected: 1.0 }),
             ),
-            Err(GradingError::InvalidDefinition(
+            Err(GradingError::InvalidQuestionGradingRule(
                 "points must be finite and nonnegative".to_string(),
             ))
         );
@@ -631,7 +642,7 @@ mod tests {
                 &StudentResponse::Numeric { value: 1.0 },
                 Some(&AnswerKey::Numeric { expected: 1.0 }),
             ),
-            Err(GradingError::InvalidDefinition(
+            Err(GradingError::InvalidQuestionGradingRule(
                 "significant figures must be at least one".to_string(),
             ))
         );

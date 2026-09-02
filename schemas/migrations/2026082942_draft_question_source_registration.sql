@@ -11,11 +11,13 @@ CREATE POLICY question_source_private_owner_source_lookup ON ple_private.questio
     FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY question_source_private_owner_source_registration ON ple_private.question_source
     FOR INSERT TO ple_private_owner WITH CHECK (true);
+CREATE POLICY workspace_import_private_owner_source_lookup ON ple_private.workspace_import
+    FOR SELECT TO ple_private_owner USING (true);
 
 -- ASVS 1.2.4, 2.1.1, 2.2.1, 2.2.2, 2.3.1, 8.1.1, 8.2.1, and 8.3.1:
 -- this is the sole session-authorized path that creates an immutable private
--- Question Source. It validates the complete typed registration, rechecks the
--- exact Draft Question Revision workspace, and permits only an identical retry.
+-- Question Source. It validates direct backend fields, rechecks the exact
+-- Draft Question Revision workspace, and permits only an identical retry.
 CREATE FUNCTION ple_private.register_draft_question_source(
     p_question_source_uuid uuid,
     p_draft_question_uuid uuid,
@@ -24,15 +26,19 @@ CREATE FUNCTION ple_private.register_draft_question_source(
     p_backend text,
     p_question_format text,
     p_question_type text,
-    p_backend_locator jsonb,
+    p_webwork_pg_path text,
+    p_qti_package_item_identifier text,
+    p_workspace_import_id uuid,
+    p_imathas_deployment_reference text,
+    p_imathas_item_reference text,
+    p_imathas_profile text,
     p_source_object_id uuid,
     p_source_object_checksum text,
-    p_public_binding_sha256 text
+    p_public_content_checksum text
 )
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    locator_keys text[];
     resolved_draft_question_revision_uuid uuid;
     resolved_question_source_uuid uuid;
 BEGIN
@@ -53,7 +59,7 @@ BEGIN
             MESSAGE = 'Draft Question Source must use its exact Draft Question Revision and workspace';
     END IF;
     IF p_source_object_checksum !~ '^[0-9a-f]{64}$'
-       OR p_public_binding_sha256 !~ '^[0-9a-f]{64}$' THEN
+       OR p_public_content_checksum !~ '^[0-9a-f]{64}$' THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Source checksums must be canonical lowercase SHA-256 values';
     END IF;
@@ -72,46 +78,49 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Source Format must be supported by its Question Backend';
     END IF;
-    IF jsonb_typeof(p_backend_locator) <> 'object'
-       OR p_backend_locator->>'backend' <> p_backend THEN
+    IF NOT COALESCE((
+        (p_backend = 'ple'
+            AND p_webwork_pg_path IS NULL AND p_qti_package_item_identifier IS NULL
+            AND p_workspace_import_id IS NULL AND p_imathas_deployment_reference IS NULL
+            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
+        OR (p_backend = 'webwork'
+            AND char_length(btrim(p_webwork_pg_path)) BETWEEN 1 AND 1000
+            AND p_qti_package_item_identifier IS NULL AND p_workspace_import_id IS NULL
+            AND p_imathas_deployment_reference IS NULL AND p_imathas_item_reference IS NULL
+            AND p_imathas_profile IS NULL)
+        OR (p_backend = 'qti'
+            AND p_webwork_pg_path IS NULL
+            AND char_length(btrim(p_qti_package_item_identifier)) BETWEEN 1 AND 1000
+            AND p_workspace_import_id IS NOT NULL
+            AND p_imathas_deployment_reference IS NULL AND p_imathas_item_reference IS NULL
+            AND p_imathas_profile IS NULL
+            AND EXISTS (
+                SELECT 1 FROM ple_private.workspace_import AS workspace_import
+                 WHERE workspace_import.workspace_id = p_workspace_id
+                   AND workspace_import.import_id = p_workspace_import_id
+            ))
+        OR (p_backend = 'imathas'
+            AND p_webwork_pg_path IS NULL AND p_qti_package_item_identifier IS NULL
+            AND p_workspace_import_id IS NULL
+            AND char_length(btrim(p_imathas_deployment_reference)) BETWEEN 1 AND 255
+            AND char_length(btrim(p_imathas_item_reference)) BETWEEN 1 AND 255
+            AND p_imathas_profile IS NULL)
+    ), false) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source must use an exact backend-specific location';
-    END IF;
-    SELECT array_agg(locator_key ORDER BY locator_key)
-      INTO locator_keys
-      FROM jsonb_object_keys(p_backend_locator) AS keys(locator_key);
-    IF (p_backend = 'ple' AND locator_keys IS DISTINCT FROM ARRAY['backend']::text[])
-       OR (p_backend = 'webwork' AND (
-            locator_keys IS DISTINCT FROM ARRAY['backend', 'pgPath']::text[]
-            OR jsonb_typeof(p_backend_locator->'pgPath') <> 'string'
-            OR char_length(btrim(p_backend_locator->>'pgPath')) NOT BETWEEN 1 AND 1000
-       ))
-       OR (p_backend = 'qti' AND (
-            locator_keys IS DISTINCT FROM ARRAY['backend', 'importId', 'itemId']::text[]
-            OR jsonb_typeof(p_backend_locator->'itemId') <> 'string'
-            OR char_length(btrim(p_backend_locator->>'itemId')) NOT BETWEEN 1 AND 1000
-            OR jsonb_typeof(p_backend_locator->'importId') <> 'string'
-            OR p_backend_locator->>'importId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-       ))
-       OR (p_backend = 'imathas' AND (
-            locator_keys IS DISTINCT FROM ARRAY['backend', 'itemRef', 'provider']::text[]
-            OR jsonb_typeof(p_backend_locator->'provider') <> 'string'
-            OR char_length(btrim(p_backend_locator->>'provider')) NOT BETWEEN 1 AND 255
-            OR jsonb_typeof(p_backend_locator->'itemRef') <> 'string'
-            OR char_length(btrim(p_backend_locator->>'itemRef')) NOT BETWEEN 1 AND 255
-       )) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source backend location has an invalid shape';
+            MESSAGE = 'Question Source must use exactly the fields for its Question Backend';
     END IF;
 
     INSERT INTO ple_private.question_source (
         question_source_uuid, draft_question_revision_uuid, backend, question_format,
-        question_type, backend_locator, source_object_id, source_object_checksum,
-        public_binding_sha256, created_at, updated_at
+        question_type, webwork_pg_path, qti_package_item_identifier, workspace_import_id,
+        imathas_deployment_reference, imathas_item_reference, imathas_profile,
+        source_object_id, source_object_checksum, public_content_checksum, created_at, updated_at
     ) VALUES (
         p_question_source_uuid, resolved_draft_question_revision_uuid, p_backend, p_question_format,
-        p_question_type, p_backend_locator, p_source_object_id, p_source_object_checksum,
-        p_public_binding_sha256, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        p_question_type, p_webwork_pg_path, p_qti_package_item_identifier, p_workspace_import_id,
+        p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
+        p_source_object_id, p_source_object_checksum, p_public_content_checksum,
+        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
     ) ON CONFLICT DO NOTHING
     RETURNING question_source_uuid INTO resolved_question_source_uuid;
     IF FOUND THEN
@@ -125,10 +134,15 @@ BEGIN
        AND source.backend = p_backend
        AND source.question_format = p_question_format
        AND source.question_type = p_question_type
-       AND source.backend_locator = p_backend_locator
+       AND source.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
+       AND source.qti_package_item_identifier IS NOT DISTINCT FROM p_qti_package_item_identifier
+       AND source.workspace_import_id IS NOT DISTINCT FROM p_workspace_import_id
+       AND source.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
+       AND source.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
+       AND source.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
        AND source.source_object_id = p_source_object_id
        AND source.source_object_checksum = p_source_object_checksum
-       AND source.public_binding_sha256 = p_public_binding_sha256;
+       AND source.public_content_checksum = p_public_content_checksum;
     IF FOUND THEN
         RETURN resolved_question_source_uuid;
     END IF;
@@ -138,10 +152,10 @@ END
 $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, jsonb, uuid, text, text
+    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, jsonb, uuid, text, text
+    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
 ) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
@@ -154,29 +168,36 @@ CREATE FUNCTION ple_api.register_draft_question_source(
     p_backend text,
     p_question_format text,
     p_question_type text,
-    p_backend_locator jsonb,
+    p_webwork_pg_path text,
+    p_qti_package_item_identifier text,
+    p_workspace_import_id uuid,
+    p_imathas_deployment_reference text,
+    p_imathas_item_reference text,
+    p_imathas_profile text,
     p_source_object_id uuid,
     p_source_object_checksum text,
-    p_public_binding_sha256 text
+    p_public_content_checksum text
 )
 RETURNS uuid LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.register_draft_question_source(
         p_question_source_uuid, p_draft_question_uuid, p_draft_question_revision_number, p_workspace_id,
-        p_backend, p_question_format, p_question_type, p_backend_locator,
-        p_source_object_id, p_source_object_checksum, p_public_binding_sha256
+        p_backend, p_question_format, p_question_type, p_webwork_pg_path,
+        p_qti_package_item_identifier, p_workspace_import_id, p_imathas_deployment_reference,
+        p_imathas_item_reference, p_imathas_profile, p_source_object_id,
+        p_source_object_checksum, p_public_content_checksum
     )
 $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, jsonb, uuid, text, text
+    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, jsonb, uuid, text, text
+    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
 ) TO ple_app;
 
 COMMENT ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, jsonb, uuid, text, text
-) IS 'Resolves one exact Draft Question Revision within its authorized Authoring Workspace, then binds it to immutable Question Source bytes.';
+    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
+) IS 'Resolves one exact Draft Question Revision within its authorized Authoring Workspace, then binds it to immutable Question Source bytes and exact Question Backend fields.';
 
 RESET ROLE;

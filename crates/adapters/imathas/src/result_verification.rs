@@ -2,8 +2,8 @@
 //!
 //! This module verifies a score only after the server-side iMathAS Question Backend has matched
 //! it to an exact, single-use iMathAS Question Backend Session. The iMathAS
-//! grading profile carries the signed iMathAS Session Challenge and Qualified Launch Binding
-//! Digest. The unextended upstream iMathAS protocol omits PLE account, attempt,
+//! grading profile carries the signed iMathAS Session Challenge and iMathAS Launch Binding
+//! Checksum. The unextended upstream iMathAS protocol omits PLE account, attempt,
 //! version, and idempotency facts; consequently a valid JWT alone is never a
 //! grade.
 
@@ -277,16 +277,16 @@ impl ImathasResultVerifier {
         let Some(challenge) = claims.challenge else {
             return Err(ImathasGradingFailure::MissingLaunchBinding);
         };
-        let Some(binding_digest) = claims.binding_digest else {
+        let Some(binding_checksum) = claims.binding_checksum else {
             return Err(ImathasGradingFailure::MissingLaunchBinding);
         };
         let expected_challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .encode(validation.challenge.as_bytes());
-        let expected_binding_digest = validation.qualified_launch_binding_digest.as_str();
+        let expected_binding_checksum = validation.imathas_launch_binding_checksum.as_str();
         if !crate::constant_time_eq(challenge.as_bytes(), expected_challenge.as_bytes())
             || !crate::constant_time_eq(
-                binding_digest.as_bytes(),
-                expected_binding_digest.as_bytes(),
+                binding_checksum.as_bytes(),
+                expected_binding_checksum.as_bytes(),
             )
         {
             return Err(ImathasGradingFailure::WrongLaunchBinding);
@@ -345,7 +345,7 @@ struct ResultClaims {
     challenge: Option<String>,
     /// Required iMathAS grading profile extension: signed exact iMathAS Session binding.
     #[serde(default, rename = "ple_binding")]
-    binding_digest: Option<String>,
+    binding_checksum: Option<String>,
     // These official fields can contain response, correct-answer, or iMathAS
     // diagnostics. Deserialize only to discard them immediately.
     #[serde(default)]
@@ -363,7 +363,7 @@ struct VerifiedClaims {
     score: f64,
     exp: Option<i64>,
     challenge: Option<String>,
-    binding_digest: Option<String>,
+    binding_checksum: Option<String>,
 }
 
 fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasGradingFailure> {
@@ -415,7 +415,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasGra
         score,
         exp,
         challenge,
-        binding_digest,
+        binding_checksum,
         raw,
         allans,
         redisplay,
@@ -436,7 +436,7 @@ fn verify_hs256(token: &str, secret: &[u8]) -> Result<VerifiedClaims, ImathasGra
         score,
         exp,
         challenge: challenge.filter(|value| valid_launch_challenge(value)),
-        binding_digest: binding_digest.filter(|value| valid_sha256(value)),
+        binding_checksum: binding_checksum.filter(|value| valid_sha256(value)),
     })
 }
 
@@ -468,7 +468,7 @@ fn valid_launch_challenge(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-pub(crate) fn launch_binding_digest(
+pub(crate) fn imathas_launch_binding_checksum(
     grading_context: &learning_data_access::ImathasGradingContext,
     imathas_item_reference: &str,
     source_object_checksum: &str,

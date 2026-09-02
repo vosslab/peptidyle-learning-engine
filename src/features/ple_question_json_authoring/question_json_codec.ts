@@ -10,12 +10,16 @@ import {
   PLE_QUESTION_JSON_ORDERING_RESPONSE_KIND,
   PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND,
   PLE_QUESTION_JSON_SCHEMA_VERSION,
+  createPleQuestionJsonMatchingChoice,
+  createPleQuestionJsonMatchingPrompt,
+  createPleQuestionJsonOrderingItem,
   type PleQuestionJsonAttemptLimit,
   type PleQuestionJsonBlank,
   type PleQuestionJsonChoice,
   type PleQuestionJsonHotspotRegion,
   type PleQuestionJsonHotspotSurface,
-  type PleQuestionJsonItem,
+  type PleQuestionJsonMatchingChoice,
+  type PleQuestionJsonMatchingPrompt,
   type PleQuestionJsonMatch,
   type PleQuestionJsonNumericResponseTolerance,
   type PleQuestionJsonOutcomeFeedback,
@@ -23,6 +27,7 @@ import {
   type PleQuestionJsonClassification,
   type PleQuestionJsonAttemptTimeLimit,
   type PleQuestionJsonTextResponseMatchRule,
+  type PleQuestionJsonOrderingItem,
 } from "./question_json_source";
 
 const MAX_SOURCE_BYTES = 256 * 1024;
@@ -109,7 +114,16 @@ function decodeChoice(value: unknown, path: string): PleQuestionJsonChoice {
   return { id, text, feedback };
 }
 
-function decodeItem(value: unknown, path: string): PleQuestionJsonItem {
+type PleQuestionJsonResponseMember = {
+  readonly id: string;
+  readonly text: string;
+};
+
+function decodeResponseMember(
+  value: unknown,
+  path: string,
+  role: string,
+): PleQuestionJsonResponseMember {
   const record = decodeRecord(value, path);
   onlyFields(record, path, ["id", "text"]);
   const id = string(field(record, "id", path), `${path}.id`);
@@ -117,26 +131,63 @@ function decodeItem(value: unknown, path: string): PleQuestionJsonItem {
     new TextEncoder().encode(id).length > MAX_CHOICE_ID_BYTES ||
     !/^[a-z][a-z0-9_-]*$/u.test(id)
   ) {
-    throw new DecodeError(`${path}.id`, "a lowercase semantic item identifier");
+    throw new DecodeError(`${path}.id`, `a lowercase semantic ${role} identifier`);
   }
   const text = boundedText(field(record, "text", path), `${path}.text`, MAX_CHOICE_TEXT_CHARS);
   return { id, text };
 }
 
-function decodeItems(
+function decodeResponseMembers<T extends PleQuestionJsonResponseMember>(
   value: unknown,
   path: string,
   label: string,
-): ReadonlyArray<PleQuestionJsonItem> {
+  decode: (member: unknown, memberPath: string) => T,
+): ReadonlyArray<T> {
   if (!Array.isArray(value) || value.length < 2 || value.length > MAX_CHOICES) {
     throw new DecodeError(path, `an array of 2 to ${MAX_CHOICES} ${label}`);
   }
-  const items = value.map((item, index) => decodeItem(item, `${path}[${index}]`));
+  const items = value.map((item, index) => decode(item, `${path}[${index}]`));
   const identifiers = new Set(items.map((item) => item.id));
   if (identifiers.size !== items.length) {
     throw new DecodeError(path, `unique ${label} identifiers`);
   }
   return items;
+}
+
+function decodeMatchingPrompt(value: unknown, path: string): PleQuestionJsonMatchingPrompt {
+  const member = decodeResponseMember(value, path, "matching prompt");
+  return createPleQuestionJsonMatchingPrompt(member.id, member.text);
+}
+
+function decodeMatchingPrompts(
+  value: unknown,
+  path: string,
+): ReadonlyArray<PleQuestionJsonMatchingPrompt> {
+  return decodeResponseMembers(value, path, "prompt", decodeMatchingPrompt);
+}
+
+function decodeMatchingChoice(value: unknown, path: string): PleQuestionJsonMatchingChoice {
+  const member = decodeResponseMember(value, path, "matching choice");
+  return createPleQuestionJsonMatchingChoice(member.id, member.text);
+}
+
+function decodeMatchingChoices(
+  value: unknown,
+  path: string,
+): ReadonlyArray<PleQuestionJsonMatchingChoice> {
+  return decodeResponseMembers(value, path, "choice", decodeMatchingChoice);
+}
+
+function decodeOrderingItem(value: unknown, path: string): PleQuestionJsonOrderingItem {
+  const member = decodeResponseMember(value, path, "ordering item");
+  return createPleQuestionJsonOrderingItem(member.id, member.text);
+}
+
+function decodeOrderingItems(
+  value: unknown,
+  path: string,
+): ReadonlyArray<PleQuestionJsonOrderingItem> {
+  return decodeResponseMembers(value, path, "ordering item", decodeOrderingItem);
 }
 
 function decodeTextResponseMatchRule(
@@ -411,8 +462,8 @@ function decodeMatchingResponse(
       `the literal ${PLE_QUESTION_JSON_MATCHING_RESPONSE_KIND}`,
     );
   }
-  const prompts = decodeItems(field(record, "prompts", path), `${path}.prompts`, "prompt");
-  const choices = decodeItems(field(record, "choices", path), `${path}.choices`, "choice");
+  const prompts = decodeMatchingPrompts(field(record, "prompts", path), `${path}.prompts`);
+  const choices = decodeMatchingChoices(field(record, "choices", path), `${path}.choices`);
   if (prompts.length > choices.length) {
     throw new DecodeError(`${path}.choices`, "at least as many choices as prompts");
   }
@@ -657,10 +708,9 @@ export function decodePleQuestionJsonSource(
     };
   } else if (responseKind === PLE_QUESTION_JSON_ORDERING_RESPONSE_KIND) {
     onlyFields(responseRecord, responsePath, ["kind", "items", "correctOrder"]);
-    const items = decodeItems(
+    const items = decodeOrderingItems(
       field(responseRecord, "items", responsePath),
       `${responsePath}.items`,
-      "ordering item",
     );
     if (items.length < 3)
       throw new DecodeError(`${responsePath}.items`, "an array of 3 to 100 ordering items");

@@ -15,7 +15,7 @@ use super::{
 
 /// One closed, answer-free browser request for a Blueprint-operation preview.
 ///
-/// The operation tag selects exactly one Store-owned operation. Each request is only a locator and
+/// The operation tag selects exactly one Store-owned operation. Each request carries only opaque action References and
 /// correction intent; the Store resolves current authorization and mutable facts before previewing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]

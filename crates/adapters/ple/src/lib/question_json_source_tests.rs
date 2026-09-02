@@ -23,8 +23,9 @@ fn question() -> question_model::QuestionRevision {
             .0,
         question_model::QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         question_model::QuestionRevisionNumber::new(1).expect("revision number"),
-        question_model::QuestionBackendLocator::Ple,
+        None,
     )
+    .expect("PLE fixture has valid backend fields")
 }
 
 #[tokio::test]

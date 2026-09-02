@@ -22,7 +22,6 @@ export interface AssignmentEditorContentListProps {
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
-  readonly onReplace: (itemId: string) => void;
   readonly onRemoveFixed: (itemId: string) => void;
   readonly onPoolChange: (
     entryIndex: number,
@@ -81,14 +80,6 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
             onClick={() => props.onMove(entryIndex, 1)}
           >
             &darr;
-          </button>
-          <button
-            class="quiet-action"
-            disabled={props.createMode}
-            aria-label={`Replace ${entry.title}`}
-            onClick={() => props.onReplace(entry.id)}
-          >
-            Replace
           </button>
           <button
             class="quiet-action"

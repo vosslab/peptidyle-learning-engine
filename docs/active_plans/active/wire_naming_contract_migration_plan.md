@@ -21,8 +21,6 @@ current implementation package.
 - Move each producer, reader, fixture, and associated durable record in an atomic child package.
 - Retire the legacy human manual-grading product surface before C3 while preserving automated
   grader-exception retry/recalculation and roster score export.
-- Supply item-analysis wire/client/decoder ownership in C4, then deliver the visible Instructor
-  workflow as `WP-INST-G3-IA1` after WN1-F, accepted G2, and D1.
 - Preserve accepted migrations and historical evidence while rebuilding current live-stack data
   from canonical producers.
 
@@ -57,7 +55,6 @@ accepted WN1-A
   -> WN1-SR6 product-document review and WN1-FD filename disposition
   -> WN1-F final material-tree acceptance
   -> G2 W5/W6 close-out
-  -> G3-IA1 visible item-analysis workflow
 ```
 
 Parallel execution is valid only for child rows whose Wire Naming Migration Registry dependencies and source ownership are
@@ -171,7 +168,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 | C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
 | C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                            |
-| C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; item analysis; Question Folder/Saved Question Search curation |
+| C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; Question Folder/Saved Question Search curation |
 | C5      | Blueprint-operation preview/apply/inspection, Assignment Import Repair, and PLE QTI import/conversion/publication wrappers                                                                                               |
 | C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority, Course Membership, and policy preview                                                                 |
 
@@ -210,22 +207,6 @@ For C6, `course/routing.rs` retains shared nonserializing topology, state, and b
 `course/assignments/listing.rs` and `course/assignments/strict_request.rs`; it consumes the shared
 `CoursePageQuery` and therefore depends on C6-CR1. This makes each PLE query and assignment request
 one direct contract rather than leaving serialization in a shared routing module.
-
-### WN1-C4-IA1 and `WP-INST-G3-IA1`
-
-- WN1 owner: C4 item-analysis route-contract coder.
-- WN1 outcome: add direct `CourseItemAnalysisResponse`, `AssignmentItemAnalysisResponse`, and
-  `ItemAnalysisResponseDistribution` types to the pure route-contract crate; map the current
-  server report once; add a strict decoder, same-origin/no-store client, API capability, and
-  `tests/test_item_analysis_client.mjs`.
-- Boundary: existing report production, worker, Store, SQL, publication generation, and private
-  `QuestionRevisionReference` remain with their current owners.
-- Visible successor: `WP-INST-G3-IA1`, after WN1-F, accepted G2, and D1, adds the Instructor-only
-  assignment workspace Analysis task. It joins aggregate item IDs to existing assignment titles
-  and public Question IDs and links to audited Gradebook inspection, Library/source context, and
-  Questions replacement. G3-IA1 adds no report SQL, score mutation, or G4 decision record.
-- WN1 permanent gate: server DTO tests plus the offline item-analysis client test. G3-IA1
-  connected browser evidence and human visual review remain in the G3 package.
 
 ### WN1-QM: source/type closures
 

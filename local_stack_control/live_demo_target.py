@@ -164,7 +164,7 @@ def require_canonical_selections(selections: Mapping[str, str]) -> None:
 
 
 #============================================
-def canonical_secret32() -> str:
+def random_secret32() -> str:
 	"""Return one unpadded base64url encoding of exactly 32 random bytes."""
 	return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii").rstrip("=")
 
@@ -199,8 +199,8 @@ def write_private_target(
 	capability_digest = hashlib.sha256(capability).hexdigest()
 	invitation_path = directory / "invitation-secret"
 	question_path = directory / "question-id-secret"
-	_write_private_file(invitation_path, canonical_secret32())
-	_write_private_file(question_path, canonical_secret32())
+	_write_private_file(invitation_path, random_secret32())
+	_write_private_file(question_path, random_secret32())
 	renderer_version_path = directory / "question-renderer-version"
 	environment_path = directory / "env.local"
 	application_image_setting = ""

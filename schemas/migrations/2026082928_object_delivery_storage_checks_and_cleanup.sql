@@ -145,8 +145,9 @@ CREATE TABLE ple_audit.object_storage_check_event (
     object_storage_check_id uuid NOT NULL REFERENCES ple_private.object_storage_check (object_storage_check_id),
     check_result text NOT NULL CHECK (check_result IN ('verified', 'missing', 'mismatched')),
     recorded_at timestamp with time zone NOT NULL,
-    digest bytea NOT NULL CHECK (pg_catalog.octet_length(digest) = 32),
-    UNIQUE (object_storage_check_id, check_result, digest)
+    object_storage_check_event_checksum bytea NOT NULL
+        CHECK (pg_catalog.octet_length(object_storage_check_event_checksum) = 32),
+    UNIQUE (object_storage_check_id, check_result, object_storage_check_event_checksum)
 );
 CREATE TABLE ple_audit.object_cleanup_receipt (
     object_cleanup_receipt_id uuid PRIMARY KEY,

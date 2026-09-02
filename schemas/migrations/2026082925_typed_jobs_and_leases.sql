@@ -10,7 +10,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.job (
     job_id uuid PRIMARY KEY,
     job_kind text NOT NULL CHECK (job_kind IN (
-        'grade_accepted_submission', 'recalculate_assignment', 'recalculate_course_item_analysis',
+        'grade_accepted_submission', 'recalculate_assignment', 'recalculate_assignment_question_analysis',
         'auto_submit_attempt', 'retention', 'render', 'export', 'import', 'qti_import',
         'publish_public_assets'
     )),
@@ -31,7 +31,6 @@ CREATE TABLE ple_private.job (
     expected_object_id uuid,
     course_retention_plan_revision_id uuid,
     generation bigint NOT NULL CHECK (generation > 0),
-    target_digest bytea NOT NULL CHECK (pg_catalog.octet_length(target_digest) = 32),
     payload jsonb NOT NULL CHECK (jsonb_typeof(payload) = 'object'),
     state text NOT NULL CHECK (state IN ('ready', 'leased', 'completed', 'failed')),
     available_at timestamp with time zone NOT NULL,
@@ -119,7 +118,6 @@ BEGIN
         OR NEW.expected_object_id IS DISTINCT FROM OLD.expected_object_id
         OR NEW.course_retention_plan_revision_id IS DISTINCT FROM OLD.course_retention_plan_revision_id
         OR NEW.generation IS DISTINCT FROM OLD.generation
-        OR NEW.target_digest IS DISTINCT FROM OLD.target_digest
         OR NEW.payload IS DISTINCT FROM OLD.payload THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'a job target is immutable';
     END IF;

@@ -31,7 +31,7 @@ pub enum CourseMembershipRole {
 pub struct CourseSummary {
     /// Durable course identity.
     pub id: CourseId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Course Instance Reference used in application navigation.
     pub reference: CourseInstanceReference,
     /// Human-facing course or section title.
     pub title: String,
@@ -47,7 +47,7 @@ pub struct CourseSummary {
 pub struct FixedQuestionAssignmentEntrySummary {
     /// Server-minted identity for this editable assignment slot.
     pub id: AssignmentEntryId,
-    /// Sole browser-visible locator for the immutable published question.
+    /// Sole browser-visible Question ID for the immutable published Question.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,
@@ -69,7 +69,7 @@ pub struct FixedQuestionAssignmentEntrySummary {
 pub struct QuestionPoolItemSummary {
     /// Server-minted identity for this editable Question Pool Item.
     pub id: QuestionPoolItemId,
-    /// Sole browser-visible locator for the immutable published question.
+    /// Sole browser-visible Question ID for the immutable published Question.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,
@@ -91,7 +91,7 @@ pub struct QuestionPoolAssignmentEntrySummary {
     pub availability: AssignmentEntryAvailability,
     /// Current-only scoring rule applied to every selected Question Pool Item.
     pub scoring_rule: AssignmentEntryScoringRule,
-    /// Number of available entries selected for each future Assignment Attempt.
+    /// Number of available Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,
@@ -121,7 +121,7 @@ pub enum AssignmentEntrySummary {
 pub struct AssignmentSummary {
     /// Durable assignment identity.
     pub id: AssignmentId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Assignment Reference used in application navigation.
     pub reference: AssignmentReference,
     /// Course that owns this assignment.
     pub course_id: CourseId,
@@ -170,7 +170,7 @@ pub struct AssignmentOverview {
 pub struct StudentAssignmentLandingSummary {
     /// Durable assignment identity scoped by the authenticated route.
     pub id: AssignmentId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Assignment Reference used in application navigation.
     pub reference: AssignmentReference,
     /// Human-facing assignment title.
     pub title: AssignmentTitle,
@@ -223,7 +223,7 @@ pub struct StudentAssignmentDelivery {
 pub struct StudentAssignmentDetail {
     /// Durable assignment identity scoped by the authenticated route.
     pub id: AssignmentId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Assignment Reference used in application navigation.
     pub reference: AssignmentReference,
     /// Human-facing assignment title.
     pub title: AssignmentTitle,

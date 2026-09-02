@@ -53,14 +53,14 @@ CREATE TABLE ple_data.assignment_revision_question_pool_item (
     assignment_revision_id uuid NOT NULL,
     assignment_entry_id uuid NOT NULL,
     question_pool_item_id uuid NOT NULL,
-    entry_index integer NOT NULL CHECK (entry_index >= 0),
+    question_pool_item_index integer NOT NULL CHECK (question_pool_item_index >= 0),
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     availability text NOT NULL CHECK (availability IN ('available', 'retired')),
     PRIMARY KEY (
         assignment_revision_id, assignment_entry_id, question_pool_item_id
     ),
-    UNIQUE (assignment_revision_id, assignment_entry_id, entry_index),
+    UNIQUE (assignment_revision_id, assignment_entry_id, question_pool_item_index),
     CONSTRAINT assignment_revision_question_pool_item_pool_matches
         FOREIGN KEY (assignment_revision_id, assignment_entry_id)
         REFERENCES ple_data.assignment_revision_question_pool (
@@ -87,8 +87,8 @@ DECLARE
     target_entry_kind text;
     fixed_question_count integer;
     question_pool_count integer;
-    entry_count integer;
-    required_entry_count integer;
+    question_pool_item_count integer;
+    required_question_pool_item_count integer;
 BEGIN
     SELECT entry.entry_kind
       INTO target_entry_kind
@@ -110,27 +110,31 @@ BEGIN
      WHERE question_pool.assignment_revision_id = target_revision_id
        AND question_pool.assignment_entry_id = target_entry_id;
     SELECT count(*)::integer
-      INTO entry_count
+      INTO question_pool_item_count
       FROM ple_data.assignment_revision_question_pool_item AS item
      WHERE item.assignment_revision_id = target_revision_id
        AND item.assignment_entry_id = target_entry_id;
 
     IF target_entry_kind = 'fixed_question'
-       AND (fixed_question_count <> 1 OR question_pool_count <> 0 OR entry_count <> 0) THEN
+       AND (
+           fixed_question_count <> 1
+           OR question_pool_count <> 0
+           OR question_pool_item_count <> 0
+       ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Fixed Question Assignment Entry requires exactly one fixed Question pin';
     END IF;
     IF target_entry_kind = 'question_pool' THEN
         SELECT question_pool.selection_count
-          INTO required_entry_count
+          INTO required_question_pool_item_count
           FROM ple_data.assignment_revision_question_pool AS question_pool
          WHERE question_pool.assignment_revision_id = target_revision_id
            AND question_pool.assignment_entry_id = target_entry_id;
         IF question_pool_count <> 1
            OR fixed_question_count <> 0
-           OR entry_count < COALESCE(required_entry_count, 1) THEN
+           OR question_pool_item_count < COALESCE(required_question_pool_item_count, 1) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'a Question Pool Assignment Entry requires enough exact Items';
+                MESSAGE = 'a Question Pool Assignment Entry requires enough exact Question Pool Items';
         END IF;
     END IF;
     RETURN NULL;

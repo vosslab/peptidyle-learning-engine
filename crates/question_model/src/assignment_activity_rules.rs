@@ -19,8 +19,8 @@ use crate::{AssignmentAttempt, AssignmentEntryId, AssignmentId};
 /// Student-facing field may be disclosed.
 ///
 /// Each timing is evaluated independently so an instructor can, for example,
-/// show a score after submission while holding solutions until the assignment
-/// closes.
+/// show a score after submission while holding a Question Answer and its
+/// Question Answer Explanation until the assignment closes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StudentFeedbackReleaseTiming {
@@ -49,8 +49,8 @@ pub struct StudentFeedbackReleaseRule {
     pub score: StudentFeedbackReleaseTiming,
     /// When the Student may see per-item correctness.
     pub per_item_correctness: StudentFeedbackReleaseTiming,
-    /// When the Student may see teaching feedback text.
-    pub feedback_text: StudentFeedbackReleaseTiming,
+    /// When the Student may see Question Feedback.
+    pub question_feedback: StudentFeedbackReleaseTiming,
     /// When the Student may see the display-ready Question Answer.
     pub question_answer: StudentFeedbackReleaseTiming,
     /// When the Student may see the Question Answer Explanation.
@@ -68,7 +68,7 @@ impl Default for StudentFeedbackReleaseRule {
         Self {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
-            feedback_text: StudentFeedbackReleaseTiming::AfterSubmit,
+            question_feedback: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer: StudentFeedbackReleaseTiming::AfterSubmit,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterSubmit,
             class_statistics: StudentFeedbackReleaseTiming::Never,
@@ -492,7 +492,7 @@ mod tests {
         let rule = StudentFeedbackReleaseRule {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterDue,
-            feedback_text: StudentFeedbackReleaseTiming::DuringAttempt,
+            question_feedback: StudentFeedbackReleaseTiming::DuringAttempt,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
@@ -514,7 +514,7 @@ mod tests {
             StudentFeedbackReleaseTiming::AfterSubmit
         );
         assert_eq!(
-            rule.feedback_text,
+            rule.question_feedback,
             StudentFeedbackReleaseTiming::AfterSubmit
         );
         assert_eq!(

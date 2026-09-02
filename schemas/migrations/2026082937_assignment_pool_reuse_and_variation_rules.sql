@@ -210,13 +210,13 @@ BEGIN
           )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Selection must retain its exact selected Item count';
+            MESSAGE = 'Question Pool Selection must retain its exact selected Question Pool Item count';
     END IF;
     RETURN NULL;
 END
 $$;
 
-CREATE CONSTRAINT TRIGGER question_pool_selection_has_exact_entry_count
+CREATE CONSTRAINT TRIGGER question_pool_selection_has_exact_selected_question_pool_item_count
 AFTER INSERT ON ple_private.question_pool_selection
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_count();
@@ -238,9 +238,9 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_it
 COMMENT ON TABLE ple_private.question_pool_selection IS
     'Immutable selected Question Pool Item set for one Assignment Attempt and Assignment Entry.';
 COMMENT ON COLUMN ple_private.question_pool_selection.reused_from_question_pool_selection_id IS
-    'Earlier Question Pool Selection from the same Student''s Assignment Attempt whose exact Items this Selection retained.';
+    'Earlier Question Pool Selection from the same Student''s Assignment Attempt whose exact Question Pool Items this Selection retained.';
 COMMENT ON COLUMN ple_private.question_pool_selection.selected_question_count IS
-    'Exact number of selected Item rows, checked at transaction commit.';
+    'Exact number of selected Question Pool Item rows, checked at transaction commit.';
 COMMENT ON TABLE ple_private.question_pool_selected_item IS
     'Exact selected Question Pool Item and Question Revision in immutable delivery order.';
 

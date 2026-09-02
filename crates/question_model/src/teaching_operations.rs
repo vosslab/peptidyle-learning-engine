@@ -170,7 +170,7 @@ pub struct MembershipPageRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StudentMembershipView {
-    /// Course-local membership locator.
+    /// Course-local Course Membership Reference.
     pub reference: CourseMembershipReference,
     /// Authorized display label.
     pub display: TeachingDisplayLabel,

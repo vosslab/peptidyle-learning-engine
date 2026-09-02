@@ -2,11 +2,15 @@
 
 import { For, Index, Show, type JSX } from "solid-js";
 
-import type { PleQuestionJsonItem, PleQuestionJsonMatch } from "./question_json_source";
+import type {
+  PleQuestionJsonMatchingChoice,
+  PleQuestionJsonMatchingPrompt,
+  PleQuestionJsonMatch,
+} from "./question_json_source";
 
 export interface PleQuestionJsonMatchingEditorProps {
-  readonly prompts: ReadonlyArray<PleQuestionJsonItem>;
-  readonly choices: ReadonlyArray<PleQuestionJsonItem>;
+  readonly prompts: ReadonlyArray<PleQuestionJsonMatchingPrompt>;
+  readonly choices: ReadonlyArray<PleQuestionJsonMatchingChoice>;
   readonly matches: ReadonlyArray<PleQuestionJsonMatch>;
   readonly onPromptTextChange: (id: string, text: string) => void;
   readonly onChoiceTextChange: (id: string, text: string) => void;

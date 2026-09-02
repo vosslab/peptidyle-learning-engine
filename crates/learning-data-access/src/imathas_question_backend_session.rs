@@ -22,11 +22,11 @@ pub use grading::{
 };
 pub(crate) use identifiers::validate_question_grading_rule;
 pub use identifiers::{
-    AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasNormalizedScore,
-    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionReference, ImathasResponseChecksum, ImathasResult,
-    ImathasResultChecksum, ImathasResultToken, ImathasResultTokenChecksum,
-    QualifiedLaunchBindingDigest, derive_imathas_question_backend_grading_result,
+    AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasLaunchBindingChecksum,
+    ImathasNormalizedScore, ImathasQuestionBackendSessionAuthentication,
+    ImathasQuestionBackendSessionChallenge, ImathasQuestionBackendSessionReference,
+    ImathasResponseChecksum, ImathasResult, ImathasResultChecksum, ImathasResultToken,
+    ImathasResultTokenChecksum, derive_imathas_question_backend_grading_result,
 };
 pub use memory::MemoryImathasQuestionBackendSessionStore;
 pub use preparation::{

@@ -8,12 +8,12 @@ use question_model::{
 use uuid::Uuid;
 
 use super::{
-    ImathasGradingContext, ImathasQuestionBackendSession,
+    ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionReference, ImathasQuestionBackendStatePlaintext,
     ImathasResponseChecksum, ImathasResult, ImathasResultChecksum,
     ImathasResultExchangeIdempotencyKey, ImathasResultTokenChecksum, JobId,
-    QualifiedLaunchBindingDigest, QuestionSubmissionGradingId,
+    QuestionSubmissionGradingId,
 };
 
 /// Exact server-only row facts used to create and reconstruct a Session.
@@ -31,7 +31,7 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) issued_at: Timestamp,
     pub(crate) expires_at: Timestamp,
     pub(crate) revoked_at: Option<Timestamp>,
@@ -51,7 +51,7 @@ pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
 }
 

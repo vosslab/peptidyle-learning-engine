@@ -110,7 +110,7 @@ pub struct GradeCategory {
     pub id: GradeCategoryId,
     /// Human-readable category title shown to the instructor.
     pub title: GradeCategoryTitle,
-    /// Canonical zero-based display and tie-break order.
+    /// Sequential zero-based display and tie-break order.
     pub position: u32,
     /// Exact percentage in basis points; all category weights sum to 10,000.
     pub weight_basis_points: u16,
@@ -146,7 +146,7 @@ pub struct CourseGradeAssignmentSetting {
     pub included: bool,
     /// Weighted-category identity, when the mode uses one.
     pub category: Option<GradeCategoryId>,
-    /// Canonical assignment order within that category.
+    /// Sequential assignment order within that category.
     pub position: Option<u32>,
 }
 
@@ -164,7 +164,7 @@ pub struct CourseGradeAssignmentView {
     pub included: bool,
     /// Weighted-category identity, when the mode uses one.
     pub category: Option<GradeCategoryId>,
-    /// Canonical assignment order within that category.
+    /// Sequential assignment order within that category.
     pub position: Option<u32>,
 }
 
@@ -276,7 +276,7 @@ impl CourseGradeScheme {
         let mut total = 0_u32;
         for (expected_position, category) in self.categories.iter().enumerate() {
             if category.position != expected_position as u32 {
-                return Err(CourseGradeSchemeError::NonCanonicalCategoryPosition {
+                return Err(CourseGradeSchemeError::NonSequentialCategoryPosition {
                     expected: expected_position as u32,
                     actual: category.position,
                 });
@@ -351,7 +351,7 @@ pub enum CourseGradeSchemeError {
     EmptyCategories,
     ZeroCategoryWeight { category: GradeCategoryId },
     DuplicateCategory { category: GradeCategoryId },
-    NonCanonicalCategoryPosition { expected: u32, actual: u32 },
+    NonSequentialCategoryPosition { expected: u32, actual: u32 },
     CategoryWeightsMustSumToTenThousand { total: u32 },
     DuplicateLetterBand { label: LetterBandLabel },
     LetterBandThresholdOutOfRange { threshold: u16 },
@@ -415,7 +415,7 @@ mod tests {
         };
         assert!(matches!(
             scheme.validate(),
-            Err(CourseGradeSchemeError::NonCanonicalCategoryPosition { .. })
+            Err(CourseGradeSchemeError::NonSequentialCategoryPosition { .. })
         ));
         scheme.categories[0].position = 0;
         assert!(matches!(

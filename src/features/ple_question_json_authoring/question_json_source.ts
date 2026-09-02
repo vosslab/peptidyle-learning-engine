@@ -2,7 +2,9 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 
 /**
- * The answer-bearing PLE ple-question-json v2 authoring contract.
+ * The answer-bearing PLE ple-question-json v2 authoring contract. The server
+ * derives its separate PLE Question JSON Public Content Checksum when it
+ * compiles the private Answer Key and Question Feedback binding.
  *
  * This type stays inside the authoring feature.  Student-facing code uses the
  * answer-free PLE Question JSON Public Preview from question_json_public_preview.ts instead.
@@ -48,11 +50,50 @@ export type PleQuestionJsonOutcomeFeedback = {
   readonly incorrect: string | null;
 };
 
-/** A stable semantic identifier keeps a pairing meaningful when an author reorders either side. */
-export type PleQuestionJsonItem = {
+declare const PLE_QUESTION_JSON_MATCHING_PROMPT_ROLE: unique symbol;
+declare const PLE_QUESTION_JSON_MATCHING_CHOICE_ROLE: unique symbol;
+declare const PLE_QUESTION_JSON_ORDERING_ITEM_ROLE: unique symbol;
+
+type PleQuestionJsonResponseMember = {
   readonly id: string;
   readonly text: string;
 };
+
+/** A stable semantic identifier keeps a matching prompt meaningful when an author reorders it. */
+export type PleQuestionJsonMatchingPrompt = PleQuestionJsonResponseMember & {
+  readonly [PLE_QUESTION_JSON_MATCHING_PROMPT_ROLE]: "matchingPrompt";
+};
+
+export function createPleQuestionJsonMatchingPrompt(
+  id: string,
+  text: string,
+): PleQuestionJsonMatchingPrompt {
+  return { id, text } as PleQuestionJsonMatchingPrompt;
+}
+
+/** A stable semantic identifier keeps a matching choice meaningful when an author reorders it. */
+export type PleQuestionJsonMatchingChoice = PleQuestionJsonResponseMember & {
+  readonly [PLE_QUESTION_JSON_MATCHING_CHOICE_ROLE]: "matchingChoice";
+};
+
+export function createPleQuestionJsonMatchingChoice(
+  id: string,
+  text: string,
+): PleQuestionJsonMatchingChoice {
+  return { id, text } as PleQuestionJsonMatchingChoice;
+}
+
+/** A stable semantic identifier keeps a correct ordering meaningful when an author reorders it. */
+export type PleQuestionJsonOrderingItem = PleQuestionJsonResponseMember & {
+  readonly [PLE_QUESTION_JSON_ORDERING_ITEM_ROLE]: "orderingItem";
+};
+
+export function createPleQuestionJsonOrderingItem(
+  id: string,
+  text: string,
+): PleQuestionJsonOrderingItem {
+  return { id, text } as PleQuestionJsonOrderingItem;
+}
 
 /** This private pair map is deliberately absent from the PLE Question JSON Public Preview. */
 export type PleQuestionJsonMatch = {
@@ -102,8 +143,8 @@ export type PleQuestionJsonSingleChoiceResponse = {
 
 export type PleQuestionJsonMatchingResponse = {
   readonly kind: typeof PLE_QUESTION_JSON_MATCHING_RESPONSE_KIND;
-  readonly prompts: ReadonlyArray<PleQuestionJsonItem>;
-  readonly choices: ReadonlyArray<PleQuestionJsonItem>;
+  readonly prompts: ReadonlyArray<PleQuestionJsonMatchingPrompt>;
+  readonly choices: ReadonlyArray<PleQuestionJsonMatchingChoice>;
   readonly matches: ReadonlyArray<PleQuestionJsonMatch>;
 };
 
@@ -134,7 +175,7 @@ export type PleQuestionJsonNumericResponse = {
 
 export type PleQuestionJsonOrderingResponse = {
   readonly kind: typeof PLE_QUESTION_JSON_ORDERING_RESPONSE_KIND;
-  readonly items: ReadonlyArray<PleQuestionJsonItem>;
+  readonly items: ReadonlyArray<PleQuestionJsonOrderingItem>;
   readonly correctOrder: ReadonlyArray<string>;
 };
 

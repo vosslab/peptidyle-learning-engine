@@ -61,9 +61,6 @@ impl ResolvedPleQuestionJsonSource {
             compiled.draft().clone(),
             question.question_id.clone(),
             question.revision_number,
-            QuestionBackend::Ple,
-            None,
-            None,
             None,
         )
         .map_err(|_| PleQuestionBackendError::QuestionSourceDoesNotMatchQuestion)?;

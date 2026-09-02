@@ -2,12 +2,14 @@
 
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
-import type { DraftQuestionBackendLocator } from "../../generated/api/DraftQuestionBackendLocator";
+import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
+import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
+import type { WorkspaceImportId } from "../../generated/api/WorkspaceImportId";
 import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSummary";
 import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
 import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
@@ -24,7 +26,11 @@ export type { DraftQuestionSummary };
 export interface EditorDraft {
   readonly workspace: WorkspaceId;
   readonly title: string;
-  readonly backendLocator: DraftQuestionBackendLocator;
+  readonly questionBackend: QuestionBackend;
+  readonly webworkPgPath: string | null;
+  readonly qtiPackageItemIdentifier: string | null;
+  readonly workspaceImportId: WorkspaceImportId | null;
+  readonly draftImathasQuestionBackendBinding: DraftImathasQuestionBackendBinding | null;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
   readonly questionAttemptLimit: QuestionAttemptLimit;

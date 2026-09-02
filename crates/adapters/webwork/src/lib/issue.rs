@@ -10,7 +10,7 @@ use objects::{ObjectStore, ObjectStoreError, PutObject};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionBackendLocator, QuestionBackendVersion,
+    QuestionAttemptReproductionDetails, QuestionBackend, QuestionBackendVersion,
     QuestionGraderVersion, QuestionRendererVersion, QuestionRevision, QuestionTitleError,
     QuestionVariationPresentation, StudentResponse, Timestamp,
 };
@@ -139,11 +139,11 @@ impl std::error::Error for WebworkAdapterError {}
 
 /// Returns the conservative capabilities common to arbitrary PG sources.
 pub fn webwork_source_capabilities(
-    source: &QuestionBackendLocator,
+    question_backend: QuestionBackend,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionBackendLocator::Webwork { .. } = source else {
+    if question_backend != QuestionBackend::Webwork {
         return Err(WebworkAdapterError::UnsupportedSource);
-    };
+    }
     Ok(QuestionBackendCapabilities::from_iter([
         Capability::AlgorithmicGeneration,
         Capability::ServerGrading,
@@ -152,14 +152,15 @@ pub fn webwork_source_capabilities(
 
 /// Returns capabilities proven for an exact immutable PG Source Object Reference.
 pub fn reviewed_webwork_source_capabilities(
-    source: &QuestionBackendLocator,
+    question_backend: QuestionBackend,
+    webwork_pg_path: &str,
     source_sha256: &str,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionBackendLocator::Webwork { pg_path } = source else {
+    if question_backend != QuestionBackend::Webwork {
         return Err(WebworkAdapterError::UnsupportedSource);
-    };
+    }
     let mut capabilities = vec![Capability::AlgorithmicGeneration, Capability::ServerGrading];
-    if crate::source_profile::supports_partial_credit(pg_path, source_sha256) {
+    if crate::source_profile::supports_partial_credit(webwork_pg_path, source_sha256) {
         capabilities.push(Capability::PartialCredit);
     }
     Ok(QuestionBackendCapabilities::from_iter(capabilities))
@@ -170,14 +171,16 @@ pub fn reviewed_webwork_source_capabilities(
 /// The capability describes whether the source can produce teaching feedback;
 /// assignment-owned student disclosure controls when that content is shown.
 pub fn reviewed_webwork_source_profile_capabilities(
-    source: &QuestionBackendLocator,
+    question_backend: QuestionBackend,
+    webwork_pg_path: &str,
     source_sha256: &str,
 ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-    let QuestionBackendLocator::Webwork { pg_path } = source else {
+    if question_backend != QuestionBackend::Webwork {
         return Err(WebworkAdapterError::UnsupportedSource);
-    };
-    let mut capabilities = reviewed_webwork_source_capabilities(source, source_sha256)?;
-    if crate::source_profile::supports_immediate_correctness(pg_path, source_sha256) {
+    }
+    let mut capabilities =
+        reviewed_webwork_source_capabilities(question_backend, webwork_pg_path, source_sha256)?;
+    if crate::source_profile::supports_immediate_correctness(webwork_pg_path, source_sha256) {
         capabilities = QuestionBackendCapabilities::from_iter(
             capabilities.declared().chain([Capability::Hints]),
         );
@@ -210,9 +213,9 @@ where
     /// Returns the evidence-bounded capabilities of this exact PG source.
     pub fn capabilities(
         &self,
-        source: &QuestionBackendLocator,
+        question: &QuestionRevision,
     ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-        webwork_source_capabilities(source)
+        webwork_source_capabilities(question.question_backend)
     }
 
     /// Issues a browser-safe render, consulting the immutable `(version, seed)` cache first.

@@ -124,7 +124,14 @@ CREATE TABLE ple_private.question_source (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
         'numeric', 'matching', 'ordering', 'hotspot'
     )),
-    backend_locator jsonb NOT NULL CHECK (jsonb_typeof(backend_locator) = 'object'),
+    -- Question Backend fields are explicit so the closed backend matrix is
+    -- enforceable without parsing an untyped JSON container.
+    webwork_pg_path text,
+    qti_package_item_identifier text,
+    workspace_import_id uuid,
+    imathas_deployment_reference text,
+    imathas_item_reference text,
+    imathas_profile text,
     source_data jsonb CHECK (source_data IS NULL OR jsonb_typeof(source_data) = 'object'),
     source_object_id uuid,
     source_object_checksum text CHECK (
@@ -133,8 +140,8 @@ CREATE TABLE ple_private.question_source (
     source_checksum text NOT NULL CHECK (
         source_checksum ~ '^[0-9a-f]{64}$'
     ),
-    public_binding_sha256 text NOT NULL CHECK (
-        public_binding_sha256 ~ '^[0-9a-f]{64}$'
+    public_content_checksum text NOT NULL CHECK (
+        public_content_checksum ~ '^[0-9a-f]{64}$'
     ),
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
@@ -145,6 +152,56 @@ CREATE TABLE ple_private.question_source (
     CONSTRAINT question_source_revision_is_unique UNIQUE (question_id, revision_number),
     CONSTRAINT question_source_revision_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
+    CONSTRAINT question_source_webwork_pg_path_is_bounded CHECK (
+        webwork_pg_path IS NULL OR char_length(btrim(webwork_pg_path)) BETWEEN 1 AND 1000
+    ),
+    CONSTRAINT question_source_qti_package_item_identifier_is_bounded CHECK (
+        qti_package_item_identifier IS NULL
+        OR char_length(btrim(qti_package_item_identifier)) BETWEEN 1 AND 1000
+    ),
+    CONSTRAINT question_source_imathas_deployment_reference_is_bounded CHECK (
+        imathas_deployment_reference IS NULL
+        OR char_length(btrim(imathas_deployment_reference)) BETWEEN 1 AND 255
+    ),
+    CONSTRAINT question_source_imathas_item_reference_is_bounded CHECK (
+        imathas_item_reference IS NULL
+        OR char_length(btrim(imathas_item_reference)) BETWEEN 1 AND 255
+    ),
+    CONSTRAINT question_source_imathas_profile_is_bounded CHECK (
+        imathas_profile IS NULL OR imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'
+    ),
+    CONSTRAINT question_source_backend_fields_are_closed CHECK (COALESCE(
+        (backend = 'ple'
+            AND webwork_pg_path IS NULL
+            AND qti_package_item_identifier IS NULL
+            AND workspace_import_id IS NULL
+            AND imathas_deployment_reference IS NULL
+            AND imathas_item_reference IS NULL
+            AND imathas_profile IS NULL)
+        OR (backend = 'webwork'
+            AND webwork_pg_path IS NOT NULL
+            AND qti_package_item_identifier IS NULL
+            AND workspace_import_id IS NULL
+            AND imathas_deployment_reference IS NULL
+            AND imathas_item_reference IS NULL
+            AND imathas_profile IS NULL)
+        OR (backend = 'qti'
+            AND webwork_pg_path IS NULL
+            AND qti_package_item_identifier IS NOT NULL
+            AND imathas_deployment_reference IS NULL
+            AND imathas_item_reference IS NULL
+            AND imathas_profile IS NULL
+            AND ((draft_question_revision_uuid IS NOT NULL AND workspace_import_id IS NOT NULL)
+                OR (question_id IS NOT NULL AND workspace_import_id IS NULL)))
+        OR (backend = 'imathas'
+            AND webwork_pg_path IS NULL
+            AND qti_package_item_identifier IS NULL
+            AND workspace_import_id IS NULL
+            AND imathas_deployment_reference IS NOT NULL
+            AND imathas_item_reference IS NOT NULL
+            AND ((draft_question_revision_uuid IS NOT NULL AND imathas_profile IS NULL)
+                OR (question_id IS NOT NULL AND imathas_profile IS NOT NULL)))
+    , false)),
     CONSTRAINT question_source_object_reference_is_complete CHECK (
         (source_object_id IS NULL AND source_object_checksum IS NULL)
         OR (source_object_id IS NOT NULL AND source_object_checksum IS NOT NULL)
@@ -177,8 +234,8 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_backend();
 CREATE TABLE ple_private.draft_question_answer_key (
     draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
-    public_binding_sha256 text NOT NULL CHECK (
-        public_binding_sha256 ~ '^[0-9a-f]{64}$'
+    public_content_checksum text NOT NULL CHECK (
+        public_content_checksum ~ '^[0-9a-f]{64}$'
     ),
     answer_key jsonb NOT NULL CHECK (jsonb_typeof(answer_key) = 'object'),
     answer_key_sha256 text NOT NULL CHECK (answer_key_sha256 ~ '^[0-9a-f]{64}$'),

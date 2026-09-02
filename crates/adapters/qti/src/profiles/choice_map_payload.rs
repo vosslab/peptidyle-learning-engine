@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn golden_digest_is_stable() {
+    fn golden_checksum_is_stable() {
         let payload =
             QtiChoiceMapPayload::from_ordered_map(&entries(&[("blue", "blue"), ("red", "red")]))
                 .expect("bounded map");
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn changing_either_side_of_a_pair_changes_payload_and_digest() {
+    fn changing_either_side_of_a_pair_changes_payload_and_checksum() {
         let baseline = QtiChoiceMapPayload::from_ordered_map(&entries(&[("vendor", "blue")]))
             .expect("bounded map");
         let vendor = QtiChoiceMapPayload::from_ordered_map(&entries(&[("other", "blue")]))
@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn reordering_pairs_changes_payload_and_digest() {
+    fn reordering_pairs_changes_payload_and_checksum() {
         let first = QtiChoiceMapPayload::from_ordered_map(&entries(&[
             ("vendor-blue", "blue"),
             ("vendor-red", "red"),

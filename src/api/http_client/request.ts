@@ -1,10 +1,8 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -16,7 +14,6 @@ import type {
   AssignmentContentInput,
   AssignmentCreateInput,
   AssignmentPoliciesInput,
-  ReplaceAssignmentFixedItemInput,
   StudentFeedbackReleaseResponse,
   InstructorStudentView,
   PublicationResult,
@@ -49,7 +46,6 @@ import {
   decodeQuestionSubmissionAcknowledgement,
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
-import { decodeQuestionId } from "../decoders/shared";
 import {
   decodeAssignmentEditorDetail,
   decodeSuccessorAssignmentRevisionRequired,
@@ -381,7 +377,6 @@ export function createRequestClient(
   | "createAssignment"
   | "getAssignmentWorkspace"
   | "saveAssignmentContent"
-  | "replaceAssignmentFixedItem"
   | "saveAssignmentPolicies"
   | "getInstructorStudentView"
   | "startAssignmentAttempt"
@@ -590,34 +585,6 @@ export function createRequestClient(
           headers: { "if-match": assignmentRevisionEtag },
         },
         "contentSave",
-      );
-    },
-    replaceAssignmentFixedItem: (
-      courseId,
-      assignmentId,
-      _assignmentReference,
-      itemId: AssignmentEntryId,
-      questionId: QuestionId,
-      assignmentRevisionEtag,
-    ): ReturnType<ApiClient["replaceAssignmentFixedItem"]> => {
-      const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
-      if (itemId.length === 0)
-        return Promise.reject(
-          new ApiProtocolError("assignment fixed-item identity must be present"),
-        );
-      const input: ReplaceAssignmentFixedItemInput = {
-        questionId: decodeQuestionId(questionId, "request.questionId"),
-      };
-      return requestAssignmentEditor(
-        fetchImplementation,
-        basePath,
-        `${assignmentPath(courseId, assignmentId)}/fixed-items/${encodedId(itemId)}`,
-        { courseId, assignmentId },
-        {
-          method: "PUT",
-          body: { ...input, baseEditNumber },
-          headers: { "if-match": assignmentRevisionEtag },
-        },
       );
     },
     saveAssignmentPolicies: (

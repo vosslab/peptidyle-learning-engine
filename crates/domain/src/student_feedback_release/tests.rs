@@ -8,8 +8,9 @@ use question_model::{
 };
 
 use super::{
-    StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_student_feedback,
+    evaluate_student_feedback_release, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
+    StudentFeedbackReleaseDecision,
 };
 use crate::effective_assignment_policy::{
     AssignmentAccessDecision, AssignmentPolicySource, AssignmentStartDecision,
@@ -24,7 +25,7 @@ fn rule() -> StudentFeedbackReleaseRule {
     StudentFeedbackReleaseRule {
         score: StudentFeedbackReleaseTiming::DuringAttempt,
         per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
-        feedback_text: StudentFeedbackReleaseTiming::AfterDue,
+        question_feedback: StudentFeedbackReleaseTiming::AfterDue,
         question_answer: StudentFeedbackReleaseTiming::AfterClose,
         question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
         class_statistics: StudentFeedbackReleaseTiming::Never,
@@ -70,7 +71,7 @@ fn independent_fields_follow_their_own_timings() {
         StudentFeedbackReleaseDecision {
             score: true,
             per_item_correctness: false,
-            feedback_text: false,
+            question_feedback: false,
             question_answer: false,
             question_answer_explanation: false,
             class_statistics: false,
@@ -105,8 +106,8 @@ fn due_and_close_release_at_the_exact_resolved_boundaries() {
     let at_close = evaluate_student_feedback_release(rule(), &effective, stamp(30), None)
         .expect("allowed Student has a disclosure decision");
 
-    assert!(!just_before_due.feedback_text);
-    assert!(at_due.feedback_text);
+    assert!(!just_before_due.question_feedback);
+    assert!(at_due.question_feedback);
     assert!(!just_before_close.question_answer);
     assert!(!just_before_close.question_answer_explanation);
     assert!(at_close.question_answer);
@@ -119,7 +120,7 @@ fn absent_due_and_close_do_not_release_timed_fields() {
         evaluate_student_feedback_release(rule(), &allowed(None, None), stamp(100), Some(stamp(1)))
             .expect("allowed Student has a disclosure decision");
 
-    assert!(!decision.feedback_text);
+    assert!(!decision.question_feedback);
     assert!(!decision.question_answer);
     assert!(!decision.question_answer_explanation);
 }
@@ -136,7 +137,7 @@ fn never_stays_hidden_after_every_other_release() {
 
     assert!(decision.score);
     assert!(decision.per_item_correctness);
-    assert!(decision.feedback_text);
+    assert!(decision.question_feedback);
     assert!(decision.question_answer);
     assert!(decision.question_answer_explanation);
     assert!(!decision.class_statistics);
@@ -197,7 +198,7 @@ fn feedback_projection_allowlists_each_released_field() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
-        feedback_text: true,
+        question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
@@ -226,7 +227,7 @@ fn withheld_question_answer_is_absent_while_authorized_feedback_still_releases()
     let decision = StudentFeedbackReleaseDecision {
         score: false,
         per_item_correctness: false,
-        feedback_text: true,
+        question_feedback: true,
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,
@@ -257,7 +258,7 @@ fn independently_derived_answer_explanation_releases_without_an_answer_wrapper()
     let decision = StudentFeedbackReleaseDecision {
         score: false,
         per_item_correctness: false,
-        feedback_text: false,
+        question_feedback: false,
         question_answer: false,
         question_answer_explanation: true,
         class_statistics: false,
@@ -287,7 +288,7 @@ fn inspection_projects_only_score_fields_and_hides_stale_values() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
-        feedback_text: true,
+        question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
@@ -315,7 +316,7 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
-        feedback_text: false,
+        question_feedback: false,
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,

@@ -108,7 +108,7 @@ pub struct PleQuestionGradingEvaluation {
 /// Server-only author presentation for one PLE Draft Question seed.
 ///
 /// Its fields are already-rendered student-facing blocks. It deliberately
-/// excludes answer keys, choice IDs, grading rules, source locators, and
+/// excludes Answer Keys, choice IDs, grading rules, Source Object References, and
 /// published identity.
 #[derive(Clone, PartialEq)]
 pub struct PleDraftAuthorPresentation {
@@ -167,7 +167,8 @@ pub enum PleQuestionBackendError {
     UnknownQuestionBackendVersion { version: QuestionBackendVersion },
     /// A persisted Question Grader Version has no compiled implementation.
     UnknownQuestionGraderVersion { version: QuestionGraderVersion },
-    /// The authored definition does not meet its implementation's contract.
+    /// The authored Question Response Format or PLE Question JSON Private
+    /// Grading does not meet its implementation's contract.
     IncompatibleQuestionImplementation { message: String },
     /// Persisted student-facing metadata cannot be delivered safely.
     InvalidTitle(QuestionTitleError),
@@ -193,7 +194,8 @@ pub enum PleQuestionBackendError {
     QuestionSourceDoesNotMatchQuestion,
     /// PLE Question JSON source bytes were malformed or invalid.
     QuestionSourceDocument(question_json::PleQuestionJsonError),
-    /// The server-only generic grader refused the response or definition.
+    /// The server-only generic grader refused the Student Response, Question
+    /// Response Format, or Question Grading Rule.
     Grading(GradingError),
 }
 
@@ -230,7 +232,11 @@ impl std::fmt::Display for PleQuestionBackendError {
             Self::IncompatibleQuestionImplementation { message } => {
                 write!(
                     formatter,
-                    "PLE Question Implementation rejected the definition: {message}"
+                    concat!(
+                        "PLE Question Implementation rejected its Question Response Format or ",
+                        "PLE Question JSON Private Grading: {}"
+                    ),
+                    message
                 )
             }
             Self::InvalidTitle(error) => {

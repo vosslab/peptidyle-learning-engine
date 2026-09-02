@@ -38,7 +38,7 @@ impl std::fmt::Display for AccountId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AccountRole {
-    /// Works assigned problems and views personal results.
+    /// Completes assigned Questions and views personal results.
     Student,
     /// Authors content and manages courses and assignments.
     Instructor,

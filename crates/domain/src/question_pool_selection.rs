@@ -3,7 +3,7 @@
 //! The caller supplies transient server entropy and the complete saved Question
 //! Pool Assignment Entry. This module records no entropy and reads no storage:
 //! persistence owns Reuse Selection lookup, while this function creates the
-//! selected-entry result for Select Again and no-store Question Pool Previews.
+//! selected Question Pool Item result for Select Again and no-store Question Pool Previews.
 
 use question_model::{
     QuestionPoolAssignmentEntry, QuestionPoolItemAvailability, QuestionPoolSelectedItem,
@@ -14,7 +14,7 @@ use rand_chacha::rand_core::{Rng, SeedableRng};
 
 /// Opaque transient entropy supplied by a trusted server operation.
 ///
-/// The selected entries, rather than these bytes, become durable Student
+/// The selected Question Pool Items, rather than these bytes, become durable Student
 /// Work evidence. The browser neither supplies nor receives this value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QuestionPoolSelectionEntropy([u8; 32]);
@@ -29,24 +29,24 @@ impl QuestionPoolSelectionEntropy {
 /// A saved Question Pool cannot produce a requested durable selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionError {
-    /// Fewer currently available entries exist than the Assignment requires.
-    InsufficientAvailableEntries {
+    /// Fewer currently available Question Pool Items exist than the Assignment requires.
+    InsufficientAvailableQuestionPoolItems {
         /// Instructor-requested Question Pool Selection Count.
         selection_count: u32,
         /// Available Question Pool Item count at selection time.
-        available_entry_count: usize,
+        available_question_pool_item_count: usize,
     },
 }
 
 impl std::fmt::Display for QuestionPoolSelectionError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InsufficientAvailableEntries {
+            Self::InsufficientAvailableQuestionPoolItems {
                 selection_count,
-                available_entry_count,
+                available_question_pool_item_count,
             } => write!(
                 formatter,
-                "Question Pool requires {selection_count} entries but only {available_entry_count} are available"
+                "Question Pool requires {selection_count} Question Pool Items but only {available_question_pool_item_count} are available"
             ),
         }
     }
@@ -54,7 +54,7 @@ impl std::fmt::Display for QuestionPoolSelectionError {
 
 impl std::error::Error for QuestionPoolSelectionError {}
 
-/// Selects the exact entries for one new Question Pool Selection.
+/// Selects the exact Question Pool Items for one new Question Pool Selection.
 ///
 /// Entry membership is sampled without replacement. Entry Order
 /// restores the saved Question Pool Item order after membership selection; Random Order
@@ -73,10 +73,12 @@ pub fn select_question_pool_items(
     let selection_count = usize::try_from(question_pool.selection_count)
         .expect("u32 selection count fits the current supported usize targets");
     if selection_count > available.len() {
-        return Err(QuestionPoolSelectionError::InsufficientAvailableEntries {
-            selection_count: question_pool.selection_count,
-            available_entry_count: available.len(),
-        });
+        return Err(
+            QuestionPoolSelectionError::InsufficientAvailableQuestionPoolItems {
+                selection_count: question_pool.selection_count,
+                available_question_pool_item_count: available.len(),
+            },
+        );
     }
 
     let mut positions = (0..available.len()).collect::<Vec<_>>();
@@ -163,12 +165,12 @@ mod tests {
     }
 
     #[test]
-    fn question_pool_order_selects_available_entries_without_replacement_in_source_order() {
+    fn question_pool_order_selects_available_items_without_replacement_in_source_order() {
         let selection = select_question_pool_items(
             &question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder),
             QuestionPoolSelectionEntropy::from_bytes([7; 32]),
         )
-        .expect("available entries satisfy the selection count");
+        .expect("available Question Pool Items satisfy the selection count");
 
         assert_eq!(selection.len(), 2);
         assert!(
@@ -198,16 +200,18 @@ mod tests {
     }
 
     #[test]
-    fn selection_refuses_a_pool_when_retired_entries_leave_too_few_available() {
+    fn selection_refuses_a_pool_when_retired_items_leave_too_few_available() {
         let mut pool = question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder);
         pool.selection_count = 4;
 
         assert_eq!(
             select_question_pool_items(&pool, QuestionPoolSelectionEntropy::from_bytes([1; 32])),
-            Err(QuestionPoolSelectionError::InsufficientAvailableEntries {
-                selection_count: 4,
-                available_entry_count: 3,
-            }),
+            Err(
+                QuestionPoolSelectionError::InsufficientAvailableQuestionPoolItems {
+                    selection_count: 4,
+                    available_question_pool_item_count: 3,
+                }
+            ),
         );
     }
 }

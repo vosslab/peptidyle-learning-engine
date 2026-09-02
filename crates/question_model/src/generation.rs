@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// A generator implementation pinned by a published Question Revision.
 ///
 /// Versions are additive: changing an implementation requires a new version
-/// while existing published definitions continue to resolve to the old one.
+/// while existing published Question Variation Rules continue to resolve to the old one.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionGeneratorReference {

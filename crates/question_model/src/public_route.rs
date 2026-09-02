@@ -87,35 +87,35 @@ pub struct AssignmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AuthoringWorkspaceReference(NonZeroU32);
-/// An authorized locator for one private Draft Question lineage.
+/// An authorized Draft Question Reference for one private Draft Question lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct DraftQuestionReference(NonZeroU32);
-/// An authorized locator for an existing platform account. It carries neither email nor authority.
+/// An authorized Account Reference for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AccountReference(NonZeroU32);
-/// An authorized locator for one course-membership episode.
+/// An authorized Course Membership Reference for one course-membership episode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseMembershipReference(NonZeroU32);
-/// An authorized locator for one target-bound Course Invitation.
+/// An authorized Course Invitation Reference for one target-bound Course Invitation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
-/// An authorized locator for one private Question Folder.
+/// An authorized Question Folder Reference for one private Question Folder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionFolderReference(NonZeroU32);
-/// An authorized locator for one personal saved Question Search.
+/// An authorized Saved Question Search Reference for one personal saved Question Search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct SavedQuestionSearchReference(NonZeroU32);
-/// An authorized locator for one reusable Blueprint Course.
+/// An authorized Blueprint Course Reference for one reusable Blueprint Course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintCourseReference(NonZeroU32);
-/// An authorized locator for one Instructor-facing automated-grading recovery thread.
+/// An authorized Instructor Grading Operation Reference for one Instructor-facing automated-grading recovery thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct InstructorGradingOperationReference(NonZeroU32);

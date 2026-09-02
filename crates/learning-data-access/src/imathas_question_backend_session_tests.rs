@@ -46,7 +46,8 @@ fn facts_with_rule(
         "b".repeat(64)
     ))
     .expect("authentication");
-    let digest = QualifiedLaunchBindingDigest::parse("c".repeat(64)).expect("digest");
+    let digest = ImathasLaunchBindingChecksum::parse("c".repeat(64))
+        .expect("iMathAS Launch Binding Checksum");
     let expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
         account,
         course,
@@ -863,8 +864,8 @@ fn lease_storage_retains_the_complete_restore_expectation() {
     );
     assert_eq!(restore.grading_context, expected.grading_context);
     assert_eq!(
-        restore.qualified_launch_binding_digest,
-        expected.qualified_launch_binding_digest
+        restore.imathas_launch_binding_checksum,
+        expected.imathas_launch_binding_checksum
     );
 }
 

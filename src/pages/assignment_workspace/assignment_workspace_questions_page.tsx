@@ -12,7 +12,6 @@ import {
   appendQuestionPool,
   assignmentContentInput,
   assignmentEditorStateFrom,
-  fixedEntries,
   moveAssignmentEntry,
   parseExactQuestionIds,
   questionBackendLabel,
@@ -24,10 +23,7 @@ import {
 import { AssignmentEditorQuestionPicker } from "../assignment_editor_question_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
 import { createAssignmentEditorReuseController } from "../assignment_editor_reuse_controller";
-import {
-  resolveAssignmentContentSaveFailure,
-  resolveAssignmentFixedItemReplacementFailure,
-} from "../../api/http_client";
+import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
 import type { QuestionPoolPreview } from "../../api/contracts";
 
 import { assignmentWorkspacePath } from "./assignment_workspace_nav";
@@ -52,15 +48,12 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [validationMessage, setValidationMessage] = createSignal("");
   const [directQuestionId, setDirectQuestionId] = createSignal("");
   const [directMessage, setDirectMessage] = createSignal("");
-  const [targetItemId, setTargetItemId] = createSignal<string>();
   const [poolPreview, setPoolPreview] = createSignal<QuestionPoolPreview>();
   const [hasUnsavedContent, setHasUnsavedContent] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
   const [successorRevisionRequired, setSuccessorRevisionRequired] = createSignal(false);
-  let questionIdInput: HTMLInputElement | undefined;
   let saveQuestionsButton: HTMLButtonElement | undefined;
   let reloadLatestButton: HTMLButtonElement | undefined;
-  let replaceSelectedQuestionButton: HTMLButtonElement | undefined;
 
   const questionLookupController = createAssignmentEditorQuestionLookupController(
     workspace.repository,
@@ -118,122 +111,6 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     );
   }
 
-  function focusReplacementRecovery(): void {
-    if (needsReload() || successorRevisionRequired()) {
-      queueMicrotask(() => reloadLatestButton?.focus());
-      return;
-    }
-    queueMicrotask(() => saveQuestionsButton?.focus());
-  }
-
-  function replacementBlocked(): boolean {
-    if (!hasUnsavedContent() && !needsReload() && !successorRevisionRequired()) return false;
-    if (successorRevisionRequired()) {
-      setMessage(
-        "A successor Assignment is required before structural question changes can be saved.",
-      );
-    } else if (needsReload()) {
-      setMessage(
-        "Reload the latest assignment before replacing a question. Your selected replacement remains available after reload.",
-      );
-    } else if (questionLookupController.selected() === undefined) {
-      setMessage(
-        "Save questions and order before choosing a replacement. Replacement happens in a separate action after you select a question.",
-      );
-    } else {
-      setMessage(
-        "Save Questions and order before replacing a Question. The selected replacement is not committed with the full Assignment Content.",
-      );
-    }
-    focusReplacementRecovery();
-    return true;
-  }
-
-  function replacementTargetTitle(): string | undefined {
-    const itemId = targetItemId();
-    if (itemId === undefined) return undefined;
-    return fixedEntries(draft()).find((entry) => entry.id === itemId)?.title;
-  }
-
-  function replacementActionLabel(): string {
-    const currentTitle = replacementTargetTitle();
-    const selectedTitle = questionLookupController.selected()?.title;
-    return currentTitle !== undefined && selectedTitle !== undefined
-      ? `Replace ${currentTitle} with ${selectedTitle}`
-      : "Replace the selected question";
-  }
-
-  function startReplacement(itemId: string): void {
-    if (replacementBlocked()) return;
-    setTargetItemId(itemId);
-    setDirectQuestionId("");
-    questionLookupController.setSelected(undefined);
-    queueMicrotask(() => questionIdInput?.focus());
-  }
-
-  function focusReplacedRow(questionId: string): void {
-    queueMicrotask(() => {
-      const row = [...document.querySelectorAll<HTMLElement>(".assignment-editor-row")].find(
-        (candidate) => candidate.textContent?.includes(questionId) === true,
-      );
-      const button = [...(row?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
-        (candidate) => candidate.textContent?.trim() === "Replace",
-      );
-      button?.focus();
-    });
-  }
-
-  async function replaceFixedQuestion(row: AssignmentQuestionRow, itemId: string): Promise<void> {
-    if (busy() || replacementBlocked()) return;
-    const current = fixedEntries(draft()).find((entry) => entry.id === itemId);
-    if (current === undefined) {
-      setMessage(
-        "That Question is no longer in the local Assignment Content. Reload the Assignment to continue.",
-      );
-      return;
-    }
-    if (
-      fixedEntries(draft()).some(
-        (entry) => entry.questionId === row.questionId && entry.id !== itemId,
-      )
-    ) {
-      setDirectMessage(`${row.questionId} is already in this assignment.`);
-      return;
-    }
-    setBusy(true);
-    try {
-      const saved = await workspace.client.replaceAssignmentFixedItem(
-        workspace.courseId,
-        workspace.assignmentId,
-        workspace.assignment().reference,
-        itemId,
-        row.questionId,
-        workspace.assignment().revision,
-      );
-      workspace.replaceAssignment(saved);
-      setDraft(assignmentEditorStateFrom(saved));
-      setPoolPreview(undefined);
-      setHasUnsavedContent(false);
-      setNeedsReload(false);
-      setSuccessorRevisionRequired(false);
-      setValidationMessage("");
-      setTargetItemId(undefined);
-      questionLookupController.setSelected(undefined);
-      setDirectQuestionId("");
-      setDirectMessage("");
-      setMessage(
-        `${row.title} now replaces ${current.title} for future Assignment Attempts. Issued Student work remains unchanged.`,
-      );
-      focusReplacedRow(row.questionId);
-    } catch (error: unknown) {
-      const failure = resolveAssignmentFixedItemReplacementFailure(error);
-      if (failure.kind === "staleRevision") setNeedsReload(true);
-      setMessage(failure.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   function addRows(rows: ReadonlyArray<AssignmentQuestionRow>, success: string): void {
     const next = appendFixedEntries(draft(), rows);
     if (next === draft()) {
@@ -249,11 +126,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     try {
       const row = await questionLookupController.lookup(directQuestionId());
       questionLookupController.setSelected(row);
-      setMessage(
-        targetItemId() === undefined
-          ? `${row.questionId} is ready to add.`
-          : `${row.questionId} is ready to replace the selected question.`,
-      );
+      setMessage(`${row.questionId} is ready to add.`);
       setDirectMessage("");
     } catch (_error: unknown) {
       const failure = "That Question ID could not be found. Check it and try again.";
@@ -270,10 +143,6 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       questionIds = parseExactQuestionIds(directQuestionId());
     } catch (error: unknown) {
       setDirectMessage(error instanceof Error ? error.message : "Question IDs are invalid.");
-      return;
-    }
-    if (targetItemId() !== undefined) {
-      setDirectMessage("Choose one replacement Question ID, then use the selected replacement.");
       return;
     }
     if (draft().entries.length + questionIds.length > MAX_ASSIGNMENT_ORDERED_ENTRIES) {
@@ -388,13 +257,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       );
     } finally {
       setBusy(false);
-      if (reloaded) {
-        if (targetItemId() !== undefined && questionLookupController.selected() !== undefined) {
-          queueMicrotask(() => replaceSelectedQuestionButton?.focus());
-        } else {
-          queueMicrotask(() => saveQuestionsButton?.focus());
-        }
-      }
+      if (reloaded) queueMicrotask(() => saveQuestionsButton?.focus());
     }
   }
 
@@ -445,12 +308,6 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
     setBusy,
     onDraftChange: (next) =>
       update(next, "Selected questions added. Save questions and order when ready."),
-    onReplacementPrepared: (row, itemId) => {
-      questionLookupController.setSelected(row);
-      setTargetItemId(itemId);
-      setMessage(`${row.questionId} is ready to replace the selected question.`);
-      queueMicrotask(() => replaceSelectedQuestionButton?.focus());
-    },
     onMessage: setMessage,
     onError: (_error, fallback) => setMessage(fallback),
   });
@@ -598,7 +455,6 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                     "Question order changed. Save questions and order when ready.",
                   )
                 }
-                onReplace={startReplacement}
                 onRemoveFixed={(itemId) => {
                   const index = draft().entries.findIndex(
                     (entry) => entry.kind === "fixedQuestion" && entry.id === itemId,
@@ -617,27 +473,15 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           </section>
 
           <section class="assignment-editor-panel">
-            <h2>{targetItemId() === undefined ? "Add questions" : "Replace question"}</h2>
-            <Show when={targetItemId() !== undefined}>
-              <p class="assignment-editor-note">
-                Replace this fixed question immediately for future Assignment Attempts. Issued work
-                remains with its original question.
-              </p>
-            </Show>
+            <h2>Add questions</h2>
             <label class="assignment-editor-field" for="assignment-question-id">
-              {targetItemId() === undefined ? "Question IDs" : "Replacement Question ID"}
+              Question IDs
               <input
                 id="assignment-question-id"
-                ref={(element) => {
-                  questionIdInput = element;
-                }}
                 value={directQuestionId()}
                 placeholder="7K3-M9QP"
                 aria-describedby="assignment-question-id-help"
                 aria-invalid={directMessage() !== ""}
-                disabled={
-                  targetItemId() !== undefined && (needsReload() || successorRevisionRequired())
-                }
                 onInput={(event) => {
                   setDirectQuestionId(event.currentTarget.value);
                   setDirectMessage("");
@@ -647,41 +491,19 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             </label>
             <p id="assignment-question-id-help" class="assignment-editor-note">
               Add one or more canonical Question IDs separated by commas or lines. Use one ID to
-              choose a replacement.
+              check a Question before adding it.
             </p>
             <div class="assignment-editor-actions">
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={
-                  targetItemId() !== undefined && (needsReload() || successorRevisionRequired())
-                }
-                onClick={() => void chooseQuestionId()}
-              >
+              <button class="quiet-action" type="button" onClick={() => void chooseQuestionId()}>
                 Check Question ID
               </button>
               <button
                 class="primary-action"
                 type="button"
-                ref={(element) => {
-                  replaceSelectedQuestionButton = element;
-                }}
-                disabled={
-                  (targetItemId() !== undefined &&
-                    questionLookupController.selected() === undefined) ||
-                  needsReload() ||
-                  successorRevisionRequired()
-                }
-                aria-label={targetItemId() === undefined ? undefined : replacementActionLabel()}
-                onClick={() => {
-                  const itemId = targetItemId();
-                  const selected = questionLookupController.selected();
-                  if (itemId !== undefined && selected !== undefined)
-                    void replaceFixedQuestion(selected, itemId);
-                  else void addQuestionIds();
-                }}
+                disabled={needsReload() || successorRevisionRequired()}
+                onClick={() => void addQuestionIds()}
               >
-                {targetItemId() === undefined ? "Add Question IDs" : "Replace selected question"}
+                Add Question IDs
               </button>
               <button
                 class="quiet-action"
@@ -692,31 +514,16 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                   successorRevisionRequired()
                 }
                 onClick={(event) =>
-                  pickerController.open(
-                    targetItemId() === undefined
-                      ? { kind: "fixedQuestion" }
-                      : { kind: "replacement", itemId: targetItemId()! },
-                    event.currentTarget,
-                  )
+                  pickerController.open({ kind: "fixedQuestion" }, event.currentTarget)
                 }
               >
-                {targetItemId() === undefined ? "Search question library" : "Choose replacement"}
+                Search question library
               </button>
             </div>
             <Show when={questionLookupController.selected()}>
               {(row) => (
                 <p class="success-state">
-                  {targetItemId() === undefined ? (
-                    <>
-                      Selected: {row().questionId} {row().title}
-                    </>
-                  ) : (
-                    <>
-                      Replacing {replacementTargetTitle() ?? "the current question"} with{" "}
-                      {row().title}
-                    </>
-                  )}{" "}
-                  ({questionBackendLabel(row().backend)})
+                  Selected: {row().questionId} {row().title} ({questionBackendLabel(row().backend)})
                 </p>
               )}
             </Show>

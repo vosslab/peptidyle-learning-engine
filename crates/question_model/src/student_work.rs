@@ -81,7 +81,7 @@ pub enum AssignmentAttemptCompletion {
 pub struct AssignmentAttempt {
     /// Durable Assignment Attempt identity.
     pub id: AssignmentAttemptId,
-    /// Stable typed locator used in application navigation.
+    /// Stable Assignment Attempt Reference used in application navigation.
     pub reference: AssignmentAttemptReference,
     /// Student Record that owns this Assignment Attempt.
     pub student_record: StudentRecordId,
@@ -161,13 +161,13 @@ pub struct QuestionPoolSelection {
     pub question_pool_assignment_entry: AssignmentEntryId,
     /// Database-authoritative time at which the server selected these entries.
     pub created_at: Timestamp,
-    /// Number of exact entries selected for this Assignment Attempt.
+    /// Number of exact Question Pool Items selected for this Assignment Attempt.
     ///
     /// This repeats the selected-entry-row cardinality so storage can reject an
     /// incomplete Selection at transaction commit without consulting mutable
     /// Assignment content.
     pub selected_question_count: u32,
-    /// Earlier Selection whose exact entries this later Assignment Attempt retained.
+    /// Earlier Selection whose exact Question Pool Items this later Assignment Attempt retained.
     ///
     /// A reused Selection is still an immutable result owned by this Assignment
     /// Attempt. This link preserves the reason its selected-entry membership repeats
@@ -696,7 +696,7 @@ mod tests {
                 selection.question_pool_assignment_entry,
                 Timestamp::from_unix_millis(2_000),
             )
-            .expect("same Question Pool may retain its exact entries");
+            .expect("same Question Pool may retain its exact Question Pool Items");
         assert_eq!(
             reused.reused_from_question_pool_selection,
             Some(selection.id)

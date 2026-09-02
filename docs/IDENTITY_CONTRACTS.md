@@ -54,7 +54,7 @@ former installation-scope model to these identities.
 | `AccountId`               | Global, durable                      | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
 | Product Role              | Implemented SD1 global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines roles.                                             |
 | `SessionId`               | Global, durable session record       | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
-| `SessionTokenHash`        | Server-only session record           | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record locator, or log value.                                                 |
+| `SessionTokenHash`        | Server-only session record           | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
 | Active Instructor Account | Global Account role and state        | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
 | `Sysadmin` Product Role   | Implemented SD1 global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
 
@@ -69,7 +69,7 @@ token, or an authority-bearing Account-State claim.
 is the sole owner of server-only session identities: `SessionId`,
 `SessionTokenHash`, `SessionLifetime`, `SessionRecord`, and `SessionStore`.
 `SessionId` is a separate durable record identity, not a token hash,
-token-derived value, or browser locator. A resolved session identifies its
+token-derived value, or browser reference. A resolved session identifies its
 global account and session, while the operation's exact relationship supplies
 course, workspace, Student, or other authority. It has no browser serialization shape.
 Neither type belongs in `question_model` or generated browser contracts.
@@ -117,15 +117,15 @@ reads; neither another course nor a visible record ID extends that authority.
 
 ## Workspace and publication identities
 
-| Identity                    | Scope                                        | Intended use                                                                                                                                                                                |
-| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                              |
-| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                                 |
-| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public question locator.                                                                                                           |
-| `QuestionId`                | Global immutable Published Question identity | Human-facing Question Library locator for one Published Question. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
-| `QuestionRevisionReference` | Server-only immutable Question Revision      | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                               |
-| `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                         |
-| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                     |
+| Identity                    | Scope                                        | Intended use                                                                                                                                                                                  |
+| --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                                |
+| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                                   |
+| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public Question Library reference.                                                                                                   |
+| `QuestionId`                | Global immutable Published Question identity | Human-facing Question Library reference for one Published Question. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
+| `QuestionRevisionReference` | Server-only immutable Question Revision      | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                                 |
+| `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                           |
+| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                       |
 
 Validated publication either starts a new immutable Question Library identity for a new
 question or records a new immutable `QuestionRevision` under an existing stable
@@ -206,14 +206,14 @@ caller input are evidence; they do not establish the exact Job Target authority.
 
 ## Human-facing references and browser identifiers
 
-Human-facing locators help people find a permitted record. They are not durable
-authorization facts. The server resolves each locator from the authenticated
+Human-facing References help people find a permitted record. They are not durable
+authorization facts. The server resolves each Reference from the authenticated
 session account and the appropriate parent relationship before returning a record.
 
 | Value                                                                                                         | Browser use                                     | Server meaning                                                                                                                                                     |
 | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `QuestionId` (`AAA-BBBB`)                                                                                     | Question Library search, display, and selection | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                                     |
-| `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display locators           | Positive `C-`, `A-`, `R-`, and `W-` locators resolved only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship.      |
+| `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display References         | Positive `C-`, `A-`, `R-`, and `W-` References resolve only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship.     |
 | `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt        | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                          |
 | `SubmissionIdempotencyKey` header                                                                             | Bounded ASCII key for one retry                 | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                                      |
 | `PresentationResponseItemReference`                                                                           | Presentation-scoped Response Item Reference     | Maps only through server-held attempt presentation state to a semantic item identity.                                                                              |
@@ -256,14 +256,14 @@ When adding an identifier or protocol value, document:
 
 ## Identity, authentication, and compliance
 
-### Visible identifiers are human-readable locators
+### Visible identifiers are human-readable References
 
 **Decision.** Visible content, navigation URLs, documentation, and copyable links never expose
 UUIDs. Published questions use one non-sequential Crockford Base32 ID displayed as `AAA-BBBB`;
 internal UUIDs may remain in hidden server and transport boundaries.
 
 **Why.** People need identifiers they can recognize and communicate. A public reference is a
-locator, not authorization, and persistence identity should not leak into the interface.
+Reference, not authorization, and persistence identity should not leak into the interface.
 
 ### Invitations and recovery use verified email
 

@@ -27,11 +27,11 @@ test("question decoders reject answer-bearing and iMathAS-secret fields", () => 
     () =>
       decodeDraftQuestionContent({
         ...draft,
-        backendLocator: {
-          backend: "imathas",
-          backendSecret: "self-hosted",
-          itemRef: "42",
-          token: "secret",
+        questionBackend: "imathas",
+        draftImathasQuestionBackendBinding: {
+          deploymentReference: "self-hosted",
+          itemReference: "42",
+          backendSecret: "secret",
         },
       }),
     DecodeError,

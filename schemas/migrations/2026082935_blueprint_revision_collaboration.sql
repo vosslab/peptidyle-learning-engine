@@ -64,7 +64,7 @@ BEGIN
             ON account.account_id = NEW.published_by_account_id
            AND account.role = 'instructor'
          WHERE blueprint.blueprint_id = NEW.blueprint_id
-           AND blueprint.owner_account_id = NEW.published_by_account_id
+           AND blueprint.blueprint_course_owner_account_id = NEW.published_by_account_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'only the Approved Blueprint Course Owner may publish an exact Blueprint Revision';
@@ -90,16 +90,16 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_publication_event_change
 CREATE FUNCTION ple_data.validate_blueprint_revision_availability_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 DECLARE
-    course_owner_account_id uuid;
+    blueprint_course_owner_account_id uuid;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(NEW.blueprint_revision_id::text, 0)
     );
-    SELECT blueprint.owner_account_id
-      INTO course_owner_account_id
+    SELECT blueprint.blueprint_course_owner_account_id
+      INTO blueprint_course_owner_account_id
       FROM ple_data.blueprint_course AS blueprint
      WHERE blueprint.blueprint_id = NEW.blueprint_id;
-    IF NEW.recorded_by_account_id <> course_owner_account_id
+    IF NEW.recorded_by_account_id <> blueprint_course_owner_account_id
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_publication_event AS publication
             WHERE publication.blueprint_revision_id = NEW.blueprint_revision_id
@@ -133,7 +133,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_revision_availability_ev
 CREATE FUNCTION ple_data.validate_blueprint_collaborator_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE
-    course_owner_account_id uuid;
+    blueprint_course_owner_account_id uuid;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
@@ -141,12 +141,12 @@ BEGIN
             0
         )
     );
-    SELECT blueprint.owner_account_id
-      INTO course_owner_account_id
+    SELECT blueprint.blueprint_course_owner_account_id
+      INTO blueprint_course_owner_account_id
       FROM ple_data.blueprint_course AS blueprint
      WHERE blueprint.blueprint_id = NEW.blueprint_id;
 
-    IF course_owner_account_id IS NULL
+    IF blueprint_course_owner_account_id IS NULL
        OR EXISTS (
            SELECT 1
              FROM ple_data.blueprint_publication_event AS publication
@@ -157,8 +157,8 @@ BEGIN
     END IF;
 
     IF NEW.event_kind = 'granted' THEN
-        IF NEW.collaborator_account_id = course_owner_account_id
-           OR NEW.recorded_by_account_id <> course_owner_account_id
+        IF NEW.collaborator_account_id = blueprint_course_owner_account_id
+           OR NEW.recorded_by_account_id <> blueprint_course_owner_account_id
            OR NOT EXISTS (
                SELECT 1
                  FROM ple_private.account AS account
@@ -175,7 +175,7 @@ BEGIN
            AND grant_event.collaborator_account_id = NEW.collaborator_account_id
            AND grant_event.event_kind = 'granted'
            AND grant_event.occurred_at <= NEW.occurred_at
-    ) OR NEW.recorded_by_account_id NOT IN (course_owner_account_id, NEW.collaborator_account_id) THEN
+    ) OR NEW.recorded_by_account_id NOT IN (blueprint_course_owner_account_id, NEW.collaborator_account_id) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Blueprint Collaborator relationship can end only after its grant and by its owner or collaborator';
     END IF;

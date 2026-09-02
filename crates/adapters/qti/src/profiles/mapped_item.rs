@@ -185,7 +185,7 @@ impl QtiMappedItem {
 
         let defaults: Vec<_> = QtiPleDefault::ALL
             .into_iter()
-            .map(QtiPleDefault::digest_diagnostic)
+            .map(QtiPleDefault::checksum_diagnostic)
             .collect();
         let safe_defaults = QtiPleDefault::ALL
             .into_iter()

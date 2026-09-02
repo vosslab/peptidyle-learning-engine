@@ -1,7 +1,7 @@
 //! Strict browser/server contracts for the non-mutating WP-INST-T3 preview plane.
 //!
-//! A route request owns any `M-` locator. The Store resolves and discards
-//! those locators before returning the owned [`StudentViewScenario`].  That value is
+//! A route request owns any `M-` Course Membership Reference. The Store resolves and discards
+//! that Reference before returning the owned [`StudentViewScenario`]. That value is
 //! immutable, self-contained, and identity-free; later preview evaluation only
 //! borrows it and returns an owned closed Student View Scenario.
 
@@ -41,7 +41,7 @@ pub struct SyntheticPreviewModifiers {
     pub adjustment: AccommodationAdjustmentView,
 }
 
-/// Request-bound student locator used only to derive an identity-free subject.
+/// Request-bound Course Membership Reference used only to derive an identity-free subject.
 ///
 /// The returned subject deliberately has no corresponding field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +53,7 @@ pub struct DerivedPreviewSubjectRequest {
     pub membership: CourseMembershipReference,
 }
 
-/// Closed, sanitized Assignment Policy Source kind labels. These never carry a membership or person locator.
+/// Closed, sanitized Assignment Policy Source kind labels. These never carry a membership or person Reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentPolicySourceKind {

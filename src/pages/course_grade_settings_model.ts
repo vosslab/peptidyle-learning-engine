@@ -1,7 +1,7 @@
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
 
-export function canonicalizeAssignments(
+export function renumberAssignmentsByCategory(
   draft: CourseGradeSchemeUpdateView,
 ): CourseGradeSchemeUpdateView {
   const next = structuredClone(draft);

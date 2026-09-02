@@ -785,7 +785,7 @@ own accepted Question Presentation and live evidence; they are not inferred from
 
 **Decision.** H5P is the `h5p` Question Format and bounded H5P Package Import path.
 **Why.** Its immutable archive, checksum, content type, and import fingerprint retain archival evidence for an unpublished, key-free, ungraded practice payload; it has no server validation, issue, reproduction, or automated-grading lifecycle.
-**Consequence.** H5P cannot enter Question Backend, backend locator, Question Source, Question Library, or Assignment records; its importer retains hostile-input archive validation, immutable archive resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved Question Backend.
+**Consequence.** H5P cannot enter Question Backend, backend-specific location fields, Question Source, Question Library, or Assignment records; its importer retains hostile-input archive validation, immutable archive resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved Question Backend.
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-format-and-question-type), [INPUT_FORMATS.md](INPUT_FORMATS.md), and `crates/adapters/h5p/src/import.rs`.
 
 ### Tests prove behavior at the right layer

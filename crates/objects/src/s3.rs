@@ -615,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn only_public_problem_assets_receive_the_immutable_publication_tag() {
+    fn only_public_question_assets_receive_the_immutable_publication_tag() {
         let private_source = record().address;
         let public_asset = public_asset_key();
 

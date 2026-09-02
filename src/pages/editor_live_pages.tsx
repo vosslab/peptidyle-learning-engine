@@ -105,7 +105,7 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
   );
 }
 
-/** Resolves a visible `W-n` locator before mounting the private editor transport. */
+/** Resolves a visible Authoring Workspace Reference before mounting the private editor transport. */
 export function WorkspaceEditorLivePage(): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();

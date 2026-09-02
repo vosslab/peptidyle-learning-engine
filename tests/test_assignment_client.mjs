@@ -23,7 +23,7 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
     studentFeedbackReleaseRule: {
       score: "never",
       per_item_correctness: "never",
-      feedback_text: "never",
+      question_feedback: "never",
       question_answer: "never",
       question_answer_explanation: "never",
       class_statistics: "never",

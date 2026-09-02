@@ -200,7 +200,7 @@ LDA solely owns the private, redacted, non-Serde iMathAS Grading Context
 `{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` across Session, Store, and
 adapter validation. It inherits Student/Course/Assignment authority through its owning Session and
 Question Attempt and expires with the Session. `authentication_payload_v1` keeps its accepted bytes;
-the Context is distinct from Qualified Launch Binding Digest, Challenge, Result Token, and
+the Context is distinct from iMathAS Launch Binding Checksum, Challenge, Result Token, and
 iMathAS Result. The browser launch shell has no Context DTO.
 
 LDA also owns the bounded opaque iMathAS Result Token and its redacted checksum. iMathAS verifies
@@ -209,7 +209,7 @@ generated, durable, log, or Debug representation; the checksum is Exchange-only 
 from the iMathAS Result checksum.
 
 Migration `2026090102` persists the exact Context, separate required issue-time `QuestionGradingRule`,
-`ImathasQuestionBackendBinding`, source, `imathas_remote_grading_v1` profile, seed, response checksum, Challenge, authentication, binding digest,
+`ImathasQuestionBackendBinding`, source, `imathas_remote_grading_v1` profile, seed, response checksum, Challenge, authentication, iMathAS Launch Binding Checksum,
 expiry/revocation/consumption, lease, and encrypted backend state. Its Result Exchange owns one immutable
 normalized-score-only iMathAS Result and LDA-derived checksum, alongside the Result
 Token checksum. After iMathAS verification outside PostgreSQL, authenticated staging atomically
@@ -231,7 +231,7 @@ indeterminate-effect policy continues to govern effectful iMathAS Question Backe
 
 **Adapter protocol vocabulary.** iMathAS Item Reference names the iMathAS-local logical item;
 Source Object Reference and Source Object Checksum name immutable stored Question Source bytes;
-the qualified Launch Binding Digest is the exact content-derived launch-match value. These facts
+the iMathAS Launch Binding Checksum verifies the exact launch-match value. These facts
 remain server-only and never become browser-selected endpoints, source bytes, scores, or cookies.
 Generic hosted MyOpenMath, arbitrary endpoints, browser-trusted launch URLs/scores, and unverified
 iMathAS callbacks remain outside the supported boundary.

@@ -189,9 +189,9 @@ impl std::fmt::Debug for ImathasResultTokenChecksum {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct QualifiedLaunchBindingDigest(String);
+pub struct ImathasLaunchBindingChecksum(String);
 
-impl QualifiedLaunchBindingDigest {
+impl ImathasLaunchBindingChecksum {
     pub fn parse(value: impl Into<String>) -> Result<Self, StoreError> {
         let value = value.into();
         if value.len() != 64
@@ -200,7 +200,7 @@ impl QualifiedLaunchBindingDigest {
                 .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
         {
             return Err(StoreError::InvalidRecord(
-                "qualified Launch Binding Digest is invalid".into(),
+                "iMathAS Launch Binding Checksum is invalid".into(),
             ));
         }
         Ok(Self(value))
@@ -211,9 +211,9 @@ impl QualifiedLaunchBindingDigest {
     }
 }
 
-impl std::fmt::Debug for QualifiedLaunchBindingDigest {
+impl std::fmt::Debug for ImathasLaunchBindingChecksum {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("QualifiedLaunchBindingDigest([redacted])")
+        formatter.write_str("ImathasLaunchBindingChecksum([redacted])")
     }
 }
 

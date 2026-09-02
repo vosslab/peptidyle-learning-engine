@@ -51,7 +51,7 @@ fn safe_report_is_bounded_exact_and_contains_no_private_binding() {
 }
 
 #[test]
-fn mapped_item_produces_digest_inputs_and_server_parts_without_private_debug() {
+fn mapped_item_produces_checksum_inputs_and_server_parts_without_private_debug() {
     let item = mapped_item(QtiMappedPoints::BlackboardDefaulted);
     assert_eq!(item.public_mapping_checksum_input().points, "1.0");
     let item_result = item

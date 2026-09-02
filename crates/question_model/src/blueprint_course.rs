@@ -192,25 +192,25 @@ impl BlueprintAssignmentDefaults {
     }
 }
 
-/// One public Question ID submitted as a fixed ordered item.
+/// One Fixed Question Assignment Entry submitted in authored order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableFixedQuestionInput {
-    /// Public published-question locator resolved under destination authority.
+    /// Public Question ID resolved under destination authority.
     pub question_id: QuestionId,
-    /// Points copied into the future fixed item.
+    /// Points copied into the future Fixed Question Assignment Entry.
     pub points_possible: AssignmentPointValue,
-    /// Score treatment copied into the future fixed item.
+    /// Score treatment copied into the future Fixed Question Assignment Entry.
     pub scoring_rule: AssignmentEntryScoringRule,
 }
 
-/// One submitted pool, including its ordered public Question ID entries.
+/// One Question Pool Assignment Entry, including its ordered public Question IDs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolInput {
-    /// Public entries resolved under destination authority in this order.
+    /// Public Question IDs resolved into Question Pool Items under destination authority in this order.
     pub entries: Vec<QuestionId>,
-    /// Number of entries selected for each future Assignment Attempt.
+    /// Number of Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,
@@ -243,9 +243,9 @@ impl ReusablePoolInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BlueprintAssignmentEntryInput {
-    /// One fixed question in content order.
+    /// One Fixed Question Assignment Entry in content order.
     Fixed(ReusableFixedQuestionInput),
-    /// One pool in content order.
+    /// One Question Pool Assignment Entry in content order.
     Pool(ReusablePoolInput),
 }
 
@@ -257,7 +257,7 @@ pub struct BlueprintAssignmentContentInput {
     pub title: String,
     /// Student-facing instructions copied into future assignment assignments.
     pub instructions: AssignmentInstructions,
-    /// Fixed items and pools in authored order.
+    /// Fixed Question Assignment Entries and Question Pool Assignment Entries in authored order.
     pub entries: Vec<BlueprintAssignmentEntryInput>,
     /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
@@ -310,10 +310,10 @@ pub struct ReusableQuestionView {
     pub selection_availability: ReusableSelectionAvailability,
 }
 
-/// Current answer-free Reusable Pool Entry View in stored item order.
+/// Current answer-free reusable Question Pool Item in stored Question Pool Item order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusablePoolEntryView {
+pub struct ReusableQuestionPoolItemView {
     /// Current public Question Library metadata and disclosed evidence.
     pub question_library: QuestionSearchResult,
     /// Whether the stored exact member remains selectable for a new copy.
@@ -324,9 +324,9 @@ pub struct ReusablePoolEntryView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
-    /// Current entries in their retained content order.
-    pub entries: Vec<ReusablePoolEntryView>,
-    /// Number of entries selected for each future Assignment Attempt.
+    /// Current Question Pool Items in their retained Question Pool Item order.
+    pub entries: Vec<ReusableQuestionPoolItemView>,
+    /// Number of Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,
@@ -340,16 +340,16 @@ pub struct ReusablePoolView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BlueprintAssignmentEntryView {
-    /// One fixed question in content order.
+    /// One Fixed Question Assignment Entry in content order.
     Fixed {
         /// Current answer-free Reusable Question View.
         question: Box<ReusableQuestionView>,
-        /// Points copied into the future fixed item.
+        /// Points copied into the future Fixed Question Assignment Entry.
         points_possible: AssignmentPointValue,
-        /// Score treatment copied into the future fixed item.
+        /// Score treatment copied into the future Fixed Question Assignment Entry.
         scoring_rule: AssignmentEntryScoringRule,
     },
-    /// One pool in content order.
+    /// One Question Pool Assignment Entry in content order.
     Pool(ReusablePoolView),
 }
 
@@ -361,7 +361,7 @@ pub struct BlueprintAssignmentContentView {
     pub title: String,
     /// Student-facing instructions copied into future assignment assignments.
     pub instructions: AssignmentInstructions,
-    /// Fixed items and pools in retained authored order.
+    /// Fixed Question Assignment Entries and Question Pool Assignment Entries in retained authored order.
     pub entries: Vec<BlueprintAssignmentEntryView>,
     /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
@@ -441,13 +441,13 @@ macro_rules! impl_revision {
 
 impl_revision!(BlueprintRevision);
 
-/// Closed lifecycle/read access for one BlueprintCourse view.
+/// Closed browser-safe classification for one returned Blueprint Course view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BlueprintCourseAccess {
-    /// The active Instructor owns this draft.
-    Owner,
-    /// Every active Instructor may read this published course.
+pub enum BlueprintCourseReadAccess {
+    /// The current Active Instructor Account is the exact Blueprint Course Owner.
+    BlueprintCourseOwner,
+    /// The current Active Instructor Account reads reusable published Blueprint content.
     ActiveInstructor,
 }
 
@@ -455,28 +455,28 @@ pub enum BlueprintCourseAccess {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseSummaryView {
-    /// Typed route locator resolved under current read authority.
+    /// Blueprint Course Reference resolved under current read authority.
     pub reference: BlueprintCourseReference,
     /// Display title from the aggregate.
     pub title: String,
     /// Strong complete-aggregate revision.
     pub revision: BlueprintRevision,
-    /// Current owner-scoped read authority.
-    pub access: BlueprintCourseAccess,
+    /// Browser-safe classification for this returned Blueprint Course view.
+    pub read_access: BlueprintCourseReadAccess,
 }
 
 /// Safe current Blueprint Course View of one complete BlueprintCourse tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintCourseView {
-    /// Typed route locator resolved under current owner or published-read authority.
+    /// Blueprint Course Reference resolved for this returned read view.
     pub reference: BlueprintCourseReference,
     /// Instructor-visible course title.
     pub title: String,
     /// Strong complete-aggregate revision.
     pub revision: BlueprintRevision,
-    /// Current closed read authority.
-    pub access: BlueprintCourseAccess,
+    /// Browser-safe classification for this returned Blueprint Course view.
+    pub read_access: BlueprintCourseReadAccess,
     /// Labelled modules in retained aggregate-owned order.
     pub modules: Vec<BlueprintCourseModuleView>,
 }
@@ -498,11 +498,11 @@ pub enum BlueprintCourseValidationError {
     InvalidModuleAssignmentCount,
     /// A Question Pool Item list has no members or exceeds its shared bound.
     InvalidQuestionPoolEntries,
-    /// A pool selection count cannot select a meaningful subset of its entries.
+    /// A pool selection count cannot select a meaningful subset of its Question Pool Items.
     InvalidPoolSelectionCount,
     /// A pool repeats a Question Pool Item and therefore changes no selectable meaning.
     DuplicateQuestionPoolItem,
-    /// All pool entries exceed the assignment-level shared bound.
+    /// All Question Pool Items exceed the assignment-level shared bound.
     TooManyQuestionPoolEntries,
     /// Relative available, due, and close moments are not chronologically meaningful.
     InvalidScheduleOrder,
@@ -528,13 +528,15 @@ impl std::fmt::Display for BlueprintCourseValidationError {
                 "BlueprintCourse module must contain bounded reusable assignments"
             }
             Self::InvalidQuestionPoolEntries => {
-                "pool entries must be present and within their bound"
+                "Question Pool Items must be present and within their bound"
             }
             Self::InvalidPoolSelectionCount => {
                 "Question Pool selection count must be between one and Question Pool Item count"
             }
             Self::DuplicateQuestionPoolItem => "Question Pool Items must be distinct",
-            Self::TooManyQuestionPoolEntries => "pool entries exceed the assignment-level bound",
+            Self::TooManyQuestionPoolEntries => {
+                "Question Pool Items exceed the assignment-level bound"
+            }
             Self::InvalidScheduleOrder => {
                 "relative availability, due, and close moments must be ordered"
             }
@@ -767,7 +769,7 @@ mod tests {
             reference: "BP-12".parse().expect("valid reference"),
             title: "Biochemistry Blueprint".to_string(),
             revision: BlueprintRevision::new(4).expect("valid revision"),
-            access: BlueprintCourseAccess::ActiveInstructor,
+            read_access: BlueprintCourseReadAccess::ActiveInstructor,
             modules: vec![BlueprintCourseModuleView {
                 module_id: module_id(),
                 label: "Week 1".to_string(),
@@ -776,15 +778,31 @@ mod tests {
                     content: BlueprintAssignmentContentView {
                         title: "Protein structure practice".to_string(),
                         instructions: AssignmentInstructions::default(),
-                        entries: vec![BlueprintAssignmentEntryView::Fixed {
-                            question: ReusableQuestionView {
-                                question_library: discovery(),
-                                selection_availability: ReusableSelectionAvailability::Available,
-                            }
-                            .into(),
-                            points_possible: AssignmentPointValue::from_whole(3),
-                            scoring_rule: AssignmentEntryScoringRule::Normal,
-                        }],
+                        entries: vec![
+                            BlueprintAssignmentEntryView::Fixed {
+                                question: ReusableQuestionView {
+                                    question_library: discovery(),
+                                    selection_availability:
+                                        ReusableSelectionAvailability::Available,
+                                }
+                                .into(),
+                                points_possible: AssignmentPointValue::from_whole(3),
+                                scoring_rule: AssignmentEntryScoringRule::Normal,
+                            },
+                            BlueprintAssignmentEntryView::Pool(ReusablePoolView {
+                                entries: vec![ReusableQuestionPoolItemView {
+                                    question_library: discovery(),
+                                    selection_availability: ReusableSelectionAvailability::Retained,
+                                }],
+                                selection_count: 1,
+                                points_per_item: AssignmentPointValue::from_whole(2),
+                                scoring_rule: AssignmentEntryScoringRule::Normal,
+                                selection_rule: QuestionPoolSelectionRule {
+                                    selected_question_order:
+                                        crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
+                                },
+                            }),
+                        ],
                         defaults: defaults(),
                         schedule: RelativeAssignmentSchedule::default(),
                     },
@@ -807,6 +825,18 @@ mod tests {
         );
         assert!(
             wire.pointer("/modules/0/assignments/0/content/entries/0/revision")
+                .is_none()
+        );
+        assert_eq!(
+            wire["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
+            "pool"
+        );
+        assert!(
+            wire.pointer("/modules/0/assignments/0/content/entries/1/entries/0/question_library")
+                .is_some()
+        );
+        assert!(
+            wire.pointer("/modules/0/assignments/0/content/entries/1/entries/0/revision")
                 .is_none()
         );
     }

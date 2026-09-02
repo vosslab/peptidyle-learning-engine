@@ -25,11 +25,11 @@ function previewResponse() {
     questionPoolLabel: "Pool 2",
     selectionCount: 1,
     selectionRule: { selectedQuestionOrder: "randomOrder" },
-    entries: [
-      { questionId: "7K3-M9QP", title: "First entry" },
-      { questionId: "7K4-M9QP", title: "Second entry" },
+    items: [
+      { questionId: "7K3-M9QP", title: "First item" },
+      { questionId: "7K4-M9QP", title: "Second item" },
     ],
-    selected: [{ questionId: "7K4-M9QP", title: "Second entry" }],
+    selectedItems: [{ questionId: "7K4-M9QP", title: "Second item" }],
   };
 }
 
@@ -52,7 +52,7 @@ test("pool preview decoder accepts only the safe closed Instructor Question Pool
     () =>
       decodeQuestionPoolPreview({
         ...response,
-        selected: [{ questionId: "7K5-M9QP", title: "Not a entry" }],
+        selectedItems: [{ questionId: "7K5-M9QP", title: "Not an item" }],
       }),
     DecodeError,
   );

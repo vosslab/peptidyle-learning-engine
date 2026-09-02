@@ -20,11 +20,13 @@ INSERT INTO ple_private.object_record (
 );
 INSERT INTO ple_private.question_source (
     question_source_uuid, question_id, revision_number, backend, question_format,
-    question_type, backend_locator, source_object_id, source_object_checksum,
-    public_binding_sha256, created_at, updated_at
+    question_type, webwork_pg_path, qti_package_item_identifier,
+    imathas_deployment_reference, imathas_item_reference, imathas_profile,
+    source_object_id, source_object_checksum,
+    public_content_checksum, created_at, updated_at
 ) VALUES (
     '00000000-0000-0000-0000-00000000f201', 'ABC-DEF0', 1, 'ple',
-    'pleQuestionJson', 'multipleChoice', jsonb_build_object('backend', 'ple'),
+    'pleQuestionJson', 'multipleChoice', NULL, NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-00000000f202', repeat('aa', 32), repeat('cc', 32),
     pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
 );

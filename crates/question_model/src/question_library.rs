@@ -9,15 +9,16 @@ use crate::{
 };
 
 pub use crate::question_search::{
-    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
-    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
+    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
     QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
     QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
     QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
     QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
 };
 pub use crate::response::QuestionType;
 
@@ -343,7 +344,7 @@ pub struct QuestionUseSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseQuestionUse {
-    /// Authorized public course locator; it is never authority by itself.
+    /// Authorized Course Instance Reference; it is never authority by itself.
     pub course: CourseInstanceReference,
     /// Current course title visible to the requesting instructor.
     pub title: String,
@@ -403,7 +404,7 @@ pub struct QuestionDetails {
     /// Exact immutable hot metadata for this publication.
     pub summary: QuestionSummary,
     /// Static content or one server-generated example; source, response,
-    /// Question Variation Definition, grading, keys, and preview seed are excluded.
+    /// Question Variation Rule, grading, keys, and preview seed are excluded.
     pub prompt: QuestionDetailsPromptView,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: QuestionStatistics,
@@ -547,14 +548,12 @@ mod tests {
         assert_eq!(query.classifications.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
-        assert!(
-            QuestionSearchRequest {
-                text: Some("x".repeat(257)),
-                ..QuestionSearchRequest::default()
-            }
-            .normalized()
-            .is_err()
-        );
+        assert!(QuestionSearchRequest {
+            text: Some("x".repeat(257)),
+            ..QuestionSearchRequest::default()
+        }
+        .normalized()
+        .is_err());
     }
 
     #[test]

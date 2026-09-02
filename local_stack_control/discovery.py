@@ -9,7 +9,7 @@ import local_stack_control.process
 
 
 #============================================
-def canonical_oci_image_id(value: object) -> str | None:
+def normalize_oci_image_id(value: object) -> str | None:
 	"""Normalize Podman's bare configuration ID for later OCI identity comparison."""
 	if not isinstance(value, str):
 		return None
@@ -199,7 +199,7 @@ def container_from_json(
 		capability_digest=labels.get(local_stack_control.models.DISPOSABLE_CAPABILITY_LABEL)
 		if isinstance(labels.get(local_stack_control.models.DISPOSABLE_CAPABILITY_LABEL), str)
 		else None,
-		image_id=canonical_oci_image_id(inspection.get("Image")),
+		image_id=normalize_oci_image_id(inspection.get("Image")),
 		owner=labels.get(local_stack_control.models.E2E_OWNER_LABEL)
 		if isinstance(labels.get(local_stack_control.models.E2E_OWNER_LABEL), str)
 		else None,

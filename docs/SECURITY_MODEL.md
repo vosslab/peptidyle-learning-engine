@@ -266,8 +266,8 @@ LDA also owns the private, redacted, non-Serde iMathAS Grading Context:
 exact Question Attempt ID, Question Revision Reference, and Question Seed. It
 inherits Student, Course, and Assignment authority from the owning Session and
 Question Attempt, and expires with that Session. Its accepted
-`authentication_payload_v1` bytes differ from the content-derived Qualified
-Launch Binding Digest, Challenge, iMathAS Result Token, and iMathAS
+`authentication_payload_v1` bytes differ from the verified iMathAS Launch
+Binding Checksum, Challenge, iMathAS Result Token, and iMathAS
 Result. The direct `question_attempt_id` schema cutover and live four-axis
 mismatch cases protect every member; the browser receives no Context DTO.
 
@@ -386,7 +386,7 @@ nonparticipants, and unshared workspaces. Responses are `no-store`.
 
 The author route never serializes `AnswerKey`, Question Feedback, Question
 Answer Explanation, Question Grading Input, source
-locator, Object Address, Question Backend credential, or published identity. A supported
+backend-specific location field, Object Address, Question Backend credential, or published identity. A supported
 PLE Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
 content through its server-only adapter seam. External sources and PLE
 PLE Question Implementations without a reviewed presentation return an explicit unavailable state;
@@ -558,7 +558,7 @@ the transaction to fail.
 The worker resolves only that frozen manifest through its active typed export
 lease and builds the standard and accessible DOCX/PDF bundle from browser-safe
 published question presentation and immutable capabilities. It never loads an
-answer key, private grader state, source locator, or Question Backend credential.
+answer key, private grader state, backend-specific location field, or Question Backend credential.
 Published figures are rechecked against their exact asset binding and checksum.
 Output is written bytes-first to typed course-record `StudentRecord` keys; an
 exact immutable object may be reused after a pre-commit crash, while different

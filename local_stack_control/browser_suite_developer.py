@@ -464,7 +464,7 @@ def default_operations() -> DeveloperOperations:
 	) -> RunningDeveloperStack:
 		"""Start the production browser stack and wait for its declared readiness."""
 		runner = local_stack_control.process.SubprocessRunner()
-		selections = local_stack_control.env_file.canonical_stack_selections(root)
+		selections = local_stack_control.env_file.tracked_stack_selections(root)
 		ports = local_stack_control.live_demo_target.random_ports()
 		local_stack_control.process.require_available_loopback_ports(
 			ports.as_tuple(), runner, root

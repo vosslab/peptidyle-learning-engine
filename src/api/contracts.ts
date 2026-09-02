@@ -40,7 +40,6 @@ import type { AssignmentReleaseValidation } from "../../generated/api/Assignment
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { CreateAssignmentRequest } from "../../generated/api/CreateAssignmentRequest";
 import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
-import type { ReplaceAssignmentFixedItemRequest } from "../../generated/api/ReplaceAssignmentFixedItemRequest";
 
 export type {
   AssignmentSummary,
@@ -53,11 +52,6 @@ export type { CreateAssignmentRequest as AssignmentCreateInput };
 
 /** The HTTP client adds the exact current Assignment edit precondition. */
 export type AssignmentPoliciesInput = Omit<ReplaceAssignmentPoliciesRequest, "baseEditNumber">;
-/** The HTTP client adds the exact current Assignment edit precondition. */
-export type ReplaceAssignmentFixedItemInput = Omit<
-  ReplaceAssignmentFixedItemRequest,
-  "baseEditNumber"
->;
 
 /** Questions-owned browser input; readonly collections retain page draft ownership. */
 export interface AssignmentContentInput {
@@ -96,7 +90,7 @@ export interface AssignmentEditorDetail extends AssignmentSummary {
 export type { NavigationResolution };
 
 /** One safe Question Library display fact returned from a server-owned Question Pool Preview. */
-export interface QuestionPoolPreviewQuestion {
+export interface QuestionPoolPreviewItem {
   readonly questionId: string;
   readonly title: string;
 }
@@ -116,8 +110,8 @@ export interface QuestionPoolPreview {
   readonly selectionRule: {
     readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
   };
-  readonly entries: ReadonlyArray<QuestionPoolPreviewQuestion>;
-  readonly selected: ReadonlyArray<QuestionPoolPreviewQuestion>;
+  readonly items: ReadonlyArray<QuestionPoolPreviewItem>;
+  readonly selectedItems: ReadonlyArray<QuestionPoolPreviewItem>;
 }
 
 /**
@@ -344,7 +338,7 @@ export interface QuestionPublicationReview {
   >;
 }
 
-/** Safe review summary; source locators, grading, and keys remain server-held. */
+/** Safe review summary; Question Sources, Source Object References, grading, and keys remain server-held. */
 export interface QuestionPublicationReviewSummary {
   readonly questionBackend: QuestionBackend;
   readonly title: string;

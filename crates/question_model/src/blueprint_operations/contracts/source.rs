@@ -6,7 +6,7 @@ use crate::{BlueprintCourseReference, BlueprintRevision};
 
 /// One exact Blueprint Course and immutable Blueprint Revision pair.
 ///
-/// This is browser-safe locator/revision evidence only. The Store owns draft
+/// This is browser-safe Blueprint Revision Reference evidence only. The Store owns draft
 /// visibility, published Instructor visibility, and exact server pin resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]

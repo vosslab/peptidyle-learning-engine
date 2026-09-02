@@ -78,7 +78,7 @@ pub(super) fn package_import_result_checksum_input(
                     .iter()
                     .chain(report.defaults())
                     .chain(report.warnings())
-                    .map(|diagnostic| diagnostic.digest_diagnostic())
+                    .map(|diagnostic| diagnostic.checksum_diagnostic())
                     .collect(),
             },
         };
@@ -98,7 +98,7 @@ pub(super) fn package_import_result_checksum_input(
         items,
         defaults: QtiPleDefault::ALL
             .into_iter()
-            .map(QtiPleDefault::digest_diagnostic)
+            .map(QtiPleDefault::checksum_diagnostic)
             .collect(),
     })
 }

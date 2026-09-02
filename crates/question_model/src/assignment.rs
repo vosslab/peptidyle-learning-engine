@@ -364,7 +364,7 @@ pub struct FixedQuestionAssignmentEntry {
 pub enum QuestionPoolSelectedQuestionOrder {
     /// Preserve Question Pool Item order after deterministic selection.
     QuestionPoolOrder,
-    /// Deterministically shuffle selected entries from the server selection entropy.
+    /// Deterministically shuffle selected Question Pool Items from the server selection entropy.
     RandomOrder,
 }
 
@@ -398,7 +398,7 @@ pub struct QuestionPoolAssignmentEntry {
     pub availability: AssignmentEntryAvailability,
     /// Current-only scoring rule applied to every selected Question Pool Item.
     pub scoring_rule: AssignmentEntryScoringRule,
-    /// Number of available entries selected for each future Assignment Attempt.
+    /// Number of available Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Uniform current points for each selected Question Pool Item.
     pub points_per_item: AssignmentPointValue,

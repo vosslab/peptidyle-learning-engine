@@ -487,13 +487,13 @@ function contentView(value: unknown, path: string): void {
 
 function summary(value: unknown, path: string): BlueprintCourseSummaryView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "revision", "access"]);
+  requireOnlyFields(record, path, ["reference", "title", "revision", "read_access"]);
   return {
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
     title: text(field(record, "title", path), `${path}.title`),
     revision: revision(field(record, "revision", path), `${path}.revision`),
-    access: decodeStringEnum(field(record, "access", path), `${path}.access`, [
-      "owner",
+    read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
+      "blueprint_course_owner",
       "active_instructor",
     ]),
   };
@@ -501,7 +501,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
 
 export function decodeBlueprintCourseView(value: unknown, path = "response"): BlueprintCourseView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "revision", "access", "modules"]);
+  requireOnlyFields(record, path, ["reference", "title", "revision", "read_access", "modules"]);
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
@@ -533,8 +533,8 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
     title: text(field(record, "title", path), `${path}.title`),
     revision: revision(field(record, "revision", path), `${path}.revision`),
-    access: decodeStringEnum(field(record, "access", path), `${path}.access`, [
-      "owner",
+    read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
+      "blueprint_course_owner",
       "active_instructor",
     ]),
     modules: modules as BlueprintCourseView["modules"],

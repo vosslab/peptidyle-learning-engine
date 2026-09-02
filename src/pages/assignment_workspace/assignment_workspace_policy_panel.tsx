@@ -396,8 +396,8 @@ export function AssignmentWorkspacePolicyPanel(
         />
         <DisclosureControl
           label="Question Feedback"
-          value={props.studentFeedbackReleaseRule().feedback_text}
-          onChange={(value) => changeDisclosure("feedback_text", value)}
+          value={props.studentFeedbackReleaseRule().question_feedback}
+          onChange={(value) => changeDisclosure("question_feedback", value)}
         />
         <DisclosureControl
           label="Show Question Answer"

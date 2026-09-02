@@ -1,6 +1,6 @@
 //! Pure composition of the S5 active-membership gate, S3 policy, and S4 disclosure for WP-INST-T3.
 //!
-//! The Store owns route locators and authorization. It resolves them, discards all
+//! The Store owns route References and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
 //! module only the already-resolved S5/S3 facts. Evaluation borrows those facts
 //! and returns an owned, closed Assignment Release Validation.
@@ -183,7 +183,7 @@ pub fn project_preview_student_feedback_release(
         flags: PreviewDisclosureFlags {
             score_shown: value.score,
             correctness_shown: value.per_item_correctness,
-            feedback_shown: value.feedback_text,
+            feedback_shown: value.question_feedback,
             question_answer_shown: value.question_answer,
             question_answer_explanation_shown: value.question_answer_explanation,
             statistics_shown: value.class_statistics,
@@ -559,7 +559,7 @@ mod tests {
         let disclosure = StudentFeedbackReleaseRule {
             score: StudentFeedbackReleaseTiming::DuringAttempt,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
-            feedback_text: StudentFeedbackReleaseTiming::AfterDue,
+            question_feedback: StudentFeedbackReleaseTiming::AfterDue,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,

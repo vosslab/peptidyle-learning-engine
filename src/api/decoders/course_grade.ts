@@ -103,7 +103,7 @@ function decodeScheme(value: unknown, path: string): CourseGradeScheme {
     new Set(categories.map((item) => item.id)).size !== categories.length ||
     !categories.every((item, index) => item.position === index)
   )
-    throw new DecodeError(`${path}.categories`, "unique canonical category positions");
+    throw new DecodeError(`${path}.categories`, "unique sequential category positions");
   if (mode === "totalPoints" && categories.length !== 0)
     throw new DecodeError(`${path}.categories`, "no categories for total points");
   if (
@@ -188,7 +188,7 @@ function validateAssignments(
   for (const categoryPositions of positions.values()) {
     categoryPositions.sort((left, right) => left - right);
     if (!categoryPositions.every((item, index) => item === index))
-      throw new DecodeError(path, "canonical positions across every mapped member");
+      throw new DecodeError(path, "sequential positions across every mapped member");
   }
 }
 

@@ -6,9 +6,10 @@ use objects::{ObjectStore, ObjectStoreError, PutObject, ResolvedQuestionSource};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    DraftImathasQuestionBackendBinding, QuestionAttemptReproductionDetails, QuestionBackend as ModelQuestionBackend,
-    QuestionRendererVersion, QuestionRevision, QuestionRevisionReference, QuestionVariationPresentation,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    DraftImathasQuestionBackendBinding, QuestionAttemptReproductionDetails,
+    QuestionBackend as ModelQuestionBackend, QuestionRendererVersion, QuestionRevision,
+    QuestionRevisionReference, QuestionVariationPresentation, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -134,7 +135,8 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         &self,
         draft_binding: &DraftImathasQuestionBackendBinding,
     ) -> Result<PreparedSnapshot, ImathasAdapterError> {
-        let locator = ImathasQuestionLocation::from_draft_imathas_question_backend_binding(draft_binding);
+        let locator =
+            ImathasQuestionLocation::from_draft_imathas_question_backend_binding(draft_binding);
         let (bytes, profile) = self
             .question_backend
             .snapshot(&locator)

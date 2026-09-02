@@ -33,6 +33,19 @@ BEGIN
         ) AND is_nullable = 'NO') <> 7 THEN
         RAISE EXCEPTION 'Assignment Revision Entry does not retain its exact released facts';
     END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'ple_data'
+          AND table_name = 'assignment_revision_question_pool_item'
+          AND column_name = 'entry_index'
+    ) OR (SELECT count(*) FROM information_schema.columns
+        WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision_question_pool_item'
+        AND column_name IN (
+            'assignment_revision_id', 'assignment_entry_id', 'question_pool_item_id',
+            'question_pool_item_index', 'question_id', 'revision_number', 'availability'
+        ) AND is_nullable = 'NO') <> 7 THEN
+        RAISE EXCEPTION 'Question Pool Item snapshots do not retain exact Item facts';
+    END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conrelid = 'ple_data.assignment_revision_entry'::regclass
@@ -168,7 +181,9 @@ BEGIN
     END;
 END
 $$;
-INSERT INTO ple_data.blueprint_course (blueprint_id, owner_account_id, created_at)
+INSERT INTO ple_data.blueprint_course (
+    blueprint_id, blueprint_course_owner_account_id, created_at
+)
 VALUES ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.blueprint_course_revision (
     blueprint_revision_id, blueprint_id, revision, title, blueprint_course_content, created_at

@@ -1,7 +1,7 @@
-//! Current, course-local item-analysis projections.
+//! Current, course-local Assignment Question Analysis projections.
 //!
-//! These records deliberately contain aggregate buckets only. They never
-//! retain Student identity, raw responses, answer choices, or Object Addresses.
+//! These records deliberately contain aggregate Question outcomes only. They
+//! never retain Student identity, raw responses, answer choices, or Object Addresses.
 
 use question_model::{
     AssignmentEntryId, AssignmentId, CourseId, QuestionRevisionReference, ScoringGeneration,
@@ -9,173 +9,175 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Aggregate response category safe to persist in a course-local report.
+/// Aggregate Question outcome category safe to persist in a course-local report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ItemAnalysisResponseBucket {
+pub enum QuestionOutcomeCategory {
     Correct,
-    Partial,
+    PartialCredit,
     Incorrect,
     Unanswered,
 }
 
-/// Counts for the fixed, non-identifying item-analysis response categories.
+/// Counts for the fixed, non-identifying Question outcome categories.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct ItemAnalysisResponseDistribution {
+pub struct QuestionOutcomeDistribution {
     pub correct: u32,
-    pub partial: u32,
+    pub partial_credit: u32,
     pub incorrect: u32,
     pub unanswered: u32,
 }
 
-impl ItemAnalysisResponseDistribution {
-    /// Returns the count in the requested safe aggregate bucket.
-    pub fn count(self, bucket: ItemAnalysisResponseBucket) -> u32 {
-        match bucket {
-            ItemAnalysisResponseBucket::Correct => self.correct,
-            ItemAnalysisResponseBucket::Partial => self.partial,
-            ItemAnalysisResponseBucket::Incorrect => self.incorrect,
-            ItemAnalysisResponseBucket::Unanswered => self.unanswered,
+impl QuestionOutcomeDistribution {
+    /// Returns the count in the requested safe aggregate Question outcome category.
+    pub fn count(self, category: QuestionOutcomeCategory) -> u32 {
+        match category {
+            QuestionOutcomeCategory::Correct => self.correct,
+            QuestionOutcomeCategory::PartialCredit => self.partial_credit,
+            QuestionOutcomeCategory::Incorrect => self.incorrect,
+            QuestionOutcomeCategory::Unanswered => self.unanswered,
         }
     }
 }
 
-/// One current aggregate row for an item delivered by an assignment.
+/// One current aggregate Question row delivered by an Assignment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct AssignmentItemAnalysis {
+pub struct AssignmentQuestionAnalysis {
     pub course: CourseId,
     pub assignment: AssignmentId,
     pub assignment_entry: AssignmentEntryId,
-    pub reference: QuestionRevisionReference,
-    pub source_scoring_generation: ScoringGeneration,
+    pub question_revision: QuestionRevisionReference,
+    pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
     pub graded_attempt_count: u32,
     pub unanswered_attempt_count: u32,
     /// Submitted attempts whose automated evaluation has not produced a
-    /// coherent score. These attempts are intentionally outside the response
-    /// distribution: no score-derived bucket is truthful yet.
+    /// coherent score. These attempts are intentionally outside the Question
+    /// outcome distribution: no score-derived category is truthful yet.
     pub unscored_attempt_count: u32,
     /// Fraction of graded attempts with full current credit.
-    pub difficulty: Option<f64>,
+    pub question_difficulty: Option<f64>,
     /// Mean current credit fraction among graded attempts.
     pub average_credit: Option<f64>,
     /// Sample standard deviation of current credit fraction among graded attempts.
     pub credit_standard_deviation: Option<f64>,
-    /// Pearson correlation between item credit and rest-of-Assignment-Attempt credit.
-    pub discrimination: Option<f64>,
-    pub response_distribution: ItemAnalysisResponseDistribution,
+    /// Pearson correlation between Question credit and other Question credit in the Assignment Attempt.
+    pub question_discrimination: Option<f64>,
+    pub question_outcome_distribution: QuestionOutcomeDistribution,
     /// Mean elapsed milliseconds from the terminal Student submission for Assignment Attempts
-    /// that delivered this item.
+    /// that delivered this Question.
     pub average_completion_time_millis: Option<u64>,
 }
 
-/// Current report header and all item rows for one course assignment.
+/// Current report header and all Question rows for one Course Instance Assignment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct CourseItemAnalysisReport {
+pub struct AssignmentQuestionAnalysisReport {
     pub course: CourseId,
     pub assignment: AssignmentId,
-    pub source_scoring_generation: ScoringGeneration,
+    pub scoring_generation: ScoringGeneration,
     pub analyzed_at: Timestamp,
     pub completed_assignment_attempt_count: u32,
     pub in_progress_assignment_attempt_count: u32,
     /// A terminal submitted attempt lacks a coherent automated score.
-    /// Score-derived assignment metrics remain suppressed while this is true.
+    /// Score-derived Assignment metrics remain suppressed while this is true.
     pub incomplete_scoring: bool,
     /// Derived at read time from the stored source generation and current scoring state.
     pub recent_rescoring: bool,
     pub assignment_average_score: Option<f64>,
     pub average_completion_time_millis: Option<u64>,
-    pub items: Vec<AssignmentItemAnalysis>,
+    pub question_analyses: Vec<AssignmentQuestionAnalysis>,
 }
 
 /// Private aggregate inputs stripped of all Student and response identity.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct ItemAnalysisMetricInput {
+pub struct AssignmentQuestionAnalysisMetricInput {
     pub graded_credits: Vec<f64>,
     pub graded_correct: Vec<bool>,
-    pub rest_of_run_credits: Vec<f64>,
+    pub rest_of_assignment_credits: Vec<f64>,
     pub unanswered_attempt_count: u32,
     /// Internal aggregate input for report completeness. It deliberately does
-    /// not enter a response bucket.
+    /// not enter a Question outcome category.
     pub unscored_attempt_count: u32,
     pub completion_times_millis: Vec<u64>,
 }
 
-/// Pure computed metrics used by storage-specific report builders.
+/// Pure computed metrics used by storage-specific Assignment Question Analysis builders.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ItemAnalysisMetrics {
+pub struct AssignmentQuestionAnalysisMetrics {
     pub graded_attempt_count: u32,
-    pub difficulty: Option<f64>,
+    pub question_difficulty: Option<f64>,
     pub average_credit: Option<f64>,
     pub credit_standard_deviation: Option<f64>,
-    pub discrimination: Option<f64>,
+    pub question_discrimination: Option<f64>,
     pub average_completion_time_millis: Option<u64>,
-    pub response_distribution: ItemAnalysisResponseDistribution,
+    pub question_outcome_distribution: QuestionOutcomeDistribution,
 }
 
-/// Invalid aggregate input rejected before it can corrupt a report.
+/// Invalid aggregate input rejected before it can corrupt an Assignment Question Analysis report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ItemAnalysisMetricError {
+pub enum AssignmentQuestionAnalysisMetricError {
     UnpairedCredits,
     UnpairedCorrectness,
     InvalidCredit,
-    InvalidRestOfRunCredit,
+    InvalidRestOfAssignmentCredit,
 }
 
-impl std::fmt::Display for ItemAnalysisMetricError {
+impl std::fmt::Display for AssignmentQuestionAnalysisMetricError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::UnpairedCredits => {
-                "item-analysis credits must remain paired with rest-of-Assignment-Attempt credits"
+                "Assignment Question Analysis credits must remain paired with other Assignment Attempt Question credits"
             }
             Self::UnpairedCorrectness => {
-                "item-analysis credits must remain paired with correctness"
+                "Assignment Question Analysis credits must remain paired with correctness"
             }
-            Self::InvalidCredit => "item-analysis credit must be finite and between -1000 and 1000",
-            Self::InvalidRestOfRunCredit => {
-                "item-analysis rest-of-Assignment-Attempt credit must be finite"
+            Self::InvalidCredit => {
+                "Assignment Question Analysis credit must be finite and between -1000 and 1000"
+            }
+            Self::InvalidRestOfAssignmentCredit => {
+                "Assignment Question Analysis other Assignment Attempt Question credit must be finite"
             }
         })
     }
 }
 
-impl std::error::Error for ItemAnalysisMetricError {}
+impl std::error::Error for AssignmentQuestionAnalysisMetricError {}
 
-/// Calculates current-only item metrics from identity-free aggregate inputs.
+/// Calculates current-only Assignment Question Analysis metrics from identity-free aggregate inputs.
 ///
 /// Credits must be finite and within the automated scoring contract; invalid
-/// values are rejected rather than silently affecting an instructor report.
-pub fn calculate_item_analysis_metrics(
-    input: &ItemAnalysisMetricInput,
-) -> Result<ItemAnalysisMetrics, ItemAnalysisMetricError> {
-    if input.graded_credits.len() != input.rest_of_run_credits.len() {
-        return Err(ItemAnalysisMetricError::UnpairedCredits);
+/// values are rejected rather than silently affecting an Instructor report.
+pub fn calculate_assignment_question_analysis_metrics(
+    input: &AssignmentQuestionAnalysisMetricInput,
+) -> Result<AssignmentQuestionAnalysisMetrics, AssignmentQuestionAnalysisMetricError> {
+    if input.graded_credits.len() != input.rest_of_assignment_credits.len() {
+        return Err(AssignmentQuestionAnalysisMetricError::UnpairedCredits);
     }
     if input.graded_credits.len() != input.graded_correct.len() {
-        return Err(ItemAnalysisMetricError::UnpairedCorrectness);
+        return Err(AssignmentQuestionAnalysisMetricError::UnpairedCorrectness);
     }
     if input
         .graded_credits
         .iter()
         .any(|credit| !credit.is_finite() || !(-1_000.0..=1_000.0).contains(credit))
     {
-        return Err(ItemAnalysisMetricError::InvalidCredit);
+        return Err(AssignmentQuestionAnalysisMetricError::InvalidCredit);
     }
     if input
-        .rest_of_run_credits
+        .rest_of_assignment_credits
         .iter()
         .any(|credit| !credit.is_finite())
     {
-        return Err(ItemAnalysisMetricError::InvalidRestOfRunCredit);
+        return Err(AssignmentQuestionAnalysisMetricError::InvalidRestOfAssignmentCredit);
     }
     let credits = &input.graded_credits;
     let graded_attempt_count = u32::try_from(credits.len()).unwrap_or(u32::MAX);
     let average_credit = mean(credits);
     let credit_standard_deviation = sample_standard_deviation(credits);
-    let difficulty = (!credits.is_empty()).then(|| {
+    let question_difficulty = (!credits.is_empty()).then(|| {
         input
             .graded_correct
             .iter()
@@ -183,7 +185,7 @@ pub fn calculate_item_analysis_metrics(
             .count() as f64
             / credits.len() as f64
     });
-    let discrimination = pearson_correlation(credits, &input.rest_of_run_credits);
+    let question_discrimination = pearson_correlation(credits, &input.rest_of_assignment_credits);
     let correct = u32::try_from(
         input
             .graded_correct
@@ -192,9 +194,9 @@ pub fn calculate_item_analysis_metrics(
             .count(),
     )
     .unwrap_or(u32::MAX);
-    // Positive non-full credit, including extra credit, remains Partial;
+    // Positive non-full credit, including extra credit, remains Partial Credit;
     // zero and negative credit are Incorrect unless the evaluator marked it correct.
-    let partial = u32::try_from(
+    let partial_credit = u32::try_from(
         credits
             .iter()
             .zip(input.graded_correct.iter())
@@ -210,16 +212,16 @@ pub fn calculate_item_analysis_metrics(
             .count(),
     )
     .unwrap_or(u32::MAX);
-    Ok(ItemAnalysisMetrics {
+    Ok(AssignmentQuestionAnalysisMetrics {
         graded_attempt_count,
-        difficulty,
+        question_difficulty,
         average_credit,
         credit_standard_deviation,
-        discrimination,
+        question_discrimination,
         average_completion_time_millis: mean_u64(&input.completion_times_millis),
-        response_distribution: ItemAnalysisResponseDistribution {
+        question_outcome_distribution: QuestionOutcomeDistribution {
             correct,
-            partial,
+            partial_credit,
             incorrect,
             unanswered: input.unanswered_attempt_count,
         },
@@ -281,61 +283,69 @@ mod tests {
     use super::*;
 
     #[test]
-    fn computes_current_credit_metrics_and_safe_buckets() {
-        let metrics = calculate_item_analysis_metrics(&ItemAnalysisMetricInput {
-            graded_credits: vec![1.0, 0.5, 0.0],
-            graded_correct: vec![true, false, false],
-            rest_of_run_credits: vec![1.0, 0.5, 0.0],
-            unanswered_attempt_count: 2,
-            unscored_attempt_count: 1,
-            completion_times_millis: vec![1_000, 2_001],
-        })
+    fn computes_assignment_question_metrics_and_safe_outcomes() {
+        let metrics = calculate_assignment_question_analysis_metrics(
+            &AssignmentQuestionAnalysisMetricInput {
+                graded_credits: vec![1.0, 0.5, 0.0],
+                graded_correct: vec![true, false, false],
+                rest_of_assignment_credits: vec![1.0, 0.5, 0.0],
+                unanswered_attempt_count: 2,
+                unscored_attempt_count: 1,
+                completion_times_millis: vec![1_000, 2_001],
+            },
+        )
         .expect("valid metrics");
         assert_eq!(metrics.graded_attempt_count, 3);
-        assert_eq!(metrics.difficulty, Some(1.0 / 3.0));
+        assert_eq!(metrics.question_difficulty, Some(1.0 / 3.0));
         assert_eq!(metrics.average_credit, Some(0.5));
-        assert_eq!(metrics.response_distribution.correct, 1);
-        assert_eq!(metrics.response_distribution.partial, 1);
-        assert_eq!(metrics.response_distribution.incorrect, 1);
-        assert_eq!(metrics.response_distribution.unanswered, 2);
+        assert_eq!(metrics.question_outcome_distribution.correct, 1);
+        assert_eq!(metrics.question_outcome_distribution.partial_credit, 1);
+        assert_eq!(metrics.question_outcome_distribution.incorrect, 1);
+        assert_eq!(metrics.question_outcome_distribution.unanswered, 2);
         assert_eq!(metrics.average_completion_time_millis, Some(1_500));
-        assert_eq!(metrics.discrimination, Some(1.0));
+        assert_eq!(metrics.question_discrimination, Some(1.0));
     }
 
     #[test]
     fn leaves_undefined_math_unavailable() {
-        let metrics = calculate_item_analysis_metrics(&ItemAnalysisMetricInput {
-            graded_credits: vec![1.0],
-            graded_correct: vec![true],
-            rest_of_run_credits: vec![0.5],
-            ..ItemAnalysisMetricInput::default()
-        })
+        let metrics = calculate_assignment_question_analysis_metrics(
+            &AssignmentQuestionAnalysisMetricInput {
+                graded_credits: vec![1.0],
+                graded_correct: vec![true],
+                rest_of_assignment_credits: vec![0.5],
+                ..AssignmentQuestionAnalysisMetricInput::default()
+            },
+        )
         .expect("valid metrics");
         assert_eq!(metrics.credit_standard_deviation, None);
-        assert_eq!(metrics.discrimination, None);
+        assert_eq!(metrics.question_discrimination, None);
 
-        let metrics = calculate_item_analysis_metrics(&ItemAnalysisMetricInput {
-            graded_credits: vec![1.0, 1.0],
-            graded_correct: vec![true, true],
-            rest_of_run_credits: vec![0.5, 0.5],
-            ..ItemAnalysisMetricInput::default()
-        })
+        let metrics = calculate_assignment_question_analysis_metrics(
+            &AssignmentQuestionAnalysisMetricInput {
+                graded_credits: vec![1.0, 1.0],
+                graded_correct: vec![true, true],
+                rest_of_assignment_credits: vec![0.5, 0.5],
+                ..AssignmentQuestionAnalysisMetricInput::default()
+            },
+        )
         .expect("valid metrics");
-        assert_eq!(metrics.discrimination, None);
+        assert_eq!(metrics.question_discrimination, None);
     }
 
     #[test]
     fn correctness_controls_difficulty_independently_of_credit() {
-        let metrics = calculate_item_analysis_metrics(&ItemAnalysisMetricInput {
-            graded_credits: vec![0.0, 2.0, -0.5],
-            graded_correct: vec![true, false, false],
-            rest_of_run_credits: vec![0.0, 2.0, -0.5],
-            ..ItemAnalysisMetricInput::default()
-        })
+        let metrics = calculate_assignment_question_analysis_metrics(
+            &AssignmentQuestionAnalysisMetricInput {
+                graded_credits: vec![0.0, 2.0, -0.5],
+                graded_correct: vec![true, false, false],
+                rest_of_assignment_credits: vec![0.0, 2.0, -0.5],
+                ..AssignmentQuestionAnalysisMetricInput::default()
+            },
+        )
         .expect("finite bounded credits are valid");
-        assert_eq!(metrics.difficulty, Some(1.0 / 3.0));
-        assert_eq!(metrics.response_distribution.correct, 1);
-        assert_eq!(metrics.response_distribution.partial, 1);
-        assert_eq!(metrics.response_distribution.incorrect, 1);
+        assert_eq!(metrics.question_difficulty, Some(1.0 / 3.0));
+        assert_eq!(metrics.question_outcome_distribution.correct, 1);
+        assert_eq!(metrics.question_outcome_distribution.partial_credit, 1);
+        assert_eq!(metrics.question_outcome_distribution.incorrect, 1);
     }
 }

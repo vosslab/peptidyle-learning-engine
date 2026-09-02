@@ -9,12 +9,15 @@
 use async_trait::async_trait;
 use base64::Engine as _;
 use question_model::generation::QuestionSeed;
-use question_model::{DraftImathasQuestionBackendBinding, QuestionBackend, QuestionRevision, Timestamp};
+use question_model::{
+    DraftImathasQuestionBackendBinding, QuestionBackend as ModelQuestionBackend, QuestionRevision,
+    Timestamp,
+};
 use sha2::{Digest, Sha256};
 
 use crate::result_verification::{
     IMATHAS_GRADING_PROFILE_ID, ImathasGradingFailure, ImathasGradingProfile,
-    ImathasResultVerifier, launch_binding_digest, normalize_imathas_seed,
+    ImathasResultVerifier, imathas_launch_binding_checksum, normalize_imathas_seed,
 };
 use crate::{
     ImathasAdapterError, ImathasQuestionBackendFailure, ImathasQuestionLocation,
@@ -455,7 +458,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
         {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        if question.question_backend != QuestionBackend::Imathas {
+        if question.question_backend != ModelQuestionBackend::Imathas {
             return Err(ImathasAdapterError::UnsupportedSource);
         }
         let binding = question
@@ -503,15 +506,15 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             return Err(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication);
         }
         let imathas_seed = normalize_imathas_seed(grading_context.question_seed());
-        let binding_digest = launch_binding_digest(
+        let binding_checksum = imathas_launch_binding_checksum(
             grading_context,
             source.binding().item_reference().as_str(),
             source.source_object_checksum().as_str(),
             imathas_seed,
             validation.authentication.as_str(),
         );
-        let qualified_launch_binding_digest =
-            learning_data_access::QualifiedLaunchBindingDigest::parse(binding_digest.clone())
+        let imathas_launch_binding_checksum =
+            learning_data_access::ImathasLaunchBindingChecksum::parse(binding_checksum.clone())
                 .map_err(|_| {
                     ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication
                 })?;
@@ -519,9 +522,8 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             source.binding().deployment_reference().clone(),
             source.binding().item_reference().clone(),
         );
-        let locator = ImathasQuestionLocation::from_draft_imathas_question_backend_binding(
-            &draft_binding,
-        );
+        let locator =
+            ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&draft_binding);
         let fresh = self
             .transport
             .fetch_snapshot(SnapshotTransportRequest {
@@ -548,7 +550,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
                 validation.expires_at.as_unix_millis(),
                 &base64::engine::general_purpose::URL_SAFE_NO_PAD
                     .encode(validation.challenge.as_bytes()),
-                &binding_digest,
+                &binding_checksum,
             )?,
         };
         let handle = self
@@ -558,7 +560,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
             .map_err(map_transport)?;
         Ok(ImathasLaunchPreparation {
             imathas_launch_state: ImathasLaunchState::from_launch_handle(handle).encode()?,
-            qualified_launch_binding_digest,
+            imathas_launch_binding_checksum,
         })
     }
 
@@ -674,7 +676,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
 /// Transient adapter output used by composition to create the sole LDA session.
 pub struct ImathasLaunchPreparation {
     imathas_launch_state: learning_data_access::ImathasQuestionBackendStatePlaintext,
-    qualified_launch_binding_digest: learning_data_access::QualifiedLaunchBindingDigest,
+    imathas_launch_binding_checksum: learning_data_access::ImathasLaunchBindingChecksum,
 }
 
 impl ImathasLaunchPreparation {
@@ -683,10 +685,10 @@ impl ImathasLaunchPreparation {
     ) -> &learning_data_access::ImathasQuestionBackendStatePlaintext {
         &self.imathas_launch_state
     }
-    pub fn qualified_launch_binding_digest(
+    pub fn imathas_launch_binding_checksum(
         &self,
-    ) -> &learning_data_access::QualifiedLaunchBindingDigest {
-        &self.qualified_launch_binding_digest
+    ) -> &learning_data_access::ImathasLaunchBindingChecksum {
+        &self.imathas_launch_binding_checksum
     }
 }
 
@@ -734,7 +736,7 @@ fn validate_loaded_imathas_launch_state(
     ) {
         return Err(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication);
     }
-    let expected = launch_binding_digest(
+    let expected_checksum = imathas_launch_binding_checksum(
         grading_context,
         validation
             .imathas_question_backend_binding
@@ -744,7 +746,7 @@ fn validate_loaded_imathas_launch_state(
         normalize_imathas_seed(grading_context.question_seed()),
         validation.authentication.as_str(),
     );
-    if expected != validation.qualified_launch_binding_digest.as_str() {
+    if expected_checksum != validation.imathas_launch_binding_checksum.as_str() {
         return Err(ImathasAdapterError::InvalidImathasQuestionBackendSessionAuthentication);
     }
     Ok(())

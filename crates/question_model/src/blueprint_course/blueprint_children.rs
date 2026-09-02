@@ -14,7 +14,7 @@ use crate::MAX_ASSIGNMENT_ORDERED_ENTRIES;
 
 /// Opaque stable identity for one retained module in a BlueprintCourse lineage.
 ///
-/// It is an answer-free edit token, not a route locator or human-facing label.
+/// It is an answer-free edit token, not a route Reference or human-facing label.
 /// The server allocates it when a module first enters a BlueprintCourse and
 /// validates retained ownership when the complete tree is replaced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

@@ -409,9 +409,6 @@ fn validate_correct_and_wrong_grading(
         draft,
         QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         QuestionRevisionNumber::new(1).expect("positive version"),
-        QuestionBackend::Ple,
-        None,
-        None,
         None,
     )?;
     let correct_result = private.evaluate(&published, &correct)?;

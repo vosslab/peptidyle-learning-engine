@@ -20,7 +20,7 @@ pub struct ImathasQuestionBackendSession {
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) issued_at: Timestamp,
     pub(crate) expires_at: Timestamp,
     pub(crate) revoked_at: Option<Timestamp>,
@@ -61,7 +61,7 @@ impl ImathasQuestionBackendSession {
             response_checksum: self.response_checksum,
             challenge: self.challenge.clone(),
             authentication: self.authentication.clone(),
-            qualified_launch_binding_digest: self.qualified_launch_binding_digest.clone(),
+            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
             issued_at: self.issued_at,
             expires_at: self.expires_at,
             revoked_at: self.revoked_at,
@@ -98,7 +98,7 @@ impl ImathasQuestionBackendSession {
         response_checksum: ImathasResponseChecksum,
         challenge: ImathasQuestionBackendSessionChallenge,
         authentication: ImathasQuestionBackendSessionAuthentication,
-        qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+        imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         issued_at: Timestamp,
         expires_at: Timestamp,
         revoked_at: Option<Timestamp>,
@@ -132,7 +132,7 @@ impl ImathasQuestionBackendSession {
             response_checksum,
             challenge,
             authentication,
-            qualified_launch_binding_digest,
+            imathas_launch_binding_checksum,
             issued_at,
             expires_at,
             revoked_at,
@@ -159,7 +159,7 @@ impl ImathasQuestionBackendSession {
             parts.response_checksum,
             parts.challenge,
             parts.authentication,
-            parts.qualified_launch_binding_digest,
+            parts.imathas_launch_binding_checksum,
             parts.issued_at,
             parts.expires_at,
             parts.revoked_at,
@@ -185,7 +185,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
             .field("response_checksum", &"[redacted]")
             .field("challenge", &"[redacted]")
             .field("authentication", &"[redacted]")
-            .field("qualified_launch_binding_digest", &"[redacted]")
+            .field("imathas_launch_binding_checksum", &"[redacted]")
             .field("issued_at", &self.issued_at)
             .field("expires_at", &self.expires_at)
             .field("revoked_at", &self.revoked_at)
@@ -206,7 +206,7 @@ pub struct ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
 }
 
@@ -221,7 +221,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
-        qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+        imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         authentication: ImathasQuestionBackendSessionAuthentication,
     ) -> Self {
         Self {
@@ -233,7 +233,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             imathas_question_backend_binding,
             source_object,
             source_object_checksum,
-            qualified_launch_binding_digest,
+            imathas_launch_binding_checksum,
             authentication,
         }
     }
@@ -247,7 +247,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             && self.imathas_question_backend_binding == session.imathas_question_backend_binding
             && self.source_object == session.source_object
             && self.source_object_checksum == session.source_object_checksum
-            && self.qualified_launch_binding_digest == session.qualified_launch_binding_digest
+            && self.imathas_launch_binding_checksum == session.imathas_launch_binding_checksum
             && self.authentication == session.authentication
     }
 
@@ -261,7 +261,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
-            qualified_launch_binding_digest: self.qualified_launch_binding_digest.clone(),
+            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
             authentication: self.authentication.clone(),
         }
     }
@@ -277,7 +277,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
-            qualified_launch_binding_digest: self.qualified_launch_binding_digest.clone(),
+            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
             authentication: self.authentication.clone(),
         }
     }
@@ -294,7 +294,7 @@ pub(crate) struct ImathasQuestionBackendSessionStorePredicate {
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
 }
 
@@ -309,7 +309,7 @@ pub struct ImathasQuestionBackendSessionValidation {
     pub response_checksum: ImathasResponseChecksum,
     pub challenge: ImathasQuestionBackendSessionChallenge,
     pub authentication: ImathasQuestionBackendSessionAuthentication,
-    pub qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub expires_at: Timestamp,
 }
 
@@ -324,7 +324,7 @@ impl ImathasQuestionBackendSession {
             response_checksum: self.response_checksum,
             challenge: self.challenge.clone(),
             authentication: self.authentication.clone(),
-            qualified_launch_binding_digest: self.qualified_launch_binding_digest.clone(),
+            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
             expires_at: self.expires_at,
         }
     }
@@ -354,7 +354,7 @@ pub struct ImathasQuestionBackendSessionCreate {
     pub(crate) response_checksum: ImathasResponseChecksum,
     pub(crate) challenge: ImathasQuestionBackendSessionChallenge,
     pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
-    pub(crate) qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) issued_at: Timestamp,
     pub(crate) expires_at: Timestamp,
     pub(crate) imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
@@ -374,7 +374,7 @@ impl ImathasQuestionBackendSessionCreate {
         response_checksum: ImathasResponseChecksum,
         challenge: ImathasQuestionBackendSessionChallenge,
         authentication: ImathasQuestionBackendSessionAuthentication,
-        qualified_launch_binding_digest: QualifiedLaunchBindingDigest,
+        imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         issued_at: Timestamp,
         expires_at: Timestamp,
         imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
@@ -397,7 +397,7 @@ impl ImathasQuestionBackendSessionCreate {
             response_checksum,
             challenge,
             authentication,
-            qualified_launch_binding_digest,
+            imathas_launch_binding_checksum,
             issued_at,
             expires_at,
             imathas_question_backend_state,
@@ -424,7 +424,7 @@ impl ImathasQuestionBackendSessionCreate {
             response_checksum: self.response_checksum,
             challenge: self.challenge,
             authentication: self.authentication,
-            qualified_launch_binding_digest: self.qualified_launch_binding_digest,
+            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum,
             issued_at: self.issued_at,
             expires_at: self.expires_at,
             revoked_at: None,

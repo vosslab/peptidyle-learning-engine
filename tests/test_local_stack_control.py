@@ -290,7 +290,7 @@ def test_conflicting_compose_aliases_are_rejected() -> None:
 #============================================
 def test_discovery_normalizes_podman_bare_oci_image_id() -> None:
 	"""A bare Podman configuration ID compares with the exact Question Renderer Version."""
-	assert local_stack_control.discovery.canonical_oci_image_id("a" * 64) == "sha256:" + "a" * 64
+	assert local_stack_control.discovery.normalize_oci_image_id("a" * 64) == "sha256:" + "a" * 64
 
 
 #============================================

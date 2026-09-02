@@ -20,7 +20,7 @@ export function createMasteryAssignmentEditorState(courseId: string): Assignment
     studentFeedbackReleaseRule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
-      feedback_text: "after_submit",
+      question_feedback: "after_submit",
       question_answer: "after_submit",
       question_answer_explanation: "after_submit",
       class_statistics: "never",

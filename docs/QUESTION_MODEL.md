@@ -100,7 +100,7 @@ assignment cannot contain private question content.
 `QuestionSummary` is the current Question Search summary record. It contains the Question
 ID, exact `latestQuestionRevision` reference, Question Backend, capabilities,
 metadata, Question Revision Availability, and publication time, but not prompt,
-response, private source-locator fields, or private source data. Latest means
+response, private backend-specific location fields, or private source data. Latest means
 the accepted revision with the greatest Question Revision Number in the stable
 lineage; it is independent of Question Revision Availability. Trusted server
 work resolves the exact reference and loads the separate internal
@@ -246,28 +246,31 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 `QuestionRevision` carries the fields the specification names:
 
-| Field                      | Type                        | Purpose                                                                        |
-| -------------------------- | --------------------------- | ------------------------------------------------------------------------------ |
-| `questionId`               | `QuestionId`                | Stable Question lineage                                                        |
-| `revisionNumber`           | `QuestionRevisionNumber`    | Exact immutable version within the lineage                                     |
-| `workspace`                | `WorkspaceId`               | Authoring workspace                                                            |
-| `backendLocator`           | `QuestionBackendLocator`    | Backend-specific location, separate from the stored Question Source            |
-| `prompt`                   | `Vec<QuestionContentBlock>` | Renderable content, in order                                                   |
-| `questionType`             | `QuestionType`              | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT |
-| `response`                 | `QuestionResponseFormat`    | Accepted Student Response shape and constraints                                |
-| `questionAttemptLimit`     | `QuestionAttemptLimit`      | Retry bound for this Question                                                  |
-| `questionAttemptTimeLimit` | `QuestionAttemptTimeLimit`  | Time limits, with grace                                                        |
-| `questionVariationRule`    | `QuestionVariationRule`     | Static or seeded rule for how this Question varies                             |
-| `grading`                  | `QuestionGradingRule`       | How a response is judged                                                       |
-| `metadata`                 | `QuestionMetadata`          | Title, tags, Question Classifications, Question License, language              |
+| Field                           | Type                                    | Purpose                                                                                                        |
+| ------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `questionId`                    | `QuestionId`                            | Stable Question lineage                                                                                        |
+| `revisionNumber`                | `QuestionRevisionNumber`                | Exact immutable version within the lineage                                                                     |
+| `workspace`                     | `WorkspaceId`                           | Authoring workspace                                                                                            |
+| `questionBackend`               | `QuestionBackend`                       | Selected Question Backend, separate from the stored Question Source                                            |
+| `webworkPgPath`                 | `Option<String>`                        | WeBWorK PG Path when the Question Backend is WeBWorK                                                           |
+| `qtiPackageItemIdentifier`      | `Option<String>`                        | QTI package item identifier when the Question Backend is QTI                                                   |
+| `imathasQuestionBackendBinding` | `Option<ImathasQuestionBackendBinding>` | iMathAS Deployment Reference, iMathAS Item Reference, and iMathAS Profile when the Question Backend is iMathAS |
+| `prompt`                        | `Vec<QuestionContentBlock>`             | Renderable content, in order                                                                                   |
+| `questionType`                  | `QuestionType`                          | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT                                 |
+| `response`                      | `QuestionResponseFormat`                | Accepted Student Response shape and constraints                                                                |
+| `questionAttemptLimit`          | `QuestionAttemptLimit`                  | Retry bound for this Question                                                                                  |
+| `questionAttemptTimeLimit`      | `QuestionAttemptTimeLimit`              | Time limits, with grace                                                                                        |
+| `questionVariationRule`         | `QuestionVariationRule`                 | Static or seeded rule for how this Question varies                                                             |
+| `grading`                       | `QuestionGradingRule`                   | How a response is judged                                                                                       |
+| `metadata`                      | `QuestionMetadata`                      | Title, tags, Question Classifications, Question License, language                                              |
 
 ### Response shapes
 
 `QuestionType` classifies the educational interaction independently of Question
 Format, Question Backend, and the browser control. `QuestionResponseFormat` and
 `StudentResponse` are parallel enums: numeric, multiple choice or multiple
-answer, short text, multi-blank, matching, ordering, hotspot, and external
-tool. Within a variant, invalid field combinations are unrepresentable, so a
+answer, short text, multi-blank, matching, ordering, hotspot, and iMathAS
+Question Backend. Within a variant, invalid field combinations are unrepresentable, so a
 matching response carries only prompt-to-choice associations and a hotspot
 response carries only selected Hotspot Region references.
 `ResponseItemReference` is the durable semantic identifier used by this shared

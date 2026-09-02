@@ -7,7 +7,7 @@ import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
 import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch, PublicationResult } from "../contracts";
-import { isCanonicalImathasQuestionBackendLaunchPath } from "../imathas_question_backend_launch";
+import { isExpectedImathasQuestionBackendLaunchPath } from "../imathas_question_backend_launch";
 import {
   DecodeError,
   decodeArray,
@@ -33,9 +33,9 @@ import { decodeQuestionSummary } from "./question_library";
 import {
   decodeQuestionAttemptLimit,
   decodeQuestionContentBlock,
-  decodeDraftQuestionBackendLocator,
+  decodeDraftQuestionBackendFields,
   decodeQuestionGradingRule,
-  decodeQuestionBackendLocator,
+  decodeQuestionRevisionBackendFields,
   decodeQuestionVariationRule,
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
@@ -65,10 +65,7 @@ function decodeQuestionContent(
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    backendLocator: decodeQuestionBackendLocator(
-      field(record, "backendLocator", path),
-      `${path}.backendLocator`,
-    ),
+    ...decodeQuestionRevisionBackendFields(record, path),
     questionFormat: decodeQuestionFormat(
       field(record, "questionFormat", path),
       `${path}.questionFormat`,
@@ -119,10 +116,7 @@ function decodeDraftQuestionContentRecord(
   }
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    backendLocator: decodeDraftQuestionBackendLocator(
-      field(record, "backendLocator", path),
-      `${path}.backendLocator`,
-    ),
+    ...decodeDraftQuestionBackendFields(record, path),
     questionFormat: decodeQuestionFormat(
       field(record, "questionFormat", path),
       `${path}.questionFormat`,
@@ -158,7 +152,10 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
     "questionId",
     "revisionNumber",
     "workspace",
-    "backendLocator",
+    "questionBackend",
+    "webworkPgPath",
+    "qtiPackageItemIdentifier",
+    "imathasQuestionBackendBinding",
     "questionFormat",
     "prompt",
     "response",
@@ -188,7 +185,11 @@ export function decodeDraftQuestionContent(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "workspace",
-    "backendLocator",
+    "questionBackend",
+    "webworkPgPath",
+    "qtiPackageItemIdentifier",
+    "workspaceImportId",
+    "draftImathasQuestionBackendBinding",
     "questionFormat",
     "prompt",
     "response",
@@ -252,7 +253,7 @@ export function decodeImathasQuestionBackendLaunch(
   requireOnlyFields(record, path, ["launchUrl"]);
   const launchUrl = decodeNonemptyString(field(record, "launchUrl", path), `${path}.launchUrl`);
   if (
-    !isCanonicalImathasQuestionBackendLaunchPath(
+    !isExpectedImathasQuestionBackendLaunchPath(
       launchUrl,
       courseId,
       assignmentId,
@@ -262,7 +263,7 @@ export function decodeImathasQuestionBackendLaunch(
   ) {
     throw new DecodeError(
       `${path}.launchUrl`,
-      "the canonical same-origin iMathAS Question Backend Transport route for this attempt",
+      "the expected same-origin iMathAS Question Backend Transport route for this attempt",
     );
   }
   return { launchUrl };

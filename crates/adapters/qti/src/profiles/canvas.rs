@@ -55,8 +55,8 @@ impl CanvasQtiPackage {
     pub fn accepted_count(&self) -> usize {
         self.items.len()
     }
-    /// Canonical answer-free report evidence for this exact mapped package.
-    pub fn profile_report_digest_input(
+    /// Canonical answer-free checksum input for this exact mapped package.
+    pub fn profile_report_checksum_input(
         &self,
     ) -> Result<QtiImportResultChecksumInput, super::QtiProfileContractError> {
         super::checksums::package_import_result_checksum_input(

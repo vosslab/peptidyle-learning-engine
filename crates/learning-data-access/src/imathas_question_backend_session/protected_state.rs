@@ -352,7 +352,7 @@ fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -
         session.response_checksum.as_bytes(),
         session.challenge.as_bytes(),
         session.authentication.as_str().as_bytes(),
-        session.qualified_launch_binding_digest.as_str().as_bytes(),
+        session.imathas_launch_binding_checksum.as_str().as_bytes(),
         &session.issued_at.as_unix_millis().to_be_bytes(),
         &session.expires_at.as_unix_millis().to_be_bytes(),
     ] {

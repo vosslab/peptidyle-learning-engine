@@ -7,9 +7,9 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AuthoringWorkspaceReference, DraftQuestionBackendLocator, DraftQuestionContent,
+    AuthoringWorkspaceReference, DraftImathasQuestionBackendBinding, DraftQuestionContent,
     DraftQuestionReference, DraftQuestionSummary, QuestionBackend, QuestionFormat, QuestionType,
-    SourceObjectChecksum, SourceObjectReference, WorkspaceId,
+    SourceObjectChecksum, SourceObjectReference, WorkspaceId, WorkspaceImportId,
 };
 use uuid::Uuid;
 
@@ -71,7 +71,7 @@ pub struct DraftQuestionRevision {
 }
 
 impl DraftQuestionRevision {
-    /// Builds the answer-free browser summary with opaque public locators only.
+    /// Builds the answer-free browser summary with opaque public references only.
     pub fn summary(
         &self,
         draft_question: DraftQuestionReference,
@@ -82,7 +82,7 @@ impl DraftQuestionRevision {
             workspace: self.content.workspace,
             authoring_workspace,
             title: self.content.metadata.title.clone(),
-            question_backend: QuestionBackend::from(&self.content.backend_locator),
+            question_backend: self.content.question_backend,
         }
     }
 }
@@ -103,16 +103,16 @@ impl QuestionSourceUuid {
     }
 }
 
-/// SHA-256 binding between a Question Source and its answer-free public shape.
+/// SHA-256 verification value for one Question Source's exact public content.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuestionPublicBindingChecksum(SourceObjectChecksum);
+pub struct QuestionPublicContentChecksum(SourceObjectChecksum);
 
-impl QuestionPublicBindingChecksum {
+impl QuestionPublicContentChecksum {
     /// Parses one canonical SHA-256 checksum.
     pub fn parse(value: impl Into<String>) -> Result<Self, StoreError> {
         SourceObjectChecksum::parse(value).map(Self).map_err(|_| {
             StoreError::InvalidRecord(
-                "Question Public Binding Checksum must be canonical lowercase SHA-256".to_string(),
+                "Question Public Content Checksum must be canonical lowercase SHA-256".to_string(),
             )
         })
     }
@@ -136,22 +136,54 @@ pub struct DraftQuestionSourceInput {
     pub question_format: QuestionFormat,
     /// Educational interaction supported by the representation.
     pub question_type: QuestionType,
-    /// Backend-specific location facts, separate from the source bytes.
-    pub backend_locator: DraftQuestionBackendLocator,
+    /// WeBWorK PG Path for a WeBWorK Question Backend only.
+    pub webwork_pg_path: Option<String>,
+    /// QTI package item identifier for a QTI Question Backend only.
+    pub qti_package_item_identifier: Option<String>,
+    /// Workspace Import ID for a draft QTI Question Source only.
+    pub workspace_import_id: Option<WorkspaceImportId>,
+    /// iMathAS Deployment and Item References for an iMathAS Question Backend only.
+    pub draft_imathas_question_backend_binding: Option<DraftImathasQuestionBackendBinding>,
     /// Immutable Object Record identifying the Question Source bytes.
     pub source_object_reference: SourceObjectReference,
     /// SHA-256 verification value for those exact bytes.
     pub source_object_checksum: SourceObjectChecksum,
-    /// SHA-256 binding between private source facts and public Question content.
-    pub public_binding_checksum: QuestionPublicBindingChecksum,
+    /// SHA-256 verification value for the exact public Question content.
+    pub public_content_checksum: QuestionPublicContentChecksum,
 }
 
 impl DraftQuestionSourceInput {
     /// Refuses incoherent backend and source-format combinations before a transaction starts.
     pub fn validate(&self) -> Result<(), StoreError> {
-        if QuestionBackend::from(&self.backend_locator) != self.question_backend {
+        let fields_match_backend = match self.question_backend {
+            QuestionBackend::Ple => {
+                self.webwork_pg_path.is_none()
+                    && self.qti_package_item_identifier.is_none()
+                    && self.workspace_import_id.is_none()
+                    && self.draft_imathas_question_backend_binding.is_none()
+            }
+            QuestionBackend::Webwork => {
+                self.webwork_pg_path.is_some()
+                    && self.qti_package_item_identifier.is_none()
+                    && self.workspace_import_id.is_none()
+                    && self.draft_imathas_question_backend_binding.is_none()
+            }
+            QuestionBackend::Qti => {
+                self.webwork_pg_path.is_none()
+                    && self.qti_package_item_identifier.is_some()
+                    && self.workspace_import_id.is_some()
+                    && self.draft_imathas_question_backend_binding.is_none()
+            }
+            QuestionBackend::Imathas => {
+                self.webwork_pg_path.is_none()
+                    && self.qti_package_item_identifier.is_none()
+                    && self.workspace_import_id.is_none()
+                    && self.draft_imathas_question_backend_binding.is_some()
+            }
+        };
+        if !fields_match_backend {
             return Err(StoreError::InvalidRecord(
-                "Question Backend must match its exact backend-specific location".to_string(),
+                "Question Source must use exactly the fields for its Question Backend".to_string(),
             ));
         }
         let format_matches_backend = matches!(
@@ -200,14 +232,17 @@ mod tests {
             question_backend: QuestionBackend::Ple,
             question_format: QuestionFormat::PleQuestionJson,
             question_type: QuestionType::MultipleChoice,
-            backend_locator: DraftQuestionBackendLocator::Ple,
+            webwork_pg_path: None,
+            qti_package_item_identifier: None,
+            workspace_import_id: None,
+            draft_imathas_question_backend_binding: None,
             source_object_reference: SourceObjectReference {
                 object: ObjectId::from_uuid(Uuid::from_u128(3)),
             },
             source_object_checksum: SourceObjectChecksum::parse("a".repeat(64))
                 .expect("canonical source checksum"),
-            public_binding_checksum: QuestionPublicBindingChecksum::parse("b".repeat(64))
-                .expect("canonical public binding checksum"),
+            public_content_checksum: QuestionPublicContentChecksum::parse("b".repeat(64))
+                .expect("canonical public content checksum"),
         }
     }
 

@@ -201,7 +201,7 @@ impl QtiSafeDiagnostic {
         &self.detail
     }
 
-    pub(super) fn digest_diagnostic(&self) -> QtiProfileDiagnostic {
+    pub(super) fn checksum_diagnostic(&self) -> QtiProfileDiagnostic {
         QtiProfileDiagnostic {
             code: self.code,
             location: self.location.clone(),
@@ -252,7 +252,7 @@ impl QtiPleDefault {
         )
         .expect("fixed safe diagnostic is valid")
     }
-    pub(super) fn digest_diagnostic(self) -> QtiProfileDiagnostic {
+    pub(super) fn checksum_diagnostic(self) -> QtiProfileDiagnostic {
         let safe = self.safe_diagnostic();
         QtiProfileDiagnostic {
             code: QtiProfileDiagnosticCode::Policy,
@@ -289,12 +289,12 @@ impl QtiMappedPoints {
                     QtiSafeDiagnosticTemplate::BlackboardPointsDefaulted,
                 )
                 .expect("fixed safe diagnostic is valid");
-                let digest = QtiProfileDiagnostic {
+                let diagnostic = QtiProfileDiagnostic {
                     code: QtiProfileDiagnosticCode::Points,
                     location: safe.location.clone(),
                     detail: safe.detail.clone(),
                 };
-                Ok(("1.0".to_string(), vec![digest], vec![safe]))
+                Ok(("1.0".to_string(), vec![diagnostic], vec![safe]))
             }
             (QtiProfileId::CANVAS, Self::BlackboardDefaulted) => {
                 Err(QtiMappedItemError::ProfilePointsPolicy)

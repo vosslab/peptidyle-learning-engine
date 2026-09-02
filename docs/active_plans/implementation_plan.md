@@ -105,7 +105,7 @@ Term, and Shift Course Dates.
 
 This is a clean pre-production cutover, not a compatibility layer. The SD1 sequence removes Alpha
 types, routes, schema branches, Store capabilities, generated aliases, and browser resource kinds;
-`BlueprintCourseReference` (`BP-*`) is the only reusable-course locator. Existing `WP-INST-B1` and
+`BlueprintCourseReference` (`BP-*`) is the only reusable-course reference. Existing `WP-INST-B1` and
 `WP-INST-B2` acceptance records remain historical evidence; the current handoff and migration
 allocation remain solely in [implementation_status.md](implementation_status.md). `WP-R0`, `WP-R1`,
 `WP-R2`, and `WP-PY-L1` retain their registered package identities and acceptance status.
@@ -231,12 +231,11 @@ request and replacement behavior has no mounted server route or server-test
 owner yet; its future owner must name the actual Question Library or Assignment
 route boundary when that route is mounted. The disposable PostgreSQL/RLS driver is
 `tests/e2e/e2e_wp_r2_postgres_rls.py`; `crates/project-tools/src/e2e_seed/tests.rs` owns manufactured
-manifest convergence. The canonical `webwork_delivery` and
-`assignment_question_replacement` scenarios carry the retained browser behavior; the browser-free
+manifest convergence. The canonical `webwork_delivery` and `item_pool_delivery` scenarios carry the retained browser behavior; the browser-free
 WebWork and replica restart commands retain their distinct service claims; fixed seed/manifest and
 Rust tests retain Chapter One publication semantics. `tests/test_assignment_editor_ui.mjs` owns
-narrow decoder/client/model behavior. The canonical `assignment_question_replacement` and
-`instructor_authoring` scenarios own visible assignment behavior.
+narrow decoder/client/model behavior. The canonical `item_pool_delivery` and `instructor_authoring`
+scenarios own visible assignment behavior.
 `tests/e2e/e2e_browser_suite_owner.py`, dispatched by `local_stack_control/acceptance_lanes.py`, owns
 the one fixed live browser route and canonical composition scenarios. WP-R2 uses inline builders and
 adds no fixture directory. Generated `generated/api/` output is
@@ -1076,13 +1075,13 @@ public/private binding, but neither replaces the preserved source for recovery
 or future re-import. QTI remains an adapter into and out of supported internal
 semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 
-| Backend         | Authoritative                                           | Derived and regenerable                                  |
-| --------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| PLE algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                        |
-| PLE static      | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input |
-| WeBWorK         | PG source reference and version                         | Normalized model, Question Backend render result, cached renders |
-| QTI             | Original ZIP in object storage                          | Parsed model, extracted assets                           |
-| H5P             | Remote package reference                                | Any imported internal representation                     |
+| Backend         | Authoritative                                           | Derived and regenerable                                            |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| PLE algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                                  |
+| PLE static      | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input           |
+| WeBWorK         | PG source reference and version                         | Normalized model, Question Backend render result, cached renders   |
+| QTI             | Original ZIP in object storage                          | Parsed model, extracted assets                                     |
+| H5P             | Remote package reference                                | Any imported internal representation                               |
 | iMathAS         | Checksum-pinned source snapshot and integration profile | Safe Question Backend render result and deterministic render cache |
 
 ### Reading a version 1 payload with version 5 software
@@ -1230,7 +1229,7 @@ governs palette contrast.
 Human-facing route parameters are typed public references. The server resolves them inside the
 authenticated `AuthenticatedSession` and exact course/membership boundary before loading the existing internal
 UUID model. Public
-references are locators, never authorization. Internal UUIDs may remain in background API and asset
+references identify records and never grant authorization. Internal UUIDs may remain in background API and asset
 requests, but they do not appear in the address bar or user-copyable navigation links.
 
 | Route                                                                    | Surface                                                             | Notes                                                            |
@@ -1398,7 +1397,7 @@ Browser persistence is deliberately narrow, since anything stored is data at res
 | Account settings | Presentation contrast preference; default standard, optional increased contrast     | On user change or explicit reset                            |
 | `localStorage`   | Device-local sound and reduced-motion preferences only                              | On explicit reset                                           |
 | `sessionStorage` | In-progress response text keyed by Question Attempt, for crash and refresh recovery | On successful submit, Assignment Attempt exit, and sign-out |
-| Memory only      | One exact key-free Question Presentation and its receipt-binding descriptor | On advance, mismatch, Assignment Attempt exit, or unmount   |
+| Memory only      | One exact key-free Question Presentation and its receipt-binding descriptor         | On advance, mismatch, Assignment Attempt exit, or unmount   |
 | Nothing          | Session tokens, keys, grades, and any answer-bearing value                          | n/a                                                         |
 
 Session identity lives in an `HttpOnly` cookie the page cannot read, which is what keeps it out of the
@@ -1525,7 +1524,7 @@ substitution for a required production path.
 | MOD-GEN                    | Question Variation generation                                            | `generate(question_seed, definition)`                                                                                                 | MOD-QM                                                                                  | n/a                                 | Question Seed parity (WP-C4)                                                                                                                                                                                                                |
 | MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed PLE Question JSON private integrity                                                        | MOD-QM, MOD-STATE                                                                       | n/a                                 | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                                                                   | MOD-ID                                                                                  | `MemoryObjectStore`                 | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
-| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no Answer Key or Question Grading Input enters Wasm                                                                                                                                         |
+| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no Answer Key or Question Grading Input enters Wasm                                                                                                                     |
 | MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                                                                      | MOD-ID, MOD-ACTIVITY                                                                    | n/a                                 | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
 | MOD-ADP-PLE                | PLE Question Backend                                                     | Algorithmic Question Types and strict PLE Question JSON compiler                                                                      | MOD-QM, MOD-GEN, MOD-GRD                                                                | n/a                                 | End-to-end generated Question Type; PLE Question JSON public/private split and reproducible hash                                                                                                                                            |
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                                                                           | MOD-QM, MOD-OBJ                                                                         | Recorded renderer fixtures          | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
@@ -1546,7 +1545,7 @@ substitution for a required production path.
 | MOD-UI-SHELL               | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                                                                        | MOD-CLIENT, WP-C9                                                                       | Mock handlers                       | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                                   |
 | MOD-UI-COURSE              | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow                                                         | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                                       | Appearance mock repository          | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual source_object_reference gates                                                                                                        |
 | MOD-UI-WIDGETS             | Question Response Control set                                            | One component per response type, with local format validation                                                                         | MOD-WASM, WP-C9                                                                         | Reference widget                    | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                      |
-| MOD-UI-RENDER              | Question renderer                                                        | Question Presentation-to-component mapping, asset resolution, math and figure alternatives                                             | MOD-UI-WIDGETS                                                                          | Fixture Question Presentations     | Representative supported block kinds render; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                                                                     |
+| MOD-UI-RENDER              | Question renderer                                                        | Question Presentation-to-component mapping, asset resolution, math and figure alternatives                                            | MOD-UI-WIDGETS                                                                          | Fixture Question Presentations      | Representative supported block kinds render; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                                                                     |
 | MOD-UI-ATTEMPT             | Assignment Attempt loop                                                  | Submit, pending state, current student-disclosure display, timer, prefetch, retry                                                     | MOD-UI-RENDER, MOD-CLIENT                                                               | Mock handlers                       | Full mastery Assignment Attempt; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                      |
 | MOD-UI-BROWSE              | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                                                                               | MOD-CLIENT                                                                              | Mock handlers                       | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                           |
 | MOD-UI-EDITOR              | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow                                                         | MOD-UI-RENDER, MOD-WASM                                                                 | Mock handlers                       | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                            |
@@ -1729,7 +1728,7 @@ After that prerequisite:
   answer, solution, remote session state, or credential as question source.
 - Keep `ImathasQuestionBackendLaunch` separate from serializable question source. Its `launchUrl` is a
   non-secret, same-origin, session-authenticated attempt route or handle, never an opaque iMathAS
-  launch capability. It contains no iMathAS bearer, token, credential, source locator, or
+  launch capability. It contains no iMathAS bearer, token, credential, Source Object Reference, or
   Answer Key or Question Grading Input, and none may enter URLs, browser history, logs, traces, or serializable
   source. The server keeps the iMathAS launch and correlation server-held or in a server-only
   HttpOnly session, and rechecks enrollment and attempt ownership on every route use. Browser

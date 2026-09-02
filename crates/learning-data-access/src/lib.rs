@@ -36,7 +36,7 @@ pub use grading_operations::InstructorGradingOperationStore;
 pub use imathas_question_backend_session::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
     CommitStagedImathasResultGrading, GradingResultId, ImathasGradingContext,
-    ImathasGradingJobLease, ImathasNormalizedScore,
+    ImathasGradingJobLease, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
     ImathasQuestionBackendLaunchPreparationValidation, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionLease,
@@ -49,8 +49,8 @@ pub use imathas_question_backend_session::{
     ImathasResultTokenChecksum, JobId, LoadedImathasQuestionBackendSession,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryImathasQuestionBackendSessionStore,
-    QualifiedLaunchBindingDigest, QuestionSubmissionGradingId, StageVerifiedImathasResult,
-    StagedImathasResultReceipt, derive_imathas_question_backend_grading_result,
+    QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
+    derive_imathas_question_backend_grading_result,
 };
 #[allow(unused_imports)] // Crate-private PostgreSQL Store row-binding surface.
 pub(crate) use imathas_question_backend_session::{
@@ -67,7 +67,7 @@ pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use question_source::{
     DraftQuestionRevision, DraftQuestionRevisionNumber, DraftQuestionRevisionReference,
     DraftQuestionSourceInput, DraftQuestionSourceStore, DraftQuestionUuid,
-    QuestionPublicBindingChecksum, QuestionSourceUuid,
+    QuestionPublicContentChecksum, QuestionSourceUuid,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

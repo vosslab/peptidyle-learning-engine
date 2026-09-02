@@ -220,7 +220,7 @@ fn validate_asset(asset_root: &Path, asset: &FixtureAsset) -> Result<()> {
     let bytes = read_bounded(&canonical_path, MAX_ASSET_BYTES)?;
     ensure!(
         sha256(&bytes) == asset.sha256,
-        "stored fixture asset digest mismatch for {}",
+        "stored fixture asset checksum mismatch for {}",
         canonical_path.display()
     );
     Ok(())

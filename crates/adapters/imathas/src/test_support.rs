@@ -627,14 +627,13 @@ mod tests {
             RecordedImathasQuestionBackendMode::Unavailable,
         );
         assert_eq!(question_backend.snapshot_calls(), 0);
-        let source = question_model::DraftQuestionBackendLocator::Imathas {
-            binding: question_model::DraftImathasQuestionBackendBinding::new(
-                question_model::ImathasDeploymentReference::new("recorded-imathas")
-                    .expect("deployment"),
-                question_model::ImathasItemReference::new("item-17").expect("item"),
-            ),
-        };
-        let locator = ImathasQuestionLocation::from_draft_backend_locator(&source).unwrap();
+        let binding = question_model::DraftImathasQuestionBackendBinding::new(
+            question_model::ImathasDeploymentReference::new("recorded-imathas")
+                .expect("deployment"),
+            question_model::ImathasItemReference::new("item-17").expect("item"),
+        );
+        let locator =
+            ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&binding);
         assert_eq!(
             question_backend.snapshot(&locator).await,
             Err(ImathasQuestionBackendFailure::Unavailable)

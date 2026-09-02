@@ -49,10 +49,11 @@ pub mod pool_preview;
 pub mod presentation;
 /// Strict non-mutating preview-plane contracts, separate from T2 teaching operations.
 pub mod preview_plane;
-/// Human-facing route locators that resolve to internal identities under authorization.
+/// Human-facing route References that resolve to internal identities under authorization.
 pub mod public_route;
 /// Immutable browser-safe Question Authorship display records.
 pub mod question_authorship;
+mod question_backend_fields;
 /// Optional browser-safe Question Citation records.
 pub mod question_citation;
 /// Question Content, Draft Question Content, and immutable Question Revisions.
@@ -103,22 +104,21 @@ pub use crate::assignment_workspace::{
     AssignmentPoliciesValidationFailureCode, AssignmentPoliciesValidationIssue,
     AssignmentReleaseIssue, AssignmentReleaseValidation, CreateAssignmentRequest,
     InstructorStudentView, InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
-    ReplaceAssignmentFixedItemRequest, ReplaceAssignmentPoliciesRequest,
-    SuccessorAssignmentRevisionRequired,
+    ReplaceAssignmentPoliciesRequest, SuccessorAssignmentRevisionRequired,
 };
 pub use crate::auth::{AccountId, AccountRole};
 pub use crate::blueprint_course::{
     BlueprintAssignmentContentInput, BlueprintAssignmentContentView, BlueprintAssignmentDefaults,
     BlueprintAssignmentEditHandle, BlueprintAssignmentEntryInput, BlueprintAssignmentEntryView,
-    BlueprintAssignmentId, BlueprintChildIdError, BlueprintCourseAccess,
-    BlueprintCourseAssignmentContentView, BlueprintCourseAssignmentReplacementInput,
-    BlueprintCourseModuleReplacementInput, BlueprintCourseModuleView, BlueprintCourseSummaryView,
+    BlueprintAssignmentId, BlueprintChildIdError, BlueprintCourseAssignmentContentView,
+    BlueprintCourseAssignmentReplacementInput, BlueprintCourseModuleReplacementInput,
+    BlueprintCourseModuleView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditHandle, BlueprintModuleId, BlueprintRevision,
     CreateBlueprintCourseContentInput, CreateBlueprintCourseModuleInput, LocalTimeOfDay,
     LocalTimeOfDayError, MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, RelativeAssignmentSchedule,
     RelativeAssignmentScheduleMoment, ReplaceBlueprintCourseContentInput,
-    ReusableFixedQuestionInput, ReusablePoolEntryView, ReusablePoolInput, ReusablePoolView,
+    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionPoolItemView,
     ReusableQuestionView, ReusableSelectionAvailability, validate_blueprint_course_title,
 };
 pub use crate::blueprint_operations::*;
@@ -170,7 +170,7 @@ pub use crate::identity::{
     ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
 pub use crate::pool_preview::{
-    QuestionPoolPreview, QuestionPoolPreviewQuestion, QuestionPoolPreviewRequest,
+    QuestionPoolPreview, QuestionPoolPreviewItem, QuestionPoolPreviewRequest,
 };
 pub use crate::presentation::{
     PresentationResponseItemReference, PresentedHotspotRegion, PresentedHotspotSurface,
@@ -204,16 +204,17 @@ pub use crate::public_route::{
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
 };
+pub use crate::question_backend_fields::{
+    DraftImathasQuestionBackendBinding, ImathasDeploymentReference, ImathasItemReference,
+    ImathasProfile, ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
+    MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
+};
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
-    DraftImathasQuestionBackendBinding, DraftQuestionContent, DraftQuestionSummary,
-    ImathasDeploymentReference, ImathasItemReference, ImathasProfile,
-    ImathasQuestionBackendBinding, ImathasQuestionBackendBindingError,
-    MAX_IMATHAS_IDENTIFIER_BYTES, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
-    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionBackendFieldsError,
-    QuestionContentBlock, QuestionDescriptionError, QuestionFormat, QuestionGradingRule,
-    QuestionMetadata, QuestionRevision, QuestionTitleError, validate_question_description,
-    validate_question_title,
+    DraftQuestionContent, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
+    MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionContentBlock,
+    QuestionDescriptionError, QuestionFormat, QuestionGradingRule, QuestionMetadata,
+    QuestionRevision, QuestionTitleError, validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{
     CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
