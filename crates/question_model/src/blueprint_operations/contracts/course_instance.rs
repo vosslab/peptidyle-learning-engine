@@ -955,7 +955,7 @@ impl<'de> Deserialize<'de> for BoundedAssignmentContentSources {
 
 impl std::fmt::Display for BoundedResolvedScheduleSetError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("resolved schedule collection exceeds the course assignment bound")
+        formatter.write_str("resolved schedule set exceeds the course assignment bound")
     }
 }
 impl std::error::Error for BoundedResolvedScheduleSetError {}

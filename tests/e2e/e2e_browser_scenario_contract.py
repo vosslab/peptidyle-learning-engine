@@ -30,7 +30,7 @@ RESOURCE_KINDS = frozenset(
 	{
 		"assignment",
 		"blueprint",
-		"collection",
+		"question_folder",
 		"course",
 		"grade_scheme",
 		"invitation",

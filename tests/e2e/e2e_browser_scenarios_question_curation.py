@@ -13,14 +13,14 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			baseline_reads=("base_course",),
 			ui_creates=(
 				"passkey",
-				"collection",
+				"question_folder",
 				"saved_search",
 				"course",
 				"assignment",
 				"invitation",
 			),
 			visible_observation=(
-				"instructor_question_curation_reuses_public_questions_from_private_collections"
+				"instructor_question_curation_reuses_public_questions_from_private_question_folders"
 			),
 			screenshot_states=(
 				"curation_workspace",

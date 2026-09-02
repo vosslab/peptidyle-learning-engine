@@ -76,16 +76,6 @@ export interface QuestionPickerSourceRepository {
   readonly search: (request: QuestionPickerSearchRequest) => Promise<unknown>;
 }
 
-export type QuestionPickerCurationIntent = {
-  readonly kind: "addToCollection";
-  readonly selection: QuestionPickerSelection;
-};
-
-/** Parent composition owns persistence, permissions, and destination selection. */
-export interface QuestionPickerCurationActions {
-  readonly request: (intent: QuestionPickerCurationIntent) => void;
-}
-
 export type QuestionPickerState =
   | {
       readonly kind: "loading";

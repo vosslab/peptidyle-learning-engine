@@ -19,7 +19,6 @@
 .question-picker-header,
 .question-picker-footer,
 .question-picker-tray > ol > li,
-.question-picker-curation-actions,
 .question-picker-tray-actions {
   display: flex;
   gap: var(--ple-layout-gap);
@@ -129,8 +128,7 @@
   border-bottom: 1px solid var(--ple-border);
 }
 
-.question-picker-tray-actions,
-.question-picker-curation-actions {
+.question-picker-tray-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -158,8 +156,7 @@
     grid-column: auto;
   }
 
-  .question-picker-tray-actions,
-  .question-picker-curation-actions {
+  .question-picker-tray-actions {
     justify-content: flex-start;
   }
 }

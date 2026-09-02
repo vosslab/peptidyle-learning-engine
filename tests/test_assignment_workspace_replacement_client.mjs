@@ -48,7 +48,7 @@ function replacementEditorDetail() {
   return replacement;
 }
 
-test("Create Assignment posts directly to the course Assignment collection", async () => {
+test("Create Assignment posts directly to the Course Assignments route", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(replacementEditorDetail()), {

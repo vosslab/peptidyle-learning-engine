@@ -264,7 +264,7 @@ impl Default for QuestionSearchRequest {
 pub enum QuestionSearchRequestError {
     /// Text or a controlled-term component was blank after normalization.
     BlankFilter,
-    /// A string field or filter collection exceeded the bounded contract.
+    /// A string field or filter values exceeded the bounded contract.
     TooLarge,
     /// An opaque continuation token was empty.
     EmptyCursor,

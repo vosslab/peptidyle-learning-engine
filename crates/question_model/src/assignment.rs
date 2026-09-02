@@ -410,7 +410,7 @@ pub struct QuestionPoolAssignmentEntry {
 
 /// One ordered Assignment Entry in the complete Assignment Content record.
 ///
-/// Collection order is the authored delivery order. Fixed Questions and
+/// Assignment Entry order is the authored delivery order. Fixed Questions and
 /// Question Pools deliberately share one identity and one top-level sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(

@@ -10,7 +10,6 @@ import {
   moveQuestionPickerSelection,
   questionPickerSelection,
   toggleQuestionPickerSelection,
-  type QuestionPickerCurationActions,
   type QuestionPickerSelection,
   type QuestionPickerSelectionMode,
   type QuestionPickerSource,
@@ -27,7 +26,6 @@ export interface QuestionPickerProps {
   readonly onConfirm: (selection: QuestionPickerSelection) => void;
   readonly onCancel: () => void;
   readonly trigger: HTMLButtonElement | undefined;
-  readonly curationActions?: QuestionPickerCurationActions;
   readonly confirmLabel?: string;
   /** Optional destination-specific explanation of how picker selection proceeds. */
   readonly instructions?: string;
@@ -491,22 +489,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                 )}
               </For>
             </ol>
-          </Show>
-          <Show when={props.curationActions !== undefined && selection().questions.length > 0}>
-            <div class="question-picker-curation-actions">
-              <button
-                class="quiet-action"
-                type="button"
-                onClick={() =>
-                  props.curationActions?.request({
-                    kind: "addToCollection",
-                    selection: selection(),
-                  })
-                }
-              >
-                Add to Question Folder
-              </button>
-            </div>
           </Show>
         </section>
       </Show>

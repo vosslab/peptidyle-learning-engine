@@ -163,9 +163,9 @@ export function createAssignmentEditorPickerController(
         await props.repository.listQuestionPickerSources(props.courseId, props.mode.assignmentId),
       );
     } catch {
-      setSources([{ kind: "library", label: "Library" }]);
+      setSources([{ kind: "library", label: "Question Library" }]);
       props.onMessage(
-        "Collections could not load. The Library and direct Question ID entry are ready.",
+        "Question Folders could not load. The Question Library and direct Question ID entry are ready.",
       );
     }
   }

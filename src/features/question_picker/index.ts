@@ -7,8 +7,6 @@ export {
   questionPickerSelection,
   toggleQuestionPickerSelection,
   type QuestionFolderReference,
-  type QuestionPickerCurationActions,
-  type QuestionPickerCurationIntent,
   type QuestionPickerSearchRequest,
   type QuestionPickerSelection,
   type QuestionPickerSelectedQuestion,

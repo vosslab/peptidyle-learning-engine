@@ -594,7 +594,7 @@ active Instructor account, which receives the initial membership; the Sysadmin r
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
 Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
 public-asset publisher is a service identity, not a person. Every active Instructor has the same
-product capabilities, including shared-problem discovery, collections, publication, reuse, and
+product capabilities, including shared-problem discovery, Question Folders, publication, reuse, and
 improvement workflows.
 
 **Why.** Ambient administrator or manager roles turn one compromised platform
