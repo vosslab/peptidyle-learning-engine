@@ -67,9 +67,8 @@ BEGIN
     IF (p_backend = 'ple' AND p_question_format NOT IN ('pleQuestionJson', 'pleAlgorithmic'))
        OR (p_backend = 'webwork' AND p_question_format <> 'webworkPg')
        OR (p_backend = 'qti' AND p_question_format <> 'qti')
-       OR (p_backend = 'h5p' AND p_question_format <> 'h5p')
        OR (p_backend = 'imathas' AND p_question_format <> 'imathas')
-       OR p_backend NOT IN ('ple', 'webwork', 'qti', 'h5p', 'imathas') THEN
+       OR p_backend NOT IN ('ple', 'webwork', 'qti', 'imathas') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Source Format must be supported by its Question Backend';
     END IF;
@@ -93,11 +92,6 @@ BEGIN
             OR char_length(btrim(p_backend_locator->>'itemId')) NOT BETWEEN 1 AND 1000
             OR jsonb_typeof(p_backend_locator->'importId') <> 'string'
             OR p_backend_locator->>'importId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-       ))
-       OR (p_backend = 'h5p' AND (
-            locator_keys IS DISTINCT FROM ARRAY['backend', 'contentType']::text[]
-            OR jsonb_typeof(p_backend_locator->'contentType') <> 'string'
-            OR char_length(btrim(p_backend_locator->>'contentType')) NOT BETWEEN 1 AND 255
        ))
        OR (p_backend = 'imathas' AND (
             locator_keys IS DISTINCT FROM ARRAY['backend', 'itemRef', 'provider']::text[]

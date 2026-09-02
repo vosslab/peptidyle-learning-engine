@@ -101,7 +101,8 @@ BEGIN
        OR p_lifetime_seconds < 1 THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid authenticated session input';
     END IF;
-    -- The trusted broker derives Product Role from the immutable Account record;
+    -- The trusted Authenticated Session issuance operation derives Product Role
+    -- from the immutable Account record;
     -- a ceremony or application caller never selects it. ASVS 2.2.1, 2.3.3, 8.3.1.
     SELECT account.role
       INTO resolved_product_role

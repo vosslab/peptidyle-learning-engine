@@ -15,7 +15,7 @@ The accepted path is limited to the active pilot charter:
 - instructor adds an active local-development student without email;
 - instructor creates a corpus-backed Mastery assignment;
 - the student completes the keyboard-only take, score, and repeat journey;
-- the instructor sees the gradebook summary and two completed run history;
+- the instructor sees the gradebook summary and two completed Assignment Attempt histories;
 - shared assignment and student-completion outcomes agree.
 
 Email registration, mail delivery, SMTP, mailbox access, and canonical
@@ -52,7 +52,7 @@ The strict public reader accepted the report with seed 42. It records status
 | J2      | completion; feedback; fresh practice; submit                 |
 | J3      | controls cleared; leave; resume; start                       |
 | J4      | back action; completion; controls cleared; submit            |
-| J5      | gradebook; score summary; two-run history                    |
+| J5      | gradebook; score summary; two Assignment Attempt histories   |
 | J8      | instructor gradebook; student completion; shared assignment  |
 
 The top-level elapsed time equals the nine journey elapsed values. The public

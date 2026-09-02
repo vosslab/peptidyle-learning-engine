@@ -2,15 +2,18 @@
 
 ## Verdict
 
-**ACCEPTED.** The W2 fallback now reads the server's current run screen through
+**ACCEPTED.** The W2 fallback now reads the server's current Assignment Attempt screen through
 the uncached API client after a submission. It does not alter initial routing,
 the bound prefetch fast path, or the same-attempt completion behavior.
 
 ## Findings
 
-- `RunPage` still obtains its initial route screen through
-  `runtime.queries.runScreen(runId)`. Only the post-Continue fallback uses
-  `runtime.client.getRunScreen(screen().run.id)`, so router loading and its
+Historical evidence note: former `RunPage`, `runScreen`, `getRunScreen`, and
+`Run complete` identifiers below record the reviewed source surface.
+
+- The Assignment Attempt page still obtains its initial route screen through
+  historical `runtime.queries.runScreen(runId)`. Only the post-Continue fallback uses
+  historical `runtime.client.getRunScreen(screen().run.id)`, so router loading and its
   query cache remain the initial-navigation boundary.
 - A fully bound prefetched successor still calls `machine.advance` directly and
   makes no next-screen request. The existing production-component fixture
@@ -20,11 +23,11 @@ the bound prefetch fast path, or the same-attempt completion behavior.
   after mount and proves Continue advances to Position 2 without invoking it.
   This is a direct test of the stale-query regression rather than a mock of the
   implementation function.
-- The same-attempt response still completes the state machine and loads the
-  summary. The production `RunPage` fixture covers pending, allowed, and closed
+- The same-Question-Attempt response still completes the state machine and loads the
+  summary. The production historical `RunPage` fixture covers pending, allowed, and closed
   summary policy, asserts the stale router query is unused, and confirms the
   fresh-practice action appears only after an allowed summary.
-- The neutral `Run complete` heading before summary policy arrives avoids a
+- The neutral historical `Run complete` heading before summary policy arrives avoids a
   premature fresh-practice promise. The later headings and buttons depend only
   on the public `practiceAllowed` summary field.
 - The changed implementation and tests neither add answer-bearing output nor

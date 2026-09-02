@@ -24,13 +24,13 @@ legacy readers, or parallel authorization model.
 
 | Migration range | Physical owner                                                                      | Principal records                                                                                                                                                                                                                                                                                                                   |
 | --------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2901-2906       | Global Account and Authenticated Session                                            | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, and session-resolution brokers.                                                                                                                                                  |
+| 2901-2906       | Global Account and Authenticated Session                                            | PostgreSQL roles, `account`, Account State Events, `authenticated_session`, Authentication Email, email challenges, WebAuthn ceremonies, passkeys, and Authenticated Session Resolution.                                                                                                                                            |
 | 2907-2910       | Question Library and private authoring                                              | Published Questions and immutable Question Revisions, publication and availability events, Question Change Proposals, Authoring Workspaces, Draft Questions and their Revisions, Question Source, Answer Key, Question Feedback, Question Answer Explanation, format-specific Question Grading Input, and private QTI import facts. |
 | 2911-2915       | Reusable and live course roots                                                      | Blueprint Courses and Revisions, Account-owned Question Folders and Saved Question Searches, Course Instances and Course Origin, Course Membership Events, Course Invitations, and Student Records.                                                                                                                                 |
 | 2916-2918       | Assignment delivery and Student work                                                | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release.                                                                                                                                               |
 | 2919-2924       | Course objects, grading, analysis, and correction                                   | Course Object References, Question Submission Grading, typed Jobs, Grading Results, and Automated Grading Receipts; Assignment Grades and Events; Assignment and Question Item Analysis; Forced Question Corrections; Question Change Events; and correction evidence.                                                              |
-| 2925-2931       | Jobs, retention, iMathAS Question Backend state, objects, and authorization closure | Typed Jobs and leases, exports and retention events, iMathAS Question Backend state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, capability brokers, forced RLS policies, and final ACL closure.                                                                                               |
-| 2932-2936       | Baseline witness and current root extensions                                        | Baseline Acceptance Witness, authentication ceremony brokers, Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Revision Statistics.                                                                                                                                   |
+| 2925-2931       | Jobs, retention, iMathAS Question Backend state, objects, and authorization closure | Typed Jobs and leases, exports and retention events, iMathAS Question Backend state, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, Authorization Checks, forced RLS policies, and final ACL closure.                                                                                             |
+| 2932-2936       | Baseline witness and current root extensions                                        | Baseline Acceptance Witness, Credential Authentication Completion (present in the baseline; its application route remains unmounted), Sysadmin Account Creation, Blueprint publication/collaboration/availability events, and identity-free Question Revision Statistics.                                                           |
 | 2937-2940       | Released Assignment snapshots and Object Record authority                           | Independent Question Pool Reuse and Variation Rules, immutable released Assignment Entries and Question Pool Items, authenticated Assignment Attempt start, and immutable Object Records that bind Question Source object references.                                                                                               |
 
 ## Ownership boundaries
@@ -43,7 +43,7 @@ legacy readers, or parallel authorization model.
   object-storage evidence.
 - The browser never connects to PostgreSQL. Server code resolves an Authenticated Session,
   authorizes exact Account and durable-resource relationships, and invokes narrow Store or
-  broker capabilities.
+  protected authorization functions.
 
 ## Current relational chains
 
@@ -109,7 +109,7 @@ the attempt state never invents a response when a deadline closes work.
 ## Verification
 
 The disposable schema acceptance lane is the authoritative connected check for
-migration order, ACL closure, RLS, and broker behavior. Permanent tests prove
+migration order, ACL closure, RLS, and protected authorization-function behavior. Permanent tests prove
 stable value and transport contracts; they do not substitute for a database
 acceptance run. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
 required evidence classes.

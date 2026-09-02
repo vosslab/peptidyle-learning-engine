@@ -12,7 +12,7 @@ institution selector, publication-visibility tier, or creator-owned course
 authority.
 
 This document is the binding authorization contract. It defines the authority
-that routes, Store methods, PostgreSQL policies and brokers, workers, object
+that routes, Store methods, PostgreSQL policies and protected authorization functions, workers, object
 delivery, browser DTOs, and audits must use. Product scope and dependency order
 remain in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and the
 [implementation status](active_plans/implementation_status.md).
@@ -51,7 +51,7 @@ The protected transaction reevaluates every current authority predicate that it
 uses. Authorization therefore precedes a revision conflict, request validation
 where feasible, publication work, object signing, provider dispatch, and other
 observable work. PostgreSQL receives transaction-local authenticated-account context; forced
-RLS and narrow broker functions enforce the same durable scope. Application,
+RLS and narrow authorization functions enforce the same durable scope. Application,
 worker, and grader roles are least-privilege roles and do not bypass RLS.
 
 ## Canonical predicates
@@ -296,8 +296,8 @@ stale base requires rebase and resubmission.
 
 Each assignment item records its visible Question ID and hidden exact
 `QuestionRevisionReference { question_id, revision_number }` pin. Issued Assignment Attempts, Question Attempts, grading
-evidence, and audit records retain the same exact pair, seed, and required
-provenance. A publication, lifecycle transition, correction, or worker never
+evidence, and audit records retain the same exact pair, Question Seed, and
+Question Attempt Reproduction Details. A publication, lifecycle transition, correction, or worker never
 advances an assignment implicitly; a future version requires an explicit,
 revision-checked assignment update.
 
@@ -349,7 +349,7 @@ Workers have no browser-session authority and are not HTTP targets. A worker
 may act only through a locked, current typed lease containing an opaque lease
 token, typed durable scope (`course`, `workspace`, `catalog`, or `system`),
 Job Kind, target identity, Handler/Effect Committer pair, and generation fence.
-The broker and RLS validate all of those values on claim, renewal, and
+The Job claim-and-lease operation and RLS validate all of those values on claim, renewal, and
 completion. A stale, foreign, superseded, or Job-Kind-mismatched lease cannot read,
 commit, or repeat work. Queue messages carry bounded IDs and generations, not
 names, raw responses, answer keys, grades, object URLs, or authority claims.
@@ -417,12 +417,12 @@ that Student's own course.
 Audit records capture the authenticated account, action, durable scope, result, and time for
 authentication events, authorization denials, Account State changes,
 membership and relationship changes, sensitive course-record reads, export,
-retention, protected delivery, and broker/lease transitions. They exclude
+retention, protected delivery, and Job lease transitions. They exclude
 session credentials, signed URLs, raw Student responses, grades where an audit
 reference suffices, answer keys, private grader material, and browser-supplied
 authority. Auditing records who acted; it never grants a capability.
 
-Each protected route, Store method, broker, worker action, and object delivery
+Each protected route, Store method, authorization function, worker action, and object delivery
 must document the exact account predicate, durable target, field projection,
 concealment result, audit event, and revocation point. Permanent tests cover
 stable authorization behavior. Fresh PostgreSQL/RLS, provider, worker-lease,

@@ -15,12 +15,9 @@ use async_trait::async_trait;
 use question_model::ObjectId;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::envelope::QuestionContentBlock;
 use question_model::generation::QuestionVariationRule;
-use question_model::question_content::{
-    QuestionBackendLocator, QuestionGradingRule, QuestionMetadata,
-};
+use question_model::question_content::{QuestionGradingRule, QuestionMetadata};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
 
@@ -36,8 +33,8 @@ pub const MULTI_CHOICE_CONTENT_TYPE: &str = "H5P.MultiChoice";
 /// Archival identity and trusted import location for an H5P package.
 ///
 /// The object-store package is authoritative for re-import. The remote
-/// reference is import-location metadata only and is intentionally kept out of the
-/// browser-safe [`QuestionBackendLocator`].
+/// reference is import-location metadata only and is intentionally kept out of
+/// Question Backend records.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct H5pPackageImportReference {
@@ -199,8 +196,6 @@ pub struct ImportedH5pQuestion {
     pub import_schema_version: u16,
     /// Authoritative archived H5P package reference retained for re-import.
     pub package_import: H5pPackageImportReference,
-    /// The Question Backend source safe for downstream adapter dispatch.
-    pub backend_locator: QuestionBackendLocator,
     /// Prompt ready for the browser-safe renderer.
     pub prompt: Vec<QuestionContentBlock>,
     /// Response shape, without a correct answer.
@@ -219,21 +214,11 @@ pub struct ImportedH5pQuestion {
     pub package_import_fingerprint: H5pPackageImportFingerprint,
 }
 
-/// H5P adapter boundary.  It advertises only capabilities that this adapter
-/// can actually enforce.
+/// H5P Package Import boundary.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct H5pImporter;
 
 impl H5pImporter {
-    /// Native H5P capabilities.
-    ///
-    /// `serverGrading` is absent by design.  `questionAttemptTimeLimit`, export,
-    /// offline operation, hints, partial credit, and parameter generation are
-    /// likewise not promised by this initial supported conversion.
-    pub fn capabilities(&self) -> QuestionBackendCapabilities {
-        QuestionBackendCapabilities::from_iter([Capability::ClientRendering])
-    }
-
     /// Converts one supported H5P activity into a key-free internal question.
     ///
     /// # Errors
@@ -267,9 +252,6 @@ impl H5pImporter {
         Ok(ImportedH5pQuestion {
             import_schema_version: IMPORT_SCHEMA_VERSION,
             package_import: package_import.clone(),
-            backend_locator: QuestionBackendLocator::H5p {
-                content_type: package_import.content_type,
-            },
             prompt: vec![QuestionContentBlock::Text {
                 markdown: request.prompt_markdown,
             }],
@@ -533,10 +515,9 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<QuestionChoice>, H5p
 mod tests {
     use super::*;
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-    use question_model::capability::Capability;
     use question_model::classification::QuestionLicense;
     use question_model::envelope::QuestionContentBlock;
-    use question_model::question_content::{QuestionBackendLocator, QuestionGradingRule};
+    use question_model::question_content::QuestionGradingRule;
     use uuid::Uuid;
 
     const ARCHIVE_BYTES: &[u8] = b"fixture h5p archive bytes";
@@ -593,35 +574,10 @@ mod tests {
     }
 
     #[test]
-    fn capability_declaration_is_honest_about_ungraded_h5p() {
-        let capabilities = H5pImporter.capabilities();
-        assert!(capabilities.supports(Capability::ClientRendering));
-        assert!(!capabilities.supports(Capability::ServerGrading));
-        assert_eq!(
-            capabilities.missing_from(Capability::ALL),
-            vec![
-                Capability::AlgorithmicGeneration,
-                Capability::ServerGrading,
-                Capability::PartialCredit,
-                Capability::Hints,
-                Capability::QuestionAttemptTimeLimit,
-                Capability::PrintExport,
-                Capability::OfflinePreview,
-            ]
-        );
-    }
-
-    #[test]
     fn supported_h5p_import_becomes_a_key_free_ungraded_internal_question() {
         let imported = H5pImporter
             .import(request())
             .expect("supported H5P imports");
-        assert_eq!(
-            imported.backend_locator,
-            QuestionBackendLocator::H5p {
-                content_type: MULTI_CHOICE_CONTENT_TYPE.to_string(),
-            }
-        );
         assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
         assert_eq!(imported.package_import, request().package_import);

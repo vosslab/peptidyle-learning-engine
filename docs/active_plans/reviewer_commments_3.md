@@ -252,7 +252,7 @@ result
 A Student may have one enrollment record but 30 or more Assignment Attempts. Each Assignment
 Attempt may contain several Question Attempts per Issued Question.
 
-For 50,000 students, 10 assignments, 20 questions, and 30 complete runs:
+For 50,000 students, 10 assignments, 20 questions, and 30 complete Assignment Attempts:
 
 50,000 × 10 × 20 × 30 = 300 million question instances
 
@@ -268,22 +268,24 @@ This is still feasible, but the plan should account for:
 - retention rules for verbose render traces and temporary artifacts
 - exact seed and renderer version storage for reproducibility
 
-Do not calculate the current grade by scanning every historical attempt. Update a compact summary transactionally when a run changes:
+Do not calculate the current grade by scanning every historical attempt. Update a compact summary
+transactionally when an Assignment Attempt changes:
 
 student_assignment_summary
 best_score
 latest_score
-completed_run_count
+completed_assignment_attempt_count
 total_question_attempts
 last_activity_at
 
-Historical runs remain available for learning analysis, while ordinary course pages read the summary row.
+Historical Assignment Attempts remain available for learning analysis, while ordinary course pages
+read the summary row.
 
 The product model should also distinguish:
 
 - completion requirement: first time all required questions are correct
 - grade policy: first, latest, highest, or instructor-defined result
-- continued practice: unlimited new runs after completion
+- continued practice: unlimited new Assignment Attempts after completion
 - variation policy: new seeds, selected Question Variants, or full regeneration
 
 The architecture remains suitable, but the earlier 30-million-row estimate was too low. Peptidyle should be

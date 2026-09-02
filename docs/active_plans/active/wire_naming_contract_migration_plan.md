@@ -18,7 +18,7 @@ current implementation package.
 - Make Rust Serde the sole source for snake PLE properties, query keys, and portable values.
 - Generate one direct per-type `Foo` with exactly the effective Serde names.
 - Give route-only DTOs one pure `crates/browser-api-contract` owner.
-- Move each producer, reader, fixture, and durable record family in an atomic child package.
+- Move each producer, reader, fixture, and associated durable record in an atomic child package.
 - Retire the legacy human manual-grading product surface before C3 while preserving automated
   grader-exception retry/recalculation and roster score export.
 - Supply item-analysis wire/client/decoder ownership in C4, then deliver the visible Instructor
@@ -53,7 +53,7 @@ accepted WN1-A
   -> C1, C2, C4, C5, C6 route children and dependency-ready QM children
   -> C3 after WN1-MG
   -> affected WA and D children
-  -> WN1-OPS2..OPS10 PLE-owned shell-family closures before final acceptance
+  -> WN1-OPS2..OPS10 PLE-owned shell naming closures before final acceptance
   -> WN1-SR6 product-document review and WN1-FD filename disposition
   -> WN1-F final material-tree acceptance
   -> G2 W5/W6 close-out
@@ -99,13 +99,13 @@ disjoint. Every child has one owner; shared generator, model, and durable files 
 - Permanent gate: shell syntax plus each script's visible usage/build behavior. The root-script
   source inventory is one-time evidence.
 
-### WN1-OPS2 through WN1-OPS10: remaining PLE-owned shell families
+### WN1-OPS2 through WN1-OPS10: remaining PLE-owned shell naming closures
 
 - Owner: one shell operations coder per child registered in the ledger.
-- Depends on: accepted WN1-A; each family is otherwise independent and completes before WN1-F.
+- Depends on: accepted WN1-A; each child package is otherwise independent and completes before WN1-F.
 - Outcome: convert script-private state to lowercase `snake_case` in the root aggregate, browser
   front doors, Rust front door, Wasm build, Python setup, Wasm runner setup, course-appearance E2E,
-  database-baseline E2E, and E2E orchestrator families. Preserve exported environment spelling,
+  database-baseline E2E, and named E2E orchestrators. Preserve exported environment spelling,
   explicit `readonly` fixture constants, command behavior, and shared-template ownership.
 - Permanent gate: each ledger row's existing shell syntax and visible behavior path. The uppercase
   private-name inventory is one-time evidence; no permanent source inventory is added.
@@ -137,7 +137,7 @@ its one closure; it adds neither aliases nor parallel role vocabulary.
   `decodeLearnerQuestionAttempt`, `decodeLearnerAssignmentProgress`,
   `decodeLearnerAssignmentPage`, and `decodeLearnerSubmissionStatus`, the class-statistics
   converter, and each browser client/runtime member target.
-- SR5 maps every legacy student-work broker function to its exact successor target in the ledger,
+- SR5 maps every legacy Student-work protected database function to its exact successor target in the ledger,
   including assignment, attempt, audience, course, enrollment, group-member, group, member,
   prefetch, Assignment Attempt, and summary operations. It also names the fence and the three exact current
   function names and targets in the ledger.
@@ -165,7 +165,7 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
   together. Each migrated PLE boundary accepts snake and rejects retired camel/unknown input.
 - Fixed package scope:
 
-| Package | Atomic child families                                                                                                                                                                                                    |
+| Package | Atomic child packages                                                                                                                                                                                                    |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
 | C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
@@ -376,7 +376,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
   deterministic fixture behavior. Migration review, clean-volume rebuild, regeneration, digest
   comparison, connected service runs, and visual inspection are one-time evidence.
 
-The durable ledger gives each migration one producer/reader family. `1879` creates the bounded
+The durable ledger gives each migration one named producer and reader. `1879` creates the bounded
 `ple_course_authority_broker`; `1880` rebinds the four effective public authority functions and
 their exact dependents while preserving current authorization behavior, explicit owners, ACLs,
 `SECURITY DEFINER`, and `FORCE ROW LEVEL SECURITY`. Accepted migrations and immutable historical

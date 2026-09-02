@@ -182,17 +182,6 @@ export function decodeQuestionBackendLocator(value: unknown, path: string): Ques
       } satisfies QuestionBackendLocator;
       return decoded;
     }
-    case "h5p": {
-      requireOnlyFields(record, path, ["backend", "contentType"]);
-      const decoded = {
-        backend,
-        contentType: decodeNonemptyString(
-          field(record, "contentType", path),
-          `${path}.contentType`,
-        ),
-      } satisfies QuestionBackendLocator;
-      return decoded;
-    }
     case "imathas": {
       requireOnlyFields(record, path, [
         "backend",
@@ -241,15 +230,6 @@ export function decodeDraftQuestionBackendLocator(
         backend,
         itemId: decodeNonemptyString(field(record, "itemId", path), `${path}.itemId`),
         importId: decodeIdentifier(field(record, "importId", path), `${path}.importId`),
-      } satisfies DraftQuestionBackendLocator;
-    case "h5p":
-      requireOnlyFields(record, path, ["backend", "contentType"]);
-      return {
-        backend,
-        contentType: decodeNonemptyString(
-          field(record, "contentType", path),
-          `${path}.contentType`,
-        ),
       } satisfies DraftQuestionBackendLocator;
     case "imathas":
       requireOnlyFields(record, path, ["backend", "deploymentReference", "itemReference"]);

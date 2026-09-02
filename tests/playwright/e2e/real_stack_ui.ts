@@ -1,4 +1,4 @@
-// Family-neutral visible UI helpers for real production-stack scenarios.
+// Scenario-neutral visible UI helpers for real production-stack scenarios.
 import { writeFileSync } from "node:fs";
 
 import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
@@ -122,7 +122,7 @@ export async function waitForRouteDataSurface(
 }
 
 /**
- * Enter the current assignment's authoritative Student Assignment Attempt.
+ * Enter the current assignment's authoritative Assignment Attempt.
  *
  * Locator readiness uses the scenario-owned page timeout. Playwright assertions
  * have a separate five-second default, which is not the live-stack operation

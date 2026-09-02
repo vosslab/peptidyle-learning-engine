@@ -19,8 +19,8 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			baseline_reads=(
 				"base_course",
 				"genetics_practice_course",
-				"mary_completed_run",
-				"jack_open_run",
+				"mary_completed_assignment_attempt",
+				"jack_open_assignment_attempt",
 				"published_peptide_assignment",
 			),
 			ui_creates=("assignment", "invitation", "response"),

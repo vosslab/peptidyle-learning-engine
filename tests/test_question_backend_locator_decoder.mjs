@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decodeQuestionBackendLocator } from "../src/api/decoders/question_model.ts";
+import {
+  decodeDraftQuestionBackendLocator,
+  decodeQuestionBackendLocator,
+} from "../src/api/decoders/question_model.ts";
 
 test("Question Backend Locator accepts locations while refusing Question Source references", () => {
   assert.deepEqual(decodeQuestionBackendLocator({ backend: "qti", itemId: "item-17" }, "locator"), {
@@ -52,6 +55,15 @@ test("Question Backend Locator accepts locations while refusing Question Source 
         profile: "imathas_remote_grading_v1",
       },
       "locator",
+    ),
+  );
+  assert.throws(() =>
+    decodeQuestionBackendLocator({ backend: "h5p", contentType: "H5P.MultiChoice" }, "locator"),
+  );
+  assert.throws(() =>
+    decodeDraftQuestionBackendLocator(
+      { backend: "h5p", contentType: "H5P.MultiChoice" },
+      "draftLocator",
     ),
   );
 });

@@ -72,7 +72,7 @@ Ranked by consequence rather than by how wrong they are.
 3. **The product's central promise is now observable for students (STU-2).** Assignment
    overview now includes student-visible mastery outcome fields from `student_assignment_summary`
    before practice starts.
-4. **Timing is shown before a timed run starts (STU-1).** The student now sees the assignment time limit on
+4. **Timing is shown before a timed Assignment Attempt starts (STU-1).** The student now sees the assignment time limit on
    the overview screen before starting practice.
 5. **Schema drift is caught only by suites that do not run (ENG-1).** Roughly 450 hand-written
    queries, no compile-time checking, and the checking suites are explicitly excluded from
@@ -102,7 +102,7 @@ role requirement on the route contract rather than per page. The server is the a
 link alone would not change what a session can fetch. Decide deliberately whether a student may
 resolve a single assigned question, which is a different route than browse and search.
 
-**2. Student-facing teaching loop.** Show the run time limit before the student commits; project the
+**2. Student-facing teaching loop.** Show the Assignment Attempt time limit before the student commits; project the
 existing summary fields into a student-visible mastery view; replace seed and attempt vocabulary
 with teacher language; settle on one verb for entering practice across the three surfaces and the
 keyboard contract. These are small and they address the gap between what the product promises and
@@ -133,7 +133,7 @@ than after.
 
 Carried forward rather than guessed.
 
-- Whether a student may open a single assigned question outside a run, once browse and search close.
+- Whether a student may open a single assigned question outside an Assignment Attempt, once browse and search close.
 - Whether the Library becomes course-scoped in addition to instructor-only.
 - Whether dark mode is a deliberate omission; no `prefers-color-scheme` handling exists.
 - Whether any consumer needs the aggregate `Store` facade, which bounds how far that cleanup goes.

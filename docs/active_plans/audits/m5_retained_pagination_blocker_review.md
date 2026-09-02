@@ -18,7 +18,7 @@ cleanup.
   visible next-page control.
 - [GradebookPage](../../../src/pages/gradebook_page.tsx) loads one summary page
   with `loadGradebookPage` and renders only `page.items`. Its cursor control is
-  limited to an already opened student run history, not the gradebook summary.
+  limited to an already opened Assignment Attempt history, not the gradebook summary.
 - The active M5 integration record already identifies the first-page retained
   volume limit as a product-page limitation, not a report or selector
   workaround: [M5 shared integration](../workstreams/wp_m5_shared_integration.md).
@@ -71,8 +71,8 @@ bash tests/e2e/e2e_ui_walkthrough.sh --master-seed 42 --build
 
 The redacted schema-v1 report is PASS with `masterSeed: 42` and `stage:
 complete`. Its private directory and report file were mode 0700 and 0600. J1,
-J2, J3, J4, J5, and J8 are each PASS with empty diagnostics. Their exact visible
-codes are respectively:
+J2, J3, J4, J5, and J8 are each PASS with empty diagnostics. Historical report
+evidence used these exact visible codes:
 
 - J1: `visible_start`, `visible_response`, `visible_submit`,
   `visible_feedback`, `visible_completion`.
@@ -83,9 +83,10 @@ codes are respectively:
 - J5: `visible_gradebook`, `visible_run_history`.
 - J8: `visible_learner_completion`, `visible_instructor_gradebook`.
 
-`.last-run.json` records `passed` with no failed tests. Only it and the private
-report remained in `test-results`; no trace, screenshot, video, or other
-artifact remained. No `ple-ui-walkthrough-*` private temporary root remained.
+Historical artifact evidence: `.last-run.json` recorded `passed` with no failed
+tests. Only it and the private report remained in `test-results`; no trace,
+screenshot, video, or other artifact remained. No `ple-ui-walkthrough-*`
+private temporary root remained.
 The first read-only Podman check immediately after the Python runner exit saw a
 short cleanup tail; a second read-only check seconds later was empty, with no
 manual intervention. The final retained stack is therefore clean.

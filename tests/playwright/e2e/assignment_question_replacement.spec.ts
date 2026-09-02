@@ -117,7 +117,7 @@ async function createReleasedAssignmentAndInvitation(
   return invitationUrl;
 }
 
-async function startIssuedRun(
+async function startIssuedAssignmentAttempt(
   page: Page,
   invitationUrl: string,
   courseTitle: string,
@@ -272,7 +272,7 @@ test.describe("assignment question replacement on the production PLE stack", () 
         tag,
       );
       await openAssignmentQuestions(elena, courseTitle, assignmentTitle);
-      await startIssuedRun(
+      await startIssuedAssignmentAttempt(
         mary,
         invitationUrl,
         courseTitle,

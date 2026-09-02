@@ -147,6 +147,13 @@ mod tests {
         );
         assert!(QuestionAuthorship::new(vec![ada.clone(), ada]).is_err());
         assert!(QuestionAuthorDisplayName::new("\n".into()).is_err());
+        let sixteen_authors = (1..=16)
+            .map(|position| QuestionAuthor {
+                display_name: QuestionAuthorDisplayName::new(format!("Question Author {position}"))
+                    .expect("bounded display name"),
+            })
+            .collect();
+        assert!(QuestionAuthorship::new(sixteen_authors).is_ok());
         assert!(
             serde_json::from_value::<QuestionAuthorship>(serde_json::json!({"authors": []}))
                 .is_err()

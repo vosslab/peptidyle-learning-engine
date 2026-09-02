@@ -52,7 +52,7 @@ PLE keeps four related but different things separate:
 
 Publication is the boundary between the first two rows. Every content change
 publishes a new immutable question with a fresh Question ID and fresh hidden
-`(QuestionId, QuestionRevisionNumber)` pair; optional one-way provenance may identify its
+`(QuestionId, QuestionRevisionNumber)` pair; an optional Question Fork Source may identify its
 source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
 pinned pair and does not copy prompt, assets, source, or answer material into the
 course. An Assignment Attempt is one pass through an Assignment, and a Question
@@ -94,7 +94,7 @@ ID and hidden `(QuestionId, QuestionRevisionNumber)` pair only after success, an
 immutable metadata, public payload, private grader material or source binding,
 visibility grant, and draft removal as one transaction. A publication never
 mutates an existing published question. Every content change publishes a new
-question; optional one-way provenance may identify its source. A deliberate,
+question; an optional Question Fork Source may identify its source Question Revision. A deliberate,
 revision-checked assignment replacement changes future Assignment Attempts only, while issued
 Assignment Attempts and Question Attempts retain their original exact evidence.
 
@@ -265,12 +265,12 @@ The common lifecycle deliberately ends at a backend boundary. Adapters can
 share public attempt behavior without sharing private grading data or assuming
 the same source format.
 
-| Question Backend | Publication authority                                                            | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                               |
-| ---------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private envelope, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
-| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically        | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled                 | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                              |
-| WeBWorK          | PLE copies licensed PG/PGML source and provenance into immutable storage         | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WebWork grading contract, and immutable source provenance; submitted reads never rerender                         |
-| iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration   | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                          |
+| Question Backend | Publication authority                                                                                                          | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key                                               | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private envelope, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
+| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled                 | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                              |
+| WeBWorK          | PLE copies licensed PG/PGML Question Source into immutable storage with its Source Object Reference and Source Object Checksum | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WeBWorK grading contract, and immutable Question Source; submitted reads never rerender                           |
+| iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration                                                 | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                          |
 
 PLE Question JSON Questions use PLE's public `QuestionRevision` plus separate
 grader-only material. The exact PLE Question JSON authoring format is

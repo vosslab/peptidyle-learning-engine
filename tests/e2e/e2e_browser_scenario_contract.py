@@ -12,8 +12,8 @@ BASELINE_ALIASES = frozenset(
 	{
 		"base_course",
 		"genetics_practice_course",
-		"mary_completed_run",
-		"jack_open_run",
+		"mary_completed_assignment_attempt",
+		"jack_open_assignment_attempt",
 		"published_peptide_assignment",
 	}
 )
@@ -65,7 +65,7 @@ class ScenarioContractError(ValueError):
 
 @dataclasses.dataclass(frozen=True)
 class ScenarioContract:
-	"""One UI-first journey; family modules provide facts and this module provides policy."""
+	"""One UI-first journey; supporting modules provide facts and this module provides policy."""
 
 	scenario_id: str
 	spec_path: str

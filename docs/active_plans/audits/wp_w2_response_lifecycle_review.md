@@ -22,10 +22,11 @@ controller and local selection.
   after `machine.advance`. `initialResponse` reads the current machine state,
   while the event callback for the iMathAS Question Backend control closes over the same keyed
   attempt ID. There is no mixed old-attempt request path.
-- The new production `RunPage` fixture observes a checked first radio, advances
-  via a distinct issued attempt, then requires the first retry radio to be
-  unchecked. It is DOM behavior rather than an implementation mock. Existing
-  frontend recovery coverage confirms saved-entry editing and cleanup.
+- Historical fixture evidence: the former production `RunPage` fixture observed
+  a checked first radio, advanced via a distinct issued Question Attempt, then
+  required the first retry radio to be unchecked. It was DOM behavior rather
+  than an implementation mock. Existing frontend recovery coverage confirmed
+  saved-entry editing and cleanup.
 - The new static source assertion is deliberately narrow and aligns with the
   repo's existing contract-test style. The behavioral fixture, not that regex,
   is the material regression proof.
@@ -35,11 +36,11 @@ controller and local selection.
 
 ## Validation
 
-- PASS: focused Prettier, TypeScript lint compile, and ESLint for `RunPage` and
-  the focused Playwright fixtures.
+- Historical validation names: PASS: focused Prettier, TypeScript lint compile,
+  and ESLint for former `RunPage` and the focused Playwright fixtures.
 - PASS: `node --import tsx --test tests/test_frontend_contract.mjs` (19 passed).
-- PASS: `node --import tsx --test tests/test_question_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (40 passed).
-- PASS: `npx playwright test tests/playwright/run_prefetch_route.spec.ts tests/playwright/run_completion_summary.spec.ts tests/playwright/frontend_contract.spec.ts` (24 passed).
+- Historical test paths: PASS: `node --import tsx --test tests/test_question_attempt_state.mjs tests/test_frontend_contract.mjs tests/test_run_page_recovery.mjs` (40 passed).
+- Historical test paths: PASS: `npx playwright test tests/playwright/run_prefetch_route.spec.ts tests/playwright/run_completion_summary.spec.ts tests/playwright/frontend_contract.spec.ts` (24 passed).
 - PASS: `git diff --check`.
 
 The retry fixture's title says the active selection persists, though its direct

@@ -611,7 +611,7 @@ mod tests {
                 ] {
                     let mut widened = capability_authority(expected.role_name);
                     widened.direct_memberships.push(DirectMembership {
-                        role_name: "ple_catalog_ownership_broker".to_string(),
+                        role_name: "ple_unexpected_capability_role".to_string(),
                         admin_option,
                         inherit_option,
                         set_option,

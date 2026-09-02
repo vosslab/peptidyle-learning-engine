@@ -19,7 +19,7 @@ COMMENT ON COLUMN ple_private.question_source.source_object_id IS
 COMMENT ON COLUMN ple_private.question_source.source_object_checksum IS
     'Source Object Checksum: SHA-256 verification value for the exact Question Source bytes.';
 COMMENT ON COLUMN ple_private.question_source.backend IS
-    'Question Backend: PLE, WeBWorK, QTI, H5P, or iMathAS interpretation of the Question Source.';
+    'Question Backend: PLE, WeBWorK, QTI, or iMathAS interpretation of the Question Source.';
 COMMENT ON COLUMN ple_private.question_source.backend_locator IS
     'Question Backend locator details, such as a WeBWorK PG Path or iMathAS Item Reference.';
 

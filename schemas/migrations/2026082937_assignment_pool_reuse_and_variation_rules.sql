@@ -238,7 +238,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.validate_question_pool_selected_it
 COMMENT ON TABLE ple_private.question_pool_selection IS
     'Immutable selected Question Pool Item set for one Assignment Attempt and Assignment Entry.';
 COMMENT ON COLUMN ple_private.question_pool_selection.reused_from_question_pool_selection_id IS
-    'Earlier same-Student Assignment Attempt Selection whose exact Items this Selection retained.';
+    'Earlier Question Pool Selection from the same Student''s Assignment Attempt whose exact Items this Selection retained.';
 COMMENT ON COLUMN ple_private.question_pool_selection.selected_question_count IS
     'Exact number of selected Item rows, checked at transaction commit.';
 COMMENT ON TABLE ple_private.question_pool_selected_item IS

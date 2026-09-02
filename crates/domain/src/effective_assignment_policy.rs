@@ -90,9 +90,9 @@ pub enum GateDenial {
     Authorization(AuthorizationDenial),
 }
 
-/// Origin of one resolved field.
+/// Assignment policy source for one resolved field.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PolicySource {
+pub enum AssignmentPolicySource {
     Base,
     Accommodation(StudentRecordId),
     HypotheticalAccommodation,
@@ -101,7 +101,7 @@ pub enum PolicySource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectiveAssignmentPolicyValue<T> {
     pub value: T,
-    pub source: PolicySource,
+    pub source: AssignmentPolicySource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -432,7 +432,7 @@ fn base_policy(base: BaseAssignmentPolicy) -> EffectiveAssignmentPolicy {
 fn resolved<T>(value: T) -> EffectiveAssignmentPolicyValue<T> {
     EffectiveAssignmentPolicyValue {
         value,
-        source: PolicySource::Base,
+        source: AssignmentPolicySource::Base,
     }
 }
 
@@ -549,8 +549,10 @@ fn apply_accommodation_field<T: Ord + Copy>(
     }
     field.value = replacement;
     field.source = match error_source {
-        ModifierSource::Accommodation(student) => PolicySource::Accommodation(student),
-        ModifierSource::HypotheticalAccommodation => PolicySource::HypotheticalAccommodation,
+        ModifierSource::Accommodation(student) => AssignmentPolicySource::Accommodation(student),
+        ModifierSource::HypotheticalAccommodation => {
+            AssignmentPolicySource::HypotheticalAccommodation
+        }
     };
     Ok(())
 }

@@ -12,7 +12,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			personas=("elena_instructor", "mary_student"),
 			baseline_reads=("base_course",),
 			ui_creates=("question", "course", "assignment", "invitation", "response"),
-			visible_observation="mary_completed_run_persists_after_fresh_session",
+			visible_observation="mary_completed_assignment_attempt_persists_after_fresh_session",
 			screenshot_states=(
 				"assignment_list",
 				"assignment_overview",
@@ -20,7 +20,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"response_selected",
 				"feedback_correct",
 				"completion",
-				"repeat_run",
+				"additional_assignment_attempt",
 				"fresh_session_score",
 				"instructor_active_roster",
 				"instructor_gradebook",

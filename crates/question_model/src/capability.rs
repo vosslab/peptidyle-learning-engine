@@ -29,8 +29,7 @@ pub enum Capability {
     ClientRendering,
     /// Grades on the server, where answer keys live.
     ///
-    /// A backend without this one cannot carry a graded assignment. H5P
-    /// declares it false because H5P evaluates answers in the browser.
+    /// A backend without this one cannot carry a graded assignment.
     ServerGrading,
     /// Awards partial credit rather than all or nothing.
     PartialCredit,
@@ -91,13 +90,12 @@ impl Capability {
 /// ```
 /// use question_model::capability::{QuestionBackendCapabilities, Capability};
 ///
-/// let h5p = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
-/// assert!(h5p.supports(Capability::ClientRendering));
+/// let browser_renderer = QuestionBackendCapabilities::from_iter([Capability::ClientRendering]);
+/// assert!(browser_renderer.supports(Capability::ClientRendering));
 ///
-/// // H5P evaluates in the browser, so it cannot carry a graded assignment.
-/// assert!(!h5p.supports(Capability::ServerGrading));
+/// assert!(!browser_renderer.supports(Capability::ServerGrading));
 /// assert_eq!(
-///     h5p.missing_from([Capability::ServerGrading, Capability::ClientRendering]),
+///     browser_renderer.missing_from([Capability::ServerGrading, Capability::ClientRendering]),
 ///     vec![Capability::ServerGrading],
 /// );
 /// ```

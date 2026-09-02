@@ -14,6 +14,10 @@ cookie, storage, or browser history.
 
 ## Scope and method
 
+Historical evidence note: quoted route-state and visible-label strings below,
+including `run` and `Start another practice run`, record the former reviewed
+surface rather than current product terminology.
+
 This independent review covered WP-W2, the active walkthrough plan, the
 no-mouse contract, J1 and J2 specifications, the shared Tab helper, the fixed
 serial Python runner, and the public-only report boundary. It applies a
@@ -23,31 +27,31 @@ feedback, observe a visible retry, and observe completion.
 
 ## Findings
 
-| Check                       | Evidence                                                                                                                                                                                                                                                                           | Result                               |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Shared J1 path              | J1 now imports only `tabTo`; its sign-in, current href, route-focus, Space, feedback, and completion behavior is otherwise retained.                                                                                                                                               | PASS                                 |
-| Whole-browser keyboard path | J2 uses initial root navigation only, then Tab/Shift+Tab, native Enter, and Space. It contains no `.click()`, mouse/tap, direct focus, API request/route, cookie, storage-state, back/forward, or direct post-login route action.                                                  | PASS                                 |
-| Visible sign-in             | Tab reaches the labelled credential input and visible submit button, with focus assertions before fill and native Enter; the visible courses surface follows.                                                                                                                      | PASS                                 |
-| Exact Mastery route         | J2 requires exactly one visible current href `/courses/<courseId>/assignments/<masteryAssignmentId>`, reaches it by Tab, and activates it with native Enter.                                                                                                                       | PASS                                 |
-| Existing run recovery       | After Start/resume, a bounded structural poll accepts only a rendered inline error, a visible radio, or the actual visible `Start another practice run` button. Only the latter is Tabbed to, focused, and Space-activated before J2 expects radios.                               | PASS                                 |
-| Visible first response      | Only after the visible fresh run appears, the first rendered radio is reached by Tab, focused, selected by Space, visibly checked, and followed by visible format readiness and keyboard Submit.                                                                                   | PASS                                 |
-| Feedback boundary           | Each submission requires only the `Feedback` heading. J2 neither queries feedback text nor tests correctness, score, correct response, or answer content.                                                                                                                          | PASS                                 |
-| Visible retry               | After the first keyboard Continue, J2 applies the same 15-second bounded structural poll and proceeds only when visible radios return `run`; a visible inline error or fresh-practice button fails. This is the retry observation; no grading result is inferred or reconstructed. | PASS                                 |
-| Visible completion          | After the second keyboard Continue, J2 requires the actual visible `Start another practice run` button. It no longer relies on asynchronously changing summary wording.                                                                                                            | PASS                                 |
-| Focus semantics             | Every exercised control is located through `tabTo`, asserted focused, and activated with native Enter or Space. The product's delayed feedback focus moves to Continue only while the Feedback heading remains active; J2 still uses Tab and a focus assertion before activation.  | PASS subject to live timing evidence |
-| Report boundary             | J1 writes one bounded state row; J2 validates it with descriptor-level private-file checks and appends only a bounded J2 row. The renderer requires exact ordered J1/J2 fragments for the same public course and assignment, with J2's fixed `visible_retry` milestone.            | PASS                                 |
-| Fixed serial runner         | The Python runner invokes fixed smoke/arranged/J1 specs, then a separate fixed J2 invocation before the sole renderer. Separate invocations make the cross-spec order explicit despite Playwright's normal parallel setting.                                                       | PASS                                 |
+| Check                                | Evidence                                                                                                                                                                                                                                                                                                           | Result                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Shared J1 path                       | J1 now imports only `tabTo`; its sign-in, current href, route-focus, Space, feedback, and completion behavior is otherwise retained.                                                                                                                                                                               | PASS                                 |
+| Whole-browser keyboard path          | J2 uses initial root navigation only, then Tab/Shift+Tab, native Enter, and Space. It contains no `.click()`, mouse/tap, direct focus, API request/route, cookie, storage-state, back/forward, or direct post-login route action.                                                                                  | PASS                                 |
+| Visible sign-in                      | Tab reaches the labelled credential input and visible submit button, with focus assertions before fill and native Enter; the visible courses surface follows.                                                                                                                                                      | PASS                                 |
+| Exact Mastery route                  | J2 requires exactly one visible current href `/courses/<courseId>/assignments/<masteryAssignmentId>`, reaches it by Tab, and activates it with native Enter.                                                                                                                                                       | PASS                                 |
+| Existing Assignment Attempt recovery | After Start/resume, a bounded structural poll accepts only a rendered inline error, a visible radio, or the historically observed `Start another practice run` button. Only the latter is Tabbed to, focused, and Space-activated before J2 expects radios.                                                        | PASS                                 |
+| Visible first response               | Only after the visible fresh Assignment Attempt appears, the first rendered radio is reached by Tab, focused, selected by Space, visibly checked, and followed by visible format readiness and keyboard Submit.                                                                                                    | PASS                                 |
+| Feedback boundary                    | Each submission requires only the `Feedback` heading. J2 neither queries feedback text nor tests correctness, score, correct response, or answer content.                                                                                                                                                          | PASS                                 |
+| Visible retry                        | After the first keyboard Continue, J2 applies the same 15-second bounded structural poll and proceeds only when visible radios return the historical classifier state `run`; a visible inline error or fresh-practice button fails. This is the retry observation; no grading result is inferred or reconstructed. | PASS                                 |
+| Visible completion                   | After the second keyboard Continue, J2 requires the historically observed visible `Start another practice run` button. It no longer relies on asynchronously changing summary wording.                                                                                                                             | PASS                                 |
+| Focus semantics                      | Every exercised control is located through `tabTo`, asserted focused, and activated with native Enter or Space. The product's delayed feedback focus moves to Continue only while the Feedback heading remains active; J2 still uses Tab and a focus assertion before activation.                                  | PASS subject to live timing evidence |
+| Report boundary                      | J1 writes one bounded state row; J2 validates it with descriptor-level private-file checks and appends only a bounded J2 row. The renderer requires exact ordered J1/J2 fragments for the same public course and assignment, with J2's fixed `visible_retry` milestone.                                            | PASS                                 |
+| Fixed serial runner                  | The Python runner invokes fixed smoke/arranged/J1 specs, then a separate fixed J2 invocation before the sole renderer. Separate invocations make the cross-spec order explicit despite Playwright's normal parallel setting.                                                                                       | PASS                                 |
 
 ## HCI acceptance ledger
 
-| Student step   | Need                                                          | Observable acceptance criterion                                                                               | Required live evidence                               |
-| -------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Enter Mastery  | Reach the prepared activity without a pointer                 | Tab/Enter uses the exact current Mastery href; route focus returns to main                                    | Focused link and focused `#main-content`             |
-| Fresh practice | Start retry practice from visible server state when needed    | A direct visible radio proceeds; otherwise actual `Start another practice run` is focused and Space-activated | Visible radio, or focused button and new run surface |
-| First try      | Select and submit without a shortcut                          | First rendered radio is focused/checked with Space; Submit is focused/activated with Space                    | Checked radio, ready status, Feedback heading        |
-| Retry          | Recover using visible system state rather than hidden grading | Continue is focused/activated with Space; only visible radios may satisfy the bounded retry poll              | Visible radios after first Continue                  |
-| Second try     | Complete with the same accessible controls                    | Second rendered radio uses the same Tab/Space/submit path                                                     | Checked radio, ready status, Feedback heading        |
-| Completion     | Know the next useful action                                   | Actual fresh-practice button is visible after second Continue                                                 | `Start another practice run`                         |
+| Student step   | Need                                                          | Observable acceptance criterion                                                                                              | Required live evidence                                              |
+| -------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Enter Mastery  | Reach the prepared activity without a pointer                 | Tab/Enter uses the exact current Mastery href; route focus returns to main                                                   | Focused link and focused `#main-content`                            |
+| Fresh practice | Start retry practice from visible server state when needed    | A direct visible radio proceeds; otherwise historically observed `Start another practice run` is focused and Space-activated | Visible radio, or focused button and new Assignment Attempt surface |
+| First try      | Select and submit without a shortcut                          | First rendered radio is focused/checked with Space; Submit is focused/activated with Space                                   | Checked radio, ready status, Feedback heading                       |
+| Retry          | Recover using visible system state rather than hidden grading | Continue is focused/activated with Space; only visible radios may satisfy the bounded retry poll                             | Visible radios after first Continue                                 |
+| Second try     | Complete with the same accessible controls                    | Second rendered radio uses the same Tab/Space/submit path                                                                    | Checked radio, ready status, Feedback heading                       |
+| Completion     | Know the next useful action                                   | Actual fresh-practice button is visible after second Continue                                                                | `Start another practice run`                                        |
 
 ## Offline validation
 
@@ -83,7 +87,8 @@ Before accepting WP-W2, independently verify:
   and Space-activated before radios). It must not infer a retry path from a
   stale/removed Question Response Control or asynchronous heading wording.
 - First selection produces only the observed Feedback heading. After Continue,
-  the same 15-second structural poll must reach visible radios (`run`); a
+  the same 15-second structural poll must reach visible radios (historical
+  classifier state `run`); a
   visible inline error or fresh-practice button fails. No body text,
   correctness, score, or answer material is inspected or retained.
 - Second selection produces a visible `Start another practice run` button after
@@ -98,10 +103,10 @@ Before accepting WP-W2, independently verify:
 
 ## Failure and repair re-review
 
-Two real-stack attempts exposed an honest stale-run problem: J2's original
+Two real-stack attempts exposed an honest stale-Assignment-Attempt problem: J2's original
 Start/resume path reached the completed summary from existing student state, so
 the test correctly could not find a new Question Response Control. The repair does not
-clear state, inject a run, or infer an outcome. It requires the visible completed
+clear state, inject an Assignment Attempt, or infer an outcome. It requires the visible completed
 summary and then uses the ordinary keyboard-only `Start another practice run`
 control to obtain the server-owned fresh variation before beginning the first
 and second visible-radio sequence.
@@ -128,15 +133,15 @@ reconstructing a grade. Source guards and focused offline gates pass again.
 The final repair replaces timing-sensitive summary assumptions with the pure
 `classifyPostStartSurface` helper. Its only inputs are rendered counts for
 visible `.inline-error`, visible radios, and the visible fresh-practice button;
-it returns `error`, `run`, `fresh-practice`, or `pending`. A bounded Playwright
+it returns `error`, historical `run`, `fresh-practice`, or `pending`. A bounded Playwright
 poll waits only until that structural classifier is no longer pending. J2 fails
-generically on `error`, proceeds on `run`, and uses Tab, focus assertion, and
+generically on `error`, proceeds on historical `run`, and uses Tab, focus assertion, and
 Space only on `fresh-practice` before requiring radios. It reads no heading
 wording, response body, feedback body, score, correctness, answer, source, or
 private state in this decision.
 
 The retained live diagnosis was two visible radios, zero inline errors, and no
-fresh-practice button; that is correctly the `run` branch. The focused source
+fresh-practice button; that is correctly the historical `run` branch. The focused source
 guards, TypeScript check, lint/format checks, report test (12 passing), and
 diff check passed. This is a source-only re-review: no new live run was made.
 
@@ -144,7 +149,7 @@ diff check passed. This is a source-only re-review: no new live run was made.
 
 The first Continue no longer assumes that retry controls are already rendered.
 It invokes the same pure classifier with an explicit 15-second bounded poll.
-Only its `run` result permits the second radio sequence. `error` and
+Only its historical `run` result permits the second radio sequence. `error` and
 `fresh-practice` both fail through the generic rendered-retry-controls error;
 `pending` times out. This uses no route marker, heading wording, private
 browser/server state, feedback body, or grading data. The visible retry proof

@@ -3,7 +3,7 @@
 ## Status and authority
 
 WP-INST-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
-acceptance path over ordinary assignments, Student Assignment Attempts, grading, evidence, and Instructor
+acceptance path over ordinary assignments, Assignment Attempts, grading, evidence, and Instructor
 inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
 product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
@@ -24,7 +24,7 @@ PLE has one assignment-execution model:
   workflows and supplies canonical browser acceptance.
 
 Preview remains the accepted WP-INST-T3 live computation over ordinary course policy. It explains
-effective state and provenance. Delivery validation uses ordinary Student work, so evidence from
+effective state and Assignment Policy Source. Delivery validation uses ordinary Student work, so evidence from
 preview, student execution, grading, receipt replay, gradebook totals, and Instructor inspection
 connects through the same product records.
 
@@ -54,12 +54,13 @@ WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 - course-group, entitlement, accommodation, and schedule-exception source authority;
 - immutable issued-question source and private execution snapshots for normal student work;
 - session-derived course creation and co-instructor invitation mutations;
-- grade-scheme, export-audit, scoring preparation, and scoring finalization brokers; and
+- grade-scheme, export-audit, scoring preparation, and scoring finalization operations; and
 - least-privilege PostgreSQL roles, forced RLS, typed conflicts, and route-bound witnesses.
 
-Each capability has one broker-owned mutation path and one typed application contract. Read
+Each capability has one protected database operation and one typed application contract. Read
 projections use snapshot reads. Mutations lock and verify their complete authority set inside the
-owning broker. Server composition routes every operation through the narrow capability that owns it.
+owning protected database operation. Server composition routes every operation through the narrow
+authority that owns it.
 
 ### Canonical evidence path
 

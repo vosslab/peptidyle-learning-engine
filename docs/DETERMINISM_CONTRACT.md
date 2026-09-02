@@ -152,15 +152,15 @@ other internal identities remain server-side.
 
 ### Checksum roles
 
-| Value                                  | Detects or proves                                                    | Does not provide                                                 |
-| -------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Source-source_object_reference SHA-256 | immutable source bytes match their published record                  | authorization or a rendered output                               |
-| Generated-variant SHA-256              | same generator definition and seed produced the reviewed values      | a student presentation or grade                                  |
-| Safe-render SHA-256                    | cached WeBWorK safe render has stable provenance                     | private replay state or student authorization                    |
-| Full presentation SHA-256              | persisted descriptor agrees with a reconstructed public presentation | authentication, transport integrity, or pixel rendering          |
-| `pd1_` 128-bit public token            | compact browser/server presentation-consistency comparison           | a durable secret or a substitute for the full stored digest      |
-| Rendered-item CRC16                    | selected item corresponds to one unique object in this presentation  | collision resistance across presentations or a security boundary |
-| Idempotency record                     | exact retry is replayed and changed retry conflicts                  | question correctness                                             |
+| Value                                  | Detects or proves                                                                             | Does not provide                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Source-source_object_reference SHA-256 | immutable source bytes match their published record                                           | authorization or a rendered output                               |
+| Generated-variant SHA-256              | same generator definition and seed produced the reviewed values                               | a student presentation or grade                                  |
+| Safe-render SHA-256                    | cached WeBWorK safe render has a stable Source Object Reference and Question Renderer Version | private replay state or student authorization                    |
+| Full presentation SHA-256              | persisted descriptor agrees with a reconstructed public presentation                          | authentication, transport integrity, or pixel rendering          |
+| `pd1_` 128-bit public token            | compact browser/server presentation-consistency comparison                                    | a durable secret or a substitute for the full stored digest      |
+| Rendered-item CRC16                    | selected item corresponds to one unique object in this presentation                           | collision resistance across presentations or a security boundary |
+| Idempotency record                     | exact retry is replayed and changed retry conflicts                                           | question correctness                                             |
 
 ## WeBWorK cache and replay
 
@@ -209,8 +209,9 @@ This is an implemented offline slice, not acceptance of WP-P1 through WP-P6.
 The following remain planned integration and acceptance work:
 
 - prove the one-call path against disposable PostgreSQL and the private live renderer; and
-- expose `LearnerRunScreenV1` and its compact, type-free answer wire as the
-  browser's authoritative active-attempt route.
+- expose the current `StudentAssignmentAttemptScreen` answer-free screen
+  contract and the compact, type-free answer wire as the browser's authoritative
+  active Question Attempt route.
 
 The approved integration sequence and acceptance criteria live in
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
@@ -224,12 +225,12 @@ envelope, not an untrusted browser-selected question type or mutable renderer.
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
 question, creates a Course/Student/Assignment Attempt/predecessor-bound reservation, and
-persists its parameter hash, provenance, and presentation binding. It does not
+persists its parameter hash, Question Attempt Reproduction Details, and presentation binding. It does not
 start the next timer or let the browser choose seed, version, backend, source,
 or grading state.
 
 When a reservation is reused, the server verifies its immutable version, seed,
-parameter hash, provenance, and stored presentation binding. It rebuilds the
+parameter hash, Question Attempt Reproduction Details, and stored presentation binding. It rebuilds the
 presentation with the persisted nonce and refuses if the full Question Presentation Checksum differs.
 Promotion consumes the reservation atomically with successor issuance; a
 committed receipt is the only authority that activates the next attempt.

@@ -89,7 +89,7 @@ export function policyRequest(
   };
 }
 
-export function sourceLabel(source: AssignmentPolicySource): string {
+export function assignmentPolicySourceLabel(source: AssignmentPolicySource): string {
   if (source.kind === "base") return source.label;
   return source.label;
 }

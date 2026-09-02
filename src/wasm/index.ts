@@ -162,7 +162,6 @@ function parseQuestionBackend(value: unknown): QuestionBackend {
     case "ple":
     case "webwork":
     case "qti":
-    case "h5p":
     case "imathas":
       return value;
     default:

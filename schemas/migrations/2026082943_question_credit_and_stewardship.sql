@@ -31,10 +31,18 @@ CREATE TABLE ple_data.question_revision_acceptance (
 CREATE TABLE ple_data.question_revision_authorship (
     question_id text NOT NULL,
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    author_position integer NOT NULL CHECK (author_position > 0),
-    author_display_name text NOT NULL CHECK (char_length(btrim(author_display_name)) BETWEEN 1 AND 120),
+    author_position integer NOT NULL,
+    author_display_name text NOT NULL,
     author_account_id uuid REFERENCES ple_private.account (account_id),
     PRIMARY KEY (question_id, revision_number, author_position),
+    -- ASVS 2.2.1-2.2.3: validate author input at the trusted service boundary.
+    CONSTRAINT question_revision_authorship_position_is_bounded
+        CHECK (author_position BETWEEN 1 AND 16),
+    CONSTRAINT question_revision_authorship_display_name_is_reviewed CHECK (
+        author_display_name = btrim(author_display_name)
+        AND char_length(author_display_name) BETWEEN 1 AND 120
+        AND author_display_name !~ '[[:cntrl:]]'
+    ),
     CONSTRAINT question_revision_authorship_revision_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT question_revision_authorship_display_name_is_unique
@@ -159,6 +167,9 @@ $$;
 
 CREATE FUNCTION ple_data.validate_question_publication_credit()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
+DECLARE
+    authorship_count integer;
+    highest_author_position integer;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -168,6 +179,15 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Publication requires Question Authorship';
+    END IF;
+    SELECT count(*), max(authorship.author_position)
+      INTO authorship_count, highest_author_position
+      FROM ple_data.question_revision_authorship AS authorship
+     WHERE authorship.question_id = NEW.question_id
+       AND authorship.revision_number = NEW.revision_number;
+    IF authorship_count <> highest_author_position THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Publication requires contiguous Question Author positions';
     END IF;
     IF NOT EXISTS (
         SELECT 1

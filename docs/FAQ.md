@@ -171,7 +171,7 @@ compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
 ID, reuse an assignment's ordered questions, or draw from a reusable pool. A published Blueprint
 Course can supply ordered modules and assignments to a new Course Instance through the adoption
-workflow. Existing issued Student Assignment Attempts keep their immutable question snapshot. See
+workflow. Existing issued Assignment Attempts keep their immutable question snapshot. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
 ## What happens if automated grading stalls?

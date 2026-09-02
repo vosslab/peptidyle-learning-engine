@@ -32,7 +32,7 @@ Version 2 is based on the lossless semantics of QTI Package Maker's `MC`,
 `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
 identifiers compile separately from accepted answers. PLE adds one bounded
 `hotspot` extension because the reviewed QTI Package Maker model does not
-define that family. A wholesale Rust port of QTI Package Maker remains out of
+define that Question Type. A wholesale Rust port of QTI Package Maker remains out of
 scope.
 
 This is an internal PLE source contract, not an implementation of a missing or
@@ -75,7 +75,7 @@ PLE maps those meanings to narrower contracts:
 | Feedback selected by an incorrect outcome          | Incorrect Feedback               | Post-grading Question Feedback                               |
 | Correct-response declaration                       | Answer Key, then Question Answer | Private grading facts, then separately released display form |
 | Model solution                                     | Question Answer Explanation      | Explanatory content with independent release timing          |
-| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Revision       |
+| Item, Hint, Feedback, Answer, or explanation media | Exact Question Asset role        | Checksummed Object bound to the exact Question Revision      |
 
 A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
 its display container. A correct-response declaration supplies private Answer
@@ -104,7 +104,7 @@ relationships and retains the same checksum and accessibility requirements.
 
 ## Version 2 contract
 
-Version 2 keeps the same top-level metadata and policies but places family data
+Version 2 keeps the same top-level metadata and policies but places response-specific data
 inside one closed `response` object. The common top-level members are
 `format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
 `points`, `questionAttemptLimit`, `questionAttemptTimeLimit`, optional `tags`, optional
@@ -123,16 +123,16 @@ retain the durable facts.
 
 The eight exact response shapes are:
 
-| `response.kind`  | Answer-bearing source members                                              | Browser-safe compiled shape                                        |
-| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `singleChoice`   | `choices`, `correctChoice`                                                 | radio choices with stable IDs                                      |
-| `multipleAnswer` | `choices`, `correctChoices`                                                | checkbox choices; the correct count is not disclosed               |
-| `fillIn`         | `answers`, `matchMode`, `maxLength`                                        | one bounded text field                                             |
-| `multiFillIn`    | `blanks`, each with `id`, `label`, `answers`, `matchMode`, and `maxLength` | named bounded text fields                                          |
-| `numeric`        | `answer`, `tolerance`, optional `unit`                                     | numeric field, public tolerance rule, and unit                     |
-| `matching`       | `prompts`, `choices`, `matches`                                            | one accessible radio group per prompt                              |
-| `ordering`       | `items`, `correctOrder`                                                    | one reorderable list                                               |
-| `hotspot`        | `surface`, `regions`, `correctRegions`                                     | immutable image reference plus keyboard-operable Hotspot Regions   |
+| `response.kind`  | Answer-bearing source members                                              | Browser-safe compiled shape                                      |
+| ---------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `singleChoice`   | `choices`, `correctChoice`                                                 | radio choices with stable IDs                                    |
+| `multipleAnswer` | `choices`, `correctChoices`                                                | checkbox choices; the correct count is not disclosed             |
+| `fillIn`         | `answers`, `matchMode`, `maxLength`                                        | one bounded text field                                           |
+| `multiFillIn`    | `blanks`, each with `id`, `label`, `answers`, `matchMode`, and `maxLength` | named bounded text fields                                        |
+| `numeric`        | `answer`, `tolerance`, optional `unit`                                     | numeric field, public tolerance rule, and unit                   |
+| `matching`       | `prompts`, `choices`, `matches`                                            | one accessible radio group per prompt                            |
+| `ordering`       | `items`, `correctOrder`                                                    | one reorderable list                                             |
+| `hotspot`        | `surface`, `regions`, `correctRegions`                                     | immutable image reference plus keyboard-operable Hotspot Regions |
 
 Choice, prompt, blank, ordering-item, and region identifiers use the same
 stable identifier grammar. They identify semantics, not
@@ -210,14 +210,14 @@ model            answer key + three feedback forms
 | Value                        | Storage and readers                                                                       | Contents                                                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
-| Published source             | Immutable private Question Source object                                                   | The canonical PLE JSON promoted at publication for source recovery and exact re-import                             |
-| Public compiled model        | Checksummed public Question Revision projection                                            | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
+| Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                            |
+| Public compiled model        | Checksummed public Question Revision projection                                           | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
 | Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
 | Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
 
 The private Answer Key and Question Feedback record carries the SHA-256 binding
 of the public model. Grading
-refuses a different prompt, choice set, policy, metadata record, source family,
+refuses a different prompt, choice set, policy, metadata record, Question Format,
 or Question Grading Rule. Authored and published source objects are private source
 records and cannot receive signed delivery URLs. Publication IDs are minted
 only after both compiled halves validate successfully.
@@ -284,7 +284,7 @@ version with its own reader and migration plan rather than reinterpreting v2 byt
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
 adapter may map the supported PLE Question JSON-supported subset into the same public/private compiler
-outputs, retain the original package for provenance, and record unsupported
+outputs, retain the original package as a Question Source with its QTI Import Package Checksum, and record unsupported
 features. Vendor-specific XML is not copied into the PLE Question JSON schema
 merely because one exporter emits it.
 

@@ -205,8 +205,8 @@ export function App(props: RouteSectionProps): JSX.Element {
                   <p class="eyebrow">This page needs another try</p>
                   <h1>The learning space is still available</h1>
                   <p>
-                    The current page could not load. Your navigation and active Assignment Attempt remain
-                    available.
+                    The current page could not load. Your navigation and active Assignment Attempt
+                    remain available.
                   </p>
                   <div class="action-row">
                     <button class="primary-action" type="button" onClick={reset}>

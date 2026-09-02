@@ -43,7 +43,7 @@ browser
         v
 gateway/load balancer -> Rust API -> PostgreSQL
                           |          |
-                          |          \`-> forced RLS and capability brokers
+                          |          \`-> forced RLS and Authorization Checks
                           v
                      workers and typed object domains
                           |
@@ -101,12 +101,12 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Grading             | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                           |
 | Store contracts     | `crates/learning-data-access/src/contracts/`            | `BlueprintCourseStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations.                                       |
 | Retired Memory seam | `crates/learning-data-access/src/in_memory/`            | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path.      |
-| PostgreSQL Store    | `crates/learning-data-access/src/postgres/`             | Production persistence, transaction locks, source re-resolution, broker calls, and RLS-backed projections.                                        |
+| PostgreSQL Store    | `crates/learning-data-access/src/postgres/`             | Production persistence, transaction locks, source re-resolution, protected database-function calls, and RLS-backed projections.                   |
 | Server              | `crates/server/src/`                                    | Authentication, preflight, route binding, HTTP policy, Store composition, worker composition, and answer-free response assembly.                  |
 | Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                               |
 | Browser             | `src/`                                                  | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions.                |
 | Object storage      | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.               |
-| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, H5P, iMathAS, and WeBWorK Question Backends behind declared capabilities.                                                       |
+| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, iMathAS, and WeBWorK Question Backends, plus H5P Package Import.                                                                |
 
 The server composition root is `crates/server/src/composition/`. It selects
 PostgreSQL, object storage, identity, adapters, worker capabilities, and the
@@ -131,7 +131,7 @@ current projections. Reconciliation may repair only the derived projection.
 The fresh SD1 migration epoch is owned by the allocation in
 [implementation_status.md](active_plans/implementation_status.md). The
 course/curriculum capability range is planned within `2026082913` through
-`2026082916`; broker, forced-RLS, grants, and acceptance helpers are within
+`2026082916`; protected authorization functions, forced RLS, grants, and acceptance helpers are within
 `2026082929` through `2026082932`. The exact active migration ledger remains
 status-owned. The immutable
 `2026081837_blueprint_alpha_curriculum.sql` and accepted successor migrations
@@ -144,7 +144,7 @@ split.
 Instructor creates or edits BlueprintCourse
   -> question_model validates ordered tree and relative defaults
   -> Store resolves public Question IDs to exact published pins
-  -> PostgreSQL broker authorizes workspace or vetted-Instructor projection
+  -> PostgreSQL protected authorization function authorizes workspace or vetted-Instructor projection
   -> strict server DTO and generated TypeScript projection
   -> browser edits a local draft and sends a strong-revision command
   -> CurriculumAdoptionStore previews target CourseInstance materialization
@@ -176,8 +176,8 @@ published immutable question
 ```
 
 `crates/grading/` remains server-only. `crates/wasm/` may validate response
-format and timing inputs, but it cannot grade or authorize. External engines
-are brokered server-side and their output is treated as untrusted input.
+format and timing inputs, but it cannot grade or authorize. iMathAS and WeBWorK
+Question Backend execution is server-side, and its output is treated as untrusted input.
 
 ## Browser and runtime topology
 
@@ -201,7 +201,7 @@ Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
   exclusions, unreleased propagation, and answer-free projections.
 - Memory conformance proves the same reusable and adoption behavior without a
   runtime storage selector.
-- Disposable PostgreSQL/RLS oracles prove broker-only authority, forced RLS,
+- Disposable PostgreSQL/RLS oracles prove protected-function authority, forced RLS,
   vetted-Instructor published reads, workspace and CourseInstance privacy,
   exact source revision and CourseId binding, rollback, and idempotency.
 - Production HTTPS Playwright proves visible authoring, nested picker reuse,
@@ -225,7 +225,7 @@ The single-installation plan is the dependency authority:
 ```text
 SD1-A decisions and inventory
   -> SD1-B Rust domain and authorization contracts
-     -> SD1-C fresh PostgreSQL schema, RLS, and brokers
+     -> SD1-C fresh PostgreSQL schema, RLS, and protected database functions
         -> SD1-D Memory and PostgreSQL Store implementations
            -> SD1-E server, workers, objects, and adapters
               -> SD1-F API, generated TypeScript, browser, and live demo

@@ -23,16 +23,19 @@ document structure, or changelog rotation instead of capability-module limits.
 
 - `learning-data-access` contracts moved behind the stable `lib.rs` facade into `src/contracts/`.
 - Memory and PostgreSQL implementations now use capability owners for activity, authoring, courses,
-  assignments, policy, feedback, runs, statistics, row decoding, transactions, and submissions.
+  assignments, policy, feedback, Assignment Attempts, statistics, row decoding, transactions, and
+  submissions.
 - Conformance and live provenance tests were divided by durable behavior while retaining the same
   test cases and public Store contract.
 
 ### WP-SIZE2: server
 
-- Composition-local identity, iMathAS launch state, run prefetch/query/submission behavior, and the
-  large server test groups moved to focused owners behind their existing module paths.
-- Catalog, course, workspace, retention, flat-publication, and run tests were divided by route or
-  behavior ownership without changing router, authorization, status, header, or JSON contracts.
+- Composition-local identity, iMathAS launch state, Assignment Attempt prefetch/query/submission
+  behavior, and the large server test groups moved to focused owners behind their existing module
+  paths.
+- Catalog, course, workspace, retention, flat-publication, and Assignment Attempt tests were divided
+  by route or behavior ownership without changing router, authorization, status, header, or JSON
+  contracts.
 
 ### WP-SIZE3: adapters and tooling
 
@@ -48,10 +51,10 @@ document structure, or changelog rotation instead of capability-module limits.
   external-tool extension, and multiple-choice, numeric, ordering, short-text, file-upload, and shared
   response-control implementations.
 - HTTP transport, errors, authentication, and bounded JSON handling moved behind `http_client.ts`.
-- Mock handler families now own shared, authentication, catalog, courses, runs, authoring, and asset
-  behavior separately.
-- `decoders.ts` is a stable barrel over catalog/course, question-model, question-delivery, run, and
-  shared decoder owners, with no child-to-facade back-edge.
+- Mock handler families now own shared, authentication, catalog, courses, Assignment Attempt,
+  authoring, and asset behavior separately.
+- `decoders.ts` is a stable barrel over catalog/course, question-model, question-delivery,
+  Assignment Attempt, and shared decoder owners, with no child-to-facade back-edge.
 
 ## Permanent tests and one-time evidence
 

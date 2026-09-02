@@ -105,7 +105,7 @@ the domain relationship that authorizes it:
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Account and session | `account_uuid` names the global Account record; `authenticated_session_uuid` names its server session.                                                                              |
 | Private authoring   | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it.                                                      |
-| Question Library    | `question_id` is the copyable lineage identifier; `question_revision_uuid` is the one hidden immutable version reference.                                                            |
+| Question Library    | `question_id` is the copyable lineage identifier; `question_revision_uuid` is the one hidden immutable version reference.                                                           |
 | Teaching course     | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership. |
 | Student records     | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`.                                                                                             |
 | Assignment          | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent.                                                               |
@@ -135,7 +135,7 @@ as unreleased. Each Course Instance makes its own explicit release decision.
   portable map keys do too. User/content/opaque dictionary keys remain literal data.
 - Serde owns Rust-to-wire spelling. **Current pre-WN1** route payloads may still be lower-camel.
   **After their WN1 closure lands,** generated direct TypeScript DTO fields match Serde exactly.
-  A route-only contract enters `crates/browser-api-contract` in its C-family package.
+  A route-only contract enters `crates/browser-api-contract` in its C-series package.
 - Frozen contract changes follow the atomic change rule in [CONTRACTS.md](CONTRACTS.md).
 - Acronyms follow the owning language's normal word rules. Use `Uuid`, not `UUID`, in an
   `UpperCamelCase` Rust or TypeScript type name unless an external API freezes another form.

@@ -29,7 +29,7 @@ const QUESTION_LICENSES = [
   "CC-BY-4.0",
   "CC-BY-SA-4.0",
 ] as const satisfies ReadonlyArray<QuestionLicense>;
-const BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
+const BACKENDS = ["ple", "webwork", "qti", "imathas"] as const;
 const QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",

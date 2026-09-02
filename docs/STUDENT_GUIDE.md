@@ -63,7 +63,7 @@ The Student may receive released **Student Feedback**, but Answer Keys and the Q
 server. The browser displays the countdown; the server decides whether a response arrived on time.
 When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
 scores; it never presents a missing score as zero. Unreleased, Closed, or otherwise unavailable work does
-not expose instructor policy or provenance through the Student route.
+not expose Instructor policy or Question Attempt Reproduction Details through the Student route.
 
 ## Practice again
 

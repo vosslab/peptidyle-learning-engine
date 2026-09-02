@@ -65,7 +65,7 @@ fn active_student_course_membership_resolves_base_policy() {
         panic!("active student should receive an assignment policy");
     };
     assert_eq!(policy.due_at.value, Some(stamp(20_000)));
-    assert_eq!(policy.due_at.source, PolicySource::Base);
+    assert_eq!(policy.due_at.source, AssignmentPolicySource::Base);
     assert_eq!(
         start_decision,
         AssignmentStartDecision::MayStart {
@@ -93,7 +93,7 @@ fn direct_student_accommodation_extends_due_time() {
     assert_eq!(policy.due_at.value, Some(stamp(25_000)));
     assert_eq!(
         policy.due_at.source,
-        PolicySource::Accommodation(student_record(6))
+        AssignmentPolicySource::Accommodation(student_record(6))
     );
 }
 
@@ -158,6 +158,6 @@ fn synthetic_preview_can_apply_a_hypothetical_accommodation() {
     assert_eq!(policy.attempt_limit.value, NonZeroU32::new(3));
     assert_eq!(
         policy.attempt_limit.source,
-        PolicySource::HypotheticalAccommodation
+        AssignmentPolicySource::HypotheticalAccommodation
     );
 }

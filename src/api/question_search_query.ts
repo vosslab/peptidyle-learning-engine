@@ -19,7 +19,7 @@ const QUESTION_SEARCH_CAPABILITIES = [
   "offlinePreview",
 ] as const;
 const QUESTION_LICENSES = ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"] as const;
-const QUESTION_SEARCH_BACKENDS = ["ple", "webwork", "qti", "h5p", "imathas"] as const;
+const QUESTION_SEARCH_BACKENDS = ["ple", "webwork", "qti", "imathas"] as const;
 const QUESTION_SEARCH_QUESTION_TYPES = [
   "multipleChoice",
   "multipleAnswer",

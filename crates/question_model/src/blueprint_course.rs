@@ -160,7 +160,7 @@ fn ordered_after(
 pub struct BlueprintAssignmentDefaults {
     /// Whole Assignment Attempt time limit, if the reusable content establishes one.
     pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Number of Student Assignment Attempts, if the reusable content establishes one.
+    /// Number of Assignment Attempts, if the reusable content establishes one.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Late-work treatment copied into the future assignment policy.
     pub late_work_rule: LateWorkRule,

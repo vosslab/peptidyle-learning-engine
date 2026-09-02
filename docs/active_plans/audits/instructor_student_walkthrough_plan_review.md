@@ -25,7 +25,7 @@ contract and the companion evidence has one stale arrangement statement.
   browser client and UI gaps are truthful. The local identity composition is
   selected only by the exact development flag, and production remains separate.
 - Milestones, one-owner packages, dependencies, review boundaries, maximum
-  parallelism, report semantics, and two-run close-out gates are execution-ready
+  parallelism, report semantics, and two-Assignment-Attempt close-out gates are execution-ready
   once the findings below are repaired.
 
 ## Findings

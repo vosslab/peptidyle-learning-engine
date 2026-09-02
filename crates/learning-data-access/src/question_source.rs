@@ -161,7 +161,6 @@ impl DraftQuestionSourceInput {
                 QuestionFormat::PleQuestionJson | QuestionFormat::PleAlgorithmic
             ) | (QuestionBackend::Webwork, QuestionFormat::WebworkPg)
                 | (QuestionBackend::Qti, QuestionFormat::Qti)
-                | (QuestionBackend::H5p, QuestionFormat::H5p)
                 | (QuestionBackend::Imathas, QuestionFormat::Imathas)
         );
         if !format_matches_backend {

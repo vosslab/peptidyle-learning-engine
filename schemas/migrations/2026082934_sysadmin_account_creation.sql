@@ -1,4 +1,4 @@
--- SD1 authenticated Sysadmin Account Creation broker. ASVS 8.2.1 and 8.3.1.
+-- SD1 authenticated Sysadmin Account Creation operation. ASVS 8.2.1 and 8.3.1.
 -- Bootstrap creation of the first Sysadmin belongs to installation setup.
 
 DO $$

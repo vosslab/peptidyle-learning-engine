@@ -36,7 +36,7 @@ worker, adapter, and browser boundary.
 
 PostgreSQL forces RLS for every protected private-workspace and course-record
 table. A transaction sets only the authenticated `AuthenticatedSession`; policies and
-narrow broker functions derive exact current membership, Student ownership, or
+narrow authorization functions derive exact current membership, Student ownership, or
 workspace collaboration from durable rows. A worker receives one typed lease:
 claims one durable, typed lease and derives its course, workspace, Question Library, or
 system target from the locked job row. Leases, Object Addresses, adapter handles,
@@ -168,7 +168,7 @@ a seed. It produces only title, prompt, and response material for a PLE
 drafts; other adapters return an explicit `offlinePreview` unavailability
 result. The shared materializer lives in `domain`, while PLE Question Backend key
 derivation remains in its server-only crate. The bridge therefore cannot
-construct an answer key, provenance, published identity, grade, or score.
+construct an answer key, Question Attempt Reproduction Details, published identity, grade, or score.
 
 `verify_presentation_descriptor` recomputes only the deterministic descriptor
 for already disclosed public envelope and asset-binding data. It returns a
@@ -355,7 +355,7 @@ binds every support capability to one course, purpose, operation set, expiry,
 and audit trail. A Sysadmin platform role alone never grants course access,
 Gradebook access, item analysis, responses, or Assignment Attempts.
 
-Only the scheduler creates a closed retention job binding. The broker-owned
+Only the scheduler creates a closed retention job binding. The retention Job
 prepare and commit functions require the exact course, stage, generation, job,
 and active typed lease. They persist a typed StudentRecord object manifest
 before delivery revocation. The worker refuses a key outside the lease's typed
@@ -444,7 +444,8 @@ graded work.
 
 Question Library search results contain hot browser-safe metadata only. They expose a
 Question Backend but no PLE Question Implementation name, WeBWorK path, QTI package identifier,
-H5P package identifier, prompt, Question Response Format, or answer-bearing value.
+prompt, Question Response Format, or answer-bearing value. H5P Package Import is outside the
+Question Library and retains its archival package identity privately.
 Every Published Question remains discoverable to every active Instructor. Its
 Question Revision Availability is `Available` or `Archived`; the safe projection
 shows that exact availability. Selection eligibility is separate: only `Available`
@@ -571,7 +572,7 @@ existing bytes refuse.
 
 PostgreSQL makes the four delivery rows, requester-only ACLs, ready status, and
 worker completion visible in one active-lease transaction. The request and
-artifact tables force account-and-relationship-scoped RLS, broker functions have narrow grants and
+artifact tables force account-and-relationship-scoped RLS, protected delivery functions have narrow grants and
 no public execution, and permanent or exhausted jobs expose only a coarse
 failed state. Browser status contains delivery IDs, stable filenames, and media
 types, never Object Addresses, manifests, leases, source refs, failure details, or
@@ -613,7 +614,7 @@ summaries, but only the enrollment owner may start or submit an Assignment Attem
 receive not found so record existence is not disclosed.
 
 Each newly issued attempt receives an operating-system-random seed. Resuming
-an unresolved attempt returns its stored seed and provenance, and the store
+an unresolved attempt returns its stored seed and Question Attempt Reproduction Details, and the store
 locks the Assignment Attempt so only one unresolved question exists at a time. Server-owned
 database timestamps determine issue time, deadline, response arrival, and Assignment Attempt
 completion.
@@ -633,7 +634,7 @@ committed-but-unlinked predecessor after a process failure.
 The prefetch response contains only the safe envelope and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
 cover sanitized markup in addition to the shared envelope. The route still
-requires exact parameter hash, full provenance, version, and seed reproduction.
+requires exact parameter hash, complete Question Attempt Reproduction Details, version, and seed reproduction.
 The browser caches this projection in memory only, aborts it on route teardown,
 warms at most 12 deduplicated same-origin logical asset routes, and advances
 from it only after an exact `nextIssued` receipt match. No prefetch envelope or
@@ -652,12 +653,12 @@ insert-only for the application role; an exact retry returns its first
 committed receipt, while a changed key or response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
-still carries version, seed, parameter hash, provenance, implementation IDs,
+still carries version, seed, parameter hash, Question Attempt Reproduction Details, implementation IDs,
 and source/asset identifiers. The Student Feedback Release Rule redacts answer-bearing material,
 not that complete DTO. The payload plan's minimal student descriptor,
 digest-bound type-free response body, and compact receipt are accepted target
 work, not the current HTTP contract. Until that atomic cutover, clients must
-not treat current provenance fields or the tagged response `kind` as
+not treat current Question Attempt Reproduction Details or the tagged response `kind` as
 submission authority. Policy-permitted results may contain correctness and
 points, but never an answer key, expected value, private rubric, or checker
 state. Student Feedback uses an explicit sanitized disclosure DTO; it

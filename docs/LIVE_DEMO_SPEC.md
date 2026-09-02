@@ -71,7 +71,7 @@ need to survive regeneration of the demo. Preserving the demo database and stora
 data.
 
 Preview resolves the current state of these ordinary live courses, assignments, published questions, and graders.
-Instructors validate delivery and automated grading through the visible production workflow. Student Assignment Attempts,
+Instructors validate delivery and automated grading through the visible production workflow. Assignment Attempts,
 submissions, grades, and instructor review are ordinary PLE records created by those workflows.
 
 ### Visual evidence profiles
@@ -87,12 +87,12 @@ task-completion review before it claims current visual acceptance.
 ### WebWork Question Library baseline
 
 The frozen baseline contains one reviewed WebWork Question Library item, **Biochemistry: Identify hydrophobic compounds
-from formulas**. The host-only baseline installer validates the tracked source provenance and digest, writes its
-immutable private source, and publishes the Question. It provides the browser-suite owner only the
+from formulas**. The host-only baseline installer validates the tracked Question Source and Source Object Checksum, writes its
+immutable private Question Source, and publishes the Question. It provides the browser-suite owner only the
 public Question ID and title needed to find the item through the Question Library.
 
 This Question Library publication is infrastructure bootstrap rather than teaching state. It creates no course,
-assignment, roster member, invitation, Student Assignment Attempt, or submission. Instructor and Student journeys create those
+assignment, roster member, invitation, Assignment Attempt, or submission. Instructor and Student journeys create those
 ordinary PLE records through the visible interface. The private source, object identity, renderer configuration,
 credentials, and answer material remain outside browser receipts and screenshots.
 
@@ -320,7 +320,7 @@ live demo does not require SOPS to protect its disposable internal process-isola
 
 The live demo uses one implementation. Courses, assignments, problems, accounts, memberships, student work,
 grades, previews, and other application state use the normal PLE data model. Instructor validation of delivery
-uses the same Student Assignment Attempt, submission, deterministic-grading, receipt, and gradebook paths used by a live course.
+uses the same Assignment Attempt, submission, deterministic-grading, receipt, and gradebook paths used by a live course.
 
 The distinction between a live demo and another PLE installation is primarily:
 

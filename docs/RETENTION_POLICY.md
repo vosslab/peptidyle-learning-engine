@@ -215,7 +215,7 @@ The honest guarantee until then is:
 
 On 2026-08-09, a one-time local PostgreSQL 17 restore exercise restored a role-only backup and a
 custom-format database backup into a separate empty cluster. It preserved the migration ledger,
-roles, grants, forced RLS, Account/course isolation, application writes, and broker-function execution. That
+roles, grants, forced RLS, Account/course isolation, application writes, and protected database-function execution. That
 proves a small logical database restore procedure; it does not deploy managed point-in-time recovery,
 set an RPO/RTO, or prove object-store recovery.
 

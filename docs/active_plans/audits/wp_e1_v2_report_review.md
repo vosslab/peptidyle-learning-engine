@@ -31,7 +31,7 @@ and retained-stack evidence remain owned by WP-E1.
   cross-bound input, restricts the seed to unsigned 32-bit range, and projects
   only journey, PASS, bounded elapsed time, closed codes, and empty diagnostics.
   It emits the one label-only `api-retry-corpus-publication` arrangement. No
-  public identifier, title, student, score, run detail, email, problem ID, or
+  public identifier, title, student, score, Assignment Attempt detail, email, problem ID, or
   version ID survives rendering.
 - The reader requires canonical single-line ASCII JSON no larger than 4096
   bytes. Canonical re-rendering rejects duplicate JSON members at every depth.
@@ -63,6 +63,6 @@ and retained-stack evidence remain owned by WP-E1.
 
 At the time of this review, `wp_e1_corrected_v2_report.md` marked this work
 **NOT ACCEPTED LIVE** and the fixture as prospective. The later integrated
-two-run retained-stack gate promoted the final schema-v2 report. The historical
+retained-stack gate covering two Assignment Attempts promoted the final schema-v2 report. The historical
 `wp_v2_visible_outcome_report` material remains schema-v1/J1 evidence and
 cannot be read as acceptance of this schema-v2 fixture.

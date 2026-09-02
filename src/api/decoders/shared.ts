@@ -45,7 +45,6 @@ export const QUESTION_BACKENDS = [
   "ple",
   "webwork",
   "qti",
-  "h5p",
   "imathas",
 ] as const satisfies ReadonlyArray<QuestionBackend>;
 

@@ -277,7 +277,11 @@ async function claimCourseAndCompleteAssignment(
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   await restoreViewportOrigin(page);
   await expect(page.getByRole("radio", { name: correctChoice, exact: true })).not.toBeChecked();
-  await captureRealStackScreenshot(page, scenarioInput, "learner_delivery_repeat_run");
+  await captureRealStackScreenshot(
+    page,
+    scenarioInput,
+    "learner_delivery_additional_assignment_attempt",
+  );
 }
 
 async function observeCompletedRunInFreshSession(

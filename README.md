@@ -142,7 +142,7 @@ convention:
 
 | Crate                         | Owns                                                                               | Depends only on                                  |
 | ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`       | Question types, capabilities, identity, taxonomy                                   | External crates                                  |
+| `crates/question_model`       | Question types, capabilities, identity, Question Classification                    | External crates                                  |
 | `crates/domain`               | Assignment Attempt state machine, timing, seeded generation, capability validation | `question_model`                                 |
 | `crates/grading`              | Answer keys, checkers, correctness decisions (server only)                         | `question_model`, `domain`                       |
 | `crates/objects`              | Object store trait, S3 and MinIO backends, keys, checksums                         | `question_model`                                 |

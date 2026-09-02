@@ -21,7 +21,7 @@ order. This durable guide explains why those decisions exist and how the boundar
 
 PLE should send a rich, answer-free render payload once and accept a much smaller student response.
 The browser needs enough public information to draw the prompt, choices, input controls, accessible
-labels, and assets. It does not need database provenance, grading rules, answer keys, backend
+labels, and assets. It does not need Question Attempt Reproduction Details, grading rules, answer keys, backend
 selection, renderer credentials, or the complete attempt record.
 
 The target contract is:
@@ -112,12 +112,12 @@ The current browser Assignment Attempt screen receives a complete
 - course, Student Record, Assignment Attempt, immutable Question Revision reference, Assignment Entry, and seed;
 - parameter hash, response, status, result, and timer state; and
 - Question Backend Version, Question Renderer Version, generator, source-object,
-  asset-object, Question Grader Version, and rendered-hash provenance.
+  asset-object, Question Grader Version, and rendered hash.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
 needs only the attempt ID, student-visible deadline, presentation binding, and public envelope. It
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
-Question Backend, Renderer, or Grader Versions, or complete provenance.
+Question Backend, Renderer, or Grader Versions, or complete Question Attempt Reproduction Details.
 
 The implemented `getAssignmentAttemptScreen` client currently assembles a screen by loading the
 Assignment Attempt, Student Record, cursor-paged Question Attempts, Assignment, Course Instance,
@@ -161,7 +161,7 @@ may remain internal even though the public answer wire is type-free.
 ### Current result payload
 
 The current receipt repeats a full `QuestionAttempt` plus feedback and next-question data. That
-returns persistence and provenance fields the active screen does not need. The target receipt returns
+returns persistence and Question Attempt Reproduction Details the active screen does not need. The target receipt returns
 only:
 
 - whether the submission was accepted;
@@ -182,7 +182,7 @@ An issued attempt already binds the facts required to grade safely:
 - authenticated student through exact CourseId and Student ownership;
 - course and assignment context;
 - exact immutable QuestionRevisionReference and assignment position;
-- generated seed and immutable provenance;
+- generated seed and immutable Question Source binding;
 - expected Question Type and grading backend;
 - issue time, effective deadline, and submission state; and
 - feedback, retry, grading, and continued-practice policies.
@@ -451,7 +451,7 @@ The receipt-era persistence slice stores the validated mapping, exact public sna
 server-only grading envelope, and frozen WeBWorK definition under the issued attempt. Normal grade
 validates those artifacts and performs only the private grade call; it never resolves a current
 published Question Revision or rerenders to recover state. The official upstream endpoint is stateless, so
-PLE still sends immutable source provenance and signed server state on that private grade call. That
+PLE still sends the immutable Source Object Reference and Source Object Checksum with signed server state on that private grade call. That
 repetition is an internal service cost, not student payload.
 
 ### Implemented private replay slice and remaining target
@@ -591,7 +591,7 @@ counts or arbitrary latency thresholds into permanent tests.
 
 PLE may cache public render data by immutable `QuestionRevisionReference`, seed, and the presentation binding.
 Cache entries may contain only the answer-free envelope, sanitized markup, public asset references, and
-renderer identity needed for provenance. They must not contain correct answers, private rubrics,
+Question Renderer Version needed to identify the render. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
 
 Assets use immutable logical URLs and content checksums. The browser can fetch and cache them
@@ -673,7 +673,7 @@ easy to navigate without duplicating its exact migration and codec specification
   digest and idempotency before grading, and return compact receipts.
 - Success: each Question Type accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
-  provenance crosses the active student route.
+  Question Attempt Reproduction Details cross the active student route.
 - Validation: focused Axum and security tests, Question Type wire vectors, PLE regression, and independent
   server review.
 

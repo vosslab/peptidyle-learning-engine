@@ -3,8 +3,8 @@
 ## Status
 
 **ACCEPTED AS PART OF THE CORRECTED LOCAL NO-EMAIL PILOT.** Two same-seed
-retained-stack `--build` runs exercised J1--J4 after visible J11/J12/J13
-setup; the student completed two runs using the keyboard platform path. The
+retained-stack `--build` invocations exercised J1--J4 after visible J11/J12/J13
+setup; the student completed two Assignment Attempts using the keyboard platform path. The
 partial flag remains useful for failure isolation, but the default full command
 now supplies the accepted integrated evidence through WP-S2 and WP-E1.
 
@@ -23,11 +23,11 @@ now supplies the accepted integrated evidence through WP-S2 and WP-E1.
   active retry screen with two unchecked controls.
 - J2 resumes that retry, submits the visible second response, observes Feedback,
   Continue, and the real fresh-practice control after completion one, then
-  activates it to begin the blank second run.
-- J3 resumes that active second run, selects a visible control, leaves through
+  activates it to begin the blank second Assignment Attempt.
+- J3 resumes that active second Assignment Attempt, selects a visible control, leaves through
   the visible Return control, and resumes it with both controls cleared. J4
   proves controls are still clear, completes it, and observes the fresh practice
-  and Back controls without starting a third run.
+  and Back controls without starting a third Assignment Attempt.
 
 ## State boundary
 

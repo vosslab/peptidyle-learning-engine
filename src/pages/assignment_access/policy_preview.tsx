@@ -3,7 +3,7 @@
 import { For, Match, Show, Switch, type JSX } from "solid-js";
 
 import type { TeachingPreviewView } from "../../../generated/api/TeachingPreviewView";
-import { sourceLabel, startLabel } from "./model";
+import { assignmentPolicySourceLabel, startLabel } from "./model";
 
 export interface PolicyPreviewProps {
   readonly preview: TeachingPreviewView | undefined;
@@ -98,7 +98,7 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                     >
                       {([label, source]) => (
                         <li>
-                          <strong>{label}:</strong> {sourceLabel(source)}
+                          <strong>{label}:</strong> {assignmentPolicySourceLabel(source)}
                         </li>
                       )}
                     </For>

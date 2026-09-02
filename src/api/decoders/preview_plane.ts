@@ -203,7 +203,7 @@ function selectedMoment(value: unknown, path: string): PreviewSelectedMoment {
   return { value: courseLocalDateAndTime(record.value, `${path}.value`), timeZone };
 }
 
-function policySource(
+function assignmentPolicySourceKind(
   value: unknown,
   path: string,
 ): EffectiveAssignmentPolicyView["availableAt"]["source"] {
@@ -214,7 +214,7 @@ function timeField(value: unknown, path: string): EffectiveAssignmentPolicyView[
   const record = closed(value, path, ["value", "source"]);
   return {
     value: decodeNullable(record.value, `${path}.value`, courseLocalDateAndTime),
-    source: policySource(record.source, `${path}.source`),
+    source: assignmentPolicySourceKind(record.source, `${path}.source`),
   };
 }
 
@@ -226,7 +226,7 @@ function limitField(
   const limit = decodeNullable(record.value, `${path}.value`, decodeSafeInteger);
   if (limit !== null && limit < 1)
     throw new DecodeError(`${path}.value`, "a positive safe integer");
-  return { value: limit, source: policySource(record.source, `${path}.source`) };
+  return { value: limit, source: assignmentPolicySourceKind(record.source, `${path}.source`) };
 }
 
 function effective_assignment_policy(value: unknown, path: string): EffectiveAssignmentPolicyView {
@@ -260,7 +260,7 @@ function effective_assignment_policy(value: unknown, path: string): EffectiveAss
         "markLate",
         "reject",
       ] as const),
-      source: policySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
+      source: assignmentPolicySourceKind(lateWorkRule.source, `${path}.lateWorkRule.source`),
     },
     assignmentDeadlineRule: {
       value: decodeStringEnum(
@@ -268,7 +268,10 @@ function effective_assignment_policy(value: unknown, path: string): EffectiveAss
         `${path}.assignmentDeadlineRule.value`,
         ["autoSubmit"] as const,
       ),
-      source: policySource(assignmentDeadlineRule.source, `${path}.assignmentDeadlineRule.source`),
+      source: assignmentPolicySourceKind(
+        assignmentDeadlineRule.source,
+        `${path}.assignmentDeadlineRule.source`,
+      ),
     },
   };
 }

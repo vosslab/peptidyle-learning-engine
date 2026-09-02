@@ -72,7 +72,7 @@ This gives cache invalidation a simple rule:
 
 - Never mutate an existing published render or asset cache entry.
 - Publish a new immutable question for a content or behavior change.
-- Treat an invalid, missing, checksum-mismatched, or provenance-mismatched
+- Treat an invalid, missing, checksum-mismatched, or Source Object Reference-mismatched
   entry as a refusal or a safe cache miss, not as content that may be served.
 - Do not use a cache result to bypass authorization, attempt lifecycle checks,
   server timing, response validation, or grading.
@@ -155,7 +155,7 @@ Next-question prefetch is an issuance preparation protocol, not an early
 attempt. The browser sends an empty same-origin `POST` to
 `/api/courses/{course}/assignments/{assignment}/attempts/{predecessor}/prefetch-next`;
 the path supplies routing context only, and the browser cannot choose a seed, question position,
-version, backend, provenance, or timer.
+version, Question Backend, Question Attempt Reproduction Details, or timer.
 
 The server authenticates the Student, resolves the exact Student through the
 CourseId membership, verifies ownership of the unresolved predecessor and Assignment Attempt,
@@ -163,7 +163,7 @@ rejects a second active question, selects the first unattempted assignment
 position, chooses a fresh seed, issues the backend projection, creates a
 presentation binding, and persists a key-free reservation. The reservation
 binds CourseId, StudentRecordId, AssignmentAttemptId, predecessor QuestionAttemptId, position,
-immutable QuestionRevisionReference, seed, parameter hash, complete backend provenance,
+immutable QuestionRevisionReference, seed, parameter hash, complete Question Attempt Reproduction Details,
 explicit presentation capability, presentation binding, exact answer-free public
 snapshot, and matching server-only grading envelope. An identical request is
 idempotent; a conflicting request cannot rewrite its immutable variation.
@@ -256,7 +256,7 @@ The next cache work should follow the payload plan in this order:
    on cache hits for WeBWorK issuance latency.
 2. Enforce the timed/exam prefetch disclosure policy at the route boundary.
 3. Replace broad Student DTOs with the minimal screen, answer, and receipt
-   projections while retaining rich server-side provenance.
+   projections while retaining complete server-side Question Attempt Reproduction Details.
 4. Add aggregate observability and evaluate cache warming from measured
    latency, not assumed payload savings.
 

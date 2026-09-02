@@ -35,7 +35,7 @@ and the cursor continuation request both use B, never the stale A cursor.
   requests page two with Space, focuses the first appended public link, and
   proves transport and protocol recovery controls.
 - Gradebook uses the stable `(assignmentId, enrollmentId)` identity, keeps the
-  initial request compact, and continues to request run history only after the
+  initial request compact, and continues to request Assignment Attempt history only after the
   instructor activates that row's public control. No grade/transport detail is
   added to notices beyond the already-visible record count.
 - Both surfaces retain a visible native skip link while a continuation or

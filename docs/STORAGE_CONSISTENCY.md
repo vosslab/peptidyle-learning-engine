@@ -30,7 +30,7 @@ path, or checksum never grants permission.
 
 ## Standard bytes-first protocol
 
-For private source, provenance, protected artifacts, and non-public immutable objects, the owner follows this sequence:
+For private Question Source bytes, protected artifacts, and non-public immutable objects, the owner follows this sequence:
 
 ```text
 derive typed key and identity
@@ -81,7 +81,7 @@ The corresponding confidentiality and history controls are:
 Published-content immutability remains intentional. Every content change, including a correction,
 publishes a new immutable question with a fresh Question ID and fresh hidden `(QuestionId, QuestionRevisionNumber)`
 evidence instead of changing object bytes referenced by an existing Assignment, Assignment Attempt, or Question Attempt.
-Optional one-way provenance may identify the source publication without changing it.
+An optional Question Fork Source may identify the source Question Revision without changing it.
 
 ## Retention and repair
 

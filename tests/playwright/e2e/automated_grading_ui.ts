@@ -81,7 +81,9 @@ export async function advanceToNextIssuedQuestion(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        if ((await runSurface.getAttribute("data-attempt-id")) !== predecessor) return true;
+        if ((await assignmentAttemptSurface.getAttribute("data-attempt-id")) !== predecessor) {
+          return true;
+        }
         const retry = page.getByRole("button", { name: "Retry next question", exact: true });
         if ((await retry.isVisible()) && (await retry.isEnabled())) await retry.click();
         return false;

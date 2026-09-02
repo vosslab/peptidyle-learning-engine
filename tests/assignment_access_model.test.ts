@@ -6,7 +6,7 @@ import {
   canonicalCourseLocalDateAndTime,
   emptyPatchDraft,
   policyRequest,
-  sourceLabel,
+  assignmentPolicySourceLabel,
   startLabel,
 } from "../src/pages/assignment_access/model";
 
@@ -62,7 +62,11 @@ test("reloading a revision preserves the caller-owned modifier draft", () => {
 
 test("safe preview copy uses only display labels and closed verdict copy", () => {
   assert.equal(
-    sourceLabel({ kind: "accommodation", membership: "M-private", label: "Jordan Lee" }),
+    assignmentPolicySourceLabel({
+      kind: "accommodation",
+      membership: "M-private",
+      label: "Jordan Lee",
+    }),
     "Jordan Lee",
   );
   assert.equal(startLabel("lateWorkRefused"), "Due date prevents a new Assignment Attempt");

@@ -86,7 +86,6 @@ function decodeQuestionSearchBackendFacet(
       "ple",
       "webwork",
       "qti",
-      "h5p",
       "imathas",
     ]),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),

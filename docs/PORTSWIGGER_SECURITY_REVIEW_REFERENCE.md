@@ -45,14 +45,14 @@ unguessable identifier does not authorize its holder. See
   server credential? Is authorization repeated after an ID is resolved? Can an alternate HTTP
   method, trailing path, step, or signed URL bypass the normal route?
 - **Evidence:** **Code and integration evidence required.** Trace `AuthenticatedSession` from the opaque
-  session, PostgreSQL RLS and broker enforcement, typed object-key grants, and re-resolution of
+  session, PostgreSQL RLS and protected database-function enforcement, typed object-key grants, and re-resolution of
   submissions and immutable presentations. Record the exact tests in the active audit before
   calling this a current guarantee.
 - **Negative oracle:** A Student from another course, an Instructor without the exact course role, and a stale
   session each receive no protected record, signed URL, state transition, or distinguishable leak.
 - **False confidence:** UUIDs, hidden UI controls, client role fields, an Account or course ID in JSON, or a
   first-step-only authorization check are not authorization.
-- **Applicability:** Always applicable. Test route, store, broker-function, object-signing, and
+- **Applicability:** Always applicable. Test route, store, protected database-function, object-signing, and
   background-worker paths as one matrix; do not treat RLS as a substitute for route authorization.
 
 ## Passwordless authentication
@@ -241,12 +241,12 @@ testing; undocumented endpoints and different content types are part of the surf
   TLS? Does each workload receive an independent IAM role, exact bucket prefix/actions, and KMS key?
   Is object authorization checked before a short-lived URL is issued and after object metadata is
   reconciled? Can a worker become an API or grading-reader deputy?
-- **Evidence:** **Code evidence:** RLS-force and broker-function tests, startup database
+- **Evidence:** **Code evidence:** RLS-force and protected database-function tests, startup database
   identity/privilege checks, and decision logs without secrets or student answers.
   **Integration evidence:** TLS, S3 encryption/key/HTTPS, and cross-role service tests.
   **Deployment evidence:** IAM policy review and the deployed workload-to-bucket/KMS/network path.
 - **Negative oracle:** Changing course settings, borrowing another role's URL, requesting another
-  bucket/key prefix, or calling a privileged broker without its contract yields no data or action.
+  bucket/key prefix, or calling a protected database function without its required authority yields no data or action.
 - **False confidence:** An ORM filter, one broad cloud role, client-side Object Addresses, a bucket-wide
   signed URL, encryption at rest without authorization, or a database superuser used by the API.
 - **Applicability:** **Deployment target and release blocker.** Object storage and cloud IAM are

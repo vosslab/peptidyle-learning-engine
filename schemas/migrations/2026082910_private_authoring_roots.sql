@@ -116,9 +116,9 @@ CREATE TABLE ple_private.question_source (
     draft_question_revision_uuid uuid UNIQUE REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     question_id text,
     revision_number integer,
-    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'h5p', 'imathas')),
+    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
     )),
     question_type text NOT NULL CHECK (question_type IN (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
@@ -202,7 +202,7 @@ CREATE TABLE ple_private.draft_question_grading_input (
     draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
@@ -290,7 +290,7 @@ CREATE TABLE ple_private.question_revision_grading_input (
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),

@@ -18,7 +18,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
   version, and seed. Do not put source bytes, credentials, upstream session state, correct answers,
   or private feedback in an envelope, browser cache, or browser request.
 - Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
-  provenance required for grade. A browser request never
+  Question Attempt Reproduction Details required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, iMathAS Profile, or renderer identity.
 - Record Source Object Reference and Source Object Checksum, Question Backend/Grader/Renderer versions, parameter
   hash, rendered-envelope hash, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
@@ -57,7 +57,7 @@ Use the following sequence for a question-agnostic adapter.
    with only its exact backend-specific locator; keep credentials and mutable locations outside
    the stored relationship.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
-   media type, license, provenance, immutable problem/version binding, and any required assets.
+   media type, Question License, Source Object Reference and Source Object Checksum, immutable Question Revision binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.
 3. Compile the source to a key-free `QuestionRevision`. Keep an answer-bearing compilation product
@@ -66,7 +66,7 @@ Use the following sequence for a question-agnostic adapter.
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
    public rendered IDs through the protected grading envelope, and use retained immutable source
-   provenance where a private grader needs it. A Question Backend that needs private first-grade material
+   Question Attempt Reproduction Details where a private grader needs them. A Question Backend that needs private first-grade material
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
    iMathAS Session Authentication state, source, seed, or backend response fields; do not rerender a receipt-era attempt.
@@ -89,7 +89,7 @@ version rather than changing historical output. The cross-target rules and seed-
 in [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md).
 
 Render caches are immutable, shared-content artifacts keyed by version and seed. Cache only a
-validated browser-safe render plus enough provenance to prove its source, implementation, and
+validated browser-safe render plus the Source Object Reference, Source Object Checksum, and Question Renderer Version that identify its source, implementation, and
 envelope identity. Cache keys and bytes must exclude installation identity, answer material, credentials,
 raw backend responses, browser submissions, and upstream session state. If stateless replicas race
 to write the same key, reload and validate the winning immutable record.
@@ -102,7 +102,7 @@ record uniform and lets reproduction reject swapped version/source/Question Atte
 The browser renders `QuestionPresentation` blocks and validates response format locally. It submits a
 typed response to PLE; the server owns the authoritative attempt, seed, source resolution, grading,
 feedback release, and receipt. `crates/grading` is intentionally outside the Wasm closure, and
-`crates/server/src/*_backend.rs` are the server bridges that repeat immutable-source and provenance
+`crates/server/src/*_backend.rs` are the server bridges that repeat immutable Question Source and Question Attempt Reproduction Details
 validation before invoking an adapter.
 
 Question Backends need an additional boundary. An adapter accepts deployment-selected
@@ -113,13 +113,13 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 ## Current adapter posture
 
-| Adapter           | Implemented behavior                                                                                                                                                         | Current boundary and status                                                                                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                                   |
-| QTI               | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private provenance, PLE conversion, and server-only grading                      | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                                        |
-| H5P               | Supported static multiple-choice import into an answer-free internal question                                                                                                | The PLE H5P adapter declares only `clientRendering` and is ungraded practice. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
-| iMathAS           | Immutable Question Source snapshot, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed.                      |
-| WeBWorK           | Private standalone `/render-api` Question Backend client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container    | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                                   |
+| Adapter           | Implemented behavior                                                                                                                                                              | Current boundary and status                                                                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                      |
+| QTI               | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, PLE conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                           |
+| H5P               | Supported static multiple-choice H5P Package Import into an answer-free practice payload                                                                                          | H5P Package Import is ungraded practice, not a Question Backend. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
+| iMathAS           | Immutable Question Source snapshot, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification      | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed.         |
+| WeBWorK           | Private standalone `/render-api` Question Backend client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container         | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                      |
 
 For the exact current WeBWorK protocol, the supported control shape, configuration ownership, and
 required evidence, use [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md). Do
@@ -130,7 +130,7 @@ not generalize its reviewed Chapter 1 profile into broad OPL or generic PG suppo
 An adapter change is complete only when each applicable layer passes.
 
 - Unit and contract tests cover source validation, capability declarations, key-free envelopes,
-  deterministic issue/replay, cache validation, provenance tampering, refusal behavior, and grading
+  deterministic issue/replay, Question Attempt Reproduction Details tampering, refusal behavior, and grading
   outcome semantics.
 - Store conformance tests cover both in-memory and PostgreSQL implementations when the adapter
   persists source, private mappings, iMathAS Question Backend Session state, assets, or attempt data.
@@ -154,7 +154,7 @@ documentation, or release notes.
 - [ ] Published source and all assets are immutable, checksummed, private where required, and carried
       in Question Attempt Reproduction Details.
 - [ ] Issued envelope and cache are answer-free, browser-safe, deterministic, and version/seed bound.
-- [ ] Grading runs server-side from trusted state and revalidates source plus issued provenance.
+- [ ] Grading runs server-side from trusted state and revalidates the Question Source plus issued Question Attempt Reproduction Details.
 - [ ] iMathAS Question Backend integration has no browser endpoint, credential, launch secret, upstream state, or
       browser-trusted score.
 - [ ] Conformance, recorded, and live tests are labeled by the evidence they actually supply.

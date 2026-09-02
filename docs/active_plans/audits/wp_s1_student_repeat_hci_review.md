@@ -3,8 +3,8 @@
 ## Acceptance addendum
 
 The retained-stack full run and independent replay subsequently passed the
-corrected local no-email pilot on 2026-08-11. The two keyboard-only student
-runs now have integrated J5 visible-score and schema-v2 report evidence. This
+corrected local no-email pilot on 2026-08-11. The two keyboard-only Student
+Assignment Attempts now have integrated J5 visible-score and schema-v2 report evidence. This
 does not accept email/canonical onboarding, J6/J7, all-family, multi-student,
 or release work.
 
@@ -17,8 +17,8 @@ or retained data was changed.
 
 **ACCEPTED TO LIVE.** The repaired path now fails closed unless J2 resumes the
 active J1 retry, and its visible interaction sequence constructs exactly two
-completed runs without activating a third. This is a partial student gate only:
-it does not claim the required live run, gradebook outcome, J8, final report, or
+completed Assignment Attempts without activating a third. This is a partial student gate only:
+it does not claim the required live invocation, gradebook outcome, J8, final report, or
 any email-related behavior.
 
 ## Visible task sequence
@@ -26,22 +26,24 @@ any email-related behavior.
 - J1 starts from the allowed root entry, uses the rendered local credential
   form, and opens the exact arranged course and assignment through one visible
   href each. Native Tab/Enter then reaches Start, two unchecked radios, Submit,
-  Feedback, and Continue. It passes only when it returns to `runAttempt` with
-  two cleared radios and no fresh-practice control: the visible retry state.
-- J2 repeats that visible course/assignment selection and requires a `run`
-  surface. A rendered fresh-practice control is now an error, rather than an
+  Feedback, and Continue. It passes only when it returns to the Assignment
+  Attempt surface with two cleared radios and no fresh-practice control: the visible retry state.
+  Historical evidence: the former route identifier was `runAttempt`.
+- J2 repeats that visible course/assignment selection and requires an Assignment
+  Attempt surface. A rendered fresh-practice control is now an error, rather than an
   action to activate. It selects the second visible radio, submits, continues,
   and explicitly observes `Start another practice run`; this is completion of
-  run 1.
+  Assignment Attempt 1. Historical evidence: `Start another practice run` was the
+  former visible label.
 - J3 reaches and activates that exact fresh-practice control with keyboard
   focus, proves both new response controls are clear, uses the rendered Return
-  to assignment control, and visibly resumes the same run. The two controls
+  to assignment control, and visibly resumes the same Assignment Attempt. The two controls
   are still clear after resume.
-- J4 opens that active second run through the same visible course/assignment
+- J4 opens that active second Assignment Attempt through the same visible course/assignment
   path, proves the controls are clear, completes it by keyboard, and observes
   both the fresh-practice heading/control and Back to assignment. It only
   focuses Back to assignment; it never activates fresh practice. Thus no third
-  run is created.
+  Assignment Attempt is created.
 
 The state append order is fixed after the atomic J11/J12/J13 prefix as J1, J2,
 J3, J4 and cross-binds the public course and assignment IDs. This is consistent

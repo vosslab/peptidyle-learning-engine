@@ -251,7 +251,7 @@ export function assignmentQuestionLabel(
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {
-  return { ple: "PLE", webwork: "WeBWorK", qti: "QTI", h5p: "H5P", imathas: "iMathAS" }[backend];
+  return { ple: "PLE", webwork: "WeBWorK", qti: "QTI", imathas: "iMathAS" }[backend];
 }
 export function violationMatchesQuestion(
   violation: AssignmentCapabilityViolation,

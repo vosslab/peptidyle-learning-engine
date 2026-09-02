@@ -12,8 +12,8 @@ use super::{
     project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
 use crate::effective_assignment_policy::{
-    AssignmentAccessDecision, AssignmentStartDecision, EffectiveAssignmentPolicy,
-    EffectiveAssignmentPolicyValue, PolicySource, StudentLateWorkStatus,
+    AssignmentAccessDecision, AssignmentPolicySource, AssignmentStartDecision,
+    EffectiveAssignmentPolicy, EffectiveAssignmentPolicyValue, StudentLateWorkStatus,
 };
 
 fn stamp(value: i64) -> Timestamp {
@@ -51,7 +51,7 @@ fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> Assignmen
 fn resolved<T>(value: T) -> EffectiveAssignmentPolicyValue<T> {
     EffectiveAssignmentPolicyValue {
         value,
-        source: PolicySource::Base,
+        source: AssignmentPolicySource::Base,
     }
 }
 

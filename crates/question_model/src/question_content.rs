@@ -1,10 +1,10 @@
 //! [`QuestionRevision`], the backend-neutral representation every engine
 //! maps into (WP-C1).
 //!
-//! One shared shape is what lets a WeBWorK question, a QTI item, an H5P
-//! activity, and a first-party algorithmic question flow through the same
-//! attempt loop, gradebook, and export path. Each backend adapter translates
-//! into this type, and everything downstream reads only this type.
+//! One shared shape is what lets a WeBWorK question, a QTI item, and a
+//! first-party algorithmic question flow through the same attempt loop,
+//! gradebook, and export path. Each Question Backend translates into this
+//! type, and everything downstream reads only this type.
 //!
 //! Question Content describes a Question. It carries no Answer Key, Question
 //! Feedback, Question Answer Explanation, or Question Grading Input:
@@ -249,7 +249,8 @@ pub enum QuestionFormat {
     WebworkPg,
     /// An imported QTI item.
     Qti,
-    /// An imported H5P activity.
+    /// An H5P Package Import representation, retained outside Question Backend
+    /// and Question Source lifecycles.
     H5p,
     /// An archived iMathAS source snapshot.
     Imathas,
@@ -351,11 +352,6 @@ pub enum QuestionBackendLocator {
         /// Item identifier within the package.
         item_id: String,
     },
-    /// An imported H5P activity, which evaluates in the browser.
-    H5p {
-        /// H5P content type, for example `H5P.MultiChoice`.
-        content_type: String,
-    },
     /// An iMathAS item resolved through its configured deployment and profile.
     ///
     /// The deployment reference is an opaque configured key. The private
@@ -392,8 +388,6 @@ pub enum DraftQuestionBackendLocator {
         item_id: String,
         import_id: WorkspaceImportId,
     },
-    /// An H5P activity.
-    H5p { content_type: String },
     /// Private iMathAS sandbox locator, never an endpoint or credential.
     Imathas {
         /// The typed draft binding is flattened to its browser contract.
@@ -412,7 +406,6 @@ impl TryFrom<DraftQuestionBackendLocator> for QuestionBackendLocator {
             DraftQuestionBackendLocator::Qti { .. } => {
                 Err(QuestionBackendLocatorPreparationError::QtiImportRequired)
             }
-            DraftQuestionBackendLocator::H5p { content_type } => Ok(Self::H5p { content_type }),
             DraftQuestionBackendLocator::Imathas { .. } => {
                 Err(QuestionBackendLocatorPreparationError::SnapshotRequired)
             }
@@ -456,8 +449,8 @@ pub enum QuestionGradingRule {
     },
     /// Practice with no recorded score.
     ///
-    /// The honest declaration for an H5P activity, which evaluates in the
-    /// browser and therefore cannot carry a graded assignment.
+    /// H5P Package Import uses this for browser-evaluated practice and cannot
+    /// carry a graded assignment.
     Ungraded,
 }
 

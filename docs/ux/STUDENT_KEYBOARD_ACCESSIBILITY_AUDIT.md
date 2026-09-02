@@ -52,11 +52,10 @@ response components, but their convenience does not become a prerequisite for an
 | Continue         | Move to the next task                 | Tab to the visible action, Space | Next question or Assignment Attempt-complete summary appears |
 | Review and leave | Inspect results or return             | Tab to the visible action, Space | Assignment overview or new practice Assignment Attempt opens |
 
-The built mock journey through a single-choice response is covered by `a student completes the
-primary platform-key course-to-answer path without a pointer` in
-`tests/playwright/frontend_contract.spec.ts`. It also proves Shift+Tab can reverse from Submit answer
-to the selected response and return. It is not evidence that every Question Format has completed the
-entire route end to end.
+The former built-mock browser scenario cited here is no longer present. Current focused executable
+evidence is the offline response-control, Student Feedback panel, and frontend-contract checks below.
+It does not execute a complete browser keyboard journey or establish end-to-end coverage for every
+Question Format.
 
 ## Question Format keyboard contract
 
@@ -87,14 +86,14 @@ Practices convention for Tab into a group and arrow movement inside it
 
 ## Guideline ledger
 
-| Task need                            | Guideline                          | Acceptance criterion                                                                                                                | Evidence                                                                   | Status                            |
-| ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------- |
-| Operate everything without a pointer | WCAG 2.2 SC 2.1.1 Keyboard         | The complete primary journey works through visible platform controls without requiring a widget shortcut                            | Built mock platform journey, live WebWork, and source inspection           | Pass for recorded evidence scope  |
-| Use efficient optional controls      | WCAG 2.2 SC 2.1.1 Keyboard         | Arrow, digit, Enter-to-submit, and Escape behavior is scoped and fails independently of the primary path                            | Mounted production-component extension scenarios                           | Pass for recorded evidence scope  |
-| Leave widgets and embedded work      | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a question response control; provider frame uses ordinary iframe navigation              | Built mock journey, widget tests, live WebWork, and mounted broker fixture | Pass for PLE-owned recorded scope |
-| Encounter controls in task order     | WCAG 2.2 SC 2.4.3 Focus Order      | Tab follows reading/task order and skips no-op history controls                                                                     | Built mock journey and 30-panel summary assertion                          | Pass for recorded evidence scope  |
-| See the focused control              | WCAG 2.2 SC 2.4.7 Focus Visible    | Every focusable PLE control uses the global visible focus treatment; response cards expose the indicator around the complete target | `src/style.css`, existing palette audit, browser focus assertions          | Pass for audited controls         |
-| Understand composite controls        | WAI-ARIA APG keyboard conventions  | Radio arrows select; checkbox arrows move focus; order arrows move the item; visible buttons remain available                       | Built mock radio journey and mounted dynamic production-component fixtures | Pass for recorded evidence scope  |
+| Task need                            | Guideline                          | Acceptance criterion                                                                                                                | Evidence                                                                     | Status                                    |
+| ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| Operate everything without a pointer | WCAG 2.2 SC 2.1.1 Keyboard         | The complete primary journey works through visible platform controls without requiring a widget shortcut                            | Built mock platform journey, live WebWork, and source inspection             | Pass for recorded evidence scope          |
+| Use efficient optional controls      | WCAG 2.2 SC 2.1.1 Keyboard         | Arrow, digit, Enter-to-submit, and Escape behavior is scoped and fails independently of the primary path                            | Offline response-control tests and source inspection                         | Partial; connected browser evidence unrun |
+| Leave widgets and embedded work      | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a question response control; provider frame uses ordinary iframe navigation              | Offline response-control and Student Feedback panel tests; source inspection | Partial; connected browser evidence unrun |
+| Encounter controls in task order     | WCAG 2.2 SC 2.4.3 Focus Order      | Tab follows reading/task order and skips no-op history controls                                                                     | Built mock journey and 30-panel summary assertion                            | Pass for recorded evidence scope          |
+| See the focused control              | WCAG 2.2 SC 2.4.7 Focus Visible    | Every focusable PLE control uses the global visible focus treatment; response cards expose the indicator around the complete target | `src/style.css`, existing palette audit, browser focus assertions            | Pass for audited controls                 |
+| Understand composite controls        | WAI-ARIA APG keyboard conventions  | Radio arrows select; checkbox arrows move focus; order arrows move the item; visible buttons remain available                       | Offline response-control tests and source inspection                         | Partial; connected browser evidence unrun |
 
 WCAG 2.2 requires functionality to be keyboard operable and keyboard focus to be visible
 ([WCAG 2.2](https://www.w3.org/TR/WCAG22/)). The repository keeps a separate measured color record in
@@ -120,27 +119,23 @@ Scores use 0 for a critical problem and 4 for no material issue in this keyboard
 
 ## Validation
 
-The focused acceptance gate is:
+The focused executable behavior gate is:
 
 ```bash
-node --import tsx --test tests/test_question_response_controls.mjs
-./run_playwright_tests.sh --build \
-  tests/playwright/frontend_contract.spec.ts \
-  tests/playwright/feedback_panel.spec.ts \
-  tests/playwright/student_keyboard_accessibility.spec.ts
+node --import tsx --test \
+  tests/test_question_response_controls.mjs \
+  tests/test_student_feedback_panel.mjs \
+  tests/test_frontend_contract.mjs
 ```
 
-The focused Assignment Attempt rebuilds the shipped artifacts and checks the response controller, the primary
-platform journey, independently named widget-extension scenarios, and the student question/feedback
-axe surface. This confirms the built mock journey and mounted fixture coverage listed above; it does
-not promote source-inspection rows into full-route evidence. The scenarios assert durable student
-outcomes rather than exact Tab counts or DOM layout, so they qualify as permanent behavior tests
-under `docs/PYTEST_STYLE.md` rather than one-time implementation probes.
+These focused offline checks cover response-control behavior, Student Feedback announcements, and
+frontend route/session contracts. They remain permanent behavior tests under
+`docs/PYTEST_STYLE.md`, but they do not claim mounted browser, axe, or complete keyboard-journey
+acceptance.
 
-The current production-browser gate owns the WebWork interaction path through
-`run_playwright_tests.sh --build`. It verifies keyboard-only selection and submission through the
-PLE-owned radio projection while the browser contacts PLE only and receives no upstream source,
-credential, hidden field, or answer mapping.
+The current connected-browser owners are the declared `learner_delivery` and
+`learner_gateway_recovery` scenarios. Restoring and executing those scenarios is release work; this
+audit records no unrun Playwright pass.
 
 ## Remaining human evaluation
 

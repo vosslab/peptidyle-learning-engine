@@ -105,7 +105,7 @@ The assignment-local navigation keeps delivery work together:
 - **Policies** owns instance delivery and publishing: Student instructions, lifecycle, schedule,
   limits, Assignment activity rules, and Student Feedback visibility. Its save action is separate from Questions.
 - **Student view** is a stable-identity, answer-free inspection of the current live assignment. It
-  keeps the Instructor session and creates no Student Assignment Attempt, submission, grade, or other work.
+  keeps the Instructor session and creates no Assignment Attempt, submission, grade, or other work.
 
 Use the assignment title link to return to **Overview**. The supported paths are
 `/instructor/courses/:courseRef/assignments/:assignmentRef`, with `/questions`, `/policies`, or
@@ -161,7 +161,7 @@ feedback or an instructor-attention state appears. When attention appears, sign 
 Instructor, open **Grading operations**, review the metadata-only recovery row, and choose its
 currently enabled named action when the operation is eligible. Follow the operation's current state
 and available action, then open **Gradebook** and confirm the current score. Ordinary Student entry
-creates the real Student Assignment Attempt, submission, receipt, grade, and Instructor-visible Gradebook history.
+creates the real Assignment Attempt, submission, receipt, grade, and Instructor-visible Gradebook history.
 
 ## Configure course grades
 

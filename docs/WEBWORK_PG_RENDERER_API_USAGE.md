@@ -164,7 +164,7 @@ The private typed lifecycle:
 
 1. resolves the selected external image name or published digest to its OCI configuration ID;
 2. recreates the stateless renderer and verifies its container uses that ID;
-3. atomically records the selected image reference and OCI ID in ignored local provenance;
+3. atomically records the selected image reference and OCI ID in ignored Local Stack State;
 4. runs `containers/webwork/probe_render_api.sh` inside the container;
 5. proves one deterministic public render plus correct and incorrect grades;
 6. seeds the owner-controlled PLE pilot source; and

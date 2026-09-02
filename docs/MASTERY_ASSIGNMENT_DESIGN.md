@@ -21,7 +21,7 @@ dependable.
 The durable product promise is:
 
 - Completing one Assignment Attempt records an accomplishment; it does not erase the opportunity to learn more.
-- A later practice Assignment Attempt keeps the earlier Assignment Attempt, responses, scores, and provenance as educational
+- A later practice Assignment Attempt keeps the earlier Assignment Attempt, responses, scores, and Question Attempt Reproduction Details as educational
   history.
 - Fresh variation supports transfer to a new instance instead of memorization of a previous answer.
 - The student sees only feedback authorized for the question and assignment context.

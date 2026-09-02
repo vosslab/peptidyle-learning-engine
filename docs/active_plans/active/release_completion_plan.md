@@ -18,7 +18,7 @@ Backend Transport ownership; response/control/Student Response marker names beco
 generated-boundary renames; LDA and `2026090102` own durable/schema/procedure renames; the iMathAS
 adapter owns transport, launch, and result translation; browser copy uses Question Backend only when
 backend-agnostic. It preserves RQB1's Session lifecycle, Question Submission marker flow, tables and
-relationships, procedures, browser launch flow, security invariants, and focused test families.
+relationships, procedures, browser launch flow, security invariants, and focused test categories.
 Generated 467 TypeScript declarations; focused adapter, LDA, Node, TypeScript, formatting, and strict
 Clippy gates; fresh-apply/no-op/catalog/restricted-login PostgreSQL and both iMathAS PostgreSQL tests;
 least-privilege review; and the required aggregate suite all passed on the final tree. This package closes
@@ -64,7 +64,7 @@ Version 1 excludes content-addressed byte deduplication, a TypeScript API server
 
 Deliver one coherent automated-grading platform and canonical live production-stack journey. Grading, answer keys, correctness decisions, object authorization, and course selection remain server-owned. Browser contracts remain answer-free. Issued work and grading evidence are immutable, and Instructor inspection is audited.
 
-The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-FU1--WP-FU6, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, native families, adapters/export, reconciliation, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
+The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-FU1--WP-FU6, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters/export, reconciliation, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
 
 No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update this ledger, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
 
@@ -82,19 +82,19 @@ records; `2026082930` owns forced RLS for CourseInstance roots and dependent pri
 `2026082906` owns the shared Rust
 account-transaction installer. The Blueprint operation boundary has exactly six operations and never creates a
 blank CourseInstance. An apply receives scope only from session-derived `AuthenticatedSession`; adapters
-and brokers receive no client-supplied installation scope.
+and protected database operations receive no client-supplied installation scope.
 
 No current product type, route, Store capability, PostgreSQL table/function/policy, generated contract, live-demo resource, or screenshot may use Alpha as a Peptidyle product concept. Historical migrations, changelogs, and ADAPT comparison material remain evidence rather than compatibility contracts. Fresh SD1-C allocations belong only in [implementation_status.md](../implementation_status.md).
 
 ### Cutover evidence boundary
 
-| Claim                                                                                                     | Evidence                                                                      |
-| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Aggregate normalization, revision races, propagation, and private delivery state                          | Permanent focused Rust/Memory/Node behavior and contract tests                |
-| Global Question Library visibility, CourseInstance isolation, broker authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance                                          |
-| Create, revise, publish, select, instantiate, update, and release workflows                               | Production HTTPS browser acceptance through `run_playwright_tests.sh --build` |
-| Hierarchy, release state, recovery, focus, contrast, and product vocabulary                               | Rendered screenshots plus independent visual review                           |
-| Complete material tree                                                                                    | `source source_me.sh && ./all_test.sh`, with every required lane passing      |
+| Claim                                                                                                                 | Evidence                                                                      |
+| --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Aggregate normalization, revision races, propagation, and private delivery state                                      | Permanent focused Rust/Memory/Node behavior and contract tests                |
+| Global Question Library visibility, CourseInstance isolation, protected database authority, and fresh/no-op migration | Disposable PostgreSQL/RLS acceptance                                          |
+| Create, revise, publish, select, instantiate, update, and release workflows                                           | Production HTTPS browser acceptance through `run_playwright_tests.sh --build` |
+| Hierarchy, release state, recovery, focus, contrast, and product vocabulary                                           | Rendered screenshots plus independent visual review                           |
+| Complete material tree                                                                                                | `source source_me.sh && ./all_test.sh`, with every required lane passing      |
 
 ## Architecture and ownership
 
@@ -158,7 +158,7 @@ The final handoff records command, date, material-tree state, environment, recei
 
 ## Migration policy
 
-The shared migration ledger in [implementation_status.md](../implementation_status.md) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no family-shaped table is added. Current source and disposable test data use PLE Question JSON schema version 2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
+The shared migration ledger in [implementation_status.md](../implementation_status.md) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON schema version 2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
 
 ## Risk register
 
@@ -166,7 +166,7 @@ The shared migration ledger in [implementation_status.md](../implementation_stat
 | ----------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Documentation substitutes for product evidence        | Release integrator    | Package acceptance requires working behavior and evidence.                                                                 |
 | Adapter output leaks answers or unsafe markup         | Adapter owner         | Strict translation, sanitization, private network, browser trace.                                                          |
-| New family exposes answer material                    | Family owner          | Public/private compilation, DTO scans, server-only grading.                                                                |
+| New protected data boundary exposes answer material   | Boundary owner        | Public/private compilation, DTO scans, server-only grading.                                                                |
 | Reconciliation deletes valid concurrent bytes         | Object owner          | Two observations, quarantine, reference recheck, idempotency.                                                              |
 | Role/membership disagreement selects course authority | Auth owner            | One immutable account/session role, matching Student/Instructor membership, no Sysadmin membership, and origin validation. |
 | Published bytes escape before commit                  | Object owner          | Transactional pending registry and dedicated publisher.                                                                    |

@@ -16,13 +16,7 @@ import {
 } from "../api/decoder";
 import { decodeKeyFreeDraftPreview, decodeStudentFeedback } from "../api/decoders";
 
-const QUESTION_BACKENDS: ReadonlyArray<QuestionBackend> = [
-  "ple",
-  "webwork",
-  "qti",
-  "h5p",
-  "imathas",
-];
+const QUESTION_BACKENDS: ReadonlyArray<QuestionBackend> = ["ple", "webwork", "qti", "imathas"];
 
 const MAX_PREVIEW_SEED = 4_294_967_295;
 const MAX_WORKSPACE_REVISION = 9_223_372_036_854_775_807n;

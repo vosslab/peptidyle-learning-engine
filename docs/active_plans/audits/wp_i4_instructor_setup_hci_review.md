@@ -185,7 +185,7 @@ Run only after the four P1 repairs and focused offline gates pass.
   through Tab/Enter, fill the labelled assignment title/search fields, and use
   Tab plus native Enter/Space for search, exact public catalog selection, and
   Create assignment. Verify the visible Mastery values (All questions correct,
-  Highest run score, Allow unlimited practice) and the exact real course
+  Highest Assignment Attempt Score, Allow unlimited practice) and the exact real course
   assignment link.
 - Confirm no test source or trace reads an answer, feedback body, score,
   student identity beyond the configured visible input/action boundary, or a

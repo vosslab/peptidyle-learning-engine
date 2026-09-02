@@ -49,7 +49,6 @@ function backendLabel(value: string): string {
     ple: "PLE",
     webwork: "WeBWorK",
     qti: "QTI",
-    h5p: "H5P",
     imathas: "IMathAS",
   };
   return labels[value] ?? value;

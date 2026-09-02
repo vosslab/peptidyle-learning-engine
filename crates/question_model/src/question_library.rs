@@ -211,21 +211,13 @@ pub enum QuestionBackend {
     Webwork,
     /// IMS QTI item.
     Qti,
-    /// Ungraded H5P activity.
-    H5p,
     /// iMathAS item served through the verified iMathAS Question Backend Transport.
     Imathas,
 }
 
 impl QuestionBackend {
     /// Every browser-safe Question Backend supported by this release.
-    pub const ALL: [Self; 5] = [
-        Self::Ple,
-        Self::Webwork,
-        Self::Qti,
-        Self::H5p,
-        Self::Imathas,
-    ];
+    pub const ALL: [Self; 4] = [Self::Ple, Self::Webwork, Self::Qti, Self::Imathas];
 
     /// Canonical public wire value for this closed backend vocabulary.
     pub const fn as_str(self) -> &'static str {
@@ -233,7 +225,6 @@ impl QuestionBackend {
             Self::Ple => "ple",
             Self::Webwork => "webwork",
             Self::Qti => "qti",
-            Self::H5p => "h5p",
             Self::Imathas => "imathas",
         }
     }
@@ -245,7 +236,6 @@ impl From<&QuestionBackendLocator> for QuestionBackend {
             QuestionBackendLocator::Ple => Self::Ple,
             QuestionBackendLocator::Webwork { .. } => Self::Webwork,
             QuestionBackendLocator::Qti { .. } => Self::Qti,
-            QuestionBackendLocator::H5p { .. } => Self::H5p,
             QuestionBackendLocator::Imathas { .. } => Self::Imathas,
         }
     }
@@ -257,7 +247,6 @@ impl From<&DraftQuestionBackendLocator> for QuestionBackend {
             DraftQuestionBackendLocator::Ple => Self::Ple,
             DraftQuestionBackendLocator::Webwork { .. } => Self::Webwork,
             DraftQuestionBackendLocator::Qti { .. } => Self::Qti,
-            DraftQuestionBackendLocator::H5p { .. } => Self::H5p,
             DraftQuestionBackendLocator::Imathas { .. } => Self::Imathas,
         }
     }
@@ -531,7 +520,7 @@ mod tests {
         );
         assert_eq!(
             QuestionBackend::ALL.map(QuestionBackend::as_str),
-            ["ple", "webwork", "qti", "h5p", "imathas"]
+            ["ple", "webwork", "qti", "imathas"]
         );
     }
 

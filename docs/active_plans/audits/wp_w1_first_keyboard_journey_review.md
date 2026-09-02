@@ -13,8 +13,9 @@ retries nor infers completion from a heading. The J1 platform path contains no
 Playwright pointer action or grading read.
 
 Focused offline evidence and the latest fresh real-stack acceptance support the
-changed source. Earlier live evidence remains historical. This accepts WP-W1/M4
-J1 only; later journeys and release gates remain separate.
+changed source. Earlier live evidence, including the former `Start another
+practice run` control label, remains historical. This accepts WP-W1/M4 J1 only;
+later journeys and release gates remain separate.
 
 ## Scope and method
 
@@ -37,7 +38,7 @@ substitute for the required real-browser live walk.
 | Start and response          | Start uses Tab/Space. J1 requires exactly two visible unchecked native radios, reaches radio two with bounded backward Tab, asserts focus, selects it with Space, then uses visible Submit/Continue controls with focus or checked assertions.                                   | PASS                                 |
 | Route focus                 | The spec confirms `#main-content` after both visible route changes; the application routes focus there.                                                                                                                                                                          | PASS                                 |
 | Feedback focus              | The product focuses the Feedback heading, then only advances after a delay while that heading remains active. J1 finds Continue with Tab and confirms focus before Space.                                                                                                        | PASS subject to live timing evidence |
-| Completion, not retry       | J1 makes one visible response, then boundedly requires actual visible `Start another practice run` after Continue. It has no retry loop or completion-heading inference; J2 alone owns incorrect-then-correct retry.                                                             | PASS                                 |
+| Completion, not retry       | J1 makes one visible response, then boundedly requires the fresh-practice control after Continue. Historical evidence records its former `Start another practice run` label. J2 alone owns incorrect-then-correct retry.                                                         | PASS                                 |
 | Selector durability         | Current public hrefs match course-list and course-assignment routes; exact count checks prevent retained-volume duplicate selection.                                                                                                                                             | PASS                                 |
 | No browser shortcut         | No `page.request`, `addCookies`, storage state, route interception, direct post-login assignment `goto`, or programmatic focus is present in J1. Initial `page.goto("/")` is the honest entry route; `evaluate` reads active element only for a focus assertion.                 | PASS                                 |
 | Evidence redaction          | The state fragment and rendered report permit only public IDs, fixed visible milestone codes, elapsed time, and bounded diagnostics. The Python runner drops child stdout/stderr and writes a mode-0600 report. J1 does not inspect feedback body, answer text, or grading data. | PASS                                 |
@@ -52,7 +53,7 @@ substitute for the required real-browser live walk.
 | Choose work       | Recognize and open the correct prepared activity               | Current visible course and assignment hrefs are unique and keyboard activated      | Focus, route-main focus, and visible Mastery title/action         |
 | Answer and submit | Preserve agency without requiring a shortcut                   | Native radio plus explicit Submit answer use Space                                 | Checked control, ready status, submit focus, and Feedback heading |
 | Read feedback     | Learn the authorized result without disorienting focus changes | Feedback heading is announced/focused and delayed advance never steals moved focus | Feedback heading then Continue focus only after the delay         |
-| Complete          | Know the task is done and what follows                         | Actual fresh-practice button is visible after Continue                             | `Start another practice run` button                               |
+| Complete          | Know the task is done and what follows                         | Actual fresh-practice button is visible after Continue                             | Former label: `Start another practice run`                        |
 
 ## Offline validation
 
@@ -86,9 +87,10 @@ Verify all of the following before accepting WP-W1:
 - Start produces exactly two visible unchecked native radios. Bounded backward
   Tab focuses radio two, Space visibly checks it, the explicit Submit button is
   focused and Space-activated once, and only the Feedback heading is observed.
-  Continue is focused and Space-activated; a bounded visible `Start another
-practice run` button is the sole completion evidence. J1 must not retry or
-  use a completion heading as an outcome proxy.
+  Continue is focused and Space-activated; a bounded visible fresh-practice
+  button is the sole completion evidence. The former `Start another practice
+run` label is historical evidence only. J1 must not retry or use a completion
+  heading as an outcome proxy.
 - Focus visibly reaches `#main-content` after both route changes, Feedback is
   visibly announced/focused before Continue, and focus never returns after the
   student moves it.

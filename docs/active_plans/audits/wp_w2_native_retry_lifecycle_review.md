@@ -16,25 +16,27 @@ that exact retry.
 
 ## Lifecycle review
 
-| Path               | Result | Evidence                                                                                                                                                                                         |
-| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Initial issue      | OK     | Initial runs pass `None`; no predecessor receipt is created.                                                                                                                                     |
-| Wrong-answer retry | OK     | `ensure_active_questions` passes `Some(predecessor)` to retry issuance, and the Memory and PostgreSQL issuers require a submitted same-run predecessor before recording its immutable successor. |
-| Prefetch promotion | OK     | Promotion already passes the prefetch predecessor, validates the durable reservation, and consumes it atomically.                                                                                |
-| Submission replay  | OK     | Replay re-enters `finish_submission`; a pending receipt heals using the original submitted attempt, and a finalized receipt returns its stored successor.                                        |
-| Concurrent healers | OK     | Memory accepts only the same existing successor. PostgreSQL uses the primary key plus `ON CONFLICT DO NOTHING`, then verifies the stored ID matches.                                             |
+| Path               | Result | Evidence                                                                                                                                                                                                                 |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Initial issue      | OK     | Initial Assignment Attempt issuance passes `None`; no predecessor receipt is created.                                                                                                                                    |
+| Wrong-answer retry | OK     | `ensure_active_questions` passes `Some(predecessor)` to retry issuance, and the Memory and PostgreSQL issuers require a submitted predecessor from the same Assignment Attempt before recording its immutable successor. |
+| Prefetch promotion | OK     | Promotion already passes the prefetch predecessor, validates the durable reservation, and consumes it atomically.                                                                                                        |
+| Submission replay  | OK     | Replay re-enters `finish_submission`; a pending receipt heals using the original submitted attempt, and a finalized receipt returns its stored successor.                                                                |
+| Concurrent healers | OK     | Memory accepts only the same existing successor. PostgreSQL uses the primary key plus `ON CONFLICT DO NOTHING`, then verifies the stored ID matches.                                                                     |
 
 The Memory implementation rejects a different active successor or an explicit
-terminal receipt. The PostgreSQL implementation locks the run before issuance,
-verifies the predecessor belongs to that run and is submitted, and treats a
-losing concurrent insert as valid only when its stored successor is identical.
-This preserves replay/idempotency semantics and prevents a later active attempt
-from being attached to the wrong receipt.
+terminal receipt. The PostgreSQL implementation locks the Assignment Attempt
+before issuance, verifies that the predecessor belongs to that Assignment
+Attempt and is submitted, and treats a losing concurrent insert as valid only
+when its stored successor is identical. This preserves replay/idempotency
+semantics and prevents a later active Question Attempt from being attached to
+the wrong receipt.
 
 ## Regression adequacy
 
+Historical test evidence: the former
 `flat_run_route_retries_wrong_first_source_choice_then_completes_correct_second_choice`
-now independently lists `second_attempt` and asserts the receipt identity:
+test independently listed `second_attempt` and asserted the receipt identity:
 
 ```rust
 assert_eq!(
@@ -62,9 +64,9 @@ attempt metadata and does not expand disclosure.
 - PASS: `cargo fmt --check`
 - PASS: `cargo check -p server_core`
 - PASS: `cargo clippy -p server_core --tests -- -D warnings`
-- PASS: `cargo test -p server_core native_backend::tests::flat_run_route_retries_wrong_first_source_choice_then_completes_correct_second_choice -- --exact`
-- PASS: `cargo test -p server_core run::tests::prefetch::prefetch_is_body_free_idempotent_and_binds_the_submission_replay -- --exact`
-- PASS: `cargo test -p server_core run::tests::prefetch::resumed_run_never_issues_an_unlinked_successor_before_submission_replay_heals -- --exact`
+- Historical test names: PASS: `cargo test -p server_core native_backend::tests::flat_run_route_retries_wrong_first_source_choice_then_completes_correct_second_choice -- --exact`
+- Historical test names: PASS: `cargo test -p server_core run::tests::prefetch::prefetch_is_body_free_idempotent_and_binds_the_submission_replay -- --exact`
+- Historical test names: PASS: `cargo test -p server_core run::tests::prefetch::resumed_run_never_issues_an_unlinked_successor_before_submission_replay_heals -- --exact`
 - PASS: `git diff --check`
 
 No production or test source was changed by this review. PostgreSQL behavior

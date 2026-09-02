@@ -62,7 +62,7 @@ Current browser evidence is tracked through the sole current-package handoff in
 remain separate release work.
 
 **Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
-ordinary live assignments, Student Assignment Attempts, deterministic server-owned grading, immutable issued
+ordinary live assignments, Assignment Attempts, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the canonical product path.
 WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
 automatic variation, executable no-store preview, and ordinary Student delivery. WP-INST-D1 and
@@ -95,8 +95,9 @@ Blueprint deadline. New upstream assignments propagate to daughters as unrelease
 release and local delivery edits remain CourseInstance decisions. Archived referenced Blueprints stay
 resolvable for history and evidence.
 
-`CourseStore::create_course_impl`, composed as `Store::create_course`, owns canonical blank-course
-creation. Its SD1 broker atomically obtains or creates the normal minimal BlueprintCourse revision,
+`CourseStore::create_course_impl`, composed as `Store::create_course`, owns the canonical
+Course Creation operation. Its SD1 protected database operation atomically obtains or creates the
+normal minimal BlueprintCourse revision,
 creates the non-null bound CourseInstance, and adds the first Instructor membership. This capability
 remains outside the closed six-operation Blueprint operation boundary: Fork Blueprint Course, Create
 Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New
@@ -200,7 +201,7 @@ canonical 1280 by 800 desktop profile; Student evidence may use the maintained l
 narrow-phone, and square profiles. Each applicable profile is reviewed for semantic usability,
 focus, contrast, recovery, and readable hierarchy; exact pixels, viewport shares, screenshot hashes,
 and source_object_reference totals have no acceptance authority.
-Server response tests cover declared success, validation, conflict, denial, and pagination families
+Server response tests cover declared success, validation, conflict, denial, and pagination categories
 rather than enumerating individual response instances. Teaching-policy tests choose representative
 precedence partitions, including deny, grant, override, conflict, and no-op paths.
 
@@ -304,8 +305,8 @@ release boundary while writing code.
   Student, workspace, or AccountId ownership and is protected by database-enforced row-level security.
 - Delete Student records on a privacy-by-default schedule with the configured course lifecycle policy,
   while anonymous question statistics survive so the library keeps improving.
-- Keep binary and archival content out of PostgreSQL, with every source_object_reference carrying checksum, size,
-  media type, license, and provenance.
+- Keep binary and archival content out of PostgreSQL, with every Source Object Reference carrying its Source Object Checksum, size,
+  media type, Question License, and exact owning relationship.
 - Keep API containers stateless so demand is met by adding replicas.
 - Freeze module contracts early enough that at least six lanes proceed in parallel without
   coordinating mid-flight.
@@ -533,9 +534,9 @@ Pushing it to object storage adds a network hop to the hottest path for no benef
 `reviewer_commments_2.md` names. Why not ADAPT's approach: unbounded payloads in operational tables
 with no threshold and no checksum, which is the bloat the owner is right to worry about.
 
-The rule that makes the split safe: **every source_object_reference carries identity metadata regardless of which
-side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `category`, `question_id`, `revision_number`,
-`license`, `provenance`. Text in PostgreSQL is checksummed exactly like a ZIP in S3.
+The rule that makes the split safe: **every Source Object Reference carries identity metadata regardless of which
+side it lands on** -- `object_id`, `sha256`, `size_bytes`, `media_type`, `question_id`, `revision_number`,
+and its Question License. Text in PostgreSQL is checksummed exactly like a ZIP in S3.
 
 ### The modern LAMP equivalent
 
@@ -658,7 +659,7 @@ an explicit CourseInstance action. Archived referenced Blueprints remain resolva
 and history.
 
 The SD1 cutover is source-, schema-, API-, and browser-wide. It retains only `BlueprintCourseReference`
-(`BP-*`) and one Store/route/decoder/editor family; it removes Alpha types, route families, schema
+(`BP-*`) and one exact Store/route/decoder/editor boundary; it removes Alpha types, route surfaces, schema
 branches, capabilities, aliases, and browser resource kinds. One-assignment reuse is a bounded
 module/assignment projection of the same BlueprintCourse. Fork Blueprint Course, Copy Assignment from Blueprint, and
 Create Course from Blueprint are distinct operations selected by destination, with no live source tether.
@@ -738,9 +739,9 @@ than a code-review question.
 
 ## Student Work Records
 
-The owner's observation that students voluntarily rerun completed assignments 30 or more times for
-learning is the largest single change to this plan. Completion is not terminal, and the earlier
-model -- assignment to attempts -- could not express it.
+The owner's observation that Students voluntarily make 30 or more Assignment Attempts on a completed
+Assignment for learning is the largest single change to this plan. Completion is not terminal, and the
+earlier model -- Assignment to Question Attempts -- could not express it.
 
 Five ownership levels, per reviewer 3:
 
@@ -913,8 +914,8 @@ Conflicting changes from multiple authors are prevented structurally rather than
 QuestionId has a lineage steward or steward set; validated moderate edits use that authority and
 preserve original authorship and license. Every vetted Instructor may instead create a private fork
 draft with its own authorship, source attribution, and source-compatible license; validation gives
-that fork its own published QuestionId lineage. Optional immutable `derived_from` provenance records
-the source internal evidence without making version management an Instructor task.
+that fork its own published QuestionId lineage. An optional immutable Question Fork Source records
+the source Question Revision without making version management an Instructor task.
 
 An Instructor who wants to contribute a focused improvement without creating a fork submits a
 `QuestionChangeProposal` against an exact published version. Automated validation runs before the
@@ -1000,7 +1001,7 @@ closes staged profile evidence, revalidates exact accepted-result `itemId` bindi
 commits the CAS revision, draft, canonical source, current private grading, and current origin under
 the frozen lock order. Ordinary saves stage current grading, publication promotes only the stored
 grading value after origin promotion, and PostgreSQL reaches private provenance and grading only
-through forced-RLS broker capabilities. Strict lowercase 64-hex `Sha256Checksum` serialization keeps
+through forced-RLS protected database operations. Strict lowercase 64-hex `Sha256Checksum` serialization keeps
 the evidence boundary exact. WP-QTI-9 adds deterministic private archive/job ingress, strict worker
 evidence, answer-free report review, strong-ETag atomic conversion, deterministic published archive
 copy, and a prepared-import draft-deletion fence with Memory/PostgreSQL parity. The route, worker,
@@ -1060,7 +1061,7 @@ rendering and search, regenerable from the pinned generator at any time.
 The consequence that matters: **a generator evolving leaves every historical publication snapshot
 intact.** Generator version remains part of hidden snapshot identity. A validated moderate generator
 or content edit publishes a new immutable QuestionRevision in the same QuestionId lineage; a full fork
-publishes a new QuestionId with explicit provenance. Existing assignments and completed attempts keep
+publishes a new QuestionId with an explicit Question Fork Source. Existing assignments and completed attempts keep
 resolving to their exact evidence until an Instructor explicitly applies a controlled assignment
 update. Generator implementations are therefore additive-only while referenced by historical grading
 evidence.
@@ -1339,7 +1340,7 @@ Next-question prefetch uses a durable, server-only reservation rather than creat
 Its browser projection is answer-free, but the reservation retains the issued private grading
 authority needed to avoid later Question Library or renderer reconstruction. It binds the current unresolved
 attempt, the first unattempted assignment position, the server-owned seed, parameter hash, and
-complete backend provenance. Submitting question N promotes that reservation into the one real N+1
+complete Question Attempt Reproduction Details. Submitting question N promotes that reservation into the one real N+1
 attempt and timer, then records either an immutable
 `nextIssued` descriptor or durable `nextPending` state in N's idempotent receipt. Initial recovery
 can heal a committed-but-unlinked successor from the sole pending receipt, but replay never scans
@@ -1536,7 +1537,7 @@ substitution for a required production path.
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                                                                           | MOD-QM, MOD-OBJ                                                                         | Recorded renderer fixtures          | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
 | MOD-ADP-QTI                | QTI adapter                                                              | Import pipeline, export                                                                                                               | MOD-QM, MOD-OBJ                                                                         | `MemoryObjectStore`                 | Hostile-ZIP fixture set rejected; unsupported features recorded                                                                                                                                                                             |
 | MOD-ADP-H5P                | H5P adapter                                                              | Adapter impl, `serverGrading: false`                                                                                                  | MOD-QM                                                                                  | n/a                                 | Capability honesty test; import path to internal model                                                                                                                                                                                      |
-| MOD-ADP-IMATHAS            | iMathAS adapter                                                          | Immutable Question Source snapshot, iMathAS Question Backend Session, iMathAS Result verification, iMathAS Render Cache, capabilities | MOD-QM, MOD-OBJ, MOD-STO, MOD-API-RUN                                                   | Recorded, redacted iMathAS fixtures | Pinned seeded item renders and grades; replay, cache, outage, disclosure, and isolation gates                                                                                                                                               |
+| MOD-ADP-IMATHAS            | iMathAS adapter                                                          | Immutable Question Source snapshot, iMathAS Question Backend Session, iMathAS Result verification, iMathAS Render Cache, capabilities | MOD-QM, MOD-OBJ, MOD-STO, MOD-API-ASSIGNMENT-ATTEMPT                                    | Recorded, redacted iMathAS fixtures | Pinned seeded item renders and grades; replay, cache, outage, disclosure, and isolation gates                                                                                                                                               |
 | MOD-EXPORT                 | Print model and writers                                                  | DOCX and PDF                                                                                                                          | MOD-QM                                                                                  | Fixture version                     | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                            |
 | MOD-WASM                   | WASM bridge                                                              | Typed exports                                                                                                                         | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                                           | n/a                                 | Export allowlist; no `grading` in closure                                                                                                                                                                                                   |
 | MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                                                                               | MOD-STO                                                                                 | `MemoryStore`                       | Login on one replica, proceed on another                                                                                                                                                                                                    |
@@ -1808,7 +1809,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
    opens Question Details.
 2. **Organize.** Elena Stars the selected Questions and places them in a named Question Folder. The
    same live selection is available to the assignment picker. If `WP-INST-D3` is accepted, she may
-   review and confirm a proposed tag with recorded provenance; otherwise human Question Classification is the
+   review and confirm a proposed tag with recorded classification evidence; otherwise human Question Classification is the
    demonstrated path.
 3. **Reuse.** Elena creates or revises a Blueprint Course with one fixed question and one pool
    definition. The fixed member remains selected; the pool records its draw rule and delivery order
@@ -2178,7 +2179,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - Patch 4: WP-F6 (foundation documentation).
 - Patch 5: WP-C1 (Question Model and Question Classification).
 - Patch 6: WP-C2 (identity and lifecycle).
-- Patch 7: WP-C3 (run, policy, and summary model with compact policy-history behavior tests).
+- Patch 7: WP-C3 (Assignment Attempt, policy, and summary model with compact policy-history behavior tests).
 - Patch 8: WP-C4 (store and object contracts with reference backends and conformance suites).
 - Patch 9: WP-C5 (seed vectors and parity harness) -- its own patch because it is a gate.
 - Patch 10: WP-C6 (grading boundary) -- its own patch because it is a gate.
@@ -2198,7 +2199,7 @@ output lines, and any skipped check with a one-line scope note.
 The current implementation and scope decisions are expanded into dispatchable packages in
 `docs/active_plans/active/release_completion_plan.md`:
 
-- The protected visual author editor now supports all eight version 2 families. MC, MA, FIB,
+- The protected visual author editor now supports all eight version 2 Question Types. MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, and ORDER provide their complete keyboard-first form controls. HOTSPOT
   provides verified-image selection, immutable version-scoped publication, exact issue-time asset
   binding, and the primary keyboard region-list workflow. Its integrated author-to-student
@@ -2212,6 +2213,6 @@ The current implementation and scope decisions are expanded into dispatchable pa
   binary source uses typed object storage.
 - Content-addressed deduplication is out of scope because it is an optimization, not an integrity or
   lifecycle requirement.
-- Published WeBWorK PG source is an immutable PLE object with license/provenance, and the adapter
+- Published WeBWorK PG Question Source is an immutable PLE object with its Question License, Source Object Reference, and Source Object Checksum, and the adapter
   calls the private standalone `/render-api` Question Backend service directly.
 - Native Rust `axum` is the server runtime.

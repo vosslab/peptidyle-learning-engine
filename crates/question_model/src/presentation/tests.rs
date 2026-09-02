@@ -338,7 +338,7 @@ fn rendered(
 }
 
 #[test]
-fn rendered_response_translation_rewrites_every_identifier_family() {
+fn rendered_response_translation_rewrites_every_response_item_identifier() {
     let multiple = presentation_for(QuestionResponseFormat::MultipleChoice {
         choices: vec![question_choice("a", "A"), question_choice("b", "B")],
         selection: ResponseSelectionRule::ExactlyOne,

@@ -72,7 +72,7 @@ source does not enter Student components, URLs, browser storage, or diagnostics.
 QTI profile import is composed with the same browser editor model. Its future server route accepts
 opaque ZIP bytes for review and returns queued, processing, failed, unsupported-profile, or
 answer-free ready-report state. The supported conversion profiles are bounded; the browser does
-not parse ZIP/XML, choose a conversion result, or persist provenance. The mounted implementation
+not parse ZIP/XML, choose a conversion result, or persist QTI Import Checksums. The mounted implementation
 must require a reviewed accepted item and a clean visible draft before conversion and refetch.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
@@ -107,21 +107,22 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 
 ## Server and browser boundary
 
-| Browser owns                                                                     | Server owns                                                                                                                |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                        |
-| Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                  |
-| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                     |
-| QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, provenance, and atomic draft replacement |
-| iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording  |
-| Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                       |
+| Browser owns                                                                     | Server owns                                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                                  |
+| Course-theme presentation from an authorized route projection                    | Course identity, appearance revision, banner-object authorization, and conflict decisions                                            |
+| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                               |
+| QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, QTI Import Checksums, and atomic draft replacement |
+| iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
+| Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                                 |
 
 Everything crossing the browser boundary is JSON-serializable except browser-local `File`, DOM ref,
 and object-URL state, which never crosses it. The generated client surface derives from
 `crates/question_model`; answer-bearing `crates/grading` types never enter it. The iMathAS Question Backend
 launch DTO is intentionally only a same-origin path, never a provider URL, token, score, source,
-or provenance record. The durable broker roles remain narrow and subject to forced RLS; see
-`docs/DATABASE_AUTHORIZATION.md#row-level-security` and `docs/ADAPTER_DEVELOPMENT.md`.
+or QTI Import Package Checksum record. Protected database functions remain narrow and subject to
+forced RLS; see `docs/DATABASE_AUTHORIZATION.md#row-level-security` and
+`docs/ADAPTER_DEVELOPMENT.md`.
 
 ## Reactivity verification
 

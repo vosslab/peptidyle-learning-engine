@@ -112,7 +112,7 @@ The original missing seam was visible at three boundaries:
 
 - The earlier course-route surface mounted course reads, course creation,
   gradebook reads, and assignment creation/update without roster mutation.
-- The deferred course-delivery route family will expose Student-owned
+- The deferred course-delivery route surface will expose Student-owned
   Assignment Attempt history. Course Enrollment occurs through course-level
   invitation claim rather than a public assignment-enrollment mutation.
 - The deferred course-creation command creates a Course Instance with its
@@ -143,7 +143,7 @@ account across courses and institutions; it is not issued by an instructor,
 course, university, or email provider. Course membership and account-and-relationship-scoped forced
 RLS control access to educational records.
 
-The direct passwordless email/passkey route family owns the account-session
+The direct passwordless email/passkey route surface owns the account-session
 boundary and mints an `__Host-ple_session` only after an authorized course
 relationship is chosen or claimed. The deployment-gated seeded persona selector
 uses the same account/session records for connected local evidence. The product

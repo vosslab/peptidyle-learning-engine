@@ -218,7 +218,7 @@ pub enum QtiPleDefault {
     EnglishUs,
     AllRightsReserved,
     EmptyTags,
-    EmptyTaxonomy,
+    EmptyQuestionClassifications,
     NoFeedback,
 }
 
@@ -230,7 +230,7 @@ impl QtiPleDefault {
         Self::EnglishUs,
         Self::AllRightsReserved,
         Self::EmptyTags,
-        Self::EmptyTaxonomy,
+        Self::EmptyQuestionClassifications,
         Self::NoFeedback,
     ];
     pub(super) fn safe_diagnostic(self) -> QtiSafeDiagnostic {
@@ -240,7 +240,7 @@ impl QtiPleDefault {
             Self::EnglishUs => QtiSafeDiagnosticTemplate::PleDefaultEnglishUs,
             Self::AllRightsReserved => QtiSafeDiagnosticTemplate::PleDefaultAllRightsReserved,
             Self::EmptyTags => QtiSafeDiagnosticTemplate::PleDefaultEmptyTags,
-            Self::EmptyTaxonomy => {
+            Self::EmptyQuestionClassifications => {
                 QtiSafeDiagnosticTemplate::PleDefaultEmptyQuestionClassifications
             }
             Self::NoFeedback => QtiSafeDiagnosticTemplate::PleDefaultNoFeedback,

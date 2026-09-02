@@ -15,7 +15,7 @@ browser-facing boundary. A type that would let a caller learn a correct
 response belongs in `crates/grading`, which runs server-side and sits outside
 the WebAssembly dependency closure. This is a security classification, not a
 claim that every answer-free model field belongs in every Student payload:
-the presentation projection further removes provenance and grading-adjacent
+the presentation projection further removes Question Attempt Reproduction Details and grading-adjacent
 details the renderer does not need.
 
 Applied to answers, the split is:
@@ -161,7 +161,7 @@ Every `QuestionSearchResult` is already published, with its immutable Question
 Publication Event retained separately from its current Question Revision
 Availability. The ordinary new-assignment selector accepts only `Available`
 versions. `Archived` versions remain discoverable and resolvable for exact
-references, evidence, provenance, and retained assignments, with their stated
+references, evidence, Question Fork Source, and retained assignments, with their stated
 reason.
 
 Question Statistics evidence is version-specific and excludes previews and the Instructor
@@ -434,7 +434,7 @@ inferring it.
 
 Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
 delivery values are already resolved from exact assignment entitlement and omit
-Assignment Status, base-policy provenance, course identifiers, and evaluation
+Assignment Status, Assignment Policy Source, course identifiers, and evaluation
 clocks. `AssignmentScoringState`
 is also independent: Current allows the otherwise authorized score projection;
 Recalculating and Failed retain the semantic score state while omitting every

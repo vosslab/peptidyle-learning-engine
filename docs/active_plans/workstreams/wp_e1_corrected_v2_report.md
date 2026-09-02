@@ -22,14 +22,14 @@ baseline.
 ## Exclusions
 
 - No J6/J7, onboarding, email, mailbox, all-family, multi-student, score value, student identity,
-  title, response, or run-detail evidence.
+  title, response, or Assignment Attempt detail evidence.
 
 ## Promotion gate
 
 The promotion gate passed on 2026-08-11: the manager and independent same-seed
 retained-stack `--build` runs each used fresh visible instructor setup and
 produced the exact nine ordered PASS rows. The report retains no score value,
-identity, title, response, or run detail. This accepts neither email/canonical
+identity, title, response, or Assignment Attempt detail. This accepts neither email/canonical
 onboarding nor J6/J7, all-family, multi-student, or release gates.
 
 The independent retained-stack evidence is recorded in the retained-live final

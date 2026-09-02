@@ -109,7 +109,7 @@ digest and rendered item IDs. Its planned mismatch response is a fail-closed `40
 grade or mutate the attempt, preserves the editable draft only in memory, reloads the same
 presentation, and restores the draft only when its schema and rendered IDs still match. Until that
 work package lands, current clients must use the implemented attempt and idempotency boundary and
-must not treat current provenance fields as client authority.
+must not treat current Question Attempt Reproduction Details as client authority.
 
 ## Replica and cache recovery
 
@@ -127,7 +127,7 @@ allow a surviving replica to resume an authorized attempt. The exact topology an
   process crash before commit leaves no receipt and can be retried through the normal owner path.
 - Immutable render and asset caches accelerate delivery but are never correctness authority. Cache
   keys bind immutable version and seed; entries contain only safe public render data. A miss may
-  rerender privately. A reproduction, provenance, or checksum disagreement fails closed rather
+  rerender privately. A reproduction, Question Attempt Reproduction Details, or checksum disagreement fails closed rather
   than serving a near match.
 
 ## Prefetch and cache recovery
@@ -228,7 +228,7 @@ and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#fresh-migration-epoch)
 - An incompatible or dirty ledger is an operator incident. Do not fabricate SQLx ledger rows,
   disable verification, or route traffic around the readiness boundary.
 - PostgreSQL-major changes preserve the old volume, restore into a new clean cluster, verify the
-  migration ledger, logical data, roles/grants/RLS, application writes, and broker calls, then
+  migration ledger, logical data, roles/grants/RLS, application writes, and protected database-function calls, then
   retain the old volume until recovery is accepted. See
   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 - A local logical restore exercise is evidence for local recovery only. Managed point-in-time

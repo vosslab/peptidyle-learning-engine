@@ -99,12 +99,12 @@ missing. The protected Store/PostgreSQL operation performs the predicate and dat
 same transaction, preventing a route-level check from outliving revocation.
 
 The application uses least-privilege roles. Runtime logins are `NOINHERIT`, `NOSUPERUSER`, and do
-use no `BYPASSRLS`; table owners, superusers, and broad broker membership are not runtime account
+use no `BYPASSRLS`; table owners, superusers, and broad capability-role membership are not runtime account
 identities. The public schema is private by default, and grants are explicit per table, view, and
 function.
 
-Security-definer brokers implement only a registered capability whose arguments, authenticated Account, durable
-target, and audit effect they verify. Broker owners may have the limited privilege necessary for
+Security-definer authorization functions implement only a registered capability whose arguments, authenticated Account, durable
+target, and audit effect they verify. Function owners may have the limited privilege necessary for
 that one operation, while ordinary application roles receive no direct shortcut to private grading,
 retention, queue, object, or Question Backend data. `ple_app` performs only authenticated Session
 create, load, lease, and stage operations. `ple_worker_login` may `SET ROLE` only to
@@ -117,7 +117,7 @@ credentials or roles with only their needed grants.
 
 A worker first locks a current lease. The immutable job manifest and lease derive the job's typed
 course, workspace, Question Library, object, export, retention, or system target. Job Kind Registration,
-generation, broker grant, and target type must agree before a handler reads, writes, dispatches, or
+generation, Job claim-and-lease grant, and target type must agree before a handler reads, writes, dispatches, or
 finalizes anything. Queue payloads, retry input, Question Backend responses, and object references cannot
 widen that scope.
 
@@ -133,12 +133,12 @@ credentials and answer-bearing payloads remain server-only.
 ## Radioactive records and retention
 
 `Radioactive` is the operational label for a relation that can contain or directly locate a
-Student's course record. It is not a human or PostgreSQL role. The following exact table families
+Student's course record. It is not a human or PostgreSQL role. The following exact record categories
 receive the same account-and-relationship-scoped RLS, minimum-field, audit, retention, incident-response, and backup
 handling. Partition children, views, staging relations, query results, exports, diagnostics, and
 restores inherit the highest label of their inputs.
 
-| Family                                                | Radioactive relations                                                                                                                                                                                                                                                                                      |
+| Record category                                       | Radioactive relations                                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Roster and invitation                                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                                                           |
 | Student work and Gradebook evidence                   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                                                  |
@@ -159,7 +159,7 @@ Retention keeps shared published Question Library content and private drafts out
 Course Student records move through `active -> archived -> deleted`. The database centrally fences
 Student-facing records, exports, iMathAS Question Backend records, and course-record assets as archive or
 deletion starts. Authorized current Instructors may retain course and Assignment Content without
-restoring student records. A retention broker uses the exact course/stage/generation manifest and a
+restoring student records. Retention Job prepare and commit operations use the exact course/stage/generation manifest and a
 renewed lease, so stale work cannot commit after a newer retention generation.
 
 ## Fresh migration epoch
@@ -168,17 +168,17 @@ SD1-C creates the single-installation schema only on freshly cleaned disposable 
 not preserve an installation-scope compatibility layer. The migration ledger allocates the exact next available
 number in these ranges:
 
-| Range                                                | Capability family                                                                                                                                        |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                          |
-| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation    |
-| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                               |
-| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                             |
-| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                   |
-| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                 |
-| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                              |
-| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, iMathAS Question Backend state                                                                                  |
-| `2026082929`-`2026082936`                            | Capability brokers, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
+| Range                                                | Allocated capability scope                                                                                                                                 |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                            |
+| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation      |
+| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                                 |
+| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                               |
+| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                     |
+| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                   |
+| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                                |
+| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, iMathAS Question Backend state                                                                                    |
+| `2026082929`-`2026082936`                            | Authorization Checks, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,

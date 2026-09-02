@@ -43,7 +43,7 @@ visible content already proves the state.
 Treat density as a design-system setting, not a collection of page-specific numbers. Shared CSS
 custom properties in `src/style.css` own the geometry most likely to change after observation:
 
-| Token family                                                 | Controls                                                                      |
+| Token category                                               | Controls                                                                      |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | `--ple-shell-*`                                              | Maximum application width, viewport gutters, header height, and shell padding |
 | `--ple-layout-gap`, `--ple-section-gap`, `--ple-compact-gap` | Page columns, group rhythm, and dense local rhythm                            |
@@ -75,11 +75,11 @@ schemas.
 Use one ordered Ribbon Schema for each Ribbon Scope and immutable Product Role pair. Every role uses
 the same Application Shell and Ribbon architecture with a completely distinct menu:
 
-| Ribbon Scope       | Instructor                                                                             | Student     | Sysadmin                      |
-| ------------------ | -------------------------------------------------------------------------------------- | ----------- | ----------------------------- |
-| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses                       |
-| Course Instance    | Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, Course Setup | Assignments | Teaching Operations           |
-| Assignment Attempt | None                                                                                   | Attempt     | None                          |
+| Ribbon Scope       | Instructor                                                                             | Student     | Sysadmin            |
+| ------------------ | -------------------------------------------------------------------------------------- | ----------- | ------------------- |
+| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses             |
+| Course Instance    | Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, Course Setup | Assignments | Teaching Operations |
+| Assignment Attempt | None                                                                                   | Attempt     | None                |
 
 Product Role is available with the Authenticated Session, so one Account uses one stable schema for
 each scope throughout its session. Exact server and Store checks continue to authorize every

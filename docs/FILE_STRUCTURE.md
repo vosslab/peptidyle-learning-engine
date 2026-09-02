@@ -44,7 +44,7 @@ container, or source-import path.
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles.   |
 | [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                        |
 | [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                          |
-| [crates/adapters/](../crates/adapters/)                         | Ple, QTI, H5P, iMathAS, and WeBWorK adapters.                                                            |
+| [crates/adapters/](../crates/adapters/)                         | PLE, QTI, iMathAS, and WeBWorK Question Backend adapters, plus H5P Package Import.                       |
 | [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                      |
 | [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                      |
 | [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                        |
@@ -77,7 +77,7 @@ successors remain historical evidence and are not renamed or edited to hide
 their origin. The fresh SD1 migration epoch is tracked in
 [active_plans/implementation_status.md](active_plans/implementation_status.md);
 its course/curriculum range is planned at 2026082913-2026082916, with
-broker/RLS/grant helpers at 2026082929-2026082932.
+protected authorization-function/RLS/grant helpers at 2026082929-2026082932.
 
 ## Learning data access
 

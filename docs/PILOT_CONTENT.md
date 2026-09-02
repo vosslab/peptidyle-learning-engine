@@ -15,7 +15,7 @@ rather than UUIDs. The publication seed reads that validated inventory instead o
 second human-visible question list. The instructor UI presents one canonical `AAA-BBBB` Crockford
 Question ID for each question. Server-side checksum validation and Account authorization
 resolve that exact assigned question subject to lifecycle policy; internal UUIDs and immutable
-snapshots remain hidden for grading and provenance.
+snapshots remain hidden for grading and Question Attempt Reproduction Details.
 
 ## Source and review boundary
 
@@ -54,7 +54,7 @@ lifecycle installs that reviewed baseline into PostgreSQL and MinIO; Chapter
 One no longer creates a separately named stack or browser owner. Historical
 pilot evidence used `P-...-v1` references, but current instructor-facing IDs use
 canonical `AAA-BBBB` Crockford Question IDs while immutable snapshots stay
-internal for grading and provenance.
+internal for grading and Question Attempt Reproduction Details.
 
 Browser student behavior is selected only through the canonical wrapper:
 

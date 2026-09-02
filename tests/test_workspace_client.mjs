@@ -122,9 +122,22 @@ test("Question Authorship shares strict line-based author input and wire decodin
   for (const text of ["", "Ada\nAda", "Ada\u0007", "😀".repeat(121)]) {
     assert.equal(parseReviewedQuestionAuthorship(text), null);
   }
+  const sixteenAuthors = Array.from({ length: 16 }, (_, index) => `Question Author ${index + 1}`);
+  assert.equal(parseReviewedQuestionAuthorship(sixteenAuthors.join("\n"))?.authors.length, 16);
+  assert.equal(
+    parseReviewedQuestionAuthorship([...sixteenAuthors, "Question Author 17"].join("\n")),
+    null,
+  );
   assert.deepEqual(
     decodeQuestionAuthorship({ authors: [{ displayName: "Ada Lovelace" }] }, "response.authorship"),
     { authors: [{ displayName: "Ada Lovelace" }] },
+  );
+  assert.equal(
+    decodeQuestionAuthorship(
+      { authors: sixteenAuthors.map((displayName) => ({ displayName })) },
+      "response.authorship",
+    ).authors.length,
+    16,
   );
   for (const value of [
     { authors: [] },

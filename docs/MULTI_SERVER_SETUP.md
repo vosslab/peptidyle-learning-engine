@@ -17,16 +17,16 @@ Course selection is the set of exact current memberships returned for that
 session. Selecting a course supplies a route reference for the server to check,
 not a new authorization claim.
 
-| Record or capability                                                    | Exact owner or scope                                        | Authorization                                                   |
-| ----------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| Account, email, passkey, session                                        | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
-| Published question and presentation asset                               | Global immutable `QuestionId` and `QuestionRevisionNumber`  | Every active Instructor                                         |
-| Draft Question or private curriculum workspace                          | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
-| Draft Blueprint Revision                                                | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
-| Course, roster, assignment, schedule                                    | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
-| Student Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                         | Student self or current course Instructor                       |
-| Question Folder, Star, Watch, or Saved Question Search                  | Account-owned reference to a Published Question             | Exact Account relationship; Question Folder Shares are explicit |
-| Job, export, object, or provider state                                  | Typed course, workspace, Question Library, or system target | Locked lease and durable target                                 |
+| Record or capability                                            | Exact owner or scope                                        | Authorization                                                   |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Account, email, passkey, session                                | Global `AccountId` and Authenticated Session                | Account/session contract                                        |
+| Published question and presentation asset                       | Global immutable `QuestionId` and `QuestionRevisionNumber`  | Every active Instructor                                         |
+| Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship          | Authoring Workspace Owner or Workspace Collaborator             |
+| Draft Blueprint Revision                                        | Exact Blueprint Course and revision                         | Blueprint Course Owner or Blueprint Collaborator                |
+| Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
+| Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                         | Student self or current course Instructor                       |
+| Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question             | Exact Account relationship; Question Folder Shares are explicit |
+| Job, export, object, or provider state                          | Typed course, workspace, Question Library, or system target | Locked lease and durable target                                 |
 
 Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
@@ -151,7 +151,7 @@ read, write, provider dispatch, or finalization, all of these must agree:
 - Job Kind Registration and declared typed Job Payload;
 - current lease and lease token;
 - immutable target type and exact target identity;
-- broker capability; and
+- exact Job claim-and-lease authority; and
 - stale-work generation fence.
 
 Queue payloads, retry input, object references, provider responses, and caller

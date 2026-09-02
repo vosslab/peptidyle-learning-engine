@@ -35,10 +35,10 @@ them without creating a second product vocabulary.
 | Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or backend configuration.                                                       |
 | Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free envelope, parameter hash, and Question Attempt Reproduction Details. |
 | Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit envelope-less active Question Backends. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private envelope instead.                        |
-| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                            |
-| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                              |
+| Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                                            |
+| Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                   |
 | Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                           |
-| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                         |
+| Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                        |
 | Capabilities                          | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                             |
 
 The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
@@ -48,12 +48,12 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 ## Backend comparison
 
-| Backend                         | Current authority                                                                                                                                                | Browser response                  | Server grading authority                                    | Current scope                                                                                                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE Question JSON               | Immutable PLE Question Source and private Question Grading Input                                                                                                 | Typed PLE Question JSON response  | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
-| QTI profile                     | Immutable staged/published archive plus profile conversion evidence                                                                                              | Typed PLE response                | `QtiBackend` plus least-privilege `QtiGradingStore`         | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                                    |
-| WeBWorK                         | Immutable licensed PGML source and private renderer                                                                                                              | Opaque PLE choice or match IDs    | Private `/render-api` Question Backend                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                                          |
-| iMathAS                         | Immutable Question Source resolution plus strict versioned iMathAS Launch State bytes                                                                            | Same-origin `{ launchUrl }` only  | iMathAS Launch/Result HMAC and protocol verification        | Browser shell has no Challenge/Session/backend secrets; LDA-backed Rust route and backend composition remain downstream                                        |
+| Backend                          | Current authority                                                                                                                                                | Browser response                  | Server grading authority                                    | Current scope                                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PLE Question JSON                | Immutable PLE Question Source and private Question Grading Input                                                                                                 | Typed PLE Question JSON response  | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; protected visual author editor; end-to-end all-type and hotspot lifecycle acceptance remains open |
+| QTI profile                      | Immutable staged/published archive plus profile conversion evidence                                                                                              | Typed PLE response                | `QtiBackend` plus least-privilege `QtiGradingStore`         | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                                    |
+| WeBWorK                          | Immutable licensed PGML source and private renderer                                                                                                              | Opaque PLE choice or match IDs    | Private `/render-api` Question Backend                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                                          |
+| iMathAS                          | Immutable Question Source resolution plus strict versioned iMathAS Launch State bytes                                                                            | Same-origin `{ launchUrl }` only  | iMathAS Launch/Result HMAC and protocol verification        | Browser shell has no Challenge/Session/backend secrets; LDA-backed Rust route and backend composition remain downstream                                        |
 | iMathAS Question Backend Session | Exact Account/course/Student attempt, Question Revision, `ImathasQuestionBackendBinding`, seed, Challenge, authentication, and verified Result Exchange checksum | No Session/Challenge/token output | LDA Store with one-use forward transition                   | Browser launch shell is mounted; LDA-backed Rust route, cookie/env backend composition, and live backend remain absent                                         |
 
 ## PLE Question JSON Questions
@@ -85,14 +85,14 @@ hotspot lifecycle, remains open.
 The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
 References before generic grading or isolated PLE Question JSON grading. First PLE Question JSON grade reads only the issued
 checksummed PLE Question JSON grading contract; ordinary published-Question and browser paths cannot read that material or
-replace it with a current Question Grader view. Provenance names the PLE Question Backend and
+replace it with a current Question Grader view. Question Attempt Reproduction Details name the PLE Question Backend and
 Question Grader Versions, optional
 generator, bound objects, and rendered output hash.
 
 PLE Question JSON generation is deterministic for a published version and Question Seed. A shared cache may contain only
 answer-free generated output keyed by that identity. Course/Student state, keys, submissions, and feedback
 never enter it. Static questions still use the uniform seed and parameter-hash record so swapped
-provenance is detectable.
+Question Attempt Reproduction Details mismatch is detectable.
 
 ### Capabilities and extension
 
@@ -116,7 +116,7 @@ immutable assets, and returns a normal answer-free PLE envelope. The student sub
 PLE response as for PLE Questions. Student JSON has no QTI XML, archive Object Address, import ID, or
 answer binding.
 
-### Grade, provenance, and scope
+### Grade, Question Attempt Reproduction Details, and scope
 
 `QtiBackend` obtains answer-bearing material only through separately injected, least-privilege
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but

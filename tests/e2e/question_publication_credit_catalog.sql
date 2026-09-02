@@ -91,6 +91,29 @@ BEGIN
               AND conname = 'question_revision_citation_has_text_or_url'
         )
         OR NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'ple_data.question_revision_authorship'::regclass
+              AND conname = 'question_revision_authorship_position_is_bounded'
+        )
+        OR NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'ple_data.question_revision_authorship'::regclass
+              AND conname = 'question_revision_authorship_display_name_is_reviewed'
+        )
+        OR NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'ple_data'
+              AND table_name = 'question_revision_authorship'
+              AND column_name = 'author_account_id'
+              AND is_nullable = 'YES'
+        )
+        OR NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'ple_data.question_revision_authorship'::regclass
+              AND contype = 'f'
+              AND confrelid = 'ple_private.account'::regclass
+        )
+        OR NOT EXISTS (
             SELECT 1 FROM pg_trigger
             WHERE tgrelid = 'ple_data.question_revision_acceptance'::regclass
               AND tgname = 'question_revision_acceptance_is_immutable' AND NOT tgisinternal
@@ -200,6 +223,78 @@ BEGIN
 END;
 $$;
 
+DO $$
+DECLARE
+    validation_constraint text;
+    validation_message text;
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.question_revision_authorship (
+            question_id, revision_number, author_position, author_display_name
+        ) VALUES ('SRC-0001', 1, 17, 'Bounded author position');
+        RAISE EXCEPTION 'Question Authorship accepted a seventeenth Question Author';
+    EXCEPTION WHEN check_violation THEN
+        GET STACKED DIAGNOSTICS validation_constraint = CONSTRAINT_NAME;
+        IF validation_constraint IS DISTINCT FROM
+            'question_revision_authorship_position_is_bounded' THEN
+            RAISE;
+        END IF;
+    END;
+
+    BEGIN
+        INSERT INTO ple_data.question_revision_authorship (
+            question_id, revision_number, author_position, author_display_name
+        ) VALUES ('SRC-0001', 1, 2, ' Unreviewed whitespace');
+        RAISE EXCEPTION 'Question Authorship accepted an untrimmed Question Author display name';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+
+    BEGIN
+        INSERT INTO ple_data.question_revision_authorship (
+            question_id, revision_number, author_position, author_display_name
+        ) VALUES ('SRC-0001', 1, 2, 'Control' || chr(7));
+        RAISE EXCEPTION 'Question Authorship accepted a control-bearing Question Author display name';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+
+    BEGIN
+        INSERT INTO ple_data.question_revision_authorship (
+            question_id, revision_number, author_position, author_display_name, author_account_id
+        ) VALUES (
+            'SRC-0001', 1, 2, 'Missing Account',
+            '00000000-0000-0000-0000-000000000999'
+        );
+        RAISE EXCEPTION 'Question Authorship accepted an unknown Account reference';
+    EXCEPTION WHEN foreign_key_violation THEN
+        NULL;
+    END;
+
+    BEGIN
+        INSERT INTO ple_data.question_revision_authorship (
+            question_id, revision_number, author_position, author_display_name
+        ) VALUES
+            ('SRC-0001', 1, 1, 'First Question Author'),
+            ('SRC-0001', 1, 3, 'Third Question Author');
+        INSERT INTO ple_data.question_publication_event (
+            event_id, question_id, revision_number, published_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000917', 'SRC-0001', 1,
+            '2026-08-31T00:00:00Z'
+        );
+        SET CONSTRAINTS ALL IMMEDIATE;
+        RAISE EXCEPTION 'Question Publication accepted noncontiguous Question Author positions';
+    EXCEPTION WHEN check_violation THEN
+        GET STACKED DIAGNOSTICS validation_message = MESSAGE_TEXT;
+        IF validation_message IS DISTINCT FROM
+            'Question Publication requires contiguous Question Author positions' THEN
+            RAISE;
+        END IF;
+    END;
+END;
+$$;
+
 -- Publication accepts only a revision with its immutable acceptance facts.
 -- `private_question_records.sql` has already registered this revision's exact
 -- Question Source and its Instructor Account.
@@ -233,6 +328,11 @@ INSERT INTO ple_data.question_revision_authorship (
     'SRC-0001', 1, 1, 'Question Source owner',
     '00000000-0000-0000-0000-000000000901'
 );
+INSERT INTO ple_data.question_revision_authorship (
+    question_id, revision_number, author_position, author_display_name
+) VALUES (
+    'SRC-0001', 1, 2, 'External Question Author'
+);
 INSERT INTO ple_data.question_revision_license (
     question_id, revision_number, spdx_expression
 ) VALUES ('SRC-0001', 1, 'CC-BY-4.0');
@@ -252,6 +352,26 @@ INSERT INTO ple_data.question_publication_event (
 );
 
 COMMIT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM ple_data.question_revision_authorship AS authorship
+        WHERE authorship.question_id = 'SRC-0001'
+          AND authorship.revision_number = 1
+          AND authorship.author_position = 2
+          AND authorship.author_account_id IS NULL
+    ) OR NOT EXISTS (
+        SELECT 1
+        FROM ple_data.question_current_owner AS owner
+        WHERE owner.question_id = 'SRC-0001'
+          AND owner.owner_account_id = '00000000-0000-0000-0000-000000000901'
+    ) THEN
+        RAISE EXCEPTION 'Question Authorship Account references and Question Owner authority were conflated';
+    END IF;
+END;
+$$;
 
 -- Latest Question Revision is derived from immutable acceptance evidence,
 -- rather than from Question Revision Availability or a mutable pointer.

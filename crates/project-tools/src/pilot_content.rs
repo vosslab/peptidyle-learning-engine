@@ -294,12 +294,15 @@ fn validate_webwork(question: &Question, source: &Path) -> Result<()> {
             source.display()
         );
     }
-    let family_marker = match question.question_type {
+    let question_type_marker = match question.question_type {
         PilotQuestionType::MultipleChoice => "RadioButtons",
         PilotQuestionType::Matching => "make_popup",
     };
-    if !text.contains(family_marker) {
-        bail!("WeBWorK source {} lacks {family_marker}", source.display());
+    if !text.contains(question_type_marker) {
+        bail!(
+            "WeBWorK source {} lacks {question_type_marker}",
+            source.display()
+        );
     }
     Ok(())
 }

@@ -4,13 +4,17 @@
 
 **ACCEPTED.** The integrated repair splits entry behavior by policy
 posture. Mastery alone may reach an existing completed summary and use the
-focused `Start another practice run` control to enter a fresh run. Exam waits
-only for a visible active run, forbidden fresh action/heading, or closed result;
+focused former `Start another practice run` control to enter a fresh Assignment
+Attempt. Exam waits only for a visible active Assignment Attempt, forbidden fresh
+action/heading, or closed result;
 it immediately rejects either Mastery-only affordance, permits an already closed
 Exam only with Back available, and otherwise completes one visible response to
 its neutral closed summary.
 
 ## Scope and method
+
+Historical evidence note: quoted former labels and helper identifiers below
+record the reviewed surface; Assignment Attempt names the product concept.
 
 This independent offline review covered WP-W6/J4, the plan, the no-mouse
 contract, the paired browser spec, the production completion UI, and the
@@ -21,34 +25,34 @@ assertion.
 
 ## Findings
 
-| Check                         | Evidence                                                                                                                                                                                                                                                                                         | Result                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
-| Exact visible routes          | Each separate context signs in through the rendered form, requires one exact visible current course and Mastery/Exam href, uses bounded backward Tab from route-focused main, asserts focus, and activates native Enter.                                                                         | PASS                  |
-| Keyboard-only operation       | J4 uses root entry plus bounded Tab/Shift+Tab, native Enter, and Space. It has no pointer action, direct focus, API/route interception, cookie, storage, history, Arrow, digit, or tabindex shortcut.                                                                                            | PASS                  |
-| Mastery path                  | It handles existing completed state only through focused/Space-activated `Start another practice run`; each response requires exactly two visible unchecked native radios, with radio two reached only through backward Tab, focus, and Space. Final paired heading/action and Back are visible. | PASS                  |
-| Closed Exam path              | One visible response ends at `This run is complete`; final Mastery heading and fresh action have count zero, while Back is visible.                                                                                                                                                              | PASS at final summary |
-| Initial Exam contrast         | `startVisibleExamRun()` waits for bounded active/fresh/Mastery/closed visible state, immediately requires fresh action and Mastery heading counts of zero, permits already-closed only with Back, otherwise requires the active run.                                                             | PASS                  |
-| Feedback and scoring boundary | The test observes the Feedback heading only. It reads no feedback body, correctness, score, answer, source, or private response.                                                                                                                                                                 | PASS                  |
-| Context separation            | Mastery and Exam use separate fresh browser contexts and each signs in through its rendered local form; no state is copied between them.                                                                                                                                                         | PASS                  |
-| Public fragment               | The pure fragment permits only three public UUIDs, bounded elapsed time, five fixed visible codes, and empty diagnostics. It has no answer or feedback field.                                                                                                                                    | PASS                  |
-| Terminal-state hardening      | A bounded 30-second visible-only classifier treats pending, Feedback, and neutral completion as transient; it terminates on paired Mastery action/heading, exact closed Exam, mismatched Mastery paired controls, or inline error. Policy-specific guards fail observed nonexpected terminals.   | PASS                  |
-| Evidence ordering             | The J4 fragment is constructed only after both policy assertions pass and is appended only after both browser contexts close in `finally`.                                                                                                                                                       | PASS                  |
-| Scope isolation               | J4 does not change the shared runner or shared J1/J2 visible-report contract.                                                                                                                                                                                                                    | PASS                  |
+| Check                         | Evidence                                                                                                                                                                                                                                                                                                                                       | Result                |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Exact visible routes          | Each separate context signs in through the rendered form, requires one exact visible current course and Mastery/Exam href, uses bounded backward Tab from route-focused main, asserts focus, and activates native Enter.                                                                                                                       | PASS                  |
+| Keyboard-only operation       | J4 uses root entry plus bounded Tab/Shift+Tab, native Enter, and Space. It has no pointer action, direct focus, API/route interception, cookie, storage, history, Arrow, digit, or tabindex shortcut.                                                                                                                                          | PASS                  |
+| Mastery path                  | It handles existing completed state only through focused/Space-activated historical visible-label evidence `Start another practice run`; each response requires exactly two visible unchecked native radios, with radio two reached only through backward Tab, focus, and Space. Final Assignment Attempt summary/action and Back are visible. | PASS                  |
+| Closed Exam path              | One visible response ends at historical visible-label evidence `This run is complete`; final Mastery Assignment Attempt heading and fresh action have count zero, while Back is visible.                                                                                                                                                       | PASS at final summary |
+| Initial Exam contrast         | Historical helper `startVisibleExamRun()` waits for bounded active/fresh/Mastery/closed visible state, immediately requires fresh action and Mastery heading counts of zero, permits already-closed only with Back, otherwise requires the active Assignment Attempt.                                                                          | PASS                  |
+| Feedback and scoring boundary | The test observes the Feedback heading only. It reads no feedback body, correctness, score, answer, source, or private response.                                                                                                                                                                                                               | PASS                  |
+| Context separation            | Mastery and Exam use separate fresh browser contexts and each signs in through its rendered local form; no state is copied between them.                                                                                                                                                                                                       | PASS                  |
+| Public fragment               | The pure fragment permits only three public UUIDs, bounded elapsed time, five fixed visible codes, and empty diagnostics. It has no answer or feedback field.                                                                                                                                                                                  | PASS                  |
+| Terminal-state hardening      | A bounded 30-second visible-only classifier treats pending, Feedback, and neutral completion as transient; it terminates on paired Mastery action/heading, exact closed Exam, mismatched Mastery paired controls, or inline error. Policy-specific guards fail observed nonexpected terminals.                                                 | PASS                  |
+| Evidence ordering             | The J4 fragment is constructed only after both policy assertions pass and is appended only after both browser contexts close in `finally`.                                                                                                                                                                                                     | PASS                  |
+| Scope isolation               | J4 does not change the shared runner or shared J1/J2 visible-report contract.                                                                                                                                                                                                                                                                  | PASS                  |
 
 ## Required live checklist
 
 From a clean selected Compose project, run the isolated J4 live invocation.
 Verify:
 
-- Mastery can visibly reach an existing completed summary, then Tabs/focuses and
-  Space-activates `Start another practice run` before the first radio appears.
+- Mastery can visibly reach an existing completed Assignment Attempt summary, then Tabs/focuses and
+  Space-activates historical visible-label evidence `Start another practice run` before the first radio appears.
 - Mastery performs the first/second visible-radio transitions through Feedback
   headings only, then exposes the final fresh-practice action and Back control.
-- Exam Start/resume reaches a visible run directly and fails closed if either
-  `Start another practice run` or `Keep practicing with a fresh variation`
+- Exam Start/resume reaches a visible Assignment Attempt directly and fails closed if either
+  historical visible-label evidence `Start another practice run` or `Keep practicing with a fresh variation`
   appears before its response.
 - Exam completes one visible response with a Feedback heading, then shows only
-  `This run is complete`, has no fresh action, and retains Back to assignment.
+  historical visible-label evidence `This run is complete`, has no fresh Assignment Attempt action, and retains Back to assignment.
 - Every operated control is reached by Tab, asserted focused, and activated with
   native Enter or Space; no pointer, direct focus, API, storage, cookie, or
   history shortcut is introduced.

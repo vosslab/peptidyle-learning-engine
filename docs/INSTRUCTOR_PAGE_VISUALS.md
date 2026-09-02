@@ -44,7 +44,7 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and PLE Question JSON authoring                                                                                 |
 | Live Demo sign-in        | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                 |
 
-The authentication completion pages, invitation redemption, and Student Assignment Attempt pages are outside this
+The authentication completion pages, invitation redemption, and Assignment Attempt pages are outside this
 Instructor-workspace gallery. The approved end-to-end teaching loop remains in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md).
 

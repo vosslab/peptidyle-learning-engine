@@ -18,16 +18,19 @@ use question_model::{
 use crate::{
     active_student_course_membership::ActiveStudentCourseMembershipDecision,
     effective_assignment_policy::{
-        AssignmentAccessDecision, EffectiveAssignmentPolicy, PolicySource,
+        AssignmentAccessDecision, AssignmentPolicySource, EffectiveAssignmentPolicy,
     },
     student_feedback_release::evaluate_student_feedback_release,
 };
 
-/// Maps an internal S3 source to a closed label, discarding every source identifier.
-pub fn assignment_policy_source_kind(source: &PolicySource) -> AssignmentPolicySourceKind {
+/// Maps an internal Assignment Policy Source to a closed label, discarding its identifier.
+pub fn assignment_policy_source_kind(
+    source: &AssignmentPolicySource,
+) -> AssignmentPolicySourceKind {
     match source {
-        PolicySource::Base => AssignmentPolicySourceKind::Base,
-        PolicySource::Accommodation(_) | PolicySource::HypotheticalAccommodation => {
+        AssignmentPolicySource::Base => AssignmentPolicySourceKind::Base,
+        AssignmentPolicySource::Accommodation(_)
+        | AssignmentPolicySource::HypotheticalAccommodation => {
             AssignmentPolicySourceKind::Accommodation
         }
     }
@@ -218,8 +221,8 @@ mod tests {
         ActiveStudentMembership, evaluate_active_student_course_membership,
     };
     use crate::effective_assignment_policy::{
-        AssignmentStartDecision, AssignmentStatusGate, AuthorizationGate, BaseAssignmentPolicy,
-        EffectiveAssignmentPolicyValue, PolicySource, ResolveEffectivePolicyInput,
+        AssignmentPolicySource, AssignmentStartDecision, AssignmentStatusGate, AuthorizationGate,
+        BaseAssignmentPolicy, EffectiveAssignmentPolicyValue, ResolveEffectivePolicyInput,
         StudentLateWorkStatus, resolve_effective_policy,
     };
     use chrono::TimeZone;
@@ -336,11 +339,11 @@ mod tests {
     fn actual_and_hypothetical_individual_sources_share_the_safe_layer() {
         let student = StudentRecordId::from_uuid(id(9));
         assert_eq!(
-            assignment_policy_source_kind(&PolicySource::Accommodation(student)),
+            assignment_policy_source_kind(&AssignmentPolicySource::Accommodation(student)),
             AssignmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            assignment_policy_source_kind(&PolicySource::HypotheticalAccommodation),
+            assignment_policy_source_kind(&AssignmentPolicySource::HypotheticalAccommodation),
             AssignmentPolicySourceKind::Accommodation
         );
     }
@@ -359,31 +362,31 @@ mod tests {
         let policy = EffectiveAssignmentPolicy {
             available_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(14)),
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             due_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(15)),
-                source: PolicySource::Accommodation(student),
+                source: AssignmentPolicySource::Accommodation(student),
             },
             closes_at: EffectiveAssignmentPolicyValue {
                 value: Some(at(16)),
-                source: PolicySource::Accommodation(student),
+                source: AssignmentPolicySource::Accommodation(student),
             },
             assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
                 value: NonZeroU32::new(1_200),
-                source: PolicySource::Accommodation(student),
+                source: AssignmentPolicySource::Accommodation(student),
             },
             attempt_limit: EffectiveAssignmentPolicyValue {
                 value: NonZeroU32::new(3),
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             late_work_rule: EffectiveAssignmentPolicyValue {
                 value: LateWorkRule::Accept,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             assignment_deadline_rule: EffectiveAssignmentPolicyValue {
                 value: AssignmentDeadlineRule::AutoSubmit,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
         };
         let term = CourseTerm::from_parts("2026-08-01", "2026-08-31", "America/Chicago").unwrap();
@@ -520,31 +523,31 @@ mod tests {
         let policy = EffectiveAssignmentPolicy {
             available_at: EffectiveAssignmentPolicyValue {
                 value: None,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             due_at: EffectiveAssignmentPolicyValue {
                 value: Some(Timestamp::from_unix_millis(20)),
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             closes_at: EffectiveAssignmentPolicyValue {
                 value: Some(Timestamp::from_unix_millis(30)),
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
                 value: None,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             attempt_limit: EffectiveAssignmentPolicyValue {
                 value: None,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             late_work_rule: EffectiveAssignmentPolicyValue {
                 value: LateWorkRule::Accept,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
             assignment_deadline_rule: EffectiveAssignmentPolicyValue {
                 value: AssignmentDeadlineRule::AutoSubmit,
-                source: PolicySource::Base,
+                source: AssignmentPolicySource::Base,
             },
         };
         let effective = AssignmentAccessDecision::Allowed {

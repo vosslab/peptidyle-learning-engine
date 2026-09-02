@@ -423,8 +423,8 @@ The acceptance transaction creates the immutable submission, pending evaluation,
 and receipt; the sealed worker later reloads that private response and grades it. Exact replay and
 status reads return the answer-free current projection rather than resubmitting the answer.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
-[Question Model Student Work Records](../crates/question_model/src/lib.rs), and MOD-API-RUN
-in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
+[Question Model Student Work Records](../crates/question_model/src/lib.rs), and the
+Assignment Attempt API contract in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 **Current boundary.** The student submission and submission-status routes return a flattened,
 answer-free tagged union with `no-store`. A `202 Accepted` response clears the browser response
@@ -612,12 +612,12 @@ the authenticated account, purpose, action, and time for every boundary crossing
 receives the FERPA radioactive handling discipline. Implementation and acceptance evidence remain
 pending under SD1.
 
-**Session issuance rule.** The session-issuance broker accepts an existing Account identity
+**Session issuance rule.** The Authenticated Session issuance operation accepts an existing Account identity
 and opaque session parameters, then derives Product Role from the immutable Account row in the same
 trusted transaction. A passwordless ceremony, browser request, or adapter never selects Product
 Role. The resulting Authenticated Session stores the derived role and remains bound to that Account
 for its lifetime. This keeps the fixed-role decision at the trusted service boundary (ASVS 2.2.1,
-7.2.1, and 8.3.1). The `2026082906` broker and `SessionStore` implement this derivation; the
+7.2.1, and 8.3.1). The `2026082906` Authenticated Session Resolution function and `SessionStore` implement this derivation; the
 passwordless ceremony and full SD1 acceptance remain separate work.
 
 The authorization boundary remains capability-oriented so a later package can add bounded Grader,
@@ -775,6 +775,13 @@ renderer output do not cross the PLE browser boundary.
 **Planned closure.** Broader problem compatibility and any unreviewed matching source require their
 own accepted projection and live evidence; they are not inferred from the Chapter 1 profile.
 
+### H5P Package Import is not a Question Backend
+
+**Decision.** H5P is the `h5p` Question Format and bounded H5P Package Import path.
+**Why.** Its immutable archive, checksum, content type, and import fingerprint retain archival evidence for an unpublished, key-free, ungraded practice payload; it has no server validation, issue, reproduction, or automated-grading lifecycle.
+**Consequence.** H5P cannot enter Question Backend, backend locator, Question Source, Question Library, or Assignment records; its importer retains hostile-input archive validation, immutable archive resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved Question Backend.
+**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-format-and-question-type), [INPUT_FORMATS.md](INPUT_FORMATS.md), and `crates/adapters/h5p/src/import.rs`.
+
 ### Tests prove behavior at the right layer
 
 **Decision.** Permanent tests are deterministic, offline, behavior-focused evidence. Disposable
@@ -884,7 +891,7 @@ owner and exact predicate those contracts define.
 That keeps Question Library access, course records, private work, and worker leases
 independently reviewable without relying on an ambient installation boundary.
 
-**Consequence.** Baseline relations, Store contracts, brokers, and acceptance
+**Consequence.** Baseline relations, Store contracts, protected authorization functions, and acceptance
 cases derive their parent identifiers and predicates from those contracts.
 Observer and support relations remain narrow recorded grants, workers keep
 immutable typed targets and leases, and object delivery verifies its actual
@@ -904,7 +911,7 @@ workspace work records its Authoring Workspace UUID and import when applicable;
 Question Library work records its exact immutable Question Revision UUID; exports record
 their Assignment Export UUID, Course Instance, frozen Manifest, and expected
 Artifact UUIDs. A worker
-broker compares handler kind, typed target, generation, unexpired lease, and
+Job claim-and-lease operation compares handler kind, typed target, generation, unexpired lease, and
 the requested transition before preparation, reads, writes, retry, cancellation,
 or finalization.
 
@@ -920,7 +927,7 @@ acceptance suite proves rejection for foreign targets, stale generations,
 mismatched Job Kind Registrations, expired leases, and client-supplied scope values.
 **Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-`crates/learning-data-access/src/jobs.rs`, and the baseline job broker.
+`crates/learning-data-access/src/jobs.rs`, and the baseline Job claim-and-lease operation.
 
 ### Seed data represents ordinary teaching
 

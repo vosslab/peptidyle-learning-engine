@@ -250,7 +250,9 @@ services:
         condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
-      DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:unprovisioned@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      # Service Login Setup replaces this fail-closed sentinel with the Local
+      # Stack Controller-generated API login URL before the API can connect.
+      DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
       PLE_S3_ENDPOINT: http://minio:9000
       PLE_S3_REGION: us-east-1
       PLE_PUBLIC_ASSETS_BUCKET: public-assets

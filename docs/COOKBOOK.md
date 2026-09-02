@@ -97,7 +97,7 @@ regeneration restores the seeded baseline. Keep this workflow at the desktop vie
    **Released - eligible for Student access** in the lifecycle control and save it. Until that save
    succeeds, the Assignment remains **Unreleased - students cannot access it**.
 5. Open **Student view** to inspect the current answer-free Student landing. Student view retains the
-   Instructor session and creates no Student Assignment Attempt or grade.
+   Instructor session and creates no Assignment Attempt or grade.
 6. For graded validation, sign out, select the seeded **Student** persona, open the authorized Course
    Instance and released assignment, choose **Start assignment**, answer, and submit.
 7. If **Response received** appears, use **Check grading status** until feedback and **View completed

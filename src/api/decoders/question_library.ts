@@ -133,7 +133,6 @@ export function decodeQuestionSummary(
       "ple",
       "webwork",
       "qti",
-      "h5p",
       "imathas",
     ]),
     questionType: decodeStringEnum(field(record, "questionType", path), `${path}.questionType`, [
@@ -635,7 +634,6 @@ function decodeFixedQuestionAssignmentEntry(
       "ple",
       "webwork",
       "qti",
-      "h5p",
       "imathas",
     ]),
     capabilities: decodeQuestionBackendCapabilities(
@@ -797,7 +795,6 @@ function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem 
       "ple",
       "webwork",
       "qti",
-      "h5p",
       "imathas",
     ]),
     capabilities: decodeQuestionBackendCapabilities(
