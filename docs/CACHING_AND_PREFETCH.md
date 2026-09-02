@@ -20,13 +20,13 @@ in [implementation_plan.md](active_plans/implementation_plan.md) and
 
 PLE uses distinct caches with deliberately different contents and lifetimes.
 
-| Layer                            | May contain                                                                           | Key or binding                                                                                                               | Never contains                                                                                      |
-| -------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Browser Assignment Attempt state | Current authoritative screen and one speculative envelope                             | Current route and active Assignment Attempt                                                                                  | Answers, grade keys, durable prefetch reservation                                                   |
-| Browser asset cache              | Delivered image and other asset bytes                                                 | Delivery URL and content checksum                                                                                            | Private source or a signed protected URL retained by PLE                                            |
-| CDN public assets                | Public immutable `QuestionAsset` renditions in `PublicAssets`                         | Typed immutable public Object Address and checksum                                                                           | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
-| Adapter render cache             | Answer-free envelope, safe markup, source binding, renderer identity                  | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw Question Backend output                              |
-| Attempt and prefetch rows        | Question Attempt Reproduction Details, binding, and private replay state where needed | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                |
+| Layer                            | May contain                                                                                                                                               | Key or binding                                                                                                               | Never contains                                                                                      |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Browser Assignment Attempt state | Current authoritative screen and one speculative envelope                                                                                                 | Current route and active Assignment Attempt                                                                                  | Answers, grade keys, durable prefetch reservation                                                   |
+| Browser asset cache              | Delivered image and other asset bytes                                                                                                                     | Delivery URL and content checksum                                                                                            | Private source or a signed protected URL retained by PLE                                            |
+| CDN public assets                | Public immutable `QuestionAsset` renditions in `PublicAssets`                                                                                             | Typed immutable public Object Address and checksum                                                                           | `PrivateContent`, `StudentRecords`, source archives, restricted assets, renders, or answer material |
+| Adapter render cache             | Schema version, Source Object Reference, Source Object Checksum, and rendered answer-free `QuestionVariationPresentation` envelope plus renderer identity | Immutable QuestionRevisionReference and seed                                                                                 | Answer keys, private rubrics, credentials, raw Question Backend output                              |
+| Attempt and prefetch rows        | Question Attempt Reproduction Details, binding, and private replay state where needed                                                                     | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
 This includes Assignment Attempt screens, submissions, prefetch responses, feedback, and
@@ -103,9 +103,10 @@ without an envelope remain explicitly `NotApplicable`.
 
 ### WeBWorK
 
-The WeBWorK adapter stores a safe cache object containing the answer-free
-envelope, sanitized HTML, published Source Object Reference binding, and renderer
-identity. It validates all of those fields before serving it and records a
+The WeBWorK adapter stores a cache object containing the answer-free typed
+`QuestionVariationPresentation`, published Source Object Reference and Source
+Object Checksum binding, and renderer identity. It validates those stored
+fields before serving it and records a
 non-sensitive `ple.webwork.cache` `renderer_call` or `cache_hit` witness for
 adapter cache work. The raw PG source, renderer password, upstream URL, hidden
 fields, field/value mapping, raw RPC response, and grading result are excluded.

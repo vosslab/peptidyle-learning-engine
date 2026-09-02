@@ -15,8 +15,8 @@ use crate::envelope::{QuestionAssetReference, QuestionContentBlock};
 ///
 /// Question Type is independent of Question Format, Question Backend, and the
 /// browser control used to collect a Student Response. In particular, an
-/// iMathAS Question Backend or file-upload control still declares the educational type it
-/// serves rather than becoming a type itself.
+/// iMathAS Question Backend control still declares the educational type it serves rather
+/// than becoming a type itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionType {

@@ -686,8 +686,7 @@ proves bytes exist.
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
 
 **Planned closure.** Inventory checks, orphan cleanup, and handling of missing referenced bytes
-remain a release package. Student file responses remain fail-closed until their attempt-bound
-upload capability and inspection workflow are implemented.
+remain a release package.
 
 ### Privacy deletes records, not learning evidence
 

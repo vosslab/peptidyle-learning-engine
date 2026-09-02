@@ -38,7 +38,7 @@ test("Student Response Format Check accepts every current Issue shape", () => {
 
 test("Student Response Format Check rejects retired, extra, and unsafe JSON shapes", () => {
   for (const value of [
-    { issues: [{ kind: "missingUploadReference" }] },
+    { issues: [{ kind: "retiredResponseReference" }] },
     { violations: [] },
     { issues: [], violations: [] },
     { issues: [{ kind: "numericNotFinite", unexpected: true }] },

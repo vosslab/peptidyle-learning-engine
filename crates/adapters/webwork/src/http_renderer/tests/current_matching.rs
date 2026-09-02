@@ -56,7 +56,6 @@ fn current_renderer_matching_shape_becomes_answer_free_typed_matching() {
         "header.payload.signature",
     ] {
         assert!(!public.contains(protected));
-        assert!(!parsed.html.contains(protected));
     }
 }
 

@@ -21,7 +21,6 @@ pub(super) struct ParsedMatchingHtml {
     pub(super) prompts: Vec<MatchingPrompt>,
     pub(super) choices: Vec<MatchingChoice>,
     pub(super) prompt_text: String,
-    pub(super) prompt_html: String,
 }
 
 #[derive(Clone)]
@@ -95,12 +94,10 @@ pub(super) fn parse_matching_group(
     {
         return Err(bad("matching prompt and choice sets do not agree"));
     }
-    let prompt_html = format!("<p>{}</p>", escape_html(&prompt_text));
     Ok(ParsedMatchingHtml {
         prompts,
         choices,
         prompt_text,
-        prompt_html,
     })
 }
 
@@ -564,19 +561,4 @@ fn push_matching_text(target: &mut String, value: &str) -> Result<(), RendererFa
     }
     target.push_str(value);
     Ok(())
-}
-
-fn escape_html(value: &str) -> String {
-    let mut output = String::new();
-    for character in value.chars() {
-        match character {
-            '&' => output.push_str("&amp;"),
-            '<' => output.push_str("&lt;"),
-            '>' => output.push_str("&gt;"),
-            '"' => output.push_str("&quot;"),
-            '\'' => output.push_str("&#39;"),
-            _ => output.push(character),
-        }
-    }
-    output
 }

@@ -165,7 +165,7 @@ display and submission aid, never the timing authority.
 ### 7. Render an answer-free screen
 
 The student receives a public render envelope and the smallest state needed to
-use it. Rich render data includes prompt blocks, sanitized markup, accessible
+use it. Rich render data includes typed prompt blocks, accessible
 asset references, Question Response Format, item order, and public constraints. It may
 also include seed and version to identify the public render. It excludes correct
 answers, expected values, private rubrics, raw sources, provider credentials,

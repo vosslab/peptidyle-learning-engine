@@ -598,7 +598,7 @@ fallback, or compatibility behavior. Version 2 is the only current PLE
 source shape: a closed contract with eight Question Types, `singleChoice`,
 `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
 and `hotspot`. V2 input is answer-bearing private authoring material, not a
-Student payload. It does not claim file-upload or iMathAS Question Backend authoring
+Student payload. It does not claim browser file-selection or iMathAS Question Backend authoring
 support. The compiler emits an answer-free draft/public model and separately
 checksummed grader-only Answer Key and Question Feedback.
 

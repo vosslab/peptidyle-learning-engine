@@ -8,8 +8,6 @@
 pub mod http_renderer;
 /// PG source handling and the isolated renderer client contract.
 pub mod renderer_contract;
-/// The server-side allowlist applied to untrusted renderer markup.
-pub mod sanitizer;
 /// Fixed endpoint facts for the external standalone renderer.
 pub(crate) mod standalone_render_api;
 

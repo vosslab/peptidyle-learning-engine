@@ -126,7 +126,6 @@ pub(super) struct Radio {
 pub(super) struct ParsedRadioHtml {
     pub(super) controls: Vec<Radio>,
     pub(super) prompt_text: String,
-    pub(super) prompt_html: String,
 }
 
 /// Tokenize the renderer fragment with html5ever and accept only the exact PG
@@ -154,7 +153,6 @@ pub(super) fn parse_single_radio_group(
     let mut radio_container_allows_prompt = false;
     let mut active_label = None::<ActiveLabel>;
     let mut prompt_text = String::new();
-    let mut prompt_html = String::new();
 
     for token in tokens {
         match token {
@@ -165,13 +163,11 @@ pub(super) fn parse_single_radio_group(
                         label.text.push_str(text.as_ref());
                     } else if radio_container_allows_prompt && controls.is_empty() {
                         push_bounded(&mut prompt_text, text.as_ref(), MAX_PROMPT_CHARS)?;
-                        append_escaped_html(&mut prompt_html, text.as_ref());
                     } else if !text.trim().is_empty() {
                         return Err(bad("radio group contains unlabeled content"));
                     }
                 } else {
                     push_bounded(&mut prompt_text, text.as_ref(), MAX_PROMPT_CHARS)?;
-                    append_escaped_html(&mut prompt_html, text.as_ref());
                 }
             }
             Token::TagToken(tag) => match tag.kind {
@@ -186,7 +182,7 @@ pub(super) fn parse_single_radio_group(
                     }
                     let is_container = name == "div"
                         && (has_class(&tag, "radio-buttons-container") || has_class(&tag, "PGML"));
-                    let prompt_markup = radio_container_allows_prompt
+                    let accepted_prompt_element = radio_container_allows_prompt
                         && controls.is_empty()
                         && active_label.is_none()
                         && is_safe_prompt_element(&name);
@@ -233,22 +229,14 @@ pub(super) fn parse_single_radio_group(
                         // reviewed color emphasis inside choice labels. The
                         // browser-facing choice is plain text, so only text
                         // content is retained; no renderer markup crosses.
-                    } else if prompt_markup {
-                        append_start_tag(&mut prompt_html, &tag);
-                    } else if radio_container_depth.is_some() {
+                    } else if radio_container_depth.is_some() && !accepted_prompt_element {
                         return Err(bad("radio group has unsupported nesting"));
-                    } else {
-                        append_start_tag(&mut prompt_html, &tag);
                     }
                     if name != "input" && !is_void_element(&name) {
                         if stack.len() >= MAX_HTML_NESTING {
                             return Err(bad("renderer markup exceeds nesting bound"));
                         }
-                        stack.push(OpenElement {
-                            name,
-                            is_container,
-                            prompt_markup,
-                        });
+                        stack.push(OpenElement { name, is_container });
                     } else if tag.self_closing && name != "input" {
                         // A self-closing non-void tag is not part of the PG fragment contract.
                         return Err(bad("renderer returned malformed self-closing markup"));
@@ -283,8 +271,6 @@ pub(super) fn parse_single_radio_group(
                     if open.is_container {
                         radio_container_depth = None;
                         radio_container_allows_prompt = false;
-                    } else if open.prompt_markup || radio_container_depth.is_none() {
-                        append_end_tag(&mut prompt_html, &name);
                     }
                 }
             },
@@ -311,7 +297,6 @@ pub(super) fn parse_single_radio_group(
     Ok(ParsedRadioHtml {
         controls,
         prompt_text: prompt_text.trim().to_owned(),
-        prompt_html,
     })
 }
 
@@ -332,7 +317,6 @@ pub(super) fn reject_protected_text(
 struct OpenElement {
     name: String,
     is_container: bool,
-    prompt_markup: bool,
 }
 
 #[derive(Debug, Default)]
@@ -538,11 +522,12 @@ fn append_escaped_html(output: &mut String, value: &str) {
 
 fn append_start_tag(output: &mut String, tag: &Tag) {
     use std::fmt::Write as _;
+
     let _ = write!(output, "<{}", tag.name);
     for attribute in &tag.attrs {
         let _ = write!(output, " {}=\"", attribute.name.local);
         append_escaped_html(output, attribute.value.as_ref());
-        output.push('\"');
+        output.push('"');
     }
     output.push('>');
 }

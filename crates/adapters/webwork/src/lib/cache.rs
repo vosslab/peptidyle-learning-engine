@@ -12,13 +12,12 @@ use uuid::Uuid;
 use super::WebworkAdapterError;
 use crate::ResolvedWebworkQuestionSource;
 
-pub(super) const CACHE_SCHEMA_VERSION: u8 = 1;
+pub(super) const CACHE_SCHEMA_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SafeRenderedWebworkQuestion {
     pub(super) envelope: QuestionVariationPresentation,
-    pub(super) sanitized_html: String,
     pub(super) renderer_version: QuestionRendererVersion,
 }
 
@@ -47,7 +46,7 @@ fn deterministic_render_object_id(
     seed: QuestionSeed,
 ) -> ObjectId {
     let mut hash = Sha256::new();
-    hash.update(b"peptidyle:webwork-render-cache:v1");
+    hash.update(b"peptidyle:webwork-render-cache:v2");
     hash.update(question_revision.question_id.to_string().as_bytes());
     hash.update(question_revision.revision_number.get().to_be_bytes());
     hash.update(seed.value().to_be_bytes());

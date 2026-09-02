@@ -50,7 +50,6 @@ struct RecordedRenderer {
     calls: Arc<AtomicUsize>,
     failure: Option<RendererFailure>,
     identity: QuestionRendererVersion,
-    html: String,
 }
 
 #[async_trait]
@@ -102,7 +101,6 @@ impl WebworkRenderer for RecordedRenderer {
                     selection: ResponseSelectionRule::ExactlyOne,
                 },
             },
-            html: self.html.clone(),
             renderer_version: self.identity.clone(),
             replay: Some(recorded_replay()),
         })
@@ -163,7 +161,6 @@ fn recorded_renderer(calls: Arc<AtomicUsize>) -> RecordedRenderer {
             name: "recorded-opl-renderer".to_string(),
             version: "1".to_string(),
         },
-        html: "<p>Which molecule is water?</p>".to_string(),
     }
 }
 
@@ -390,44 +387,6 @@ async fn renderer_outage_is_an_explicit_backend_local_failure() {
             .expect("WeBWorK capability declaration remains available")
             .supports(Capability::ServerGrading)
     );
-}
-
-#[tokio::test]
-async fn renderer_markup_is_sanitized_before_cache_or_issued_envelope() {
-    let calls = Arc::new(AtomicUsize::new(0));
-    let store = MemoryObjectStore::default();
-    let adapter = WebworkAdapter::new(
-        store.clone(),
-        RecordedRenderer {
-            html: r#"<p onclick="steal()">Prompt</p><script>alert(1)</script><img src="javascript:alert(1)" onerror="steal()"><img src="/api/assets/asset-1">"#.to_string(),
-            ..recorded_renderer(calls.clone())
-        },
-    );
-    let question = question_with_response(fixture_response());
-    let source = source(&store, &question).await;
-    let issued = adapter
-        .issue(
-            &question,
-            QuestionSeed::new(20),
-            &source,
-            Timestamp::from_unix_millis(1),
-        )
-        .await
-        .expect("untrusted renderer output should be sanitized server-side");
-    assert_eq!(
-        issued.sanitized_html,
-        r#"<p>Prompt</p><img><img src="/api/assets/asset-1">"#
-    );
-    assert!(!issued.sanitized_html.contains("script"));
-    assert!(!issued.sanitized_html.contains("javascript:"));
-    assert!(!issued.sanitized_html.contains("onerror"));
-    let cached = adapter
-        .reproduce(&question, QuestionSeed::new(20), &source)
-        .await
-        .expect("cache hit should retain already-sanitized markup");
-    assert!(cached.cache_hit);
-    assert_eq!(cached.sanitized_html, issued.sanitized_html);
-    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

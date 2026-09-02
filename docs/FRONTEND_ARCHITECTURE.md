@@ -226,7 +226,7 @@ server-owned Course Route View data, not browser storage.
 - Mutations use same-origin requests, strong revisions, and typed idempotency.
 - Browser logs contain no response text, answer, key, undisclosed feedback,
   grades, email, UUID, or FERPA record.
-- Supplied markup is sanitized server-side; Question Backends remain behind
+- Question Backends convert supported content into typed Question Content Blocks behind
   their server-owned transports.
 - A public BlueprintCourse read never exposes CourseInstance delivery or
   Student state.

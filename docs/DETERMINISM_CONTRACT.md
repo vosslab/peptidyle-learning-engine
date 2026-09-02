@@ -17,7 +17,7 @@ attempt uses the stored values.
 | ----------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------- |
 | Question Variation Parameters | generator reference, definition, seed                                          | `QuestionVariationParameters` and SHA-256                                           | `domain` and Wasm                  |
 | PLE issued question           | immutable Question Revision, seed                                              | Question Variation Presentation and Question Attempt Reproduction Details           | trusted server backend             |
-| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation and sanitized markup                    | private adapter/renderer           |
+| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer | safe cached Question Variation Presentation                                         | private adapter/renderer           |
 | Student presentation          | answer-free Question Presentation, Question Asset Renditions, stored nonce     | Question Presentation Response Format, rendered IDs, Question Presentation Checksum | trusted server; browser may verify |
 | Submission                    | authenticated attempt, idempotency key, student response                       | one stored receipt or conflict                                                      | trusted server/store               |
 
@@ -168,7 +168,7 @@ The WeBWorK adapter caches only safe rendered output in content object storage.
 Its key is deterministic from `(problem, version, seed)` and validates cache
 schema, immutable Source Object Reference, version, seed, student title, and nonempty
 renderer identity. Cached bytes contain an answer-free shared envelope,
-sanitized markup, Source Object Reference binding, and renderer identity. They never
+Source Object Reference binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
 
 The cache is a reproducibility optimization, not a promise that no renderer

@@ -375,7 +375,7 @@ pub struct SourceObjectReference {
 pub struct QuestionAttemptReproductionDetails {
     /// Question Backend that loaded and interpreted the question.
     pub backend: QuestionBackendVersion,
-    /// Renderer used for supplied markup, when the backend has one.
+    /// Renderer used to produce the typed Question Content Blocks, when the backend has one.
     pub renderer_version: Option<QuestionRendererVersion>,
     /// Generator used for parameterized content, when the backend has one.
     pub generator: Option<QuestionGeneratorReference>,

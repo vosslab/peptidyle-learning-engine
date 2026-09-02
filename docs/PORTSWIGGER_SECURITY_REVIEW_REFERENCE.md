@@ -163,23 +163,21 @@ has crossed its intended trust boundary. See
 [path traversal](https://portswigger.net/web-security/file-path-traversal), and
 [insecure deserialization](https://portswigger.net/web-security/deserialization).
 
-- **Preconditions:** The service accepts ZIP/QTI packages, images, canonical source, JSON, object
-  references, or any future Student upload.
+- **Preconditions:** The service accepts ZIP/QTI packages, images, canonical source, JSON, and object
+  references.
 - **Review questions:** Is input bounded before decode? Are archive names normalized and rejected on
   absolute paths, backslashes, traversal, duplicates, symlinks, and expansion bombs? Are media
   types sniffed and fully decoded? Can a wire payload choose a Rust trait object, filesystem path,
   Object Address, serializer type, or privileged enum variant?
 - **Evidence:** **Code evidence target:** QTI and raster corpus tests must reject hostile archives
-  and restrict raster decoding. The student file-upload route must fail closed until capability
-  binding exists. Retain corpus tests for malformed, duplicate-key, oversized, and polyglot inputs.
+  and restrict raster decoding. Retain corpus tests for malformed, duplicate-key, oversized, and
+  polyglot inputs.
 - **Negative oracle:** A crafted archive/image/JSON payload cannot write outside staging, exhaust
   decompression resources, execute content, select another course's object, or create an untyped
   privileged value.
 - **False confidence:** Filename/MIME checks, a SHA-256 alone, a random storage name, or Serde
   parsing without an explicit schema and resource bounds.
-- **Applicability:** **Code evidence target** for author imports and assets. Student upload is
-  intentionally deferred; its activation must add server-issued, attempt-bound upload capabilities
-  and malware/retention policy rather than reopening a raw object-key field.
+- **Applicability:** **Code evidence target** for author imports and assets.
 
 ## Concurrency and business logic
 

@@ -20,7 +20,7 @@ pub enum ObjectStorageArea {
     PublicAssets,
     /// Private authoring, import evidence, grading, rendering, and course content.
     PrivateContent,
-    /// Student-specific exports, uploads, and annotations.
+    /// Student-specific exports and annotated exams.
     StudentRecords,
     /// Never-served extraction and conversion workspaces.
     TempProcessing,

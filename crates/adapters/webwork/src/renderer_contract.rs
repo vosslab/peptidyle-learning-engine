@@ -40,18 +40,12 @@ pub enum WebworkQuestionAttemptReplayDetails {
     },
 }
 
-/// Untrusted result of rendering one PG question.
-///
-/// The adapter sanitizes `html` before it reaches its render cache or a
-/// browser-facing issued result.  The renderer is intentionally not trusted
-/// to make that security decision.
+/// Untrusted result of rendering one PG question after strict conversion.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderedWebworkQuestion {
     /// Backend-neutral prompt and Question Response Format safe for a browser.
     pub envelope: QuestionVariationPresentation,
-    /// PG HTML supplied by the isolated renderer; it is still untrusted here.
-    pub html: String,
     /// The implementation that actually produced this particular render.
     ///
     /// This is part of renderer output rather than sampled from a client on a
@@ -67,7 +61,6 @@ impl std::fmt::Debug for RenderedWebworkQuestion {
         formatter
             .debug_struct("RenderedWebworkQuestion")
             .field("envelope", &self.envelope)
-            .field("html", &self.html)
             .field("renderer_version", &self.renderer_version)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
             .finish()

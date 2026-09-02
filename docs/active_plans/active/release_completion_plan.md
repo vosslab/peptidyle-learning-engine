@@ -4,7 +4,7 @@
 
 **Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible Question Library of Published Questions, private drafts, equal active Instructors, equal Teaching Team Members, and exact CourseInstance/Student authorization. Available Question Revisions are ordinarily selectable; Archived Question Revisions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
 
-The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 and WP-FU1 through WP-FU6 stay open until their named gates and independent review pass.
+The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 stay open until their named gates and independent review pass.
 
 `WP-SD1-A-TERM-01-RQB1` is accepted historical evidence. Its prior server-boundary terminology is
 superseded by RQB2's exact iMathAS ownership while its least-privilege, PostgreSQL, and aggregate
@@ -64,7 +64,7 @@ Version 1 excludes content-addressed byte deduplication, a TypeScript API server
 
 Deliver one coherent automated-grading platform and canonical live production-stack journey. Grading, answer keys, correctness decisions, object authorization, and course selection remain server-owned. Browser contracts remain answer-free. Issued work and grading evidence are immutable, and Instructor inspection is audited.
 
-The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-FU1--WP-FU6, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters/export, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
+The release scope is the dependency-ordered package ledger in [implementation_status.md](../implementation_status.md): WP-RC1--WP-RC12, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters/export, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
 
 No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update this ledger, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
 
@@ -119,7 +119,7 @@ WP-SD1-A independent ACCEPT
   -> WP-SD1-B -> WP-SD1-C -> WP-SD1-D/E -> WP-SD1-F -> WP-SD1-G
   -> WP-RC4 -> WP-P1..WP-P6 -> WP-RC5 -> WP-RC6
   -> WP-P2 -> WP-RC7
-  -> WP-RC8 -> WP-RC9 -> WP-FU1..WP-FU6 -> WP-RC10 -> WP-RC11 -> WP-RC12
+  -> WP-RC8 -> WP-RC9 -> WP-RC10 -> WP-RC11 -> WP-RC12
 
 Accepted foundations: WP-RC1 -> WP-RC2 -> WP-RC3 -> WP-ARCH1 -> WP-RC3R.
 Accepted orchestration: WP-R1 -> WP-PY-L1. Accepted stewardship: WP-R2.

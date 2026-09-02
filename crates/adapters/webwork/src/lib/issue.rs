@@ -21,7 +21,6 @@ use std::cell::RefCell;
 use crate::renderer_contract::{
     RenderRequest, RendererFailure, WebworkQuestionAttemptReplayDetails, WebworkRenderer,
 };
-use crate::sanitizer::sanitize_webwork_html;
 use crate::source_object_reference::ResolvedWebworkQuestionSource;
 
 /// Stable Question Backend identifier recorded for WeBWorK attempts.
@@ -57,8 +56,6 @@ fn take_test_cache_events() -> Vec<&'static str> {
 pub struct WebworkIssuedAttempt {
     /// Reusable browser-safe response contract and prompt blocks.
     pub envelope: QuestionVariationPresentation,
-    /// Sanitized supplied markup for the dedicated renderer component.
-    pub sanitized_html: String,
     /// Deterministic parameter record for the version/seed pair.
     pub parameter_hash: String,
     /// Immutable source, implementation, and rendered-output evidence.
@@ -76,7 +73,6 @@ impl std::fmt::Debug for WebworkIssuedAttempt {
         formatter
             .debug_struct("WebworkIssuedAttempt")
             .field("envelope", &self.envelope)
-            .field("sanitized_html", &self.sanitized_html)
             .field("parameter_hash", &self.parameter_hash)
             .field("reproduction_details", &self.reproduction_details)
             .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
@@ -284,7 +280,6 @@ where
                     source_object_checksum: source.source_object_checksum().clone(),
                     rendered: crate::cache::SafeRenderedWebworkQuestion {
                         envelope: untrusted.envelope,
-                        sanitized_html: sanitize_webwork_html(&untrusted.html),
                         renderer_version: untrusted.renderer_version,
                     },
                 };
@@ -413,7 +408,6 @@ where
             source_object_checksum: source.source_object_checksum().clone(),
             rendered: crate::cache::SafeRenderedWebworkQuestion {
                 envelope: rendered.envelope,
-                sanitized_html: sanitize_webwork_html(&rendered.html),
                 renderer_version: rendered.renderer_version,
             },
         };
@@ -438,7 +432,6 @@ where
         let grader = grader_version(GRADING_ID, &renderer_version.version);
         Ok(WebworkIssuedAttempt {
             envelope: rendered.rendered.envelope,
-            sanitized_html: rendered.rendered.sanitized_html,
             parameter_hash: parameter_hash(seed),
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),

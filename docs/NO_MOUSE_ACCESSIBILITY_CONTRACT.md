@@ -181,8 +181,6 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 
 - A multiline short-text field retains ordinary text-entry keys; Tab reaches Submit answer and Space
   activates it.
-- A supported file response uses a native file input and retains the selected filename through a
-  recoverable submission failure. An unavailable response exposes no fake upload control.
 - PLE-owned iMathAS Question Backend launch, readiness, submit, return, and error recovery expose native
   buttons reachable with Tab and activated with Space. The iframe has a title and cannot trap focus.
   A third-party tool's internal interface is separately evaluated; PLE does not call the whole task

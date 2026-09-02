@@ -206,13 +206,6 @@ attempt's route identity, an idempotency key, and the student's answer. Presenta
 compact rendered-item IDs detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
-## Can a Student upload a file answer?
-
-Not yet. The current browser widget and submission route fail closed because a browser-supplied object
-key cannot prove course, student, attempt, storage, or inspection ownership. The planned capability
-creates one server-issued, attempt-bound upload record and later accepts only that opaque upload ID.
-See [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
-
 ## Where should a contributor record a durable decision?
 
 Use [CONTRACTS.md](CONTRACTS.md) for frozen module and service boundaries, and the focused durable

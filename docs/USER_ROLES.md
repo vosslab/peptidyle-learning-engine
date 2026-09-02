@@ -105,8 +105,7 @@ This includes, at minimum:
 - Course Memberships, accommodations, Assignment Attempts, Question Attempts, responses, and
   feedback;
 - grades, item analysis, grading-operation evidence, and grade exports;
-- student uploads, generated student artifacts, protected-delivery grants,
-  and educational audit evidence; and
+- protected-delivery grants and educational audit evidence; and
 - opaque identifiers or metadata when they link a person to any of the above.
 
 An account email, passkey public credential, account label, and authentication

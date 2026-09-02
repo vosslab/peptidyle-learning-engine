@@ -129,7 +129,7 @@ field/value mapping only in server-side replay state.
 
 The student envelope may contain:
 
-- sanitized prompt HTML;
+- typed prompt blocks;
 - the PLE Question Type and browser rendering metadata;
 - visible choice labels; and
 - opaque PLE choice identifiers.
@@ -141,15 +141,14 @@ It must not contain:
 - upstream input names or values;
 - renderer JWTs or problem state;
 - renderer URLs or credentials; or
-- raw renderer HTML outside the bounded projection.
+- raw renderer HTML.
 
-Unsafe markup, scripts, styles outside the sanitizer policy, event handlers,
-forms, frames, unsupported controls, duplicate attributes, and malformed HTML
-fail closed.
+Unsupported or executable markup, hostile styles and attributes, forms, frames,
+unsupported controls, duplicate attributes, and malformed HTML fail closed before typed conversion.
 
 ## Cache and replay
 
-The public render cache contains only sanitized, answer-free PLE output bound to
+The public render cache contains only answer-free typed PLE output bound to
 source, version, seed, and renderer identity. Private upstream replay mapping is
 stored separately from public cached bytes.
 

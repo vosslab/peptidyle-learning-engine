@@ -257,8 +257,6 @@ fn recorded_upstream_radio_result_becomes_answer_free_multiple_choice() {
     let serialized = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
     assert!(!serialized.contains("AnSwEr0001"));
     assert!(!serialized.contains("header.payload.signature"));
-    assert!(!parsed.html.contains("AnSwEr0001"));
-    assert!(!parsed.html.contains("header.payload.signature"));
 }
 
 #[test]
@@ -290,9 +288,6 @@ Based on their molecular formula, which compound is most likely <span style="col
         &choices[1].body[0],
         QuestionContentBlock::Text { markdown } if markdown.contains("B. benzene")
     ));
-    assert!(parsed.html.contains("hydrophobic"));
-    assert!(!parsed.html.contains("style="));
-    assert!(!parsed.html.contains("AnSwEr0001"));
 
     let hostile_label_style = value
         .as_object()
@@ -357,7 +352,6 @@ fn recorded_upstream_matching_result_becomes_answer_free_typed_matching() {
     let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
     for protected in ["AnSwEr0001", "AnSwEr0002", "header.payload.signature"] {
         assert!(!public.contains(protected));
-        assert!(!parsed.html.contains(protected));
     }
 }
 
@@ -764,7 +758,6 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
     let public = serde_json::to_string(&parsed.envelope).expect("public envelope serializes");
     for protected in ["AnSwEr0001", "header.payload.signature", "RE9DVU1FTlQoKTs="] {
         assert!(!public.contains(protected));
-        assert!(!parsed.html.contains(protected));
     }
 }
 

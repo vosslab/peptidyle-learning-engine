@@ -5,7 +5,6 @@ import test from "node:test";
 
 import {
   QuestionContentError,
-  projectServerSanitizedMarkup,
   requireAccessibilityDescription,
   resolveSameOriginAssetUrl,
 } from "../src/components/question_renderer.tsx";
@@ -14,35 +13,6 @@ const asset = {
   asset: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
-
-test("hostile supplied markup is refused before it can reach a DOM sink", () => {
-  for (const hostile of [
-    "<script>globalThis.wasExecuted = true</script>",
-    '<p onclick="globalThis.wasExecuted = true">Click</p>',
-    '<p style="background-image:url(https://attacker.example/pixel)">x</p>',
-    '<meta http-equiv="refresh" content="0;url=https://attacker.example">',
-    '<video poster="https://attacker.example/poster.png"></video>',
-    '<a ping="https://attacker.example/ping">x</a>',
-    '<svg><image href="https://attacker.example/figure"></image></svg>',
-    '<img src="java&#x0a;script:alert(1)">',
-    '<iframe src="https://untrusted.example"></iframe>',
-    "<p><strong>malformed</p>",
-  ]) {
-    assert.throws(() => projectServerSanitizedMarkup(hostile), QuestionContentError, hostile);
-  }
-  assert.equal(globalThis.wasExecuted, undefined);
-});
-
-test("supplied markup is projected into an allowlisted tree with logical asset indirection", () => {
-  const projection = projectServerSanitizedMarkup(
-    '<p>Use the figure.</p><img data-asset-id="00000000-0000-0000-0000-000000000001">',
-  );
-  assert.equal(projection.tree[0]?.kind, "element");
-  assert.throws(
-    () => projectServerSanitizedMarkup('<img src="/api/assets/raw">'),
-    QuestionContentError,
-  );
-});
 
 test("asset URLs must be the resolver-derived logical asset route", () => {
   const priorLocation = globalThis.location;

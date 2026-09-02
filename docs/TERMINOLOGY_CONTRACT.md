@@ -372,19 +372,14 @@ task and contains ordered Question Content Blocks. Choice bodies, Matching
 Prompts, Matching Choices, and released feedback may use the same presentation
 primitive while their containing records retain their exact meaning.
 
-A **Question Asset** is one logical image, figure, or other file owned by an
-exact Draft Question Revision or Question Revision. A **Question Asset
-Reference** pairs that logical Question Asset with the checksum of the authored
-file used by Question content. A **Question Asset Rendition** records the exact
-browser-safe form selected for a Question Presentation: its Question Asset
-Reference, rendition checksum, and intrinsic dimensions. The issued Question
-Presentation binds its Question Asset Renditions into the Question Presentation
-Checksum.
+A **Question Asset** is one logical image, figure, or other file owned by an exact Draft Question
+Revision or Question Revision. A **Question Asset Reference** pairs it with the checksum of the file
+used by Question content. A **Question Asset Rendition** records the browser-safe form selected for a
+Question Presentation: its Question Asset Reference, rendition checksum, and intrinsic dimensions.
+The Question Presentation binds its Question Asset Renditions into its checksum.
 
-Instructor-authored PLE Question JSON content is entered through Authoring
-Workspace text fields and structured controls. Adapter-owned Question imports
-may supply Question Assets through their registered Question Format boundary;
-PLE Question JSON authoring does not define a browser file-upload capability.
+Instructor-authored PLE Question JSON content is entered through Authoring Workspace fields.
+Question Assets enter through registered adapter-owned Question Format and import boundaries.
 
 **Question Asset Purpose** is the short Authoring Workspace-held explanation of
 how an Instructor intends to use a Question Asset, such as a hotspot surface.
@@ -442,11 +437,9 @@ one graded Student Response, and a pre-response Question Hint. A Question
 Answer Explanation may repeat or reveal the Question Answer as part of its
 explanation.
 
-Question Prompt, Question Hint, Question Feedback, Question Answer, and Question
-Answer Explanation content may reference the same Question Asset contract. The
-containing content supplies the Asset's teaching role; it does not create a
-parallel Asset concept. Format-specific private grader records use the exact
-Question Format and **Question Grading Input** role.
+Question Prompt, Question Hint, Question Feedback, Question Answer, and Question Answer Explanation
+content may reference the same Question Asset contract; the containing content supplies its teaching
+role. Format-specific private grader records use the exact Question Format and **Question Grading Input** role.
 
 At the QTI adapter boundary, a requested Hint maps to Question Hint even when
 QTI carries its displayed content in a feedback block. A correct-response
@@ -487,11 +480,9 @@ response. The Question Presentation declares the control, keeping the Student
 interface independent of Question Type and Question Format. The exact iMathAS
 marker is `ImathasQuestionBackend`/`imathasQuestionBackend` where that control is used.
 
-Student Responses contain only the values defined by the supported Question
-Response Format: selections, entered text or numbers, matches, ordering, or a
-hotspot selection. Files and Object References remain outside Student Response.
-Student Feedback contains authorized result data and optional Question-authored
-content blocks.
+Student Responses contain only values defined by the supported Question Response Format: selections,
+entered text or numbers, matches, ordering, or a hotspot selection. Object Delivery owns authorized
+retrieval of stored files; Student Feedback carries result data and optional Question-authored content blocks.
 
 **Question Presentation Binding** is the server-held evidence that pairs one
 Question Presentation Nonce with its complete Question Presentation Checksum.

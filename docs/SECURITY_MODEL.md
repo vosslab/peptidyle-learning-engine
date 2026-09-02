@@ -100,13 +100,7 @@ structure:
 This function has no answer-key parameter and cannot determine correctness.
 The browser calls it through `wasm_bridge::validate_response_format`; the
 server repeats it before grading because client validation is a convenience,
-not an authority. The browser-safe validator can check only the disclosed
-artifact shape; it cannot establish that a reference names an authorized
-object. The server therefore requires a server-issued upload capability and
-metadata binding before any artifact backend or Store mutation. Unsupported
-artifact types fail closed. A future dedicated upload contract must establish
-file size, profile, checksum, ownership, Student, and attempt binding from
-server-owned object metadata rather than browser claims.
+not an authority.
 
 ## Compile-time closure
 
@@ -633,7 +627,7 @@ committed-but-unlinked predecessor after a process failure.
 
 The prefetch response contains only the safe envelope and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
-cover sanitized markup in addition to the shared envelope. The route still
+cover the shared envelope. The route still
 requires exact parameter hash, complete Question Attempt Reproduction Details, version, and seed reproduction.
 The browser caches this projection in memory only, aborts it on route teardown,
 warms at most 12 deduplicated same-origin logical asset routes, and advances
@@ -679,7 +673,7 @@ details that could disclose backend state or invite a duplicate action.
 
 ## Asset delivery boundary
 
-Browser markup carries an internal logical `QuestionAssetId`, never a bucket name,
+Question Content Blocks carry an internal logical `QuestionAssetId`, never a bucket name,
 physical key, or signed URL. `/api/assets/{id}` resolves the identifier through
 the database-authoritative immutable registry. The registry accepts only a
 `QuestionAsset` whose Question, Question Revision, asset, object, bucket, and category all
@@ -724,7 +718,7 @@ archives, Question Backend state, answer keys, or raw backend errors.
 Server and worker diagnostics use bounded error categories and safe record
 identities only where an operator needs correlation. Credentials, raw session
 cookies, Question Backend launch values, renderer fields, source bytes, private grading
-payloads, raw Student uploads, and raw Student answers are never general log
+payloads and raw Student answers are never general log
 fields. A new diagnostic must use the [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
 class of each field and record the appropriate authorization and retention
 owner before it is emitted.

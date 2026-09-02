@@ -219,7 +219,6 @@ impl WebworkRenderer for HttpWebworkRenderer {
         let parsed = self.parsed_render(request).await?;
         Ok(RenderedWebworkQuestion {
             envelope: parsed.envelope,
-            html: parsed.html,
             renderer_version: self.settings.expected_renderer.clone(),
             replay: Some(parsed.replay),
         })
@@ -347,7 +346,6 @@ fn validate_render_request(request: RenderRequest<'_>) -> Result<(), RendererFai
 
 struct ParsedRender {
     envelope: QuestionVariationPresentation,
-    html: String,
     replay: WebworkQuestionAttemptReplayDetails,
 }
 #[derive(Debug)]
@@ -431,7 +429,6 @@ fn project_single_radio(
                 selection: ResponseSelectionRule::ExactlyOne,
             },
         },
-        html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
         replay: WebworkQuestionAttemptReplayDetails::SingleChoice {
             controls: choice_fields,
         },
@@ -488,7 +485,6 @@ fn project_matching(
             }],
             response: QuestionResponseFormat::Matching { prompts, choices },
         },
-        html: crate::sanitizer::sanitize_webwork_html(&parsed_html.prompt_html),
         replay: WebworkQuestionAttemptReplayDetails::Matching {
             prompts: replay_prompts,
         },

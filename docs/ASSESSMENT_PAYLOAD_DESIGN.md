@@ -431,7 +431,7 @@ scores or grading metadata.
 
 ### Current private flow
 
-The browser-facing WeBWorK envelope is already sanitized and answer-free. PLE resolves immutable PG
+The browser-facing WeBWorK envelope is typed and answer-free. PLE resolves immutable PG
 source from server-only object storage and caches the safe render by problem, version, and seed. An
 **issue** cache hit reuses that public render but still makes one private same-seed renderer call to
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
@@ -590,7 +590,7 @@ counts or arbitrary latency thresholds into permanent tests.
 ### Safe caching
 
 PLE may cache public render data by immutable `QuestionRevisionReference`, seed, and the presentation binding.
-Cache entries may contain only the answer-free envelope, sanitized markup, public asset references, and
+Cache entries may contain only the answer-free envelope, public asset references, and
 Question Renderer Version needed to identify the render. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
 

@@ -24,7 +24,7 @@ lifecycle, relationships, procedures, browser launch flow, security invariants, 
 `WP-SD1-A-TERM-01-SRF1` is accepted. This no-schema Student Response Format terminology correction
 uses one domain-owned answer-free Student Response Format Check with thirteen exact Student Response
 Format Issues and one strict shared browser decoder for Wasm JSON and the declared HTTP response.
-The direct cutover retires the response-format report/violation wire names, `missingUploadReference`,
+The direct cutover retires the response-format report/violation wire names, `retiredResponseReference`,
 and the `violations` shape. Focused evidence, an independent audit with repaired findings, and complete
 aggregate acceptance passed. Mounting the planned key-free server fallback route remains a separate
 future server-boundary allocation.
@@ -516,13 +516,13 @@ Recorded rather than reopened; raise it if velocity becomes the binding constrai
 **A split, but a narrow and principled one. Not "just metadata."** The rule is by _role_, because role
 is stable, with size only as a backstop:
 
-| Category                    | Home                                        | Contents                                                                                                                        |
-| --------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Operational content         | PostgreSQL                                  | The compact normalized question model the renderer and grader execute; grading rules; policies; all metadata and references     |
-| Answer-bearing content      | PostgreSQL, separate tables, separate grant | Answer keys and checker configuration, readable only by the grading role, never joined into a student-facing query              |
-| Archival and binary content | Object storage, always, at any size         | Original QTI ZIP, images, audio, video, H5P packages, DOCX and PDF exports, large source bundles                                |
-| Derived artifacts           | Object storage, separate prefix             | Rendered output, sanitized HTML, extracted resources, thumbnails, student-specific exports. Regenerable, so different retention |
-| Temporary                   | Container disk, then discarded              | Archive extraction, conversion, scanning                                                                                        |
+| Category                    | Home                                        | Contents                                                                                                                    |
+| --------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Operational content         | PostgreSQL                                  | The compact normalized question model the renderer and grader execute; grading rules; policies; all metadata and references |
+| Answer-bearing content      | PostgreSQL, separate tables, separate grant | Answer keys and checker configuration, readable only by the grading role, never joined into a student-facing query          |
+| Archival and binary content | Object storage, always, at any size         | Original QTI ZIP, images, audio, video, H5P packages, DOCX and PDF exports, large source bundles                            |
+| Derived artifacts           | Object storage, separate prefix             | Rendered output, extracted resources, thumbnails, student-specific exports. Regenerable, so different retention             |
+| Temporary                   | Container disk, then discarded              | Archive extraction, conversion, scanning                                                                                    |
 
 Backstop: normalized operational payloads remain subject to their accepted schema and contract
 ceilings, including the 256 KiB private grading ceiling where defined. An oversized source/private
@@ -613,7 +613,7 @@ cluster; the distinction is ownership and policy, not physical separation.
 | Tags, Question Classifications, licensing        | Enrollments, Assignment Attempts, Question Attempts, submissions |
 | Backend capability definitions                   | Grades, summaries, timers                                        |
 | Anonymous question statistics                    | Per-student analytics and audit logs                             |
-| Public and community libraries                   | Student-record artifacts                                         |
+| Public and community libraries                   | Student-specific exports and annotated exams                     |
 
 An assignment is **not** shareable content. It is a course source_object_reference referencing published Questions,
 which is what lets one published Question serve thousands of instructors without copying:
@@ -699,7 +699,7 @@ policy are enforceable rather than conventions:
 | ----------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `public-assets`   | Published Question Library assets only                            | CloudFront only, immutable keys, exact public tag required             | Dedicated publisher is the only writer; published tags/bytes cannot be mutated |
 | `private-content` | Source packages, restricted course assets, cached/private renders | Authorized application path only; no CDN origin                        | API/workers use least privilege; immutable published source/version records    |
-| `student-records` | Student-specific exports, uploads, annotated exams                | Authorized `POST /api/assets/{id}` then short-lived URL, always logged | Explicit expiration and deletion; five-minute signed URLs                      |
+| `student-records` | Student-specific exports and annotated exams                      | Authorized `POST /api/assets/{id}` then short-lived URL, always logged | Explicit expiration and deletion; five-minute signed URLs                      |
 | `temp-processing` | Extraction, conversion, and inspection workspaces                 | Never served or signable                                               | Isolated worker-only lifecycle in days                                         |
 
 Publication first stores candidate bytes and a pending registry in `private-content` in the same
@@ -805,7 +805,7 @@ What each stage touches:
 | Grades and summary rows                             | Instructor question drafts and workspaces                |
 | Timer events and render traces                      | Assignment Content (Instructor's choice at archive time) |
 | Per-student analytics                               | Backend capability metadata                              |
-| Student-record bucket artifacts                     | Anonymous question statistics (below)                    |
+| Student-specific exports and annotated exams        | Anonymous question statistics (below)                    |
 
 Wording matters in the notification, because "reset" sounds like breakage. The instructor-facing copy
 is: _This course ended 30 days ago. Student records are still available. If they are no longer needed,
@@ -966,7 +966,7 @@ Authoritative-versus-derived roles, settled per backend:
 | --------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
 | PLE algorithmic | Generator id and version; parameters derived from the seed | Rendered output                                          |
 | PLE static      | Canonical versioned PLE Question JSON source               | Public Question model and private Question Grading Input |
-| WeBWorK         | PG source reference and version                            | Rendered HTML, images, cached renders                    |
+| WeBWorK         | PG source reference and version                            | Typed render envelope, images, cached renders            |
 | QTI             | Original ZIP in object storage                             | Parsed model in shared content, extracted assets         |
 | H5P             | Remote package reference                                   | Any imported internal representation                     |
 
@@ -1079,7 +1079,7 @@ semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 | --------------- | ------------------------------------------------------- | -------------------------------------------------------- |
 | PLE algorithmic | Pinned generator id, generator version, parameter spec  | Normalized model, rendered output                        |
 | PLE static      | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input |
-| WeBWorK         | PG source reference and version                         | Normalized model, rendered HTML, cached renders          |
+| WeBWorK         | PG source reference and version                         | Normalized model, typed render envelope, cached renders  |
 | QTI             | Original ZIP in object storage                          | Parsed model, extracted assets                           |
 | H5P             | Remote package reference                                | Any imported internal representation                     |
 | iMathAS         | Checksum-pinned source snapshot and integration profile | Safe render envelope and deterministic render cache      |
@@ -1272,21 +1272,13 @@ effect.
 
 ### Question rendering and sanitization
 
-Rendering a backend-neutral question is the most security-sensitive part of the frontend, because two
-adapters return markup produced elsewhere.
+Rendering a backend-neutral question is security-sensitive because Question Backends process content
+produced elsewhere.
 
-The pipeline: the API returns a **render envelope** holding prompt blocks, a Question Response Format, and
-asset references. The renderer maps each block to a component, and each Question Response Format to a
-question response control. Two block kinds carry supplied markup -- WeBWorK rendered HTML and QTI converted
-content -- and both pass through a **server-side allowlist sanitizer** before ever reaching the
-envelope. Sanitization happens on the server, in the worker at render time, so the sanitized form is
-what gets cached and what every client receives; the browser trusts the envelope because the server
-already validated it.
-
-The allowlist covers structural markup, math, tables, and images whose `src` resolves to an internal
-asset ID. Script, style, event-handler attributes, iframes, and external URLs are dropped at
-sanitization time and the drop is recorded on the render record, so an adapter producing unexpected
-markup is visible rather than silent.
+The API returns a **render envelope** holding closed Question Content Blocks, a Question Response Format,
+and asset references. The renderer maps each block to a component and each Question Response Format to a
+question response control. WeBWorK and QTI conversion reject unsupported or unsafe upstream input before
+producing that typed envelope; raw renderer HTML never reaches the browser or cache.
 
 Question Response Controls, one per response type in `question_model`, are the reusable core of the student UI:
 numeric entry with unit display, formula entry with live format validation, single and multiple
@@ -1416,8 +1408,8 @@ table above.
   `crates/question_model` only, and `crates/grading` is never a generation input. A test asserts the
   generated surface contains no answer-key type, mirroring the WASM export allowlist so both halves of
   the secrecy boundary are checked the same way.
-- **Supplied markup is sanitized server-side** before it enters a render envelope, so the sanitized
-  form is what gets cached and delivered.
+- **Question Backends convert only supported content** into closed Question Content Blocks before it
+  enters a render envelope; raw renderer HTML is neither cached nor delivered.
 - **Content Security Policy** ships with the app: script sources limited to the bundle's own origin,
   `wasm-unsafe-eval` present because WebAssembly instantiation requires it, `object-src` empty, and
   frame ancestors limited to the LMS origins configured for LTI launch. The esbuild bundle contains no
@@ -1552,7 +1544,7 @@ substitution for a required production path.
 | MOD-UI-SHELL               | App shell, routing, session context, error boundaries, focus conventions | Route tree, boundaries, layout                                                                                                        | MOD-CLIENT, WP-C9                                                                       | Mock handlers                       | Representative registered routes resolve; a thrown render error leaves the shell usable. Route registration review is a one-time receipt.                                                                                                   |
 | MOD-UI-COURSE              | Course shell and appearance settings                                     | Course-scoped three-color theme, entry banner, instructor appearance workflow                                                         | MOD-UI-SHELL, MOD-CLIENT, MOD-API-COURSE, MOD-OBJ                                       | Appearance mock repository          | Theme follows all course routes without global bleed; keyboard save/conflict flow; contrast and visual source_object_reference gates                                                                                                        |
 | MOD-UI-WIDGETS             | Question Response Control set                                            | One component per response type, with local format validation                                                                         | MOD-WASM, WP-C9                                                                         | Reference widget                    | Each widget satisfies `docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`, is label-announced, and flags invalid shape without issuing a request                                                                                                      |
-| MOD-UI-RENDER              | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives                                                         | MOD-UI-WIDGETS                                                                          | Fixture envelopes                   | Representative supported block kinds render; sanitized markup renders without script execution; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                  |
+| MOD-UI-RENDER              | Question renderer                                                        | Envelope-to-component mapping, asset resolution, math and figure alternatives                                                         | MOD-UI-WIDGETS                                                                          | Fixture envelopes                   | Representative supported block kinds render; missing accessibility text surfaces as an authoring error. The supported-kind review is one-time evidence.                                                                                     |
 | MOD-UI-ATTEMPT             | Assignment Attempt loop                                                  | Submit, pending state, current student-disclosure display, timer, prefetch, retry                                                     | MOD-UI-RENDER, MOD-CLIENT                                                               | Mock handlers                       | Full mastery Assignment Attempt; long-history practice remains available; timer expiry; offline submit recovers; server-projected disclosure respected                                                                                      |
 | MOD-UI-BROWSE              | Question Library browser                                                 | Virtualized cursor-paged list, facets, Question Details                                                                               | MOD-CLIENT                                                                              | Mock handlers                       | Cursor navigation requests only the next bounded page while scrolling; facet counts come from aggregates and recover after an empty or stale page                                                                                           |
 | MOD-UI-EDITOR              | Draft and assignment editors                                             | Draft editing, WASM preview, policy controls, capability gating, publish flow                                                         | MOD-UI-RENDER, MOD-WASM                                                                 | Mock handlers                       | Preview generates a real variant per seed offline; a policy a backend cannot support marks the question and names the capability; publish shows the version diff                                                                            |
@@ -1774,7 +1766,7 @@ permanent credentialed or network test.
   cross-course/cross-user authorization, answer-key grants, object round trip, partition pruning under the documented
   workload model, and
   renderer-outage degradation all proven together; a course deletion test proves student records and
-  `student-records` bucket artifacts are gone while Question Library content, Instructor drafts, and anonymous
+  `student-records` bucket Student-specific exports and annotated exams are gone while Question Library content, Instructor drafts, and anonymous
   statistics remain; a below-threshold cohort's statistics are proven suppressed.
 - Parallel-plan ready: no. This milestone exists to find interactions that per-lane green results
   hide.

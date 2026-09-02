@@ -138,12 +138,12 @@ not enable them.
 
 **Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
 licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
-private standalone `/render-api` Question Backend service. The browser receives only a PLE envelope,
-sanitized prompt markup, and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
+private standalone `/render-api` Question Backend service. The browser receives only a typed PLE envelope
+and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
 
 The accepted projection covers the exact reviewed Chapter 1 `RadioButtons` and matching shapes. PLE
-removes upstream controls from prompt markup and emits opaque IDs per projected label or matching
+rejects unsupported upstream controls and emits opaque IDs per projected label or matching
 side. A student submits PLE IDs to PLE, not upstream form fields.
 
 ### Grade, replay, cache, and failure
@@ -156,14 +156,15 @@ the private envelope, and makes one private grade request. It does not reconstru
 render or resolve a current published Question Revision. The mapping never
 appears in an envelope, safe cache, receipt, log event, or browser response.
 
-The shared immutable cache is keyed by version and seed. It holds only sanitized answer-free
-envelope/markup, Source Object Reference, Source Object Checksum, Question Renderer Version, and rendered-output checksum. A cache hit
+The shared immutable cache is keyed by version and seed. It holds only its schema version, an answer-free
+typed `QuestionVariationPresentation` envelope, Source Object Reference, Source Object Checksum, and
+Question Renderer Version. A cache hit
 for a new issuance still performs the bounded private render needed to create that attempt's replay
 mapping; reproduction and normal grade do not. Telemetry uses only `renderer_call` and `cache_hit`
 event names.
 
 The renderer accepts only expected form/JSON shapes, bounded bodies, fixed origins, known protected
-echo fields, and sanitized markup. Redirects, malformed or duplicate JSON, unknown fields,
+echo fields, and typed Question Content Blocks. Redirects, malformed or duplicate JSON, unknown fields,
 protected-field mismatches, unsafe HTML, unsupported controls, and timeouts refuse the operation; they
 do not produce a grade or leak secrets.
 
