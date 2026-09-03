@@ -18,7 +18,7 @@ function gradebookPage(membership, nextCursor = null) {
   return {
     kind: "page",
     schemeRevision: 1,
-    rosterRevision: 1,
+    rosterChangeNumber: "1",
     mode: "totalPoints",
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     observationTime: 1,
@@ -279,7 +279,7 @@ test("current continuation errors retain Gradebook and operation-selection rows"
   );
 });
 
-test("Gradebook and operation-selection continuations reject duplicate memberships atomically", async () => {
+test("Gradebook continuation rejects a changed Course Roster Change Number and selection continuations reject duplicate memberships atomically", async () => {
   const gradebookInitial = deferred();
   const gradebookContinuation = deferred();
   let gradebookRequest = 0;
@@ -298,7 +298,10 @@ test("Gradebook and operation-selection continuations reject duplicate membershi
   gradebookInitial.resolve(gradebookPage("M-1", "cursor"));
   await settle();
   gradebookSession.loadMoreGradebook();
-  gradebookContinuation.resolve(gradebookPageWithRows(["M-1", "M-2"]));
+  gradebookContinuation.resolve({
+    ...gradebookPageWithRows(["M-2"]),
+    rosterChangeNumber: "2",
+  });
   await settle();
   assert.deepEqual(
     gradebookSession.state.gradebook.kind === "ready"

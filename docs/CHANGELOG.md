@@ -2,9 +2,39 @@
 
 ## 2026-09-03
 
+### Decisions and Failures
+
+- Accepted and completed `WN1-TERM-LEARNING-REFERENCE-H0` as a documentation-only correction of
+  vocabulary rows 447, 448, and 453. The proposed `AccountId`, Course,
+  membership, Student Record, Assignment, Assignment Attempt, Issued Question,
+  and Question Attempt `*Id` to `*Reference` migrations are rejected: opaque
+  UUID-backed private record IDs and existing SQL `*_id` keys remain IDs.
+  Reviewed prefixed public locators remain separate, scoped route values, and
+  no Reference is invented for Student Record, Issued Question, or Question
+  Attempt. No source, schema, generated output, route, test, detector, or
+  migration allocation changes. Independent acceptance passes; rows 447, 448,
+  and 453 remain checked as the resolved ID-versus-Reference ledger claims.
+
 ### Behavior or Interface Changes
 
-- Allocated and implemented `WP-SD1-A-TERM-01-603-CI1` as the final ordered row-603 child.
+- Completed `WP-SD1-A-TERM-01-604-CR2` and vocabulary row 604 with a direct Course Roster
+  change-number browser cut. Course-bound local contracts now use generated
+  `CourseRosterChangeNumber` as `rosterChangeNumber`: a canonical positive PostgreSQL-BIGINT
+  decimal string. Course Roster pagination and aggregate actions, invitation email-rule and
+  roster-import results, calculated Gradebook pages, submitted Assignment Attempt chooser pages,
+  and Gradebook continuation checks use that exact field. `If-Match` and strong ETag validation
+  use the exact quoted decimal. The strict readers refuse `rosterRevision`, noncanonical, and
+  out-of-range values. Independent completion review PASS confirms the final focused
+  strict-decoder evidence rejects noncanonical `"092"` and the max-plus-one
+  `"9223372036854775808"`. Course Invitation state preconditions, `importRevision`,
+  scheme/scoring counters, CR1 generated `rosterChangeNumber`, routes, Store/schema behavior,
+  and generated scalar ownership remain unchanged. Regeneration (424 declarations), focused Node
+  (26), TypeScript, Rust, codebase, residual, and diff gates pass; no route, Store, schema,
+  migration, fixture family, browser scenario, compatibility alias, or permanent test machinery
+  was added.
+
+- Completed `WP-SD1-A-TERM-01-603-CI1` as the final ordered row-603 child after independent CI1
+  review passed and row 603 became closure eligible.
   `CourseInvitationStatePrecondition` replaces the remaining generic Course Invitation transport
   through Rust/Serde, generated declarations, strict decoder, teaching-operation client, API
   facade, and the Instructor/Pending invitation callers. Both invitation views serialize
@@ -13,8 +43,15 @@
   generated declaration are removed. AE1 `AssignmentEditNumber`, AC1R deletion and Scenario
   modifiers, CR1 `CourseRosterChangeNumber`, Product Role, route, Store, schema, migration,
   fixture, browser scenario, compatibility behavior, and permanent tests are unchanged. Focused
-  evidence and final residual/diff checks are pending; row 603 remains open pending independent
-  CI1 and overall closure review.
+  Rust/Node/TypeScript, generation, formatting, strict Clippy, aggregate Rust/codebase,
+  generic/residual, and diff gates pass. The final generic detector is zero and retired. Row 603
+  now closes only the stable generic `TeachingOperationRevision` replacement with four exact
+  outcomes: AE1 `AssignmentEditNumber`; rejected AC1 followed by AC1R mutation-surface removal
+  with value-only Scenario modifiers; CR1 `CourseRosterChangeNumber`; and CI1
+  `CourseInvitationStatePrecondition`. Product Role remains separately allocated and pending.
+  Nonblocking coverage observation: the existing focused invitation Node suite covers creation
+  decoding but has no dedicated HTTP transport assertion for invitation list/revoke/respond; this
+  documentation-only closure adds no test.
 
 - Completed `WP-SD1-A-TERM-01-603-CR1` with a direct pre-production Course Roster
   change-number cut. `CourseRosterChangeNumber` now owns the Instructor Memberships page
@@ -29,7 +66,7 @@
   and diff checks pass. Independent CR1 review passes; only the one-time scoped CR1 detector is
   retired. Row 603 remains open for CI1 and final generic retirement.
 
-- Allocated `WP-SD1-A-TERM-01-PR1` for the approved direct Product Role cutover. It replaces the global Account and Authenticated Session role names through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation while preserving distinct Course Membership Role and authorization/RLS behavior. Vocabulary row 446 remains unchecked pending independent review and full required acceptance evidence.
+- Accepted and completed `WP-SD1-A-TERM-01-PR1` and vocabulary row 446. `ProductRole`/`product_role`/`productRole` directly replace the immutable global Account and Authenticated Session classification through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation. Course Membership Role remains distinct, Authentication Email retains its local role-qualified integrity meaning, and authorization/RLS behavior is unchanged. Independent review and the exact-owner PR1 detector pass; the detector is retired. Final exact-tree acceptance generated 424 TypeScript declarations, validated 3 fixtures, passed Rust/TypeScript, 315 Node and 4,912 Python tests, PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS (3/3), and PostgreSQL-plus-MinIO (1/1) cleanup. No compatibility alias, new feature, fixture family, or permanent test was added.
 
 - Rejected and superseded `WP-SD1-A-TERM-01-603-AC1`: its proposed Accommodation revision
   reference had no producer and incorrectly received an Assignment edit number at the unmounted

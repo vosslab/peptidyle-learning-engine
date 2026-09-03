@@ -53,12 +53,24 @@ test("course roster decoders reject authority and secret fields", () => {
     ],
     allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }],
     nextCursor: null,
-    rosterRevision: 4,
+    rosterChangeNumber: "4",
   };
   assert.deepEqual(decodeCourseRosterPage(roster), roster);
   assert.throws(
     () => decodeCourseRosterPage({ ...roster, invitationToken: "must-not-cross" }),
     /field allowed by this response contract/u,
+  );
+  assert.throws(
+    () => decodeCourseRosterPage({ ...roster, rosterRevision: 4 }),
+    /field allowed by this response contract/u,
+  );
+  assert.throws(
+    () => decodeCourseRosterPage({ ...roster, rosterChangeNumber: "092" }),
+    /canonical positive PostgreSQL bigint decimal/u,
+  );
+  assert.throws(
+    () => decodeCourseRosterPage({ ...roster, rosterChangeNumber: "9223372036854775808" }),
+    /canonical positive PostgreSQL bigint decimal/u,
   );
 
   const accepted = {
@@ -91,7 +103,7 @@ test("roster pagination preserves the opaque cursor", async () => {
             pendingInvitations: [],
             allowedEmailDomains: [],
             nextCursor: null,
-            rosterRevision: 4,
+            rosterChangeNumber: "4",
           }),
         );
       }
@@ -111,7 +123,7 @@ test("roster import preview withholds invalid cells and keeps row selection expl
     importId: IMPORT,
     state: "preview",
     expiresAt: 1_754_893_200_000,
-    rosterRevision: 4,
+    rosterChangeNumber: "4",
     importRevision: 1,
     rows: [
       {
@@ -174,7 +186,7 @@ test("bulk delivery keeps only row numbers and coarse outcomes", () => {
   const result = decodeRosterImportCommitResult({
     importId: IMPORT,
     importRevision: 2,
-    rosterRevision: 5,
+    rosterChangeNumber: "5",
     invitationsCreated: 2,
     delivery: [
       { rowNumber: 2, outcome: "queued" },
@@ -195,7 +207,7 @@ test("bulk delivery keeps only row numbers and coarse outcomes", () => {
   );
 });
 
-test("roster mutations preserve revisions idempotency and protected export headers", async () => {
+test("roster mutations preserve change numbers idempotency and protected export headers", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init = {}) => {
@@ -223,7 +235,7 @@ test("roster mutations preserve revisions idempotency and protected export heade
             importId: IMPORT,
             state: "preview",
             expiresAt: 1_754_893_200_000,
-            rosterRevision: 4,
+            rosterChangeNumber: "4",
             importRevision: 1,
             rows: [
               {
@@ -243,7 +255,7 @@ test("roster mutations preserve revisions idempotency and protected export heade
         return json(
           {
             allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }],
-            rosterRevision: 5,
+            rosterChangeNumber: "5",
           },
           200,
           { etag: '"5"' },
@@ -257,13 +269,13 @@ test("roster mutations preserve revisions idempotency and protected export heade
   await client.previewRosterImport(
     COURSE,
     new Blob(["email,roster_id\nstudent@example.edu,900123456\n"], { type: "text/csv" }),
-    4,
+    "4",
     "preview-once",
   );
   await client.replaceCourseInvitationEmailRule(
     COURSE,
     { allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }] },
-    4,
+    "4",
   );
   assert.equal(requests[0]?.init.headers["idempotency-key"], "invite-once");
   assert.equal(requests[1]?.init.headers["if-match"], '"4"');

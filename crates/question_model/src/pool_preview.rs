@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
-/// The route owns course and assignment identity; the revision comes from the
+/// The route owns course and assignment identity; the Assignment edit number comes from the
 /// `If-Match` header, so the browser can select only one saved Assignment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

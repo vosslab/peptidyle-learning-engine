@@ -97,6 +97,12 @@ retains `QuestionId` because ID is its established product name. Registered
 external protocol identifiers retain their owner spelling inside their
 adapters.
 
+Existing opaque UUID-backed record IDs and their SQL `*_id` primary or foreign
+keys remain IDs unless an approved owner changes their physical contract. A
+public Reference is a separate, reviewed, prefixed, authorization-scoped
+locator, not a rename for a UUID. Do not create a Reference for a record that
+lacks an approved locator representation and authorized resolver.
+
 Use the complete subject and actual representation for each internal value. A
 UUID or locator identifies a record; the exact stored relationship grants
 authority.

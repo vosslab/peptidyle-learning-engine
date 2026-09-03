@@ -2,6 +2,7 @@
 
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
 import {
   DecodeError,
   decodeArray,
@@ -12,6 +13,7 @@ import {
   decodePositiveInteger,
   decodeRecord,
   decodeSafeInteger,
+  decodeString,
   decodeStringEnum,
   decodeUuid,
 } from "./decoder";
@@ -63,7 +65,7 @@ export interface PendingCourseInvitation {
 interface CourseRosterPageBase {
   readonly members: ReadonlyArray<CourseRosterMember>;
   readonly nextCursor: string | null;
-  readonly rosterRevision: number;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
 }
 
 /** Course invitations are available only from a configured email-capable composition. */
@@ -83,11 +85,11 @@ export interface CourseInvitationAccepted {
 
 export interface CourseInvitationEmailRule {
   readonly allowedEmailDomains: ReadonlyArray<CourseInvitationEmailDomain>;
-  readonly rosterRevision: number;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
 }
 
-export interface RosterRevisionResult {
-  readonly rosterRevision: number;
+export interface CourseRosterChangeNumberResult {
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
 }
 
 export interface RosterImportRow {
@@ -102,7 +104,7 @@ export interface RosterImportPreview {
   readonly importId: string;
   readonly state: "preview" | "committed";
   readonly expiresAt: number;
-  readonly rosterRevision: number;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
   readonly importRevision: number;
   readonly rows: ReadonlyArray<RosterImportRow>;
 }
@@ -110,7 +112,7 @@ export interface RosterImportPreview {
 export interface RosterImportCommitResult {
   readonly importId: string;
   readonly importRevision: number;
-  readonly rosterRevision: number;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
   readonly invitationsCreated: number;
   readonly delivery: ReadonlyArray<RosterImportDelivery>;
 }
@@ -133,22 +135,22 @@ export interface CourseRosterClient {
   readonly revokeCourseInvitation: (
     courseId: CourseId,
     invitationId: string,
-    rosterRevision: number,
-  ) => Promise<RosterRevisionResult>;
+    rosterChangeNumber: CourseRosterChangeNumber,
+  ) => Promise<CourseRosterChangeNumberResult>;
   readonly revokeCourseMember: (
     courseId: CourseId,
     memberId: string,
-    rosterRevision: number,
-  ) => Promise<RosterRevisionResult>;
+    rosterChangeNumber: CourseRosterChangeNumber,
+  ) => Promise<CourseRosterChangeNumberResult>;
   readonly replaceCourseInvitationEmailRule: (
     courseId: CourseId,
-    rule: Omit<CourseInvitationEmailRule, "rosterRevision">,
-    rosterRevision: number,
+    rule: Omit<CourseInvitationEmailRule, "rosterChangeNumber">,
+    rosterChangeNumber: CourseRosterChangeNumber,
   ) => Promise<CourseInvitationEmailRule>;
   readonly previewRosterImport: (
     courseId: CourseId,
     csv: Blob,
-    rosterRevision: number,
+    rosterChangeNumber: CourseRosterChangeNumber,
     idempotencyKey: string,
   ) => Promise<RosterImportPreview>;
   readonly commitRosterImport: (
@@ -254,8 +256,12 @@ function decodeInvitation(value: unknown, path: string): PendingCourseInvitation
   };
 }
 
-function decodeRosterRevision(value: unknown, path: string): number {
-  return positiveRevision(value, path);
+function decodeCourseRosterChangeNumber(value: unknown, path: string): CourseRosterChangeNumber {
+  const parsed = decodeString(value, path);
+  if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint decimal");
+  }
+  return parsed;
 }
 
 export function decodeCourseRosterPage(value: unknown, path = "response"): CourseRosterPage {
@@ -264,7 +270,7 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     "rosterMode",
     "members",
     "nextCursor",
-    "rosterRevision",
+    "rosterChangeNumber",
     "pendingInvitations",
     "allowedEmailDomains",
   ]);
@@ -281,9 +287,9 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     `${path}.nextCursor`,
     decodeCursor,
   );
-  const rosterRevision = decodeRosterRevision(
-    field(record, "rosterRevision", path),
-    `${path}.rosterRevision`,
+  const rosterChangeNumber = decodeCourseRosterChangeNumber(
+    field(record, "rosterChangeNumber", path),
+    `${path}.rosterChangeNumber`,
   );
   const pendingInvitations = decodeArray(
     field(record, "pendingInvitations", path),
@@ -297,7 +303,7 @@ export function decodeCourseRosterPage(value: unknown, path = "response"): Cours
     rosterMode,
     members,
     nextCursor,
-    rosterRevision,
+    rosterChangeNumber,
     pendingInvitations,
     allowedEmailDomains: decodeArray(
       field(record, "allowedEmailDomains", path),
@@ -337,30 +343,30 @@ export function decodeCourseInvitationEmailRule(
   path = "response",
 ): CourseInvitationEmailRule {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["allowedEmailDomains", "rosterRevision"]);
+  requireOnlyFields(record, path, ["allowedEmailDomains", "rosterChangeNumber"]);
   return {
     allowedEmailDomains: decodeArray(
       field(record, "allowedEmailDomains", path),
       `${path}.allowedEmailDomains`,
       decodeCourseInvitationEmailDomain,
     ),
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
   };
 }
 
-export function decodeRosterRevisionResult(
+export function decodeCourseRosterChangeNumberResult(
   value: unknown,
   path = "response",
-): RosterRevisionResult {
+): CourseRosterChangeNumberResult {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rosterRevision"]);
+  requireOnlyFields(record, path, ["rosterChangeNumber"]);
   return {
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
   };
 }
@@ -420,7 +426,7 @@ export function decodeRosterImportPreview(value: unknown, path = "response"): Ro
     "importId",
     "state",
     "expiresAt",
-    "rosterRevision",
+    "rosterChangeNumber",
     "importRevision",
     "rows",
   ]);
@@ -435,9 +441,9 @@ export function decodeRosterImportPreview(value: unknown, path = "response"): Ro
       "committed",
     ]),
     expiresAt: decodeSafeInteger(field(record, "expiresAt", path), `${path}.expiresAt`),
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
     importRevision: positiveRevision(
       field(record, "importRevision", path),
@@ -455,7 +461,7 @@ export function decodeRosterImportCommitResult(
   requireOnlyFields(record, path, [
     "importId",
     "importRevision",
-    "rosterRevision",
+    "rosterChangeNumber",
     "invitationsCreated",
     "delivery",
   ]);
@@ -470,9 +476,9 @@ export function decodeRosterImportCommitResult(
       field(record, "importRevision", path),
       `${path}.importRevision`,
     ),
-    rosterRevision: decodeRosterRevision(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
     invitationsCreated: decodeSafeInteger(
       field(record, "invitationsCreated", path),

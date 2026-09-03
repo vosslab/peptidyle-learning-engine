@@ -40,6 +40,32 @@ boundaries. This index gives those entries their product and architectural ratio
 
 ## Learning and content
 
+### References remain scoped locators
+
+**Decision.** Opaque UUID-backed private record IDs and SQL `*_id` keys remain
+IDs. A public Reference is a separate reviewed, prefixed, authorization-scoped
+locator, and it exists only where a product boundary approves it.
+
+**Why.** Rebranding a UUID as a Reference conceals a different representation
+and collapses the distinction between record identity, route location, and
+authority. Existing `C-`, `M-`, `A-`, `R-`, and `U-` references prove that a
+locator needs its own grammar and authorized resolution boundary.
+
+**Consequence.** `CourseInstanceReference`, `CourseMembershipReference`,
+`AssignmentReference`, and `AssignmentAttemptReference` remain separate from
+their private IDs. No Student Record, Issued Question, or Question Attempt
+Reference is invented. A future locator requires separate product, schema,
+resolver, service, wire, and privacy decisions; it does not rename SQL keys or
+trusted UUID values.
+
+**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) and
+[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) define the durable naming
+boundary; the active release plan owns any future implementation allocation.
+
+**Completion.** `WN1-TERM-LEARNING-REFERENCE-H0` is accepted and completed
+after independent review. This documentation-only correction changes no source,
+schema, generated contract, route, test, detector, or migration allocation.
+
 ### Question agnosticism
 
 **Decision.** PLE is a learning engine, not a question-authoring language or a single renderer.
@@ -585,6 +611,24 @@ Record, and invitation claim.
 passwordless enrollment delivery with its Store, route, and transaction proof. The current
 baseline does not mount those paths. Operator-configured email-provider, optional-passkey,
 multi-replica, security, and HCI evidence remain open.
+
+### Course Roster change numbers stay exact
+
+**Decision.** Course-bound browser contracts use `rosterChangeNumber`, typed as the generated
+`CourseRosterChangeNumber` canonical positive PostgreSQL-BIGINT decimal string. The browser emits
+and verifies its strong ETag as the exact quoted decimal.
+
+**Why.** The containing Course scope supplies the subject, so repeating it in the member name adds
+no ownership. A JavaScript number could lose valid PostgreSQL-BIGINT precision, while the prior
+`rosterRevision` wording incorrectly implies retained roster revisions.
+
+**Consequence.** Course Roster pages, roster aggregate actions, invitation email-rule responses,
+roster-import responses, calculated Gradebook pages, and submitted Assignment Attempt chooser pages
+use the same exact string. `CourseInvitationStatePrecondition`, `importRevision`, scheme revisions,
+and scoring generations remain distinct contracts.
+
+**Owner.** `generated/api/CourseRosterChangeNumber.ts`, `src/api/enrollment.ts`, and the Course
+Roster and Gradebook browser decoders own the current browser boundary.
 
 ### Current personas are Student, Instructor, and Sysadmin
 

@@ -25,7 +25,7 @@ type JsonDecoder<T> = (value: unknown, path?: string) => T;
 
 function strongDecimalEtag(value: string, name: string): string {
   if (!/^[1-9][0-9]*$/u.test(value))
-    throw new ApiProtocolError(`${name} must be a positive canonical decimal revision`);
+    throw new ApiProtocolError(`${name} must be a positive canonical decimal precondition`);
   return `"${value}"`;
 }
 

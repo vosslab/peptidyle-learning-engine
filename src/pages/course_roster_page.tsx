@@ -218,7 +218,7 @@ export function CourseRosterPage(): JSX.Element {
     setError(null);
     try {
       const next = await applicationApi.client.listCourseRoster(courseId, cursor);
-      if (next.rosterRevision !== current.roster.rosterRevision) {
+      if (next.rosterChangeNumber !== current.roster.rosterChangeNumber) {
         setAnnouncement("The roster changed while loading. The current roster was refreshed.");
         await load();
         return;
@@ -248,7 +248,7 @@ export function CourseRosterPage(): JSX.Element {
       await applicationApi.client.revokeCourseInvitation(
         courseId,
         invitationId,
-        current.roster.rosterRevision,
+        current.roster.rosterChangeNumber,
       );
       setAnnouncement("Pending invitation canceled.");
       await load();
@@ -271,7 +271,7 @@ export function CourseRosterPage(): JSX.Element {
       await applicationApi.client.revokeCourseMember(
         courseId,
         memberId,
-        current.roster.rosterRevision,
+        current.roster.rosterChangeNumber,
       );
       setAnnouncement("Course access revoked. Existing education records remain under retention.");
       await load();
@@ -295,7 +295,7 @@ export function CourseRosterPage(): JSX.Element {
         {
           allowedEmailDomains: parsePolicyLines(policyDomains()),
         },
-        current.roster.rosterRevision,
+        current.roster.rosterChangeNumber,
       );
       setPolicyDomains(policyLines(policy.allowedEmailDomains));
       setAnnouncement("Course invitation email rule saved.");
@@ -320,7 +320,7 @@ export function CourseRosterPage(): JSX.Element {
       const report = await applicationApi.client.previewRosterImport(
         courseId,
         file,
-        current.roster.rosterRevision,
+        current.roster.rosterChangeNumber,
         previewKey(),
       );
       setPreview(report);

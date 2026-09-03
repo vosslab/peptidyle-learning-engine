@@ -117,7 +117,7 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
   const page = {
     kind: "page",
     schemeRevision: 1,
-    rosterRevision: 1,
+    rosterChangeNumber: "1",
     mode: "totalPoints",
     rounding: "fourDecimalPlacesHalfAwayFromZero",
     observationTime: 1_700_000_000_000,
@@ -152,6 +152,7 @@ test("calculated Gradebook decoder accepts a nested page and rejects extra field
     "noSubmittedAssignmentAttempt",
   );
   assert.throws(() => decodeCalculatedGradebookResult({ ...page, extraField: true }), DecodeError);
+  assert.throws(() => decodeCalculatedGradebookResult({ ...page, rosterRevision: 1 }), DecodeError);
 });
 
 test("Gradebook selection and submitted Assignment Attempt decoders keep closed public-reference pages", () => {
@@ -174,7 +175,7 @@ test("Gradebook selection and submitted Assignment Attempt decoders keep closed 
   assert.equal(selection.nextCursor, "next-page");
 
   const choices = decodeSubmittedAssignmentAttemptChoicesPage({
-    rosterRevision: 4,
+    rosterChangeNumber: "4",
     rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
   });
   assert.equal(choices.nextCursor, null);
@@ -183,7 +184,7 @@ test("Gradebook selection and submitted Assignment Attempt decoders keep closed 
   assert.throws(
     () =>
       decodeSubmittedAssignmentAttemptChoicesPage({
-        rosterRevision: 4,
+        rosterChangeNumber: "4",
         rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       }),
     DecodeError,
@@ -205,7 +206,7 @@ test("Gradebook selection and submitted Assignment Attempt decoders keep closed 
   assert.throws(
     () =>
       decodeSubmittedAssignmentAttemptChoicesPage({
-        rosterRevision: 4,
+        rosterChangeNumber: "4",
         rows: [{ assignmentAttempt: "R-03", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       }),
     DecodeError,
@@ -259,7 +260,7 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
     }
     if (path.includes("/assignment-attempts?")) {
       return jsonResponse({
-        rosterRevision: 4,
+        rosterChangeNumber: "4",
         rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       });
     }

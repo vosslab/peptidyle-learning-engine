@@ -4,33 +4,71 @@ Last updated: 2026-09-03. This is the sole mutable registry for the global curre
 
 ## Current handoff
 
-- **Allocated `WP-SD1-A-TERM-01-603-CI1` (Course Invitation state-precondition transport and
-  generic retirement).** This final ordered row-603 child directly replaces the remaining generic
-  `TeachingOperationRevision` with `CourseInvitationStatePrecondition` through the two current
-  Course Invitation views, Rust/Serde, generated declarations, strict decoder, teaching-operation
-  client, API facade, and invitation callers. The serialized invitation member is
-  `state_precondition`; revoke, accept, and decline require that exact state precondition for
-  `If-Match`, while create retains its existing Location and strong-ETag validation. It preserves
-  AE1 `AssignmentEditNumber`, AC1R deletion and Scenario modifiers, CR1
-  `CourseRosterChangeNumber`, and Product Role. No route, Store, schema, migration, fixture,
-  browser scenario, compatibility alias, or permanent test is added. Focused evidence and the
-  final generic/residual detectors are in progress. Vocabulary row 603 remains open pending
-  independent CI1 review and overall row-603 closure review.
+- **Completed `WP-SD1-A-TERM-01-604-CR2` (Course Roster Change Number completion).** The direct
+  browser-local cut replaces numeric `rosterRevision` with generated `CourseRosterChangeNumber`
+  and course-bound `rosterChangeNumber` across Course Roster pages/actions, invitation email-rule
+  and import results, calculated Gradebook pages, and submitted Assignment Attempt chooser pages.
+  Exact quoted decimal `If-Match` and ETag checks preserve PostgreSQL-BIGINT precision. Course
+  Invitation state preconditions, `importRevision`, scheme/scoring counters, routes, Store/schema
+  behavior, generated scalar ownership, and current product-role/user-audit worktree edits remain
+  unchanged. Independent completion review PASS confirms the final focused strict-decoder evidence:
+  it rejects noncanonical `"092"` and the max-plus-one `"9223372036854775808"`. Regeneration
+  (424 declarations), focused Node (26), TypeScript, Rust, codebase, residual, and diff gates
+  pass; row 604 is checked.
+
+- **Accepted and completed `WN1-TERM-LEARNING-REFERENCE-H0` (learning reference hierarchy
+  ledger correction).** Vocabulary rows 447, 448, and 453 now resolve the
+  rejected `*Id` to `*Reference` migration claims as verified distinctions:
+  opaque UUID-backed private record IDs and existing SQL `*_id` keys remain
+  IDs; approved prefixed public locators are separate and authorization-scoped.
+  `CourseInstanceReference` (`C-`), `CourseMembershipReference` (`M-`),
+  `AssignmentReference` (`A-`), and `AssignmentAttemptReference` (`R-`) remain
+  separate from their private identities, while Student Record, Issued
+  Question, and Question Attempt have no public Reference. Account Reference
+  remains separately governed as `U-` locator terminology, not an Account UUID
+  rename. This is a planning/documentation correction only: no source, schema,
+  generated output, route, test, detector, migration allocation, or current
+  package handoff changes. Markdown/link and guidance checks (196), focused
+  Prettier, exact terminology assertions, and diff evidence pass. The whole
+  ledger retains a pre-existing row-318 Prettier drift to preserve its
+  user-owned audit edit. Independent acceptance is recorded; no source, schema,
+  generated output, route, test, detector, migration allocation, or current
+  package handoff changed for H0. Unrelated shared-worktree source edits belong
+  to prior TeachingOperationRevision slices and are outside this documentation-only
+  receipt.
+
+- **Accepted `WP-SD1-A-TERM-01-603-CI1` (Course Invitation state-precondition transport and
+  generic retirement).** Independent CI1 review passes and row 603 is closure eligible. The final
+  ordered child replaces the remaining generic `TeachingOperationRevision` with exact
+  `CourseInvitationStatePrecondition` through the two current Course Invitation views,
+  Rust/Serde, generated declarations, strict decoder, teaching-operation client, API facade, and
+  invitation callers. The serialized member is `state_precondition`; revoke, accept, and decline
+  require that exact state precondition for `If-Match`, while create retains its existing Location
+  and strong-ETag validation. The final generic detector is retired after its zero residual.
+  Row 603 now records four exact outcomes: AE1 retains `AssignmentEditNumber`; AC1 is rejected
+  and AC1R removes its unsupported mutation surface while retaining value-only Scenario modifiers;
+  CR1 retains `CourseRosterChangeNumber`; and CI1 owns
+  `CourseInvitationStatePrecondition`. Product Role remains separately allocated and pending. No
+  route, Store, schema, migration, fixture, browser scenario, compatibility alias, or permanent
+  test is added. Focused Rust/Node/TypeScript, generation, formatting, strict Clippy, aggregate
+  Rust/codebase, residual, and diff gates pass. Existing invitation-transport coverage remains a
+  nonblocking observation: the focused Node suite exercises creation decoding but has no dedicated
+  HTTP transport assertion for the invitation list/revoke/respond paths; no test is added here.
 
 - **Accepted `WP-SD1-A-TERM-01-603-CR1` (Course Roster change-number transport).** The direct
   pre-production Question Model-to-browser contract cut introduces exact `CourseRosterChangeNumber`
   for the Instructor Memberships page's `roster_change_number` and direct-Instructor-removal
   `If-Match`. Rust/Serde, generated declarations, the strict decoder, teaching-operation client,
-  API facade, and Teaching Team panel now use that nominal value; the generic
-  `TeachingOperationRevision` remains only for deferred Course Invitation flows. The separate
+  API facade, and Teaching Team panel now use that nominal value. At CR1 acceptance, the generic
+  remained only for deferred Course Invitation flows; CI1 subsequently removed it. The separate
   browser-local Course Roster import/list client, membership role/status vocabulary, routes, Store,
   schema, migrations, fixtures, browser scenario, and permanent tests are unchanged. The private
-  canonical positive PostgreSQL-BIGINT decimal validator is shared by the existing generic value
-  and the new roster value without becoming public transport vocabulary. Focused Rust, Node,
+  canonical positive PostgreSQL-BIGINT decimal validator is shared without becoming public
+  transport vocabulary. Focused Rust, Node,
   TypeScript, formatting, strict Clippy, generated-contract inspection, residual, and diff gates
   pass. Independent CR1 review passes. The one-time scoped CR1 detector is retired after
-  classifying the remaining generic invitation uses as CI1-owned; no other row-603 detector is
-  retired. Vocabulary row 603 remains open for CI1 and final generic retirement.
+  classifying the remaining generic invitation uses as CI1-owned. CI1 subsequently retires the
+  final generic detector and closes the stable generic-replacement row.
 
 - **Completed `WP-SD1-A-TERM-01-603-AC1R` (Accommodation mutation-surface removal).** The original
   AC1 nominal-reference proposal is rejected and superseded because no Accommodation revision
@@ -43,7 +81,7 @@ Last updated: 2026-09-03. This is the sole mutable registry for the global curre
   AC1R review passes, and only AC1R's removed-surface detectors are retired. Row 603 remains open;
   CI1 and final generic retirement are pending.
 
-- **Allocated `WP-SD1-A-TERM-01-PR1` (Product Role direct cutover).** This approved pre-production package directly replaces the Account/session global classification from `AccountRole`/`role` with `ProductRole`/`product_role` in fresh schema, Rust, generated contract, strict browser decoder, route presentation gate, Live Demo selector, direct PostgreSQL oracles, and current documentation. `CourseMembershipRole` and its course-scoped `role` remain distinct; authorization and RLS predicates are unchanged. Vocabulary row 446 remains unchecked until independent contextual review and every required acceptance gate pass.
+- **Accepted and completed `WP-SD1-A-TERM-01-PR1` (Product Role direct cutover).** `ProductRole`/`product_role`/`productRole` now directly own the immutable global Account and Authenticated Session classification through fresh schema, Rust, generated contract, strict browser decoder, route presentation gate, Live Demo selector, direct PostgreSQL oracles, and current documentation. Course Membership Role remains the distinct Course Instance relationship, and Authentication Email retains its local role-qualified integrity meaning; authorization and RLS predicates are unchanged. Independent review, the retired PR1 exact-owner detector, and final exact-tree acceptance pass. The aggregate generated 424 TypeScript declarations and validated 3 fixtures; Rust and TypeScript checks, 315 Node tests, 4,912 Python tests, PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS (3/3), and PostgreSQL-plus-MinIO (1/1) cleanup pass. Vocabulary row 446 is checked; no other row is closed by PR1.
 
 - **Completed `WP-SD1-A-TERM-01-QLB1` (Question Library Browse boundary).** Generated Question Model `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole transport vocabulary. The intentionally flattened browser presentation contract directly uses the `QuestionLibraryBrowse*` family in `library_page_model.ts` and its mounted Library, Picker, Assignment Editor, and sole API-adapter consumers, with no compatibility aliases. `QuestionSearchAuthorship` remains generated vocabulary in the local browse query, and `questionSearchRequest()` remains the server-request constructor. The generated-to-browse adapter, Store/route/schema/generated-transport/fixture boundaries, and behavior are unchanged. The QLB1 one-time scoped residual detector is zero and retired after independent review marked closure eligible. Focused Node (18), both TypeScript checks, QLB1 scoped Prettier, Markdown-link (194), and diff checks pass; fresh `check_codebase.sh` passes all five gates, including 316 Node tests. Graphify Curation edges are stale after accepted QC2 and are not current consumer authority. Vocabulary row 318 is checked; no other ledger rows are allocated by this closure.
 

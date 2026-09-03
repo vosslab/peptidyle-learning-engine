@@ -1,5 +1,6 @@
 // Course roster and invitation transport.
 
+import type { CourseRosterChangeNumber } from "../../../generated/api/CourseRosterChangeNumber";
 import type { CourseRosterClient, RosterImportPreview } from "../enrollment";
 import {
   decodeClaimedCourseInvitation,
@@ -8,13 +9,26 @@ import {
   decodeCourseRosterPage,
   decodeRosterImportCommitResult,
   decodeRosterImportPreview,
-  decodeRosterRevisionResult,
+  decodeCourseRosterChangeNumberResult,
 } from "../enrollment";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestJson, requestPath, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_ROSTER_CSV_BYTES = 1_048_576;
+
+function rosterChangeNumberHeader(
+  rosterChangeNumber: CourseRosterChangeNumber,
+  name: string,
+): string {
+  if (
+    !/^[1-9][0-9]{0,18}$/u.test(rosterChangeNumber) ||
+    BigInt(rosterChangeNumber) > 9_223_372_036_854_775_807n
+  ) {
+    throw new ApiProtocolError(`${name} must be a canonical positive PostgreSQL bigint decimal`);
+  }
+  return `"${rosterChangeNumber}"`;
+}
 
 function positiveRevisionHeader(revision: number, name: string): string {
   if (!Number.isSafeInteger(revision) || revision <= 0) {
@@ -28,6 +42,19 @@ function idempotencyHeader(value: string): string {
     throw new ApiProtocolError("idempotency key must contain 1 through 128 visible ASCII bytes");
   }
   return value;
+}
+
+function verifyRosterChangeNumberEtag(
+  response: Response,
+  expected: CourseRosterChangeNumber,
+  path: string,
+): void {
+  if (
+    response.headers.get("etag") !==
+    rosterChangeNumberHeader(expected, "response roster change number")
+  ) {
+    throw new ApiProtocolError(`API response ${path} ETag does not match its roster change number`);
+  }
 }
 
 function verifyNumericEtag(response: Response, expected: number, path: string): void {
@@ -105,45 +132,49 @@ export function createCourseRosterClient(
     revokeCourseInvitation: async (
       courseId,
       invitationId,
-      rosterRevision,
+      rosterChangeNumber,
     ): ReturnType<CourseRosterClient["revokeCourseInvitation"]> => {
       const path = `/api/courses/${encodedId(courseId)}/invitations/${encodedId(invitationId)}`;
       const result = await rosterMutation(
         fetchImplementation,
         basePath,
         path,
-        decodeRosterRevisionResult,
+        decodeCourseRosterChangeNumberResult,
         {
           method: "DELETE",
-          headers: { "if-match": positiveRevisionHeader(rosterRevision, "roster revision") },
+          headers: {
+            "if-match": rosterChangeNumberHeader(rosterChangeNumber, "roster change number"),
+          },
         },
       );
-      verifyNumericEtag(result.response, result.body.rosterRevision, path);
+      verifyRosterChangeNumberEtag(result.response, result.body.rosterChangeNumber, path);
       return result.body;
     },
     revokeCourseMember: async (
       courseId,
       memberId,
-      rosterRevision,
+      rosterChangeNumber,
     ): ReturnType<CourseRosterClient["revokeCourseMember"]> => {
       const path = `/api/courses/${encodedId(courseId)}/members/${encodedId(memberId)}`;
       const result = await rosterMutation(
         fetchImplementation,
         basePath,
         path,
-        decodeRosterRevisionResult,
+        decodeCourseRosterChangeNumberResult,
         {
           method: "DELETE",
-          headers: { "if-match": positiveRevisionHeader(rosterRevision, "roster revision") },
+          headers: {
+            "if-match": rosterChangeNumberHeader(rosterChangeNumber, "roster change number"),
+          },
         },
       );
-      verifyNumericEtag(result.response, result.body.rosterRevision, path);
+      verifyRosterChangeNumberEtag(result.response, result.body.rosterChangeNumber, path);
       return result.body;
     },
     replaceCourseInvitationEmailRule: async (
       courseId,
       policy,
-      rosterRevision,
+      rosterChangeNumber,
     ): ReturnType<CourseRosterClient["replaceCourseInvitationEmailRule"]> => {
       const path = `/api/courses/${encodedId(courseId)}/invitation-email-rule`;
       const result = await rosterMutation(
@@ -153,17 +184,19 @@ export function createCourseRosterClient(
         decodeCourseInvitationEmailRule,
         {
           method: "PUT",
-          headers: { "if-match": positiveRevisionHeader(rosterRevision, "roster revision") },
+          headers: {
+            "if-match": rosterChangeNumberHeader(rosterChangeNumber, "roster change number"),
+          },
           body: policy,
         },
       );
-      verifyNumericEtag(result.response, result.body.rosterRevision, path);
+      verifyRosterChangeNumberEtag(result.response, result.body.rosterChangeNumber, path);
       return result.body;
     },
     previewRosterImport: async (
       courseId,
       csv,
-      rosterRevision,
+      rosterChangeNumber,
       idempotencyKey,
     ): ReturnType<CourseRosterClient["previewRosterImport"]> => {
       if (csv.size <= 0) throw new ApiProtocolError("Roster CSV is empty");
@@ -175,7 +208,7 @@ export function createCourseRosterClient(
           accept: "application/json",
           "content-type": "text/csv; charset=utf-8",
           "idempotency-key": idempotencyHeader(idempotencyKey),
-          "if-match": positiveRevisionHeader(rosterRevision, "roster revision"),
+          "if-match": rosterChangeNumberHeader(rosterChangeNumber, "roster change number"),
         },
         body: csv,
         credentials: "same-origin",

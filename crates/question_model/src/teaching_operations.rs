@@ -412,7 +412,7 @@ pub struct InstructorMembershipsPage {
     pub roster_change_number: CourseRosterChangeNumber,
 }
 
-/// Empty-body direct Instructor removal action; its revision is `If-Match`.
+/// Empty-body direct Instructor removal action; its roster change number is `If-Match`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorMembershipRemovalRequest {}
@@ -441,7 +441,7 @@ mod tests {
     }
 
     #[test]
-    fn mutation_bodies_are_value_only_and_revisions_are_absent() {
+    fn mutation_bodies_are_value_only_and_state_preconditions_are_absent() {
         let action = serde_json::to_value(CourseInvitationTerminalActionRequest {
             action: CourseInvitationTerminalAction::Accept,
         })

@@ -1074,8 +1074,12 @@ private authoring, or a specific Course Instance.
   Revisions; an Assignment Attempt owns one Student Record's activity.
 - Publication is historical entry into shared availability; current selection
   availability is a separate fact.
-- A human-readable Reference or product ID locates a record. The exact stored
-  relationship, state, and scope authorize an operation.
+- A public Reference is a defined, user-facing locator for one PLE concept.
+  Question ID remains the established public name for a Question.
+- A private UUID identifies a stored record. Stored relationships, state, and
+  scope determine whether an operation is authorized.
+- Define each new public Reference together with its visible form, scope, and
+  authorized lookup.
 
 ## Applying the contract
 

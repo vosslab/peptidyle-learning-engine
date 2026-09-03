@@ -130,7 +130,7 @@ function validateUniqueMemberships<T>(rows: ReadonlyArray<T>, key: (row: T) => s
 function verifyContinuation(current: GradebookPageResult, next: GradebookPageResult): void {
   if (
     current.schemeRevision !== next.schemeRevision ||
-    current.rosterRevision !== next.rosterRevision ||
+    current.rosterChangeNumber !== next.rosterChangeNumber ||
     current.mode !== next.mode ||
     current.rounding !== next.rounding
   ) {

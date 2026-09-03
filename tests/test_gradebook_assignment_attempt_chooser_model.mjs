@@ -15,7 +15,7 @@ function deferred() {
 
 function page(assignmentAttempt) {
   return {
-    rosterRevision: 1,
+    rosterChangeNumber: "1",
     nextCursor: null,
     rows: [{ assignmentAttempt, submittedAt: 1_700_000_000_000, scoreSelected: true }],
   };

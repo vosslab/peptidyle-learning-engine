@@ -3,6 +3,7 @@
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
+import type { CourseRosterChangeNumber } from "../../../generated/api/CourseRosterChangeNumber";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import {
@@ -82,7 +83,7 @@ export interface SubmittedAssignmentAttemptChoicesQuery {
 }
 
 export interface SubmittedAssignmentAttemptChoicesPage {
-  readonly rosterRevision: number;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
   readonly nextCursor: string | null;
   readonly rows: ReadonlyArray<SubmittedAssignmentAttemptChoice>;
 }
@@ -116,6 +117,14 @@ function positiveSafeInteger(value: unknown, path: string): number {
   const decoded = decodeSafeInteger(value, path);
   if (decoded < 1) throw new DecodeError(path, "a positive browser-safe integer");
   return decoded;
+}
+
+function decodeCourseRosterChangeNumber(value: unknown, path: string): CourseRosterChangeNumber {
+  const parsed = decodeString(value, path);
+  if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint decimal");
+  }
+  return parsed;
 }
 
 function boundedDisplayLabel(value: unknown, path: string): string {
@@ -247,12 +256,12 @@ export function decodeSubmittedAssignmentAttemptChoicesPage(
   path = "response",
 ): SubmittedAssignmentAttemptChoicesPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rosterRevision", "nextCursor", "rows"]);
+  requireOnlyFields(record, path, ["rosterChangeNumber", "nextCursor", "rows"]);
   const nextCursor = optionalField(record, "nextCursor");
   return {
-    rosterRevision: positiveSafeInteger(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
     nextCursor: nextCursor === undefined ? null : decodeCursor(nextCursor, `${path}.nextCursor`),
     rows: decodeBoundedArray(

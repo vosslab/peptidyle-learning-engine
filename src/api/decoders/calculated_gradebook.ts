@@ -8,6 +8,7 @@ import type { CourseGradeMode } from "../../../generated/api/CourseGradeMode";
 import type { CourseGradeRoundingRule } from "../../../generated/api/CourseGradeRoundingRule";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import type { CourseRosterChangeNumber } from "../../../generated/api/CourseRosterChangeNumber";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { StudentResponseInspection } from "../../../generated/api/StudentResponseInspection";
 import type { StudentResponseInspectionFeedback } from "../../../generated/api/StudentResponseInspectionFeedback";
@@ -112,7 +113,7 @@ export type CalculatedGradebookResult =
   | {
       readonly kind: "page";
       readonly schemeRevision: number;
-      readonly rosterRevision: number;
+      readonly rosterChangeNumber: CourseRosterChangeNumber;
       readonly mode: CourseGradeMode;
       readonly rounding: CourseGradeRoundingRule;
       readonly observationTime: number;
@@ -220,6 +221,14 @@ function positiveSafeInteger(value: unknown, path: string): number {
   const decoded = decodeSafeInteger(value, path);
   if (decoded < 1) throw new DecodeError(path, "a positive browser-safe integer");
   return decoded;
+}
+
+function decodeCourseRosterChangeNumber(value: unknown, path: string): CourseRosterChangeNumber {
+  const parsed = decodeString(value, path);
+  if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint decimal");
+  }
+  return parsed;
 }
 
 function boundedDisplayLabel(value: unknown, path: string): string {
@@ -367,7 +376,7 @@ export function decodeCalculatedGradebookResult(
   requireOnlyFields(record, path, [
     "kind",
     "schemeRevision",
-    "rosterRevision",
+    "rosterChangeNumber",
     "mode",
     "rounding",
     "observationTime",
@@ -382,9 +391,9 @@ export function decodeCalculatedGradebookResult(
       field(record, "schemeRevision", path),
       `${path}.schemeRevision`,
     ),
-    rosterRevision: positiveSafeInteger(
-      field(record, "rosterRevision", path),
-      `${path}.rosterRevision`,
+    rosterChangeNumber: decodeCourseRosterChangeNumber(
+      field(record, "rosterChangeNumber", path),
+      `${path}.rosterChangeNumber`,
     ),
     mode: decodeStringEnum(field(record, "mode", path), `${path}.mode`, MODES),
     rounding: decodeStringEnum(field(record, "rounding", path), `${path}.rounding`, ROUNDING_RULES),
