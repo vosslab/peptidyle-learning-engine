@@ -4,12 +4,10 @@ import type { QuestionAttemptLimit } from "../../../generated/api/QuestionAttemp
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { DraftImathasQuestionBackendBinding } from "../../../generated/api/DraftImathasQuestionBackendBinding";
 import type { QuestionGradingRule } from "../../../generated/api/QuestionGradingRule";
-import type { QuestionGeneratorParameter } from "../../../generated/api/QuestionGeneratorParameter";
 import type { ImathasQuestionBackendBinding } from "../../../generated/api/ImathasQuestionBackendBinding";
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
 import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionContent";
-import type { QuestionVariationRule } from "../../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { QuestionAttemptTimeLimit } from "../../../generated/api/QuestionAttemptTimeLimit";
@@ -49,14 +47,12 @@ import type {
 import {
   DecodeError,
   decodeArray,
-  decodeDictionary,
   decodeFiniteNumber,
   decodeNonemptyString,
   decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
-  decodeSafeInteger,
   decodeString,
   decodeStringEnum,
 } from "../decoder";
@@ -93,7 +89,6 @@ export {
 
 const QUESTION_FORMATS = [
   "pleQuestionJson",
-  "pleAlgorithmic",
   "webworkPg",
   "qti",
   "h5p",
@@ -131,22 +126,20 @@ export function decodeQuestionFormat(value: unknown, path: string): QuestionForm
   return decodeStringEnum(value, path, QUESTION_FORMATS);
 }
 
-/** Strict key-free Draft Question Preview shared by the local WASM boundary. */
+/** Strict key-free static PLE Question JSON Draft Question Preview. */
 export function decodeKeyFreeDraftPreview(
   value: unknown,
   path = "wasmPreview",
 ): {
   workspace: string;
-  seed: number;
   title: string;
   prompt: ReadonlyArray<QuestionContentBlock>;
   response: QuestionResponseFormat;
 } {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "seed", "title", "prompt", "response"]);
+  requireOnlyFields(record, path, ["workspace", "title", "prompt", "response"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeQuestionContentBlock(block, blockPath, true),
@@ -361,115 +354,6 @@ export function decodeDraftQuestionBackendFields(
   };
 }
 
-export function decodeGeneratorReference(
-  value: unknown,
-  path: string,
-  strict = false,
-): { id: string; version: string } {
-  const record = decodeRecord(value, path);
-  if (strict) {
-    requireOnlyFields(record, path, ["id", "version"]);
-  }
-  return {
-    id: decodeNonemptyString(field(record, "id", path), `${path}.id`),
-    version: decodeNonemptyString(field(record, "version", path), `${path}.version`),
-  };
-}
-
-export function decodeQuestionGeneratorParameter(
-  value: unknown,
-  path: string,
-  strict = false,
-): QuestionGeneratorParameter {
-  const record = decodeRecord(value, path);
-  const parameter = kind(record, path);
-  switch (parameter) {
-    case "integerRange": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "low", "high"]);
-      }
-      const decoded = {
-        kind: parameter,
-        low: decodeSafeInteger(field(record, "low", path), `${path}.low`),
-        high: decodeSafeInteger(field(record, "high", path), `${path}.high`),
-      } satisfies QuestionGeneratorParameter;
-      return decoded;
-    }
-    case "decimalRange": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "low", "high", "decimals"]);
-      }
-      const decoded = {
-        kind: parameter,
-        low: decodeFiniteNumber(field(record, "low", path), `${path}.low`),
-        high: decodeFiniteNumber(field(record, "high", path), `${path}.high`),
-        decimals: decodeNonnegativeInteger(field(record, "decimals", path), `${path}.decimals`),
-      } satisfies QuestionGeneratorParameter;
-      return decoded;
-    }
-    case "choice": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "options"]);
-      }
-      const decoded = {
-        kind: parameter,
-        options: decodeArray(field(record, "options", path), `${path}.options`, decodeString),
-      } satisfies QuestionGeneratorParameter;
-      return decoded;
-    }
-    case "fixed": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "value"]);
-      }
-      const decoded = {
-        kind: parameter,
-        value: decodeString(field(record, "value", path), `${path}.value`),
-      } satisfies QuestionGeneratorParameter;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known parameter specification");
-  }
-}
-
-export function decodeQuestionVariationRule(
-  value: unknown,
-  path: string,
-  strict = false,
-): QuestionVariationRule {
-  const record = decodeRecord(value, path);
-  const variationRule = kind(record, path);
-  switch (variationRule) {
-    case "static":
-      if (strict) {
-        requireOnlyFields(record, path, ["kind"]);
-      }
-      return { kind: variationRule };
-    case "seeded": {
-      if (strict) {
-        requireOnlyFields(record, path, ["kind", "generator", "parameters"]);
-      }
-      const decoded = {
-        kind: variationRule,
-        generator: decodeGeneratorReference(
-          field(record, "generator", path),
-          `${path}.generator`,
-          strict,
-        ),
-        parameters: decodeDictionary(
-          field(record, "parameters", path),
-          `${path}.parameters`,
-          (parameter, parameterPath) =>
-            decodeQuestionGeneratorParameter(parameter, parameterPath, strict),
-        ),
-      } satisfies QuestionVariationRule;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known Question Variation Rule");
-  }
-}
-
 export function decodeQuestionAttemptLimit(
   value: unknown,
   path: string,
@@ -612,7 +496,6 @@ const PUBLICATION_FIELDS = [
   "response",
   "questionAttemptLimit",
   "questionAttemptTimeLimit",
-  "questionVariationRule",
   "metadata",
 ] as const;
 
@@ -688,7 +571,6 @@ function decodeQuestionPublicationReviewSummary(
     "response",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationRule",
     "metadata",
   ]);
   const prompt = decodeRecord(field(record, "prompt", path), `${path}.prompt`);
@@ -723,11 +605,6 @@ function decodeQuestionPublicationReviewSummary(
       "present only for option-based responses",
     );
   }
-  const questionVariationRule = decodeRecord(
-    field(record, "questionVariationRule", path),
-    `${path}.questionVariationRule`,
-  );
-  requireOnlyFields(questionVariationRule, `${path}.questionVariationRule`, ["kind"]);
   const metadata = decodeRecord(field(record, "metadata", path), `${path}.metadata`);
   requireOnlyFields(metadata, `${path}.metadata`, [
     "questionDescription",
@@ -763,13 +640,6 @@ function decodeQuestionPublicationReviewSummary(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationRule: {
-      kind: decodeStringEnum(
-        field(questionVariationRule, "kind", `${path}.questionVariationRule`),
-        `${path}.questionVariationRule.kind`,
-        ["static", "seeded"],
-      ),
-    },
     metadata: {
       questionDescription: decodeNonemptyString(
         field(metadata, "questionDescription", `${path}.metadata`),

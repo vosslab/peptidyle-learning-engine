@@ -107,7 +107,7 @@ export function encodedId(value: string): string {
 }
 
 /**
- * Canonical same-origin transport dispatch for every browser API operation.
+ * Same-origin transport dispatch for every browser API operation.
  *
  * Mutation routes receive the browser's same-origin request context here; feature
  * clients add only their closed body and strong revision headers through
@@ -697,13 +697,13 @@ export function createRequestClient(
         decodeStudentFeedbackReleaseResponse,
         { method: "POST" },
       ),
-    validateResponseFormatOnServer: (definition, response) =>
+    validateResponseFormatOnServer: (responseFormat, response) =>
       requestJson(
         fetchImplementation,
         basePath,
         "/api/validation/response-format",
         decodeStudentResponseFormatCheck,
-        { method: "POST", body: { definition, response } },
+        { method: "POST", body: { responseFormat, response } },
       ),
     questionAttemptTimingDecisionOnServer: (evaluation) =>
       requestJson(

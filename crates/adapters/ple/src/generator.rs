@@ -1,17 +1,14 @@
-//! Extensible first-party Question Implementation contract (MOD-ADP-PLE).
+//! Static first-party Question Implementation contract.
 //!
 //! The adapter owns orchestration, reproducibility, and grading delegation.
 //! An implementation owns only the small piece that differs between PLE Question
-//! Questions: turning generated parameters into prompt blocks and a
-//! server-only answer key. Adding an implementation therefore does not change
-//! the engine, API, or browser contracts.
+//! Questions: validating static PLE Question JSON and deriving a server-only
+//! answer key.
 
-use domain::generator::QuestionVariationParameters;
 use grading::AnswerKey;
 use question_model::QuestionContentBlock;
 use question_model::QuestionVariationPresentation;
 use question_model::capability::QuestionBackendCapabilities;
-use question_model::generation::QuestionGeneratorReference;
 use question_model::question_content::DraftQuestionContent;
 use question_model::{
     GradingResult, QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionFormat,
@@ -34,36 +31,17 @@ pub struct AuthorPresentationContent {
     pub question_answer_explanation: Option<Vec<QuestionContentBlock>>,
 }
 
-/// Exact release of one PLE Question Implementation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PleQuestionImplementationRelease {
-    /// Stable PLE Question Implementation identifier.
-    pub id: String,
-    /// Implementation compatibility release.
-    pub version: String,
-}
-
-/// One versioned first-party Question Implementation.
+/// One static first-party Question Implementation.
 ///
 /// Implement this trait to add a PLE Question Implementation without editing backend
 /// dispatch, persistence, API routes, or the browser. Implementations must be
-/// deterministic functions of immutable Question Content and generated Question Variation Parameters.
+/// deterministic functions of immutable Question Content.
 pub trait PleQuestionImplementation: Send + Sync {
     /// Authored representation this implementation accepts.
     fn question_format(&self) -> QuestionFormat;
 
     /// Educational interaction this implementation accepts.
     fn question_type(&self) -> QuestionType;
-
-    /// Stable PLE Question Implementation name and exact release.
-    fn implementation_release(&self) -> PleQuestionImplementationRelease;
-
-    /// Exact additive Question Generator supported by this implementation.
-    ///
-    /// Static Question Implementations return `None`. A behavior change requires a new
-    /// generator version and a new Question Implementation kept alongside the
-    /// old one while published content references it.
-    fn generator(&self) -> Option<QuestionGeneratorReference>;
 
     /// Capabilities this implementation can honestly provide now.
     fn capabilities(&self) -> QuestionBackendCapabilities;
@@ -77,7 +55,6 @@ pub trait PleQuestionImplementation: Send + Sync {
     fn derive_answer_key(
         &self,
         question: &QuestionRevision,
-        generated: &QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, PleQuestionBackendError>;
 
     /// Builds separate private Question Feedback, Question Answer, and Question
@@ -88,7 +65,6 @@ pub trait PleQuestionImplementation: Send + Sync {
     fn derive_question_feedback_answer_and_explanation(
         &self,
         question: &QuestionRevision,
-        generated: &QuestionVariationParameters,
         presentation: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
         result: &GradingResult,
@@ -101,14 +77,7 @@ pub trait PleQuestionImplementation: Send + Sync {
         ),
         PleQuestionBackendError,
     > {
-        let _ = (
-            question,
-            generated,
-            presentation,
-            answer_key,
-            result,
-            response,
-        );
+        let _ = (question, presentation, answer_key, result, response);
         Ok((QuestionFeedback::default(), None, None))
     }
 
@@ -119,11 +88,10 @@ pub trait PleQuestionImplementation: Send + Sync {
     fn derive_hint(
         &self,
         question: &QuestionRevision,
-        generated: &QuestionVariationParameters,
         presentation: &QuestionVariationPresentation,
         answer_key: Option<&AnswerKey>,
     ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
-        let _ = (question, generated, presentation, answer_key);
+        let _ = (question, presentation, answer_key);
         Ok(None)
     }
 
@@ -136,10 +104,9 @@ pub trait PleQuestionImplementation: Send + Sync {
     fn derive_author_presentation(
         &self,
         question: &DraftQuestionContent,
-        generated: &QuestionVariationParameters,
         prompt: &[QuestionContentBlock],
     ) -> Result<Option<AuthorPresentationContent>, PleQuestionBackendError> {
-        let _ = (question, generated, prompt);
+        let _ = (question, prompt);
         Ok(None)
     }
 }

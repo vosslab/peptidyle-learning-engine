@@ -31,10 +31,10 @@ source-inspection coverage named in their rows.
 
 The simulator separates the keyboard contract into two independently failing lanes:
 
-| Evidence layer           | Keys and behavior                                                                                   | Failure classification                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Primary platform journey | Tab and Shift+Tab move focus; Space selects choices and activates buttons; Enter activates links    | Browser/platform accessibility regression    |
-| Widget extensions        | Enter-to-submit from a response input, Arrows, digits 1-9, and Escape operate their bounded widgets | PLE shortcut or composite-control regression |
+| Evidence layer                       | Keys and behavior                                                                                                      | Failure classification                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Primary platform journey             | Tab and Shift+Tab move focus; Space selects choices and activates buttons; Enter activates links                       | Browser/platform accessibility regression    |
+| Question Response Control extensions | Enter-to-submit from a response input, Arrows, digits 1-9, and Escape operate their bounded Question Response Controls | PLE shortcut or composite-control regression |
 
 The primary journey never uses an Arrow key, digit shortcut, response-input Enter, or Escape. A
 student can always reach the visible Submit answer action. Extension scenarios use production
@@ -53,7 +53,7 @@ response components, but their convenience does not become a prerequisite for an
 | Review and leave | Inspect results or return             | Tab to the visible action, Space | Assignment overview or new practice Assignment Attempt opens |
 
 The former built-mock browser scenario cited here is no longer present. Current focused executable
-evidence is the offline response-control, Student Feedback panel, and frontend-contract checks below.
+evidence is the offline Question Response Control, Student Feedback panel, and frontend-contract checks below.
 It does not execute a complete browser keyboard journey or establish end-to-end coverage for every
 Question Format.
 
@@ -70,13 +70,13 @@ Question Format.
 
 ## Findings and corrections
 
-| Severity | Baseline finding                                                                                                                                                         | Correction                                                                                                                                             | Status                          |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| High     | Every response on an Assignment Attempt summary page had a focusable `Stay on summary` button whose action did nothing. Thirty responses meant thirty useless Tab stops. | Read-only feedback omits the advance action. The completed Assignment Attempt surface now has one Back to assignment action outside the response list. | Fixed and tested                |
-| High     | Repeated feedback panels reused `feedback-panel-heading`, so several regions referenced the same DOM ID.                                                                 | Each panel now creates a unique heading ID and uses it for its own `aria-labelledby`.                                                                  | Fixed and tested with 30 panels |
-| Medium   | Multiple-answer checkboxes required Tab between every option and offered no arrow navigation.                                                                            | Arrow keys move focus among checkboxes without silently toggling them; Space retains standard selection behavior.                                      | Fixed and tested                |
-| Medium   | Ordering had keyboard-operable buttons but did not support the owner's requested arrow-key workflow or announce a move.                                                  | Visible controls retain their Tab-and-Space path; focused controls also accept Up/Down Arrow, retain focus, and announce the new position.             | Fixed and tested                |
-| Medium   | The built primary journey mixed native platform operation with Arrow selection and response-input Enter, so one failure could not identify its owner.                    | The primary journey now uses Tab, Shift+Tab, Space, explicit submission, and native links; each widget extension has an isolated scenario.             | Fixed and tested                |
+| Severity | Baseline finding                                                                                                                                                         | Correction                                                                                                                                                    | Status                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| High     | Every response on an Assignment Attempt summary page had a focusable `Stay on summary` button whose action did nothing. Thirty responses meant thirty useless Tab stops. | Read-only feedback omits the advance action. The completed Assignment Attempt surface now has one Back to assignment action outside the response list.        | Fixed and tested                |
+| High     | Repeated feedback panels reused `feedback-panel-heading`, so several regions referenced the same DOM ID.                                                                 | Each panel now creates a unique heading ID and uses it for its own `aria-labelledby`.                                                                         | Fixed and tested with 30 panels |
+| Medium   | Multiple-answer checkboxes required Tab between every option and offered no arrow navigation.                                                                            | Arrow keys move focus among checkboxes without silently toggling them; Space retains standard selection behavior.                                             | Fixed and tested                |
+| Medium   | Ordering had keyboard-operable buttons but did not support the owner's requested arrow-key workflow or announce a move.                                                  | Visible controls retain their Tab-and-Space path; focused controls also accept Up/Down Arrow, retain focus, and announce the new position.                    | Fixed and tested                |
+| Medium   | The built primary journey mixed native platform operation with Arrow selection and response-input Enter, so one failure could not identify its owner.                    | The primary journey now uses Tab, Shift+Tab, Space, explicit submission, and native links; each Question Response Control extension has an isolated scenario. | Fixed and tested                |
 
 The summary cleanup follows WCAG 2.2 focus-order guidance, which recommends avoiding focusable
 elements that cannot be operated or actioned. The radio behavior follows the WAI-ARIA Authoring
@@ -86,14 +86,14 @@ Practices convention for Tab into a group and arrow movement inside it
 
 ## Accessibility Guideline Checklist
 
-| Task need                            | Guideline                          | Acceptance criterion                                                                                                                | Evidence                                                                     | Status                                    |
-| ------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
-| Operate everything without a pointer | WCAG 2.2 SC 2.1.1 Keyboard         | The complete primary journey works through visible platform controls without requiring a widget shortcut                            | Built mock platform journey, live WebWork, and source inspection             | Pass for recorded evidence scope          |
-| Use efficient optional controls      | WCAG 2.2 SC 2.1.1 Keyboard         | Arrow, digit, Enter-to-submit, and Escape behavior is scoped and fails independently of the primary path                            | Offline response-control tests and source inspection                         | Partial; connected browser evidence unrun |
-| Leave widgets and embedded work      | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a question response control; provider frame uses ordinary iframe navigation              | Offline response-control and Student Feedback panel tests; source inspection | Partial; connected browser evidence unrun |
-| Encounter controls in task order     | WCAG 2.2 SC 2.4.3 Focus Order      | Tab follows reading/task order and skips no-op history controls                                                                     | Built mock journey and 30-panel summary assertion                            | Pass for recorded evidence scope          |
-| See the focused control              | WCAG 2.2 SC 2.4.7 Focus Visible    | Every focusable PLE control uses the global visible focus treatment; response cards expose the indicator around the complete target | `src/style.css`, existing palette audit, browser focus assertions            | Pass for audited controls                 |
-| Understand composite controls        | WAI-ARIA APG keyboard conventions  | Radio arrows select; checkbox arrows move focus; order arrows move the item; visible buttons remain available                       | Offline response-control tests and source inspection                         | Partial; connected browser evidence unrun |
+| Task need                                          | Guideline                          | Acceptance criterion                                                                                                                | Evidence                                                                              | Status                                    |
+| -------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Operate everything without a pointer               | WCAG 2.2 SC 2.1.1 Keyboard         | The complete primary journey works through visible platform controls without requiring a Question Response Control shortcut         | Built mock platform journey, live WebWork, and source inspection                      | Pass for recorded evidence scope          |
+| Use efficient optional controls                    | WCAG 2.2 SC 2.1.1 Keyboard         | Arrow, digit, Enter-to-submit, and Escape behavior is scoped and fails independently of the primary path                            | Offline Question Response Control tests and source inspection                         | Partial; connected browser evidence unrun |
+| Leave Question Response Controls and embedded work | WCAG 2.2 SC 2.1.2 No Keyboard Trap | Tab continues past controls; Escape leaves a Question Response Control; provider frame uses ordinary iframe navigation              | Offline Question Response Control and Student Feedback panel tests; source inspection | Partial; connected browser evidence unrun |
+| Encounter controls in task order                   | WCAG 2.2 SC 2.4.3 Focus Order      | Tab follows reading/task order and skips no-op history controls                                                                     | Built mock journey and 30-panel summary assertion                                     | Pass for recorded evidence scope          |
+| See the focused control                            | WCAG 2.2 SC 2.4.7 Focus Visible    | Every focusable PLE control uses the global visible focus treatment; response cards expose the indicator around the complete target | `src/style.css`, existing palette audit, browser focus assertions                     | Pass for audited controls                 |
+| Understand composite controls                      | WAI-ARIA APG keyboard conventions  | Radio arrows select; checkbox arrows move focus; order arrows move the item; visible buttons remain available                       | Offline Question Response Control tests and source inspection                         | Partial; connected browser evidence unrun |
 
 WCAG 2.2 requires functionality to be keyboard operable and keyboard focus to be visible
 ([WCAG 2.2](https://www.w3.org/TR/WCAG22/)). The repository keeps a separate measured color record in
@@ -104,18 +104,18 @@ measurements.
 
 Scores use 0 for a critical problem and 4 for no material issue in this keyboard-focused scope.
 
-| Nielsen heuristic               | Before | After | Evidence for change                                                                |
-| ------------------------------- | -----: | ----: | ---------------------------------------------------------------------------------- |
-| Visibility of system status     |      3 |     4 | Ordered moves now have a polite position announcement                              |
-| Match with the real world       |      4 |     4 | Visible Up/Down labels remain the primary ordering vocabulary                      |
-| User control and freedom        |      3 |     4 | Platform keys complete the primary path; shortcuts remain optional                 |
-| Consistency and standards       |      3 |     4 | Native radio/button behavior is preserved and APG arrow conventions are explicit   |
-| Error prevention                |      4 |     4 | Disabled/pending controls and local format validation remain intact                |
-| Recognition over recall         |      3 |     4 | Instructions state the platform action before optional widget shortcuts            |
-| Flexibility and efficiency      |      2 |     4 | Arrow movement avoids repeated Tab presses while visible controls remain available |
-| Aesthetic and minimalist design |      2 |     4 | Per-response no-op summary actions were removed                                    |
-| Error recognition and recovery  |      4 |     4 | Existing retry and preserved-response paths remain keyboard-operable               |
-| Help and documentation          |      3 |     4 | The response-widget and Question Type contract evidence is now recorded here       |
+| Nielsen heuristic               | Before | After | Evidence for change                                                                        |
+| ------------------------------- | -----: | ----: | ------------------------------------------------------------------------------------------ |
+| Visibility of system status     |      3 |     4 | Ordered moves now have a polite position announcement                                      |
+| Match with the real world       |      4 |     4 | Visible Up/Down labels remain the primary ordering vocabulary                              |
+| User control and freedom        |      3 |     4 | Platform keys complete the primary path; shortcuts remain optional                         |
+| Consistency and standards       |      3 |     4 | Native radio/button behavior is preserved and APG arrow conventions are explicit           |
+| Error prevention                |      4 |     4 | Disabled/pending controls and local format validation remain intact                        |
+| Recognition over recall         |      3 |     4 | Instructions state the platform action before optional Question Response Control shortcuts |
+| Flexibility and efficiency      |      2 |     4 | Arrow movement avoids repeated Tab presses while visible controls remain available         |
+| Aesthetic and minimalist design |      2 |     4 | Per-response no-op summary actions were removed                                            |
+| Error recognition and recovery  |      4 |     4 | Existing retry and preserved-response paths remain keyboard-operable                       |
+| Help and documentation          |      3 |     4 | The Question Response Control and Question Type contract evidence is now recorded here     |
 
 ## Validation
 
@@ -128,7 +128,7 @@ node --import tsx --test \
   tests/test_frontend_contract.mjs
 ```
 
-These focused offline checks cover response-control behavior, Student Feedback announcements, and
+These focused offline checks cover Question Response Control behavior, Student Feedback announcements, and
 frontend route/session contracts. They remain permanent behavior tests under
 `docs/PYTEST_STYLE.md`, but they do not claim mounted browser, axe, or complete keyboard-journey
 acceptance.

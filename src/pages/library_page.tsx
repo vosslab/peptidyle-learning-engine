@@ -4,18 +4,15 @@ import { A } from "@solidjs/router";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
-import { QuestionCurationPanel } from "../features/question_curation/question_curation_panel";
-import type { QuestionCurationRepository } from "../features/question_curation/question_curation_model";
-import type { QuestionPickerSourceRepository } from "../features/question_picker";
 import "./library_page.css";
 import {
-  EMPTY_QUESTION_SEARCH_QUERY,
-  QuestionSearchSession,
-  questionSearchVirtualWindow,
-  type QuestionLibraryRepository,
-  type QuestionSearchQuery,
-  type QuestionSearchResult,
-  type QuestionSearchState,
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  QuestionLibraryBrowseSession,
+  questionLibraryBrowseVirtualWindow,
+  type QuestionLibraryBrowseRepository,
+  type QuestionLibraryBrowseQuery,
+  type QuestionLibraryBrowseRow,
+  type QuestionLibraryBrowseState,
 } from "./library_page_model";
 
 /* Each virtual row reserves room for a title, two-line summary, and Question Authors.
@@ -26,7 +23,7 @@ const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFra
 const wholeNumber = new Intl.NumberFormat("en-US");
 const decimalNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
-function questionLink(row: QuestionSearchResult): string {
+function questionLink(row: QuestionLibraryBrowseRow): string {
   return `/library/${encodeURIComponent(row.displayId)}`;
 }
 
@@ -54,9 +51,9 @@ function backendLabel(value: string): string {
   return labels[value] ?? value;
 }
 
-function QuestionStatisticsPreview(props: { readonly row: QuestionSearchResult }): JSX.Element {
+function QuestionStatisticsPreview(props: { readonly row: QuestionLibraryBrowseRow }): JSX.Element {
   const availableEvidence = ():
-    Extract<QuestionSearchResult["evidence"], { readonly state: "available" }> | undefined =>
+    Extract<QuestionLibraryBrowseRow["evidence"], { readonly state: "available" }> | undefined =>
     props.row.evidence.state === "available" ? props.row.evidence : undefined;
   return (
     <p class="question-library-row-evidence" aria-label="Learning evidence">
@@ -78,16 +75,15 @@ function QuestionStatisticsPreview(props: { readonly row: QuestionSearchResult }
 }
 
 export interface LibraryPageProps {
-  readonly repository: QuestionLibraryRepository;
-  readonly curation: QuestionCurationRepository;
-  readonly pickerRepository: QuestionPickerSourceRepository;
-  readonly mayMutatePersonalCuration: boolean;
+  readonly repository: QuestionLibraryBrowseRepository;
 }
 
 /** Question Library UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
-  const [query, setQuery] = createSignal<QuestionSearchQuery>(EMPTY_QUESTION_SEARCH_QUERY);
-  const [state, setState] = createSignal<QuestionSearchState>({
+  const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
+    EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  );
+  const [state, setState] = createSignal<QuestionLibraryBrowseState>({
     kind: "loading",
     rows: [],
     aggregates: [],
@@ -96,9 +92,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
   const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
-  const session = new QuestionSearchSession(props.repository, setState);
+  const session = new QuestionLibraryBrowseSession(props.repository, setState);
 
-  const ready = (): Extract<QuestionSearchState, { readonly kind: "ready" }> | undefined => {
+  const ready = (): Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }> | undefined => {
     const current = state();
     return current.kind === "ready" ? current : undefined;
   };
@@ -123,15 +119,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.facet === facet);
   };
-  const displayedRows = (): ReadonlyArray<QuestionSearchResult> => {
+  const displayedRows = (): ReadonlyArray<QuestionLibraryBrowseRow> => {
     const current = state();
     return current.kind === "empty" ? [] : current.rows;
   };
   const virtualWindow = (): Readonly<{
     readonly offset: number;
-    readonly rows: ReadonlyArray<QuestionSearchResult>;
+    readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
   }> =>
-    questionSearchVirtualWindow(
+    questionLibraryBrowseVirtualWindow(
       displayedRows(),
       scrollTop(),
       viewportHeight(),
@@ -139,7 +135,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       OVERSCAN_ROWS,
     );
 
-  function changeQuery(change: Partial<QuestionSearchQuery>): void {
+  function changeQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
     const next = { ...query(), ...change };
     setQuery(next);
     setScrollTop(0);
@@ -317,13 +313,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
       </form>
-      <QuestionCurationPanel
-        repository={props.curation}
-        pickerRepository={props.pickerRepository}
-        query={query}
-        applyQuery={changeQuery}
-        mayMutatePersonalCuration={props.mayMutatePersonalCuration}
-      />
       <Show when={state().kind === "error"}>
         <section class="route-error" role="alert">
           <h2>The library could not load</h2>

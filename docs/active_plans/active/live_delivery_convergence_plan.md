@@ -2,8 +2,8 @@
 
 ## Status and authority
 
-WP-INST-LD3 was accepted on 2026-08-24. It established the live demo as the canonical product and
-acceptance path over ordinary assignments, Assignment Attempts, grading, evidence, and Instructor
+WP-INST-LD3 was accepted on 2026-08-24. It established the live demo product-validation journey and
+production HTTPS browser suite for ordinary assignments, Assignment Attempts, grading, evidence, and Instructor
 inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
 product behavior,
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
@@ -21,7 +21,7 @@ PLE has one assignment-execution model:
 - Browser contracts contain the visible question and response shape needed for interaction while
   Answer Key data and Question Grader code remain server-owned.
 - The disposable HTTPS production stack creates and mutates ordinary PLE data through visible
-  workflows and supplies canonical browser acceptance.
+  workflows and supplies the live-demo product-validation journey.
 
 Preview remains the accepted WP-INST-T3 live computation over ordinary course policy. It explains
 effective state and Assignment Policy Source. Delivery validation uses ordinary Student work, so evidence from
@@ -62,9 +62,9 @@ Read operations use snapshot reads. Mutations lock and verify their complete aut
 owning protected database operation. Server composition routes every operation through the narrow
 authority that owns it.
 
-### Canonical evidence path
+### Live-demo product-validation evidence path
 
-The connected acceptance path uses one disposable HTTPS production stack. Instructor workflows
+The live-demo product-validation journey uses one disposable HTTPS production stack. Instructor workflows
 create the course, assignment, policies, and roster state through visible UI actions. Student
 workflows create Assignment Attempts and submissions through the visible Student UI. Instructor pages then show
 the resulting grade settings, gradebook, and audited student-work evidence. Narrow backend setup is
@@ -76,7 +76,7 @@ WP-INST-LD3 depends on accepted WP-INST-T3 and the accepted student-delivery and
 foundations. It is a convergence package, so discovery, collections, curricula, and grading
 operations continue to use their existing package identities and dependency order.
 
-WP-INST-T5 accepted its item-pool productization on the canonical live path. The active Instructor
+WP-INST-T5 accepted its item-pool productization through the live-demo product-validation journey. The active Instructor
 handoff is recorded only in [implementation_status.md](../implementation_status.md).
 
 ## Validation
@@ -89,8 +89,9 @@ Focused implementation evidence:
 3. A fresh PostgreSQL cluster applies the final migration sequence and passes assignment mutation,
    Course Membership and Student Accommodation, student issuance/submission/replay, teaching authority, grade settings,
    and scoring authority tests with exact least-privilege roles and forced RLS.
-4. The canonical production HTTPS browser suite exercises authoring, preview, student delivery,
-   deterministic grading, grade settings, and Instructor review on ordinary live state.
+4. The production HTTPS browser suite, run through `./run_playwright_tests.sh --build`, exercises
+   authoring, preview, student delivery, deterministic grading, grade settings, and Instructor review
+   on ordinary live state.
 5. The WebWork service and replica-restart oracles pass against the same product topology.
 6. The connected browser lane starts as an anonymous visitor, visibly enters each seeded role including Sysadmin,
    and verifies that account, session, course, membership, role, and authorization are resolved by the server from

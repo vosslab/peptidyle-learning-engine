@@ -142,9 +142,9 @@ fn public_mapping_deterministic_encoding_and_checksum_are_golden() {
         schema: "public-mapping",
         value: &public_mapping,
     })
-    .expect("canonical encoding");
+    .expect("deterministic checksum encoding");
     assert_eq!(
-        std::str::from_utf8(&bytes).expect("canonical JSON is UTF-8"),
+        std::str::from_utf8(&bytes).expect("deterministic JSON is UTF-8"),
         "{\"schema\":\"public-mapping\",\"value\":{\"source_location\":\"canvas_qti12_questions/one.xml\",\"source_identifier\":\"question-1\",\"title\":\"Favorite color\",\"prompt_markdown\":\"What is your favorite color?\",\"choices\":[{\"ple_choice_id\":\"blue\",\"text_markdown\":\"Blue\"}],\"points\":\"1\",\"defaults\":[],\"warnings\":[]}}"
     );
     assert_eq!(

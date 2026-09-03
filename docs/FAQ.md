@@ -23,7 +23,7 @@ grades, and delivery settings. It is the only course type that receives student 
 
 Course creation chooses an existing published Blueprint Course or first creates a minimal new
 Blueprint Course. The UI then creates the Course Instance with its own teaching title, term, and
-IANA time zone. The instance receives reusable definitions and reviewed relative schedule offsets,
+IANA time zone. The instance receives reusable Blueprint Revision Content and reviewed relative schedule offsets,
 then resolves live dates against its term. Students, invitations, grades, and other delivery state
 are never copied from another instance.
 
@@ -103,7 +103,7 @@ format, so vendor XML and QTI expression trees do not become PLE's internal sche
 No. PLE is the sole WeBWorK client. The renderer is private; the browser calls PLE through its
 same-origin gateway. The current integration is limited to the four reviewed Genetics and
 Biochemistry Chapter 1 PGML sources: two multiple-choice and two matching questions, with matching
-partial credit bound to each exact source digest. Broader compatibility and unreviewed PG controls
+partial credit bound to each exact Source Object Checksum. Broader compatibility and unreviewed PG controls
 remain future work. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
@@ -118,9 +118,10 @@ assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_S
 
 ## How do students sign in?
 
-PLE Accounts use stable opaque Account IDs and one immutable Product Role. Sysadmin Account Creation
-creates an Account; email-code authentication restores an existing Account, and passkeys are
-optional additional credentials for that same Account. The ordinary email-code and passkey browser
+PLE Accounts use stable opaque Account IDs and one immutable Product Role. A Sysadmin uses
+Create Instructor Account with a normalized email address to create one active Account with the
+fixed Instructor Product Role; email-code authentication restores an existing Account, and passkeys
+are optional additional credentials for that same Account. The ordinary email-code and passkey browser
 adapters are being reconstructed on the canonical Authenticated Session foundation. The current
 Live Demo uses its visible seeded Account selector. An Instructor can create a one-time Course
 Invitation link for an existing Account through a trusted course channel or configured SMTP. The
@@ -131,9 +132,8 @@ implementation-status registry is the source for what has been verified in a dep
 ## Is PLE ready for production?
 
 Not yet. PLE is still pre-production. The live demo is a functional, disposable installation, but
-it is not release acceptance. `WP-INST-G1` is accepted; `WP-INST-G2` remains acceptance-open behind
-the current naming and visual/documentation close-out, and `WP-RC8` remains acceptance-open for its
-provider, mailbox, passkey, multi-replica, security, HCI, and release gates. See
+it is not release acceptance. The automated-grading operation boundary is accepted; student-work inspection and grade-scheme-aware Gradebook work remain acceptance-open behind
+the current naming and visual/documentation close-out. Provider, mailbox, passkey, multi-replica, security, HCI, and release gates also remain open. See
 [implementation_status.md](active_plans/implementation_status.md) and [release completion plan](active_plans/active/release_completion_plan.md).
 
 ## Is the live demo read-only?
@@ -204,7 +204,7 @@ session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS
 A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
 question revision, seed, timing state, and grading backend. The browser therefore sends only that
 attempt's route identity, an idempotency key, and the student's answer. Presentation checksums and
-compact rendered-item IDs detect a stale or mismatched display; they are consistency checks, not
+compact Presentation Response Item References detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
 ## Where should a contributor record a durable decision?

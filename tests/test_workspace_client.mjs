@@ -44,7 +44,6 @@ function questionPublicationReviewCurrent(content) {
     response: { kind: response.kind, optionCount },
     questionAttemptLimit: content.questionAttemptLimit,
     questionAttemptTimeLimit: content.questionAttemptTimeLimit,
-    questionVariationRule: { kind: content.questionVariationRule.kind },
     metadata: {
       questionDescription: content.metadata.questionDescription,
       tags: content.metadata.tags,

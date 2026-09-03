@@ -24,7 +24,7 @@ shift
 runtime_manifest="$2"
 workspace="$(pwd -P)"
 runtime_manifest_path="$workspace/$runtime_manifest"
-sd1_runtime_manifest_path="$workspace/sd1/runtime.yaml"
+postgres_migration_acceptance_runtime_manifest_path="$workspace/postgres_migration_acceptance/runtime.yaml"
 compose_started=0
 
 readonly database_name="ple_e2e_baseline"
@@ -95,10 +95,10 @@ run_project_tools() {
 	)
 }
 
-run_staged_project_tools() {
+run_postgres_migration_acceptance_project_tools() {
 	(
 		cd "$workspace"
-		PLE_ACCEPTANCE_RUNTIME_MANIFEST="$sd1_runtime_manifest_path" \
+		PLE_ACCEPTANCE_RUNTIME_MANIFEST="$postgres_migration_acceptance_runtime_manifest_path" \
 			cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
 			database "$@" --acceptance-runtime
 	)
@@ -145,7 +145,7 @@ CREATE DATABASE ple_e2e_baseline OWNER ple_database_owner;
 SQL
 (
 	cd "$REPO_ROOT"
-	python3 -m local_stack_control.runtime_manifest --emit-sd1-staged-bootstrap "$workspace"
+	python3 -m local_stack_control.runtime_manifest --emit-migration-acceptance-bootstrap "$workspace"
 ) | compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database"
 compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" -c \
 	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $database_name FROM PUBLIC; GRANT CONNECT ON DATABASE $database_name TO ple_migrator"
@@ -153,15 +153,15 @@ compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$da
 	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
 
 echo "course appearance E2E: applying and verifying the accepted migration set"
-run_staged_project_tools sd1-staged-migrate
-run_staged_project_tools sd1-staged-verify
+run_postgres_migration_acceptance_project_tools migration-acceptance-migrate
+run_postgres_migration_acceptance_project_tools migration-acceptance-verify
 
 echo "course appearance E2E: MinIO object-store conformance"
 run_live_cargo_test "MinIO object-store conformance" cargo test -p objects --features s3 \
 	--test conformance minio_object_store_conforms -- --ignored --exact --test-threads=1
 
 echo "course appearance E2E: typed banner object contract"
-# The fresh SD1 schema intentionally has no course-appearance current-pointer
+# The fresh PostgreSQL schema intentionally has no course-appearance current-pointer
 # capability yet.  `minio_object_store_conforms` exercises the candidate and
 # current Course Banner object addresses against real MinIO; the future
 # database-backed promotion and cleanup oracle belongs with that capability.

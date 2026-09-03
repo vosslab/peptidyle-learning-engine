@@ -1,4 +1,4 @@
-"""Offline behavioral contracts for the typed WP-PY-L1 lifecycle core."""
+"""Local Stack Controller lifecycle core behavioral contracts."""
 
 import dataclasses
 import os

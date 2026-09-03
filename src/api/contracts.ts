@@ -1,4 +1,4 @@
-// contracts.ts - browser-safe DTOs at the transport boundary (MOD-CLIENT).
+// contracts.ts - browser-safe DTOs at the application transport boundary.
 
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
@@ -12,11 +12,11 @@ import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptI
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
-import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
 import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSummary";
@@ -27,7 +27,7 @@ import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLi
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
-import type { AccountRole } from "../../generated/api/AccountRole";
+import type { ProductRole } from "../../generated/api/ProductRole";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
@@ -161,7 +161,7 @@ export interface AuthenticatedSession {
   readonly authenticated: true;
   readonly account: {
     readonly id: AccountId;
-    readonly role: AccountRole;
+    readonly productRole: ProductRole;
   };
 }
 
@@ -173,14 +173,14 @@ export interface SignedOutResponse {
 /** Student Question Attempt View with the current server-owned score freshness gate. */
 export interface StudentQuestionAttempt extends StudentQuestionAttemptView {
   readonly assignmentScoringState: AssignmentScoringState;
-  /** Null for a fixed item; a safe ordinal explanation for one server-selected pool item. */
+  /** Null for a Fixed Question Assignment Entry; otherwise the safe selected-Question position. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
 }
 
 /** Browser-safe ordinal position within one server-owned Question Pool Selection. */
 export interface QuestionPoolSelectionPosition {
-  readonly itemNumber: number;
-  readonly itemCount: number;
+  readonly selectedQuestionNumber: number;
+  readonly selectedQuestionCount: number;
 }
 
 /**
@@ -246,7 +246,7 @@ export type QuestionSubmissionAcknowledgement =
 export interface NextIssuedAttempt {
   readonly id: QuestionAttemptId;
   readonly issuedQuestion: StudentIssuedQuestion;
-  readonly seed: number;
+  readonly question_seed: number;
   readonly deadline: number | null;
   readonly renderedQuestionSha256: string;
 }
@@ -255,11 +255,11 @@ export interface NextIssuedAttempt {
 export interface PrefetchedNextQuestion {
   readonly predecessor: QuestionAttemptId;
   readonly issuedQuestion: StudentIssuedQuestion;
-  readonly seed: number;
+  readonly question_seed: number;
   readonly renderedQuestionSha256: string;
   /** Same safe Question Pool Selection Position used when this cached successor becomes current. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
-  readonly presentation: QuestionVariationPresentation;
+  readonly presentation: QuestionPresentation;
 }
 
 /** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */
@@ -277,7 +277,7 @@ export interface AssignmentAttemptSummaryResponse {
   readonly course: CourseRouteView;
   readonly assignmentAttempt: AssignmentAttempt;
   /** Server-derived student progress, never a policy, clock, or Student Record identifier. */
-  readonly summary: AssignmentProgress;
+  readonly summary: StudentAssignmentProgress;
   readonly outcomes: CursorPage<AssignmentAttemptSummaryOutcome>;
 }
 
@@ -332,7 +332,6 @@ export interface QuestionPublicationReview {
     | "response"
     | "questionAttemptLimit"
     | "questionAttemptTimeLimit"
-    | "questionVariationRule"
     | "metadata"
   >;
 }
@@ -348,7 +347,6 @@ export interface QuestionPublicationReviewSummary {
   };
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly questionVariationRule: { readonly kind: "static" | "seeded" };
   readonly metadata: {
     readonly questionDescription: string;
     readonly tags: ReadonlyArray<string>;
@@ -394,8 +392,8 @@ export interface AssignmentAttemptScreenData {
   readonly assignment: StudentAssignmentLandingSummary;
   readonly assignmentAttempt: AssignmentAttempt;
   readonly attempt: StudentQuestionAttempt;
-  /** Server-regenerated, key-free variant bound to this issued attempt. */
-  readonly issuedQuestion: QuestionVariationPresentation;
+  /** Server-regenerated, key-free delivery bound to this issued attempt. */
+  readonly issuedQuestion: QuestionPresentation;
 }
 
 /** Assignment Attempt identity alias used where a return value is clearer than a full DTO. */

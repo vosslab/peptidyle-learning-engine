@@ -1,6 +1,7 @@
 // Assignment Attempt, gradebook, and validation decoders.
 
 import type { AssignmentProgressRecord } from "../../../generated/api/AssignmentProgressRecord";
+import type { AssignmentGrade } from "../../../generated/api/AssignmentGrade";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { AssignmentAttemptRouteReference } from "../../navigation/public_route";
 import { parseAssignmentAttemptReference } from "../../navigation/public_route";
@@ -22,9 +23,11 @@ import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapability } from "../../../generated/api/IssuedAttemptCapability";
 import type { StudentQuestionAttemptView } from "../../../generated/api/StudentQuestionAttemptView";
 import type { QuestionSubmission } from "../../../generated/api/QuestionSubmission";
+import type { StudentAssignmentProgress } from "../../../generated/api/StudentAssignmentProgress";
 import type { AssignmentProgress } from "../../../generated/api/AssignmentProgress";
+import type { StudentAssignmentGrade } from "../../../generated/api/StudentAssignmentGrade";
 import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
-import type { AssignmentProgressScoreState } from "../../../generated/api/AssignmentProgressScoreState";
+import type { AssignmentGradeScoreState } from "../../../generated/api/AssignmentGradeScoreState";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import type {
   AuthenticatedSession,
@@ -99,7 +102,7 @@ const ASSIGNMENT_SCORING_STATES = [
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
   "issuedQuestion",
-  "seed",
+  "question_seed",
   "submission",
   "state",
   "timing",
@@ -173,7 +176,10 @@ export function decodeStudentQuestionAttemptView(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
+    question_seed: decodeNonnegativeInteger(
+      field(record, "question_seed", path),
+      `${path}.question_seed`,
+    ),
     submission: decodeNullable(
       field(record, "submission", path),
       `${path}.submission`,
@@ -269,12 +275,21 @@ function decodeQuestionPoolSelectionPosition(
 ): QuestionPoolSelectionPosition | null {
   if (value === null) return null;
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["itemNumber", "itemCount"]);
-  const itemNumber = decodePositiveInteger(field(record, "itemNumber", path), `${path}.itemNumber`);
-  const itemCount = decodePositiveInteger(field(record, "itemCount", path), `${path}.itemCount`);
-  if (itemNumber > itemCount)
-    throw new DecodeError(path, "a pool item number no greater than its item count");
-  return { itemNumber, itemCount };
+  requireOnlyFields(record, path, ["selectedQuestionNumber", "selectedQuestionCount"]);
+  const selectedQuestionNumber = decodePositiveInteger(
+    field(record, "selectedQuestionNumber", path),
+    `${path}.selectedQuestionNumber`,
+  );
+  const selectedQuestionCount = decodePositiveInteger(
+    field(record, "selectedQuestionCount", path),
+    `${path}.selectedQuestionCount`,
+  );
+  if (selectedQuestionNumber > selectedQuestionCount)
+    throw new DecodeError(
+      path,
+      "a selected Question number no greater than its selected Question count",
+    );
+  return { selectedQuestionNumber, selectedQuestionCount };
 }
 
 export function decodeAssignmentAttempt(value: unknown, path = "response"): AssignmentAttempt {
@@ -400,46 +415,80 @@ export function decodeAssignmentProgressRecord(
 ): AssignmentProgressRecord {
   const record = decodeRecord(value, path);
   const decoded = {
-    studentRecord: decodeIdentifier(field(record, "studentRecord", path), `${path}.studentRecord`),
+    student_record: decodeIdentifier(
+      field(record, "student_record", path),
+      `${path}.student_record`,
+    ),
     assignment: decodeIdentifier(field(record, "assignment", path), `${path}.assignment`),
-    currentScore: decodeNullable(
-      field(record, "currentScore", path),
-      `${path}.currentScore`,
-      decodeFiniteNumber,
+    completed_assignment_attempt_count: decodeNonnegativeInteger(
+      field(record, "completed_assignment_attempt_count", path),
+      `${path}.completed_assignment_attempt_count`,
     ),
-    bestScore: decodeNullable(
-      field(record, "bestScore", path),
-      `${path}.bestScore`,
-      decodeFiniteNumber,
+    total_question_attempts: decodeNonnegativeInteger(
+      field(record, "total_question_attempts", path),
+      `${path}.total_question_attempts`,
     ),
-    latestScore: decodeNullable(
-      field(record, "latestScore", path),
-      `${path}.latestScore`,
-      decodeFiniteNumber,
-    ),
-    completedAssignmentAttemptCount: decodeNonnegativeInteger(
-      field(record, "completedAssignmentAttemptCount", path),
-      `${path}.completedAssignmentAttemptCount`,
-    ),
-    totalQuestionAttempts: decodeNonnegativeInteger(
-      field(record, "totalQuestionAttempts", path),
-      `${path}.totalQuestionAttempts`,
-    ),
-    lastActivityAt: decodeNullable(
-      field(record, "lastActivityAt", path),
-      `${path}.lastActivityAt`,
+    last_activity_at: decodeNullable(
+      field(record, "last_activity_at", path),
+      `${path}.last_activity_at`,
       decodeTimestamp,
     ),
   } satisfies AssignmentProgressRecord;
   return decoded;
 }
 
+export function decodeAssignmentGrade(value: unknown, path = "response"): AssignmentGrade {
+  const record = decodeRecord(value, path);
+  return {
+    student_record: decodeIdentifier(
+      field(record, "student_record", path),
+      `${path}.student_record`,
+    ),
+    assignment: decodeIdentifier(field(record, "assignment", path), `${path}.assignment`),
+    first_completed_at: decodeNullable(
+      field(record, "first_completed_at", path),
+      `${path}.first_completed_at`,
+      decodeTimestamp,
+    ),
+    current_assignment_attempt: decodeNullable(
+      field(record, "current_assignment_attempt", path),
+      `${path}.current_assignment_attempt`,
+      decodeIdentifier,
+    ),
+    current_score: decodeNullable(
+      field(record, "current_score", path),
+      `${path}.current_score`,
+      decodeFiniteNumber,
+    ),
+    best_assignment_attempt: decodeNullable(
+      field(record, "best_assignment_attempt", path),
+      `${path}.best_assignment_attempt`,
+      decodeIdentifier,
+    ),
+    best_score: decodeNullable(
+      field(record, "best_score", path),
+      `${path}.best_score`,
+      decodeFiniteNumber,
+    ),
+    latest_assignment_attempt: decodeNullable(
+      field(record, "latest_assignment_attempt", path),
+      `${path}.latest_assignment_attempt`,
+      decodeIdentifier,
+    ),
+    latest_score: decodeNullable(
+      field(record, "latest_score", path),
+      `${path}.latest_score`,
+      decodeFiniteNumber,
+    ),
+  } satisfies AssignmentGrade;
+}
+
 /**
- * Decodes the Student-only Student Assignment Progress. Unlike the storage summary,
+ * Decodes the Student-only disclosed Assignment Grade. Unlike the storage record,
  * this exact wire contract has no account or enrollment identifiers and sends no
  * score totals unless the current assignment settings permit their disclosure.
  */
-export function decodeAssignmentProgress(value: unknown, path = "response"): AssignmentProgress {
+function decodeStudentAssignmentGrade(value: unknown, path: string): StudentAssignmentGrade {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "score_state",
@@ -447,16 +496,13 @@ export function decodeAssignmentProgress(value: unknown, path = "response"): Ass
     "current_score",
     "best_score",
     "latest_score",
-    "completed_assignment_attempt_count",
-    "total_question_attempts",
-    "last_activity_at",
     "class_statistics",
   ]);
   const scoreState = decodeStringEnum(field(record, "score_state", path), `${path}.score_state`, [
     "no_activity",
     "withheld",
     "available",
-  ] as const satisfies ReadonlyArray<AssignmentProgressScoreState>);
+  ] as const satisfies ReadonlyArray<AssignmentGradeScoreState>);
   const classStatistics = Object.prototype.hasOwnProperty.call(record, "class_statistics")
     ? decodeStudentClassStatistics(record["class_statistics"], `${path}.class_statistics`)
     : undefined;
@@ -482,6 +528,23 @@ export function decodeAssignmentProgress(value: unknown, path = "response"): Ass
       `${path}.latest_score`,
       decodeFiniteNumber,
     ),
+    ...(classStatistics === undefined ? {} : { class_statistics: classStatistics }),
+  } satisfies StudentAssignmentGrade;
+  const scores = [decoded.current_score, decoded.best_score, decoded.latest_score];
+  if (decoded.score_state !== "available" && scores.some((score) => score !== null)) {
+    throw new DecodeError(`${path}.score_state`, "no score totals before scores are available");
+  }
+  return decoded;
+}
+
+function decodeAssignmentProgressActivity(value: unknown, path: string): AssignmentProgress {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "completed_assignment_attempt_count",
+    "total_question_attempts",
+    "last_activity_at",
+  ]);
+  return {
     completed_assignment_attempt_count: decodeNonnegativeInteger(
       field(record, "completed_assignment_attempt_count", path),
       `${path}.completed_assignment_attempt_count`,
@@ -495,19 +558,35 @@ export function decodeAssignmentProgress(value: unknown, path = "response"): Ass
       `${path}.last_activity_at`,
       decodeTimestamp,
     ),
-    ...(classStatistics === undefined ? {} : { class_statistics: classStatistics }),
   } satisfies AssignmentProgress;
-  const scores = [decoded.current_score, decoded.best_score, decoded.latest_score];
-  if (decoded.score_state !== "available" && scores.some((score) => score !== null)) {
-    throw new DecodeError(`${path}.score_state`, "no score totals before scores are available");
-  }
+}
+
+/** Decodes the exact nested Student Assignment Progress response. */
+export function decodeStudentAssignmentProgress(
+  value: unknown,
+  path = "response",
+): StudentAssignmentProgress {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["assignment_progress", "student_assignment_grade"]);
+  const assignment_progress = decodeAssignmentProgressActivity(
+    field(record, "assignment_progress", path),
+    `${path}.assignment_progress`,
+  );
+  const student_assignment_grade = decodeStudentAssignmentGrade(
+    field(record, "student_assignment_grade", path),
+    `${path}.student_assignment_grade`,
+  );
   if (
-    decoded.score_state === "no_activity" &&
-    (decoded.completed_assignment_attempt_count !== 0 || decoded.total_question_attempts !== 0)
+    student_assignment_grade.score_state === "no_activity" &&
+    (assignment_progress.completed_assignment_attempt_count !== 0 ||
+      assignment_progress.total_question_attempts !== 0)
   ) {
-    throw new DecodeError(`${path}.score_state`, "no submitted activity counters");
+    throw new DecodeError(
+      `${path}.student_assignment_grade.score_state`,
+      "no submitted activity counters",
+    );
   }
-  return decoded;
+  return { assignment_progress, student_assignment_grade };
 }
 
 function decodeAssignmentAttemptSummaryOutcome(
@@ -573,7 +652,7 @@ export function decodeAssignmentAttemptSummaryResponse(
       field(record, "assignmentAttempt", path),
       `${path}.assignmentAttempt`,
     ),
-    summary: decodeAssignmentProgress(field(record, "summary", path), `${path}.summary`),
+    summary: decodeStudentAssignmentProgress(field(record, "summary", path), `${path}.summary`),
     outcomes: {
       items: decodeBoundedArray(
         field(outcomes, "items", `${path}.outcomes`),
@@ -607,12 +686,15 @@ export function decodeAuthenticatedSession(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["authenticated", "account"]);
   const account = decodeRecord(field(record, "account", path), `${path}.account`);
-  requireOnlyFields(account, `${path}.account`, ["id", "role"]);
+  requireOnlyFields(account, `${path}.account`, ["id", "productRole"]);
   const decoded = {
     authenticated: decodeTrue(field(record, "authenticated", path), `${path}.authenticated`),
     account: {
       id: decodeIdentifier(field(account, "id", `${path}.account`), `${path}.account.id`),
-      role: decodeStringEnum(field(account, "role", `${path}.account`), `${path}.account.role`, [
+      productRole: decodeStringEnum(
+        field(account, "productRole", `${path}.account`),
+        `${path}.account.productRole`,
+        [
         "student",
         "instructor",
         "sysadmin",
@@ -639,7 +721,7 @@ export function decodePrefetchedNextQuestion(
   requireOnlyFields(record, path, [
     "predecessor",
     "issuedQuestion",
-    "seed",
+    "question_seed",
     "renderedQuestionSha256",
     "questionPoolSelectionPosition",
     "presentation",
@@ -654,7 +736,10 @@ export function decodePrefetchedNextQuestion(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
+    question_seed: decodeNonnegativeInteger(
+      field(record, "question_seed", path),
+      `${path}.question_seed`,
+    ),
     renderedQuestionSha256: decodeSha256(
       field(record, "renderedQuestionSha256", path),
       `${path}.renderedQuestionSha256`,
@@ -666,11 +751,11 @@ export function decodePrefetchedNextQuestion(
     presentation: prefetchedQuestionPresentation,
   } satisfies PrefetchedNextQuestion;
   if (
-    prefetchedQuestionPresentation.variation.questionRevision.revisionNumber !==
+    prefetchedQuestionPresentation.questionRevision.revisionNumber !==
       decoded.issuedQuestion.reference.revisionNumber ||
-    prefetchedQuestionPresentation.variation.questionRevision.questionId !==
+    prefetchedQuestionPresentation.questionRevision.questionId !==
       decoded.issuedQuestion.reference.questionId ||
-    prefetchedQuestionPresentation.variation.seed !== decoded.seed
+    prefetchedQuestionPresentation.question_seed !== decoded.question_seed
   ) {
     throw new DecodeError(path, "a Question Presentation bound to its descriptor");
   }

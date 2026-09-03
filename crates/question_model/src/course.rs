@@ -4,18 +4,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryAvailability,
-    AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId, AssignmentInstructions,
-    AssignmentPointValue, AssignmentProgressRecord, AssignmentQuestionVariationRule,
-    AssignmentReference, AssignmentScoringState, AssignmentTitle, CourseId,
-    CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionBackend,
+    AssignmentEntryId, AssignmentEntryScoringRule, AssignmentGrade, AssignmentId,
+    AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord,
+    AssignmentQuestionVariationRule, AssignmentReference, AssignmentScoringState, AssignmentTitle,
+    CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionBackend,
     QuestionBackendCapabilities, QuestionId, QuestionPoolItemAvailability, QuestionPoolItemId,
     QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
 ///
-/// This scopes a Student or Instructor to one course. It is not another
-/// inventory of human user roles, and Sysadmin is never a membership value.
+/// This scopes an Account's participation in one Course Instance. It is not
+/// another inventory of human Product Roles, and Sysadmin is never a membership
+/// value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CourseMembershipRole {
@@ -37,7 +38,7 @@ pub struct CourseSummary {
     pub title: String,
     /// Required inclusive term bounds and authoritative scheduling zone.
     pub term: crate::CourseTerm,
-    /// Signed-in user's authority for this course.
+    /// Signed-in Account's Course Membership Role for this Course Instance.
     pub role: CourseMembershipRole,
 }
 
@@ -51,7 +52,7 @@ pub struct FixedQuestionAssignmentEntrySummary {
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,
-    /// Question Backend selected for the item.
+    /// Question Backend selected for this Fixed Question Assignment Entry.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
     pub capabilities: QuestionBackendCapabilities,
@@ -135,7 +136,7 @@ pub struct AssignmentSummary {
     pub policies: AssignmentActivityRules,
 }
 
-/// Canonical answer-free facts shown at the start of an assignment.
+/// Exact answer-free Assignment Overview facts shown at the start of an assignment.
 ///
 /// The ordinary student detail and an Instructor's stable-identity Student
 /// view use distinct response records, but they describe the same Assignment Overview.
@@ -269,8 +270,8 @@ impl StudentAssignmentDetail {
 
 /// One compact gradebook row for a Student Record and Assignment.
 ///
-/// The row comes only from the course-owned assignment, Student Record, and
-/// `AssignmentProgressRecord`. It carries no Assignment Attempt
+/// The row comes only from the course-owned assignment, Student Record,
+/// `AssignmentGrade`, and `AssignmentProgressRecord`. It carries no Assignment Attempt
 /// history, so continued practice cannot make the default gradebook slower.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -285,8 +286,10 @@ pub struct GradebookSummaryRow {
     pub assignment_id: AssignmentId,
     /// Human-facing assignment title from the assignment record.
     pub assignment_title: AssignmentTitle,
+    /// Transactionally maintained compact Assignment Grade.
+    pub assignment_grade: AssignmentGrade,
     /// Transactionally maintained compact Assignment Progress Record.
-    pub summary: AssignmentProgressRecord,
+    pub assignment_progress: AssignmentProgressRecord,
     /// Current visibility and freshness of assignment scores.
     pub assignment_scoring_state: AssignmentScoringState,
 }
@@ -432,7 +435,11 @@ mod tests {
             student_name: "Ada Student".to_string(),
             assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
             assignment_title: assignment_title("Peptide bonds"),
-            summary: AssignmentProgressRecord::empty(
+            assignment_grade: AssignmentGrade::empty(
+                StudentRecordId::from_uuid(Uuid::from_u128(3)),
+                AssignmentId::from_uuid(Uuid::from_u128(5)),
+            ),
+            assignment_progress: AssignmentProgressRecord::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
                 AssignmentId::from_uuid(Uuid::from_u128(5)),
             ),
@@ -446,7 +453,8 @@ mod tests {
             value.get("student_name").and_then(|name| name.as_str()),
             Some("Ada Student")
         );
-        assert!(value.get("summary").is_some());
+        assert!(value.get("assignment_grade").is_some());
+        assert!(value.get("assignment_progress").is_some());
         assert_eq!(value["assignment_scoring_state"], "current");
         assert!(value.get("best_score").is_none());
     }

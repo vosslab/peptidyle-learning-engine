@@ -1,4 +1,4 @@
-"""Lease-owned PostgreSQL 17 SD1 staging-oracle lifecycle."""
+"""Lease-owned PostgreSQL Migration Acceptance Runtime lifecycle."""
 
 from __future__ import annotations
 
@@ -26,13 +26,13 @@ def _select_loopback_port() -> int:
 
 #============================================
 def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: int) -> None:
-	"""Run the private SD1 staging oracle with its generated manifest locator."""
+	"""Run the private PostgreSQL Migration Acceptance Runtime oracle."""
 	# ASVS 1.2.4 and 2.2.1: the child receives only a validated private locator;
 	# it cannot select a database URL, Compose project, or migration directory.
-	# The root manifest remains the fixed Compose/cleanup authority. The SD1
+	# The root manifest remains the fixed Compose/cleanup authority. The nested runtime
 	# writer adds a separate nested migrator-only manifest for project-tools.
 	local_stack_control.runtime_manifest.write_database_baseline_runtime(workspace, port)
-	local_stack_control.runtime_manifest.write_sd1_staged_database_runtime(workspace, port)
+	local_stack_control.runtime_manifest.write_postgres_migration_acceptance_runtime(workspace, port)
 	environment = {
 		name: value
 		for name, value in os.environ.items()
@@ -41,7 +41,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 	result = subprocess.run(
 		[
 			"bash",
-			str(repository_root / "tests/e2e/e2e_sd1_staged_database.sh"),
+			str(repository_root / "tests/e2e/e2e_postgres_migration_acceptance.sh"),
 			"--owned-child",
 			"--runtime-manifest",
 			local_stack_control.runtime_manifest.MANIFEST_NAME,
@@ -52,12 +52,12 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 	)
 	if result.returncode != 0:
 		raise local_stack_control.models.ControllerError(
-			"SD1 staged PostgreSQL oracle failed"
+			"PostgreSQL Migration Acceptance Runtime oracle failed"
 		)
 
 
 #============================================
-def run_owned_sd1_staged_database(
+def run_owned_postgres_migration_acceptance(
 	repository_root: pathlib.Path,
 	oracle_runner: Callable[[pathlib.Path, pathlib.Path, int], None] = _run_oracle,
 	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
@@ -65,7 +65,7 @@ def run_owned_sd1_staged_database(
 	port_selector: Callable[[], int] = _select_loopback_port,
 	port_checker: Callable[[tuple[int, ...], local_stack_control.process.CommandRunner, pathlib.Path], None] = local_stack_control.process.require_available_loopback_ports,
 ) -> None:
-	"""Run one serial SD1 staging oracle with exact fresh and final resets."""
+	"""Run one serial PostgreSQL Migration Acceptance Runtime oracle."""
 	def profile_oracle(
 		root: pathlib.Path, workspace: pathlib.Path, ports: tuple[int, ...]
 	) -> None:
@@ -73,7 +73,7 @@ def run_owned_sd1_staged_database(
 
 	local_stack_control.acceptance_profile_owner.run_owned_acceptance_profile(
 		repository_root,
-		"SD1 staged database",
+		"PostgreSQL Migration Acceptance Runtime",
 		profile_oracle,
 		acquire_browser_suite_lease,
 		create_command_runner,
@@ -84,12 +84,12 @@ def run_owned_sd1_staged_database(
 
 #============================================
 def main() -> None:
-	"""Run the only public SD1 staging-oracle lifecycle entry point."""
+	"""Run the PostgreSQL Migration Acceptance Runtime lifecycle entry point."""
 	repository_root = local_stack_control.compose.repo_root_from_entrypoint(
 		pathlib.Path(__file__)
 	)
-	run_owned_sd1_staged_database(repository_root)
-	print("SD1 staged PostgreSQL: PASS")
+	run_owned_postgres_migration_acceptance(repository_root)
+	print("PostgreSQL Migration Acceptance Runtime: PASS")
 
 
 if __name__ == "__main__":

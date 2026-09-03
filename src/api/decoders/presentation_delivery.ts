@@ -1,10 +1,6 @@
-// Strict Student Question Attempt View decoding and key-free response-widget translation.
+// Strict Student Question Attempt View decoding and key-free Question Response Control translation.
 
 import type { QuestionAssetReference } from "../../../generated/api/QuestionAssetReference";
-import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
-import type { MatchingChoice } from "../../../generated/api/MatchingChoice";
-import type { MatchingPrompt } from "../../../generated/api/MatchingPrompt";
-import type { OrderingItem } from "../../../generated/api/OrderingItem";
 import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { PresentedMatchingChoice } from "../../../generated/api/PresentedMatchingChoice";
 import type { PresentedMatchingPrompt } from "../../../generated/api/PresentedMatchingPrompt";
@@ -12,11 +8,7 @@ import type { PresentedOrderingItem } from "../../../generated/api/PresentedOrde
 import type { PresentedQuestionChoice } from "../../../generated/api/PresentedQuestionChoice";
 import type { PresentedTextEntrySlot } from "../../../generated/api/PresentedTextEntrySlot";
 import type { PresentedHotspotRegion } from "../../../generated/api/PresentedHotspotRegion";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
-import type { QuestionChoice } from "../../../generated/api/QuestionChoice";
-import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
-import type { ResponseSelectionRule } from "../../../generated/api/ResponseSelectionRule";
 import {
   DecodeError,
   decodeBoolean,
@@ -40,14 +32,14 @@ import {
 import { decodeQuestionContentBlock } from "./question_response_format";
 
 const MAX_PRESENTED_ITEMS = 32;
-const RENDERED_ITEM_ID = /^[0-9a-f]{4}$/u;
+const PRESENTATION_RESPONSE_ITEM_REFERENCE = /^[0-9a-f]{4}$/u;
 const PRESENTATION_NONCE = /^[0-9a-f]{32}$/u;
 type PresentedResponseItemFields = Pick<PresentedQuestionChoice, "id" | "body">;
 
-function renderedItemId(value: unknown, path: string): string {
+function presentationResponseItemReference(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!RENDERED_ITEM_ID.test(decoded)) {
-    throw new DecodeError(path, "four lowercase hexadecimal characters");
+  if (!PRESENTATION_RESPONSE_ITEM_REFERENCE.test(decoded)) {
+    throw new DecodeError(path, "a four-character lowercase Presentation Response Item Reference");
   }
   return decoded;
 }
@@ -56,7 +48,7 @@ function presentedResponseItemFields(value: unknown, path: string): PresentedRes
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "body"]);
   return {
-    id: renderedItemId(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
     body: decodeBoundedArray(field(record, "body", path), `${path}.body`, 32, (block, blockPath) =>
       decodeQuestionContentBlock(block, blockPath, true),
     ),
@@ -97,7 +89,7 @@ function presentedTextEntrySlot(value: unknown, path: string): PresentedTextEntr
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["id", "label", "maxCharacters"]);
   return {
-    id: renderedItemId(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
     label: decodeBoundedArray(
       field(record, "label", path),
       `${path}.label`,
@@ -128,7 +120,7 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
     throw new DecodeError(path, "a rectangle within the normalized 10000 by 10000 surface");
   }
   return {
-    id: renderedItemId(field(record, "id", path), `${path}.id`),
+    id: presentationResponseItemReference(field(record, "id", path), `${path}.id`),
     label: decodeBoundedArray(
       field(record, "label", path),
       `${path}.label`,
@@ -166,6 +158,9 @@ function issuedQuestionResponseFormat(
 ): QuestionPresentationResponseFormat {
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
+    case "imathasQuestionBackend":
+      requireOnlyFields(record, path, ["kind"]);
+      return { kind: "imathasQuestionBackend" };
     case "singleChoice": {
       requireOnlyFields(record, path, ["kind", "choices"]);
       return {
@@ -275,7 +270,10 @@ function issuedQuestionResponseFormat(
       return {
         kind: "hotspot",
         surface: {
-          id: renderedItemId(field(surfaceRecord, "id", surfacePath), `${surfacePath}.id`),
+          id: presentationResponseItemReference(
+            field(surfaceRecord, "id", surfacePath),
+            `${surfacePath}.id`,
+          ),
           asset: questionAssetReference(
             field(surfaceRecord, "asset", surfacePath),
             `${surfacePath}.asset`,
@@ -295,110 +293,15 @@ function issuedQuestionResponseFormat(
   }
 }
 
-function selectionFromBounds(
-  minimum: number,
-  maximum: number,
-  count: number,
-  path: string,
-): ResponseSelectionRule {
-  if (minimum === 1 && maximum === 1) return { kind: "exactlyOne" };
-  if (minimum === 0 && maximum === count) return { kind: "anyNumber" };
-  if (minimum === 1 && maximum === count) return { kind: "atLeastOne" };
-  if (minimum === maximum) return { kind: "exactly", count: minimum };
-  throw new DecodeError(path, "selection bounds supported by the question response control");
-}
-
-function questionChoicesForWidget(
-  choices: ReadonlyArray<PresentedQuestionChoice>,
-): QuestionChoice[] {
-  return choices.map((choice) => ({ id: choice.id, body: choice.body }));
-}
-
-function matchingPromptsForWidget(
-  prompts: ReadonlyArray<PresentedMatchingPrompt>,
-): MatchingPrompt[] {
-  return prompts.map((prompt) => ({ id: prompt.id, body: prompt.body }));
-}
-
-function matchingChoicesForWidget(
-  choices: ReadonlyArray<PresentedMatchingChoice>,
-): MatchingChoice[] {
-  return choices.map((choice) => ({ id: choice.id, body: choice.body }));
-}
-
-function orderingItemsForWidget(items: ReadonlyArray<PresentedOrderingItem>): OrderingItem[] {
-  return items.map((item) => ({ id: item.id, body: item.body }));
-}
-
-function responseForWidget(
-  response: QuestionPresentationResponseFormat,
-  path: string,
-): QuestionResponseFormat {
-  switch (response.kind) {
-    case "singleChoice":
-      return {
-        kind: "multipleChoice",
-        choices: questionChoicesForWidget(response.choices),
-        selection: { kind: "exactlyOne" },
-      };
-    case "multipleAnswer":
-      return {
-        kind: "multipleChoice",
-        choices: questionChoicesForWidget(response.choices),
-        selection: selectionFromBounds(
-          response.minimum,
-          response.maximum,
-          response.choices.length,
-          path,
-        ),
-      };
-    case "fillIn":
-      return { kind: "shortText", matchMode: "exact", maxLength: response.maxCharacters };
-    case "multiFillIn":
-      return {
-        kind: "multiBlank",
-        blanks: response.blanks.map((blank) => ({
-          id: blank.id,
-          label: blank.label,
-          matchMode: "exact",
-          maxLength: blank.maxCharacters,
-        })),
-      };
-    case "numerical":
-      return { kind: "numeric", tolerance: { kind: "exact" }, unit: response.displayedUnit };
-    case "matching":
-      if (response.reuseChoices) {
-        throw new DecodeError(path, "a matching presentation without reusable choices");
-      }
-      return {
-        kind: "matching",
-        prompts: matchingPromptsForWidget(response.prompts),
-        choices: matchingChoicesForWidget(response.choices),
-      };
-    case "ordering":
-      return { kind: "ordering", items: orderingItemsForWidget(response.items) };
-    case "hotspot": {
-      const regions: HotspotRegion[] = response.surface.regions;
-      return {
-        kind: "hotspot",
-        surface: response.surface.asset,
-        description: response.surface.description,
-        regions,
-        selection: selectionFromBounds(response.minimum, response.maximum, regions.length, path),
-      };
-    }
-  }
-}
-
-/** Decode the immutable student presentation and project only its public widget fields. */
+/** Decode the immutable student Question Presentation without changing its issued stage. */
 export function decodeIssuedQuestionPresentation(
   value: unknown,
   path = "response",
-): QuestionVariationPresentation {
+): QuestionPresentation {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionRevision",
-    "seed",
+    "question_seed",
     "presentationNonce",
     "title",
     "prompt",
@@ -414,7 +317,10 @@ export function decodeIssuedQuestionPresentation(
       `${path}.questionRevision`,
       true,
     ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
+    question_seed: decodeNonnegativeInteger(
+      field(record, "question_seed", path),
+      `${path}.question_seed`,
+    ),
     presentationNonce: nonce,
     title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
     prompt: decodeBoundedArray(
@@ -425,13 +331,5 @@ export function decodeIssuedQuestionPresentation(
     ),
     response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
   } satisfies QuestionPresentation;
-  return {
-    variation: {
-      questionRevision: presentation.questionRevision,
-      seed: presentation.seed,
-    },
-    title: presentation.title,
-    prompt: presentation.prompt,
-    response: responseForWidget(presentation.response, `${path}.response`),
-  };
+  return presentation;
 }

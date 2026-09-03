@@ -1,4 +1,4 @@
--- SD1 private Instructor Question Folders and saved Question Search roots.
+-- Instructor Question Folders and Saved Question Searches.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
@@ -34,5 +34,5 @@ ALTER TABLE ple_private.question_folder_entry FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.saved_question_search ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.saved_question_search FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.question_folder, ple_private.question_folder_entry, ple_private.saved_question_search FROM PUBLIC;
-COMMENT ON TABLE ple_private.question_folder IS 'Private ordered Question Folder of shared Question lineages; not a visibility grant.';
+COMMENT ON TABLE ple_private.question_folder IS 'Account-owned Question Folder of Published Question references; membership grants neither access nor ownership.';
 RESET ROLE;

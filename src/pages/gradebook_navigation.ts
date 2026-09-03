@@ -260,7 +260,7 @@ export function inspectedStudentWorkReturnUrl(context: InspectedStudentWorkRetur
   return gradingOperationReturnUrl(context.course, context.assignment, context.focus.operation);
 }
 
-/** Builds the canonical audited Student-work detail URL, optionally retaining operation context. */
+/** Builds the verified/audited Student-work detail URL, optionally retaining operation context. */
 export function inspectedStudentWorkUrl(
   course: CourseInstanceReference,
   membership: CourseMembershipReference,

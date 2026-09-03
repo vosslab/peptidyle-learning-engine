@@ -1,4 +1,4 @@
--- SD1 Question Submission grading lifecycle, typed Job binding, results, and immutable receipts.
+-- Question Submission grading and immutable Automated Grading Receipts.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.question_submission_grading (

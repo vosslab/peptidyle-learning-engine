@@ -1,4 +1,4 @@
-// WP-INST-LD3 direct seeded-role browser transport and closed wire-contract tests.
+// Live Demo seeded-account browser transport and wire-contract tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";

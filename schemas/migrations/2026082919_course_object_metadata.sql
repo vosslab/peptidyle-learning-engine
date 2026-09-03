@@ -1,4 +1,4 @@
--- SD1 private Course Object References; Object Addresses are server-only.
+-- Course Object References and server-only Object Addresses.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;

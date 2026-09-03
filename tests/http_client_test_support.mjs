@@ -27,7 +27,7 @@ export function issuedQuestionWireFixture(attempt, publishedQuestionRevision) {
     throw new Error("fixture requires multiple-choice response");
   return {
     questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
-    seed: attempt.seed,
+    question_seed: attempt.question_seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
     title: publishedQuestionRevision.metadata.title,
     prompt: publishedQuestionRevision.prompt.map((block) =>
@@ -46,19 +46,20 @@ export function issuedQuestionWireFixture(attempt, publishedQuestionRevision) {
 }
 
 /** Tests attempt recovery without importing the retired application validator. */
-export async function validateSavedResponse(definition, response) {
-  if (definition.kind === "multipleChoice" && response.kind === "multipleChoice") {
-    const validIds = new Set(definition.choices.map((choice) => choice.id));
+export async function validateSavedResponse(responseFormat, response) {
+  if (responseFormat.kind === "multipleChoice" && response.kind === "multipleChoice") {
+    const validIds = new Set(responseFormat.choices.map((choice) => choice.id));
     const unique = new Set(response.selected);
     return unique.size === response.selected.length &&
       response.selected.every((id) => validIds.has(id))
       ? { issues: [] }
       : { issues: [{ kind: "unknownChoice", choice: "invalid-selection" }] };
   }
-  if (definition.kind === "ordering" && response.kind === "ordering") {
-    const expected = new Set(definition.items.map((item) => item.id));
+  if (responseFormat.kind === "ordering" && response.kind === "ordering") {
+    const expected = new Set(responseFormat.items.map((item) => item.id));
     const actual = new Set(response.order);
-    return actual.size === definition.items.length && [...actual].every((id) => expected.has(id))
+    return actual.size === responseFormat.items.length &&
+      [...actual].every((id) => expected.has(id))
       ? { issues: [] }
       : { issues: [{ kind: "orderingItemsMismatch" }] };
   }

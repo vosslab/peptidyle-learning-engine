@@ -1,4 +1,4 @@
--- SD1 shared answer-free published-question roots and immutable versions.
+-- Published Question roots and immutable Question Revisions.
 
 SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.published_question (

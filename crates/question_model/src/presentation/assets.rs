@@ -54,7 +54,8 @@ pub(super) fn validate_public_assets(
             }
         }
         QuestionPresentationResponseFormat::FillIn { .. }
-        | QuestionPresentationResponseFormat::Numerical { .. } => {}
+        | QuestionPresentationResponseFormat::Numerical { .. }
+        | QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {}
     }
     validate_asset_refs(&referenced, bindings)
 }

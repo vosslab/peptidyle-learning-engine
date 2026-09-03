@@ -10,7 +10,7 @@ import {
 } from "./model";
 
 export interface ModifierDialogProps {
-  readonly subjects: ReadonlyArray<SelectedStudent>;
+  readonly selectedStudents: ReadonlyArray<SelectedStudent>;
   readonly revision: TeachingOperationRevision;
   readonly busy: boolean;
   readonly revisionConflict?: boolean;
@@ -25,8 +25,10 @@ export interface ModifierDialogProps {
 }
 
 export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
-  const [subject, setSubject] = createSignal<SelectedStudent | undefined>(props.subjects[0]);
-  const [mode, setMode] = createSignal<ModifierMode>("extendOnly");
+  const [selectedStudent, setSelectedStudent] = createSignal<SelectedStudent | undefined>(
+    props.selectedStudents[0],
+  );
+  const [mode, setMode] = createSignal<ModifierMode>("extend_only");
   const [draft] = createSignal(emptyPatchDraft());
   const [error, setError] = createSignal("");
   let heading: HTMLHeadingElement | undefined;
@@ -34,7 +36,7 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
 
   async function save(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const selected = subject();
+    const selected = selectedStudent();
     if (selected === undefined) {
       setError("Choose a Student Membership.");
       return;
@@ -73,13 +75,15 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
             <select
               disabled={props.busy}
               onChange={(event) =>
-                setSubject(
-                  props.subjects.find((item) => item.reference === event.currentTarget.value),
+                setSelectedStudent(
+                  props.selectedStudents.find(
+                    (item) => item.reference === event.currentTarget.value,
+                  ),
                 )
               }
             >
               <For
-                each={props.subjects}
+                each={props.selectedStudents}
                 fallback={<option value="">No authorized students are available</option>}
               >
                 {(item) => <option value={item.reference}>{item.display}</option>}
@@ -88,7 +92,7 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
           </label>
           <fieldset class="assignment-access-mode">
             <legend>Accommodation semantics</legend>
-            <For each={["extendOnly", "replace"] as const}>
+            <For each={["extend_only", "replace"] as const}>
               {(choice) => (
                 <label>
                   <input
@@ -97,7 +101,7 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
                     checked={mode() === choice}
                     onChange={() => setMode(choice)}
                   />{" "}
-                  {choice === "extendOnly" ? "Extend only" : "Replace"}
+                  {choice === "extend_only" ? "Extend only" : "Replace"}
                 </label>
               )}
             </For>
@@ -115,7 +119,7 @@ export function ModifierDialog(props: ModifierDialogProps): JSX.Element {
             <button type="button" disabled={props.busy} onClick={props.onClose}>
               Cancel
             </button>
-            <button type="submit" disabled={props.busy || subject() === undefined}>
+            <button type="submit" disabled={props.busy || selectedStudent() === undefined}>
               Save accommodation
             </button>
           </div>

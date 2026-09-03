@@ -32,7 +32,7 @@ pub const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS: usize = QuestionType::ALL.le
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionSearchCourseUse {
-    /// Include every published item regardless of current Account use.
+    /// Include every Published Question regardless of current Account use.
     #[default]
     Any,
     /// Include only publications used in at least one course visible to the Account.
@@ -46,7 +46,7 @@ pub enum QuestionSearchCourseUse {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuestionSearchAuthorship {
-    /// Include every published item regardless of authorship.
+    /// Include every Published Question regardless of authorship.
     #[default]
     Any,
     /// Include publications whose immutable author list contains the current Account.

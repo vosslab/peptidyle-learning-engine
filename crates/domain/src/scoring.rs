@@ -1,15 +1,16 @@
-//! Score selection and compact summary projection (MOD-SCORE).
+//! Assignment Attempt score selection and Assignment Progress projection.
 //!
 //! `select_assignment_attempt_grade` selects a completed Assignment Attempt for
 //! grade selection during recalculation and explicit Instructor
-//! actions. `project_summary` updates the ordinary course-page projection one
-//! transition at a time, so storage never scans Assignment Attempt history on a
+//! actions. `project_assignment_activity` updates the compact Assignment Grade
+//! and Assignment Progress records one transition at a time, so storage never scans Assignment Attempt history on a
 //! synchronous page request. Both functions are pure.
 
 use std::collections::HashSet;
 
 use question_model::{
-    AssignmentAttemptGradeRule, AssignmentAttemptId, AssignmentProgressRecord, Timestamp,
+    AssignmentAttemptGradeRule, AssignmentAttemptId, AssignmentGrade, AssignmentProgressRecord,
+    Timestamp,
 };
 
 use crate::assignment_activity::AssignmentActivityError;
@@ -241,6 +242,8 @@ pub enum AssignmentActivityTransition {
     },
     /// Derived completion was recorded with its final score.
     Completed {
+        /// Completed Assignment Attempt that owns this score.
+        assignment_attempt: AssignmentAttemptId,
         /// Score fraction in the inclusive range `-1000.0..=1000.0`.
         /// Extra and negative credit may place it outside `0.0..=1.0`.
         score: f64,
@@ -249,53 +252,74 @@ pub enum AssignmentActivityTransition {
     },
 }
 
-/// Projects one Assignment Attempt transition into the compact assignment summary.
+/// Projects one Assignment Attempt transition into compact Assignment Grade and Assignment Progress records.
 ///
 /// The input is left unchanged. A store can persist the transition and the
-/// returned projection in the same transaction. `InstructorSelected` keeps
-/// `current_score` unchanged because only an explicit instructor action may
+/// returned records in the same transaction. `InstructorSelected` keeps the
+/// selected grade unchanged because only an explicit instructor action may
 /// select a different Assignment Attempt.
 ///
 /// # Errors
 ///
 /// Returns [`AssignmentActivityError`] for an invalid completed-Assignment-Attempt score or when a
 /// summary counter overflows.
-pub fn project_summary(
-    previous: &AssignmentProgressRecord,
+pub fn project_assignment_activity(
+    previous_grade: &AssignmentGrade,
+    previous_progress: &AssignmentProgressRecord,
     transition: AssignmentActivityTransition,
     assignment_attempt_grade_rule: AssignmentAttemptGradeRule,
-) -> Result<AssignmentProgressRecord, AssignmentActivityError> {
-    let mut next = previous.clone();
+) -> Result<(AssignmentGrade, AssignmentProgressRecord), AssignmentActivityError> {
+    let mut next_grade = previous_grade.clone();
+    let mut next_progress = previous_progress.clone();
 
     match transition {
-        AssignmentActivityTransition::Started { at } => touch(&mut next, at),
+        AssignmentActivityTransition::Started { at } => touch(&mut next_progress, at),
         AssignmentActivityTransition::QuestionAttemptRecorded { at } => {
-            next.total_question_attempts = next
+            next_progress.total_question_attempts = next_progress
                 .total_question_attempts
                 .checked_add(1)
                 .ok_or(AssignmentActivityError::SummaryCounterOverflow)?;
-            touch(&mut next, at);
+            touch(&mut next_progress, at);
         }
-        AssignmentActivityTransition::Completed { score, at } => {
+        AssignmentActivityTransition::Completed {
+            assignment_attempt,
+            score,
+            at,
+        } => {
             validate_current_score(score)
                 .map_err(|()| AssignmentActivityError::InvalidScore { score })?;
-            next.completed_assignment_attempt_count = next
+            next_progress.completed_assignment_attempt_count = next_progress
                 .completed_assignment_attempt_count
                 .checked_add(1)
                 .ok_or(AssignmentActivityError::SummaryCounterOverflow)?;
-            next.latest_score = Some(score);
-            next.best_score = Some(next.best_score.map_or(score, |best| best.max(score)));
-            next.current_score = match assignment_attempt_grade_rule {
-                AssignmentAttemptGradeRule::First => next.current_score.or(Some(score)),
-                AssignmentAttemptGradeRule::Latest => Some(score),
-                AssignmentAttemptGradeRule::Highest => next.best_score,
-                AssignmentAttemptGradeRule::InstructorSelected => next.current_score,
-            };
-            touch(&mut next, at);
+            next_grade.first_completed_at = next_grade.first_completed_at.or(Some(at));
+            next_grade.latest_assignment_attempt = Some(assignment_attempt);
+            next_grade.latest_score = Some(score);
+            if next_grade.best_score.is_none_or(|best| score > best) {
+                next_grade.best_assignment_attempt = Some(assignment_attempt);
+                next_grade.best_score = Some(score);
+            }
+            match assignment_attempt_grade_rule {
+                AssignmentAttemptGradeRule::First if next_grade.current_score.is_none() => {
+                    next_grade.current_assignment_attempt = Some(assignment_attempt);
+                    next_grade.current_score = Some(score);
+                }
+                AssignmentAttemptGradeRule::Latest => {
+                    next_grade.current_assignment_attempt = Some(assignment_attempt);
+                    next_grade.current_score = Some(score);
+                }
+                AssignmentAttemptGradeRule::Highest => {
+                    next_grade.current_assignment_attempt = next_grade.best_assignment_attempt;
+                    next_grade.current_score = next_grade.best_score;
+                }
+                AssignmentAttemptGradeRule::First
+                | AssignmentAttemptGradeRule::InstructorSelected => {}
+            }
+            touch(&mut next_progress, at);
         }
     }
 
-    Ok(next)
+    Ok((next_grade, next_progress))
 }
 
 /// Advances the activity timestamp without moving it backward.
@@ -332,15 +356,25 @@ mod tests {
         )
     }
 
+    fn empty_grade() -> AssignmentGrade {
+        AssignmentGrade::empty(
+            StudentRecordId::from_uuid(Uuid::from_u128(11)),
+            AssignmentId::from_uuid(Uuid::from_u128(12)),
+        )
+    }
+
     fn projected_score(
         completed_assignment_attempts: &[CompletedAssignmentAttemptScore],
         rule: AssignmentAttemptGradeRule,
     ) -> Option<f64> {
-        let mut summary = empty_summary();
+        let mut grade = empty_grade();
+        let mut progress = empty_summary();
         for completed in completed_assignment_attempts {
-            summary = project_summary(
-                &summary,
+            (grade, progress) = project_assignment_activity(
+                &grade,
+                &progress,
                 AssignmentActivityTransition::Completed {
+                    assignment_attempt: completed.assignment_attempt,
                     score: completed.score,
                     at: Timestamp::from_unix_millis(i64::from(completed.attempt_number)),
                 },
@@ -348,7 +382,7 @@ mod tests {
             )
             .expect("fixture scores should project");
         }
-        summary.current_score
+        grade.current_score
     }
 
     #[test]
@@ -472,14 +506,19 @@ mod tests {
     }
 
     #[test]
-    fn summary_projection_preserves_instructor_choice_and_monotonic_activity() {
-        let mut previous = empty_summary();
-        previous.current_score = Some(0.5);
-        previous.last_activity_at = Some(Timestamp::from_unix_millis(10));
+    fn activity_projection_preserves_instructor_choice_and_monotonic_activity() {
+        let mut previous_grade = empty_grade();
+        previous_grade.current_assignment_attempt =
+            Some(AssignmentAttemptId::from_uuid(Uuid::from_u128(4)));
+        previous_grade.current_score = Some(0.5);
+        let mut previous_progress = empty_summary();
+        previous_progress.last_activity_at = Some(Timestamp::from_unix_millis(10));
 
-        let next = project_summary(
-            &previous,
+        let (next_grade, next_progress) = project_assignment_activity(
+            &previous_grade,
+            &previous_progress,
             AssignmentActivityTransition::Completed {
+                assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(5)),
                 score: 0.9,
                 at: Timestamp::from_unix_millis(9),
             },
@@ -487,7 +526,10 @@ mod tests {
         )
         .expect("valid completion should project");
 
-        assert_eq!(next.current_score, Some(0.5));
-        assert_eq!(next.last_activity_at, Some(Timestamp::from_unix_millis(10)));
+        assert_eq!(next_grade.current_score, Some(0.5));
+        assert_eq!(
+            next_progress.last_activity_at,
+            Some(Timestamp::from_unix_millis(10))
+        );
     }
 }

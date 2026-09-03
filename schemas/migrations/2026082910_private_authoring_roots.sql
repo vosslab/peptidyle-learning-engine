@@ -1,4 +1,4 @@
--- SD1 private workspaces and drafts; private work has no Question Library identity.
+-- Private Authoring Workspaces and Draft Questions; private work has no Question Library identity.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
@@ -56,7 +56,7 @@ BEGIN
                SELECT 1
                  FROM ple_private.account AS account
                 WHERE account.account_id = NEW.collaborator_account_id
-                  AND account.role = 'instructor'
+                  AND account.product_role = 'instructor'
            ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'only the Authoring Workspace Owner may start a Workspace Collaborator relationship for an Instructor Account';
@@ -70,7 +70,7 @@ BEGIN
            AND start_event.occurred_at <= NEW.occurred_at
     ) OR NEW.recorded_by_account_id NOT IN (workspace_owner_account_id, NEW.collaborator_account_id) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'a Workspace Collaborator relationship can end only after its start and by its owner or collaborator';
+            MESSAGE = 'a Workspace Collaborator relationship can end only after its start and by its Authoring Workspace Owner or Workspace Collaborator';
     END IF;
     RETURN NEW;
 END
@@ -118,7 +118,7 @@ CREATE TABLE ple_private.question_source (
     revision_number integer,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'qti', 'imathas'
     )),
     question_type text NOT NULL CHECK (question_type IN (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
@@ -259,7 +259,7 @@ CREATE TABLE ple_private.draft_question_grading_input (
     draft_question_revision_uuid uuid PRIMARY KEY REFERENCES ple_private.draft_question_revision (draft_question_revision_uuid),
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'qti', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
@@ -347,7 +347,7 @@ CREATE TABLE ple_private.question_revision_grading_input (
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'qti', 'imathas'
     )),
     grading_input bytea NOT NULL CHECK (pg_catalog.octet_length(grading_input) BETWEEN 1 AND 262144),
     grading_input_sha256 text NOT NULL CHECK (grading_input_sha256 ~ '^[0-9a-f]{64}$'),
@@ -360,7 +360,7 @@ CREATE TABLE ple_private.workspace_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid NOT NULL,
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'pleAlgorithmic', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     format_import_data jsonb NOT NULL CHECK (jsonb_typeof(format_import_data) = 'object'),
     format_import_data_sha256 text NOT NULL CHECK (format_import_data_sha256 ~ '^[0-9a-f]{64}$'),
@@ -496,7 +496,7 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.authoring_workspace,
     ple_private.question_revision_answer_explanation, ple_private.question_revision_grading_input,
     ple_private.workspace_import, ple_private.workspace_import_item_result,
     ple_private.workspace_import_grading_input FROM PUBLIC;
-COMMENT ON TABLE ple_private.authoring_workspace IS 'Private owner-scoped draft-authoring root; no Question Library visibility.';
+COMMENT ON TABLE ple_private.authoring_workspace IS 'Private draft-authoring root with one Authoring Workspace Owner; no Question Library visibility.';
 COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS
     'Immutable start or end evidence for one Instructor Account Workspace Collaborator relationship.';
 COMMENT ON TABLE ple_private.draft_question IS 'Private Draft Question lineage inside one Authoring Workspace.';

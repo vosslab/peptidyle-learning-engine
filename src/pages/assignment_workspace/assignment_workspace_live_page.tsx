@@ -185,7 +185,7 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
     const currentSession = session.state();
     if (
       currentSession.kind !== "authenticated" ||
-      currentSession.session.account.role !== "instructor"
+      currentSession.session.account.productRole !== "instructor"
     ) {
       setState("denied");
       return;

@@ -1,5 +1,5 @@
--- SD1 Course Observer relationships, Sysadmin support capabilities, and
--- session-derived authorization checks. ASVS 8.2.1, 8.2.2, and 8.3.1.
+-- Course Observer relationships, Sysadmin support capabilities, and session-derived authorization checks.
+-- ASVS 8.2.1, 8.2.2, and 8.3.1.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.course_observer_relationship_event (
@@ -53,8 +53,8 @@ CREATE TABLE ple_private.sysadmin_support_capability (
     issued_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL CHECK (expires_at > issued_at),
     revoked_at timestamp with time zone,
-    CONSTRAINT sysadmin_support_capability_role_matches FOREIGN KEY (sysadmin_account_id, sysadmin_role)
-        REFERENCES ple_private.account (account_id, role),
+    CONSTRAINT sysadmin_support_capability_product_role_matches FOREIGN KEY (sysadmin_account_id, sysadmin_role)
+        REFERENCES ple_private.account (account_id, product_role),
     CONSTRAINT sysadmin_support_capability_student_record_course_matches FOREIGN KEY (student_record_id, course_id)
         REFERENCES ple_data.student_record (student_record_id, course_id),
     CONSTRAINT sysadmin_support_capability_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= issued_at)
@@ -190,7 +190,7 @@ AS $$
         FROM ple_private.course_observer_relationship_event AS relationship
         JOIN ple_private.account AS account
           ON account.account_id = relationship.course_observer_account_id
-         AND account.role = 'instructor'
+         AND account.product_role = 'instructor'
         WHERE relationship.course_id = p_course_id
           AND relationship.course_observer_account_id = ple_api.current_session_account_id()
           AND relationship.event_kind = 'started'

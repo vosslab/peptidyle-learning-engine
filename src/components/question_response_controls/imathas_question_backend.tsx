@@ -237,7 +237,7 @@ export function ImathasQuestionBackendResponse(
   const statusId = (): string => `${props.attemptId}-imathas-question-backend-status`;
   return (
     <section
-      class="response-widget imathas-question-backend-widget"
+      class="question-response-control imathas-question-backend-response-control"
       data-phase={phase().kind}
       onKeyDown={handleKeyDown}
     >

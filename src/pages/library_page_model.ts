@@ -4,7 +4,7 @@ import { normalizeQuestionIdSyntax } from "../question_id";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 
 /** A browser-safe current Question Library record. */
-export interface QuestionSearchResult {
+export interface QuestionLibraryBrowseRow {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
   readonly title: string;
@@ -14,7 +14,7 @@ export interface QuestionSearchResult {
   readonly capabilities: ReadonlyArray<string>;
   readonly questionLicense: string | null;
   /** Server-disclosed learning evidence for this exact immutable publication. */
-  readonly evidence: QuestionSearchEvidence;
+  readonly evidence: QuestionLibraryBrowseEvidence;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface QuestionSearchResult {
  * supplies only the disclosed observations instructors can interpret; an
  * insufficient state stays explicitly neutral in relevance-ranked search.
  */
-export type QuestionSearchEvidence =
+export type QuestionLibraryBrowseEvidence =
   | { readonly state: "insufficientEvidence" }
   | {
       readonly state: "available";
@@ -35,7 +35,7 @@ export type QuestionSearchEvidence =
     };
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
-export interface QuestionSearchFacetAggregate {
+export interface QuestionLibraryBrowseFacetAggregate {
   readonly facet:
     | "authorName"
     | "backend"
@@ -49,7 +49,7 @@ export interface QuestionSearchFacetAggregate {
   readonly count: number;
 }
 
-export interface QuestionSearchQuery {
+export interface QuestionLibraryBrowseQuery {
   readonly search: string;
   readonly authorName: string | null;
   readonly backend: string | null;
@@ -63,46 +63,49 @@ export interface QuestionSearchQuery {
   readonly authorship: QuestionSearchAuthorship;
 }
 
-export interface QuestionSearchPage {
-  readonly items: ReadonlyArray<QuestionSearchResult>;
+export interface QuestionLibraryBrowsePage {
+  readonly items: ReadonlyArray<QuestionLibraryBrowseRow>;
   readonly nextCursor: string | null;
-  readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
+  readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
 }
 
 /**
  * The production Question Library repository adapts to this narrow boundary. A hostile result is
  * intentional: this module owns browser-side validation before any row reaches JSX.
  */
-export interface QuestionLibraryRepository {
-  readonly search: (query: QuestionSearchQuery, cursor: string | null) => Promise<unknown>;
+export interface QuestionLibraryBrowseRepository {
+  readonly search: (query: QuestionLibraryBrowseQuery, cursor: string | null) => Promise<unknown>;
 }
 
-export type QuestionSearchState =
+export type QuestionLibraryBrowseState =
   | {
       readonly kind: "loading";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
-      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
+      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
       readonly nextCursor: string | null;
     }
   | {
       readonly kind: "ready";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       readonly nextCursor: string | null;
-      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
+      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
     }
-  | { readonly kind: "empty"; readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate> }
+  | {
+      readonly kind: "empty";
+      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
+    }
   | {
       readonly kind: "error";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
-      readonly aggregates: ReadonlyArray<QuestionSearchFacetAggregate>;
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
+      readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
       readonly nextCursor: string | null;
     };
 
 const MAX_CURSOR_LENGTH = 512;
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
-export const MAX_QUESTION_SEARCH_PAGE_ITEMS = 100;
-const MAX_QUESTION_SEARCH_AGGREGATES = 100;
+export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 100;
+const MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES = 100;
 const MAX_FACET_COUNT = 1_000_000_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -134,13 +137,13 @@ function decodeNullableQuestionLicense(value: unknown, path: string): string | n
 }
 
 function stringList(value: unknown, path: string): ReadonlyArray<string> {
-  if (!Array.isArray(value) || value.length > MAX_QUESTION_SEARCH_AGGREGATES) {
+  if (!Array.isArray(value) || value.length > MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES) {
     throw new Error(`${path} must be an array`);
   }
   return value.map((item, index) => boundedText(item, `${path}[${index}]`));
 }
 
-function decodeRow(value: unknown, path: string): QuestionSearchResult {
+function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -174,7 +177,7 @@ function decodeRow(value: unknown, path: string): QuestionSearchResult {
   };
 }
 
-function decodeBrowseEvidence(value: unknown, path: string): QuestionSearchEvidence {
+function decodeBrowseEvidence(value: unknown, path: string): QuestionLibraryBrowseEvidence {
   if (!isRecord(value) || typeof value["state"] !== "string") {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -247,7 +250,7 @@ function correlation(value: unknown, path: string): number {
   return value;
 }
 
-function decodeAggregate(value: unknown, path: string): QuestionSearchFacetAggregate {
+function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFacetAggregate {
   if (!isRecord(value) || !hasExactKeys(value, ["count", "facet", "value"])) {
     throw new Error(`${path} has an unexpected shape`);
   }
@@ -277,15 +280,15 @@ function decodeAggregate(value: unknown, path: string): QuestionSearchFacetAggre
 }
 
 /** Strictly decode the live/generated-client result before browser presentation. */
-export function decodeQuestionSearchPage(value: unknown): QuestionSearchPage {
+export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibraryBrowsePage {
   if (!isRecord(value) || !hasExactKeys(value, ["aggregates", "items", "nextCursor"])) {
     throw new Error("Question Library response has an unexpected shape");
   }
   if (
     !Array.isArray(value["items"]) ||
-    value["items"].length > MAX_QUESTION_SEARCH_PAGE_ITEMS ||
+    value["items"].length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS ||
     !Array.isArray(value["aggregates"]) ||
-    value["aggregates"].length > MAX_QUESTION_SEARCH_AGGREGATES
+    value["aggregates"].length > MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES
   ) {
     throw new Error("Question Library response arrays are invalid");
   }
@@ -307,7 +310,7 @@ export function decodeQuestionSearchPage(value: unknown): QuestionSearchPage {
   };
 }
 
-export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
+export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   search: "",
   authorName: null,
   backend: null,
@@ -320,7 +323,9 @@ export const EMPTY_QUESTION_SEARCH_QUERY: QuestionSearchQuery = {
   authorship: "any",
 };
 
-export function normalizeQuestionSearchQuery(query: QuestionSearchQuery): QuestionSearchQuery {
+export function normalizeQuestionLibraryBrowseQuery(
+  query: QuestionLibraryBrowseQuery,
+): QuestionLibraryBrowseQuery {
   return {
     search: query.search.trim().replace(/\s+/g, " "),
     authorName: query.authorName,
@@ -336,7 +341,7 @@ export function normalizeQuestionSearchQuery(query: QuestionSearchQuery): Questi
 }
 
 /** Fixed-row virtual window keeps DOM work bounded independently of Question Library size. */
-export function questionSearchVirtualWindow<T>(
+export function questionLibraryBrowseVirtualWindow<T>(
   rows: ReadonlyArray<T>,
   scrollTop: number,
   viewportHeight: number,
@@ -351,14 +356,14 @@ export function questionSearchVirtualWindow<T>(
   return { offset: first * rowHeight, rows: rows.slice(first, first + count) };
 }
 
-function rowKey(row: QuestionSearchResult): string {
+function rowKey(row: QuestionLibraryBrowseRow): string {
   return row.displayId;
 }
 
 function appendUnique(
-  previous: ReadonlyArray<QuestionSearchResult>,
-  incoming: ReadonlyArray<QuestionSearchResult>,
-): ReadonlyArray<QuestionSearchResult> {
+  previous: ReadonlyArray<QuestionLibraryBrowseRow>,
+  incoming: ReadonlyArray<QuestionLibraryBrowseRow>,
+): ReadonlyArray<QuestionLibraryBrowseRow> {
   const keys = new Set(previous.map(rowKey));
   const appended = incoming.filter((row) => {
     const key = rowKey(row);
@@ -380,25 +385,30 @@ function appendUnique(
  * through the asynchronous transition. Those retained counts describe the last
  * completed query only; the next completed response replaces them wholesale.
  */
-export class QuestionSearchSession {
+export class QuestionLibraryBrowseSession {
   #generation = 0;
-  #query = EMPTY_QUESTION_SEARCH_QUERY;
-  #state: QuestionSearchState = { kind: "loading", rows: [], aggregates: [], nextCursor: null };
+  #query = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY;
+  #state: QuestionLibraryBrowseState = {
+    kind: "loading",
+    rows: [],
+    aggregates: [],
+    nextCursor: null,
+  };
   #loading = false;
   #queuedReset = false;
 
   public constructor(
-    private readonly repository: QuestionLibraryRepository,
-    private readonly publish: (state: QuestionSearchState) => void,
+    private readonly repository: QuestionLibraryBrowseRepository,
+    private readonly publish: (state: QuestionLibraryBrowseState) => void,
   ) {}
 
-  public get state(): QuestionSearchState {
+  public get state(): QuestionLibraryBrowseState {
     return this.#state;
   }
 
-  public async reset(query: QuestionSearchQuery): Promise<void> {
+  public async reset(query: QuestionLibraryBrowseQuery): Promise<void> {
     this.#generation += 1;
-    this.#query = normalizeQuestionSearchQuery(query);
+    this.#query = normalizeQuestionLibraryBrowseQuery(query);
     if (this.#loading) {
       this.#queuedReset = true;
       return;
@@ -430,7 +440,7 @@ export class QuestionSearchSession {
     await this.loadPage(this.#state.nextCursor, false, this.#generation);
   }
 
-  private setState(state: QuestionSearchState): void {
+  private setState(state: QuestionLibraryBrowseState): void {
     this.#state = state;
     this.publish(state);
   }
@@ -457,7 +467,9 @@ export class QuestionSearchSession {
       nextCursor: retainedCursor,
     });
     try {
-      const page = decodeQuestionSearchPage(await this.repository.search(this.#query, cursor));
+      const page = decodeQuestionLibraryBrowsePage(
+        await this.repository.search(this.#query, cursor),
+      );
       if (generation !== this.#generation) {
         return;
       }

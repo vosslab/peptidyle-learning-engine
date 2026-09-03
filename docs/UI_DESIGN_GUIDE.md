@@ -175,7 +175,7 @@ non-color status cues, and live announcements. Focus uses a two-part indicator s
 element: a visible inner edge plus a modest outer halo or offset. Do not ring the whole page when a
 child control has focus.
 
-Student response controls provide comfortable targets and a clear group label. Instructor pointer
+Student Question Response Controls provide comfortable targets and a clear group label. Instructor pointer
 workflows may use denser controls while preserving keyboard reachability and enough spacing to avoid
 accidental activation. Reduced motion and forced-colors preferences remain honored.
 

@@ -4,9 +4,7 @@ import type { Capability } from "../../generated/api/Capability";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
-import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { WorkspaceImportId } from "../../generated/api/WorkspaceImportId";
@@ -35,7 +33,6 @@ export interface EditorDraft {
   readonly response: QuestionResponseFormat;
   readonly questionAttemptLimit: QuestionAttemptLimit;
   readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly questionVariationRule: QuestionVariationRule;
 }
 
 export interface EditorDraftDisplayState {
@@ -51,7 +48,6 @@ export interface DraftQuestionPage {
 /** A key-free, unversioned offline preview result. */
 export interface EditorPreview {
   readonly workspace: WorkspaceId;
-  readonly seed: QuestionSeed;
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
@@ -84,10 +80,7 @@ export interface QuestionPublicationReview {
  * strong revision ownership.
  */
 export interface InstructorPreviewProvider {
-  readonly requestPresentation: (
-    draft: EditorDraft,
-    seed: QuestionSeed,
-  ) => Promise<InstructorPreviewResult>;
+  readonly requestPresentation: (draft: EditorDraft) => Promise<InstructorPreviewResult>;
 }
 
 export type PublishOutcome =
@@ -129,7 +122,7 @@ export interface EditorRepository {
 
 /** Injected WASM-shaped key-free boundary. It must not call a network service. */
 export interface PreviewFacade {
-  readonly preview: (draft: EditorDraft, seed: QuestionSeed) => Promise<EditorPreview>;
+  readonly preview: (draft: EditorDraft) => Promise<EditorPreview>;
 }
 
 export function serializeEditorState(draft: EditorDraft, preview: EditorPreview | null): string {

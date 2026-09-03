@@ -1,4 +1,4 @@
-// assignment_workspace_create_model.ts - canonical destination after persisted Assignment creation.
+// assignment_workspace_create_model.ts - direct destination after persisted Assignment creation.
 
 import type {
   AssignmentRouteReference,

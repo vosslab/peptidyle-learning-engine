@@ -4,7 +4,6 @@ import { ErrorBoundary, For, Show, createEffect, createSignal, onMount, type JSX
 
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
-import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { QuestionAuthorship } from "../../generated/api/QuestionAuthorship";
 import { QuestionRenderer } from "../components/question_renderer";
@@ -74,10 +73,6 @@ const EDITOR_CAPABILITIES: ReadonlyArray<Capability> = [
   "questionAttemptTimeLimit",
   "offlinePreview",
 ];
-
-function initialSeed(): QuestionSeed {
-  return 101;
-}
 
 function policySummary(draft: EditorDraft): string {
   const attempts =
@@ -152,7 +147,6 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     kind: "idle",
   });
   const [publish, setPublish] = createSignal<PublishState>({ kind: "idle" });
-  const [seedInput, setSeedInput] = createSignal(String(initialSeed()));
   const [requiredCapabilities, setRequiredCapabilities] = createSignal<ReadonlyArray<Capability>>(
     [],
   );
@@ -220,11 +214,6 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
     const value = publish();
     return value.kind === "error" ? value : undefined;
   };
-
-  function seed(): QuestionSeed | null {
-    const value = Number(seedInput());
-    return Number.isInteger(value) && value >= 0 && value <= 4_294_967_295 ? value : null;
-  }
 
   function replaceDraft(next: EditorDraft, dirty = true): void {
     const current = ready();
@@ -359,14 +348,12 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
 
   async function renderPreview(): Promise<void> {
     const current = ready();
-    const selectedSeed = seed();
-    if (current === undefined || selectedSeed === null) {
-      setPreview({ kind: "error", message: "Enter a whole-number seed before previewing." });
+    if (current === undefined) {
       return;
     }
     setPreview({ kind: "loading" });
     try {
-      const result = await props.previewFacade.preview(current.draft, selectedSeed);
+      const result = await props.previewFacade.preview(current.draft);
       setPreview({ kind: "ready", preview: result });
     } catch (error: unknown) {
       setPreview({
@@ -500,15 +487,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
 
   async function renderInstructorPreview(): Promise<void> {
     const current = ready();
-    const selectedSeed = seed();
     const boundary = props.repository.instructorPreview;
-    if (current === undefined || selectedSeed === null) {
-      setInstructorPreview({
-        kind: "error",
-        message: "Enter a whole-number seed before previewing.",
-      });
-      return;
-    }
+    if (current === undefined) return;
     if (boundary === undefined) {
       setInstructorPreview({
         kind: "unavailable",
@@ -525,7 +505,7 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       setPage({ ...current, draft: saved });
       setDraftDirty(false);
       setStaleConflict(false);
-      const result = await boundary.requestPresentation(saved, selectedSeed);
+      const result = await boundary.requestPresentation(saved);
       if (result.kind === "available") {
         setInstructorPreview({ kind: "available", presentation: result.presentation });
         return;
@@ -571,8 +551,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
       <p class="eyebrow">Instructor workspace</p>
       <h1>Draft, preview, and publish a learning question</h1>
       <p class="page-lede">
-        Start with the prompt and response students will see. Preview uses a seed-controlled,
-        key-free local variant; an explicit instructor action can request a protected answer
+        Start with the prompt and response students will see. Preview uses the key-free local PLE
+        Question JSON shape; an explicit instructor action can request a protected answer
         presentation. Each confirmed publication creates a new Question ID after review.
       </p>
       <p class="sr-only" role="status" aria-live="polite">
@@ -749,20 +729,12 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
               <section class="editor-panel" aria-labelledby="preview-heading">
                 <h2 id="preview-heading">Student preview</h2>
                 <p>
-                  This uses the same renderer and response controls as students, without sending a
-                  request or revealing Question Grading Input.
+                  This uses the same renderer and Question Response Controls as students, without
+                  sending a request or revealing Question Grading Input.
                 </p>
-                <label class="editor-field">
-                  Seed
-                  <input
-                    inputmode="numeric"
-                    value={seedInput()}
-                    onInput={(event) => setSeedInput(event.currentTarget.value)}
-                  />
-                </label>
                 <div class="editor-actions">
                   <button class="primary-action" type="button" onClick={() => void renderPreview()}>
-                    Preview this Question Variant
+                    Preview this Question
                   </button>
                 </div>
                 <Show when={props.repository.capabilities?.instructorPreview === false}>
@@ -795,8 +767,8 @@ export function EditorPage(props: EditorPageProps): JSX.Element {
                         />
                       </ErrorBoundary>
                       <QuestionResponseControl
-                        attemptId={`preview:${state().preview.workspace}:${state().preview.seed}`}
-                        definition={state().preview.response}
+                        attemptId={`preview:${state().preview.workspace}`}
+                        responseFormat={state().preview.response}
                         validator={props.responseValidator}
                         onEscape={() => undefined}
                         onSubmit={() => {

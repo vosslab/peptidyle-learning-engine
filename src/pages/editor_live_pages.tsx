@@ -84,7 +84,7 @@ function WorkspaceEditorResolved(props: WorkspaceEditorResolvedProps): JSX.Eleme
               fallback()
             ) : (
               <section class="page" data-route-surface="pleQuestionJsonLoadError" role="alert">
-                <h1>Private question draft unavailable</h1>
+                <h1>Draft Question unavailable</h1>
                 <p>Refresh the page to retry loading this private draft.</p>
               </section>
             )

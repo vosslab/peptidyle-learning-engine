@@ -10,12 +10,12 @@ import {
   addMatchingPair,
   removeChoice,
   removeMatchingPair,
-  reorderMatchingItems,
+  reorderMatchingSide,
   setChoiceFeedback,
   setChoiceText,
   setCorrectChoice,
   setPleQuestionJsonResponseKind,
-  setMatchingItemText,
+  setMatchingSideText,
   setMatchingPair,
 } from "./question_json_editor_model";
 import type { PleQuestionJsonDocument } from "./question_json_source";
@@ -129,11 +129,11 @@ export function PleQuestionJsonResponseFields(props: {
             fieldErrors={props.fieldErrors}
             disabled={props.disabled}
             onPromptTextChange={(id, text) => {
-              const next = setMatchingItemText(props.source(), "prompts", id, text);
+              const next = setMatchingSideText(props.source(), "prompts", id, text);
               if (next.changed) props.onEdit(next.source);
             }}
             onChoiceTextChange={(id, text) => {
-              const next = setMatchingItemText(props.source(), "choices", id, text);
+              const next = setMatchingSideText(props.source(), "choices", id, text);
               if (next.changed) props.onEdit(next.source);
             }}
             onMatchChange={(prompt, choice) => {
@@ -161,7 +161,7 @@ export function PleQuestionJsonResponseFields(props: {
               if (displaced === undefined) return;
               ordered[other] = id;
               ordered[index] = displaced;
-              const next = reorderMatchingItems(props.source(), side, ordered);
+              const next = reorderMatchingSide(props.source(), side, ordered);
               if (next.changed) props.onEdit(next.source);
               else if (next.error !== null) props.onStatus(next.error);
             }}

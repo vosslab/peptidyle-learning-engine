@@ -2,12 +2,12 @@
 
 PostgreSQL and object storage are separate durable systems. PLE never claims a distributed transaction between them. Instead it uses typed immutable objects, database-authoritative visibility, and operation-specific repair rules.
 
-The binding target is the single-installation model in the [single-installation authorization
-plan](active_plans/active/single_installation_authorization_plan.md). The currently checked-in
-pre-SD1 source still contains historical installation-scope types and legacy object and
-retention fields. SD1-C owns replacing those source and schema shapes with exact domain scopes. This
-document does not authorize a compatibility alias, a dual key, or a parallel installation model while that
-dependency is open.
+The intended model is one installation with global Accounts and exact course,
+Student, workspace, and Question Library scopes. The currently checked-in source
+still contains historical installation-scope types and legacy object and retention
+fields. A future schema and Store cutover replaces those shapes with exact domain
+scopes. This document does not authorize a compatibility alias, a dual key, or a
+parallel installation model while that implementation remains incomplete.
 
 ## Authority and vocabulary
 
@@ -48,7 +48,7 @@ Public assets are the exception to the simple bytes-first protocol because a fin
 
 - immutable Question Library publication state;
 - one `AssetPublication::Pending` registry record per public asset; and
-- a closed `PublishPublicAssets { problem, version }` job.
+- a closed `PublishPublicAssets { question_id, revision_number }` job.
 
 The registry points at its final immutable `PublicAssets` key but the `Pending` state has no public delivery. The dedicated publisher re-resolves records from the database under the active job lease, validates that each source is an exact allowed private workspace asset, reads and re-hashes the source, and writes the final public object. It never trusts queue-provided object bytes or a browser-provided path.
 
@@ -91,9 +91,9 @@ typed object records; they are never a bucket prefix or a caller-selected path. 
 relational deletion do not claim completion until the required manifest checks succeed. Shared
 published content, private authoring, and anonymous aggregates are outside a student-record purge.
 
-The current pre-SD1 retention source still carries legacy scope fields in its worker command and manifest
-storage. SD1-C owns the source/schema replacement with the exact course/stage/generation scope above;
-no compatibility scope field is added here.
+The current retention source still carries legacy scope fields in its worker command
+and manifest storage. A future source/schema cutover uses the exact
+course/stage/generation scope above; no compatibility scope field is added here.
 
 General Object Storage Checks are not yet implemented. Until they are, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
 

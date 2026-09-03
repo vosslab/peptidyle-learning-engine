@@ -26,7 +26,7 @@ function seededDemoOpeningName(state: SeededDemoState): string {
 
 /**
  * Provides the only currently mounted sign-in entry. Email-code and passkey
- * authentication will return here once their canonical session adapters exist.
+ * authentication will return here once their Account session adapters exist.
  */
 export function SignInPage(): JSX.Element {
   const runtime = useApplicationApi();

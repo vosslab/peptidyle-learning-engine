@@ -197,13 +197,13 @@ services:
     image: docker.io/library/alpine@sha256:${PLE_SECRET_INIT_IMAGE_SHA256:?set PLE_SECRET_INIT_IMAGE_SHA256 to the selected official Alpine Linux image manifest digest}
     volumes:
       - type: bind
-        source: ${PLE_INVITATION_TOKEN_SECRET_HOST_FILE:?set PLE_INVITATION_TOKEN_SECRET_HOST_FILE to an operator-created mode-0600 canonical 32-byte base64url file}
+        source: ${PLE_INVITATION_TOKEN_SECRET_HOST_FILE:?set PLE_INVITATION_TOKEN_SECRET_HOST_FILE to an operator-created mode-0600 file containing unpadded base64url for exactly 32 secret bytes}
         target: /run/source/invitation_token_secret
         read_only: true
         bind:
           create_host_path: false
       - type: bind
-        source: ${PLE_QUESTION_ID_SECRET_HOST_FILE:?set PLE_QUESTION_ID_SECRET_HOST_FILE to an operator-created mode-0600 canonical 32-byte base64url file}
+        source: ${PLE_QUESTION_ID_SECRET_HOST_FILE:?set PLE_QUESTION_ID_SECRET_HOST_FILE to an operator-created mode-0600 file containing unpadded base64url for exactly 32 secret bytes}
         target: /run/source/question_id_secret
         read_only: true
         bind:

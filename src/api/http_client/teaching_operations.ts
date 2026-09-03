@@ -1,4 +1,4 @@
-// Strict same-origin browser transport for WP-INST-T2 teaching operations.
+// Strict same-origin browser transport for Course teaching operations.
 
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseInvitationReference } from "../../../generated/api/CourseInvitationReference";

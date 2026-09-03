@@ -25,7 +25,7 @@ pub use contracts::*;
 
 const DOMAIN: &[u8] = b"ple:blueprint-revision-content\0";
 /// Current normalized Blueprint Revision Content encoding version.
-pub const BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION: u8 = 1;
+pub const BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq)]
 /// Validated Blueprint Revision Content stored independently from operation evidence.
@@ -46,22 +46,22 @@ impl BlueprintRevisionContent {
         Self::Course(value)
     }
     /// Returns the encoding version persisted beside this Blueprint Revision Content.
-    pub const fn canonical_version(&self) -> u8 {
+    pub const fn encoding_version(&self) -> u8 {
         BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION
     }
     /// Produces the one validated persistence record for this Blueprint Revision Content.
-    pub fn canonical_record(&self) -> BlueprintRevisionContentRecord {
-        let canonical_bytes = canonical_bytes(self);
-        let checksum = BlueprintContentChecksum(Sha256::digest(&canonical_bytes).into());
+    pub fn encoding_record(&self) -> BlueprintRevisionContentRecord {
+        let encoded_bytes = deterministic_encoded_bytes(self);
+        let checksum = BlueprintContentChecksum(Sha256::digest(&encoded_bytes).into());
         BlueprintRevisionContentRecord {
             version: BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
-            canonical_bytes,
+            encoded_bytes,
             checksum,
         }
     }
     /// Computes the full versioned Blueprint Revision Content checksum.
     pub fn checksum(&self) -> BlueprintContentChecksum {
-        self.canonical_record().checksum()
+        self.encoding_record().checksum()
     }
     /// Checks Blueprint Revision Content and reports both checksums when it changed.
     pub fn compare(&self, other: &Self) -> BlueprintContentCheck {
@@ -104,16 +104,16 @@ impl BlueprintAssignmentContent {
         let total = entries
             .iter()
             .filter_map(|entry| match entry {
-                BlueprintAssignmentEntryContent::Pool(pool) => Some(pool.entries.len()),
+                BlueprintAssignmentEntryContent::Pool(pool) => Some(pool.items.len()),
                 _ => None,
             })
             .try_fold(0_usize, |total, value| {
                 total
                     .checked_add(value)
-                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)
+                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)
             })?;
         if total > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS {
-            return Err(BlueprintCourseValidationError::TooManyQuestionPoolEntries);
+            return Err(BlueprintCourseValidationError::TooManyQuestionPoolItems);
         }
         Ok(Self {
             title,
@@ -221,7 +221,7 @@ pub enum BlueprintAssignmentEntryContent {
 /// One validated ordered pool of exact immutable publication pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    entries: Vec<QuestionRevisionReference>,
+    items: Vec<QuestionRevisionReference>,
     selection_count: u32,
     points_per_item: AssignmentPointValue,
     scoring_rule: AssignmentEntryScoringRule,
@@ -230,23 +230,23 @@ pub struct BlueprintQuestionPoolContent {
 impl BlueprintQuestionPoolContent {
     /// Validates pool cardinality, uniqueness, and selection bounds.
     pub fn new(
-        entries: Vec<QuestionRevisionReference>,
+        items: Vec<QuestionRevisionReference>,
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if entries.is_empty() || entries.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
-            return Err(BlueprintCourseValidationError::InvalidQuestionPoolEntries);
+        if items.is_empty() || items.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
+            return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
         }
-        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(entries.len()) {
+        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(items.len()) {
             return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
-        if entries.iter().collect::<BTreeSet<_>>().len() != entries.len() {
+        if items.iter().collect::<BTreeSet<_>>().len() != items.len() {
             return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
         }
         Ok(Self {
-            entries,
+            items,
             selection_count,
             points_per_item,
             scoring_rule,
@@ -254,8 +254,8 @@ impl BlueprintQuestionPoolContent {
         })
     }
     /// Returns Question Pool Item pins in meaningful authored order.
-    pub fn entries(&self) -> &[QuestionRevisionReference] {
-        &self.entries
+    pub fn items(&self) -> &[QuestionRevisionReference] {
+        &self.items
     }
     /// Returns the number of Question Pool Items selected for one Assignment Attempt.
     pub fn selection_count(&self) -> u32 {
@@ -270,7 +270,7 @@ impl BlueprintQuestionPoolContent {
         self.selection_rule
     }
 }
-/// Full server-side SHA-256 binding of canonical Blueprint Revision Content.
+/// Full server-side SHA-256 binding of encoded Blueprint Revision Content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BlueprintContentChecksum([u8; 32]);
 impl BlueprintContentChecksum {
@@ -280,29 +280,29 @@ impl BlueprintContentChecksum {
     }
 }
 
-/// Validated server-side canonical Blueprint Revision Content bytes and checksum.
+/// Validated server-side encoded Blueprint Revision Content bytes and checksum.
 ///
 /// Construction remains payload-owned so arbitrary persisted bytes cannot be
 /// mistaken for normalized qmodel meaning.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintRevisionContentRecord {
     version: u8,
-    canonical_bytes: Vec<u8>,
+    encoded_bytes: Vec<u8>,
     checksum: BlueprintContentChecksum,
 }
 
 impl BlueprintRevisionContentRecord {
-    /// Returns the canonical encoding version included in the hashed bytes.
+    /// Returns the encoding version included in the hashed bytes.
     pub const fn version(&self) -> u8 {
         self.version
     }
 
     /// Borrows the complete domain-separated Blueprint Revision Content encoding.
-    pub fn canonical_bytes(&self) -> &[u8] {
-        &self.canonical_bytes
+    pub fn encoded_bytes(&self) -> &[u8] {
+        &self.encoded_bytes
     }
 
-    /// Returns the complete SHA-256 checksum of `canonical_bytes`.
+    /// Returns the complete SHA-256 checksum of `encoded_bytes`.
     pub const fn checksum(&self) -> BlueprintContentChecksum {
         self.checksum
     }
@@ -326,50 +326,50 @@ pub enum BlueprintContentCheck {
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
-struct CanonicalPayload<'a> {
+struct EncodedPayload<'a> {
     version: u8,
-    meaning: CanonicalMeaning<'a>,
+    meaning: EncodedMeaning<'a>,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-enum CanonicalMeaning<'a> {
+enum EncodedMeaning<'a> {
     Assignment {
-        content: CanonicalAssignment<'a>,
+        content: EncodedAssignment<'a>,
     },
     Course {
         title: &'a str,
-        modules: Vec<CanonicalModule<'a>>,
+        modules: Vec<EncodedModule<'a>>,
     },
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
-struct CanonicalModule<'a> {
+struct EncodedModule<'a> {
     label: &'a str,
-    assignments: Vec<CanonicalAssignment<'a>>,
+    assignments: Vec<EncodedAssignment<'a>>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
-struct CanonicalAssignment<'a> {
+struct EncodedAssignment<'a> {
     title: &'a str,
     instructions: &'a AssignmentInstructions,
-    entries: Vec<CanonicalEntry<'a>>,
+    entries: Vec<EncodedEntry<'a>>,
     defaults: &'a BlueprintAssignmentDefaults,
     schedule: &'a RelativeAssignmentSchedule,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-enum CanonicalEntry<'a> {
+enum EncodedEntry<'a> {
     Fixed {
         reference: &'a QuestionRevisionReference,
         points_possible: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
     },
     Pool {
-        entries: &'a [QuestionRevisionReference],
+        items: &'a [QuestionRevisionReference],
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
@@ -377,28 +377,24 @@ enum CanonicalEntry<'a> {
     },
 }
 
-fn canonical_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
+fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     let meaning = match payload {
-        BlueprintRevisionContent::Assignment(assignment) => CanonicalMeaning::Assignment {
-            content: canonical_assignment(assignment),
+        BlueprintRevisionContent::Assignment(assignment) => EncodedMeaning::Assignment {
+            content: encode_assignment(assignment),
         },
-        BlueprintRevisionContent::Course(course) => CanonicalMeaning::Course {
+        BlueprintRevisionContent::Course(course) => EncodedMeaning::Course {
             title: course.title(),
             modules: course
                 .modules()
                 .iter()
-                .map(|module| CanonicalModule {
+                .map(|module| EncodedModule {
                     label: module.label(),
-                    assignments: module
-                        .assignments()
-                        .iter()
-                        .map(canonical_assignment)
-                        .collect(),
+                    assignments: module.assignments().iter().map(encode_assignment).collect(),
                 })
                 .collect(),
         },
     };
-    let json = serde_json::to_vec(&CanonicalPayload {
+    let json = serde_json::to_vec(&EncodedPayload {
         version: BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
         meaning,
     })
@@ -409,8 +405,8 @@ fn canonical_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     bytes
 }
 
-fn canonical_assignment(assignment: &BlueprintAssignmentContent) -> CanonicalAssignment<'_> {
-    CanonicalAssignment {
+fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignment<'_> {
+    EncodedAssignment {
         title: assignment.title(),
         instructions: assignment.instructions(),
         entries: assignment
@@ -421,13 +417,13 @@ fn canonical_assignment(assignment: &BlueprintAssignmentContent) -> CanonicalAss
                     reference,
                     points_possible,
                     scoring_rule,
-                } => CanonicalEntry::Fixed {
+                } => EncodedEntry::Fixed {
                     reference,
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
                 },
-                BlueprintAssignmentEntryContent::Pool(pool) => CanonicalEntry::Pool {
-                    entries: &pool.entries,
+                BlueprintAssignmentEntryContent::Pool(pool) => EncodedEntry::Pool {
+                    items: &pool.items,
                     selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,

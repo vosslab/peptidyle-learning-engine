@@ -1,6 +1,6 @@
 //! Browser-safe current assignment model.
 //!
-//! Stable item identities let instructors change points, scoring behavior,
+//! Stable Assignment Entry and Question Pool Item identities let Instructors change points, scoring behavior,
 //! and future ordering without rewriting immutable published content or
 //! inventing assignment-history rows.
 
@@ -230,7 +230,7 @@ pub enum AssignmentScoringState {
 
 /// Whether work arriving after the ordinary due date remains acceptable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum LateWorkRule {
     /// Accept work after the due date until another hard boundary closes it.
     Accept,
@@ -242,11 +242,11 @@ pub enum LateWorkRule {
 
 /// Closed behavior at an effective assignment deadline.
 ///
-/// The accepted database plan deliberately chooses server auto-submit instead
+/// The database design deliberately chooses server auto-submit instead
 /// of an unbounded overtime mode. Keeping that choice as an enum leaves a
 /// deliberate extension point without accepting an unsupported boolean state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum AssignmentDeadlineRule {
     /// The server closes active work independently of browser connectivity.
     AutoSubmit,
@@ -257,18 +257,25 @@ pub enum AssignmentDeadlineRule {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BaseAssignmentPolicy {
     /// First instant when the assignment may be opened.
+    #[serde(rename = "available_at")]
     pub available_at: Option<Timestamp>,
     /// Ordinary due instant.
+    #[serde(rename = "due_at")]
     pub due_at: Option<Timestamp>,
     /// Hard instant after which new work is closed.
+    #[serde(rename = "closes_at")]
     pub closes_at: Option<Timestamp>,
     /// Whole Assignment Attempt time limit when one applies.
+    #[serde(rename = "assignment_attempt_time_limit_seconds")]
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of Assignment Attempts when one applies.
+    #[serde(rename = "attempt_limit")]
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
+    #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
     /// Server behavior at an effective assignment deadline.
+    #[serde(rename = "assignment_deadline_rule")]
     pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
@@ -348,7 +355,7 @@ pub enum AssignmentEntryScoringRule {
 pub struct FixedQuestionAssignmentEntry {
     /// Stable identity preserved across point and order changes.
     pub id: AssignmentEntryId,
-    /// Exact immutable Question Library content pinned by this item.
+    /// Exact immutable Question Library content pinned by this Fixed Question Assignment Entry.
     pub reference: QuestionRevisionReference,
     /// Current assignment-authored points.
     pub points_possible: AssignmentPointValue,
@@ -580,17 +587,31 @@ mod tests {
                 activity_rules: AssignmentActivityRules::default(),
             }
         );
+        assert_eq!(
+            serde_json::to_value(LateWorkRule::MarkLate).expect("late-work rule serializes"),
+            serde_json::json!("mark_late")
+        );
+        assert!(serde_json::from_value::<LateWorkRule>(serde_json::json!("markLate")).is_err());
+        assert_eq!(
+            serde_json::to_value(AssignmentDeadlineRule::AutoSubmit)
+                .expect("assignment deadline rule serializes"),
+            serde_json::json!("auto_submit")
+        );
+        assert!(
+            serde_json::from_value::<AssignmentDeadlineRule>(serde_json::json!("autoSubmit"))
+                .is_err()
+        );
         assert!(
             serde_json::from_value::<AssignmentAuthoredContent>(serde_json::json!({
                 "instructions": "",
                 "basePolicy": {
-                    "availableAt": null,
-                    "dueAt": null,
-                    "closesAt": null,
-                    "assignmentAttemptTimeLimitSeconds": null,
-                    "attemptLimit": null,
-                    "lateWorkRule": "accept",
-                    "assignmentDeadlineRule": "autoSubmit",
+                    "available_at": null,
+                    "due_at": null,
+                    "closes_at": null,
+                    "assignment_attempt_time_limit_seconds": null,
+                    "attempt_limit": null,
+                    "late_work_rule": "accept",
+                    "assignment_deadline_rule": "auto_submit",
                     "unexpected": true
                 },
                 "activityRules": {
@@ -743,13 +764,13 @@ mod tests {
             serde_json::from_value::<InstructorAssignmentAuthoredContentLocal>(serde_json::json!({
                 "timeZone": "UTC",
                 "instructions": "",
-                "availableAt": null,
-                "dueAt": null,
-                "closesAt": null,
-                "assignmentAttemptTimeLimitSeconds": 0,
-                "attemptLimit": null,
-                "lateWorkRule": "accept",
-                "assignmentDeadlineRule": "autoSubmit"
+                "available_at": null,
+                "due_at": null,
+                "closes_at": null,
+                "assignment_attempt_time_limit_seconds": 0,
+                "attempt_limit": null,
+                "late_work_rule": "accept",
+                "assignment_deadline_rule": "auto_submit"
             }))
             .is_err()
         );
@@ -757,13 +778,13 @@ mod tests {
             serde_json::from_value::<InstructorAssignmentAuthoredContentLocal>(serde_json::json!({
                 "timeZone": "UTC",
                 "instructions": "",
-                "availableAt": null,
-                "dueAt": null,
-                "closesAt": null,
-                "assignmentAttemptTimeLimitSeconds": null,
-                "attemptLimit": null,
-                "lateWorkRule": "accept",
-                "assignmentDeadlineRule": "autoSubmit",
+                "available_at": null,
+                "due_at": null,
+                "closes_at": null,
+                "assignment_attempt_time_limit_seconds": null,
+                "attempt_limit": null,
+                "late_work_rule": "accept",
+                "assignment_deadline_rule": "auto_submit",
                 "unexpected": true
             }))
             .is_err()

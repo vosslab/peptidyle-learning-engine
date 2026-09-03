@@ -188,10 +188,8 @@ impl DraftQuestionSourceInput {
         }
         let format_matches_backend = matches!(
             (self.question_backend, self.question_format),
-            (
-                QuestionBackend::Ple,
-                QuestionFormat::PleQuestionJson | QuestionFormat::PleAlgorithmic
-            ) | (QuestionBackend::Webwork, QuestionFormat::WebworkPg)
+            (QuestionBackend::Ple, QuestionFormat::PleQuestionJson)
+                | (QuestionBackend::Webwork, QuestionFormat::WebworkPg)
                 | (QuestionBackend::Qti, QuestionFormat::Qti)
                 | (QuestionBackend::Imathas, QuestionFormat::Imathas)
         );

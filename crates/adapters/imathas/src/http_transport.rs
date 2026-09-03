@@ -228,7 +228,9 @@ struct LaunchRequest<'a> {
     deployment_reference: &'a str,
     item_reference: &'a str,
     imathas_seed: u16,
-    source_digest: &'a str,
+    /// `sourceDigest` is the fixed private transport spelling, not PLE domain vocabulary.
+    #[serde(rename = "sourceDigest")]
+    source_object_checksum: &'a str,
     signed_launch_jwt: &'a str,
 }
 #[derive(Deserialize)]
@@ -304,7 +306,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
                 deployment_reference: request.deployment_reference(),
                 item_reference: request.item_reference(),
                 imathas_seed: request.imathas_seed(),
-                source_digest: request.source_object_checksum(),
+                source_object_checksum: request.source_object_checksum(),
                 signed_launch_jwt: request.signed_launch_jwt(),
             })
             .send()
@@ -385,7 +387,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use axum::Router;
-    use axum::extract::State;
+    use axum::extract::{Json, State};
     use axum::http::{HeaderValue, StatusCode as AxumStatus};
     use axum::response::IntoResponse;
     use axum::routing::{any, get, post};
@@ -450,7 +452,23 @@ mod tests {
             r#"{"title":"Recorded","prompt":[{"kind":"text","markdown":"Hi"}]}"#,
         )
     }
-    async fn launch() -> impl IntoResponse {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct RecordedLaunchRequest {
+        deployment_reference: String,
+        item_reference: String,
+        imathas_seed: u16,
+        #[serde(rename = "sourceDigest")]
+        source_object_checksum: String,
+        signed_launch_jwt: String,
+    }
+
+    async fn launch(Json(request): Json<RecordedLaunchRequest>) -> impl IntoResponse {
+        assert_eq!(request.deployment_reference, "self-hosted-imathas");
+        assert_eq!(request.item_reference, "17");
+        assert_eq!(request.imathas_seed, 7);
+        assert_eq!(request.source_object_checksum, "a".repeat(64));
+        assert_eq!(request.signed_launch_jwt, "protected.jwt.value");
         (
             [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
             r#"{"handle":"fixture-handle"}"#,

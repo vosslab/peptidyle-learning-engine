@@ -1,10 +1,10 @@
-// Strict browser decoders for generated WP-INST-T2 teaching-operation DTOs.
+// Strict browser decoders for generated Course teaching-operation DTOs.
 
 import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
 import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
-import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
+import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
 import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
 import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
@@ -152,7 +152,7 @@ export function decodeTeachingOperationRevisionResponse(
 function timePatch(
   value: unknown,
   path: string,
-): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"]["availableAt"] {
+): HypotheticalStudentViewScenarioModifiers["adjustment"]["available_at"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -172,7 +172,7 @@ function limitPatch(
   value: unknown,
   path: string,
   maximum: number,
-): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"]["assignmentAttemptTimeLimitSeconds"] {
+): HypotheticalStudentViewScenarioModifiers["adjustment"]["assignment_attempt_time_limit_seconds"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -194,26 +194,26 @@ function limitPatch(
 function accommodationAdjustment(
   value: unknown,
   path: string,
-): SyntheticPreviewAccommodationAdjustmentRequest["adjustment"] {
+): HypotheticalStudentViewScenarioModifiers["adjustment"] {
   const record = closed(value, path, [
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "assignmentAttemptTimeLimitSeconds",
-    "attemptLimit",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
   ]);
   return {
-    availableAt: timePatch(record.availableAt, `${path}.availableAt`),
-    dueAt: timePatch(record.dueAt, `${path}.dueAt`),
-    closesAt: timePatch(record.closesAt, `${path}.closesAt`),
-    assignmentAttemptTimeLimitSeconds: limitPatch(
-      record.assignmentAttemptTimeLimitSeconds,
-      `${path}.assignmentAttemptTimeLimitSeconds`,
+    available_at: timePatch(record.available_at, `${path}.available_at`),
+    due_at: timePatch(record.due_at, `${path}.due_at`),
+    closes_at: timePatch(record.closes_at, `${path}.closes_at`),
+    assignment_attempt_time_limit_seconds: limitPatch(
+      record.assignment_attempt_time_limit_seconds,
+      `${path}.assignment_attempt_time_limit_seconds`,
       MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     ),
-    attemptLimit: limitPatch(
-      record.attemptLimit,
-      `${path}.attemptLimit`,
+    attempt_limit: limitPatch(
+      record.attempt_limit,
+      `${path}.attempt_limit`,
       MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     ),
   };
@@ -222,18 +222,18 @@ function accommodationAdjustment(
 function decodeAccommodationAdjustmentWrite(
   value: unknown,
   path: string,
-): SyntheticPreviewAccommodationAdjustmentRequest {
+): HypotheticalStudentViewScenarioModifiers {
   const record = closed(value, path, ["mode", "adjustment"]);
   return {
-    mode: decodeStringEnum(record.mode, `${path}.mode`, ["extendOnly", "replace"] as const),
+    mode: decodeStringEnum(record.mode, `${path}.mode`, ["extend_only", "replace"] as const),
     adjustment: accommodationAdjustment(record.adjustment, `${path}.adjustment`),
   };
 }
 
-export function decodeSyntheticPreviewAccommodationAdjustmentRequest(
+export function decodeHypotheticalStudentViewScenarioModifiers(
   value: unknown,
   path = "request",
-): SyntheticPreviewAccommodationAdjustmentRequest {
+): HypotheticalStudentViewScenarioModifiers {
   return decodeAccommodationAdjustmentWrite(value, path);
 }
 
@@ -292,7 +292,7 @@ function previewLimitField(value: unknown, path: string): TeachingPreviewLimitFi
   };
 }
 
-function startVerdict(
+function assignmentStartDecision(
   value: unknown,
   path: string,
 ): Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>["start"] {
@@ -316,7 +316,7 @@ function startVerdict(
       requireOnlyFields(record, path, ["kind"]);
       return { kind };
     default:
-      throw new DecodeError(`${path}.kind`, "a known start verdict");
+      throw new DecodeError(`${path}.kind`, "a known Assignment Start Decision");
   }
 }
 
@@ -341,52 +341,52 @@ export function decodeTeachingPreviewView(value: unknown, path = "response"): Te
     "active_student_course_membership",
     "timeZone",
     "start",
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "assignmentAttemptTimeLimitSeconds",
-    "attemptLimit",
-    "lateWorkRule",
-    "assignmentDeadlineRule",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
+    "late_work_rule",
+    "assignment_deadline_rule",
   ]);
-  const lateWorkRule = closed(field(record, "lateWorkRule", path), `${path}.lateWorkRule`, [
+  const lateWorkRule = closed(field(record, "late_work_rule", path), `${path}.late_work_rule`, [
     "value",
     "source",
   ]);
   const assignmentDeadlineRule = closed(
-    field(record, "assignmentDeadlineRule", path),
-    `${path}.assignmentDeadlineRule`,
+    field(record, "assignment_deadline_rule", path),
+    `${path}.assignment_deadline_rule`,
     ["value", "source"],
   );
   return {
     active_student_course_membership,
     timeZone: courseTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
-    start: startVerdict(field(record, "start", path), `${path}.start`),
-    availableAt: previewTimeField(field(record, "availableAt", path), `${path}.availableAt`),
-    dueAt: previewTimeField(field(record, "dueAt", path), `${path}.dueAt`),
-    closesAt: previewTimeField(field(record, "closesAt", path), `${path}.closesAt`),
-    assignmentAttemptTimeLimitSeconds: previewLimitField(
-      field(record, "assignmentAttemptTimeLimitSeconds", path),
-      `${path}.assignmentAttemptTimeLimitSeconds`,
+    start: assignmentStartDecision(field(record, "start", path), `${path}.start`),
+    available_at: previewTimeField(field(record, "available_at", path), `${path}.available_at`),
+    due_at: previewTimeField(field(record, "due_at", path), `${path}.due_at`),
+    closes_at: previewTimeField(field(record, "closes_at", path), `${path}.closes_at`),
+    assignment_attempt_time_limit_seconds: previewLimitField(
+      field(record, "assignment_attempt_time_limit_seconds", path),
+      `${path}.assignment_attempt_time_limit_seconds`,
     ),
-    attemptLimit: previewLimitField(field(record, "attemptLimit", path), `${path}.attemptLimit`),
-    lateWorkRule: {
-      value: decodeStringEnum(lateWorkRule.value, `${path}.lateWorkRule.value`, [
+    attempt_limit: previewLimitField(field(record, "attempt_limit", path), `${path}.attempt_limit`),
+    late_work_rule: {
+      value: decodeStringEnum(lateWorkRule.value, `${path}.late_work_rule.value`, [
         "accept",
-        "markLate",
+        "mark_late",
         "reject",
       ] as const),
-      source: assignmentPolicySource(lateWorkRule.source, `${path}.lateWorkRule.source`),
+      source: assignmentPolicySource(lateWorkRule.source, `${path}.late_work_rule.source`),
     },
-    assignmentDeadlineRule: {
+    assignment_deadline_rule: {
       value: decodeStringEnum(
         assignmentDeadlineRule.value,
-        `${path}.assignmentDeadlineRule.value`,
-        ["autoSubmit"] as const,
+        `${path}.assignment_deadline_rule.value`,
+        ["auto_submit"] as const,
       ),
       source: assignmentPolicySource(
         assignmentDeadlineRule.source,
-        `${path}.assignmentDeadlineRule.source`,
+        `${path}.assignment_deadline_rule.source`,
       ),
     },
   };

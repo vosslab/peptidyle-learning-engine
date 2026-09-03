@@ -11,13 +11,13 @@ import {
   removeMatchingPair,
   renameQuestionChoiceReference,
   reorderChoices,
-  reorderMatchingItems,
+  reorderMatchingSide,
   setQuestionAttemptLimit,
   setChoiceText,
   setCorrectChoice,
   setPleQuestionJsonTitle,
   setLanguage,
-  setMatchingItemText,
+  setMatchingSideText,
   setMatchingPair,
   setPleQuestionJsonResponseKind,
   setQuestionLicense,
@@ -162,7 +162,7 @@ test("policy and metadata helpers are immutable and validation gives safe author
 
 test("matching edits preserve semantic identities and prevent duplicate pair choices", () => {
   const matching = setPleQuestionJsonResponseKind(source(), "matching");
-  const renamed = setMatchingItemText(matching, "prompts", "prompt_a", "Gene");
+  const renamed = setMatchingSideText(matching, "prompts", "prompt_a", "Gene");
   assert.equal(renamed.source.response.kind, "matching");
   if (renamed.source.response.kind !== "matching") throw new Error("Expected matching source.");
   assert.equal(renamed.source.response.prompts[0]?.id, "prompt_a");
@@ -197,7 +197,7 @@ test("matching pair operations retain semantic IDs and repair only the removed p
     prompt: "prompt_1",
     choice: "choice_1",
   });
-  const reordered = reorderMatchingItems(added.source, "prompts", [
+  const reordered = reorderMatchingSide(added.source, "prompts", [
     "prompt_1",
     "prompt_a",
     "prompt_b",

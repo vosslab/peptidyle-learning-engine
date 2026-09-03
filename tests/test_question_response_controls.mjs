@@ -1,4 +1,4 @@
-// test_question_response_controls.mjs - permanent behavior checks for key-free response controls.
+// test_question_response_controls.mjs - permanent behavior checks for key-free Question Response Controls.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,7 +14,7 @@ import {
   validateResponseLocally,
 } from "../src/components/question_response_controls/question_response_control.tsx";
 
-const numericDefinition = { kind: "numeric", tolerance: { kind: "exact" }, unit: null };
+const numericResponseFormat = { kind: "numeric", tolerance: { kind: "exact" }, unit: null };
 
 test("invalid input is locally checked and issues no submission request", async () => {
   let validationCalls = 0;
@@ -33,7 +33,7 @@ test("invalid input is locally checked and issues no submission request", async 
   const controller = createRoot(() =>
     createSubmissionController({
       attemptId: "attempt-invalid",
-      definition: numericDefinition,
+      responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
       onSubmit: async () => {
@@ -42,7 +42,7 @@ test("invalid input is locally checked and issues no submission request", async 
       },
     }),
   );
-  const check = await validateResponseLocally(validator, numericDefinition, response);
+  const check = await validateResponseLocally(validator, numericResponseFormat, response);
   await controller.validate(response);
   await controller.submit(response);
 
@@ -58,7 +58,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
   const blankResponse = numericResponseFromInput("  \t");
   const validator = {
     mode: "wasm",
-    validateResponseFormat: async (_definition, candidate) => {
+    validateResponseFormat: async (_responseFormat, candidate) => {
       validationCalls += 1;
       assert.equal(candidate.kind, "numeric");
       assert.equal(Number.isNaN(candidate.value), true);
@@ -68,7 +68,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
   const controller = createRoot(() =>
     createSubmissionController({
       attemptId: "attempt-blank-numeric",
-      definition: numericDefinition,
+      responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
       onSubmit: async () => {
@@ -88,7 +88,7 @@ test("blank numeric input stays invalid and never submits zero", async () => {
 });
 
 test("initial controlled responses are checked before a student edits them", async () => {
-  const orderingDefinition = {
+  const orderingResponseFormat = {
     kind: "ordering",
     items: [
       { id: "first", body: [{ kind: "text", markdown: "First" }] },
@@ -101,11 +101,11 @@ test("initial controlled responses are checked before a student edits them", asy
     createSubmissionController(
       {
         attemptId: "attempt-initial-order",
-        definition: orderingDefinition,
+        responseFormat: orderingResponseFormat,
         initialResponse: initialOrder,
         validator: {
           mode: "wasm",
-          validateResponseFormat: async (_definition, response) => {
+          validateResponseFormat: async (_responseFormat, response) => {
             assert.deepEqual(response, initialOrder);
             return { issues: [] };
           },
@@ -130,7 +130,7 @@ test("initial controlled responses are checked before a student edits them", asy
     createSubmissionController(
       {
         attemptId: "attempt-invalid-initial-order",
-        definition: orderingDefinition,
+        responseFormat: orderingResponseFormat,
         initialResponse: { kind: "ordering", order: ["first", "first"] },
         validator: {
           mode: "wasm",
@@ -160,7 +160,7 @@ test("a fresh issued empty response stays neutral until the student interacts", 
     createSubmissionController(
       {
         attemptId: "attempt-fresh-empty",
-        definition: numericDefinition,
+        responseFormat: numericResponseFormat,
         validator: {
           mode: "wasm",
           validateResponseFormat: async () => {
@@ -181,7 +181,7 @@ test("a fresh issued empty response stays neutral until the student interacts", 
   assert.equal(controller.canSubmit(), false);
 });
 
-test("Escape returns from a widget descendant unless native handling already owns it", () => {
+test("Escape returns from a Question Response Control descendant unless native handling already owns it", () => {
   let escapes = 0;
   let submits = 0;
   let prevented = false;
@@ -219,14 +219,14 @@ test("local validation is key-free and preserves a ready response for the attemp
   const response = { kind: "numeric", value: 3 };
   const validator = {
     mode: "wasm",
-    validateResponseFormat: async (definition, candidate) => {
-      assert.equal(definition, numericDefinition);
+    validateResponseFormat: async (responseFormat, candidate) => {
+      assert.equal(responseFormat, numericResponseFormat);
       assert.deepEqual(candidate, response);
       return { issues: [] };
     },
   };
 
-  assert.deepEqual(await validateResponseLocally(validator, numericDefinition, response), {
+  assert.deepEqual(await validateResponseLocally(validator, numericResponseFormat, response), {
     issues: [],
   });
 });
@@ -244,7 +244,7 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
   const controller = createRoot(() =>
     createSubmissionController({
       attemptId: "attempt-1",
-      definition: numericDefinition,
+      responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
       onSubmit: async () => {
@@ -277,10 +277,10 @@ test("reset replaces a stale format check with the restored local response witho
   const controller = createRoot(() =>
     createSubmissionController({
       attemptId: "attempt-reset",
-      definition: numericDefinition,
+      responseFormat: numericResponseFormat,
       validator: {
         mode: "wasm",
-        validateResponseFormat: async (_definition, response) => {
+        validateResponseFormat: async (_responseFormat, response) => {
           seen.push(response.value);
           if (response.value === 9) return firstValidation;
           return { issues: [] };
@@ -310,7 +310,7 @@ test("a rejected submission keeps the response editable for a corrected resubmis
   const controller = createRoot(() =>
     createSubmissionController({
       attemptId: "attempt-corrected-submission",
-      definition: numericDefinition,
+      responseFormat: numericResponseFormat,
       validator: {
         mode: "wasm",
         validateResponseFormat: async () => ({ issues: [] }),

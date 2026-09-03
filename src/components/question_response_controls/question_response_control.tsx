@@ -11,7 +11,8 @@ import { MultiBlankResponse } from "./multi_blank";
 import { NumericResponse } from "./numeric";
 import { OrderingResponse } from "./ordering";
 import { ShortTextResponse } from "./short_text";
-import type { QuestionResponseControlProps } from "./common";
+import type { QuestionResponseControlProps, QuestionResponseControlBaseProps } from "./common";
+import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 
 export {
   createSubmissionController,
@@ -42,15 +43,16 @@ function assertNever(value: never): never {
   throw new Error(`Unhandled Question Response Format: ${JSON.stringify(value)}`);
 }
 
-/** Exhaustive dispatch point for every browser-safe QuestionResponseFormat variant. */
+/** Exhaustive dispatch point for every browser-safe Question Response Format variant. */
 export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
   let body: JSX.Element;
-  switch (props.definition.kind) {
+  switch (props.responseFormat.kind) {
     case "numeric":
+    case "numerical":
       body = (
         <NumericResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "numeric" ? props.initialResponse : undefined
           }
@@ -58,10 +60,12 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       );
       break;
     case "multipleChoice":
+    case "singleChoice":
+    case "multipleAnswer":
       body = (
         <MultipleChoiceController
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "multipleChoice" ? props.initialResponse : undefined
           }
@@ -69,10 +73,11 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       );
       break;
     case "shortText":
+    case "fillIn":
       body = (
         <ShortTextResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "shortText" ? props.initialResponse : undefined
           }
@@ -80,10 +85,11 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       );
       break;
     case "multiBlank":
+    case "multiFillIn":
       body = (
         <MultiBlankResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "multiBlank" ? props.initialResponse : undefined
           }
@@ -94,7 +100,7 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       body = (
         <MatchingResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "matching" ? props.initialResponse : undefined
           }
@@ -105,7 +111,7 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       body = (
         <OrderingResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "ordering" ? props.initialResponse : undefined
           }
@@ -116,7 +122,7 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       body = (
         <HotspotResponse
           {...props}
-          definition={props.definition}
+          responseFormat={props.responseFormat}
           initialResponse={
             props.initialResponse?.kind === "hotspot" ? props.initialResponse : undefined
           }
@@ -136,7 +142,7 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       );
       break;
     default:
-      body = assertNever(props.definition);
+      body = assertNever(props.responseFormat);
   }
   return (
     <>
@@ -144,4 +150,14 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
       {body}
     </>
   );
+}
+
+/** Student delivery accepts only the response format frozen with its Question Presentation. */
+export function QuestionPresentationResponseControl(
+  props: QuestionResponseControlBaseProps & {
+    readonly responseFormat: QuestionPresentationResponseFormat;
+    readonly initialResponse?: import("../../../generated/api/StudentResponse").StudentResponse;
+  },
+): JSX.Element {
+  return <QuestionResponseControl {...props} />;
 }

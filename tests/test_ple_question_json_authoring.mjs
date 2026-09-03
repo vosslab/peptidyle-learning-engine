@@ -51,8 +51,8 @@ function source() {
   };
 }
 
-function publicDefinition(includeVersion = false) {
-  const definition = {
+function draftQuestionContent(includeVersion = false) {
+  const content = {
     workspace,
     questionBackend: "ple",
     webworkPgPath: null,
@@ -72,7 +72,6 @@ function publicDefinition(includeVersion = false) {
     questionType: "multipleChoice",
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
-    questionVariationRule: { kind: "static" },
     grading: { mode: "allOrNothing", points: 1 },
     metadata: {
       title: "Favorite color",
@@ -83,9 +82,9 @@ function publicDefinition(includeVersion = false) {
       language: "en-US",
     },
   };
-  if (!includeVersion) return definition;
+  if (!includeVersion) return content;
   return {
-    ...definition,
+    ...content,
     problem: "00000000-0000-4000-8000-000000000002",
     version: "00000000-0000-4000-8000-000000000003",
   };
@@ -98,7 +97,7 @@ function publicationSummary(backend = "ple") {
     backend,
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],
-    metadata: publicDefinition().metadata,
+    metadata: draftQuestionContent().metadata,
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },
     availability: { availability: "available" },
     publishedAt: 1786000000000,
@@ -601,7 +600,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
           },
         });
       }
-      if (init.method === "PUT") return jsonResponse(publicDefinition(), 200, '"2"');
+      if (init.method === "PUT") return jsonResponse(draftQuestionContent(), 200, '"2"');
       return jsonResponse(publicationSummary(), 201, '"2"');
     },
   });
@@ -709,14 +708,17 @@ test("conflicts do not echo a response body and repository preserves the caller 
 test("client rejects public responses whose identity does not match the requested workspace", async () => {
   const client = createPleQuestionJsonClient({
     fetch: async () =>
-      jsonResponse({ ...publicDefinition(), workspace: "00000000-0000-4000-8000-000000000099" }),
+      jsonResponse({
+        ...draftQuestionContent(),
+        workspace: "00000000-0000-4000-8000-000000000099",
+      }),
   });
   await assert.rejects(client.save(workspace, source()), /does not match its workspace/u);
 });
 
 test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
   const wrongSave = createPleQuestionJsonClient({
-    fetch: async () => jsonResponse({ ...publicDefinition(), questionFormat: "pleAlgorithmic" }),
+    fetch: async () => jsonResponse({ ...draftQuestionContent(), questionFormat: "webworkPg" }),
   });
   await assert.rejects(
     wrongSave.save(workspace, source()),
@@ -781,7 +783,7 @@ test("client accepts the exact PLE hotspot Question Type for a strict hotspot so
   const client = createPleQuestionJsonClient({
     fetch: async () =>
       jsonResponse({
-        ...publicDefinition(),
+        ...draftQuestionContent(),
         questionType: "hotspot",
         response: {
           kind: "hotspot",
@@ -837,9 +839,9 @@ test("repository does not regress a workspace revision when an older save finish
   await repository.load(workspace);
   const older = repository.save(workspace, source());
   const newer = repository.save(workspace, source());
-  secondSave.resolve({ draft: publicDefinition(), revision: '"3"' });
+  secondSave.resolve({ draft: draftQuestionContent(), revision: '"3"' });
   await newer;
-  firstSave.resolve({ draft: publicDefinition(), revision: '"2"' });
+  firstSave.resolve({ draft: draftQuestionContent(), revision: '"2"' });
   await older;
   await repository.publish(workspace, {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },

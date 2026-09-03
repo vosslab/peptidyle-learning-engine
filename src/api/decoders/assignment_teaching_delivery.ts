@@ -39,8 +39,8 @@ export function decodeStudentAssignmentLandingSummary(
   } satisfies StudentAssignmentLandingSummary;
 }
 
-const LATE_POLICIES = ["accept", "markLate", "reject"] as const;
-const ASSIGNMENT_DEADLINE_RULES = ["autoSubmit"] as const;
+const LATE_POLICIES = ["accept", "mark_late", "reject"] as const;
+const ASSIGNMENT_DEADLINE_RULES = ["auto_submit"] as const;
 const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
 const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
   "assignmentAuthoredContent",
@@ -123,37 +123,41 @@ export function decodeInstructorAssignmentAuthoredContentLocal(
   requireOnlyFields(record, path, [
     "timeZone",
     "instructions",
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "assignmentAttemptTimeLimitSeconds",
-    "attemptLimit",
-    "lateWorkRule",
-    "assignmentDeadlineRule",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
+    "late_work_rule",
+    "assignment_deadline_rule",
   ]);
   return {
     timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
-    availableAt: decodeNullable(
-      field(record, "availableAt", path),
-      `${path}.availableAt`,
+    available_at: decodeNullable(
+      field(record, "available_at", path),
+      `${path}.available_at`,
       decodeLocalTime,
     ),
-    dueAt: decodeNullable(field(record, "dueAt", path), `${path}.dueAt`, decodeLocalTime),
-    closesAt: decodeNullable(field(record, "closesAt", path), `${path}.closesAt`, decodeLocalTime),
-    assignmentAttemptTimeLimitSeconds: decodePolicyLimit(
-      field(record, "assignmentAttemptTimeLimitSeconds", path),
-      `${path}.assignmentAttemptTimeLimitSeconds`,
+    due_at: decodeNullable(field(record, "due_at", path), `${path}.due_at`, decodeLocalTime),
+    closes_at: decodeNullable(
+      field(record, "closes_at", path),
+      `${path}.closes_at`,
+      decodeLocalTime,
     ),
-    attemptLimit: decodePolicyLimit(field(record, "attemptLimit", path), `${path}.attemptLimit`),
-    lateWorkRule: decodeStringEnum(
-      field(record, "lateWorkRule", path),
-      `${path}.lateWorkRule`,
+    assignment_attempt_time_limit_seconds: decodePolicyLimit(
+      field(record, "assignment_attempt_time_limit_seconds", path),
+      `${path}.assignment_attempt_time_limit_seconds`,
+    ),
+    attempt_limit: decodePolicyLimit(field(record, "attempt_limit", path), `${path}.attempt_limit`),
+    late_work_rule: decodeStringEnum(
+      field(record, "late_work_rule", path),
+      `${path}.late_work_rule`,
       LATE_POLICIES,
     ),
-    assignmentDeadlineRule: decodeStringEnum(
-      field(record, "assignmentDeadlineRule", path),
-      `${path}.assignmentDeadlineRule`,
+    assignment_deadline_rule: decodeStringEnum(
+      field(record, "assignment_deadline_rule", path),
+      `${path}.assignment_deadline_rule`,
       ASSIGNMENT_DEADLINE_RULES,
     ),
   };
@@ -172,19 +176,19 @@ export function decodeInstructorAssignmentAvailabilityView(
     "archived",
   ] as const);
   if (state === "scheduled") {
-    requireOnlyFields(record, path, ["state", "availableAt"]);
+    requireOnlyFields(record, path, ["state", "available_at"]);
     return {
       state,
-      availableAt: decodeLocalTime(field(record, "availableAt", path), `${path}.availableAt`),
+      available_at: decodeLocalTime(field(record, "available_at", path), `${path}.available_at`),
     };
   }
   if (state === "closed") {
-    requireOnlyFields(record, path, ["state", "closedAt"]);
+    requireOnlyFields(record, path, ["state", "closed_at"]);
     return {
       state,
-      closedAt: decodeNullable(
-        field(record, "closedAt", path),
-        `${path}.closedAt`,
+      closed_at: decodeNullable(
+        field(record, "closed_at", path),
+        `${path}.closed_at`,
         decodeLocalTime,
       ),
     };
@@ -287,46 +291,46 @@ export function decodeInstructorStudentView(
   ]);
   const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
   requireOnlyFields(deliveryRecord, `${path}.delivery`, [
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "assignmentAttemptTimeLimitSeconds",
-    "attemptLimit",
-    "lateWorkRule",
-    "assignmentDeadlineRule",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
+    "late_work_rule",
+    "assignment_deadline_rule",
   ]);
   const delivery: InstructorStudentViewDelivery = {
-    availableAt: decodeNullable(
-      field(deliveryRecord, "availableAt", `${path}.delivery`),
-      `${path}.delivery.availableAt`,
+    available_at: decodeNullable(
+      field(deliveryRecord, "available_at", `${path}.delivery`),
+      `${path}.delivery.available_at`,
       decodeTimestamp,
     ),
-    dueAt: decodeNullable(
-      field(deliveryRecord, "dueAt", `${path}.delivery`),
-      `${path}.delivery.dueAt`,
+    due_at: decodeNullable(
+      field(deliveryRecord, "due_at", `${path}.delivery`),
+      `${path}.delivery.due_at`,
       decodeTimestamp,
     ),
-    closesAt: decodeNullable(
-      field(deliveryRecord, "closesAt", `${path}.delivery`),
-      `${path}.delivery.closesAt`,
+    closes_at: decodeNullable(
+      field(deliveryRecord, "closes_at", `${path}.delivery`),
+      `${path}.delivery.closes_at`,
       decodeTimestamp,
     ),
-    assignmentAttemptTimeLimitSeconds: decodePolicyLimit(
-      field(deliveryRecord, "assignmentAttemptTimeLimitSeconds", `${path}.delivery`),
-      `${path}.delivery.assignmentAttemptTimeLimitSeconds`,
+    assignment_attempt_time_limit_seconds: decodePolicyLimit(
+      field(deliveryRecord, "assignment_attempt_time_limit_seconds", `${path}.delivery`),
+      `${path}.delivery.assignment_attempt_time_limit_seconds`,
     ),
-    attemptLimit: decodePolicyLimit(
-      field(deliveryRecord, "attemptLimit", `${path}.delivery`),
-      `${path}.delivery.attemptLimit`,
+    attempt_limit: decodePolicyLimit(
+      field(deliveryRecord, "attempt_limit", `${path}.delivery`),
+      `${path}.delivery.attempt_limit`,
     ),
-    lateWorkRule: decodeStringEnum(
-      field(deliveryRecord, "lateWorkRule", `${path}.delivery`),
-      `${path}.delivery.lateWorkRule`,
+    late_work_rule: decodeStringEnum(
+      field(deliveryRecord, "late_work_rule", `${path}.delivery`),
+      `${path}.delivery.late_work_rule`,
       LATE_POLICIES,
     ),
-    assignmentDeadlineRule: decodeStringEnum(
-      field(deliveryRecord, "assignmentDeadlineRule", `${path}.delivery`),
-      `${path}.delivery.assignmentDeadlineRule`,
+    assignment_deadline_rule: decodeStringEnum(
+      field(deliveryRecord, "assignment_deadline_rule", `${path}.delivery`),
+      `${path}.delivery.assignment_deadline_rule`,
       ASSIGNMENT_DEADLINE_RULES,
     ),
   };

@@ -1,6 +1,6 @@
-//! MOD-ADP-QTI: QTI import and export.
+//! QTI import and export.
 //!
-//! Import is hostile-input territory: the M4 gate is a hostile-ZIP corpus
+//! Import is hostile-input territory: a hostile-ZIP corpus is
 //! rejected in full with actionable errors. Unsupported QTI features are
 //! recorded rather than silently dropped, and the original package is archived
 //! through `objects` so it stays re-importable.

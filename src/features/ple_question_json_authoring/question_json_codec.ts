@@ -331,7 +331,7 @@ function decodeHotspotSurface(value: unknown, path: string): PleQuestionJsonHots
   }
   const checksum = string(field(record, "checksum", path), `${path}.checksum`);
   if (!/^[0-9a-f]{64}$/u.test(checksum)) {
-    throw new DecodeError(`${path}.checksum`, "a lowercase SHA-256 hexadecimal digest");
+    throw new DecodeError(`${path}.checksum`, "a lowercase SHA-256 checksum");
   }
   return {
     asset,

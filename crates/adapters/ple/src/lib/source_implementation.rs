@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use question_model::generation::QuestionGeneratorReference;
 use question_model::{DraftQuestionContent, QuestionBackend, QuestionRevision};
 
 use crate::generator::PleQuestionImplementation;
@@ -24,7 +23,7 @@ impl PleQuestionBackend {
             .map(|(_, registered)| Arc::as_ref(registered))
             .collect();
         if implementations.is_empty() {
-            Err(self.unknown_implementation(question.question_format, question.question_type, None))
+            Err(self.unknown_implementation(question.question_format, question.question_type))
         } else {
             Ok(implementations)
         }
@@ -33,7 +32,6 @@ impl PleQuestionBackend {
     pub(super) fn implementation_for_question(
         &self,
         question: &QuestionRevision,
-        generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
         if question.question_backend != QuestionBackend::Ple {
             return Err(PleQuestionBackendError::UnsupportedSource);
@@ -43,22 +41,16 @@ impl PleQuestionBackend {
             .find(|(key, _)| {
                 key.question_format == question.question_format
                     && key.question_type == question.question_type
-                    && key.generator.as_ref() == generator
             })
             .map(|(_, registered)| Arc::as_ref(registered))
             .ok_or_else(|| {
-                self.unknown_implementation(
-                    question.question_format,
-                    question.question_type,
-                    generator,
-                )
+                self.unknown_implementation(question.question_format, question.question_type)
             })
     }
 
     pub(super) fn implementation_for_draft(
         &self,
         question: &DraftQuestionContent,
-        generator: Option<&QuestionGeneratorReference>,
     ) -> Result<&dyn PleQuestionImplementation, PleQuestionBackendError> {
         if question.question_backend != QuestionBackend::Ple {
             return Err(PleQuestionBackendError::UnsupportedSource);
@@ -68,15 +60,10 @@ impl PleQuestionBackend {
             .find(|(key, _)| {
                 key.question_format == question.question_format
                     && key.question_type == question.question_type
-                    && key.generator.as_ref() == generator
             })
             .map(|(_, registered)| Arc::as_ref(registered))
             .ok_or_else(|| {
-                self.unknown_implementation(
-                    question.question_format,
-                    question.question_type,
-                    generator,
-                )
+                self.unknown_implementation(question.question_format, question.question_type)
             })
     }
 
@@ -84,12 +71,10 @@ impl PleQuestionBackend {
         &self,
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<&QuestionGeneratorReference>,
     ) -> PleQuestionBackendError {
         PleQuestionBackendError::UnknownQuestionImplementation {
             question_format,
             question_type,
-            generator: generator.cloned(),
         }
     }
 }

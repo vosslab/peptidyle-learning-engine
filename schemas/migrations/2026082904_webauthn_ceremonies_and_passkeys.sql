@@ -1,11 +1,11 @@
--- SD1 private WebAuthn ceremony and passkey roots; PLE stores no passwords.
+-- Private WebAuthn ceremony and passkey roots; PLE stores no passwords.
 
 DO $$
 BEGIN
     IF current_user <> 'ple_migrator'
        OR NOT pg_catalog.pg_has_role('ple_migrator', 'ple_private_owner', 'SET') THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'migration 2026082904 requires the SD1 private migration principal';
+            MESSAGE = 'migration 2026082904 requires the private migration principal';
     END IF;
     IF EXISTS (
         SELECT 1 FROM pg_catalog.pg_class AS relations

@@ -30,8 +30,8 @@ Its race-safety mechanism is specified separately in
 [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
 
 **Planned boundaries.** Question Presentation Checksum recovery awaits its accepted
-payload package; Object Storage Checks are WP-RC7; managed point-in-time
-recovery and production failover are WP-RC10 deployment work. None is current
+payload migration; Object Storage Checks remain planned; managed point-in-time
+recovery and production failover remain deployment work. None is current
 automatic recovery behavior.
 
 ## Recovery rule
@@ -106,10 +106,10 @@ recover an uncertain submission by issuing a different attempt.
   attempt lifecycle.
 
 The accepted payload redesign in
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) adds an attempt-bound presentation
-digest and rendered item IDs. Its planned mismatch response is a fail-closed `409`: PLE does not
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) adds an attempt-bound Question Presentation
+Checksum and Presentation Response Item References. Its planned mismatch response is a fail-closed `409`: PLE does not
 grade or mutate the attempt, preserves the editable draft only in memory, reloads the same
-presentation, and restores the draft only when its schema and rendered IDs still match. Until that
+presentation, and restores the draft only when its schema and Presentation Response Item References still match. Until that
 work package lands, current clients must use the implemented attempt and idempotency boundary and
 must not treat current Question Attempt Reproduction Details as client authority.
 
@@ -205,7 +205,7 @@ not object commit mechanics.
 | Bytes exist without a database record        | Treat as an orphan; do not serve it.                                                        |
 | Object-store dependency is unavailable       | Return bounded unavailable behavior and leave durable metadata/leases recoverable.          |
 
-WP-RC7 Object Storage Checks are planned, not implemented. Until that package
+Object Storage Checks are planned, not implemented. Until that capability
 is accepted, operators preserve the evidence and repair the backing store;
 application code must not silently delete mismatched records.
 
@@ -235,7 +235,7 @@ and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#fresh-migration-epoch)
   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 - A local logical restore exercise is evidence for local recovery only. Managed point-in-time
   recovery, backup retention, KMS, numerical recovery objectives, and production failover remain
-  WP-RC10 deployment work.
+  deployment work.
 
 Any connected validation of backup, restore, deletion, migration, or fault behavior is a dated
 disposable exercise, recovery drill, or controlled fault injection against fictional live-demo
@@ -256,7 +256,7 @@ browser-facing data channel.
   protected correlation data only in the authorized operator boundary and never copy it into an
   HTTP response.
 - Before adding a diagnostic field, decide whether it is necessary to recover a correct durable
-  state. If not, omit it. A checksum or presentation checksum supports consistency diagnosis; it is
+  state. If not, omit it. A Checksum, such as a Question Presentation Checksum, supports consistency diagnosis; it is
   not authentication, transport security, or permission to reveal protected content.
 
 ## Change checklist

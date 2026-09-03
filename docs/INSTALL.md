@@ -125,11 +125,12 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
 
 ## Known gaps
 
-- `WP-INST-G1` is accepted. Its forward closeout migrations `2026081866` through `2026081869`
+- The automated-grading operation boundary is accepted. Its forward closeout migrations `2026081866` through `2026081869`
   provide the clean-volume receipt preflight, receipt writers, commit-v2 authority, and retry V2
   retirement boundary. Final material-tree Validation passed with the affected 99-migration live
-  database, RLS, worker, browser, WebWork, and replica evidence. `WP-INST-G2` now owns audited
-  student-work inspection and grade-scheme-aware calculated Gradebook work. `WP-RC12` release
-  acceptance remains open; this disposable live demo is not release evidence by itself.
+  database, RLS, worker, browser, WebWork, and replica evidence. Audited
+  student-work inspection and grade-scheme-aware calculated Gradebook work remain open. Release
+  acceptance remains open; this disposable live demo is not release evidence by itself. See the
+  [implementation status registry](active_plans/implementation_status.md) for current scheduling evidence.
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

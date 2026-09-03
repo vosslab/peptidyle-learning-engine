@@ -266,7 +266,7 @@ impl QtiMappedPoints {
     {
         match (profile, self) {
             (QtiProfileId::CANVAS | QtiProfileId::GENERIC, Self::Declared(points)) => {
-                canonical_points(points)
+                normalized_points(points)
                     .map(|points| (points, Vec::new(), Vec::new()))
                     .ok_or(QtiMappedItemError::InvalidPoints)
             }
@@ -341,7 +341,7 @@ pub(super) fn char_count(value: &str) -> usize {
     value.chars().count()
 }
 #[allow(dead_code)]
-fn canonical_points(value: &str) -> Option<String> {
+fn normalized_points(value: &str) -> Option<String> {
     let points = value.parse::<f64>().ok()?;
     if !points.is_finite() || points < 0.0 {
         return None;

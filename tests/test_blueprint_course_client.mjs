@@ -29,7 +29,7 @@ function contentInput() {
       assignment_attempt_time_limit_seconds: null,
       attempt_limit: 2,
       late_work_rule: "accept",
-      assignment_deadline_rule: "autoSubmit",
+      assignment_deadline_rule: "auto_submit",
       activity_rules: {
         assignmentCompletionRule: { kind: "answerAll" },
         assignmentAttemptGradeRule: "highest",
@@ -81,6 +81,22 @@ function blueprint(revision = "7") {
                   },
                   points_possible: "2",
                   scoring_rule: "normal",
+                },
+                {
+                  kind: "pool",
+                  items: [
+                    {
+                      question_library: {
+                        summary: publishedQuestion,
+                        evidence: { state: "insufficientEvidence" },
+                      },
+                      selection_availability: "available",
+                    },
+                  ],
+                  selection_count: 1,
+                  points_per_item: "2",
+                  scoring_rule: "normal",
+                  selection_rule: { selected_question_order: "questionPoolOrder" },
                 },
               ],
             },
@@ -135,6 +151,11 @@ test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fi
   const hostile = structuredClone(blueprint());
   hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
+  const retiredPoolField = structuredClone(blueprint());
+  const pool = retiredPoolField.modules[0].assignments[0].content.entries[1];
+  pool.entries = pool.items;
+  delete pool.items;
+  assert.throws(() => decodeBlueprintCourseView(retiredPoolField), DecodeError);
   const retiredAccess = structuredClone(blueprint());
   retiredAccess.access = "owner";
   assert.throws(() => decodeBlueprintCourseView(retiredAccess), DecodeError);

@@ -1,4 +1,4 @@
-//! Assignment/backend capability validation (MOD-CAP).
+//! Assignment and Question Backend capability validation.
 //!
 //! The editor and publish route call the same pure function. Each violation
 //! names the immutable question revision and one missing capability, and the
@@ -8,7 +8,6 @@
 use std::collections::BTreeSet;
 
 use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-use question_model::generation::QuestionVariationRule;
 use question_model::{
     Capability, DraftQuestionContent, QuestionBackendCapabilities, QuestionGradingRule,
     QuestionRevision, QuestionRevisionReference,
@@ -34,9 +33,9 @@ pub struct AssignmentConfig {
     /// Assignment-wide features every selected backend must support.
     ///
     /// Client rendering, print export, and offline preview are requested here.
-    /// Question-authored Question Variation Rule, Question Grading Rule, and Question Attempt
-    /// Time Limit requirements are derived directly from the Question Revision and need no
-    /// second flag.
+    /// Question Grading Rule and Question Attempt Time Limit requirements are derived directly
+    /// from the Question Revision and need no second flag. Static PLE Question JSON has no
+    /// Question-authored variation rule; WeBWorK and iMathAS variation stays backend-owned.
     pub required_capabilities: Vec<Capability>,
 }
 
@@ -116,15 +115,11 @@ fn required_by_question(question: &QuestionRevision) -> BTreeSet<Capability> {
 }
 
 trait QuestionContentView {
-    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule;
     fn grading(&self) -> &QuestionGradingRule;
     fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit;
 }
 
 impl QuestionContentView for QuestionRevision {
-    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule {
-        &self.question_variation_rule
-    }
     fn grading(&self) -> &QuestionGradingRule {
         &self.grading
     }
@@ -134,9 +129,6 @@ impl QuestionContentView for QuestionRevision {
 }
 
 impl QuestionContentView for DraftQuestionContent {
-    fn question_variation_rule(&self) -> &question_model::generation::QuestionVariationRule {
-        &self.question_variation_rule
-    }
     fn grading(&self) -> &QuestionGradingRule {
         &self.grading
     }
@@ -148,12 +140,6 @@ impl QuestionContentView for DraftQuestionContent {
 fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capability> {
     let mut required = BTreeSet::new();
 
-    if matches!(
-        question.question_variation_rule(),
-        QuestionVariationRule::Seeded { .. }
-    ) {
-        required.insert(Capability::AlgorithmicGeneration);
-    }
     match question.grading() {
         QuestionGradingRule::AllOrNothing { .. } => {
             required.insert(Capability::ServerGrading);
@@ -176,13 +162,10 @@ fn required_by_content(question: &impl QuestionContentView) -> BTreeSet<Capabili
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
     use question_model::QuestionContentBlock;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
-    use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::{
         QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
@@ -204,7 +187,6 @@ mod tests {
     #[derive(Debug, Clone, Copy, Deserialize)]
     #[serde(rename_all = "camelCase")]
     enum CaseFeature {
-        Seeded,
         AllOrNothing,
         PartialCredit,
         QuestionAttemptTimeLimit,
@@ -227,7 +209,7 @@ mod tests {
             webwork_pg_path: None,
             qti_package_item_identifier: None,
             imathas_question_backend_binding: None,
-            question_format: QuestionFormat::PleAlgorithmic,
+            question_format: QuestionFormat::PleQuestionJson,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Capability fixture".to_string(),
             }],
@@ -240,7 +222,6 @@ mod tests {
                 max_attempts: Some(1),
             },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::Ungraded,
             metadata: QuestionMetadata {
                 title: "Capability fixture".to_string(),
@@ -255,18 +236,6 @@ mod tests {
 
     fn apply_feature(question: &mut QuestionRevision, feature: CaseFeature) {
         match feature {
-            CaseFeature::Seeded => {
-                question.question_variation_rule = QuestionVariationRule::Seeded {
-                    generator: QuestionGeneratorReference {
-                        id: "capability-fixture".to_string(),
-                        version: "1".to_string(),
-                    },
-                    parameters: BTreeMap::from([(
-                        "mass".to_string(),
-                        QuestionGeneratorParameter::IntegerRange { low: 1, high: 2 },
-                    )]),
-                };
-            }
             CaseFeature::AllOrNothing => {
                 question.grading = QuestionGradingRule::AllOrNothing { points: 1.0 };
             }
@@ -325,7 +294,7 @@ mod tests {
             covered.extend(case.expected_violations);
         }
 
-        assert_eq!(covered, Capability::ALL.into_iter().collect());
+        assert!(covered.contains(&Capability::ServerGrading));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-# Containerfile.api - multi-stage image for the Peptidyle API server (WP-F4).
+# Containerfile.api - multi-stage image for the Peptidyle API server.
 #
 # Build from the repo root so the whole Cargo workspace is in context:
 #   podman build -f containers/Containerfile.api -t peptidyle-api .

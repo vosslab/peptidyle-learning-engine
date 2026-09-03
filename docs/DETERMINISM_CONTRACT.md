@@ -1,9 +1,9 @@
 # Determinism contract
 
 This document defines what PLE reproduces exactly, what it merely checks for
-consistency, and what must remain server-owned. It applies to PLE generated
-questions, WeBWorK renders, issued student presentations, cache entries, and
-prefetch reservations.
+consistency, and what must remain server-owned. It applies to static PLE
+Question JSON, WeBWorK renders, issued student presentations, cache entries,
+and prefetch reservations.
 
 The central rule is deliberately narrow: **the same immutable inputs must
 reproduce the same authoritative Source Object Reference.** It does not mean that every new
@@ -13,13 +13,12 @@ attempt uses the stored values.
 
 ## Contract layers
 
-| Layer                         | Authoritative inputs                                                                 | Exact result                                                                                                                                                    | Owner                              |
-| ----------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Question Variation Parameters | Question Variation Rule, seed                                                        | `QuestionVariationParameters` and SHA-256                                                                                                                       | `domain` and Wasm                  |
-| PLE Question Backend render   | immutable Question Revision, seed                                                    | Question Variation Presentation and Question Attempt Reproduction Details                                                                                       | trusted server backend             |
-| WeBWorK safe render           | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                     | private adapter/renderer           |
-| Student issuance              | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, rendered IDs, and Question Presentation Checksum | trusted server; browser may verify |
-| Submission                    | authenticated attempt, idempotency key, student response                             | one stored receipt or conflict                                                                                                                                  | trusted server/store               |
+| Layer                           | Authoritative inputs                                                                 | Exact result                                                                                                                                                                             | Owner                              |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Static PLE Question JSON render | immutable Question Revision, Question Seed                                           | Question Variation Presentation and Question Attempt Reproduction Details                                                                                                                | trusted server backend             |
+| WeBWorK safe render             | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                                              | private adapter/renderer           |
+| Student issuance                | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, Presentation Response Item References, and Question Presentation Checksum | trusted server; browser may verify |
+| Submission                      | authenticated attempt, idempotency key, student response                             | one stored receipt or conflict                                                                                                                                                           | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
@@ -27,47 +26,30 @@ student, replaces TLS, or makes a client-side grade authoritative.
 
 ## Immutable identity
 
-Published question identity is the pair of durable problem and immutable
-version IDs. A seeded `QuestionVariationRule` additionally carries a
-`QuestionGeneratorReference` with a stable generator ID and additive generator
-version. A changed generator implementation therefore requires a new generator
-version and a new published question revision; historical Question Variation Rules remain
-resolvable.
+Published Question identity is the pair of durable Question ID and immutable
+Question Revision Number. Current static PLE Question JSON has no
+Question-authored Question Variation Rule. WeBWorK and iMathAS retain their
+backend-owned variation behavior. A future Question Generator requires
+immutable registered source data and a complete publication-to-reproduction
+path.
 
-An issued `QuestionAttempt` records its immutable problem version, server-owned
-seed, generated-parameter hash, and `QuestionAttemptReproductionDetails`. The Question Attempt Reproduction Details records the
-Question Backend Version, generator where applicable, Source Object Reference,
-Question Renderer Version where applicable, Question Grader Version, asset objects,
-and rendered-question hash.
+An issued `QuestionAttempt` records its immutable Question Revision Reference,
+server-owned Question Seed, and `QuestionAttemptReproductionDetails`. The
+reproduction details record Question Backend Version, Source Object Reference,
+Question Renderer Version where applicable, Question Grader Version, asset
+objects, and Rendered Question SHA-256.
 This is the audit record used to reject a rerender that no longer reproduces
 the issued question.
 
 The authoritative types are in
-[`crates/question_model/src/generation.rs`](../crates/question_model/src/generation.rs),
-[`crates/domain/src/generator.rs`](../crates/domain/src/generator.rs), and
-[`crates/question_model/src/student_work.rs`](../crates/question_model/src/lib.rs).
+[`crates/question_model/src/generation.rs`](../crates/question_model/src/generation.rs)
+and [`crates/question_model/src/student_work.rs`](../crates/question_model/src/student_work.rs).
 
-## Seeded generation
+## Future source-owned generation
 
-`domain::generator::generate` is a pure function of a `QuestionSeed` and a
-`QuestionVariationRule`. The implementation makes these compatibility
-choices explicit:
-
-- `ChaCha20Rng` receives a 256-bit key derived from the domain separator
-  `peptidyle-learning-engine/generator/v1` and the stored 64-bit seed in
-  little-endian order.
-- Sampling consumes only `RngCore` bytes through PLE's own rejection sampler;
-  it does not depend on `rand` distribution helpers.
-- `BTreeMap` fixes parameter iteration and generated-output order.
-- Integer ranges are inclusive and unbiased; decimal ranges are scaled integer
-  values rendered as fixed-precision strings.
-- Fixed and single-value parameters consume no random draw, so adding one does
-  not perturb unrelated random values.
-- Canonical generated output is `serde_json` bytes of `QuestionVariationParameters` and
-  its hash is lowercase SHA-256 hexadecimal.
-
-The browser Wasm module uses the same Rust `domain` code. It does not have an
-independent TypeScript randomizer. This makes cross-target agreement a tested
+The browser has no independent PLE generation engine. A future generator is
+admitted only with immutable registered Question Generator source data and the
+complete trusted publication, issue, grading, repair, and reproduction path.
 property rather than an implementation convention.
 
 ### Browser Wasm boundary
@@ -118,16 +100,16 @@ descriptor includes:
 - title, prompt blocks, public Question Response Format, item order, and response
   constraints;
 - durable asset identity plus authored and selected-rendition checksums; and
-- the rendered IDs and canonical public basis of every addressable item.
+- the Presentation Response Item References and deterministic public basis of every addressable Response Item.
 
 The server computes SHA-256 over the versioned binary descriptor and persists
-the full 32-byte digest with the nonce. The student receives the nonce in the
+the full 32-byte Question Presentation Checksum with the nonce. The student receives the nonce in the
 answer-free Question Presentation and a `pd1_` base64url token containing the first 128 bits
-of the digest. Rebuilding the same Question Presentation with the persisted nonce must
-reproduce the stored full digest exactly.
+of the Question Presentation Checksum. Rebuilding the same Question Presentation with the persisted nonce must
+reproduce the stored full Question Presentation Checksum exactly.
 
 A fresh nonce is intentional. It lets the server give one presentation-scoped
-identity to each rendered item, even when the same logical question and seed
+Presentation Response Item Reference to each addressable Response Item, even when the same logical question and seed
 are issued at another time. Therefore `(version, seed)` alone identifies a
 generated variant, while `(version, seed, presentation nonce)` identifies the
 specific v1 presentation.
@@ -137,7 +119,7 @@ The codec and builder are owned by
 TypeScript calls the Rust-owned Wasm verifier; it must not reimplement the
 descriptor codec, CRC, or SHA-256 rules.
 
-### Rendered item IDs
+### Presentation Response Item References
 
 Each addressable choice, blank, matching side, ordering item, Hotspot Surface,
 or Hotspot Region receives a four-lowercase-hex `PresentationResponseItemReference`. It is CRC-16/CCITT-
@@ -152,21 +134,21 @@ other internal identities remain server-side.
 
 ### Checksum roles
 
-| Value                                  | Detects or proves                                                                             | Does not provide                                                 |
-| -------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Source-source_object_reference SHA-256 | immutable source bytes match their published record                                           | authorization or a rendered output                               |
-| Generated-variant SHA-256              | same Question Variation Rule and seed produced the reviewed Question Variation Parameters     | a student presentation or grade                                  |
-| Safe-render SHA-256                    | cached WeBWorK safe render has a stable Source Object Reference and Question Renderer Version | private replay state or student authorization                    |
-| Full presentation SHA-256              | persisted descriptor agrees with a reconstructed public presentation                          | authentication, transport integrity, or pixel rendering          |
-| `pd1_` 128-bit public token            | compact browser/server presentation-consistency comparison                                    | a durable secret or a substitute for the full stored digest      |
-| Rendered-item CRC16                    | selected item corresponds to one unique object in this presentation                           | collision resistance across presentations or a security boundary |
-| Idempotency record                     | exact retry is replayed and changed retry conflicts                                           | question correctness                                             |
+| Value                                      | Detects or proves                                                                                         | Does not provide                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Source Object Checksum                     | immutable source bytes match their published record                                                       | authorization or a rendered output                                                  |
+| Generated-variant SHA-256                  | same Question Seed and backend-owned variation inputs produced the reviewed Question Variation Parameters | a student presentation or grade                                                     |
+| Safe-render SHA-256                        | cached WeBWorK safe render has a stable Source Object Reference and Question Renderer Version             | private replay state or student authorization                                       |
+| Question Presentation Checksum             | persisted descriptor agrees with a reconstructed public presentation                                      | authentication, transport integrity, or pixel rendering                             |
+| `pd1_` Question Presentation Token         | compact browser/server presentation-consistency comparison                                                | a durable secret or a substitute for the full stored Question Presentation Checksum |
+| Presentation Response Item Reference CRC16 | selected Response Item corresponds to one unique object in this presentation                              | collision resistance across presentations or a security boundary                    |
+| Idempotency record                         | exact retry is replayed and changed retry conflicts                                                       | question correctness                                                                |
 
 ## WeBWorK cache and replay
 
 The WeBWorK adapter caches only safe rendered output in content object storage.
-Its key is deterministic from `(problem, version, seed)` and validates cache
-schema, immutable Source Object Reference, version, seed, student title, and nonempty
+Its key is deterministic from `(Question Revision Reference, Question Seed)` and validates cache
+schema, immutable Source Object Reference, Question Revision Reference, Question Seed, student title, and nonempty
 renderer identity. Cached bytes contain an answer-free shared Question Variation Presentation,
 Source Object Reference binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
@@ -183,8 +165,8 @@ renderer, or emit either witness. This distinction is important for latency
 estimates and operational evidence.
 
 During issuance, the adapter holds bounded `WebworkQuestionAttemptReplayDetails`:
-immutable problem/version/source/seed/Question Renderer Version, presentation
-checksum, and a redacted mapping from presentation-scoped rendered item IDs to
+immutable Question Revision Reference, Source Object Reference, Question Seed, Question Renderer Version, Question Presentation
+Checksum, and a redacted mapping from Presentation Response Item References to
 upstream fields and values. The mapping is never serialized to the browser or
 cache. A course-owned, validated, RLS-protected durable Attempt record is
 required before a mounted WeBWorK delivery or grading route can rely on it.
@@ -198,14 +180,14 @@ earlier issuance.
 The future delivery route will thread that private mapping from
 `WebworkIssuedAttempt` through attempted-work persistence. It must store a
 checksummed public presentation snapshot and matching server-only Question
-Grading Input, then translate browser-rendered IDs through that protected
+Grading Input, then translate browser-supplied Presentation Response Item References through that protected
 record before one private grade RPC. Submitted reads and retries must
 cross-check those persisted artifacts against their owning Attempt;
 they do not reproduce a safe Question Variation Presentation or call a renderer. Successful
 submission and terminal instructor action delete the replay row in the same
 Store transaction.
 
-This is an implemented offline slice, not acceptance of WP-P1 through WP-P6.
+This is an implemented offline slice, not acceptance of the complete Question Presentation payload contract.
 The following remain planned integration and acceptance work:
 
 - prove the one-call path against disposable PostgreSQL and the private live renderer; and
@@ -225,12 +207,12 @@ Question Grading Input, not an untrusted browser-selected question type or mutab
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
 question, creates a Course/Student/Assignment Attempt/predecessor-bound reservation, and
-persists its parameter hash, Question Attempt Reproduction Details, and presentation binding. It does not
+persists its Question Attempt Reproduction Details, and presentation binding. It does not
 start the next timer or let the browser choose seed, version, backend, source,
 or grading state.
 
 When a reservation is reused, the server verifies its immutable version, seed,
-parameter hash, Question Attempt Reproduction Details, and stored presentation binding. It rebuilds the
+Question Attempt Reproduction Details, and stored presentation binding. It rebuilds the
 presentation with the persisted nonce and refuses if the full Question Presentation Checksum differs.
 Promotion consumes the reservation atomically with successor issuance; a
 committed receipt is the only authority that activates the next attempt.
@@ -244,9 +226,6 @@ only a matching, server-owned reservation can become one.
 Run the narrow gates that prove the implemented layers:
 
 ```bash
-# Rust generated-parameter compatibility baseline.
-cargo test -p domain --test test_determinism -- --nocapture
-
 # Presentation descriptor, nonce, collision, and public-rebuild rules.
 cargo test -p question_model presentation
 
@@ -262,9 +241,9 @@ node tests/e2e/e2e_wasm_bridge.mjs
 
 The fixed Question Response Format Fixture Set is `crates/wasm/ple_question_json_response_format_fixture_set.json`; Rust,
 generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
-prove generated-parameter and key-free public-response parity; the canonical instructor scenario
+prove key-free public-response parity; the canonical instructor scenario
 proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.
-These gates do not prove end-to-end submission digest enforcement. Do not claim the planned compact
+These gates do not prove end-to-end Question Presentation Checksum enforcement. Do not claim the planned compact
 payload or one-RPC WeBWorK grade behavior from these checks. Those require the
 payload-plan integration gates, Store conformance, private-renderer
 request-count tests, and browser route tests specified in the active plan.

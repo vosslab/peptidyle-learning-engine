@@ -29,13 +29,13 @@ test("Student view presentation stays answer-free and preserves live delivery fa
     instructions: "Use your notes.",
     timeZone: "America/Chicago",
     delivery: {
-      availableAt: null,
-      dueAt: null,
-      closesAt: null,
-      assignmentAttemptTimeLimitSeconds: 900,
-      attemptLimit: 2,
-      lateWorkRule: "markLate",
-      assignmentDeadlineRule: "autoSubmit",
+      available_at: null,
+      due_at: null,
+      closes_at: null,
+      assignment_attempt_time_limit_seconds: 900,
+      attempt_limit: 2,
+      late_work_rule: "mark_late",
+      assignment_deadline_rule: "auto_submit",
     },
     questionsPerAssignmentAttempt: 3,
     questionPoolReuseRule: "reuseSelection",
@@ -52,7 +52,7 @@ test("Student view presentation stays answer-free and preserves live delivery fa
 
   assert.equal(presentation.title, "Protein structure");
   assert.equal(presentation.questionsPerAssignmentAttempt, 3);
-  assert.equal(presentation.delivery.lateWorkRule, "markLate");
+  assert.equal(presentation.delivery.lateWorkRule, "mark_late");
   assert.equal("assignmentId" in presentation, false);
   assert.equal("run" in presentation, false);
 });

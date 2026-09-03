@@ -64,8 +64,8 @@ run "security_baseline_plan" {
     error_message = "RDS must remain private, encrypted, and deletion protected."
   }
   assert {
-    condition     = strcontains(aws_s3_bucket_policy.object["public_assets"].policy, "/problems/*/assets/*") && !strcontains(aws_s3_bucket_policy.object["private_content"].policy, "\"Resource\":\"arn:aws:s3:::private_content/problems/*/assets/*\"") && strcontains(aws_s3_bucket_policy.object["private_content"].policy, "__no-public-immutability-policy__")
-    error_message = "Public immutable tag fencing must not affect private restricted ProblemAsset objects."
+    condition     = strcontains(aws_s3_bucket_policy.object["public_assets"].policy, "/questions/*/versions/*/assets/*") && !strcontains(aws_s3_bucket_policy.object["private_content"].policy, "\"Resource\":\"arn:aws:s3:::private_content/questions/*/versions/*/restricted-assets/*\"") && strcontains(aws_s3_bucket_policy.object["private_content"].policy, "__no-public-immutability-policy__")
+    error_message = "Public immutable tag fencing must not affect private restricted Question Assets."
   }
   assert {
     condition     = alltrue([for group in [aws_security_group.api, aws_security_group.worker, aws_security_group.publisher, aws_security_group.alb, aws_security_group.database, aws_security_group.vpce] : length(group.egress) == 0])
@@ -140,7 +140,7 @@ run "security_baseline_plan" {
     error_message = "Only the narrow publisher principal may create immutable public assets; API may not write or delete them."
   }
   assert {
-    condition     = strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/imports/*/assets/*") && strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/questions/assets/*") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "private_content/problems/*")
+    condition     = strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/imports/*/assets/*") && strcontains(aws_iam_role_policy.publisher_storage.policy, "/workspaces/*/*/questions/assets/*") && !strcontains(aws_iam_role_policy.publisher_storage.policy, "private_content/questions/*")
     error_message = "Publisher private reads must be limited to the two typed workspace asset paths."
   }
   assert {

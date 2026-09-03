@@ -1,4 +1,4 @@
-//! Deterministic DOCX writer (MOD-EXPORT).
+//! Deterministic DOCX writer.
 
 use crate::{ExportArtifact, FlowBlock, PrintExam, PrintLayout, exam_flow};
 use question_model::QuestionAssetId;

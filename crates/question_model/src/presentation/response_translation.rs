@@ -1,4 +1,4 @@
-//! Server-side translation from rendered response identifiers to durable IDs.
+//! Server-side translation from Presentation Response Item References to durable IDs.
 //!
 //! The presentation binding is server-only.  This operation is deliberately
 //! pure: callers must reproduce and authenticate an [`IssuedQuestionPresentation`] before
@@ -12,23 +12,23 @@ use serde::{Deserialize, Serialize};
 
 use super::{IssuedQuestionPresentation, PresentationResponseItemReference, ResponseItemRole};
 
-/// Fail-closed reasons a browser-rendered identifier cannot be resolved.
+/// Fail-closed reasons a Presentation Response Item Reference cannot be resolved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RenderedResponseTranslationError {
-    /// The response identifier does not have the closed rendered-ID format.
-    MalformedRenderedId,
-    /// The rendered identifier is not present in the issued presentation.
-    UnknownRenderedId,
-    /// The issued presentation maps one rendered identifier more than once.
-    DuplicateRenderedIdBinding,
-    /// The identifier belongs to another response role in this presentation.
-    WrongRenderedItemRole,
+pub enum PresentationResponseItemTranslationError {
+    /// The submitted Presentation Response Item Reference has an invalid closed format.
+    MalformedPresentationResponseItemReference,
+    /// The Presentation Response Item Reference is not present in the issued presentation.
+    UnknownPresentationResponseItemReference,
+    /// The issued presentation maps one Presentation Response Item Reference more than once.
+    DuplicatePresentationResponseItemReferenceBinding,
+    /// The Presentation Response Item Reference belongs to another Response Item Role in this presentation.
+    WrongResponseItemRole,
 }
 
 /// A closed rendering of one immutable submitted Student Response.
 ///
 /// This deliberately closed Student Response Inspection contains only the Student's
-/// submitted values and the rendered identifiers from the issued presentation;
+/// submitted values and the Presentation Response Item References from the issued presentation;
 /// Answer Keys, Question Grading Input, durable Object Addresses, and Question Backend
 /// payloads have no representation here. The server creates it after verifying
 /// the Issued Question Presentation. ASVS 14.1.1 and 14.2.1: sensitive
@@ -46,9 +46,9 @@ pub enum StudentResponseInspection {
         /// Submitted numeric value.
         value: f64,
     },
-    /// Rendered choice identifiers the Student selected.
+    /// Presentation Response Item References the Student selected.
     MultipleChoice {
-        /// Issued rendered choice identifiers, never durable choice IDs.
+        /// Issued Presentation Response Item References, never durable choice IDs.
         selected: Vec<PresentationResponseItemReference>,
     },
     /// A short text value the Student submitted.
@@ -56,24 +56,24 @@ pub enum StudentResponseInspection {
         /// Submitted text.
         text: String,
     },
-    /// Text entries bound to their issued rendered blank identifiers.
+    /// Text entries bound to their issued Presentation Response Item References.
     MultiBlank {
         /// Submitted blank entries.
         answers: Vec<InspectedTextEntry>,
     },
-    /// Associations bound to issued rendered prompt and choice identifiers.
+    /// Associations bound to issued Presentation Response Item References.
     Matching {
         /// Submitted associations.
         matches: Vec<InspectedMatchPair>,
     },
-    /// Issued rendered order-item identifiers in Student-selected order.
+    /// Issued Presentation Response Item References in Student-selected order.
     Ordering {
         /// Submitted ordering.
         order: Vec<PresentationResponseItemReference>,
     },
     /// Submitted Hotspot Region selections.
     Hotspot {
-        /// Issued rendered Hotspot Region identifiers selected by the Student.
+        /// Issued Presentation Response Item References for Hotspot Regions selected by the Student.
         selected_regions: Vec<PresentationResponseItemReference>,
     },
     /// Coarse iMathAS Question Backend completion state.
@@ -83,23 +83,23 @@ pub enum StudentResponseInspection {
     },
 }
 
-/// One text entry bound to the rendered blank identifier visible in the issue.
+/// One text entry bound to the Presentation Response Item Reference visible in the issue.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectedTextEntry {
-    /// Issued rendered blank identifier binding this entry.
+    /// Issued Presentation Response Item Reference binding this entry.
     pub slot: PresentationResponseItemReference,
-    /// Text submitted for the rendered blank.
+    /// Text submitted for the referenced blank.
     pub text: String,
 }
 
-/// One association bound to rendered prompt and choice identifiers.
+/// One association bound to Presentation Response Item References.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InspectedMatchPair {
-    /// Issued rendered prompt identifier.
+    /// Issued Presentation Response Item Reference for the prompt.
     pub prompt: PresentationResponseItemReference,
-    /// Issued rendered choice identifier.
+    /// Issued Presentation Response Item Reference for the choice.
     pub choice: PresentationResponseItemReference,
 }
 
@@ -142,32 +142,35 @@ impl std::fmt::Debug for InspectedMatchPair {
     }
 }
 
-impl std::fmt::Display for RenderedResponseTranslationError {
+impl std::fmt::Display for PresentationResponseItemTranslationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MalformedRenderedId => formatter.write_str("rendered response ID is malformed"),
-            Self::UnknownRenderedId => formatter.write_str("rendered response ID is unknown"),
-            Self::DuplicateRenderedIdBinding => {
-                formatter.write_str("rendered response ID has duplicate issued bindings")
+            Self::MalformedPresentationResponseItemReference => {
+                formatter.write_str("Presentation Response Item Reference is malformed")
             }
-            Self::WrongRenderedItemRole => {
-                formatter.write_str("rendered response ID has the wrong issued role")
+            Self::UnknownPresentationResponseItemReference => {
+                formatter.write_str("Presentation Response Item Reference is unknown")
             }
+            Self::DuplicatePresentationResponseItemReferenceBinding => formatter
+                .write_str("Presentation Response Item Reference has duplicate issued bindings"),
+            Self::WrongResponseItemRole => formatter.write_str(
+                "Presentation Response Item Reference has the wrong issued Response Item Role",
+            ),
         }
     }
 }
 
-impl std::error::Error for RenderedResponseTranslationError {}
+impl std::error::Error for PresentationResponseItemTranslationError {}
 
-/// Converts browser-rendered item IDs into the durable IDs bound to one issue.
+/// Converts Presentation Response Item References into the durable IDs bound to one issue.
 ///
 /// Only identifier-bearing Question Response Formats are rewritten. Scalar
 /// response formats preserve their values exactly. The function intentionally exposes
 /// no durable mapping or serializable wire type.
-pub fn translate_rendered_response(
+pub fn translate_presentation_response_item_references(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponse, RenderedResponseTranslationError> {
+) -> Result<StudentResponse, PresentationResponseItemTranslationError> {
     let response_item_reference = |id: &ResponseItemReference, role| {
         translated_response_item_reference(id, role, presentation)
     };
@@ -239,17 +242,19 @@ pub fn translate_rendered_response(
     }
 }
 
-/// Projects a durable submitted response into the exact rendered identifiers
+/// Projects a durable submitted response into the exact Presentation Response Item References
 /// of a verified issued presentation.
 ///
 /// The inverse mapping is intentionally available only at the trusted
 /// inspection boundary. It is pure and does not reveal Answer Keys, Question
 /// Feedback, Question Answer Explanations, or Question Grading Input.
-pub fn project_durable_response_to_rendered(
+pub fn project_durable_response_to_presentation_response_item_references(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponseInspection, RenderedResponseTranslationError> {
-    let rendered_id = |id: &ResponseItemReference, role| rendered_id(id, role, presentation);
+) -> Result<StudentResponseInspection, PresentationResponseItemTranslationError> {
+    let presentation_response_item_reference = |id: &ResponseItemReference, role| {
+        presentation_response_item_reference(id, role, presentation)
+    };
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -258,7 +263,9 @@ pub fn project_durable_response_to_rendered(
             Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| rendered_id(id, ResponseItemRole::QuestionChoice))
+                    .map(|id| {
+                        presentation_response_item_reference(id, ResponseItemRole::QuestionChoice)
+                    })
                     .collect::<Result<_, _>>()?,
             })
         }
@@ -270,7 +277,10 @@ pub fn project_durable_response_to_rendered(
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntry {
-                        slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
+                        slot: presentation_response_item_reference(
+                            &answer.slot,
+                            ResponseItemRole::TextEntrySlot,
+                        )?,
                         text: answer.text.clone(),
                     })
                 })
@@ -281,8 +291,14 @@ pub fn project_durable_response_to_rendered(
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPair {
-                        prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
-                        choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
+                        prompt: presentation_response_item_reference(
+                            &pair.prompt,
+                            ResponseItemRole::MatchingPrompt,
+                        )?,
+                        choice: presentation_response_item_reference(
+                            &pair.choice,
+                            ResponseItemRole::MatchingChoice,
+                        )?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -290,13 +306,18 @@ pub fn project_durable_response_to_rendered(
         StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| rendered_id(id, ResponseItemRole::OrderingItem))
+                .map(|id| presentation_response_item_reference(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
             selected_regions: selections
                 .iter()
-                .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
+                .map(|selection| {
+                    presentation_response_item_reference(
+                        &selection.region,
+                        ResponseItemRole::HotspotRegion,
+                    )
+                })
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::ImathasQuestionBackend {} => {
@@ -312,14 +333,15 @@ pub fn project_durable_response_to_rendered(
 ///
 /// Accepted-submission storage preserves the browser contract verbatim. The
 /// inspection boundary validates each identifier against the reconstructed
-/// public issue and retains that exact rendered identifier. Reconstructed
+/// public issue and retains that exact Presentation Response Item Reference. Reconstructed
 /// browser-safe presentations intentionally contain no durable identifiers.
-pub fn project_rendered_response_for_inspection(
+pub fn project_presentation_response_item_references_for_inspection(
     response: &StudentResponse,
     presentation: &IssuedQuestionPresentation,
-) -> Result<StudentResponseInspection, RenderedResponseTranslationError> {
-    let rendered_id =
-        |id: &ResponseItemReference, role| verified_rendered_id(id, role, presentation);
+) -> Result<StudentResponseInspection, PresentationResponseItemTranslationError> {
+    let presentation_response_item_reference = |id: &ResponseItemReference, role| {
+        verified_presentation_response_item_reference(id, role, presentation)
+    };
     match response {
         StudentResponse::Numeric { value } => {
             Ok(StudentResponseInspection::Numeric { value: *value })
@@ -328,7 +350,9 @@ pub fn project_rendered_response_for_inspection(
             Ok(StudentResponseInspection::MultipleChoice {
                 selected: selected
                     .iter()
-                    .map(|id| rendered_id(id, ResponseItemRole::QuestionChoice))
+                    .map(|id| {
+                        presentation_response_item_reference(id, ResponseItemRole::QuestionChoice)
+                    })
                     .collect::<Result<_, _>>()?,
             })
         }
@@ -340,7 +364,10 @@ pub fn project_rendered_response_for_inspection(
                 .iter()
                 .map(|answer| {
                     Ok(InspectedTextEntry {
-                        slot: rendered_id(&answer.slot, ResponseItemRole::TextEntrySlot)?,
+                        slot: presentation_response_item_reference(
+                            &answer.slot,
+                            ResponseItemRole::TextEntrySlot,
+                        )?,
                         text: answer.text.clone(),
                     })
                 })
@@ -351,8 +378,14 @@ pub fn project_rendered_response_for_inspection(
                 .iter()
                 .map(|pair| {
                     Ok(InspectedMatchPair {
-                        prompt: rendered_id(&pair.prompt, ResponseItemRole::MatchingPrompt)?,
-                        choice: rendered_id(&pair.choice, ResponseItemRole::MatchingChoice)?,
+                        prompt: presentation_response_item_reference(
+                            &pair.prompt,
+                            ResponseItemRole::MatchingPrompt,
+                        )?,
+                        choice: presentation_response_item_reference(
+                            &pair.choice,
+                            ResponseItemRole::MatchingChoice,
+                        )?,
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -360,13 +393,18 @@ pub fn project_rendered_response_for_inspection(
         StudentResponse::Ordering { order } => Ok(StudentResponseInspection::Ordering {
             order: order
                 .iter()
-                .map(|id| rendered_id(id, ResponseItemRole::OrderingItem))
+                .map(|id| presentation_response_item_reference(id, ResponseItemRole::OrderingItem))
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::Hotspot { selections } => Ok(StudentResponseInspection::Hotspot {
             selected_regions: selections
                 .iter()
-                .map(|selection| rendered_id(&selection.region, ResponseItemRole::HotspotRegion))
+                .map(|selection| {
+                    presentation_response_item_reference(
+                        &selection.region,
+                        ResponseItemRole::HotspotRegion,
+                    )
+                })
                 .collect::<Result<_, _>>()?,
         }),
         StudentResponse::ImathasQuestionBackend {} => {
@@ -381,63 +419,66 @@ fn translated_response_item_reference(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<ResponseItemReference, RenderedResponseTranslationError> {
-    rendered_binding(id, expected_role, presentation)?
+) -> Result<ResponseItemReference, PresentationResponseItemTranslationError> {
+    presentation_response_item_binding(id, expected_role, presentation)?
         .response_item_reference
         .clone()
-        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)
+        .ok_or(PresentationResponseItemTranslationError::UnknownPresentationResponseItemReference)
 }
 
-fn verified_rendered_id(
+fn verified_presentation_response_item_reference(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<PresentationResponseItemReference, RenderedResponseTranslationError> {
-    Ok(rendered_binding(id, expected_role, presentation)?
-        .rendered
-        .clone())
+) -> Result<PresentationResponseItemReference, PresentationResponseItemTranslationError> {
+    Ok(
+        presentation_response_item_binding(id, expected_role, presentation)?
+            .presentation_response_item_reference
+            .clone(),
+    )
 }
 
-fn rendered_binding<'a>(
+fn presentation_response_item_binding<'a>(
     id: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &'a IssuedQuestionPresentation,
-) -> Result<&'a super::ResponseItemBinding, RenderedResponseTranslationError> {
-    let rendered = PresentationResponseItemReference::parse(id.as_str())
-        .map_err(|_| RenderedResponseTranslationError::MalformedRenderedId)?;
-    let mut bindings = presentation
-        .item_bindings
-        .iter()
-        .filter(|binding| binding.rendered == rendered);
-    let binding = bindings
-        .next()
-        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)?;
+) -> Result<&'a super::ResponseItemBinding, PresentationResponseItemTranslationError> {
+    let presentation_response_item_reference =
+        PresentationResponseItemReference::parse(id.as_str()).map_err(|_| {
+            PresentationResponseItemTranslationError::MalformedPresentationResponseItemReference
+        })?;
+    let mut bindings = presentation.item_bindings.iter().filter(|binding| {
+        binding.presentation_response_item_reference == presentation_response_item_reference
+    });
+    let binding = bindings.next().ok_or(
+        PresentationResponseItemTranslationError::UnknownPresentationResponseItemReference,
+    )?;
     if bindings.next().is_some() {
-        return Err(RenderedResponseTranslationError::DuplicateRenderedIdBinding);
+        return Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemReferenceBinding);
     }
     if binding.role != expected_role {
-        return Err(RenderedResponseTranslationError::WrongRenderedItemRole);
+        return Err(PresentationResponseItemTranslationError::WrongResponseItemRole);
     }
     Ok(binding)
 }
 
-fn rendered_id(
+fn presentation_response_item_reference(
     durable: &ResponseItemReference,
     expected_role: ResponseItemRole,
     presentation: &IssuedQuestionPresentation,
-) -> Result<PresentationResponseItemReference, RenderedResponseTranslationError> {
+) -> Result<PresentationResponseItemReference, PresentationResponseItemTranslationError> {
     let mut bindings = presentation
         .item_bindings
         .iter()
         .filter(|binding| binding.response_item_reference.as_ref() == Some(durable));
-    let binding = bindings
-        .next()
-        .ok_or(RenderedResponseTranslationError::UnknownRenderedId)?;
+    let binding = bindings.next().ok_or(
+        PresentationResponseItemTranslationError::UnknownPresentationResponseItemReference,
+    )?;
     if bindings.next().is_some() {
-        return Err(RenderedResponseTranslationError::DuplicateRenderedIdBinding);
+        return Err(PresentationResponseItemTranslationError::DuplicatePresentationResponseItemReferenceBinding);
     }
     if binding.role != expected_role {
-        return Err(RenderedResponseTranslationError::WrongRenderedItemRole);
+        return Err(PresentationResponseItemTranslationError::WrongResponseItemRole);
     }
-    Ok(binding.rendered.clone())
+    Ok(binding.presentation_response_item_reference.clone())
 }

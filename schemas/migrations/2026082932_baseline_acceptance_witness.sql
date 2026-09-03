@@ -1,4 +1,4 @@
--- SD1 baseline schema acceptance witness for forced RLS and default-deny ACLs.
+-- Schema acceptance witness for forced RLS and default-deny ACLs.
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.assert_baseline_security_audit()

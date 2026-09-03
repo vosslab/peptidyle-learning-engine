@@ -47,11 +47,11 @@ server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemp
 `QuestionRevisionReference` plus seed before reading or mutating anything. The submitted Question
 Presentation Token is compared with the complete server-held Question Presentation Checksum to check that
 the browser answered the same render state PLE issued. Compact
-CRC16 rendered-item IDs identify choices, blanks, matching sides, ordered items, Hotspot Surfaces,
+CRC16 Presentation Response Item References identify choices, blanks, matching sides, Ordering Items, Hotspot Surfaces,
 and Hotspot Regions within that presentation. Neither the Question Presentation Checksum nor CRC16 authenticates the student or proves
 correctness.
 
-### SD1 authorization binding
+### Authorization binding
 
 An issued attempt is an educational record with one closed server-side identity tuple:
 
@@ -90,7 +90,7 @@ The Question Variation Presentation contains:
 
 - student-facing `title`;
 - ordered prompt blocks for text, math, images, code, and tables;
-- a tagged `QuestionResponseFormat` that selects the browser widget.
+- a tagged `QuestionResponseFormat` that selects the browser Question Response Control.
 
 The response `kind` is necessary in this Question Variation Presentation. Without it, the browser cannot know whether
 to draw radio buttons, checkboxes, text boxes, ordering controls, matching controls, or a hotspot
@@ -116,7 +116,7 @@ The current browser Assignment Attempt screen receives a complete
 - course, Student Record, Assignment Attempt, immutable Question Revision reference, Assignment Entry, and seed;
 - parameter hash, response, status, result, and timer state; and
 - Question Backend Version, Question Renderer Version, generator, source-object,
-  asset-object, Question Grader Version, and rendered hash.
+  asset-object, Question Grader Version, and Rendered Question SHA-256.
 
 Most of those fields are legitimate server evidence but unnecessary browser data. The active UI
 needs only the attempt ID, student-visible deadline, presentation binding, and public Question Presentation. It
@@ -151,7 +151,7 @@ Content-Type: application/json
 
 The current server authenticates the session, loads the RLS-visible Question Attempt and owning Assignment Attempt, validates
 the response against the checksummed issued public snapshot, and atomically records immutable
-accepted work plus a ready grading job. The sealed worker translates rendered IDs through the
+accepted work plus a ready grading job. The sealed worker translates Presentation Response Item References through the
 matching server-only Question Grading Input, grades under server authority, and commits the completed
 aggregate. Neither path reproduces a mutable issued Question Presentation. Therefore the submitted `kind` is
 redundant. The attempt already determines the expected Question Type.
@@ -202,7 +202,7 @@ is insignificant beside the render payload, HTTP headers, and assets. PLE should
 every rendered choice. Selectable objects use four-character presentation-scoped IDs, so a ten-choice
 answer does not repeat ten UUIDs.
 
-The attempt ID is durable database identity. Rendered-item IDs are temporary wire identity. Keeping
+The attempt ID is durable database identity. Presentation Response Item References are temporary wire identity. Keeping
 those roles separate avoids compressing durable IDs prematurely or making a 16-bit value globally
 authoritative.
 
@@ -277,8 +277,8 @@ Numerical input remains lexical text on the wire. This preserves what the studen
 strict server parsing, and avoids browser/server disagreement about floating-point serialization or
 accepted scientific notation.
 
-Matching sends only rendered IDs for each relationship, not duplicated prompt or choice objects.
-Ordering sends the ordered identifiers, not item content. Hotspot sends rendered Hotspot Region
+Matching sends only Presentation Response Item References for each relationship, not duplicated Matching Prompt or Matching Choice objects.
+Ordering sends the ordered Presentation Response Item References, not Ordering Item content. Hotspot sends Presentation Response Item References for Hotspot Region
 identifiers; the server resolves each one against the exact issued presentation. The browser never
 sends raw image bytes, grading regions, or authoring geometry.
 
@@ -305,16 +305,16 @@ browser never calculates partial credit and never sends component scores, weight
 claims of correctness. PLE Question Backend grading computes all component results and
 the server projects only what the student may see.
 
-## Rendered-item IDs
+## Presentation Response Item References
 
 ### Purpose
 
 A visible label such as `B` is positional. If a stale browser associates a response with a different
-choice order, `B` can still look syntactically valid. PLE instead gives each selectable rendered
-object an attempt-presentation-specific ID such as `4ef3`. The browser may display ordinary labels
-while submitting the rendered ID.
+choice order, `B` can still look syntactically valid. PLE instead gives each selectable Response
+Item an attempt-presentation-specific Presentation Response Item Reference such as `4ef3`. The browser may display ordinary labels
+while submitting that Presentation Response Item Reference.
 
-Rendered IDs apply to:
+Presentation Response Item References apply to:
 
 - single-choice and multiple-answer choices;
 - multi-blank slots;
@@ -337,7 +337,7 @@ CRC-16/CCITT-FALSE:
 - check vector `123456789` produces `29b1`.
 
 The checksum input is domain-separated and includes the presentation nonce, immutable version, seed,
-item role, ordinal, durable internal item ID, and SHA-256 of the canonical public rendered content.
+Response Item Role, ordinal, durable Response Item Reference, and SHA-256 of the deterministic public presented content.
 This contract defines the normative byte framing.
 Rust owns this codec; the browser calls the Rust/Wasm implementation and does not reimplement it in
 TypeScript.
@@ -350,12 +350,12 @@ reproduces an authoritative mapping from the presentation ID to the internal obj
 
 For ten uniformly distributed identifiers there are 45 pairs, so the probability of at least one
 pairwise collision is approximately `45 / 65,536`, or about one in 1,456 presentations before
-collision rejection. This is acceptable because issuance enforces uniqueness across every rendered
-item in the whole presentation:
+collision rejection. This is acceptable because issuance enforces uniqueness across every Presentation Response
+Item in the whole presentation:
 
 1. Generate a random 16-byte presentation nonce.
-2. Derive every rendered-item ID.
-3. Reject the set if any ID is duplicated, including across different item roles.
+2. Derive every Presentation Response Item Reference.
+3. Reject the set if any Presentation Response Item Reference is duplicated, including across different Response Item Roles.
 4. Retry with a fresh nonce, at most eight times.
 5. Fail closed rather than issue an ambiguous presentation.
 
@@ -366,14 +366,14 @@ it is compact and easy to inspect, not because it is collision-resistant or secr
 
 ### Question Presentation Checksum
 
-Fine-grained IDs say which rendered objects the student selected. A separate Question Presentation Checksum binds the
+Fine-grained Presentation Response Item References say which Response Items the student selected. A separate Question Presentation Checksum binds the
 complete public presentation:
 
 - immutable version and seed;
 - presentation nonce;
 - public title and prompt blocks;
-- Question Response Format and widget constraints;
-- rendered item roles, order, IDs, and public content;
+- Question Response Format and Question Response Control constraints;
+- Response Item Roles, Presentation Response Item References, order, and public content;
 - asset IDs and content checksums; and
 - normalized hotspot geometry where applicable.
 
@@ -383,15 +383,15 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 
 ### Detection boundary
 
-| Mechanism                         | Detects                                                                                                   | Does not prove                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Rendered-item membership and role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
-| Question Presentation Checksum    | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
-| Authenticated Question Attempt    | Student ownership, Course/Assignment Attempt binding, lifecycle, timing, backend, and immutable version   | That the browser rendered every asset                          |
-| Idempotency record                | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
+| Mechanism                                                              | Detects                                                                                                   | Does not prove                                                 |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Presentation Response Item Reference membership and Response Item Role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
+| Question Presentation Checksum                                         | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
+| Authenticated Question Attempt                                         | Student ownership, Course/Assignment Attempt binding, lifecycle, timing, backend, and immutable version   | That the browser rendered every asset                          |
+| Idempotency record                                                     | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
 
 An ordinary transport checksum is unnecessary because TLS and HTTP already detect transfer
-corruption. The digest addresses application-state disagreement: the wrong valid render paired with
+corruption. The Question Presentation Checksum addresses application-state disagreement: the wrong valid render paired with
 the wrong valid attempt.
 
 ### Mismatch recovery
@@ -403,9 +403,9 @@ answers, source, credentials, or provider state.
 The browser then:
 
 1. disables submission;
-2. preserves the student's editable draft in memory under attempt ID plus digest;
+2. preserves the student's editable draft in memory under attempt ID plus Question Presentation Checksum;
 3. reloads the same attempt presentation;
-4. restores the draft only when the Question Response Format and rendered IDs remain compatible;
+4. restores the draft only when the Question Response Format and Presentation Response Item References remain compatible;
 5. asks the student to review the restored answer; and
 6. submits again only after the current presentation validates.
 
@@ -422,7 +422,7 @@ For PLE Question JSON Questions, PLE owns both immutable content and grading. Th
 3. Verify the submitted Question Presentation Token against the stored complete
    Question Presentation Checksum.
 4. Decode the type-free `answer` using the issued public Question Response Format.
-5. Map rendered IDs to durable internal IDs.
+5. Map Presentation Response Item References to durable Response Item Bindings.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
 7. Atomically persist response, score events, Question Attempt/Assignment Attempt transitions, and idempotency result.
 8. Return only the policy-permitted receipt.
@@ -435,8 +435,8 @@ scores or grading metadata.
 
 ### Current private flow
 
-The browser-facing WeBWorK Question Presentation is typed and answer-free. PLE resolves immutable PG
-source from server-only object storage and caches the safe render by problem, version, and seed. An
+The browser-facing WeBWorK Question Presentation is typed and answer-free. PLE resolves immutable Question Source
+from server-only object storage and caches the safe render by Question Revision Reference and Question Seed. An
 **issue** cache hit reuses that public render but still makes one private same-seed renderer call to
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
 reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
@@ -452,7 +452,7 @@ boundary. The historical RC3 compatibility grading path originally performed two
 2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
 
 The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
-server-only Question Grading Input, and frozen WeBWorK definition under the issued attempt. Normal grade
+server-only Question Grading Input, and frozen WeBWorK Question Source under the issued attempt. Normal grade
 validates those artifacts and performs only the private grade call; it never resolves a current
 published Question Revision or rerenders to recover state. The official upstream endpoint is stateless, so
 PLE still sends the immutable Source Object Reference and Source Object Checksum with signed server state on that private grade call. That
@@ -460,14 +460,14 @@ repetition is an internal service cost, not student payload.
 
 ### Implemented private replay slice and remaining target
 
-At issue time, PLE now persists a bounded, server-only replay record mapping each rendered-item ID
+At issue time, PLE now persists a bounded, server-only replay record mapping each Presentation Response Item Reference
 to its validated upstream field/value. The record contains no source, credential, session key,
 correct-answer flag, raw provider result, or browser-visible field name.
 
 Normal grade then:
 
 1. loads and validates the attempt-bound replay record;
-2. validates the public response against the issued snapshot and resolves its rendered-item ID to
+2. validates the public response against the issued snapshot and resolves its Presentation Response Item Reference to
    one protected upstream field/value;
 3. loads immutable source and private renderer credentials server-side;
 4. makes one private `/render-api` grade call; and
@@ -480,8 +480,8 @@ never receives or resubmits PG source, upstream field names, radio values, passw
 renderer URLs, or provider score objects.
 
 The reviewed Chapter 1 WeBWorK profile supports its two `RadioButtons` sources and two matching
-sources. Matching partial credit is admitted only when both the source path and immutable source
-digest match the accepted evidence profile. Other WeBWorK interactions still require their own
+sources. Matching partial credit is admitted only when both the source path and immutable Source Object
+Checksum match the accepted evidence profile. Other WeBWorK interactions still require their own
 adapter contract and live evidence.
 
 ## ADAPT comparison
@@ -523,19 +523,19 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 
 ### Decisions from comparison
 
-| Concern              | ADAPT observation                                    | PLE decision                                                                                                  |
-| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Render sanitization  | Strips correct responses and feedback by role/policy | Adopt and preserve                                                                                            |
-| Determinism          | Stores a per-student assignment/question seed        | Adopt the deterministic principle; bind it to an attempt                                                      |
-| Server-inferred type | Server infers `questionType`                         | Remove submission `kind` in PLE v1                                                                            |
-| Server-held identity | Browser sends assignment and question IDs            | Use one attempt ID that already binds both                                                                    |
-| ADAPT render scope   | Rich assignment/question records                     | Return one minimal active student screen                                                                      |
-| Matching response    | Whole mutated objects                                | Send only rendered-ID relationships                                                                           |
-| Backend selector     | Browser sends `technology`                           | Derive backend from the attempt                                                                               |
-| Partial credit       | Server computes it                                   | Preserve server-only scoring                                                                                  |
-| External context     | JWT/JWE protects renderer context                    | Keep private renderer exchange entirely behind PLE                                                            |
-| Renderer result      | Rich WebWork data crosses browser-facing flow        | Return only PLE's policy-projected receipt                                                                    |
-| Presentation check   | No ADAPT digest found                                | Bind the answer to a Question Presentation Token verified against its complete Question Presentation Checksum |
+| Concern              | ADAPT observation                                      | PLE decision                                                                                                  |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Render sanitization  | Strips correct responses and feedback by role/policy   | Adopt and preserve                                                                                            |
+| Determinism          | Stores a per-student assignment/question seed          | Adopt the deterministic principle; bind it to an attempt                                                      |
+| Server-inferred type | Server infers `questionType`                           | Remove submission `kind` in PLE v1                                                                            |
+| Server-held identity | Browser sends assignment and question IDs              | Use one attempt ID that already binds both                                                                    |
+| ADAPT render scope   | Rich assignment/question records                       | Return one minimal active student screen                                                                      |
+| Matching response    | Whole mutated objects                                  | Send only Presentation Response Item Reference pairs                                                          |
+| Backend selector     | Browser sends `technology`                             | Derive backend from the attempt                                                                               |
+| Partial credit       | Server computes it                                     | Preserve server-only scoring                                                                                  |
+| External context     | JWT/JWE protects renderer context                      | Keep private renderer exchange entirely behind PLE                                                            |
+| Renderer result      | Rich WebWork data crosses browser-facing flow          | Return only PLE's policy-projected receipt                                                                    |
+| Presentation check   | No comparable ADAPT presentation-integrity value found | Bind the answer to a Question Presentation Token verified against its complete Question Presentation Checksum |
 
 PLE should not copy ADAPT merely because ADAPT has more features. It should adopt the mature ideas
 that match PLE's goals and intentionally differ where an attempt-bound, server-mediated architecture
@@ -586,7 +586,7 @@ optimization by itself. The higher-value actions are:
 - keep database access bounded and indexed; and
 - instrument stage timing before selecting further optimizations.
 
-WP-P6 records representative payload sizes and p50/p95 stage times. It does not turn the fixture byte
+The acceptance-evidence record captures representative payload sizes and p50/p95 stage times. It does not turn the fixture byte
 counts or arbitrary latency thresholds into permanent tests.
 
 ## Caching and prefetch
@@ -599,8 +599,8 @@ Question Renderer Version needed to identify the render. They must not contain c
 credentials, session keys, source archives, or raw provider responses.
 
 Assets use immutable logical URLs and content checksums. The browser can fetch and cache them
-independently. The presentation becomes submission-ready only after required response controls and
-assets report their documented readiness; the digest does not prove an image decoded.
+independently. The presentation becomes submission-ready only after required Question Response Controls and
+assets report their documented readiness; the Question Presentation Checksum does not prove an image decoded.
 
 ### Safe prefetch
 
@@ -635,15 +635,15 @@ The security boundary is:
 
 CRC16 and the Question Presentation Token/Checksum pair add useful consistency evidence. They do not replace any item in
 that list. A malicious authenticated student can see every public choice and can submit any valid
-rendered ID; secrecy of distractor IDs is neither expected nor required. Correctness remains known
+Presentation Response Item Reference; secrecy of distractor references is neither expected nor required. Correctness remains known
 only to the server-side grader.
 
-## Implementation packages
+## Implementation boundaries
 
-The active decision defines six dispatchable packages. This summary makes the durable architecture
+The active decision defines six implementation boundaries. This summary makes the durable architecture
 easy to navigate without duplicating its exact migration and codec specification.
 
-### WP-P1: Contract codec
+### Contract codec
 
 - Owner: Rust implementation, independently reviewed for Wasm parity.
 - Files: question-model presentation and student descriptors, response wire types, Wasm exports,
@@ -651,11 +651,11 @@ easy to navigate without duplicating its exact migration and codec specification
 - Behavior: implement canonical descriptor bytes, Question Presentation Checksum, CRC16 item IDs, collision retry,
   and all eight minimal answer shapes.
 - Success: Rust and Wasm vectors agree byte-for-byte; meaningful descriptor changes alter the checksum;
-  duplicate rendered IDs trigger bounded nonce retry and fail closed after eight attempts.
+  duplicate Presentation Response Item References trigger bounded nonce retry and fail closed after eight attempts.
 - Validation: focused Rust/Wasm/vector tests, formatter, strict Clippy, generated-binding freshness,
   and independent Wasm review.
 
-### WP-P2: Persistent binding
+### Persistent binding
 
 - Owner: PostgreSQL and Store implementation.
 - Files: `2026080908_secure_question_grading_payloads.sql`, Store traits, Memory/PostgreSQL stores,
@@ -668,20 +668,20 @@ easy to navigate without duplicating its exact migration and codec specification
 - Validation: fresh/no-op migration, malformed-version tests, forced-RLS tests, Store parity,
   retention, backup/restore, and independent PostgreSQL review.
 
-### WP-P3: PLE API cutover
+### PLE API cutover
 
 - Owner: server and PLE grading implementation.
 - Files: Student Question Attempt Views and submission receipts, PLE Question Backend validation, route tests, API fixtures,
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
-  digest and idempotency before grading, and return compact receipts.
+  Question Presentation Checksum and idempotency before grading, and return compact receipts.
 - Success: each Question Type accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
   Question Attempt Reproduction Details cross the active student route.
 - Validation: focused Axum and security tests, Question Type wire vectors, PLE regression, and independent
   server review.
 
-### WP-P4: WeBWorK replay
+### WeBWorK replay
 
 - Owner: WebWork adapter and server backend, independently security reviewed.
 - Files: renderer contract, WebWork backend, replay-state Store API, request-count tests, and private
@@ -693,10 +693,10 @@ easy to navigate without duplicating its exact migration and codec specification
 - Validation: recorded upstream contract tests, private-container trace, state scans, and security
   review.
 
-### WP-P5: Browser recovery
+### Browser recovery
 
 - Owner: SolidJS browser implementation with HCI review.
-- Files: API decoders/query owner, Assignment Attempt page, Question Attempt state, question response controls, Wasm bridge, and
+- Files: API decoders/query owner, Assignment Attempt page, Question Attempt state, Question Response Controls, Wasm bridge, and
   Playwright scenarios.
 - Behavior: consume the single student screen, compute/verify through Wasm, gate required asset
   readiness, submit the compact body, and recover compatible drafts after same-attempt refresh.
@@ -705,7 +705,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Validation: built-browser Playwright, no-mouse contract, mismatch/offline retry, and accessibility
   review.
 
-### WP-P6: Evidence closure
+### Evidence closure
 
 - Owner: integrator and independent reviewers.
 - Files: measurement tooling, E2E traces, payload evidence report, architecture/contracts/file map,
@@ -726,7 +726,7 @@ Permanent tests protect stable behavior:
   payload access;
 - every issued and replayed record matches its exact CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
   QuestionRevisionReference, and seed;
-- rendered-ID membership, role, collision retry, and fail-closed issuance;
+- Presentation Response Item Reference membership, Response Item Role, collision retry, and fail-closed issuance;
 - presentation mismatch causes no grade or mutation;
 - exact idempotent replay and changed-replay conflict;
 - student-screen and receipt allowlists;
@@ -749,7 +749,7 @@ remove rebuild-only evidence once the maintained gate proves the final contract.
 
 ## Rollout decision
 
-The public contract changes atomically before WP-RC5 adds new PLE Question JSON Question Types. PLE must not maintain a
+The public contract changes atomically before PLE Question JSON adds new Question Types. PLE must not maintain a
 long-lived mixed endpoint where some active attempts use tagged responses and others use type-free
 answers without an explicit contract version.
 
@@ -770,8 +770,8 @@ cutover because they require their own backend-session design.
 
 - Keep `kind` in the render schema; remove it from the v1 Student Response.
 - Use one authenticated attempt ID as submission identity; do not resend question context.
-- Give every addressable rendered object a four-hex CRC16 ID unique within its presentation.
-- Keep durable internal IDs independent from browser-facing rendered IDs.
+- Give every addressable Response Item a four-hex CRC16 Presentation Response Item Reference unique within its presentation.
+- Keep durable Response Item References independent from browser-facing Presentation Response Item References.
 - Use SHA-256 for whole-presentation consistency and CRC16 for compact item correspondence.
 - Keep all correctness, component scoring, and partial credit server-owned.
 - Return one minimal student screen and one compact, policy-projected receipt.

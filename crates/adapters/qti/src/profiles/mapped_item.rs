@@ -178,7 +178,7 @@ impl QtiMappedItem {
                 prompt_markdown: &prompt_markdown,
                 choices: &normalized_choices,
                 correct_vendor_choice_id: &correct_vendor_choice_id,
-                canonical_points: &points,
+                normalized_points: &points,
                 blackboard_defaulted_points,
             })
             .map_err(|_| QtiMappedItemError::FingerprintEncoding)?;
@@ -326,7 +326,8 @@ impl QtiMappedItem {
         self.normalized_qti_item_fingerprint
     }
 
-    /// Computes integrity checksums only when report and mapped item share one profile owner.
+    /// Computes integrity checksums only when report and mapped item have identical QTI profile,
+    /// QTI profile version, and QTI mapping version.
     pub fn compute_import_checksums(
         &self,
         report: &QtiImportResultChecksumInput,

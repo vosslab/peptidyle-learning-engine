@@ -1,4 +1,4 @@
--- SD1 Assignment Attempts, Issued Questions, and Question Attempts.
+-- Assignment Attempts, Issued Questions, and Question Attempts.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;

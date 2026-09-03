@@ -16,7 +16,7 @@ import {
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { StudentResponseInspection } from "../../generated/api/StudentResponseInspection";
-import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type {
   InspectedStudentSubmission,
   InspectedStudentWorkDetail,
@@ -56,16 +56,17 @@ function formatActivity(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
-function responseItemLabel(question: QuestionVariationPresentation, item: string): string {
+function responseItemLabel(question: QuestionPresentation, item: string): string {
   switch (question.response.kind) {
-    case "multipleChoice":
+    case "singleChoice":
+    case "multipleAnswer":
       return (question.response.choices.find((choice) => choice.id === item)?.body ?? []).length ===
         0
         ? item
         : textFromBlocks(
             question.response.choices.find((choice) => choice.id === item)?.body ?? [],
           );
-    case "multiBlank": {
+    case "multiFillIn": {
       const blank = question.response.blanks.find((candidate) => candidate.id === item);
       return blank === undefined ? item : textFromBlocks(blank.label);
     }
@@ -79,8 +80,8 @@ function responseItemLabel(question: QuestionVariationPresentation, item: string
       const choice = question.response.items.find((candidate) => candidate.id === item);
       return choice === undefined ? item : textFromBlocks(choice.body);
     }
-    case "numeric":
-    case "shortText":
+    case "numerical":
+    case "fillIn":
     case "hotspot":
     case "imathasQuestionBackend":
       return item;
@@ -89,7 +90,7 @@ function responseItemLabel(question: QuestionVariationPresentation, item: string
 
 function InspectedResponse(props: {
   readonly response: StudentResponseInspection;
-  readonly question?: QuestionVariationPresentation;
+  readonly question?: QuestionPresentation;
 }): JSX.Element {
   const label = (item: string): string =>
     props.question === undefined ? item : responseItemLabel(props.question, item);
@@ -189,7 +190,7 @@ function SubmissionCard(props: {
   readonly submission: InspectedStudentSubmission;
   readonly position: number;
 }): JSX.Element {
-  const question = (): QuestionVariationPresentation | undefined =>
+  const question = (): QuestionPresentation | undefined =>
     props.submission.evidence.kind === "issuedPresentation"
       ? props.submission.evidence.question
       : undefined;
@@ -373,7 +374,7 @@ function StudentWorkCoursePage(props: {
               <p class="eyebrow">Audited Student work</p>
               <h1>{ready.detail.assignmentTitle}</h1>
               <p class="page-lede">
-                {ready.detail.studentDisplayLabel} · submitted Assignment Attempt{" "}
+                {ready.detail.studentDisplayLabel} {"\u00b7"} submitted Assignment Attempt{" "}
                 {ready.detail.assignmentAttempt}
               </p>
               <section class="student-work-boundary" aria-label="Inspection privacy boundary">

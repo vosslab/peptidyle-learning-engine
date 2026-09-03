@@ -1,4 +1,4 @@
-//! Normative binary descriptor and rendered-item codecs.
+//! Normative binary descriptor and Presentation Response Item Reference codecs.
 
 use sha2::{Digest, Sha256};
 
@@ -96,14 +96,14 @@ pub fn descriptor_bytes(
             .revision_number
             .get(),
     );
-    encoder.u64(presentation.presentation.seed.value());
+    encoder.u64(presentation.presentation.question_seed.value());
     encoder.raw(&presentation.presentation.presentation_nonce.as_bytes());
     encoder.string(&presentation.presentation.title)?;
     encoder.content_blocks(&presentation.presentation.prompt)?;
     encoder.question_response_format(&presentation.presentation.response, presentation)?;
     encoder.u32_len(presentation.item_bindings.len())?;
     for item in &presentation.item_bindings {
-        encoder.u16(item.rendered.as_u16());
+        encoder.u16(item.presentation_response_item_reference.as_u16());
         let basis = item_basis_bytes(&item.basis)?;
         encoder.bytes(&basis)?;
     }
@@ -424,6 +424,9 @@ impl Encoder {
                 self.u32(*minimum);
                 self.u32(*maximum);
             }
+            QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {
+                self.u8(8);
+            }
         }
         Ok(())
     }
@@ -454,9 +457,9 @@ fn ordinal_for(
     presentation
         .item_bindings
         .iter()
-        .find(|item| item.rendered == *id && item.role == role)
+        .find(|item| item.presentation_response_item_reference == *id && item.role == role)
         .map(|item| item.ordinal)
         .ok_or(PresentationBuildError::DescriptorEncoding(
-            "Question Response Format refers to an unknown rendered item",
+            "Question Response Format refers to an unknown Presentation Response Item Reference",
         ))
 }

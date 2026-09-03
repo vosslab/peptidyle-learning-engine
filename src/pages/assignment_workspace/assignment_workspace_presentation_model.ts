@@ -53,11 +53,11 @@ export function assignmentAvailabilityCopy(
   if (current.state === "unreleased") return "Unreleased. Students cannot access this assignment.";
   if (current.state === "archived") return "Archived. Students cannot access this assignment.";
   if (current.state === "scheduled") {
-    return `Released, scheduled to open at ${displayCourseLocalTime(current.availableAt)} ${timeZone}.`;
+    return `Released, scheduled to open at ${displayCourseLocalTime(current.available_at)} ${timeZone}.`;
   }
   if (current.state === "available") return "Released, available now.";
-  if (status === "released" && current.closedAt !== null) {
-    return `Released, closed since ${displayCourseLocalTime(current.closedAt)} ${timeZone}.`;
+  if (status === "released" && current.closed_at !== null) {
+    return `Released, closed since ${displayCourseLocalTime(current.closed_at)} ${timeZone}.`;
   }
   return "Closed by instructor. Students cannot start new work.";
 }
@@ -127,16 +127,16 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
       ? "unlimited attempts"
       : `${attempts.value} attempt${attempts.value === 1 ? "" : "s"}`;
   const lateCopy =
-    assignmentAuthoredContent.lateWorkRule === "accept"
+    assignmentAuthoredContent.late_work_rule === "accept"
       ? "late work accepted"
-      : assignmentAuthoredContent.lateWorkRule === "markLate"
+      : assignmentAuthoredContent.late_work_rule === "mark_late"
         ? "late work accepted and marked"
         : "late work rejected";
   return [
     `Course time zone ${assignmentAuthoredContent.timeZone}`,
-    `Available ${assignmentAuthoredContent.availableAt === null ? "now" : displayCourseLocalTime(assignmentAuthoredContent.availableAt)}`,
-    `due ${assignmentAuthoredContent.dueAt === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.dueAt)}`,
-    `closes ${assignmentAuthoredContent.closesAt === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.closesAt)}`,
+    `Available ${assignmentAuthoredContent.available_at === null ? "now" : displayCourseLocalTime(assignmentAuthoredContent.available_at)}`,
+    `due ${assignmentAuthoredContent.due_at === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.due_at)}`,
+    `closes ${assignmentAuthoredContent.closes_at === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.closes_at)}`,
     timeLimitCopy,
     attemptCopy,
     lateCopy,

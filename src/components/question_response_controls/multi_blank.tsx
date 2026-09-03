@@ -10,17 +10,19 @@ import {
   createSubmissionController,
   Status,
   textFromBlocks,
-  type MultiBlankDefinition,
+  type MultiBlankResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
 export function MultiBlankResponse(
-  props: QuestionResponseControlBodyProps<MultiBlankDefinition>,
+  props: QuestionResponseControlBodyProps<MultiBlankResponseFormat>,
 ): JSX.Element {
   const restored = new Map(
-    props.initialResponse?.answers.map((answer) => [answer.slot, answer.text]),
+    props.initialResponse?.kind === "multiBlank"
+      ? props.initialResponse.answers.map((answer) => [answer.slot, answer.text])
+      : [],
   );
-  const initialAnswers = props.definition.blanks.map((blank) => ({
+  const initialAnswers = props.responseFormat.blanks.map((blank) => ({
     slot: blank.id,
     text: restored.get(blank.id) ?? "",
   }));
@@ -48,7 +50,7 @@ export function MultiBlankResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
@@ -70,18 +72,18 @@ export function MultiBlankResponse(
           aria-label="Blank completion"
           aria-live="polite"
         >
-          {completedBlankCount()} of {props.definition.blanks.length} blanks completed.
+          {completedBlankCount()} of {props.responseFormat.blanks.length} blanks completed.
         </p>
         <div class="response-fields">
-          <For each={props.definition.blanks}>
+          <For each={props.responseFormat.blanks}>
             {(blank, index) => (
               <label for={`${props.attemptId}-blank-${index()}`}>
                 {textFromBlocks(blank.label)}
                 <input
                   id={`${props.attemptId}-blank-${index()}`}
-                  class="response-control"
+                  class="question-response-control__input"
                   type="text"
-                  maxlength={blank.maxLength}
+                  maxlength={"maxCharacters" in blank ? blank.maxCharacters : blank.maxLength}
                   value={answers().find((answer) => answer.slot === blank.id)?.text ?? ""}
                   ref={
                     index() === 0

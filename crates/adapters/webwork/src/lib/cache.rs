@@ -104,7 +104,7 @@ pub(super) fn validate_presentation(
             "renderer returned a different immutable version".to_string(),
         ));
     }
-    if presentation.variation.seed != seed {
+    if presentation.variation.question_seed != seed {
         return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
             "renderer returned a different deterministic seed".to_string(),
         ));

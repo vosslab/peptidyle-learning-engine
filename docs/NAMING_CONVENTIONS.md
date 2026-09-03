@@ -12,11 +12,16 @@ no stronger boundary convention applies, prefer readable lowercase `snake_case`.
 
 Human-role names follow [USER_ROLES.md](USER_ROLES.md): **Student**, **Instructor**, and
 **Sysadmin**. PLE-owned identifiers use `student`, `instructor`, and `sysadmin` for those people and
-their role-bound work. `user` names a generic authenticated identity before course authority is
-known. `learning` remains valid for educational-system concepts; `student` is not a role alias in
-new PLE-owned names. Temporary Instructor-roadmap coordination keys use `WP-INST-*`. They exist only
-while the owning plan is active and can disappear when that plan closes. Product, API, evidence,
-and persistence identifiers use domain names instead.
+their role-bound work. Use `account` for every PLE-owned global authenticated
+identity, whether or not a Course relationship is known. Use the exact
+relationship for course authority or ownership, such as Course Membership,
+Student Record, Question Owner, or Authoring Workspace Owner. Lower-case
+`user` remains for ordinary audience prose and owner-defined platform or
+protocol vocabulary. `learning` remains valid for educational-system concepts;
+`student` is not a role alias in new PLE-owned names. Temporary
+Instructor-roadmap coordination keys use `WP-INST-*`. They exist only while the
+owning plan is active and can disappear when that plan closes. Product, API,
+evidence, and persistence identifiers use domain names instead.
 
 `UpperCamelCase` is reserved for type-like and component objects. Ordinary TypeScript and browser
 names use `lowerCamelCase`; the initial lowercase letter distinguishes that form from the reserved
@@ -132,7 +137,7 @@ as unreleased. Each Course Instance makes its own explicit release decision.
 ## Boundary distinctions
 
 - A PLE-owned JSON object's field name and a portable discriminant value use `snake_case`; declared
-  portable map keys do too. User/content/opaque dictionary keys remain literal data.
+  portable map keys do too. user/content/opaque dictionary keys remain literal data.
 - Serde owns Rust-to-wire spelling. **Current pre-WN1** route payloads may still be lower-camel.
   **After their WN1 closure lands,** generated direct TypeScript DTO fields match Serde exactly.
   A route-only contract enters `crates/browser-api-contract` in its C-series package.

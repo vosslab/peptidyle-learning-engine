@@ -1,4 +1,4 @@
-# MOD-GRD: answer keys, checkers, correctness decisions.
+# Server-only Answer Keys, checkers, and correctness decisions.
 # Security boundary: this crate is server-only. It is absent from the
 # `crates/wasm` dependency closure, which makes shipping an answer to the
 # browser a compile-time impossibility rather than a review question.

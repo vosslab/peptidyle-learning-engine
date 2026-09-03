@@ -104,7 +104,7 @@ csv = "*"
 # Product PostgreSQL access belongs to `crates/learning-data-access`, which owns
 # the Store trait, active migrations, and RLS context. `project-tools` also uses
 # SQLx for explicit repository-administration commands, including the isolated
-# non-runtime SD1 staged-migration oracle.
+# PostgreSQL Migration Acceptance Runtime oracle.
 sqlx = { version = "*", features = [
     "json",
     "macros",

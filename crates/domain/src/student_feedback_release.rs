@@ -133,8 +133,8 @@ pub fn evaluate_student_feedback_release(
 
 /// Evaluates Student Feedback Release from an already-authorized effective assignment policy.
 ///
-/// Store receipt projections may retain the resolved policy without its S3
-/// gate verdict. Callers that still have the verdict should prefer
+/// Store receipt projections may retain the resolved policy without its
+/// Assignment Access decision. Callers that still have the decision should prefer
 /// [`evaluate_student_feedback_release`]; this helper does not authorize access.
 pub fn evaluate_allowed_student_feedback_release(
     policy: &EffectiveAssignmentPolicy,

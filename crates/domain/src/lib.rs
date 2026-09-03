@@ -1,4 +1,4 @@
-//! MOD-DOMAIN: Assignment Attempt state, timing, generation, and validation.
+//! Assignment Attempt state, timing, generation, and validation.
 //!
 //! This crate reaches `question_model` and nothing else, so it has no clock
 //! and no database. Time and storage arrive as parameters, which is what lets
@@ -10,36 +10,34 @@
 pub mod active_student_course_membership;
 /// Continued-practice eligibility and shared Assignment Activity errors.
 pub mod assignment_activity;
-/// Current course-owned Assignment Question Analysis projections (MOD-STATS).
+/// Current Course-owned Assignment Question Analysis projections.
 pub mod assignment_question_analysis;
-/// Attempt state machine (MOD-STATE).
-/// Completion derivation within an Assignment Attempt (MOD-STATE).
+/// Assignment Attempt state machine.
+/// Completion derivation within an Assignment Attempt.
 pub mod completion;
 /// Pure course-grade aggregation from selected assignment scores.
 pub mod course_grade;
-/// Key-free deterministic workspace-draft prompt preview (MOD-WASM).
+/// Key-free deterministic Workspace Draft Question prompt preview.
 pub mod draft_preview;
 /// Pure current assignment-policy resolution after Student Assignment Access.
 pub mod effective_assignment_policy;
-/// Seeded question generation (MOD-GEN).
-pub mod generator;
-/// Assignment configuration validation (MOD-CAP).
+/// Assignment configuration capability validation.
 pub mod policy;
-/// Pure non-mutating S5 -> S3 -> S4 preview composition (WP-INST-T3).
+/// Pure non-mutating Student preview composition from membership, policy, and disclosure facts.
 pub mod preview_plane;
 /// Server-owned exact Question Pool Item selection.
 pub mod question_pool_selection;
-/// Completed Assignment Attempt score selection and summary projection (MOD-SCORE).
+/// Completed Assignment Attempt score selection and progress projection.
 pub mod scoring;
-/// Retention-safe anonymous question-statistics aggregation (MOD-STATS).
+/// Retention-safe anonymous Question statistics aggregation.
 pub mod statistics;
-/// Pure evaluation of the Assignment-owned Student Feedback Release Rule (WP-INST-S4).
+/// Pure evaluation of the Assignment-owned Student Feedback Release Rule.
 pub mod student_feedback_release;
-/// Pure Course Membership and Course Invitation authority validation (WP-INST-T2).
+/// Pure Course Membership and Course Invitation authority validation.
 pub mod teaching_authority;
-/// Timer verdict for time-limited attempts (MOD-TIME).
+/// Timer verdict for time-limited Question Attempts.
 pub mod timing;
-/// Browser-safe student-response format validation (MOD-GRD boundary).
+/// Browser-safe Student Response format validation.
 pub mod validation;
 
 pub use crate::course_grade::{

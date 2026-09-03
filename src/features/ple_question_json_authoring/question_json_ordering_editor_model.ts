@@ -1,4 +1,4 @@
-// question_json_ordering_editor_model.ts - private ordering edits with stable item IDs.
+// question_json_ordering_editor_model.ts - private ordering edits with stable Ordering Item IDs.
 
 import { createPleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
@@ -36,7 +36,7 @@ function orderingResponse(
 }
 
 /**
- * The format carries both display items and correctOrder for wire compatibility. Items are the
+ * The format carries both display Ordering Items and correctOrder for wire compatibility. Ordering Items are the
  * source of truth and correctOrder is derived.
  */
 function withDerivedCorrectOrder(
@@ -62,29 +62,29 @@ export function setOrderingItemText(
 ): PleQuestionJsonOrderingEditResult {
   const response = orderingResponse(source);
   if (response === null) return refused(source, "Choose ordering before editing its sequence.");
-  const item = response.items.find((candidate) => candidate.id === itemId);
-  if (item === undefined) return refused(source, "That ordering item no longer exists.");
+  const orderingItem = response.items.find((candidate) => candidate.id === itemId);
+  if (orderingItem === undefined) return refused(source, "That Ordering Item no longer exists.");
   const items = response.items.map((current) =>
     current.id === itemId ? { ...current, text } : current,
   );
-  return withDerivedCorrectOrder(source, items, itemId, "Updated ordering item text.");
+  return withDerivedCorrectOrder(source, items, itemId, "Updated Ordering Item text.");
 }
 
 export function addOrderingItem(
   source: PleQuestionJsonDocument,
 ): PleQuestionJsonOrderingEditResult {
   const response = orderingResponse(source);
-  if (response === null) return refused(source, "Choose ordering before adding items.");
+  if (response === null) return refused(source, "Choose ordering before adding Ordering Items.");
   if (response.items.length >= MAXIMUM_ITEMS) {
-    return refused(source, `A question can have at most ${MAXIMUM_ITEMS} ordering items.`);
+    return refused(source, `A question can have at most ${MAXIMUM_ITEMS} Ordering Items.`);
   }
   const id = nextOrderingItemId(response.items);
-  const item = createPleQuestionJsonOrderingItem(id, "New ordering item");
+  const orderingItem = createPleQuestionJsonOrderingItem(id, "New Ordering Item");
   return withDerivedCorrectOrder(
     source,
-    [...response.items, item],
+    [...response.items, orderingItem],
     id,
-    "Added an item at the end of the correct order.",
+    "Added an Ordering Item at the end of the correct order.",
   );
 }
 
@@ -95,19 +95,19 @@ export function removeOrderingItem(
   const response = orderingResponse(source);
   if (response === null) return refused(source, "Choose ordering before editing its sequence.");
   if (response.items.length <= MINIMUM_ITEMS) {
-    return refused(source, `An ordering question needs at least ${MINIMUM_ITEMS} items.`);
+    return refused(source, `An ordering question needs at least ${MINIMUM_ITEMS} Ordering Items.`);
   }
   const index = response.items.findIndex((item) => item.id === itemId);
-  if (index < 0) return refused(source, "That ordering item no longer exists.");
+  if (index < 0) return refused(source, "That Ordering Item no longer exists.");
   const items = response.items.filter((item) => item.id !== itemId);
   const focusItem = items[Math.min(index, items.length - 1)];
   if (focusItem === undefined)
-    return refused(source, "Choose a remaining item before removing this one.");
+    return refused(source, "Choose a remaining Ordering Item before removing this one.");
   return withDerivedCorrectOrder(
     source,
     items,
     focusItem.id,
-    `Removed item ${index + 1} from the private correct order.`,
+    `Removed Ordering Item ${index + 1} from the private correct order.`,
   );
 }
 
@@ -119,24 +119,27 @@ export function moveOrderingItem(
   const response = orderingResponse(source);
   if (response === null) return refused(source, "Choose ordering before editing its sequence.");
   const index = response.items.findIndex((item) => item.id === itemId);
-  if (index < 0) return refused(source, "That ordering item no longer exists.");
+  if (index < 0) return refused(source, "That Ordering Item no longer exists.");
   const nextIndex = direction === "earlier" ? index - 1 : index + 1;
   if (nextIndex < 0 || nextIndex >= response.items.length) {
-    return refused(source, `This item is already ${direction === "earlier" ? "first" : "last"}.`);
+    return refused(
+      source,
+      `This Ordering Item is already ${direction === "earlier" ? "first" : "last"}.`,
+    );
   }
   const items = [...response.items];
-  const item = items[index];
+  const orderingItem = items[index];
   const neighbor = items[nextIndex];
-  if (item === undefined || neighbor === undefined)
-    return refused(source, "That ordering item no longer exists.");
+  if (orderingItem === undefined || neighbor === undefined)
+    return refused(source, "That Ordering Item no longer exists.");
   items[index] = neighbor;
-  items[nextIndex] = item;
+  items[nextIndex] = orderingItem;
   const position = nextIndex + 1;
   return withDerivedCorrectOrder(
     source,
     items,
     itemId,
-    `Moved item to position ${position} in the correct order.`,
+    `Moved Ordering Item to position ${position} in the correct order.`,
   );
 }
 

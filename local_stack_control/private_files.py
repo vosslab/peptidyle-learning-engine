@@ -110,22 +110,32 @@ def read_bounded_descriptor(file_descriptor: int, maximum_bytes: int) -> bytes:
 
 
 #============================================
-def canonical_secret32(value: bytes) -> bytes:
-	"""Validate and return one unpadded canonical base64url 32-byte secret."""
+def decode_base64url_secret32(value: bytes) -> bytes:
+	"""Decode an unpadded base64url encoding of exactly 32 secret bytes."""
 	try:
 		text = value.decode("ascii")
 	except UnicodeDecodeError as error:
-		raise local_stack_control.models.ControllerError("private secret is not canonical") from error
+		raise local_stack_control.models.ControllerError(
+			"private secret must be unpadded base64url encoding of exactly 32 bytes"
+		) from error
 	if len(text) != 43 or any(character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for character in text):
-		raise local_stack_control.models.ControllerError("private secret is not canonical")
+		raise local_stack_control.models.ControllerError(
+			"private secret must be unpadded base64url encoding of exactly 32 bytes"
+		)
 	try:
 		decoded = base64.urlsafe_b64decode(text + "=")
 	except ValueError as error:
-		raise local_stack_control.models.ControllerError("private secret is not canonical") from error
+		raise local_stack_control.models.ControllerError(
+			"private secret must be unpadded base64url encoding of exactly 32 bytes"
+		) from error
 	if len(decoded) != 32:
-		raise local_stack_control.models.ControllerError("private secret is not canonical")
+		raise local_stack_control.models.ControllerError(
+			"private secret must be unpadded base64url encoding of exactly 32 bytes"
+		)
 	if base64.urlsafe_b64encode(decoded).decode("ascii").rstrip("=") != text:
-		raise local_stack_control.models.ControllerError("private secret is not canonical")
+		raise local_stack_control.models.ControllerError(
+			"private secret must be unpadded base64url encoding of exactly 32 bytes"
+		)
 	result = decoded
 	return result
 

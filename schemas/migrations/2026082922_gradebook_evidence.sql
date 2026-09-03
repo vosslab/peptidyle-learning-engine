@@ -1,4 +1,4 @@
--- SD1 private calculated-grade snapshots and immutable control evidence.
+-- Calculated Gradebook evidence.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.assignment_grade_calculation (

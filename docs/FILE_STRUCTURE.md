@@ -36,19 +36,19 @@ container, or source-import path.
 
 ## Rust workspace
 
-| Path                                                            | Owns                                                                                                     |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, adoption, and browser-safe contract types. |
-| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation.                |
-| [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                          |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, Memory conformance, PostgreSQL persistence, migrations, RLS, locks, and live oracles.   |
-| [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                        |
-| [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                          |
-| [crates/adapters/](../crates/adapters/)                         | PLE, QTI, iMathAS, and WeBWorK Question Backend adapters, plus H5P Package Import.                       |
-| [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                      |
-| [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                      |
-| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                        |
-| crates/acceptance-runtime/                                      | Disposable acceptance manifests and capability-specific database URL handoff.                            |
+| Path                                                            | Owns                                                                                                                                                                                              |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, Blueprint-operation, and browser-safe contract types.                                                                               |
+| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation.                                                                                                         |
+| [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                                                                                                                   |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, iMathAS Question Backend Session, and PostgreSQL persistence modules. |
+| [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                                                                                                                 |
+| [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                                                                                                                   |
+| [crates/adapters/](../crates/adapters/)                         | PLE, QTI, iMathAS, and WeBWorK Question Backend adapters, plus H5P Package Import.                                                                                                                |
+| [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                                                                                                               |
+| [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                                                                                                               |
+| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                                                                                                                 |
+| crates/acceptance-runtime/                                      | Disposable acceptance manifests and capability-specific database URL handoff.                                                                                                                     |
 
 Package directories use hyphens; Rust module imports use underscores.
 
@@ -70,21 +70,40 @@ Blueprint-operation boundary creates it under an exact CourseId, records the
 immutable Blueprint parent and applied revision, and owns private delivery
 state. New upstream assignments appear in daughter instances as unreleased.
 
-The current paired legacy files and SQL table families are SD1 migration inputs
-only. The immutable
+The current paired legacy files and SQL table families are terminology-migration
+inputs only. The immutable
 schemas/migrations/2026081837_blueprint_alpha_curriculum.sql and accepted
 successors remain historical evidence and are not renamed or edited to hide
-their origin. The fresh SD1 migration epoch is tracked in
+their origin. The fresh pre-production migration epoch is tracked in
 [active_plans/implementation_status.md](active_plans/implementation_status.md);
 its course/curriculum range is planned at 2026082913-2026082916, with
 protected authorization-function/RLS/grant helpers at 2026082929-2026082932.
 
 ## Learning data access
 
+The current module inventory is:
+
+```text
+crates/learning-data-access/src/
++- assignment_attempt.rs                 Assignment Attempt Store contract
++- authentication_ceremony.rs            email and passkey ceremony contracts
++- authentication_email.rs               normalized authentication email values
++- grading_operations.rs                 Instructor Grading Operation Store contract
++- imathas_question_backend_session/     iMathAS Question Backend Session contracts and Memory support
++- object_record.rs                      workspace Question Source object records
++- pagination.rs                         cursor and page contracts
++- question_source.rs                    Draft Question Source Store contract
++- session.rs                            Account Session Store contract
+`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Session modules
+```
+
 No Blueprint Course or Blueprint-operation Store implementation currently
 exists under `crates/learning-data-access/`. The future Store boundary will own
-the six exact operations, their idempotency, receipts, and Assignment Import Repair. It
-will never grant a public Blueprint reader access to a private CourseInstance.
+Create Course from Blueprint, Fork Blueprint Course, Copy Assignment from
+Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course
+Dates; it will bind request-retry tokens to request checksums, retain receipts,
+and keep Assignment Import Repair bounded to derived state. It will preserve
+the boundary between public Blueprint readers and private CourseInstances.
 
 ## Server application
 
@@ -132,9 +151,10 @@ src/
 The intended browser workspace has one BlueprintCourse list, detail, editor,
 and nested module/assignment picker. It presents draft owner/collaborator
 states and the vetted-Instructor published `BlueprintCourseView` without a second product
-branch. Adoption selects an operation and destination: one assignment into an
-existing CourseInstance, a whole BlueprintCourse into a new CourseInstance, or
-an explicit fork into a new BlueprintCourse.
+branch. Blueprint operations have exact outcomes: Copy Assignment from
+Blueprint places one Assignment in an existing Course Instance, Create Course
+from Blueprint creates a new Course Instance, and Fork Blueprint Course creates
+a new Blueprint Course.
 
 ## Generated contracts
 
@@ -144,9 +164,9 @@ generation entry points. Generated modules are derivative and must not be
 hand-edited. Rust Serde owns field spelling and closed DTO shape; authored
 decoders under src/api/decoders/ enforce runtime strictness.
 
-Legacy paired generated names are retained only in the SD1 migration inventory
-until regeneration after the Rust contract cutover. No client may accept an old
-reference or route as a compatibility alias.
+Legacy paired generated names are retained only in the terminology-migration
+inventory until regeneration after the Rust contract cutover. No client may
+accept an old reference or route as a compatibility alias.
 
 ## Content, storage, and deployment
 
@@ -183,7 +203,7 @@ generated/
 ```
 
 Permanent tests protect behavior that can regress: tree ordering, exact pins,
-authorization, strict decoding, adoption exclusions, unreleased propagation,
+authorization, strict decoding, Blueprint-operation authorization boundaries, unreleased propagation,
 and answer-free browser reader data. Graphify and source/migration inventories are
 one-time evidence. PostgreSQL, browser, process, migration, and rendered visual
 checks stay in their named E2E or human-review lanes. See
@@ -209,10 +229,9 @@ publisher are absent; a restored browser owner will own fresh visual evidence.
 
 ## Where to add work
 
-- Add a reusable content rule to crates/question_model/src/blueprint_course.rs;
-  update both reusable Store implementations and conformance cases.
-- Add source-to-instance behavior to blueprint_operations with a typed preview,
-  command, authorization, and immutable receipt.
+- Add a reusable content rule to `crates/question_model/src/blueprint_course.rs`.
+- Add Blueprint-operation persistence with a typed preview, command,
+  authorization, request-retry binding, and immutable receipt.
 - Add schema only through the status-owned allocation in
   active_plans/implementation_status.md; preserve applied migrations.
 - Add routes in the owning server module and register method policy in

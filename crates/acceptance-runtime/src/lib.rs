@@ -19,9 +19,9 @@ use std::path::Path;
 use serde::Deserialize;
 use url::Url;
 
-mod sd1_staged_database;
+mod postgres_migration_acceptance;
 
-pub use sd1_staged_database::Sd1StagedDatabaseRuntime;
+pub use postgres_migration_acceptance::PostgresMigrationAcceptanceRuntime;
 
 const MANIFEST_NAME: &str = "runtime.yaml";
 const MAX_MANIFEST_BYTES: usize = 4_096;

@@ -1,4 +1,4 @@
-// main.tsx - browser entry point (MOD-UI-SHELL, WP-F3).
+// main.tsx - browser application entry point.
 //
 // Solid's `render` takes a component *function*, not an element. Passing JSX
 // directly evaluates it once, outside a reactive root, which is how a Solid app

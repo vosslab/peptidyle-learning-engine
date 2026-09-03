@@ -1,4 +1,4 @@
-// WP-INST-LD3 direct seeded-role sign-in UI contract tests.
+// Live Demo seeded-account sign-in UI contract tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";

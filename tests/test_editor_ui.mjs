@@ -16,18 +16,16 @@ const draft = {
   qtiPackageItemIdentifier: null,
   workspaceImportId: null,
   draftImathasQuestionBackendBinding: null,
-  questionFormat: "pleAlgorithmic",
+  questionFormat: "pleQuestionJson",
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response: { kind: "numeric", tolerance: { kind: "absolute", epsilon: 0.5 }, unit: "degrees" },
   questionAttemptLimit: { maxAttempts: null },
   questionAttemptTimeLimit: { kind: "unlimited" },
-  questionVariationRule: { kind: "static" },
 };
 
-function keyFreePreview(seed = 17) {
+function keyFreePreview() {
   return {
     workspace: draft.workspace,
-    seed,
     title: draft.title,
     prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
     response: draft.response,
@@ -44,16 +42,16 @@ function wasmFacade(previewPleDraft) {
   };
 }
 
-test("editor preview projects the exact draft and seed through the WASM facade", async () => {
+test("editor preview projects the exact draft through the WASM facade", async () => {
   const calls = [];
   const facade = createEditorPreviewFacade(
-    wasmFacade(async (request, seed) => {
-      calls.push({ request, seed });
-      return { kind: "ready", preview: keyFreePreview(seed) };
+    wasmFacade(async (request) => {
+      calls.push({ request });
+      return { kind: "ready", preview: keyFreePreview() };
     }),
   );
 
-  const preview = await facade.preview(draft, 17);
+  const preview = await facade.preview(draft);
   assert.deepEqual(calls, [
     {
       request: {
@@ -66,9 +64,7 @@ test("editor preview projects the exact draft and seed through the WASM facade",
         title: draft.title,
         prompt: draft.prompt,
         response: draft.response,
-        questionVariationRule: draft.questionVariationRule,
       },
-      seed: 17,
     },
   ]);
   assert.deepEqual(preview, keyFreePreview());
@@ -85,14 +81,11 @@ test("editor preview surfaces backend-only draft availability honestly", async (
     })),
   );
   await assert.rejects(
-    facade.preview(
-      {
-        ...draft,
-        questionBackend: "webwork",
-        webworkPgPath: "set/a.pg",
-      },
-      17,
-    ),
+    facade.preview({
+      ...draft,
+      questionBackend: "webwork",
+      webworkPgPath: "set/a.pg",
+    }),
     /webwork drafts need a backend preview/,
   );
 });

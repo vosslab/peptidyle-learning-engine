@@ -1,11 +1,11 @@
--- SD1 role-qualified Authentication Email, passwordless challenge, and rate-limit roots.
+-- Role-qualified Authentication Email, passwordless challenge, and rate-limit roots.
 
 DO $$
 BEGIN
     IF current_user <> 'ple_migrator'
        OR NOT pg_catalog.pg_has_role('ple_migrator', 'ple_private_owner', 'SET') THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'migration 2026082903 requires the SD1 private migration principal';
+            MESSAGE = 'migration 2026082903 requires the private migration principal';
     END IF;
     IF EXISTS (
         SELECT 1 FROM pg_catalog.pg_class AS relations
@@ -59,7 +59,7 @@ DECLARE
     v_new_role text;
     v_old_role text;
 BEGIN
-    SELECT account.role INTO v_new_role
+    SELECT account.product_role INTO v_new_role
       FROM ple_private.account AS account
      WHERE account.account_id = NEW.account_id;
     IF v_new_role IS NULL THEN
@@ -75,7 +75,7 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Authentication Email Account binding is immutable';
         END IF;
-        SELECT account.role INTO v_old_role
+        SELECT account.product_role INTO v_old_role
           FROM ple_private.account AS account
          WHERE account.account_id = OLD.account_id;
         IF v_old_role IS DISTINCT FROM 'instructor'

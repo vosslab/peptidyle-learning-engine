@@ -1,4 +1,4 @@
-//! MinIO backend and the S3-compatible client (MOD-OBJ).
+//! MinIO backend and the S3-compatible client.
 //!
 //! MinIO is the S3-compatible endpoint used by the development and test
 //! containers. Production AWS construction is deliberately separate in
@@ -13,10 +13,9 @@ use aws_sdk_s3::config::{BehaviorVersion, Config, Credentials, Region};
 /// The object-store client type, re-exported so callers do not need the AWS
 /// SDK in their own manifest.
 ///
-/// This crate owns the S3 client (see the boundary table in the implementation
-/// plan), and no AWS type may leak through the `ObjectStore` trait. The alias
-/// keeps the health path from becoming the exception that drags the SDK into
-/// every caller.
+/// This crate owns the S3 client, and no AWS type may leak through the
+/// `ObjectStore` trait. The alias keeps the health path from becoming the
+/// exception that drags the SDK into every caller.
 #[cfg(feature = "s3")]
 pub type S3Client = Client;
 

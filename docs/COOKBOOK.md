@@ -61,7 +61,7 @@ correction. The invitation remains single-use; a queued email is not proof of ma
 1. Open **Blueprint Courses** and choose **New Blueprint Course**, or open a draft you own or can edit.
 2. Add ordered modules or weeks and ordered assignments. Select already published questions by
    visible `AAA-BBBB` Question IDs, reuse a saved assignment, or configure reusable pools.
-3. Save the complete ordered definition as one Blueprint revision. Relative calendar-day and local
+3. Save the complete Blueprint Revision Content as one Blueprint revision. Relative calendar-day and local
    wall-clock values are defaults, not live deadlines.
 4. Review the complete, answer-free Blueprint revision and choose
    **Publish Blueprint**.
@@ -160,7 +160,7 @@ browser does not recompute either. See [API_CONTRACTS.md](API_CONTRACTS.md) and 
 The production browser suite covers role entry and authorization; Blueprint authoring and publication;
 Course Instance creation and Apply Blueprint Update; assignment authoring, preview, question replacement,
 pools, and grade settings; Student delivery, gateway recovery, and automated-grading recovery;
-WebWork delivery; Question Library discovery and question curation; rollover and term scheduling; and QTI
+WebWork delivery; Question Library discovery; rollover and term scheduling; and QTI
 profile import. These are live workflows, not mock or fixture walkthroughs. Use [E2E_TESTS.md](E2E_TESTS.md)
 for scenario selectors and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the visible route and policy
 boundary. Screenshots are one-time visual evidence, not a substitute for the live browser journey.

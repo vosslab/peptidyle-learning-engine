@@ -1,4 +1,4 @@
-//! Readiness reporting for the container health check (WP-F4).
+//! Readiness reporting for the container health check.
 //!
 //! The rule the containers are gated on: `/health` reports ready only when
 //! every backing dependency answered a real request. A health endpoint that
@@ -44,7 +44,7 @@ pub enum Readiness {
 ///
 /// An empty probe list is `Degraded`, not `Ready`. A process that has not
 /// checked anything has not proven anything, and treating "no evidence" as
-/// health is the exact defect the WP-F4 gate is written against.
+/// health defeats meaningful container readiness reporting.
 ///
 /// # Examples
 ///

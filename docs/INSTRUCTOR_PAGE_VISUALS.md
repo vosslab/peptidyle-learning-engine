@@ -40,7 +40,7 @@ and announced page text plus browser paths for UUID exposure before it writes an
 | Course appearance        | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context                                                        |
 | Question Library         | `/library`                                                   | All Questions, My Questions, My Question Drafts, Starred, Watched, Question Search, filters, Question IDs, and published results |
 | Question Details         | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                            |
-| My Question Drafts       | `/workspace`                                                 | Private Question drafts and the selected Question draft                                                                          |
+| My Question Drafts       | `/workspace`                                                 | Draft Questions and the selected Draft Question                                                                                  |
 | My Question Draft editor | `/workspace/W-1`                                             | QTI import entry and PLE Question JSON authoring                                                                                 |
 | Live Demo sign-in        | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                 |
 
@@ -79,7 +79,6 @@ passkey authentication adapters.
 ![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
 ![Instructor Question Library discovery evidence](screenshots/instructor/question_library_discovery/01_disclosed_evidence_laptop.png)
-![Instructor question curation workspace](screenshots/instructor/question_curation/01_curation_workspace_laptop.png)
 ![Instructor Blueprint Course workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
 <!-- Historical capture path retained as immutable evidence; the product term is Blueprint Course. -->
 

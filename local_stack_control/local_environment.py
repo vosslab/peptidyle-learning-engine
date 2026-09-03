@@ -41,7 +41,7 @@ def bootstrap_secret32_file(
 	path: pathlib.Path,
 	random_bytes: collections.abc.Callable[[int], bytes] = os.urandom,
 ) -> bool:
-	"""Create one missing private canonical secret, preserving a valid existing one."""
+	"""Create one missing private secret file, preserving a valid existing file."""
 	if path.exists() or path.is_symlink():
 		read_secret32_file(path)
 		return False
@@ -56,7 +56,7 @@ def bootstrap_secret32_file(
 
 #============================================
 def read_secret32_file(path: pathlib.Path) -> bytes:
-	"""Load one canonical private secret without exposing it in diagnostics."""
+	"""Load one private base64url 32-byte secret without exposing it in diagnostics."""
 	content = local_stack_control.private_files.read_current_user_private_file(path, 43)
-	secret = local_stack_control.private_files.canonical_secret32(content)
+	secret = local_stack_control.private_files.decode_base64url_secret32(content)
 	return secret

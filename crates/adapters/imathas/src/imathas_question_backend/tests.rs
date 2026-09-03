@@ -105,7 +105,6 @@ mod launch_session_bridge {
                 },
             question_attempt_time_limit:
                 question_model::assignment_activity_rules::QuestionAttemptTimeLimit::Unlimited,
-            question_variation_rule: question_model::generation::QuestionVariationRule::Static,
             grading: question_model::QuestionGradingRule::AllOrNothing { points: 1.0 },
             metadata: question_model::QuestionMetadata {
                 title: "Recorded launch-session fixture".into(),

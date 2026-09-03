@@ -1,4 +1,4 @@
--- SD1 fresh-epoch principal, schema, and default-deny privilege baseline.
+-- Principal and schema privilege baseline with default-deny access.
 
 DO $$
 DECLARE
@@ -21,7 +21,7 @@ BEGIN
     IF NOT pg_catalog.has_schema_privilege('ple_migrator', 'pg_catalog', 'USAGE') THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'ple_migrator must have PostgreSQL system catalog usage before the SD1 baseline runs';
+            MESSAGE = 'ple_migrator must have PostgreSQL system catalog usage before the principal baseline runs';
     END IF;
 
     SELECT roles.*
@@ -40,7 +40,7 @@ BEGIN
        OR migrator.rolconnlimit <> 2 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'ple_migrator attributes do not match the SD1 bootstrap contract';
+            MESSAGE = 'ple_migrator attributes do not match the baseline bootstrap contract';
     END IF;
 
     SELECT owner_role.rolname
@@ -149,7 +149,7 @@ BEGIN
     ) <> 1 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'bootstrap role membership does not match the SD1 contract';
+            MESSAGE = 'bootstrap role membership does not match the baseline bootstrap contract';
     END IF;
 
     IF EXISTS (
@@ -270,7 +270,7 @@ CREATE ROLE ple_student
     NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
     NOREPLICATION NOBYPASSRLS;
 
--- Every fixed SD1 principal resolves PostgreSQL built-ins and operators through
+-- Every fixed migration principal resolves PostgreSQL built-ins and operators through
 -- the server-owned catalog. This is not a capability to PLE data or private
 -- records; PLE schemas remain explicitly default-deny below.
 -- ASVS 8.2.1, 8.2.2: application-object access is granted only by the
@@ -491,7 +491,7 @@ BEGIN
        OR NOT pg_catalog.has_schema_privilege('ple_student', 'pg_catalog', 'USAGE') THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'PostgreSQL system catalog visibility must remain available to SD1 principals';
+            MESSAGE = 'PostgreSQL system catalog visibility must remain available to baseline migration principals';
     END IF;
 
     IF (
@@ -518,7 +518,7 @@ BEGIN
     ) <> 8 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'reserved role attributes do not match the SD1 baseline';
+            MESSAGE = 'reserved role attributes do not match the baseline role contract';
     END IF;
 
     IF (
@@ -575,7 +575,7 @@ BEGIN
     ) <> 4 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'owner SET memberships do not match the SD1 baseline';
+            MESSAGE = 'owner SET memberships do not match the baseline role contract';
     END IF;
 
     IF (
@@ -597,7 +597,7 @@ BEGIN
     ) <> 1 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'database-owner bootstrap membership does not match the SD1 baseline';
+            MESSAGE = 'database-owner bootstrap membership does not match the baseline role contract';
     END IF;
 
     SELECT pg_catalog.count(*)
@@ -637,7 +637,7 @@ BEGIN
     IF reserved_membership_rows <> 12 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'unexpected membership involving a reserved SD1 role';
+            MESSAGE = 'unexpected membership involving a reserved baseline role';
     END IF;
 
     IF NOT EXISTS (
@@ -650,7 +650,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'database ownership does not match the SD1 baseline';
+            MESSAGE = 'database ownership does not match the baseline ownership contract';
     END IF;
 
     IF EXISTS (
@@ -684,7 +684,7 @@ BEGIN
     ) <> 4 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'schema ownership does not match the SD1 baseline';
+            MESSAGE = 'schema ownership does not match the baseline schema ownership contract';
     END IF;
 
     IF EXISTS (
@@ -707,7 +707,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'PUBLIC retains an SD1 schema privilege';
+            MESSAGE = 'PUBLIC retains a baseline schema privilege';
     END IF;
 
     IF NOT pg_catalog.has_schema_privilege('ple_migrator', 'public', 'USAGE')
@@ -716,7 +716,7 @@ BEGIN
        OR pg_catalog.has_schema_privilege('ple_api_owner', 'public', 'CREATE') THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'public schema direct privileges do not match the SD1 baseline';
+            MESSAGE = 'public schema direct privileges do not match the baseline schema privilege contract';
     END IF;
 
     IF EXISTS (
@@ -812,7 +812,7 @@ BEGIN
        ) THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
-            MESSAGE = 'safe migration-state projection does not match the SD1 baseline';
+            MESSAGE = 'safe migration-state projection does not match the baseline schema privilege contract';
     END IF;
 END
 $$;

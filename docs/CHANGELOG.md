@@ -1,8 +1,428 @@
 # Changelog
 
+## 2026-09-03
+
+### Behavior or Interface Changes
+
+- Allocated `WP-SD1-A-TERM-01-PR1` for the approved direct Product Role cutover. It replaces the global Account and Authenticated Session role names through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation while preserving distinct Course Membership Role and authorization/RLS behavior. Vocabulary row 446 remains unchecked pending independent review and full required acceptance evidence.
+
+- Allocated `WP-SD1-A-TERM-01-QLB1` for the Question Library Browse boundary. The browser-only flattened row, evidence, facet aggregate, query, page, repository, state, session, decoder, normalization, virtual-window, and bound now use direct `QuestionLibraryBrowse*` names in the Library, Question Picker, Assignment Editor, and sole API adapter. Generated `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole transport vocabulary; `QuestionSearchAuthorship` and `questionSearchRequest()` remain generated-request vocabulary. The scoped residual detector is zero; 18 focused Node tests, both TypeScript checks, QLB1 Prettier, and `git diff --check` pass. `check_codebase.sh` is non-green only for unrelated formatting drift in `src/api/decoders/assignment_attempt.ts` and `src/route_access_boundary.tsx`, so QLB1 is ready for independent implementation review but not accepted; vocabulary row 318 remains unchecked. No Store, route, schema, generated transport source, fixture, feature, or alias changed.
+
+- Completed `WP-SD1-A-TERM-01-QC2` by unmounting the unsupported generic Question Curation
+  aggregate: its Question Model contracts, generated declarations, browser transport, repository,
+  panel, Folder picker source, mocked scenario, and feature-only tests are removed. Independent
+  implementation review and final exact-tree evidence retire the completed generic-aggregate
+  detector only. The Question Library picker uses its mounted search boundary and exact
+  current-account authorship scope for My Questions. `2026082912_question_folders.sql` remains the
+  inactive Account-owned Question Folder and Saved Question Search schema foundation with forced
+  RLS and revoked public grants. Question Curation remains documented Instructor workflow
+  terminology. The separate 50-match contextual privacy audit, Question Folder Share, and future
+  exact Folder/Search operations remain open.
+
+- Completed `WN1-QM-QUESTION-SEED-WIRE`: the six direct portable Question Seed fields on
+  Question Variation, Question Presentation, Question Attempt, Student Question Attempt View,
+  Next Issued Attempt, and Prefetched Next Question now use Rust-Serde-owned `question_seed`
+  through generated declarations, strict readers, browser consumers, and existing fixture data.
+  The aggregate gate found and corrected the existing inline Wasm Question Presentation payload
+  from `seed` to `question_seed`. The descriptor codec still hashes the numeric Question Seed, so
+  its expectation, descriptor bytes, Question Presentation Checksums, and public Question
+  Presentation Tokens are unchanged. Concurrent response-item-reference and Question Presentation
+  Response Format vector changes are outside this package. The exact zero-residual bare-portable-
+  seed detector is retired after independent review. The broader contextual Question Seed audit and
+  source-owned generator and visible authoring work remain open. This direct field cutover adds no
+  schema, route, Store, migration, backend protocol, fixture family, feature, compatibility alias,
+  or permanent test.
+
+- Completed `WP-SD1-A-TERM-01-QF2`: SQLx migration `2026082912` now uses the direct
+  `question_folders` filename, and `ple_private.question_folder` states its exact Account-owned
+  Published Question-reference relationship. Membership grants neither access nor ownership.
+  The three existing private physical tables, SQL behavior, columns, grants, forced RLS, routes,
+  Stores, generated contracts, fixtures, tests, and Question Curation remain unchanged. The exact
+  QF2 content-and-filename detector is zero; the broad contextual privacy audit remains active,
+  and vocabulary row 470 stays open. Migration embedding, disposable PostgreSQL Migration
+  Acceptance Runtime, Markdown links, and diff checks pass.
+
+- Completed `WN1-C6-QM-STUDENT-VIEW-SCENARIO-WIRE` and vocabulary row 347. The complete
+  Student View Scenario wire now uses direct Rust-Serde `snake_case` through the preview-plane
+  producer, regenerated declarations (447), strict decoder, browser request writer, UI consumers,
+  and existing focused evidence. The retired `selectedMoment`/`timeZone` spelling remains only in
+  one hostile Rust refusal payload; seven `selectedStudent` matches are TypeScript-local
+  `StudentViewScenarioBuilder` interaction state rather than serialized PLE meaning. The exact
+  Scenario detector is retired after contextual audit and independent review. Focused Rust (2 +
+  6), Node (4), generation, TypeScript, Rust formatting, strict Clippy, and diff gates pass.
+  Repository-wide Prettier is an existing non-green baseline and is not attributed to this package.
+  This direct cutover adds no alias, route, Store, schema, PostgreSQL persistence, fixture,
+  feature, or permanent test; those delivery boundaries remain declared but unmounted.
+
+- Completed `WP-SD1-A-TERM-01-QSRC1`: PLE Question Implementation registration,
+  Draft Question Revision, Question Revision, and removal of the hard-coded
+  authored PLE implementation are independently checked terminology concepts.
+  The retired PLE registry/one-variant execution family, algorithmic PLE format,
+  hard-coded authored Question implementation, and Question Definition names
+  are absent from the current model, schema, adapters, generated contracts,
+  browser boundary, fixtures, and durable documentation. Direct static PLE
+  Question JSON selects by exact Question Format and Question Type; Draft
+  Question Revision and Question Revision name the accepted private and
+  immutable published records. The completed exact algorithmic, hard-coded
+  implementation, and Question Definition detectors are retired after
+  contextual zero residual and independent review. Future source-owned Question
+  Generator/publication work, the seeded-generator lifecycle, and Question
+  Watch remain open with their current detectors. Existing focused model,
+  adapter, generated-contract, browser, formatting, PostgreSQL, residual, and
+  diff gates pass. This direct deletion-only correction adds no Store, route,
+  publication coordinator, schema capability, fixture family, feature, alias,
+  or permanent test.
+
+- Completed `WN1-C6-QM-ASSIGNMENT-GRADE-PROGRESS-WIRE` and vocabulary row 126: the retired
+  mixed Student Assignment Summary is structurally split. Keyed `AssignmentGrade` owns grade
+  selection and score facts; keyed `AssignmentProgressRecord` owns completed Assignment Attempt
+  count, Question Attempt count, and latest activity time. Key-free `StudentAssignmentGrade` and
+  `AssignmentProgress` remain distinct browser-safe values, nested by `StudentAssignmentProgress`
+  and `GradebookSummaryRow`. The direct Rust-Serde wire contract, regenerated declarations, strict
+  decoder, unmounted browser facade, Student display, existing focused Node summary data, and current
+  documentation now use `snake_case`; strict decoding and the Gradebook test refuse the retired
+  flattened shape. The completed exact detector was retired after contextual zero residual and
+  independent review. This correction added no Store, route, schema, persistence, worker, fixture
+  family, service, or permanent test; those delivery boundaries remain unmounted.
+
+- Completed `WP-SD1-A-TERM-01-SD1LABEL` and vocabulary row 96: exact local component,
+  capability, responsibility, and guarantee language replaces 52 transient `SD1` comment or
+  diagnostic occurrences in 34 active SQL migrations and 71 occurrences in 18 durable
+  current-state files (17 `docs/*.md` files and `README.md`). The scoped current-state residual
+  audit is zero, and its completed temporary detector is retired. `SD1` remains only in approved
+  active-plan/status allocation, dated changelog or archive history, and the vocabulary ledger.
+  The SQL edits change comments and diagnostic messages only; object names, predicates,
+  privileges, data shape, and authorization behavior are unchanged. PostgreSQL acceptance,
+  documentation/style/Prettier gates, and independent review pass. Row 630 remains separately
+  checked; this terminology-only receipt does not claim overall terminology or `WP-SD1-A` release
+  acceptance.
+
+- Completed `WP-SD1-A-TERM-01-AEM1` and vocabulary row 530: PLE now has no current Assignment
+  Export persistence record, Job kind or target, Store, route, worker, delivery path, browser
+  contract, or service. The retired request/artifact identifiers and export Job/catalog family
+  are absent; four durable catalog-oracle absence assertions protect that baseline. Course Grade
+  CSV export, QTI interchange, and the answer-key-free pure `export_crate` DOCX/PDF renderer
+  remain. Assignment Export Manifest remains future admission for a complete authorized service:
+  a private immutable typed frozen input, never an Object ID. Fresh PostgreSQL catalog,
+  print-renderer, documentation, Rust, residual, and independent-review evidence pass. This
+  package adds no preparatory schema, route, Store, browser contract, fixture, permanent test, or
+  feature; this entry does not claim the separate aggregate `all_test.sh` gate.
+
+- Completed `WP-SD1-A-TERM-01-PMAR1` and vocabulary row 630: seven `R100`
+  renames establish the Local Stack Controller-owned PostgreSQL Migration
+  Acceptance Runtime, its `postgres_migration_acceptance/` private state,
+  closed manifest boundary, canonical migration-acceptance commands, and
+  `e2e_postgres_migration_acceptance.sh` dispatcher. The validated migrator
+  `PostgresUrl`, manifest and permission checks, fixed Browser Suite lease,
+  role restriction, and redaction are unchanged. This terminology cutover adds
+  no alias, schema, Store, route, browser surface, fixture, feature, or
+  permanent test. Controlled detector evidence, scoped residual audit,
+  focused gates, earlier connected PostgreSQL and Course Appearance evidence,
+  and independent acceptance pass. The shared exact-tree aggregate receipt
+  below supplies final `all_test.sh` evidence.
+
+- Completed `WN1-QM-TEACHING-ACCOMMODATION-ADJUSTMENT-WIRE`: the direct
+  Accommodation Adjustment producer, generated declarations, strict decoder,
+  browser request writer, policy dialog, and hypothetical Student View Scenario
+  modifier use Rust-Serde `snake_case` and `extend_only`. The strict decoder
+  refuses the retired lower-camel shape. The focused Question Model (11),
+  preview-plane (2), Domain preview-plane (6), and Node (14) gates; generation
+  of 448 declarations; TypeScript; Rust formatting; strict Clippy; and diff
+  checks pass, as does independent review. The scoped Accommodation residual is
+  contextually zero, so its completed temporary detector is retired. No alias,
+  route, Store, schema, persistence, fixture, feature, or permanent test was
+  added. Vocabulary row 347 remains open: the Student View Scenario and Late
+  Work/Assignment Deadline wire inventories require their own closures.
+
+- Completed `WN1-QM-ASSIGNMENT-LATE-WORK-DEADLINE-WIRE`: the seven direct
+  Assignment policy fields-`available_at`, `due_at`, `closes_at`,
+  `assignment_attempt_time_limit_seconds`, `attempt_limit`, `late_work_rule`,
+  and `assignment_deadline_rule`-now use direct Rust-Serde `snake_case`
+  through current producers, generated declarations, strict readers, browser
+  writers, and UI consumers. `mark_late` and `auto_submit` are likewise the
+  sole portable enum values. Three existing hostile assertions retain
+  `markLate`/`autoSubmit` only to prove strict rejection. The direct
+  Late Work/Assignment Deadline detector retired after its contextual audit and
+  independent review. Existing focused Question Model, Domain preview-plane,
+  Node, generated-contract, TypeScript, formatting, strict Clippy, and diff
+  gates pass. No alias, route, Store, schema, persistence, fixture, feature, or
+  permanent test was added. Vocabulary row 347 remains open solely for the
+  independently allocated Student View Scenario wire cutover.
+
+- Historical `WP-SD1-A-TERM-01-SVS1` receipt: selected and
+  hypothetical Student View Scenario requests use exact selected-membership
+  and sole identity-free modifier inputs, and `StudentViewScenario` is closed
+  to `selectedStudent` or `hypothetical`. The public
+  `PreviewEvaluation::Allowed.student_view_scenario_admission` pairs those
+  origins only with `selectedStudentActiveStudentCourseMembership` or
+  `hypotheticalStudentViewScenarioAdmission`; the strict decoder rejects a
+  cross-paired payload. Actual Student access remains
+  `AssignmentAccessDecision`, while the identity-free resolver returns private
+  `HypotheticalStudentViewScenarioPolicyDecision`. Browser operations, UI, and
+  generated declarations use the exact Student View Scenario vocabulary.
+  Route, Store, schema, PostgreSQL persistence, fixture, and feature remain
+  declared but unmounted. This direct cutover added no compatibility alias,
+  mounted delivery behavior, fixture, permanent test, or feature. Generated
+  contracts contain 448 declarations, 3 tracked fixtures validate, focused
+  Rust/Node/TypeScript and documentation/residual/diff gates pass, and
+  independent acceptance is recorded at
+  `/private/tmp/ple_svs1_final_acceptance_20260903.md`. The shared exact-tree
+  aggregate receipt below supplies final `all_test.sh` evidence. The later WN1
+  wire audit reopened vocabulary row 347; it remains open until its direct
+  snake-case contract cutover is complete.
+
+- Final exact-tree aggregate receipt for completed `WP-SD1-A-TERM-01-SVS1`
+  and `WP-SD1-A-TERM-01-PMAR1`: `source source_me.sh && ./all_test.sh`
+  generated 448 TypeScript declarations and validated 3 tracked fixtures;
+  passed Rust format, checks, strict Clippy, tests, doctests, and Wasm; 327
+  Node and 5,005 Python tests; PostgreSQL 17 fresh/no-op/ACL/restricted and
+  iMathAS three-oracle lanes; PostgreSQL-plus-MinIO Course Appearance;
+  cleanup; and complete live acceptance. Expected opt-in ignores were 3
+  iMathAS HTTP, 7 WeBWorK HTTP, 4 PDF/DOCX reader, 3 ordinary iMathAS
+  PostgreSQL, and 1 ordinary MinIO conformance test. The tester made no
+  edits.
+
+- Completed vocabulary row 200: standard Student delivery now carries the
+  nonce-bound `QuestionPresentation` rather than re-projecting it as a
+  pre-issuance `QuestionVariationPresentation`. The iMathAS `/question` wire
+  includes the exact `imathasQuestionBackend` Question Presentation Response
+  Format marker and deterministic codec tag; `NotApplicable` remains only a
+  session/launch capability fact. The Student contract retains revision, seed,
+  nonce, and presentation-scoped Response Item References through decoding,
+  state, rendering, response controls, Student Response display, and Instructor
+  Student Work Inspection. Editor Preview, Question Backend, cache, and
+  reproduction retain Question Variation Presentation; server evidence remains
+  Issued Question Presentation. Dead delivery decoder/unions/casts are removed.
+  Aggregate validation corrected one stale pre-issuance shape in the existing
+  Student Response projection fixture to the issued `QuestionPresentation`
+  identity and `singleChoice` response-format shape, retaining its public-only
+  mismatch-refusal purpose. No compatibility alias, fixture family, schema
+  migration, feature, permanent test, wire fallback, or persistence change was
+  added. Focused Node, Question Model/Domain, generated-contract, TypeScript,
+  lint/format, Rust/Wasm/Clippy, documentation/residual, and diff gates pass,
+  with two independent closure reviews passing. Final aggregate validation
+  generated 448 TypeScript declarations; validated 3 tracked fixtures; passed
+  Rust format/default/all-feature checks, strict Clippy, workspace
+  tests/doctests/Wasm, 5 frontend checks with 327 Node tests, 5,005 Python
+  tests, PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS (3 tests),
+  PostgreSQL-plus-MinIO Course Appearance, and complete live acceptance. Three
+  established opt-in iMathAS loopback HTTP tests remained ignored; connected
+  Playwright is outside this aggregate gate.
+
+- Completed vocabulary rows 194--196: the sole current Question Presentation
+  terms are Presentation Response Item Reference, Response Item Role, and
+  Response Item Binding across the model, fail-closed response translation,
+  generated contracts, strict browser decoders, and durable documentation. This
+  pre-production direct domain-separation label cutover changes deterministic
+  Presentation Response Item Reference, Question Presentation Checksum, and
+  public Question Presentation Token values and vectors. It preserves the
+  security semantics and uses no compatibility path. An exhaustive residual
+  scan retains `RenderedItem*`/rendered-item spelling only as historical
+  evidence in the replacement ledger, changelog, and dated project-status
+  report. Existing Question Model presentation, generated-contract,
+  strict-decoder, and browser gates pass.
+
+### Fixes and Maintenance
+
+- Aligned the processed WebAssembly export allowlist with the existing
+  `validate_presentation_response_format` function. That function is the key-free
+  Question Presentation Response Format plus Student Response validation boundary
+  already owned by the Wasm bridge and browser facade. The existing export allowlist
+  and bridge-parity E2E checks pass, as does independent review. No production code,
+  generated output, fixture, schema, route, Store, browser surface, or new test changed.
+
+- Aligned current-state documentation with the mounted application: user and
+  operational guides distinguish seeded Account-session entry from future
+  teaching workflows; architecture, migration, retention, and evidence
+  inventories describe the current tree and release-blocking browser gap.
+  Precise source comments and ASCII JSX separators now describe their exact
+  owners without changing rendered behavior. Removed the unused browser
+  transport compatibility bridge and the `BaseAssignmentPolicy` compatibility
+  re-export; the owned Question Model import remains. Existing focused
+  Markdown, Rust, TypeScript, and HTTP-client validation passed. This records
+  no new test or feature and does not close the separate SD1 or SVS work.
+
+- Replaced transient WN1/T2/S4/S3/B3 and vague plan prose in production
+  comments with durable mounted-route, Teaching Operations, Student projection,
+  Assignment Access, typed-storage, grading-boundary, and database-design
+  language. Two affected declarations were regenerated; behavior is unchanged,
+  and independent review passed. The connected SD1 production-family rename
+  remains open and is not claimed by this comment-only correction.
+
+- Completed vocabulary row 344: the sole browser decoder helper and its
+  unknown-kind diagnostic now use exact Assignment Start Decision language.
+  Rust-generated `TeachingAssignmentStartDecision` documentation matches. The
+  bounded `start` wire member and existing Assignment Access decision owners
+  are unchanged; the policy-preview route and Store remain unmounted. This
+  narrow correction adds no schema, route, generated-contract change, fixture,
+  permanent test, or feature. Focused decoder, TypeScript, lint/format,
+  Question Model check, generated-contract parity, Markdown, residual,
+  tracker, and diff gates pass with independent review.
+
+- Recorded the open Question Pool Selection Position row's browser-safe slice:
+  `selectedQuestionNumber` and `selectedQuestionCount` are the only position
+  fields, a strict closed decoder admits precisely that shape, and Student copy
+  presents only ordinal/count. The exact retired-field scan is one-time
+  migration evidence; the existing focused strict closed-decoder test rejects a
+  surplus `seed` field, so no redundant retired-field-specific permanent test
+  was added. Persisted Question Pool Selection delivery/replay remains
+  unmounted and keeps row 147 open.
+
+- Recorded the open Question Pool row's completed reusable Blueprint slice:
+  nested reusable Blueprint Question Pools use `items` and Question Pool Items
+  through Rust, generated contracts, strict browser decoding, and editor UI.
+  Sole-current Blueprint Revision Content encoding v2 serializes nested pool
+  `items`; this direct pre-production cutover changes Blueprint Content
+  Checksum values and has no compatibility reader or alias. Outer Assignment
+  `entries` remains Assignment Entries, while the retired nested spelling
+  remains only in strict-rejection evidence. The Blackboard Workspace Import,
+  Draft Question, and explicit pool-conversion work remains open. Existing
+  focused Question Model, generated-contract, and strict browser gates pass;
+  no feature, fixture, or permanent test was added.
+
+- Recorded the Blueprint Revision Content v2 checksum-encoding cutover: private
+  helpers and serializer shapes name their exact encoding role, nested Question
+  Pool `entries` are `items`, and outer Assignment `entries` remain unchanged.
+  The changed versioned encoding deliberately changes every Blueprint Content
+  Checksum; no legacy reader, alias, caller, or vector remains. No new test was
+  added.
+
+- Completed vocabulary row 432: PLE now uses Account for global identity,
+  Product Role for its immutable product classification, and Course Membership
+  Role for participation in one Course Instance. UA1--UA6 completed the direct
+  cutover through the Account, Student Record, ownership, schema, and local
+  stack boundaries; Live Demo configuration uses only explicit
+  `*_ACCOUNT_ID` values. The fresh PostgreSQL 17 receipt passed apply/no-op,
+  catalog, restricted-login and role probes, Object Delivery, iMathAS Question
+  Backend authority, and cleanup. Remaining `user` spelling is contextual
+  non-PLE vocabulary, explicit rejected legacy decoder input, or retained
+  history; its broad review inventory remains active.
+
+- Completed vocabulary row 403: PLE-authored assessment content now uses Question and
+  Question Revision, and repaired Student Question Attempt View mocks use the strict
+  `issuedQuestion` shape. Remaining `problem` matches are external-system, renderer/DOM,
+  negative-evidence, ordinary-prose, or historical uses; the broad contextual detector
+  remains active. No feature, schema, route, fixture, or permanent test was added.
+
+- Completed vocabulary row 514: QTI integrity values now use exact QTI Import
+  Checksum and Normalized QTI Item Fingerprint names, while deterministic JSON
+  encoding remains a private calculation detail. The independently audited
+  closure preserves existing golden-vector, semantic-sensitivity,
+  public/private-binding, item-correspondence, and redaction validation; the
+  exact-QTI detector is retired. Row 513 remains independently open for the
+  format-agnostic Workspace Import Item Result Store/service projection. No
+  behavior, schema, route, fixture, or permanent test changed.
+
 ## 2026-09-02
 
 ### Fixes and Maintenance
+
+- Completed vocabulary row 99: validation, normalization, sorting, renumbering, and
+  checksum work now uses its exact operation or subject-qualified Checksum name. The final
+  contextual audit retains canonical only for exact representations/grammars, deterministic
+  encoding, platform or security APIs, approved interface/type-policy vocabulary, and
+  historical or negative evidence. The global Canonical detector is retired. QTI row 514
+  remains open with an exact-owner detector for its Report-Digest and checksum-encoding
+  names. No behavior, schema, route, generated contract, fixture, or permanent test changed.
+
+- Completed vocabulary row 97: PLE verification facts use subject-qualified Checksum
+  names. The final contextual audit retains Digest only for registered cryptographic APIs,
+  content identity/fingerprints, cache discriminators, OCI/platform vocabulary, the Local
+  Stack Controller's private capability fingerprint, fixed iMathAS `sourceDigest` wire
+  spelling with strict ignored loopback shape proof, negative retired-field/SQL-absence
+  checks, and history. The temporary Digest detector is retired; QTI row 514 remains an
+  independent exact-QTI-Checksum migration. No behavior, schema, route, fixture, or test
+  changed.
+
+- Recorded verified partial slices for the open Canonicalization terminology review. CAN1 uses
+  `renumberAssignmentsByCategory` and `NonSequentialCategoryPosition`; CAN2 uses
+  `validate_and_normalize_package_import` and H5P Package Checksum; CAN3a--d use exact ordering
+  derivation, Question ID normalization, expected iMathAS launch-path comparison, and Question
+  Search filter normalization names. The calculated Gradebook client's private helper is
+  `requirePublicReference`. Genuine canonical Question ID, deterministic-encoding, and unique-
+  representation uses remain. Existing focused Rust/Node, TypeScript, and formatting gates pass;
+  no behavior, route, wire value, generated contract, schema, fixture, or permanent test changed.
+  The Canonicalization row and detector remain open pending its complete contextual audit.
+
+- Closed the generic PLE-owned Definition terminology row. Source, schema, API, browser, Wasm,
+  generated consumers, tests, fixtures, durable documentation, and current plans now use exact
+  Content, Question Response Format, Rule, Input, View, or owning PLE terms. The final independent
+  contextual audit found remaining Definition matches only in language/framework/platform/legal,
+  historical, or ordinary-prose uses, so the temporary broad detector is retired with the checked
+  ledger row. This terminology closure adds no feature, persistence record, route, generated
+  compatibility alias, fixture, or permanent test.
+
+- Narrowed the then-open Definition terminology review in Question Model comments:
+  Assignment Revision preserves immutable Assignment Content and delivery rules;
+  the WeBWorK capability carries server-only Question Grading Input and replay details;
+  and preview inputs serve an Instructor Question Pool Preview. The focused Question
+  Model formatting, check, and test gates pass. No behavior, schema, API, wire contract,
+  fixture, or permanent test changed.
+
+- Replaced audited PLE-owned generic Definition wording in durable architecture,
+  security, lifecycle, backend, cache, payload, Instructor, identity, retention,
+  FAQ, cookbook, pilot, and design documents with the established Blueprint
+  Revision Content, Assignment Content or Assignment Revision, Question Content
+  or Question Revision, Question Response Format, Question Grading Rule,
+  Question Grading Input, and Question Source terms. At that stage the Definition
+  checklist row remained open for current source and broader inventory work; the
+  final contextual audit above subsequently closed it. No behavior, schema, API,
+  wire contract, fixture, or test changed.
+
+- Narrowed the then-open Definition terminology review in PLE Question JSON authoring: the
+  key-free public-preview builder now names Question Response Format and its
+  multiple-choice helper, while the focused browser test calls the generated payload
+  `draftQuestionContent` and its local object `content`. Wire shapes, generated types,
+  behavior, fixtures, and test inventory remain unchanged.
+
+- Clarified the Student Response Format Check boundary: Question Response Format values and
+  serialized values now use `responseFormat`/`response_format` and
+  `responseFormatJson`/`response_format_json` across the browser, Wasm, domain validation,
+  unmounted request body, and shared answer-free fixture readers. The route, generated contracts,
+  schema, stores, and validation behavior remain unchanged.
+
+- Narrowed the then-open Definition terminology review at the browser Question Response Control
+  boundary. Its seven response-shape aliases now use exact `*ResponseFormat` names, and its
+  component props and local validator use `responseFormat` through the dispatcher, direct callers,
+  and existing focused test. Question Response Format wire shapes and generated contracts remain
+  unchanged; at that stage the broader Definition row remained open and the final contextual audit
+  above subsequently closed it.
+
+- Closed the bare Response Control vocabulary row. Current PLE prose, comments, error text,
+  accessibility evidence, and component-test descriptions name Question Response Control; the three
+  text-entry inputs and their shared styles now use the exact
+  `question-response-control__input` BEM class. The concrete
+  `imathas-question-backend-response-control` marker remains the iMathAS Question Backend
+  boundary. No browser behavior, DOM semantics, API, wire contract, schema, generated declaration,
+  fixture, or permanent test changed; no dedicated detector exists.
+
+- Corrected the transient plan-label closure record. PNT2 deployment/configuration comments and PNT3
+  current durable documentation now name their actual components, responsibilities, and capabilities,
+  and both completed slices received independent review. The SD1 implementation namespace remains open:
+  its required six tracked file renames could not proceed because the read-only `.git` directory blocks
+  `git mv`, and no fallback move was used. The pending technical boundary is PostgreSQL Migration
+  Acceptance Runtime; this entry does not claim that implementation cutover. Historical work-package
+  receipts remain preserved in their approved historical and planning homes.
+
+- Closed the Response Widget vocabulary row. The eight browser Question Response Control roots
+  and their shared styles use `question-response-control`; current decoder and browser-contract
+  prose names Question Response Control. The text-entry inputs and shared styles now use
+  `question-response-control__input`; `imathas-question-backend-response-control` remains the
+  concrete iMathAS Question Backend Response Control marker. Focused browser tests and
+  current-source/documentation checks pass.
+
+- Accepted `WP-SD1-A-TERM-01-IAA1`: direct Create Instructor Account replaces generic
+  role/account-ID creation, while private Authentication Email integrity is role-qualified.
+  Student email remains immutable; verified Instructor replacement and complete Course Roster
+  Import/Student resolve-or-create delivery remain future `WP-RC8` work. Current documentation,
+  independent reviews, final residual audit, and the existing SD1 PostgreSQL 17
+  fresh/no-op/catalog/restricted-login/iMathAS lane pass; its focused
+  `sd1_instructor_account_creation.sql` oracle remains in that lane. No dedicated detector exists.
+
+- Closed the retired `StudentSubmissionStatus` vocabulary row: the stale current
+  `StudentSubmissionStatusStore` registry claim now names the separate Question Submission Receipt
+  and Question Submission Grading State boundaries. No detector exists for this row, so none was
+  removed. No source, schema, API, route, generated declaration, fixture, test, or feature changed.
 
 - Completed the Local Stack Controller Developer Browser Suite lifecycle cutover. The direct
   operations are `request_developer_browser_suite_stop`,
@@ -93,6 +513,10 @@
   the terminology contract's precise construction-pattern definition. Open Job Kind Registration
   rows remain separate.
 
+- Corrected retained PV1--PV5 View/read-shape receipts to state their historical open scope and the
+  later PV6 closure. This record repair changes no implementation, schema, API, generated contract,
+  fixture, test, or behavior.
+
 - The source-file line-limit gate now automatically excludes Markdown under `docs/active_plans/`
   and `docs/archive/`; other source types there remain covered. Removed redundant active-plan
   exact-path overrides while retaining the intentional single-document `DESIGN_DECISIONS.md` and
@@ -115,8 +539,9 @@
   unambiguously describes local `EditorDraft`. No wire/schema/routes/generated/security/behavior
   boundary, fixture, or test changed. All source-owned View/read-shape migration is complete: the
   former 18 Support residuals now equal only the justified fixed SQL query projection in
-  `local_stack_control/disposable_stack_adapter.py:579`. PV5 current documentation remains the sole
-  drift, so the broad View row and temporary projection queue remain open.
+  `local_stack_control/disposable_stack_adapter.py:579`. At that PV4 stage, PV5 current
+  documentation was the sole drift, so the broad View row and temporary projection queue remained
+  open; PV6 subsequently closed the broad row.
 
 - Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-COURSE-ROUTE`: exactly two Course Appearance comments now
   name the authorized `CourseRouteView` already loaded by route scope and the `THEME_MIX`
@@ -126,30 +551,30 @@
   contracts, persistence, fixtures, tests, behavior, and technical SQL/query projections remain
   unchanged. Focused Course Appearance Node tests, TypeScript, target-source Prettier and line caps,
   exact two-path retired-phrase searches, focused Markdown-link checks, and diff gates passed. No abstraction, test, or fixture
-  was added. The three remaining Support packages and PV5 remain open, so the broad Projection/View
-  ledger row remains unchecked.
+  was added. At that PV4 stage, the three remaining Support packages and PV5 were open, so the broad
+  Projection/View ledger row was unchecked; PV6 subsequently closed the broad row.
 
-- Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-SESSION`: exactly two scoped comments now say browser-safe authenticated Account data in `AuthSessionResponse` and cached router query data at the browser session boundary. `AuthSessionResponse` and `AuthAccountResponse` remain technical DTO symbols; the Authenticated Session record, `Active Account -> Authenticated Session` path, `Authenticated Session -> Active Sysadmin Account -> exact audited support operation` path, routes, persistence, JSON/wire/generated contracts, fixtures, and behavior remain unchanged. The focused frontend session-boundary test, Rust formatting, TypeScript, exact-scope search, documentation/link, source-line-cap, and diff gates passed. The 18 Support residuals and PV5 remain open, so the broad Projection/View ledger row remains unchecked.
+- Completed `WP-SD1-A-TERM-01-PV4-SUPPORT-SESSION`: exactly two scoped comments now say browser-safe authenticated Account data in `AuthSessionResponse` and cached router query data at the browser session boundary. `AuthSessionResponse` and `AuthAccountResponse` remain technical DTO symbols; the Authenticated Session record, `Active Account -> Authenticated Session` path, `Authenticated Session -> Active Sysadmin Account -> exact audited support operation` path, routes, persistence, JSON/wire/generated contracts, fixtures, and behavior remain unchanged. The focused frontend session-boundary test, Rust formatting, TypeScript, exact-scope search, documentation/link, source-line-cap, and diff gates passed. At that PV4 stage, the 18 Support residuals and PV5 were open, so the broad Projection/View ledger row was unchecked; PV6 subsequently closed the broad row.
 
-- Completed `WP-SD1-A-TERM-01-PV4-BLUEPRINT`: seven Question Model owner files now use exact Reusable Question/Pool/Pool Entry, Blueprint Assignment Entry, Blueprint Course Summary/Course, Student Membership, Teaching Account, and existing `CourseInstanceBlueprintInspectionView` reader language. The module names Blueprint Revision Content and target-term schedule; Course Retention Notice is exact; and `convert_teaching_preview_time_field` is the only local-helper rename, retaining its `TeachingPreviewTimeField` result and behavior. `AssignmentImportRepairPreview` remains a server-only, receipt-bound, non-Serde technical derived projection. Operation-specific Preview, Preview Request, Command, Receipt, and Result names; authenticated Account, exact Request Checksum, RequestRetryToken, and accepted-Receipt authority; Course Instance creation/update; persistence, routes, SQL/query projections, wire/generated contracts, fixtures, and behavior remain unchanged. Focused Blueprint (19) and teaching-operation (12) Question Model tests, Rust formatting, TypeScript, exact-search, source-line cap, and diff gates passed; independent review passed. No test, fixture, abstraction, schema, route, or feature was added. PV4 support and PV5 documentation remain open, so the broad Projection/View ledger row remains unchecked.
+- Completed `WP-SD1-A-TERM-01-PV4-BLUEPRINT`: seven Question Model owner files now use exact Reusable Question/Pool/Pool Entry, Blueprint Assignment Entry, Blueprint Course Summary/Course, Student Membership, Teaching Account, and existing `CourseInstanceBlueprintInspectionView` reader language. The module names Blueprint Revision Content and target-term schedule; Course Retention Notice is exact; and `convert_teaching_preview_time_field` is the only local-helper rename, retaining its `TeachingPreviewTimeField` result and behavior. `AssignmentImportRepairPreview` remains a server-only, receipt-bound, non-Serde technical derived projection. Operation-specific Preview, Preview Request, Command, Receipt, and Result names; authenticated Account, exact Request Checksum, RequestRetryToken, and accepted-Receipt authority; Course Instance creation/update; persistence, routes, SQL/query projections, wire/generated contracts, fixtures, and behavior remain unchanged. Focused Blueprint (19) and teaching-operation (12) Question Model tests, Rust formatting, TypeScript, exact-search, source-line cap, and diff gates passed; independent review passed. No test, fixture, abstraction, schema, route, or feature was added. At that PV4 stage, support and PV5 documentation were open, so the broad Projection/View ledger row was unchecked; PV6 subsequently closed the broad row.
 
-- Completed `WP-SD1-A-TERM-01-PV4-DELIVERY`: all 40 scoped Assignment-delivery reader owners now use exact reader-and-subject terminology: Assignment Overview, Student Assignment Landing Summary, Gradebook Summary Row, Assignment Progress Record, Assignment Release Validation, Instructor Student View, Instructor Assignment Authored Content Local, Student Question Attempt View, Question Statistics View, Grading Operation Visible State, Student Feedback, and Student Response Inspection Feedback. The closed `preview_plane` result is Assignment Release Validation; the key-free Student aggregate is Student Assignment Progress. Only two browser-local `projection` bindings became `studentView` and `availability`, and test-only `semanticProjection` became `questionPublicationReviewCurrent`. Rust/Serde and TypeScript/generated contracts, JSON/wire fields, persistence/schema, routes, SQL/query projections, Object Delivery/storage/signing/concealment/security boundaries, fixtures, and behavior remain unchanged. Existing focused Question Model/Domain and Node reader tests, Rust formatting, TypeScript, exact-search, source-line cap, and diff gates passed. No test, fixture, abstraction, route, schema, or feature was added. PV4 Blueprint, support, and PV5 documentation remain open, so the broad Projection/View ledger row remains unchecked.
+- Completed `WP-SD1-A-TERM-01-PV4-DELIVERY`: all 40 scoped Assignment-delivery reader owners now use exact reader-and-subject terminology: Assignment Overview, Student Assignment Landing Summary, Gradebook Summary Row, Assignment Progress Record, Assignment Release Validation, Instructor Student View, Instructor Assignment Authored Content Local, Student Question Attempt View, Question Statistics View, Grading Operation Visible State, Student Feedback, and Student Response Inspection Feedback. The closed `preview_plane` result is Assignment Release Validation; the key-free Student aggregate is Student Assignment Progress. Only two browser-local `projection` bindings became `studentView` and `availability`, and test-only `semanticProjection` became `questionPublicationReviewCurrent`. Rust/Serde and TypeScript/generated contracts, JSON/wire fields, persistence/schema, routes, SQL/query projections, Object Delivery/storage/signing/concealment/security boundaries, fixtures, and behavior remain unchanged. Existing focused Question Model/Domain and Node reader tests, Rust formatting, TypeScript, exact-search, source-line cap, and diff gates passed. No test, fixture, abstraction, route, schema, or feature was added. At that PV4 stage, Blueprint, support, and PV5 documentation were open, so the broad Projection/View ledger row was unchecked; PV6 subsequently closed the broad row.
 
-- Completed `WP-SD1-A-TERM-01-PV4-LIB`: the six Question Library-owned read-shape owners now use exact Question Use Details, Question Details, Question Folder, Saved Question Search, Question Summary command-result, and Question Search Results View wording. The strict decoder-local `projectionKind` binding is now `promptKind`; JSON `kind`, `static`/`generatedExample`, decoder shape, generated contracts, routes, schemas, fixtures, and behavior remain unchanged. Existing Question Model, focused Question Curation browser, TypeScript, formatting, exact-scope retired-name, and diff gates passed; independent review passed. No test, fixture, abstraction, route, schema, or feature was added. PV4 delivery, Blueprint, support, and PV5 documentation remain separately open, so the broad Projection/View ledger row remains unchecked.
+- Completed `WP-SD1-A-TERM-01-PV4-LIB`: the six Question Library-owned read-shape owners now use exact Question Use Details, Question Details, Question Folder, Saved Question Search, Question Summary command-result, and Question Search Results View wording. The strict decoder-local `projectionKind` binding is now `promptKind`; JSON `kind`, `static`/`generatedExample`, decoder shape, generated contracts, routes, schemas, fixtures, and behavior remain unchanged. Existing Question Model, focused Question Curation browser, TypeScript, formatting, exact-scope retired-name, and diff gates passed; independent review passed. No test, fixture, abstraction, route, schema, or feature was added. At that PV4 stage, delivery, Blueprint, support, and PV5 documentation were separately open, so the broad Projection/View ledger row was unchecked; PV6 subsequently closed the broad row.
 
 - Completed `WP-SD1-A-TERM-01-PJAF1`: removed the unsupported PLE Question JSON browser file-authoring client, picker, hotspot editor/model, page/field/style/callback wiring, protocol-only client suite, deleted-only editor assertions, and unconsumed `ObjectAddress::WorkspaceQuestionAsset`. The browser has no PLE Question JSON file input, endpoint, Store, schema, SQL, generated declaration, cache/wire field, Object/URL field, fixture, substitute abstraction, or replacement test. `WorkspaceImportAsset`, imported/trusted `QuestionAssetReference` bindings, Object Delivery, parser/compiler, HOTSPOT grading and presentation geometry, and `StudentResponse::Hotspot` remain. Existing object, adapter/model, Question Model, TypeScript, editor, Markdown, formatting, exact-search, and diff gates passed; one-time absence and retained-binding checks passed. Student Upload remains separately accepted under row 213.
 
 - Completed `WP-SD1-A-TERM-01-SU2`: retired the obsolete `WP-FU1`--`WP-FU6` release path before implementation across every declared current owner, including the dated executive snapshot. The snapshot contains no related retirement history; the exact `2026080912` status migration row is the sole history owner. The combined authority detector counts every matching package or Student/learner file-capability occurrence across active plans, implementation plan, status registry, and that snapshot, excluding only that anchored row; both current counts are zero. One-time probes passed `0/1/1/1/1/1` for exact history, planned-before/planned-after package claims, package retirement wording, Student retirement wording, and learner retirement wording. Course Banner Upload remains separate. Adapter-owned Question Asset import remains separate; PLE Question JSON browser file authoring was separately open under row 278 at this record. Independent implementation review passed; independent record review remains required. Documentation checks, shell syntax, focused Prettier, registry cap, and diff gates passed. The shared status registry retains documented pre-existing whole-file Prettier drift; no broad format rewrite was made. No application code, schema, API, generated contract, fixture, test, behavior, or feature changed.
 
-- Completed `WP-SD1-A-TERM-01-PV3`: removed the unowned browser sanitized-markup override and duplicate WeBWorK raw-HTML delivery/cache branch. The browser renders closed Question Content Blocks directly. Bounded strict parsing, protected-value and hostile/malformed-input refusal, source binding, renderer identity, Question Asset routes, private replay/grading, and typed delivery remain. `CACHE_SCHEMA_VERSION` and the deterministic render-key namespace now use v2; retained `ObjectAddress::QuestionRender`, immutable put/`AlreadyExists` recovery, and current decode/validation semantics preserve an immutable rebuild boundary. A one-time cache probe proved separate v1/v2 keys, v1-byte preservation, and v2 rebuild, then was removed. Normal TypeScript generation, focused adapter/renderer/type/format/documentation/diff gates, and independent review passed. No replacement markup record, wire field, compatibility reader, fixture, or permanent test was added. Broader View/read-shape terminology remains open.
+- Completed `WP-SD1-A-TERM-01-PV3`: removed the unowned browser sanitized-markup override and duplicate WeBWorK raw-HTML delivery/cache branch. The browser renders closed Question Content Blocks directly. Bounded strict parsing, protected-value and hostile/malformed-input refusal, source binding, renderer identity, Question Asset routes, private replay/grading, and typed delivery remain. `CACHE_SCHEMA_VERSION` and the deterministic render-key namespace now use v2; retained `ObjectAddress::QuestionRender`, immutable put/`AlreadyExists` recovery, and current decode/validation semantics preserve an immutable rebuild boundary. A one-time cache probe proved separate v1/v2 keys, v1-byte preservation, and v2 rebuild, then was removed. Normal TypeScript generation, focused adapter/renderer/type/format/documentation/diff gates, and independent review passed. No replacement markup record, wire field, compatibility reader, fixture, or permanent test was added. At the PV3 stage, broader View/read-shape terminology remained open; PV6 subsequently closed the broad View row.
 
 - Completed `WP-SD1-A-TERM-01-RQ-CLOSE`: closed the retired generic Reconciliation checklist rows after fresh Graphify-assisted independent classification confirmed no current PLE-owned Reconciliation in source, schema, routes, generated contracts, browser controls, fixtures, test contracts, product documentation, or active plans. The 14 exact queue matches are frozen history/status/audit material, so the temporary current-work queue omits `reconciliation`. The separately scheduled Local Stack Developer Browser Suite lifecycle correction did not describe or block a product Reconciliation boundary. No code, schema, API, behavior, fixture, test, or feature changed.
 
 - Completed `WP-SD1-A-TERM-01-SU1`: removed the unsupported Student Upload/file-response product path without a replacement. Student Response remains the closed values accepted by a supported Question Response Format; Student Feedback remains authorized result data and optional Question-authored content. Current stored-object examples are Question Submission, Student-specific exports, and annotated exams. Course Banner Upload remains separate; adapter-owned Question Asset import remains separate; PLE Question JSON browser file authoring was separately open under row 278 at this record. Independent implementation review and re-review, existing response/negative-shape tests, normal TypeScript generation (466 declarations), TypeScript, Rust formatting, focused SU1-owner Markdown Prettier, 1,246 documentation checks, contextual current-match classification, registry-cap, and diff gates passed. No schema, route, Store, capability, response format, Object behavior, fixture, test, or feature was added.
 
-- Completed `WP-SD1-A-TERM-01-PV2`: deleted the unowned pre-production `ple_private.student_feedback_release` baseline table, its generic `projection jsonb`, uniqueness constraint, table-local RLS/FORCE-RLS, and shared revoke entry. Question Submission and Assignment Submission evidence, triggers, RLS/FORCE-RLS, and revokes remain. Student Feedback remains a transient policy-redacted DTO, while Student Feedback Release remains the rule/preview boundary; unsupported persistence/audit claims are gone. Independent implementation review, final staged PostgreSQL 17 fresh-apply/no-op/catalog/restricted-login/iMathAS authority, documentation, exact-search, cap, and diff gates passed. No replacement table, compatibility, Store, SQL function, API, generated contract, browser change, fixture, test, or feature was created. Broader View terminology remains open.
+- Completed `WP-SD1-A-TERM-01-PV2`: deleted the unowned pre-production `ple_private.student_feedback_release` baseline table, its generic `projection jsonb`, uniqueness constraint, table-local RLS/FORCE-RLS, and shared revoke entry. Question Submission and Assignment Submission evidence, triggers, RLS/FORCE-RLS, and revokes remain. Student Feedback remains a transient policy-redacted DTO, while Student Feedback Release remains the rule/preview boundary; unsupported persistence/audit claims are gone. Independent implementation review, final staged PostgreSQL 17 fresh-apply/no-op/catalog/restricted-login/iMathAS authority, documentation, exact-search, cap, and diff gates passed. No replacement table, compatibility, Store, SQL function, API, generated contract, browser change, fixture, test, or feature was created. At the PV2 stage, broader View terminology remained open; PV6 subsequently closed the broad View row.
 
-- Completed `WP-SD1-A-TERM-01-PV1`: the embedded answer-free Question Details prompt now has the exact `QuestionDetailsPromptView` name across the Question Model, normally regenerated TypeScript contract (466 declarations), and strict browser decoder. The direct cutover preserves wire `prompt`, `static`/`generatedExample`, ordered Question Content Blocks, answer-free serialization, exact Question ID verification, and existing browser behavior. Focused model/decoder/type, documentation/search, and diff gates passed. No schema, route, fixture, test, behavior, or feature changed. Broader View terminology remains separately open.
+- Completed `WP-SD1-A-TERM-01-PV1`: the embedded answer-free Question Details prompt now has the exact `QuestionDetailsPromptView` name across the Question Model, normally regenerated TypeScript contract (466 declarations), and strict browser decoder. The direct cutover preserves wire `prompt`, `static`/`generatedExample`, ordered Question Content Blocks, answer-free serialization, exact Question ID verification, and existing browser behavior. Focused model/decoder/type, documentation/search, and diff gates passed. No schema, route, fixture, test, behavior, or feature changed. At the PV1 stage, broader View/read-shape terminology remained open; PV6 subsequently closed the broad View row.
 
 - Tightened the terminology authority around authored and submitted files. Student Response now consists only of values accepted by a supported Question Response Format, and Student Feedback remains result data plus optional Question-authored content blocks. PLE Question JSON Instructor authoring is defined through Authoring Workspace fields; adapter-owned imports remain the separate boundary that may supply Question Assets. Removed the promised future Student Upload, Student Artifact, and Student Feedback Attachment concepts from the contract/ledger, and recorded the current PLE Question JSON browser image-upload client as open implementation correction. The temporary vocabulary report now tracks both Student file-capability names and PLE Question JSON browser file-authoring owners. No application code, schema, API, generated contract, fixture, test, behavior, or feature changed.
 
@@ -196,18 +621,18 @@
 ### Fixes and Maintenance
 
 - Completed `WP-SD1-A-TERM-01-APS1`: the direct domain/private-helper rename now uses Assignment Policy Source while preserving the richer authorized source, identity-free Assignment Policy Source Kind, membership privacy, and wire-owned `source` field. Focused 22 Rust and 14 Node tests, TypeScript, formatting, exact-search, and diff gates passed. No schema, generated contract, wire, fixture, feature, or test was added.
-- Completed `WP-SD1-A-TERM-01-QP1`: current documentation assigns Question Source bytes, source identity/checksums, authorship/citation, fork source, license, attempt reproduction details, and QTI checksums to their exact existing owners; the adjacent source-family wording is now Question Format. The independent review's current Question-facing residuals were repaired. Markdown-link, ASCII, source-line, contextual-search, Prettier, and diff gates passed. No code, schema, API, fixture, or test changed.
+- Completed `WP-SD1-A-TERM-01-QP1`: current documentation assigns Question Source bytes, source identity/checksums, Question Authorship/Question Citation, Question Fork Source, Question License, attempt reproduction details, and QTI checksums to their exact existing owners; the adjacent source-family wording is now Question Format. The independent review's current Question-facing residuals were repaired. Markdown-link, ASCII, source-line, contextual-search, Prettier, and diff gates passed. No code, schema, API, fixture, or test changed.
 - Shared final-tree aggregate for `WP-SD1-A-TERM-01-APS1` and `WP-SD1-A-TERM-01-QP1`: `source source_me.sh && ./all_test.sh` generated 467 TypeScript types and validated 3 tracked fixture contracts; passed Rust formatting, default and all-target/all-feature checks, strict production/test/all-feature Clippy, workspace/all-feature tests and doctests, and Wasm; all 5 frontend checks and 340/340 Node tests; 4,983/4,983 Python tests; PostgreSQL 17 fresh apply/no-op/catalog/restricted-login/iMathAS Session tests; PostgreSQL-plus-MinIO Course Appearance conformance; and complete live acceptance. Three opt-in iMathAS loopback HTTP tests were ignored; connected Playwright is outside this gate. This aggregate validates the final tree without broadening either package's narrow correction scope.
 - Completed `WP-SD1-A-TERM-01-QA1`: fresh Question Authorship schema now bounds ordered positions to 1--16, requires trimmed control-free reviewed display names, and requires contiguous positions before publication; nullable Account credit and separate Question Owner authority remain exact. Existing focused Rust/browser tests and the live integrated PostgreSQL apply/no-op/catalog/restricted-login/iMathAS oracle passed. No new test file, fixture, compatibility path, or feature was added.
 - Completed `WP-SD1-A-TERM-01-QC1A`: `QtiPleDefault::EmptyTaxonomy` is now `EmptyQuestionClassifications`, and the README names Question Classification. Focused QTI, formatting, Markdown-link, ASCII, and diff gates passed. Controlled Question Subject/Subsubject, persistence, authoring, and import/export work remains open. No new test file, fixture, compatibility path, or feature was added.
 - Completed `WP-SD1-A-TERM-01-H5P1`: H5P is Question Format/package-import-only, not a Question Backend or locator; the closed Question Backend set is PLE, WeBWorK, QTI, and iMathAS. Focused Rust/browser/generated-contract checks and the shared live integrated PostgreSQL apply/no-op/catalog/restricted-login/iMathAS oracle passed. No new test file, fixture, compatibility path, or feature was added.
 - Final aggregate for `WP-SD1-A-TERM-01-QA1`, `WP-SD1-A-TERM-01-QC1A`, and `WP-SD1-A-TERM-01-H5P1`: `source source_me.sh && ./all_test.sh` on the corrected final tree generated 467 Rust-owned TypeScript declarations; validated 3 tracked fixtures; passed Rust formatting, default and all-target/all-feature checks, production/test/all-feature strict Clippy, workspace tests and doctests, and browser Wasm; TypeScript typecheck/lint, ESLint, Prettier, and 340 Node tests; 4,983 Python tests; the disposable PostgreSQL 17 fresh apply/no-op/catalog/restricted-login and iMathAS Session PostgreSQL tests; PostgreSQL-plus-MinIO Course Appearance coherence; and complete live acceptance. The three established opt-in iMathAS loopback HTTP tests remained ignored, and connected Playwright was not run by this gate.
 - Completed `WP-SD1-A-TERM-01-AAT1`: Assignment Attempt now names the whole Student pass, history, count, resume, and detail through Rust/Serde, regenerated contracts, strict browser decoding, route/CSS ownership, scenarios/helpers, current schema, the Rust-Serde-owned `assignment_attempts` fixture, current documentation, and active plans; Question Attempt remains the narrower issued-question record. Fresh migration `2026082923_item_course_analysis.sql` was amended directly with `completed_assignment_attempt_count` and `in_progress_assignment_attempt_count`. Retained former route/page/API/label strings are explicitly historical evidence. The direct pre-production correction adds no compatibility alias, feature, fixture, or permanent test. The independent final audit and focused gates passed. The final aggregate generated contracts; validated three fixtures; passed Rust formatting, workspace checks, strict Clippy, workspace tests and doctests; frontend type/lint/format and 340 Node tests; 4,983 Python tests; the disposable PostgreSQL 17 schema/authority/persistence lane including the iMathAS Session oracle; and PostgreSQL-plus-MinIO Course Appearance coherence. Complete live acceptance is green; connected Playwright was not run.
-- Audited every checked vocabulary-replacement row against current source, schemas, generated
-  contracts, browser models, tests, active plans, and accepted terminology receipts. Reopened the
-  Assignment Run row because active plans still use bare run wording for Assignment Attempts and
-  AAT1 remains pending independent review. Corrected stale evidence notes for completed iMathAS and
-  Course Appearance reader terminology without changing their accepted status.
+- Completed vocabulary row 121: no active Assignment Run model remains; the whole Student pass,
+  history, count, resume, and detail use Assignment Attempt. The final contextual audit retains
+  `run` only for technical execution/runtime/WeBWorK meaning, ordinary prose, rejected retired-wire
+  evidence, and dated history. The broad Run tracker remains a contextual review, not a raw-zero
+  migration detector. No behavior, schema, route, fixture, or permanent test changed.
 - Completed `WP-SD1-A-TERM-01-CT1`: `CourseTheme` now names the selected closed visual palette for one complete Course Appearance through the Question Model, presentation scope, public facade, regenerated TypeScript, strict decoder, and closed browser registry. The direct cutover retires `CourseThemeId` while preserving the `theme` JSON property, all fifteen stable kebab-case palette values, parsing/default behavior, registry order, and contrast behavior. `CourseTheme` is a visual palette selector rather than a database identity. Existing focused behavior tests, generation, TypeScript, formatting, documentation, exact-search, and diff gates passed. This terminology correction leaves the deferred Course Appearance Store, schema/current pointer, PostgreSQL migration, server route, authorization oracle, upload-promotion/cleanup, and mounted editor unchanged.
 - Completed `WP-SD1-A-TERM-01-RRT1`: `RequestRetryToken`, `RequestRetryBinding`, and `MAX_REQUEST_RETRY_TOKEN_BYTES` now name the shared technical value and server-held binding for one repeated Instructor write request. The direct Question Model, generated-contract, and strict browser-client cutover preserves the `retry_token` wire field and closed `BlueprintOperationApplyIntent`. An authenticated Account, exact Request Checksum, and typed request/Receipt context bind the token; it grants no authority and no Blueprint is retried. This correction creates no route, persistence, or durable replay claim. Focused Rust (13), generation, TypeScript, Node (2), formatting, Markdown-link/source-line, exact-search, and diff gates passed.
 - Completed `WP-SD1-A-TERM-01-SFAP1`: browser-local `Feedback`, `FeedbackPresentation`, and `FeedbackPanel` now name Student Feedback Availability, Student Feedback Presentation, and Student Feedback Panel through the exact `studentFeedback` attempt-state phase, component, styles, pages, and connected-browser helper. The browser client uses `StudentFeedbackReleaseResponse`, `decodeStudentFeedbackReleaseResponse`, and `releaseStudentFeedback` at the exact Student Feedback release path; its receipt remains `{ released: true }`. The generated and wire-owned `feedback` fields remain the `StudentFeedback` DTO contract. Choice, Correct, and Incorrect Feedback labels name the three Question Feedback forms in authoring, preview, released-panel, and policy copy. Human Guidance, the terminology contract, and Student Guide keep outcome and continuation independent of optional Question Feedback. TypeScript, focused Node (70), connected-browser selector update, Prettier, Markdown-link/source-line, exact-search, and diff gates passed; the real-stack browser suite remains unmounted. No schema, generated-contract, or permanent-test expansion was needed.

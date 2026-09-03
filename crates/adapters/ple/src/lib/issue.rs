@@ -1,7 +1,6 @@
 use std::fmt::Write as _;
 
 use domain::draft_preview::build_question_prompt;
-use domain::generator::generate;
 use question_model::QuestionVariationPresentation;
 use question_model::generation::QuestionSeed;
 use question_model::{
@@ -11,7 +10,6 @@ use question_model::{
 use sha2::{Digest, Sha256};
 
 use crate::generator::AuthorPresentationContent;
-use crate::registry::PleQuestionExecution;
 use crate::reproduction::resolve_question_asset_objects;
 use crate::{
     DerivedPleQuestion, PleDraftAuthorPresentation, PleIssuedQuestion, PleQuestionBackend,
@@ -39,7 +37,6 @@ impl PleQuestionBackend {
         let reproduction_details = QuestionAttemptReproductionDetails {
             backend: self.current_backend.clone(),
             renderer_version: None,
-            generator: prepared.generated.generator.clone(),
             source_object_reference: Some(source_object_reference.clone()),
             source_object_checksum: Some(source_object_checksum.clone()),
             asset_objects,
@@ -48,7 +45,6 @@ impl PleQuestionBackend {
         };
         Ok(PleIssuedQuestion {
             presentation: prepared.presentation,
-            parameter_hash: prepared.parameter_hash,
             reproduction_details,
         })
     }
@@ -60,23 +56,17 @@ impl PleQuestionBackend {
     pub fn author_presentation(
         &self,
         question: &DraftQuestionContent,
-        seed: QuestionSeed,
     ) -> Result<Option<PleDraftAuthorPresentation>, PleQuestionBackendError> {
         question
             .metadata
             .validate_title()
             .map_err(PleQuestionBackendError::InvalidTitle)?;
-        let generated = generate(seed, &question.question_variation_rule)
-            .map_err(PleQuestionBackendError::Generation)?;
-        let implementation =
-            self.implementation_for_draft(question, generated.generator.as_ref())?;
-        let prompt =
-            build_question_prompt(&question.prompt, seed, &question.question_variation_rule)
-                .map_err(PleQuestionBackendError::Presentation)?;
+        let implementation = self.implementation_for_draft(question)?;
+        let prompt = build_question_prompt(&question.prompt);
         let Some(AuthorPresentationContent {
             question_answer,
             question_answer_explanation,
-        }) = implementation.derive_author_presentation(question, &generated, &prompt)?
+        }) = implementation.derive_author_presentation(question, &prompt)?
         else {
             return Ok(None);
         };
@@ -93,33 +83,23 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        execution: &PleQuestionExecution,
     ) -> Result<PreparedPleQuestion, PleQuestionBackendError> {
         question
             .metadata
             .validate_title()
             .map_err(PleQuestionBackendError::InvalidTitle)?;
-        let generated = generate(seed, &question.question_variation_rule)
-            .map_err(PleQuestionBackendError::Generation)?;
-        let implementation =
-            self.implementation_for_question(question, generated.generator.as_ref())?;
-        let parameter_hash = generated
-            .sha256()
-            .map_err(PleQuestionBackendError::Generation)?;
-        let prompt =
-            build_question_prompt(&question.prompt, seed, &question.question_variation_rule)
-                .map_err(PleQuestionBackendError::Presentation)?;
+        let implementation = self.implementation_for_question(question)?;
+        let prompt = build_question_prompt(&question.prompt);
         let derived = DerivedPleQuestion {
             prompt,
-            answer_key: execution.derive_answer_key(implementation, question, &generated)?,
+            answer_key: implementation.derive_answer_key(question)?,
         };
         let presentation = QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::from_question_variation_rule(
+            variation: question_model::QuestionVariation::from_question_revision_and_seed(
                 question_model::QuestionRevisionReference {
                     question_id: question.question_id.clone(),
                     revision_number: question.revision_number,
                 },
-                &question.question_variation_rule,
                 seed,
             ),
             title: question.metadata.title.clone(),
@@ -128,10 +108,8 @@ impl PleQuestionBackend {
         };
         let rendered_question_sha256 = hash_json(&presentation)?;
         Ok(PreparedPleQuestion {
-            generated,
             derived,
             presentation,
-            parameter_hash,
             rendered_question_sha256,
         })
     }
@@ -141,8 +119,8 @@ impl PleQuestionBackend {
         question: &QuestionRevision,
         seed: QuestionSeed,
     ) -> Result<PreparedPleQuestion, PleQuestionBackendError> {
-        let execution = self.backend_execution_for(&self.current_backend)?;
-        self.prepare_with_execution(question, seed, execution)
+        self.require_backend_version(&self.current_backend)?;
+        self.prepare_with_execution(question, seed)
     }
 }
 

@@ -172,7 +172,7 @@ export function decodeResponseSelectionRule(
   }
 }
 
-/** Decodes the closed educational classification separate from response controls. */
+/** Decodes the closed educational classification separate from Question Response Controls. */
 export function decodeQuestionType(value: unknown, path: string): QuestionType {
   return decodeStringEnum(value, path, [
     "multipleChoice",

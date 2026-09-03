@@ -14,9 +14,10 @@ use anyhow::{Context, Result, bail, ensure};
 use grading::QuestionGradingOutcome;
 use question_model::question_content::{DraftQuestionContent, QuestionRevision};
 use question_model::{
-    AssignmentAttempt, AssignmentProgressRecord, AssignmentSummary, GradebookSummaryRow,
-    IssuedQuestion, QuestionAttempt, QuestionBackend, QuestionFormat, QuestionRevisionReference,
-    QuestionSummary, SourceObjectChecksum, SourceObjectReference, StudentRecordId,
+    AssignmentAttempt, AssignmentGrade, AssignmentProgressRecord, AssignmentSummary,
+    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionBackend, QuestionFormat,
+    QuestionRevisionReference, QuestionSummary, SourceObjectChecksum, SourceObjectReference,
+    StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -64,7 +65,8 @@ struct StoredFixtureSet {
     assignment_attempts: Vec<AssignmentAttempt>,
     issued_questions: Vec<IssuedQuestion>,
     attempts: Vec<QuestionAttempt>,
-    summary: AssignmentProgressRecord,
+    assignment_grade: AssignmentGrade,
+    assignment_progress: AssignmentProgressRecord,
     gradebook: Vec<GradebookSummaryRow>,
 }
 
@@ -157,12 +159,14 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         "stored Assignment must belong to the stored Course Instance"
     );
     ensure!(
-        fixture_set.student_record == fixture_set.summary.student_record,
-        "stored progress summary must belong to the stored Student Record"
+        fixture_set.student_record == fixture_set.assignment_grade.student_record
+            && fixture_set.student_record == fixture_set.assignment_progress.student_record,
+        "stored Assignment Grade and Assignment Progress must belong to the stored Student Record"
     );
     ensure!(
-        fixture_set.summary.assignment == fixture_set.assignment.id,
-        "stored progress summary must belong to the stored Assignment"
+        fixture_set.assignment_grade.assignment == fixture_set.assignment.id
+            && fixture_set.assignment_progress.assignment == fixture_set.assignment.id,
+        "stored Assignment Grade and Assignment Progress must belong to the stored Assignment"
     );
     ensure!(
         !fixture_set.gradebook.is_empty(),
@@ -180,7 +184,7 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     let seeds: BTreeSet<u64> = fixture_set
         .attempts
         .iter()
-        .map(|attempt| attempt.seed.value())
+        .map(|attempt| attempt.question_seed.value())
         .collect();
     ensure!(
         seeds.len() == fixture_set.attempts.len(),
@@ -299,8 +303,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
         );
         let presentation = adapter.reproduce(
             &fixture_set.published_question_revision,
-            attempt.seed,
-            &attempt.parameter_hash,
+            attempt.question_seed,
             &attempt.reproduction_details,
             &question_asset_object_references,
         )?;
@@ -329,8 +332,7 @@ fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBack
             }
             let outcome = adapter.grade(
                 &fixture_set.published_question_revision,
-                attempt.seed,
-                &attempt.parameter_hash,
+                attempt.question_seed,
                 &attempt.reproduction_details,
                 &question_asset_object_references,
                 &submission.response,

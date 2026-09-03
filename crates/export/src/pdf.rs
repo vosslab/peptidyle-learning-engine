@@ -1,4 +1,4 @@
-//! Deterministic PDF writer (MOD-EXPORT).
+//! Deterministic PDF writer.
 
 mod assets;
 mod layout;

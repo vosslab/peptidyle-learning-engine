@@ -25,7 +25,9 @@ impl PresentationResponseItemReference {
         {
             Ok(Self(value))
         } else {
-            Err("rendered item ID must be four lowercase hexadecimal characters")
+            Err(
+                "Presentation Response Item Reference must be four lowercase hexadecimal characters",
+            )
         }
     }
 
@@ -40,7 +42,7 @@ impl PresentationResponseItemReference {
     }
 
     pub(crate) fn as_u16(&self) -> u16 {
-        u16::from_str_radix(&self.0, 16).expect("validated rendered item ID")
+        u16::from_str_radix(&self.0, 16).expect("validated Presentation Response Item Reference")
     }
 }
 
@@ -269,7 +271,7 @@ pub struct PresentedHotspotSurface {
     pub regions: Vec<PresentedHotspotRegion>,
 }
 
-/// Answer-free browser widget schema selected by the persisted attempt.
+/// Answer-free Question Response Control schema selected by the persisted attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -309,6 +311,7 @@ pub enum QuestionPresentationResponseFormat {
         minimum: u32,
         maximum: u32,
     },
+    ImathasQuestionBackend {},
 }
 
 /// Complete answer-free question state presented to one student.
@@ -316,7 +319,8 @@ pub enum QuestionPresentationResponseFormat {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPresentation {
     pub question_revision: QuestionRevisionReference,
-    pub seed: QuestionSeed,
+    #[serde(rename = "question_seed")]
+    pub question_seed: QuestionSeed,
     pub presentation_nonce: QuestionPresentationNonce,
     pub title: String,
     pub prompt: Vec<QuestionContentBlock>,

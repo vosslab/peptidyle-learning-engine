@@ -6,8 +6,8 @@
 #
 #   dist_wasm/web/   ES module for the Solid client; pipeline/build.mjs copies
 #                    it into dist/wasm/
-#   dist_wasm/node/  CommonJS for tests/e2e/e2e_wasm_bridge.mjs, the WP-F2
-#                    proof that a Rust export is callable from Node
+#   dist_wasm/node/  CommonJS for tests/e2e/e2e_wasm_bridge.mjs, proving that
+#                    a Rust export is callable from Node
 #
 # The node flavor exists only for that test. Browsers get the web flavor.
 #

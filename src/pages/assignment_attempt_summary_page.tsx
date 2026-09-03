@@ -102,7 +102,7 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
             <section aria-label="Assignment score">
               <h2>Assignment score</h2>
               <p>{studentProgressSummary(current().summary)}</p>
-              <Show when={current().summary.score_state === "available"}>
+              <Show when={current().summary.student_assignment_grade.score_state === "available"}>
                 <p>
                   This Assignment Attempt: {studentScoreValue(current().assignmentAttempt.score)}
                 </p>

@@ -1,4 +1,4 @@
--- SD1 stable Student Record roots and Student Course Membership bindings.
+-- Student Record and Student Course Membership roots.
 
 SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.student_record (

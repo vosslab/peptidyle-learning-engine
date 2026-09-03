@@ -13,7 +13,6 @@ import {
 import { createResponseClient } from "./http_client/response";
 import { createTeachingOperationsClient } from "./http_client/teaching_operations";
 import { createPreviewPlaneClient } from "./http_client/preview_plane";
-import { createQuestionCurationClient } from "./http_client/question_curation";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createBlueprintOperationsClient } from "./http_client/blueprint_operations";
 import { createGradingOperationsClient } from "./http_client/grading_operations";
@@ -27,7 +26,6 @@ export {
   AssignmentPoliciesValidationError,
   PreviewPlaneConflictError,
   CourseGradeSchemeConflictError,
-  QuestionCurationConflictError,
   BlueprintCourseConflictError,
   CourseTermValidationError,
   PublicationValidationError,
@@ -52,7 +50,6 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveDemoClient(fetchImplementation, basePath),
     createTeachingOperationsClient(fetchImplementation, basePath),
     createPreviewPlaneClient(fetchImplementation, basePath),
-    createQuestionCurationClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
     createBlueprintOperationsClient(fetchImplementation, basePath),
     createGradingOperationsClient(fetchImplementation, basePath),

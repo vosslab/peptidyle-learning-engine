@@ -1,13 +1,13 @@
 // model.ts - typed, browser-safe state helpers for assignment access modifiers.
 
-import type { SyntheticPreviewAccommodationAdjustmentRequest } from "../../../generated/api/SyntheticPreviewAccommodationAdjustmentRequest";
+import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
 import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/api/AccommodationAdjustmentUpdateRequest";
 import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
 import type { TeachingTimeFieldPatch } from "../../../generated/api/TeachingTimeFieldPatch";
 
 export type ModifierScope = "accommodation";
 export type PatchKind = "inherit" | "set" | "unrestricted";
-export type ModifierMode = "extendOnly" | "replace";
+export type ModifierMode = "extend_only" | "replace";
 
 export interface ModifierPatchDraft {
   readonly availableAt: { readonly kind: PatchKind; readonly value: string };
@@ -73,18 +73,18 @@ function limitPatch(
 export function policyRequest(
   mode: ModifierMode,
   draft: ModifierPatchDraft,
-): SyntheticPreviewAccommodationAdjustmentRequest | AccommodationAdjustmentUpdateRequest {
+): HypotheticalStudentViewScenarioModifiers | AccommodationAdjustmentUpdateRequest {
   return {
     mode,
     adjustment: {
-      availableAt: timePatch(draft.availableAt),
-      dueAt: timePatch(draft.dueAt),
-      closesAt: timePatch(draft.closesAt),
-      assignmentAttemptTimeLimitSeconds: limitPatch(
+      available_at: timePatch(draft.availableAt),
+      due_at: timePatch(draft.dueAt),
+      closes_at: timePatch(draft.closesAt),
+      assignment_attempt_time_limit_seconds: limitPatch(
         draft.assignmentAttemptTimeLimitSeconds,
         "Whole Assignment Attempt seconds",
       ),
-      attemptLimit: limitPatch(draft.attemptLimit, "Attempt limit"),
+      attempt_limit: limitPatch(draft.attemptLimit, "Attempt limit"),
     },
   };
 }

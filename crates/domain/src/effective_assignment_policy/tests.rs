@@ -1,7 +1,8 @@
 use super::*;
 use crate::active_student_course_membership::{
-    ActiveStudentCourseMembershipFacts, ActiveStudentMembership, SyntheticPreviewAdmissionFacts,
-    admit_synthetic_preview, evaluate_active_student_course_membership,
+    ActiveStudentCourseMembershipFacts, ActiveStudentMembership,
+    HypotheticalStudentViewScenarioAdmissionFacts, admit_hypothetical_student_view_scenario,
+    evaluate_active_student_course_membership,
 };
 use question_model::{AccountId, AssignmentId, CourseId, CourseMembershipId};
 use std::num::NonZeroU32;
@@ -128,36 +129,40 @@ fn assignment_status_denial_precedes_policy_evaluation() {
 }
 
 #[test]
-fn synthetic_preview_can_apply_a_hypothetical_accommodation() {
-    let decision = resolve_synthetic_preview_policy(ResolveSyntheticPreviewPolicyInput {
-        assignment_status: AssignmentStatusGate::Open,
-        active_student_course_membership: admit_synthetic_preview(
-            SyntheticPreviewAdmissionFacts::new(
-                CourseId::from_uuid(id(2)),
-                AssignmentId::from_uuid(id(3)),
-            ),
-        ),
-        authorization: AuthorizationGate::Authorized,
-        now: stamp(20_000),
-        prior_assignment_attempt_count: 0,
-        base: base(),
-        hypothetical_accommodation: Some(HypotheticalAccommodation {
-            mode: AccommodationApplicationRule::ExtendOnly,
-            adjustment: AccommodationAdjustment {
-                attempt_limit: AccommodationAdjustmentValue::Set(
-                    NonZeroU32::new(3).expect("non-zero"),
+fn hypothetical_student_view_scenario_can_apply_direct_modifiers() {
+    let decision = resolve_hypothetical_student_view_scenario_policy(
+        ResolveHypotheticalStudentViewScenarioPolicyInput {
+            assignment_status: AssignmentStatusGate::Open,
+            hypothetical_student_view_scenario_admission: admit_hypothetical_student_view_scenario(
+                HypotheticalStudentViewScenarioAdmissionFacts::new(
+                    CourseId::from_uuid(id(2)),
+                    AssignmentId::from_uuid(id(3)),
                 ),
-                ..AccommodationAdjustment::INHERIT
-            },
-        }),
-    })
-    .expect("valid synthetic policy");
-    let AssignmentAccessDecision::Allowed { policy, .. } = decision else {
-        panic!("synthetic preview should be authorized");
+            ),
+            authorization: AuthorizationGate::Authorized,
+            now: stamp(20_000),
+            prior_assignment_attempt_count: 0,
+            base: base(),
+            hypothetical_student_view_scenario_modifiers: Some(
+                HypotheticalStudentViewScenarioModifiers {
+                    mode: AccommodationApplicationRule::ExtendOnly,
+                    adjustment: AccommodationAdjustment {
+                        attempt_limit: AccommodationAdjustmentValue::Set(
+                            NonZeroU32::new(3).expect("non-zero"),
+                        ),
+                        ..AccommodationAdjustment::INHERIT
+                    },
+                },
+            ),
+        },
+    )
+    .expect("valid hypothetical Student View Scenario policy");
+    let HypotheticalStudentViewScenarioPolicyDecision::Allowed { policy, .. } = decision else {
+        panic!("hypothetical Student View Scenario should be authorized");
     };
     assert_eq!(policy.attempt_limit.value, NonZeroU32::new(3));
     assert_eq!(
         policy.attempt_limit.source,
-        AssignmentPolicySource::HypotheticalAccommodation
+        AssignmentPolicySource::HypotheticalStudentViewScenario
     );
 }

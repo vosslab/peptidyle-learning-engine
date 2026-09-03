@@ -1,4 +1,4 @@
-"""UI-first production delivery facts for the WP-INST-T5 item-pool journey."""
+"""Assignment Question Pool delivery browser scenario contract."""
 
 from e2e_browser_scenario_contract import ScenarioContract
 

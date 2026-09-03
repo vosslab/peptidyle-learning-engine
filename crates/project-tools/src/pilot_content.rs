@@ -252,7 +252,7 @@ fn validate_question(
         bail!("{} must be worth {expected_points} point(s)", question.slug);
     }
     let source = pilot_question_set_file(root, &question.source)?;
-    validate_digest(&source, &question.source_sha256)?;
+    validate_checksum(&source, &question.source_sha256)?;
     match question.backend {
         Backend::Webwork => validate_webwork(question, &source),
         Backend::PleQuestionJson => validate_flat(root, chapter, question, &source, identity),
@@ -333,7 +333,7 @@ fn validate_flat(
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("PLE Question JSON entry lacks its payload checksum"))?;
     let payload = pilot_question_set_file(root, payload_relative)?;
-    validate_digest(&payload, payload_sha256)?;
+    validate_checksum(&payload, payload_sha256)?;
     let bytes = std::fs::read(&payload)
         .with_context(|| format!("reading PLE Question JSON payload {}", payload.display()))?;
     let document = PleQuestionJsonDocument::parse(&bytes)
@@ -375,7 +375,7 @@ fn validate_answer_separation(draft: &question_model::DraftQuestionContent) -> R
         "\"answers\":",
     ] {
         if public.contains(private_key) {
-            bail!("compiled PLE Question JSON student definition exposes {private_key}");
+            bail!("compiled PLE Question JSON student-safe Question Content exposes {private_key}");
         }
     }
     Ok(())
@@ -548,7 +548,7 @@ fn pilot_question_set_file(root: &Path, relative: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
-fn validate_digest(path: &Path, expected: &str) -> Result<()> {
+fn validate_checksum(path: &Path, expected: &str) -> Result<()> {
     if !is_lower_hex(expected, 64) {
         bail!("pilot checksum is not lowercase SHA-256: {expected}");
     }
@@ -585,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn digest_validation_requires_lowercase_sha256() {
+    fn checksum_validation_requires_lowercase_sha256() {
         assert!(is_lower_hex(&"a".repeat(64), 64));
         assert!(!is_lower_hex(&"A".repeat(64), 64));
         assert!(!is_lower_hex(&"a".repeat(63), 64));

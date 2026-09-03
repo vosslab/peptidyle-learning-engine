@@ -6,17 +6,19 @@ import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCo
 import type { ApiClient } from "../api/client";
 import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import type {
-  QuestionSearchPage,
-  QuestionSearchQuery,
-  QuestionSearchResult,
+  QuestionLibraryBrowsePage,
+  QuestionLibraryBrowseQuery,
+  QuestionLibraryBrowseRow,
 } from "./library_page_model";
 import type {
   QuestionPickerSearchRequest,
   QuestionPickerSource,
   QuestionPickerSourceRepository,
 } from "../features/question_picker";
-import { blueprintCourseQuestionPickerRepository } from "../features/question_picker/question_picker_model";
-import { createQuestionCurationRepository } from "../features/question_curation/question_curation_repository";
+import {
+  blueprintCourseQuestionPickerRepository,
+  questionLibraryPickerRepository,
+} from "../features/question_picker/question_picker_model";
 import type { AssignmentQuestionRow } from "./assignment_editor_model";
 
 export interface AssignmentEditorRepository {
@@ -39,7 +41,10 @@ export interface BlueprintAssignment {
   readonly questions: ReadonlyArray<AssignmentQuestionRow>;
 }
 
-function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
+function retainedQueryMatches(
+  row: QuestionLibraryBrowseRow,
+  query: QuestionLibraryBrowseQuery,
+): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
     const haystack = [row.title, row.displayId, row.summary, ...row.authorNames]
@@ -56,9 +61,9 @@ function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQu
 }
 
 function page(
-  rows: ReadonlyArray<QuestionSearchResult>,
+  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
   nextCursor: string | null,
-): QuestionSearchPage {
+): QuestionLibraryBrowsePage {
   return { items: rows, nextCursor, aggregates: [] };
 }
 
@@ -73,7 +78,8 @@ function questionRow(item: {
 /** Questions reads published metadata and reusable sources through this adapter. */
 export function createAssignmentEditorRepository(client: ApiClient): AssignmentEditorRepository {
   const questionLibrary = createQuestionLibraryRepository(client);
-  const curation = createQuestionCurationRepository(client, questionLibrary);
+  const myQuestions = createQuestionLibraryRepository(client, "authoredByCurrentAccount");
+  const questionLibraryPicker = questionLibraryPickerRepository(questionLibrary, myQuestions);
   const blueprintCourse = blueprintCourseQuestionPickerRepository(client);
   const questionPickerRepository: QuestionPickerSourceRepository = {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
@@ -81,7 +87,7 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         return await blueprintCourse.search(request);
       }
       if (request.source.kind !== "retainedAssignment")
-        return await curation.picker.search(request);
+        return await questionLibraryPicker.search(request);
       const assignment = await client.getAssignmentWorkspace(
         request.source.retainedAssignment.course,
         request.source.retainedAssignment.assignment,
@@ -127,18 +133,12 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       course,
       exclude,
     ): Promise<ReadonlyArray<QuestionPickerSource>> => {
-      const folders = await client.listQuestionFolders();
       const reusable = await listBlueprintAssignments(client, course, exclude);
       const blueprintCourses = await listAllBlueprintCourses(client);
       const blueprintAssignments = await listBlueprintAssignmentSources(client, blueprintCourses);
       return [
         { kind: "library", label: "Library" },
         { kind: "mine", label: "My Questions" },
-        ...folders.items.map((folder) => ({
-          kind: "folder" as const,
-          label: folder.title,
-          folder: folder.reference,
-        })),
         ...reusable.map((assignment) => ({
           kind: "retainedAssignment" as const,
           label: `Assignment: ${assignment.title}`,

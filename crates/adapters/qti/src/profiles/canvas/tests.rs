@@ -73,19 +73,19 @@ fn maps_the_frozen_canvas_fixture_and_keeps_correct_choice_private() {
 }
 
 #[test]
-fn package_owns_a_deterministic_answer_free_report_checksum_input() {
+fn package_owns_a_deterministic_answer_free_qti_import_result_checksum_input() {
     let package = import_canvas_qti12(&archive(ITEM_XML), QtiImportLimits::default())
         .expect("frozen fixture maps");
     let repeated = import_canvas_qti12(&archive(ITEM_XML), QtiImportLimits::default())
         .expect("frozen fixture maps repeatedly");
 
     let report = package
-        .profile_report_checksum_input()
+        .qti_import_result_checksum_input()
         .expect("package constructs its import-result checksum input");
     assert_eq!(
         report,
         repeated
-            .profile_report_checksum_input()
+            .qti_import_result_checksum_input()
             .expect("same package constructs the same import-result checksum input")
     );
     assert_eq!(report.profile, QtiProfileId::CANVAS);
@@ -119,7 +119,7 @@ fn refuses_bad_cardinality_as_a_safe_item_outcome() {
 }
 
 #[test]
-fn zero_accepted_package_has_a_deterministic_canonical_report_checksum() {
+fn zero_accepted_package_has_a_deterministic_qti_import_result_checksum() {
     let invalid = ITEM_XML.replacen("rcardinality=\"Single\"", "rcardinality=\"Multiple\"", 1);
     let first = import_canvas_qti12(&archive(&invalid), QtiImportLimits::default())
         .expect("recognized package remains reportable");
@@ -127,21 +127,21 @@ fn zero_accepted_package_has_a_deterministic_canonical_report_checksum() {
         .expect("same recognized package remains reportable");
 
     let first_report = first
-        .profile_report_checksum_input()
-        .expect("rejected package owns canonical report input");
+        .qti_import_result_checksum_input()
+        .expect("rejected package owns QTI Import Result Checksum input");
     let second_report = second
-        .profile_report_checksum_input()
-        .expect("repeated rejected package owns canonical report input");
+        .qti_import_result_checksum_input()
+        .expect("repeated rejected package owns QTI Import Result Checksum input");
     assert!(first_report.items.iter().all(|item| {
         !item.accepted && item.public_mapping_checksum.is_none() && !item.diagnostics.is_empty()
     }));
     assert_eq!(
         first_report
             .import_result_checksum()
-            .expect("zero-accepted report has a canonical checksum"),
+            .expect("zero-accepted report has a QTI Import Result Checksum"),
         second_report
             .import_result_checksum()
-            .expect("repeated zero-accepted report has the same canonical checksum")
+            .expect("repeated zero-accepted report has the same QTI Import Result Checksum")
     );
 }
 

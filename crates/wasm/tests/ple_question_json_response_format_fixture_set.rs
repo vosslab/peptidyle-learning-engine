@@ -11,7 +11,8 @@ struct FixtureSet {
 #[derive(Deserialize)]
 pub struct ParityCase {
     pub name: String,
-    pub definition: Value,
+    #[serde(rename = "responseFormat")]
+    pub response_format: Value,
     pub response: Value,
     #[serde(rename = "expectedCheck")]
     pub expected_check: Value,

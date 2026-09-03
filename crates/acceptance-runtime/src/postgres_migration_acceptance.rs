@@ -1,4 +1,4 @@
-//! Private runtime boundary for the disposable SD1 staged database oracle.
+//! Private runtime boundary for the PostgreSQL Migration Acceptance Runtime.
 
 use std::fmt;
 #[cfg(unix)]
@@ -16,21 +16,21 @@ use crate::{
 use crate::{PostgresUrl, RuntimeError};
 
 #[cfg(unix)]
-const KIND: &str = "ple.sd1_staged_database_acceptance";
+const KIND: &str = "ple.postgres_migration_acceptance";
 #[cfg(unix)]
-const PROFILE: &str = "sd1_staged_database";
+const PROFILE: &str = "postgres_migration_acceptance";
 #[cfg(unix)]
 const MIGRATOR_ROLE: &str = "ple_migrator";
 #[cfg(unix)]
 const MIGRATOR_URL_PATH: &str = "secrets/postgres-migrator.url";
 
-/// Validated private runtime for the disposable SD1 staged database oracle.
-pub struct Sd1StagedDatabaseRuntime {
+/// Validated private runtime for the disposable PostgreSQL Migration Acceptance Runtime oracle.
+pub struct PostgresMigrationAcceptanceRuntime {
     postgres_migrator_url: PostgresUrl,
 }
 
-impl Sd1StagedDatabaseRuntime {
-    /// Loads the SD1 runtime selected by its absolute non-secret manifest locator.
+impl PostgresMigrationAcceptanceRuntime {
+    /// Loads the runtime selected by its absolute non-secret manifest locator.
     pub fn load() -> Result<Self, RuntimeError> {
         #[cfg(not(unix))]
         {
@@ -44,22 +44,22 @@ impl Sd1StagedDatabaseRuntime {
         }
     }
 
-    /// Returns the validated URL for the exact non-runtime SD1 migrator.
+    /// Returns the validated URL for the exact PostgreSQL Migration migrator.
     pub fn postgres_migrator_url(&self) -> &PostgresUrl {
         &self.postgres_migrator_url
     }
 }
 
-impl fmt::Debug for Sd1StagedDatabaseRuntime {
+impl fmt::Debug for PostgresMigrationAcceptanceRuntime {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("Sd1StagedDatabaseRuntime(REDACTED)")
+        formatter.write_str("PostgresMigrationAcceptanceRuntime(REDACTED)")
     }
 }
 
 #[cfg(unix)]
 pub(super) fn load_from_locator_unix(
     locator: &Path,
-) -> Result<Sd1StagedDatabaseRuntime, RuntimeError> {
+) -> Result<PostgresMigrationAcceptanceRuntime, RuntimeError> {
     let workspace_path = validate_locator(locator)?;
     let workspace = open_private_directory(workspace_path, RuntimeError::Workspace)?;
     let manifest = read_private_file_at(
@@ -70,7 +70,7 @@ pub(super) fn load_from_locator_unix(
     )?;
     reject_yaml_extensions(&manifest)?;
     // ASVS 1.5.2, 2.2.1, and 15.3.3: deserialize one closed manifest shape.
-    let manifest: Sd1RuntimeManifest =
+    let manifest: PostgresMigrationAcceptanceManifest =
         serde_yaml_ng::from_slice(&manifest).map_err(|_| RuntimeError::Schema)?;
     validate_manifest(&manifest)?;
 
@@ -84,7 +84,7 @@ pub(super) fn load_from_locator_unix(
         )?,
         MIGRATOR_ROLE,
     )?;
-    Ok(Sd1StagedDatabaseRuntime {
+    Ok(PostgresMigrationAcceptanceRuntime {
         postgres_migrator_url,
     })
 }
@@ -92,22 +92,22 @@ pub(super) fn load_from_locator_unix(
 #[cfg(unix)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Sd1RuntimeManifest {
+struct PostgresMigrationAcceptanceManifest {
     schema_version: u8,
     kind: String,
     identity: Identity,
-    secrets: Sd1Secrets,
+    secrets: PostgresMigrationAcceptanceSecrets,
 }
 
 #[cfg(unix)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Sd1Secrets {
+struct PostgresMigrationAcceptanceSecrets {
     postgres_migrator_url: String,
 }
 
 #[cfg(unix)]
-fn validate_manifest(manifest: &Sd1RuntimeManifest) -> Result<(), RuntimeError> {
+fn validate_manifest(manifest: &PostgresMigrationAcceptanceManifest) -> Result<(), RuntimeError> {
     if manifest.schema_version != 1 {
         return Err(RuntimeError::Schema);
     }

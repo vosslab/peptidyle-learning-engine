@@ -69,10 +69,12 @@ fn key_ring(byte: u8) -> ImathasQuestionBackendStateKeyRing {
 }
 
 async fn oracle() -> Oracle {
-    let database_url = std::env::var(DATABASE_URL_ENV).expect("staged database URL");
-    let grading_worker_database_url =
-        std::env::var(GRADING_WORKER_DATABASE_URL_ENV).expect("staged grading-worker database URL");
-    let admin_url = std::env::var(ADMIN_DATABASE_URL_ENV).expect("staged admin database URL");
+    let database_url = std::env::var(DATABASE_URL_ENV)
+        .expect("PostgreSQL Migration Acceptance Runtime database URL");
+    let grading_worker_database_url = std::env::var(GRADING_WORKER_DATABASE_URL_ENV)
+        .expect("PostgreSQL Migration Acceptance Runtime grading-worker database URL");
+    let admin_url = std::env::var(ADMIN_DATABASE_URL_ENV)
+        .expect("PostgreSQL Migration Acceptance Runtime admin database URL");
     let pool = local_development_pool(&database_url, ProductionLoginProfile::Api)
         .expect("production-shaped API pool");
     let current_user: String = sqlx::query_scalar("SELECT current_user")
@@ -675,7 +677,8 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
     }
     let wrong_ring = PostgresImathasQuestionBackendSessionStore::new(
         local_development_pool(
-            &std::env::var(DATABASE_URL_ENV).expect("staged database URL"),
+            &std::env::var(DATABASE_URL_ENV)
+                .expect("PostgreSQL Migration Acceptance Runtime database URL"),
             ProductionLoginProfile::Api,
         )
         .expect("API pool"),
@@ -806,8 +809,11 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
     {
         failures.push("load accepted an expired Session".to_string());
     }
-    let app_direct = lazy_pool(&std::env::var(DATABASE_URL_ENV).expect("staged database URL"))
-        .expect("direct API probe pool");
+    let app_direct = lazy_pool(
+        &std::env::var(DATABASE_URL_ENV)
+            .expect("PostgreSQL Migration Acceptance Runtime database URL"),
+    )
+    .expect("direct API probe pool");
     let mut app_direct_transaction = app_direct
         .begin()
         .await

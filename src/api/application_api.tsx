@@ -10,7 +10,7 @@ import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage"
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
-import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook";
 import type {
@@ -38,7 +38,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
-    readonly assignmentSummary: QueryFunction<[AssignmentId], AssignmentProgress>;
+    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
     readonly assignmentAttemptScreen: QueryFunction<
       [AssignmentAttemptId],

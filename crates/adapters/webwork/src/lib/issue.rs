@@ -446,7 +446,6 @@ where
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(renderer_version),
-                generator: None,
                 source_object_reference: Some(source.source_object_reference().clone()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),

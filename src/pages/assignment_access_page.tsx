@@ -32,11 +32,11 @@ export interface AssignmentAccessPageProps {
   /** Fetches the current strong revision after a compare-and-swap conflict. */
   readonly reloadAssignmentRevision: () => Promise<TeachingOperationRevision>;
   /** Route owners may supply the authorized Selected Student list. */
-  readonly loadPreviewSubjects?: () => Promise<ReadonlyArray<SelectedStudent>>;
+  readonly loadSelectedStudents?: () => Promise<ReadonlyArray<SelectedStudent>>;
 }
 
 type PageState = "loading" | "ready" | "error" | "permission" | "offline";
-type SubjectsState = "loading" | "ready" | "error";
+type SelectedStudentsState = "loading" | "ready" | "error";
 
 function failureState(error: unknown): PageState {
   if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403))
@@ -55,18 +55,19 @@ function namedDeleteCopy(name: string): string {
  */
 export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Element {
   const [state, setState] = createSignal<PageState>("loading");
-  const [subjects, setSubjects] = createSignal<ReadonlyArray<SelectedStudent>>([]);
-  const [subjectsState, setSubjectsState] = createSignal<SubjectsState>("loading");
+  const [selectedStudents, setSelectedStudents] = createSignal<ReadonlyArray<SelectedStudent>>([]);
+  const [selectedStudentsState, setSelectedStudentsState] =
+    createSignal<SelectedStudentsState>("loading");
   const [revision, setRevision] = createSignal(props.initialRevision);
   const [dialogOpen, setDialogOpen] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
-  const [previewSubject, setPreviewSubject] = createSignal<SelectedStudent>();
+  const [selectedStudent, setSelectedStudent] = createSignal<SelectedStudent>();
   const [preview, setPreview] = createSignal<TeachingPreviewView>();
   const [previewLoading, setPreviewLoading] = createSignal(false);
   const [previewFailure, setPreviewFailure] = createSignal("");
   const [revisionConflict, setRevisionConflict] = createSignal(false);
-  const canPreview = createMemo(() => subjects().length > 0);
+  const canPreview = createMemo(() => selectedStudents().length > 0);
   let reloadStatus: HTMLParagraphElement | undefined;
   let dialogTrigger: HTMLButtonElement | undefined;
 
@@ -75,39 +76,39 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     setMessage("");
     try {
       setState("ready");
-      void loadSubjects();
+      void loadSelectedStudents();
     } catch (error: unknown) {
       setState(failureState(error));
     }
   }
 
-  async function loadSubjects(): Promise<void> {
-    if (props.loadPreviewSubjects === undefined) {
-      setSubjects([]);
-      setSubjectsState("ready");
+  async function loadSelectedStudents(): Promise<void> {
+    if (props.loadSelectedStudents === undefined) {
+      setSelectedStudents([]);
+      setSelectedStudentsState("ready");
       return;
     }
-    setSubjectsState("loading");
+    setSelectedStudentsState("loading");
     try {
-      setSubjects(await props.loadPreviewSubjects());
-      setSubjectsState("ready");
+      setSelectedStudents(await props.loadSelectedStudents());
+      setSelectedStudentsState("ready");
     } catch {
-      setSubjectsState("error");
+      setSelectedStudentsState("error");
     }
   }
 
-  async function requestPreview(subject: SelectedStudent | undefined): Promise<void> {
-    setPreviewSubject(subject);
+  async function requestTeachingPreview(student: SelectedStudent | undefined): Promise<void> {
+    setSelectedStudent(student);
     setPreview(undefined);
     setPreviewFailure("");
-    if (subject === undefined) return;
+    if (student === undefined) return;
     setPreviewLoading(true);
     try {
       setPreview(
         await props.client.getTeachingPreview(
           props.courseId,
           props.assignmentId,
-          subject.reference,
+          student.reference,
         ),
       );
     } catch (error: unknown) {
@@ -132,7 +133,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
       setRevisionConflict(false);
       setDialogOpen(false);
       setMessage("Modifier saved. The assignment revision was updated.");
-      await requestPreview(previewSubject());
+      await requestTeachingPreview(selectedStudent());
       return true;
     } catch (error: unknown) {
       let safeFailure = "The modifier could not be saved. Your draft remains open.";
@@ -160,7 +161,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
     try {
       const nextRevision = await props.reloadAssignmentRevision();
       setRevision(nextRevision);
-      await requestPreview(previewSubject());
+      await requestTeachingPreview(selectedStudent());
       setRevisionConflict(false);
       setMessage("Latest assignment revision loaded. Your modifier draft is unchanged.");
       queueMicrotask(() => reloadStatus?.focus());
@@ -246,12 +247,12 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
               <p>Choose a Student Membership, then define its explicit accommodation.</p>
               <Show when={!canPreview()}>
                 <p class="assignment-access-help">
-                  {subjectsState() === "loading"
+                  {selectedStudentsState() === "loading"
                     ? "Loading authorized Student choices..."
                     : "An authorized course-members loader is needed to select Students by safe display name. This route does not expose raw membership references."}
                 </p>
-                <Show when={subjectsState() === "error"}>
-                  <button type="button" onClick={() => void loadSubjects()}>
+                <Show when={selectedStudentsState() === "error"}>
+                  <button type="button" onClick={() => void loadSelectedStudents()}>
                     Retry student choices
                   </button>
                 </Show>
@@ -298,14 +299,14 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
             </section>
             <section
               class="assignment-access-panel"
-              aria-labelledby="assignment-access-subject-heading"
+              aria-labelledby="assignment-access-selected-student-heading"
             >
-              <h2 id="assignment-access-subject-heading">Preview a Student</h2>
+              <h2 id="assignment-access-selected-student-heading">Preview a Student</h2>
               <Show
                 when={canPreview()}
                 fallback={
                   <p class="assignment-access-help">
-                    {subjectsState() === "error"
+                    {selectedStudentsState() === "error"
                       ? "Student choices could not load. Retry without losing modifier work."
                       : "Preview selection awaits an authorized display-name loader from the route owner."}
                   </p>
@@ -315,22 +316,25 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
                   Student
                   <select
                     onChange={(event) =>
-                      void requestPreview(
-                        subjects().find(
-                          (subject) => subject.reference === event.currentTarget.value,
+                      void requestTeachingPreview(
+                        selectedStudents().find(
+                          (selectedStudent) =>
+                            selectedStudent.reference === event.currentTarget.value,
                         ),
                       )
                     }
                   >
                     <option value="">Choose a Student</option>
-                    <For each={subjects()}>
-                      {(subject) => <option value={subject.reference}>{subject.display}</option>}
+                    <For each={selectedStudents()}>
+                      {(selectedStudent) => (
+                        <option value={selectedStudent.reference}>{selectedStudent.display}</option>
+                      )}
                     </For>
                   </select>
                 </label>
               </Show>
-              <Show when={subjectsState() === "error"}>
-                <button type="button" onClick={() => void loadSubjects()}>
+              <Show when={selectedStudentsState() === "error"}>
+                <button type="button" onClick={() => void loadSelectedStudents()}>
                   Retry student choices
                 </button>
               </Show>
@@ -345,7 +349,7 @@ export function AssignmentAccessPage(props: AssignmentAccessPageProps): JSX.Elem
       </Switch>
       <Show when={dialogOpen()}>
         <ModifierDialog
-          subjects={subjects()}
+          selectedStudents={selectedStudents()}
           revision={revision()}
           busy={busy()}
           revisionConflict={revisionConflict()}

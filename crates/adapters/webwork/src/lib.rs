@@ -1,4 +1,4 @@
-//! MOD-ADP-WW: WeBWorK PG adapter, isolated renderer boundary, and render cache.
+//! WeBWorK PG Question Backend adapter, isolated renderer boundary, and render cache.
 //!
 //! Public callers use this deliberately small facade. Capability modules keep
 //! trusted Source Object Reference resolution, cache projection, issue, and grading details

@@ -1,7 +1,7 @@
 resource "aws_wafv2_web_acl" "edge" {
   provider    = aws.us_east_1
   name        = "${local.name}-edge"
-  description = "Count-first public edge controls; promotion to block requires WP-RC11 evidence."
+  description = "Count-first public edge controls; promotion to block requires accepted edge-security evidence."
   scope       = "CLOUDFRONT"
   default_action {
     allow {}

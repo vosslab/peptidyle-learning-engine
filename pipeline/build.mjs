@@ -61,8 +61,8 @@ function run(command, args) {
 /**
  * Resolves the browser entry point.
  *
- * `src/main.tsx` is canonical. `src/main.ts` is accepted for a client with no
- * JSX.
+ * `src/main.tsx` is the default TypeScript/JSX entry module. `src/main.ts` is
+ * accepted for a client with no JSX.
  *
  * @returns {string} repo-relative path to the entry module
  */

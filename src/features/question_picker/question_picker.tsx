@@ -2,8 +2,11 @@
 
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
-import type { QuestionSearchQuery, QuestionSearchResult } from "../../pages/library_page_model";
-import { EMPTY_QUESTION_SEARCH_QUERY } from "../../pages/library_page_model";
+import type {
+  QuestionLibraryBrowseQuery,
+  QuestionLibraryBrowseRow,
+} from "../../pages/library_page_model";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../../pages/library_page_model";
 import "./question_picker.css";
 import {
   QuestionPickerSession,
@@ -21,7 +24,7 @@ export interface QuestionPickerProps {
   readonly repository: QuestionPickerSourceRepository;
   readonly sources: ReadonlyArray<QuestionPickerSource>;
   readonly mode: QuestionPickerSelectionMode;
-  /** Required per destination: Question Folders use 200; Assignments use their remaining cap. */
+  /** Required per destination: each caller supplies its explicit selection cap. */
   readonly maximumSelection: number;
   readonly onConfirm: (selection: QuestionPickerSelection) => void;
   readonly onCancel: () => void;
@@ -33,7 +36,6 @@ export interface QuestionPickerProps {
 }
 
 function sourceKey(source: QuestionPickerSource): string {
-  if (source.kind === "folder") return `folder:${source.folder}`;
   if (source.kind === "retainedAssignment") {
     return `retained:${source.retainedAssignment.course}:${source.retainedAssignment.assignment}`;
   }
@@ -47,7 +49,7 @@ function sourceFromKey(
   return sources.find((source) => sourceKey(source) === key);
 }
 
-function rowIsSelected(selection: QuestionPickerSelection, row: QuestionSearchResult): boolean {
+function rowIsSelected(selection: QuestionPickerSelection, row: QuestionLibraryBrowseRow): boolean {
   return selection.questionIds.includes(row.displayId);
 }
 
@@ -79,11 +81,13 @@ function facetValues(
 
 /**
  * One native dialog with source, D1 filters, result selection, and an ordered
- * tray. Parents own curation persistence and receive public Question IDs only.
+ * tray. Parents own destination persistence and receive public Question IDs only.
  */
 export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
   const [source, setSource] = createSignal<QuestionPickerSource | undefined>(props.sources[0]);
-  const [query, setQuery] = createSignal<QuestionSearchQuery>(EMPTY_QUESTION_SEARCH_QUERY);
+  const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
+    EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  );
   const [state, setState] = createSignal<QuestionPickerState>({
     kind: "loading",
     rows: [],
@@ -104,7 +108,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     setSelectionMessage(selectedCopy(next, props.mode));
   }
 
-  function resultRows(): ReadonlyArray<QuestionSearchResult> {
+  function resultRows(): ReadonlyArray<QuestionLibraryBrowseRow> {
     const current = state();
     return current.kind === "empty" ? [] : current.rows;
   }
@@ -114,7 +118,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     return current.kind === "ready" && current.nextCursor !== null;
   }
 
-  function updateQuery(change: Partial<QuestionSearchQuery>): void {
+  function updateQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
     setQuery((current) => ({ ...current, ...change }));
   }
 
@@ -133,7 +137,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     void session.reset(next, query());
   }
 
-  function toggleRow(row: QuestionSearchResult, checked: boolean): void {
+  function toggleRow(row: QuestionLibraryBrowseRow, checked: boolean): void {
     try {
       updateSelection(
         toggleQuestionPickerSelection(

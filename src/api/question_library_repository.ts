@@ -7,10 +7,10 @@ import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
 import type { ApiClient } from "./client";
 import type {
-  QuestionSearchQuery,
-  QuestionLibraryRepository,
-  QuestionSearchFacetAggregate,
-  QuestionSearchPage,
+  QuestionLibraryBrowseQuery,
+  QuestionLibraryBrowseRepository,
+  QuestionLibraryBrowseFacetAggregate,
+  QuestionLibraryBrowsePage,
 } from "../pages/library_page_model";
 
 const QUESTION_LIBRARY_PAGE_SIZE = 50;
@@ -88,7 +88,7 @@ function evidenceFilter(value: string | null): QuestionSearchRequest["evidence"]
 
 function facets(
   page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
-): ReadonlyArray<QuestionSearchFacetAggregate> {
+): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
   return [
     ...page.facets.authorNames.map((facet) => ({
       facet: "authorName" as const,
@@ -132,7 +132,7 @@ function facets(
 
 /** Builds the one closed Question Library search request used by Library and source-aware pickers. */
 export function questionSearchRequest(
-  query: QuestionSearchQuery,
+  query: QuestionLibraryBrowseQuery,
   cursor: string | null,
   authorship: QuestionSearchAuthorship = "any",
 ): QuestionSearchRequest {
@@ -156,9 +156,9 @@ export function questionSearchRequest(
 export function createQuestionLibraryRepository(
   client: ApiClient,
   authorship: QuestionSearchAuthorship = "any",
-): QuestionLibraryRepository {
+): QuestionLibraryBrowseRepository {
   return {
-    async search(query: QuestionSearchQuery, cursor: string | null): Promise<unknown> {
+    async search(query: QuestionLibraryBrowseQuery, cursor: string | null): Promise<unknown> {
       const search = questionSearchRequest(query, cursor, authorship);
       const page = await client.searchQuestionLibrary(search);
       return {
@@ -183,7 +183,7 @@ export function createQuestionLibraryRepository(
         })),
         nextCursor: page.nextCursor,
         aggregates: facets(page),
-      } satisfies QuestionSearchPage;
+      } satisfies QuestionLibraryBrowsePage;
     },
   };
 }

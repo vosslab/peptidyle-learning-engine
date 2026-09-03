@@ -1,4 +1,4 @@
-# MOD-ADP-QTI: QTI import pipeline and export, with original-package archival.
+# QTI import and export with original-package archival.
 [package]
 name = "adapter_qti"
 version.workspace = true

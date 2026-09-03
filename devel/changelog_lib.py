@@ -54,7 +54,7 @@ DATE_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2})\s*$")
 CATEGORY_RE = re.compile(r"^###\s+(.+?)\s*$")
 BULLET_RE = re.compile(r"^-\s+(.*)$")
 
-CANONICAL_CATEGORIES = [
+CHANGELOG_CATEGORIES = [
 	"Additions and New Features",
 	"Behavior or Interface Changes",
 	"Fixes and Maintenance",
@@ -187,7 +187,7 @@ def write_changelog(path: str, preamble: str, blocks: list) -> None:
 #============================================
 
 def _insert_entry_in_day(raw_text: str, category: str, title: str) -> str:
-	"""Insert one bullet into a day block while retaining canonical category order."""
+	"""Insert one bullet into a day block using the configured category order."""
 	lines = raw_text.splitlines(keepends=True)
 	bullet = f"- {title}\n"
 	category_found = False
@@ -206,7 +206,7 @@ def _insert_entry_in_day(raw_text: str, category: str, title: str) -> str:
 		break
 
 	if category_found:
-		# Rebuild exactly one canonical separator around the inserted bullet while
+		# Rebuild the standard blank-line separator around the inserted bullet while
 		# preserving every adjacent section line.
 		prefix = "".join(lines[:end_index]).rstrip("\n")
 		last_line = prefix.splitlines()[-1]
@@ -217,21 +217,21 @@ def _insert_entry_in_day(raw_text: str, category: str, title: str) -> str:
 			result += "\n" + suffix
 		return result
 
-	target_order = CANONICAL_CATEGORIES.index(category)
+	category_sort_index = CHANGELOG_CATEGORIES.index(category)
 	insert_index = len(lines)
-	# A missing category belongs before the first later canonical category; unknown
+	# A missing category belongs before the first later configured category; unknown
 	# legacy categories keep their original relative position.
 	for index, line in enumerate(lines):
 		match = CATEGORY_RE.match(line)
 		if match is None:
 			continue
 		existing_category = match.group(1).strip()
-		if existing_category not in CANONICAL_CATEGORIES:
+		if existing_category not in CHANGELOG_CATEGORIES:
 			continue
-		if CANONICAL_CATEGORIES.index(existing_category) > target_order:
+		if CHANGELOG_CATEGORIES.index(existing_category) > category_sort_index:
 			insert_index = index
 			break
-	# Trim only boundary newlines, then restore canonical blank-line separation.
+	# Trim only boundary newlines, then restore standard blank-line separation.
 	prefix = "".join(lines[:insert_index]).rstrip("\n")
 	suffix = "".join(lines[insert_index:]).lstrip("\n")
 	section = f"### {category}\n\n{bullet}"
@@ -243,12 +243,12 @@ def _insert_entry_in_day(raw_text: str, category: str, title: str) -> str:
 #============================================
 
 def add_entry(path: str, date_str: str, category: str, title: str) -> None:
-	"""Add one canonical changelog bullet, preserving all existing day blocks.
+	"""Add one changelog bullet, preserving all existing day blocks.
 
 	Args:
 		path: Changelog file to update or create.
 		date_str: Valid ISO date used for the day heading.
-		category: One of CANONICAL_CATEGORIES.
+		category: One of CHANGELOG_CATEGORIES.
 		title: Single-line bullet text without the leading dash.
 
 	Raises:
@@ -257,8 +257,8 @@ def add_entry(path: str, date_str: str, category: str, title: str) -> None:
 	"""
 	if not _is_valid_iso_date(date_str):
 		raise ValueError(f"invalid changelog date: {date_str!r}")
-	if category not in CANONICAL_CATEGORIES:
-		raise ValueError(f"non-canonical changelog category: {category!r}")
+	if category not in CHANGELOG_CATEGORIES:
+		raise ValueError(f"unrecognized changelog category: {category!r}")
 	normalized_title = title.strip()
 	if not normalized_title or "\n" in normalized_title or "\r" in normalized_title:
 		raise ValueError("changelog title must be one non-empty line")
@@ -535,7 +535,7 @@ def split_day_block(block: DayBlock, strict: bool = False) -> tuple:
 	Args:
 		block: The ``DayBlock`` to split.
 		strict: When True, emit a warning for any category heading
-			that is not in ``CANONICAL_CATEGORIES``.
+			that is not in ``CHANGELOG_CATEGORIES``.
 
 	Returns:
 		A tuple ``(entries, warnings)`` where ``entries`` is a list
@@ -610,9 +610,9 @@ def split_day_block(block: DayBlock, strict: bool = False) -> tuple:
 			bullet_body_lines = []
 			heading = cat_match.group(1).strip()
 			current_category = heading
-			if strict and heading not in CANONICAL_CATEGORIES:
+			if strict and heading not in CHANGELOG_CATEGORIES:
 				warnings.append(
-					f"{block.source}:{file_lineno}: non-canonical category '{heading}'"
+					f"{block.source}:{file_lineno}: unrecognized category '{heading}'"
 				)
 			continue
 
@@ -870,7 +870,7 @@ def ensure_in_git_repo() -> None:
 #
 # Lifted out of devel/commit_changelog.py and devel/rotate_changelog.py
 # to eliminate duplicated rich-console primitives. The two module-level
-# Console instances below are the canonical CONSOLE / ERR_CONSOLE handles
+# Console instances below are the shared CONSOLE / ERR_CONSOLE handles
 # the helpers below print through; calling scripts that want raw access
 # (e.g. CONSOLE.print(...) with their own styles) may either reference
 # changelog_lib.CONSOLE directly or keep their own local Console handles.

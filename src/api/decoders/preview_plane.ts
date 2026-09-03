@@ -1,8 +1,8 @@
-// Strict browser decoders for generated WP-INST-T3 preview-plane DTOs.
+// Strict browser decoders for generated Instructor preview DTOs.
 
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
-import type { DerivedPreviewSubjectRequest } from "../../../generated/api/DerivedPreviewSubjectRequest";
+import type { HypotheticalStudentViewScenarioRequest } from "../../../generated/api/HypotheticalStudentViewScenarioRequest";
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { InstructorPreviewScheduleRow } from "../../../generated/api/InstructorPreviewScheduleRow";
 import type { PreviewAccommodationComparison } from "../../../generated/api/PreviewAccommodationComparison";
@@ -12,7 +12,7 @@ import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneRe
 import type { EffectiveAssignmentPolicyView } from "../../../generated/api/EffectiveAssignmentPolicyView";
 import type { PreviewSelectedMoment } from "../../../generated/api/PreviewSelectedMoment";
 import type { StudentViewScenario } from "../../../generated/api/StudentViewScenario";
-import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
+import type { SelectedStudentViewScenarioRequest } from "../../../generated/api/SelectedStudentViewScenarioRequest";
 import type {
   QuestionPoolPreview,
   QuestionPoolPreviewItem,
@@ -27,7 +27,7 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeSyntheticPreviewAccommodationAdjustmentRequest } from "./teaching_operations";
+import { decodeHypotheticalStudentViewScenarioModifiers } from "./teaching_operations";
 import {
   decodeBoundedArray,
   decodeCursor,
@@ -37,7 +37,7 @@ import {
 } from "./shared";
 
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
-const POLICY_SOURCES = ["base", "accommodation"] as const;
+const POLICY_SOURCES = ["base", "accommodation", "hypothetical_student_view_scenario"] as const;
 const DISCLOSURE_MOMENTS = ["now", "due", "close"] as const;
 
 function closed(
@@ -202,21 +202,21 @@ function courseLocalDateAndTime(value: unknown, path: string): string {
 }
 
 function selectedMoment(value: unknown, path: string): PreviewSelectedMoment {
-  const record = closed(value, path, ["value", "timeZone"]);
-  const timeZone = label(record.timeZone, `${path}.timeZone`);
+  const record = closed(value, path, ["value", "time_zone"]);
+  const timeZone = label(record.time_zone, `${path}.time_zone`);
   if (Array.from(timeZone).length > 255)
-    throw new DecodeError(`${path}.timeZone`, "a bounded IANA zone");
-  return { value: courseLocalDateAndTime(record.value, `${path}.value`), timeZone };
+    throw new DecodeError(`${path}.time_zone`, "a bounded IANA zone");
+  return { value: courseLocalDateAndTime(record.value, `${path}.value`), time_zone: timeZone };
 }
 
 function assignmentPolicySourceKind(
   value: unknown,
   path: string,
-): EffectiveAssignmentPolicyView["availableAt"]["source"] {
+): EffectiveAssignmentPolicyView["available_at"]["source"] {
   return decodeStringEnum(value, path, POLICY_SOURCES);
 }
 
-function timeField(value: unknown, path: string): EffectiveAssignmentPolicyView["availableAt"] {
+function timeField(value: unknown, path: string): EffectiveAssignmentPolicyView["available_at"] {
   const record = closed(value, path, ["value", "source"]);
   return {
     value: decodeNullable(record.value, `${path}.value`, courseLocalDateAndTime),
@@ -227,7 +227,7 @@ function timeField(value: unknown, path: string): EffectiveAssignmentPolicyView[
 function limitField(
   value: unknown,
   path: string,
-): EffectiveAssignmentPolicyView["assignmentAttemptTimeLimitSeconds"] {
+): EffectiveAssignmentPolicyView["assignment_attempt_time_limit_seconds"] {
   const record = closed(value, path, ["value", "source"]);
   const limit = decodeNullable(record.value, `${path}.value`, decodeSafeInteger);
   if (limit !== null && limit < 1)
@@ -237,46 +237,46 @@ function limitField(
 
 function effective_assignment_policy(value: unknown, path: string): EffectiveAssignmentPolicyView {
   const record = closed(value, path, [
-    "availableAt",
-    "dueAt",
-    "closesAt",
-    "assignmentAttemptTimeLimitSeconds",
-    "attemptLimit",
-    "lateWorkRule",
-    "assignmentDeadlineRule",
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
+    "late_work_rule",
+    "assignment_deadline_rule",
   ]);
-  const lateWorkRule = closed(record.lateWorkRule, `${path}.lateWorkRule`, ["value", "source"]);
+  const lateWorkRule = closed(record.late_work_rule, `${path}.late_work_rule`, ["value", "source"]);
   const assignmentDeadlineRule = closed(
-    record.assignmentDeadlineRule,
-    `${path}.assignmentDeadlineRule`,
+    record.assignment_deadline_rule,
+    `${path}.assignment_deadline_rule`,
     ["value", "source"],
   );
   return {
-    availableAt: timeField(record.availableAt, `${path}.availableAt`),
-    dueAt: timeField(record.dueAt, `${path}.dueAt`),
-    closesAt: timeField(record.closesAt, `${path}.closesAt`),
-    assignmentAttemptTimeLimitSeconds: limitField(
-      record.assignmentAttemptTimeLimitSeconds,
-      `${path}.assignmentAttemptTimeLimitSeconds`,
+    available_at: timeField(record.available_at, `${path}.available_at`),
+    due_at: timeField(record.due_at, `${path}.due_at`),
+    closes_at: timeField(record.closes_at, `${path}.closes_at`),
+    assignment_attempt_time_limit_seconds: limitField(
+      record.assignment_attempt_time_limit_seconds,
+      `${path}.assignment_attempt_time_limit_seconds`,
     ),
-    attemptLimit: limitField(record.attemptLimit, `${path}.attemptLimit`),
-    lateWorkRule: {
-      value: decodeStringEnum(lateWorkRule.value, `${path}.lateWorkRule.value`, [
+    attempt_limit: limitField(record.attempt_limit, `${path}.attempt_limit`),
+    late_work_rule: {
+      value: decodeStringEnum(lateWorkRule.value, `${path}.late_work_rule.value`, [
         "accept",
-        "markLate",
+        "mark_late",
         "reject",
       ] as const),
-      source: assignmentPolicySourceKind(lateWorkRule.source, `${path}.lateWorkRule.source`),
+      source: assignmentPolicySourceKind(lateWorkRule.source, `${path}.late_work_rule.source`),
     },
-    assignmentDeadlineRule: {
+    assignment_deadline_rule: {
       value: decodeStringEnum(
         assignmentDeadlineRule.value,
-        `${path}.assignmentDeadlineRule.value`,
-        ["autoSubmit"] as const,
+        `${path}.assignment_deadline_rule.value`,
+        ["auto_submit"] as const,
       ),
       source: assignmentPolicySourceKind(
         assignmentDeadlineRule.source,
-        `${path}.assignmentDeadlineRule.source`,
+        `${path}.assignment_deadline_rule.source`,
       ),
     },
   };
@@ -284,22 +284,25 @@ function effective_assignment_policy(value: unknown, path: string): EffectiveAss
 
 function studentViewScenario(value: unknown, path: string): StudentViewScenario {
   const record = closed(value, path, [
-    "kind",
+    "origin",
     "assignment",
     "revision",
-    "selectedMoment",
+    "selected_moment",
     "policy",
-    "priorAssignmentAttemptCount",
+    "prior_assignment_attempt_count",
   ]);
   return {
-    kind: decodeStringEnum(record.kind, `${path}.kind`, ["synthetic", "derived"] as const),
+    origin: decodeStringEnum(record.origin, `${path}.origin`, [
+      "selected_student",
+      "hypothetical",
+    ] as const),
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
-    selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
+    selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
     policy: effective_assignment_policy(record.policy, `${path}.policy`),
-    priorAssignmentAttemptCount: nonnegativeInteger(
-      record.priorAssignmentAttemptCount,
-      `${path}.priorAssignmentAttemptCount`,
+    prior_assignment_attempt_count: nonnegativeInteger(
+      record.prior_assignment_attempt_count,
+      `${path}.prior_assignment_attempt_count`,
     ),
   };
 }
@@ -316,29 +319,32 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
   if (kind === "available") {
     requireOnlyFields(record, path, ["kind", "moment", "flags"]);
     const flags = closed(field(record, "flags", path), `${path}.flags`, [
-      "scoreShown",
-      "correctnessShown",
-      "feedbackShown",
-      "questionAnswerShown",
-      "questionAnswerExplanationShown",
-      "statisticsShown",
+      "score_shown",
+      "correctness_shown",
+      "feedback_shown",
+      "question_answer_shown",
+      "question_answer_explanation_shown",
+      "statistics_shown",
     ]);
     return {
       kind,
       moment: decodeStringEnum(field(record, "moment", path), `${path}.moment`, DISCLOSURE_MOMENTS),
       flags: {
-        scoreShown: decodeBoolean(flags.scoreShown, `${path}.flags.scoreShown`),
-        correctnessShown: decodeBoolean(flags.correctnessShown, `${path}.flags.correctnessShown`),
-        feedbackShown: decodeBoolean(flags.feedbackShown, `${path}.flags.feedbackShown`),
-        questionAnswerShown: decodeBoolean(
-          flags.questionAnswerShown,
-          `${path}.flags.questionAnswerShown`,
+        score_shown: decodeBoolean(flags.score_shown, `${path}.flags.score_shown`),
+        correctness_shown: decodeBoolean(
+          flags.correctness_shown,
+          `${path}.flags.correctness_shown`,
         ),
-        questionAnswerExplanationShown: decodeBoolean(
-          flags.questionAnswerExplanationShown,
-          `${path}.flags.questionAnswerExplanationShown`,
+        feedback_shown: decodeBoolean(flags.feedback_shown, `${path}.flags.feedback_shown`),
+        question_answer_shown: decodeBoolean(
+          flags.question_answer_shown,
+          `${path}.flags.question_answer_shown`,
         ),
-        statisticsShown: decodeBoolean(flags.statisticsShown, `${path}.flags.statisticsShown`),
+        question_answer_explanation_shown: decodeBoolean(
+          flags.question_answer_explanation_shown,
+          `${path}.flags.question_answer_explanation_shown`,
+        ),
+        statistics_shown: decodeBoolean(flags.statistics_shown, `${path}.flags.statistics_shown`),
       },
     };
   }
@@ -348,7 +354,7 @@ function student_feedback_release(value: unknown, path: string): StudentFeedback
       kind,
       moment: decodeStringEnum(field(record, "moment", path), `${path}.moment`, DISCLOSURE_MOMENTS),
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "boundaryMissing",
+        "boundary_missing",
       ] as const),
     };
   }
@@ -382,21 +388,36 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
     requireOnlyFields(record, path, [
       "kind",
       "student_view_scenario",
-      "active_student_course_membership",
+      "student_view_scenario_admission",
       "effective_assignment_policy",
       "student_feedback_release",
     ]);
+    const decodedStudentViewScenario = studentViewScenario(
+      field(record, "student_view_scenario", path),
+      `${path}.student_view_scenario`,
+    );
+    const studentViewScenarioAdmission = decodeStringEnum(
+      field(record, "student_view_scenario_admission", path),
+      `${path}.student_view_scenario_admission`,
+      [
+        "selected_student_active_student_course_membership",
+        "hypothetical_student_view_scenario_admission",
+      ] as const,
+    );
+    const expectedAdmission =
+      decodedStudentViewScenario.origin === "selected_student"
+        ? "selected_student_active_student_course_membership"
+        : "hypothetical_student_view_scenario_admission";
+    if (studentViewScenarioAdmission !== expectedAdmission) {
+      throw new DecodeError(
+        `${path}.student_view_scenario_admission`,
+        `${decodedStudentViewScenario.origin} Student View Scenario admission`,
+      );
+    }
     return {
       kind,
-      student_view_scenario: studentViewScenario(
-        field(record, "student_view_scenario", path),
-        `${path}.student_view_scenario`,
-      ),
-      active_student_course_membership: decodeStringEnum(
-        field(record, "active_student_course_membership", path),
-        `${path}.active_student_course_membership`,
-        ["activeStudentCourseMembership"] as const,
-      ),
+      student_view_scenario: decodedStudentViewScenario,
+      student_view_scenario_admission: studentViewScenarioAdmission,
       effective_assignment_policy: effective_assignment_policy(
         field(record, "effective_assignment_policy", path),
         `${path}.effective_assignment_policy`,
@@ -412,8 +433,8 @@ function evaluation(value: unknown, path: string): PreviewEvaluation {
     return {
       kind,
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "activeStudentCourseMembershipRequired",
-        "staleRevision",
+        "active_student_course_membership_required",
+        "stale_revision",
       ] as const),
     };
   }
@@ -463,7 +484,7 @@ function scheduleRow(value: unknown, path: string): InstructorPreviewScheduleRow
       active_student_course_membership: decodeStringEnum(
         field(record, "active_student_course_membership", path),
         `${path}.active_student_course_membership`,
-        ["activeStudentCourseMembership"] as const,
+        ["active_student_course_membership"] as const,
       ),
       effective_assignment_policy: effective_assignment_policy(
         field(record, "effective_assignment_policy", path),
@@ -478,7 +499,7 @@ function scheduleRow(value: unknown, path: string): InstructorPreviewScheduleRow
       membership: reference(field(record, "membership", path), `${path}.membership`, "M"),
       display: label(field(record, "display", path), `${path}.display`),
       reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "noActiveStudentCourseMembership",
+        "no_active_student_course_membership",
       ] as const),
     };
   }
@@ -489,39 +510,48 @@ export function decodeInstructorPreviewSchedulePage(
   value: unknown,
   path = "response",
 ): InstructorPreviewSchedulePage {
-  const record = closed(value, path, ["revision", "rows", "nextCursor"]);
+  const record = closed(value, path, ["revision", "rows", "next_cursor"]);
   return {
     revision: revision(record.revision, `${path}.revision`),
     rows: decodeBoundedArray(record.rows, `${path}.rows`, MAX_TEACHING_PAGE_SIZE, scheduleRow),
-    nextCursor: decodeNullable(record.nextCursor, `${path}.nextCursor`, decodeCursor),
+    next_cursor: decodeNullable(record.next_cursor, `${path}.next_cursor`, decodeCursor),
   };
 }
 
-export function decodeStudentViewScenarioRequest(
+export function decodeHypotheticalStudentViewScenarioRequest(
   value: unknown,
   path = "request",
-): StudentViewScenarioRequest {
-  const record = closed(value, path, ["assignment", "revision", "selectedMoment", "modifiers"]);
+): HypotheticalStudentViewScenarioRequest {
+  const record = closed(value, path, ["assignment", "revision", "selected_moment", "modifiers"]);
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
-    selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
-    modifiers: decodeSyntheticPreviewAccommodationAdjustmentRequest(
+    selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
+    modifiers: decodeHypotheticalStudentViewScenarioModifiers(
       record.modifiers,
       `${path}.modifiers`,
     ),
   };
 }
 
-export function decodeDerivedPreviewSubjectRequest(
+export function decodeSelectedStudentViewScenarioRequest(
   value: unknown,
   path = "request",
-): DerivedPreviewSubjectRequest {
-  const record = closed(value, path, ["assignment", "revision", "selectedMoment", "membership"]);
+): SelectedStudentViewScenarioRequest {
+  const record = closed(value, path, [
+    "assignment",
+    "revision",
+    "selected_moment",
+    "selected_student_membership",
+  ]);
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
     revision: revision(record.revision, `${path}.revision`),
-    selectedMoment: selectedMoment(record.selectedMoment, `${path}.selectedMoment`),
-    membership: reference(record.membership, `${path}.membership`, "M"),
+    selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
+    selected_student_membership: reference(
+      record.selected_student_membership,
+      `${path}.selected_student_membership`,
+      "M",
+    ),
   };
 }

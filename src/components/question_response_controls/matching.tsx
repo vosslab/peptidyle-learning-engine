@@ -11,7 +11,7 @@ import {
   createSubmissionController,
   Status,
   textFromBlocks,
-  type MatchingDefinition,
+  type MatchingResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
@@ -19,13 +19,15 @@ type StudentMatch = Extract<StudentResponse, { readonly kind: "matching" }>["mat
 
 /** Retain only the first public restored pairing for a choice, so the UI never starts duplicated. */
 function initialMatches(
-  props: QuestionResponseControlBodyProps<MatchingDefinition>,
+  props: QuestionResponseControlBodyProps<MatchingResponseFormat>,
 ): ReadonlyArray<StudentMatch> {
   const restored = new Map(
-    props.initialResponse?.matches.map((pair) => [pair.prompt, pair.choice]),
+    props.initialResponse?.kind === "matching"
+      ? props.initialResponse.matches.map((pair) => [pair.prompt, pair.choice])
+      : [],
   );
   const assignedChoices = new Set<ResponseItemReference>();
-  const matches = props.definition.prompts.map((prompt) => {
+  const matches = props.responseFormat.prompts.map((prompt) => {
     const choice = restored.get(prompt.id) ?? "";
     const uniqueChoice = assignedChoices.has(choice) ? "" : choice;
     if (uniqueChoice !== "") assignedChoices.add(uniqueChoice);
@@ -35,7 +37,7 @@ function initialMatches(
 }
 
 export function MatchingResponse(
-  props: QuestionResponseControlBodyProps<MatchingDefinition>,
+  props: QuestionResponseControlBodyProps<MatchingResponseFormat>,
 ): JSX.Element {
   const initial = initialMatches(props);
   const [matches, setMatches] = createSignal<ReadonlyArray<StudentMatch>>(initial);
@@ -80,7 +82,7 @@ export function MatchingResponse(
     event.preventDefault();
     if (controller.locked() || choiceIsUsedByAnotherPrompt(prompt, choice)) return;
 
-    const availableChoices = props.definition.choices.filter(
+    const availableChoices = props.responseFormat.choices.filter(
       (candidate) => !choiceIsUsedByAnotherPrompt(prompt, candidate.id),
     );
     const currentIndex = availableChoices.findIndex((candidate) => candidate.id === choice);
@@ -92,7 +94,7 @@ export function MatchingResponse(
     if (nextChoice === undefined) return;
 
     update(prompt, nextChoice.id);
-    const nextChoiceIndex = props.definition.choices.findIndex(
+    const nextChoiceIndex = props.responseFormat.choices.findIndex(
       (candidate) => candidate.id === nextChoice.id,
     );
     if (nextChoiceIndex < 0) return;
@@ -109,7 +111,7 @@ export function MatchingResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
@@ -131,12 +133,12 @@ export function MatchingResponse(
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          aria-label={`${matchedPromptCount()} of ${props.definition.prompts.length} prompts matched`}
+          aria-label={`${matchedPromptCount()} of ${props.responseFormat.prompts.length} prompts matched`}
         >
-          {matchedPromptCount()} of {props.definition.prompts.length} prompts matched
+          {matchedPromptCount()} of {props.responseFormat.prompts.length} prompts matched
         </p>
         <div class="response-fields">
-          <For each={props.definition.prompts}>
+          <For each={props.responseFormat.prompts}>
             {(prompt, index) => (
               <div
                 class="matching-group"
@@ -151,7 +153,7 @@ export function MatchingResponse(
                   role="radiogroup"
                   aria-labelledby={`${props.attemptId}-match-prompt-${index()}`}
                 >
-                  <For each={props.definition.choices}>
+                  <For each={props.responseFormat.choices}>
                     {(choice, choiceIndex) => {
                       const selected = (): boolean => selectedChoice(prompt.id) === choice.id;
                       const unavailable = (): boolean =>

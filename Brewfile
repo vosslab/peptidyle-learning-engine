@@ -10,6 +10,6 @@
 #
 # Rust itself is installed through rustup (https://rustup.rs), not Homebrew.
 
-# Container runtime for the api, postgres, and minio services (WP-F4).
+# Container runtime for the API, PostgreSQL, and MinIO services.
 # macOS setup: docs/MACOS_PODMAN.md
 brew "podman"

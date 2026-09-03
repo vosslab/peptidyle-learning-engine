@@ -26,7 +26,7 @@ evidence.
 | Question Submission | One accepted Student Response for one Question Attempt                  | One immutable accepted event per Question Attempt           |
 
 The owner has observed Students voluntarily complete a finished assignment 30 or
-more times. The dedicated WP-C3 acceptance test therefore completes 31 Assignment Attempts and
+more times. The dedicated repeated-attempt acceptance test therefore completes 31 Assignment Attempts and
 checks the compact summary rather than treating the first completion as terminal.
 
 ## Single-installation authorization
@@ -34,9 +34,9 @@ checks the compact summary rather than treating the first completion as terminal
 PLE is one installation with global accounts. It has no institution selector,
 an installation-wide account selector, leading scope key, or client-selected database context. Institution
 policy configuration is deployment metadata; it is not an account boundary,
-authorization partition, or Student Work Record owner. Historical pre-SD1 source
-still contains legacy installation-scope fields; that source is migration
-input, not the target Student Work Records contract.
+authorization partition, or Student Work Record owner. Former
+installation-scoped source still contains legacy fields; that source is
+migration input, not the current Student Work Records contract.
 
 `CourseId` is the exact educational-record boundary. An assignment belongs to
 one course and stores ordered `(QuestionId, QuestionRevisionNumber)` references to shared
@@ -109,10 +109,10 @@ Assignment Content and a Student's individual tries.
 - its exact Issued Question and therefore its Student Record, Assignment, and
   immutable Question Revision scope;
 - one server-owned try sequence within that Issued Question;
-- the generation seed and parameter hash;
+- the server-held Question Seed;
 - server-issued timing data;
 - the Question Backend and Question Grader Versions;
-- the typed generator ID and version, plus the renderer version, when they apply;
+- the Question Renderer Version when it applies;
 - the exact Source Object Reference when one exists;
 - referenced asset object IDs; and
 - the rendered-question checksum; and
@@ -126,10 +126,7 @@ disclosure controls whether and when a result reaches a student response.
 
 `QuestionAttemptReproductionDetails` groups the exact Question Backend, Question Renderer,
 Question Grader, and Source Object
-Reference without duplicating the seed, parameter hash, problem ID, or version ID carried by the
-owning Issued Question. Parameters themselves are regenerated from seed and
-generator version; the hash detects a mismatch without storing the same data
-on hundreds of millions of rows.
+Reference without duplicating the seed, Question ID, or Question Revision Number carried by the owning Issued Question. Current static PLE Question JSON has no Question Generator.
 
 Issued Question Progress and Question Attempt state remain separate. The
 server derives Issued Question Progress from its retained Question Attempts,
@@ -239,9 +236,9 @@ deadline or pause extension.
 
 The browser may project these values for display and submits at its displayed
 expiry. Its local clock never becomes an input to the authoritative verdict.
-**Current pre-WN1 behavior:** the API fallback and WebAssembly export use the same lower-camel JSON
+**Current bridge behavior:** the API fallback and WebAssembly export use the same lower-camel JSON
 contract, including `pauseExtensionMillis` and `submittedWithinGrace`. The matrix-selected
-`WP-INST-WN1-WA` closure changes PLE bridge JSON to direct `pause_extension_millis` and
+The wire-naming migration changes PLE bridge JSON to direct `pause_extension_millis` and
 `submitted_within_grace`; raw wasm-bindgen exports remain protocol-owned.
 
 ## Independent policies
@@ -270,9 +267,10 @@ response and grading authority server-side.
 
 ### Student Feedback Release
 
-Each Assignment owns one Student Feedback Release Rule. Its five independent
-fields are `score`, `per_item_correctness`, `feedback_text`, `solution`, and
-`class_statistics`. Each field uses one timing: `DuringAttempt`, `AfterSubmit`,
+Each Assignment owns one Student Feedback Release Rule. Its six independent
+fields are `score`, `per_item_correctness`, `question_feedback`,
+`question_answer`, `question_answer_explanation`, and `class_statistics`. Each
+field uses one timing: `DuringAttempt`, `AfterSubmit`,
 `AfterDue`, `AfterClose`, or `Never`.
 
 The server first requires Active Student Course Membership, then uses S3's current
@@ -399,37 +397,42 @@ The derivation follows these rules:
 
 Invalid score fractions and point values are explicit errors.
 
-## Assignment Attempt Summary
+## Assignment Grade and Assignment Progress
 
 **Assignment Progress** is the compact derived view for one exact Student
 Record and Assignment. The server's `AssignmentProgressRecord` carries the
 internal ownership references; `AssignmentGrade` separately owns the selected
-course-record result. Assignment Progress holds current, best, and latest
-scores, completed-attempt count, total Question Attempts, and last Student Work time.
-Historical Assignment Attempts remain separate for analysis. The Store updates
-the view only for the same exact Student Record and Assignment represented by
-the transition.
+course-record result, including selected, best, and latest completed Assignment
+Attempt bindings and scores. Assignment Progress holds completed-attempt count,
+total Question Attempts, and last Student Work time. Historical Assignment
+Attempts remain separate for analysis. A future persistence boundary updates
+both exact records only for the same Student Record and Assignment represented
+by the transition.
 
-Student routes instead receive the key-free `AssignmentProgress` Assignment Attempt
-Summary. `score_state` is `NoActivity`, `Withheld`, or `Available`. Scores
-are present only for `Available`; `NoActivity` means no submitted response and takes precedence over
-disclosure. Starting an Assignment Attempt may set `last_activity_at` without changing that score state.
-The Assignment Attempt Summary omits internal course, Student Record, and Assignment
-identifiers.
-Its independent `assignment_scoring_state` is `Current`, `Recalculating`, or `Failed`.
+Student routes, when mounted, receive the key-free `StudentAssignmentProgress`
+response with nested `assignment_progress` and `student_assignment_grade`
+values. `StudentAssignmentGrade.score_state` is `NoActivity`, `Withheld`, or
+`Available`. Scores are present only for `Available`; `NoActivity` means no
+submitted response and takes precedence over disclosure. Starting an Assignment
+Attempt may set `last_activity_at` without changing that score state. The
+Student response omits internal course, Student Record, and Assignment
+identifiers. Its independent `assignment_scoring_state` is `Current`,
+`Recalculating`, or `Failed`.
 Recalculating and Failed omit aggregate scores, Assignment Attempt scores, Grading Results,
 and disclosed point values even when disclosure would otherwise permit them,
 while keeping the underlying Student Work/disclosure state so a maintenance
 condition is never mistaken for a zero or a new attempt.
 
-`domain::scoring::project_summary` is a pure function:
+`domain::scoring::project_assignment_activity` is a pure function:
 
 ```rust
-project_summary(previous, transition, assignment_attempt_grade_rule) -> Result<next, error>
+project_assignment_activity(previous_grade, previous_progress, transition, assignment_attempt_grade_rule)
+  -> Result<(next_grade, next_progress), error>
 ```
 
-The function reads no database and no clock. A store can write the Assignment
-Attempt transition and returned Student Work Records view in one transaction, so a page
+The function reads no database and no clock. A future Store can write the
+Assignment Attempt transition and returned Assignment Grade and Assignment
+Progress records in one transaction, so a page
 never computes a grade by scanning Student Work Records history. Activity time never moves
 backward when an older event is replayed.
 
@@ -440,8 +443,8 @@ so the selected pointer is stable. Instructor-selected grading remains empty
 until an instructor names a completed Assignment Attempt. The incremental summary and batch
 selection are checked against the same hand-computed fixture.
 
-The Gradebook reads this compact Assignment Attempt Summary together with the exact course and
-assignment records. It does not scan every historical Assignment Attempt or Question Attempt when a
+The Gradebook reads compact Assignment Grade and Assignment Progress records
+together with the exact course and assignment records. It does not scan every historical Assignment Attempt or Question Attempt when a
 student has returned for continued practice many times. Historical records
 remain available to authorized history and analysis paths until course
 retention removes the course-owned Student graph.

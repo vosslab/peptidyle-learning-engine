@@ -103,9 +103,6 @@
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
     },
-    "questionVariationRule": {
-      "kind": "static"
-    },
     "grading": {
       "mode": "allOrNothing",
       "points": 1
@@ -190,9 +187,6 @@
     },
     "questionAttemptTimeLimit": {
       "kind": "unlimited"
-    },
-    "questionVariationRule": {
-      "kind": "static"
     },
     "grading": {
       "mode": "allOrNothing",
@@ -427,7 +421,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000030",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
-      "seed": 1001,
+      "question_seed": 1001,
       "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
@@ -454,7 +448,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "ca853bb76dd27c3fc9a36d671c12e2247888b93649e12f509cbb73d7de72d4ac"
+        "renderedQuestionSha256": "b36347ff4f36e10f24193f610163845c35e557559c7f891e330fed89f28ad338"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
@@ -475,7 +469,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000031",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
-      "seed": 1002,
+      "question_seed": 1002,
       "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
@@ -502,7 +496,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "2cfd2bd5bb11ba987fee23452dbf166e1f445a206f1060b70ca4b52cb805bb75"
+        "renderedQuestionSha256": "bbe0d81641ea36e7ba639bf6962b75605a5a630cb74b9c86427184a27d32f139"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
@@ -523,7 +517,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000032",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
-      "seed": 1003,
+      "question_seed": 1003,
       "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "submission_accepted",
       "timing": {
@@ -550,7 +544,7 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "d4d56d6503a656d0d7383fde4c344aae2df9ae3caca2c54bdb0d86c3ebfa3c6b"
+        "renderedQuestionSha256": "b68840b11f32bb96de15c068e2de683db9dbf79935b69a858793fa095db9492f"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
       "submission": {
@@ -571,7 +565,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000033",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000043",
-      "seed": 1004,
+      "question_seed": 1004,
       "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
       "state": "open",
       "timing": {
@@ -598,21 +592,29 @@
           "name": "generic-grader",
           "version": "1"
         },
-        "renderedQuestionSha256": "4c45e4cc2624c10e07f4492ecbbc5fe2925802ebb6194fc2a771d9f68f967f8d"
+        "renderedQuestionSha256": "d52aa286360dd86a09ad858ed69a9bd2534b06903b70a295c474181dab1419a6"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
       "submission": null
     }
   ],
-  "summary": {
-    "studentRecord": "0198e000-0000-7000-8000-000000000007",
+  "assignmentGrade": {
+    "student_record": "0198e000-0000-7000-8000-000000000007",
     "assignment": "0198e000-0000-7000-8000-000000000006",
-    "currentScore": 1,
-    "bestScore": 1,
-    "latestScore": 0,
-    "completedAssignmentAttemptCount": 3,
-    "totalQuestionAttempts": 4,
-    "lastActivityAt": 1786000004100
+    "first_completed_at": 1786000001300,
+    "current_assignment_attempt": "0198e000-0000-7000-8000-000000000021",
+    "current_score": 1,
+    "best_assignment_attempt": "0198e000-0000-7000-8000-000000000021",
+    "best_score": 1,
+    "latest_assignment_attempt": "0198e000-0000-7000-8000-000000000022",
+    "latest_score": 0
+  },
+  "assignmentProgress": {
+    "student_record": "0198e000-0000-7000-8000-000000000007",
+    "assignment": "0198e000-0000-7000-8000-000000000006",
+    "completed_assignment_attempt_count": 3,
+    "total_question_attempts": 4,
+    "last_activity_at": 1786000004100
   },
   "gradebook": [
     {
@@ -621,15 +623,23 @@
       "student_name": "Jordan Student",
       "assignment_id": "0198e000-0000-7000-8000-000000000006",
       "assignment_title": "Peptide bond mastery",
-      "summary": {
-        "studentRecord": "0198e000-0000-7000-8000-000000000007",
+      "assignment_grade": {
+        "student_record": "0198e000-0000-7000-8000-000000000007",
         "assignment": "0198e000-0000-7000-8000-000000000006",
-        "currentScore": 1,
-        "bestScore": 1,
-        "latestScore": 0,
-        "completedAssignmentAttemptCount": 3,
-        "totalQuestionAttempts": 4,
-        "lastActivityAt": 1786000004100
+        "first_completed_at": 1786000001300,
+        "current_assignment_attempt": "0198e000-0000-7000-8000-000000000021",
+        "current_score": 1,
+        "best_assignment_attempt": "0198e000-0000-7000-8000-000000000021",
+        "best_score": 1,
+        "latest_assignment_attempt": "0198e000-0000-7000-8000-000000000022",
+        "latest_score": 0
+      },
+      "assignment_progress": {
+        "student_record": "0198e000-0000-7000-8000-000000000007",
+        "assignment": "0198e000-0000-7000-8000-000000000006",
+        "completed_assignment_attempt_count": 3,
+        "total_question_attempts": 4,
+        "last_activity_at": 1786000004100
       },
       "assignment_scoring_state": "current"
     }

@@ -1,6 +1,6 @@
-//! Provider-neutral authentication and replica-safe sessions (MOD-API-AUTH).
+//! Provider-neutral authentication and replica-safe sessions.
 //!
-//! A credential provider establishes an Account and immutable AccountRole. This module then
+//! A credential provider establishes an Account and immutable ProductRole. This module then
 //! mints a 256-bit opaque cookie credential, persists only its SHA-256 hash,
 //! and resolves an authenticated account session from the database row. Request
 //! parameters, headers, and bodies never construct authenticated identity.
@@ -15,7 +15,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
 use learning_data_access::{SessionLifetime, SessionRecord, SessionStore, StoreError};
-use question_model::{AccountId, AccountRole};
+use question_model::{AccountId, ProductRole};
 use serde::Serialize;
 
 #[path = "auth/browser_boundary.rs"]
@@ -122,7 +122,7 @@ pub struct AuthAccountResponse {
     /// Authenticated Account, not a course-work record identifier.
     pub id: AccountId,
     /// Immutable account role.
-    pub role: AccountRole,
+    pub product_role: ProductRole,
 }
 
 impl AuthenticatedSession {
@@ -305,7 +305,7 @@ fn session_response(record: &SessionRecord) -> AuthSessionResponse {
         authenticated: true,
         account: AuthAccountResponse {
             id: record.account,
-            role: record.role,
+            product_role: record.product_role,
         },
     }
 }

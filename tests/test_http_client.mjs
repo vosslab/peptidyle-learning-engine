@@ -9,7 +9,7 @@ import {
   decodeQuestionPage,
   decodeDraftQuestionContent,
   decodeQuestionSubmissionAcknowledgement,
-  decodeQuestionPresentation,
+  decodeIssuedQuestionPresentation,
   decodeAssignmentAttempt,
   decodeStudentQuestionAttemptView,
 } from "../src/api/decoders.ts";
@@ -40,31 +40,27 @@ test("question decoders reject answer-bearing and iMathAS-secret fields", () => 
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
-    variation: {
-      questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
-      seed: 2,
-    },
+    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
+    question_seed: 2,
+    presentationNonce: "0123456789abcdef0123456789abcdef",
     title: "iMathAS Question Backend practice item",
     prompt: [],
     response: { kind: "imathasQuestionBackend" },
   };
-  assert.deepEqual(decodeQuestionPresentation(presentation).response, {
+  assert.deepEqual(decodeIssuedQuestionPresentation(presentation).response, {
     kind: "imathasQuestionBackend",
   });
   assert.throws(
     () =>
-      decodeQuestionPresentation({
+      decodeIssuedQuestionPresentation({
         ...presentation,
-        variation: {
-          ...presentation.variation,
-          generator: { id: "secret", version: "1" },
-        },
+        imathasQuestionBackendBinding: { itemReference: "secret" },
       }),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeQuestionPresentation({
+      decodeIssuedQuestionPresentation({
         ...presentation,
         response: { kind: "imathasQuestionBackend", token: "secret" },
       }),
@@ -228,7 +224,7 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
             version: "0198e000-0000-7000-8000-000000000099",
           },
         },
-        seed: predecessor.seed,
+        question_seed: predecessor.question_seed,
         renderedQuestionSha256: "a".repeat(64),
         questionPoolSelectionPosition: null,
         presentation: questionPresentation,
@@ -254,14 +250,17 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
       jsonResponse({
         predecessor: predecessor.id,
         issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-        seed: questionPresentation.seed,
+        question_seed: questionPresentation.question_seed,
         renderedQuestionSha256: "b".repeat(64),
-        questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
+        questionPoolSelectionPosition: { selectedQuestionNumber: 1, selectedQuestionCount: 2 },
         presentation: questionPresentation,
       }),
   });
   const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
-  assert.deepEqual(prefetched?.questionPoolSelectionPosition, { itemNumber: 1, itemCount: 2 });
+  assert.deepEqual(prefetched?.questionPoolSelectionPosition, {
+    selectedQuestionNumber: 1,
+    selectedQuestionCount: 2,
+  });
 });
 
 test("iMathAS Question Backend launch returns its strict same-origin launch route", async () => {

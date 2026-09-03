@@ -112,11 +112,11 @@ function assertAssignmentAvailabilityMatchesStatus(
     (status === "archived" && assignmentAvailability.state === "archived") ||
     (status === "closed" &&
       assignmentAvailability.state === "closed" &&
-      assignmentAvailability.closedAt === null) ||
+      assignmentAvailability.closed_at === null) ||
     (status === "released" &&
       (assignmentAvailability.state === "scheduled" ||
         assignmentAvailability.state === "available" ||
-        (assignmentAvailability.state === "closed" && assignmentAvailability.closedAt !== null)));
+        (assignmentAvailability.state === "closed" && assignmentAvailability.closed_at !== null)));
   if (!currentMatchesIntent) {
     throw new DecodeError(
       `${path}.assignmentAvailability`,

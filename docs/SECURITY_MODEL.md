@@ -26,7 +26,7 @@ specialized durable contracts own their detailed data shapes and operations:
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
   Object Storage Check and Repair.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the student
-  render, response, digest, and rendered-item wire contract.
+  render, response, Question Presentation Checksum, and Presentation Response Item Reference wire contract.
 - [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and
   evidence-preserving failure handling.
 
@@ -65,7 +65,7 @@ handles protected Answer Keys, Question Feedback, and format-specific Question G
 parses canonical author source and splits it into answer-free public content
 and private Answer Key/Question Feedback records. `crates/learning-data-access` then validates
 and carries PLE Question JSON Private Grading as an opaque grading payload, bound to the
-public definition, for authorized staging, publication, and grader retrieval.
+answer-free Question Content, for authorized staging, publication, and grader retrieval.
 It does not expose the canonical bytes through browser-facing stores, routes,
 generated contracts, or the Wasm closure.
 
@@ -90,7 +90,7 @@ unsupported artifact receives a clear fail-closed result.
 `domain::validation::validate_response_format` checks only student-controlled
 structure:
 
-- response kind matches the definition;
+- response kind matches the Question Response Format;
 - numeric input is finite;
 - selection count, uniqueness, and IDs are valid;
 - short text fits its character limit;
@@ -158,7 +158,7 @@ question revision and a missing capability, never an answer or grading key. The
 server independently calls the same domain function before publication.
 
 `preview_ple_draft` receives an unversioned draft-workspace result and
-a seed. It produces only the Question Title, Question Prompt, and response definition for a PLE
+a seed. It produces only the Question Title, Question Prompt, and Question Response Format for a PLE
 drafts; other adapters return an explicit `offlinePreview` unavailability
 result. `domain` builds the Question Prompt, while PLE Question Backend key
 derivation remains in its server-only crate. The bridge therefore cannot
@@ -542,36 +542,18 @@ All success and error responses are `no-store`.
 
 ## Assignment export boundary
 
-Assignment exports are created from an authenticated course-management route
-with an exact empty body. Authorization is resolved before the body is read, so
-request fields cannot select versions, formats, filenames, object identities,
-or recipients and cannot become a course or membership oracle. The Store freezes
-the assignment title and ordered immutable version references, the requester,
-one opaque manifest, and four server-generated private object identities before
-it enqueues one closed export job.
+PLE has no current Assignment Export service. No Assignment Export route, Store,
+worker, persistence record, delivery path, browser DTO, or authorization boundary
+is mounted. The implemented `export_crate` is an answer-key-free pure DOCX/PDF
+renderer; it has no request, account, course, object-delivery, or worker authority.
+QTI remains an interchange format, and Course Grade CSV export remains a separate
+implemented boundary.
 
-The Store repeats `AuthenticatedSession` resolution and exact Instructor membership
-under the course-roster lock. The browser cannot name `requested_by` or turn a
-stale route decision into an export: revocation racing export creation causes
-the transaction to fail.
-
-The worker resolves only that frozen manifest through its active typed export
-lease and builds the standard and accessible DOCX/PDF bundle from browser-safe
-published question presentation and immutable capabilities. It never loads an
-answer key, private grader state, backend-specific location field, or Question Backend credential.
-Published figures are rechecked against their exact asset binding and checksum.
-Output is written bytes-first to typed course-record `StudentRecord` keys; an
-exact immutable object may be reused after a pre-commit crash, while different
-existing bytes refuse.
-
-PostgreSQL makes the four delivery rows, requester-only ACLs, ready status, and
-worker completion visible in one active-lease transaction. The request and
-artifact tables force account-and-relationship-scoped RLS, protected delivery functions have narrow grants and
-no public execution, and permanent or exhausted jobs expose only a coarse
-failed state. Browser status contains delivery IDs, stable filenames, and media
-types, never Object Addresses, manifests, leases, source refs, failure details, or
-signed URLs. Downloads continue through the protected asset route and its audit
-log.
+A future Assignment Export service requires a private immutable Assignment Export
+Manifest with the complete authorized request, lease-scoped execution, protected
+delivery, retention, and acceptance boundary defined in
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). An Object ID or a renderer
+result does not establish that Manifest or authorize an export.
 
 ## Assignment Attempt authorization and grading boundary
 
@@ -581,8 +563,8 @@ the current student HTTP route still accepts the broader tagged
 current route rederives and validates the expected Question Response Format from the attempt;
 `kind` is therefore not submission authority. The current grading-payload
 contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
-key, presentation checksum, and a format-minimal answer. That target
-also introduces CRC16 rendered-item IDs and a SHA-256-backed Question Presentation Checksum
+key, Question Presentation Checksum, and a format-minimal answer. That target
+also introduces CRC16 Presentation Response Item References and a SHA-256-backed Question Presentation Checksum
 to detect inconsistent presentation state. Neither target value
 authenticates the student or grades an answer. All component scoring and
 partial credit remain server-owned in both contracts.
@@ -604,8 +586,9 @@ in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record result after removal;
 that Instructor authority never leaks into a student-scoped Store method.
 Direct course instructors may read enrollment history and
-summaries, but only the enrollment owner may start or submit an Assignment Attempt. Nonowners
-receive not found so record existence is not disclosed.
+summaries, but only the Account that owns the Student Record through an active
+Student Course Membership may start or submit that Student Record's Assignment
+Attempt. Other Accounts receive not found so record existence is not disclosed.
 
 Each newly issued attempt receives an operating-system-random seed. Resuming
 an unresolved attempt returns its stored seed and Question Attempt Reproduction Details, and the store
@@ -617,29 +600,30 @@ Next-question prefetch stores a course-scoped, server-only reservation without
 an attempt ID, timer, response, grade, or public answer. Its browser result
 is answer-free, while the reservation retains checksummed private grading
 authority for the exact issued question so first grade never reconstructs from
-current Question Library definition or renderer state. The Store binds it to the owned active
-predecessor and first unattempted assignment position. Only submission
+current Question Revision or renderer state. The Store binds it to the active
+predecessor for that Student Record and its first unattempted assignment position. Only submission
 promotion creates the successor attempt and records either its immutable
 `nextIssued` descriptor or durable `nextPending` state in the predecessor's
 receipt. Replay reads that state instead of deriving a new successor from
-current Assignment Attempt state; initial owner-scoped recovery alone may heal the sole
-committed-but-unlinked predecessor after a process failure.
+current Assignment Attempt state; initial recovery authorized through the
+predecessor's Student Record and active Student Course Membership alone may
+heal the sole committed-but-unlinked predecessor after a process failure.
 
 The prefetch response contains only the safe Question Presentation and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
 cover the shared Question Presentation. The route still
-requires exact parameter hash, complete Question Attempt Reproduction Details, version, and seed reproduction.
+requires exact Question Attempt Reproduction Details, version, and seed reproduction.
 The browser caches this result in memory only, aborts it on route teardown,
 warms at most 12 deduplicated same-origin logical asset routes, and advances
 from it only after an exact `nextIssued` receipt match. No prefetched Question Presentation or
 descriptor enters `localStorage` or `sessionStorage`.
 
-The server first validates browser-visible rendered IDs and response shape
-against the checksummed issued public snapshot, then translates those IDs and
+The server first validates browser-visible Presentation Response Item References and response shape
+against the checksummed issued public snapshot, then translates those references and
 validates the result against the server-only Question Grading Input before calling
 the injected grader. Native and WeBWorK first grading additionally require
 their matching issued private grading contracts, so neither path reloads a
-current Question Library definition or grader view. The idempotency table retains the
+current Question Revision or grader view. The idempotency table retains the
 original public student response; the translated private response is grade-only. Submission persistence
 rejects malformed point values and atomically commits the response, grade
 event, Assignment Attempt and enrollment transitions, and summary. The idempotency table is
@@ -647,10 +631,10 @@ insert-only for the application role; an exact retry returns its first
 committed receipt, while a changed key or response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
-still carries version, seed, parameter hash, Question Attempt Reproduction Details, implementation IDs,
+still carries version, seed, Question Attempt Reproduction Details, implementation IDs,
 and source/asset identifiers. The Student Feedback Release Rule redacts Answer Keys, Question Feedback, and Question Grading Input,
 not that complete DTO. The payload plan's minimal student descriptor,
-digest-bound type-free response body, and compact receipt are accepted target
+Question Presentation Checksum-bound type-free response body, and compact receipt are accepted target
 work, not the current HTTP contract. Until that atomic cutover, clients must
 not treat current Question Attempt Reproduction Details or the tagged response `kind` as
 submission authority. Policy-permitted results may contain correctness and
@@ -690,11 +674,12 @@ not expose the source object URL.
 
 Published Question Library assets redirect to the configured immutable CDN URL
 without authentication or an object-store signing call. Private workspace
-content and Student records require the opaque HttpOnly session and their exact
-workspace relationship, course membership, or Student ownership predicate.
-Forced account-and-relationship-scoped RLS limits the candidate row, the Store checks the
-authenticated user where the record has an explicit user grant, and missing or
-unauthorized protected objects both return not found. Every successful
+content and Student records require an opaque HttpOnly session that resolves to
+an Authenticated Session and Account, then the exact workspace relationship,
+Course Membership, or Student ownership predicate for the requested record.
+Forced account-and-relationship-scoped RLS limits the candidate row, the Store
+checks that authenticated Account satisfies the applicable exact stored
+relationship, and missing or unauthorized protected objects both return not found. Every successful
 protected authorization appends an audit event before requesting the signed
 URL. The event includes the authenticated account, course or workspace scope, delivery ID, object
 ID, bucket, and database timestamp, but never the cookie or URL.

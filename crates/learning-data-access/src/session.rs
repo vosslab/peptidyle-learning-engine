@@ -1,10 +1,10 @@
-//! Canonical persisted session contract for one global account.
+//! Global Account persisted session contract.
 
 use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, AccountRole, Timestamp};
+use question_model::{AccountId, ProductRole, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -111,7 +111,7 @@ pub struct SessionRecord {
     /// Global login account authenticated by this session.
     pub account: AccountId,
     /// Immutable product role of the authenticated account.
-    pub role: AccountRole,
+    pub product_role: ProductRole,
     /// Database-authoritative creation time.
     pub created_at: Timestamp,
     /// Database-authoritative exclusive expiration time.

@@ -7,7 +7,7 @@ the course, assignment, Assignment Attempt, response, Student Feedback, summary,
 asset, and PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
 must be possible with the keyboard alone. The primary path uses the browser platform contract: Tab
 and Shift+Tab move focus, and Space selects choices or activates focused buttons. Arrow keys,
-digits 1-9, Enter-to-submit from a response input, and Escape are documented widget extensions that
+digits 1-9, Enter-to-submit from a response input, and Escape are documented Question Response Control extensions that
 may improve efficiency but are never required to complete the task.
 
 This document defines required behavior. The dated implementation evidence, findings, limitations,
@@ -29,7 +29,7 @@ can consume limited time, or can make a saved response appear lost. No student a
 depend on hover, drag, pointer coordinates, a specific timed key sequence, or discovering an
 undocumented shortcut.
 
-## Platform path and widget extensions
+## Platform path and Question Response Control extensions
 
 PLE keeps two keyboard evidence layers so a failure names the right owner:
 
@@ -37,9 +37,9 @@ PLE keeps two keyboard evidence layers so a failure names the right owner:
    for focus, Space for native choice selection and button activation, and Enter for native link
    activation. Submission is always available through the visible Submit answer button. This path
    does not require an arrow key, digit shortcut, response-input Enter, or Escape.
-2. **Widget extensions.** Enter-to-submit from an eligible ready response input, composite-control
-   arrows, visible-choice digits 1-9, and Escape provide efficient response-widget behavior. Each
-   extension is scoped to its widget, documented beside the control when discoverability matters,
+2. **Question Response Control extensions.** Enter-to-submit from an eligible ready response input, composite-control
+   arrows, visible-choice digits 1-9, and Escape provide efficient Question Response Control behavior. Each
+   extension is scoped to its Question Response Control, documented beside the control when discoverability matters,
    and tested separately from the primary journey.
 
 An extension never replaces the visible control, changes the saved domain action, overrides text
@@ -63,7 +63,7 @@ platform keyboard accessibility regression. An extension failure is a PLE shortc
    single-line or choice response input. Enter inside a multiline text area inserts text.
 6. **Arrows, digits, and Escape are scoped extensions.** Arrows may operate a response composite,
    digits 1-9 may select a visible choice ordinal while a choice input has focus, and Escape may
-   return from a widget when no work is discarded. Native dialogs and input-method editors retain
+   return from a Question Response Control when no work is discarded. Native dialogs and input-method editors retain
    their own key handling first.
 7. **Focus is always visible and never trapped.** A student can see the focused target, move away
    with ordinary keyboard commands, and return without losing the current response.
@@ -112,7 +112,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   may select a visible ordinal while a choice has focus, and Enter may submit a locally ready
   response from that input.
 - Choice labels are readable text; visual letters such as A or B are not the response identity.
-- The shipped PLE-native radio response control converts the reviewed WeBWorK radio interaction.
+- The shipped PLE-native radio Question Response Control converts the reviewed WeBWorK radio interaction.
   The browser never focuses an upstream field, renderer page, or hidden WebWork control.
 
 ### Multiple answer
@@ -197,7 +197,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   next state and moves focus predictably.
 - Mastery completion exposes Start another practice through ordinary Tab and Space. A fresh practice
   receives fresh server-owned seeds; resuming the current attempt preserves its seed.
-- A student can leave a question response control with Escape or a visible return action without committing an
+- A student can leave a Question Response Control with Escape or a visible return action without committing an
   answer. If leaving would discard local work, PLE asks for confirmation through a keyboard-complete
   dialog.
 
@@ -217,7 +217,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 Permanent tests protect stable user behavior, not today's component layout:
 
 - the built mock route completes course to assignment to question to explicit submission to
-  continued practice with the primary platform keys and no widget extension;
+  continued practice with the primary platform keys and no Question Response Control extension;
 - Question Type fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
   regressions while operating real production components;
 - the student question and Student Feedback surfaces have no serious or critical axe findings;
@@ -225,7 +225,7 @@ Permanent tests protect stable user behavior, not today's component layout:
   keyboard traps;
 - the live WebWork gate proves a keyboard-operated PLE-owned radio path and PLE-only network
   boundary; and
-- each new WP-RC5 Question Type adds its Question-Type-specific no-mouse behavior before acceptance.
+- each new Question Type adds its Question-Type-specific no-mouse behavior before acceptance.
 
 Tests assert outcomes such as focused control, changed selection, preserved response, announcement,
 and completed action. They do not freeze exact Tab counts, DOM ancestry, private helper names, or the

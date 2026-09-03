@@ -34,9 +34,10 @@ pub use model::{
 };
 pub use response_translation::{
     InspectedImathasQuestionBackendState, InspectedMatchPair, InspectedTextEntry,
-    RenderedResponseTranslationError, StudentResponseInspection,
-    project_durable_response_to_rendered, project_rendered_response_for_inspection,
-    translate_rendered_response,
+    PresentationResponseItemTranslationError, StudentResponseInspection,
+    project_durable_response_to_presentation_response_item_references,
+    project_presentation_response_item_references_for_inspection,
+    translate_presentation_response_item_references,
 };
 
 #[cfg(test)]

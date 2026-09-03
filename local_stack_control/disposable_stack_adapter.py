@@ -29,7 +29,7 @@ POSTGRESQL_COUNT_FIELDS = (
 )
 EVIDENCE_LOG_TAIL_LINES = 5_000
 EVIDENCE_LOG_MAX_CHARACTERS = 1_000_000
-CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
+TRACKED_IMAGE_SELECTIONS_BY_OWNER = {
 	"course-appearance": (
 		"PLE_POSTGRES_IMAGE_SHA256",
 		"PLE_MINIO_IMAGE_SHA256",
@@ -40,17 +40,15 @@ CANONICAL_IMAGE_SELECTIONS_BY_OWNER = {
 		"PLE_MINIO_IMAGE_SHA256",
 		"PLE_MINIO_MC_IMAGE_SHA256",
 	),
-	"wp-r2-postgres-rls": ("PLE_POSTGRES_IMAGE_SHA256",),
-	"wp-rc8-postgres-outbox": ("PLE_POSTGRES_IMAGE_SHA256",),
 	local_stack_control.models.LIVE_DEMO_BROWSER_OWNER: ("PLE_POSTGRES_IMAGE_SHA256",),
 }
 
 
 #============================================
-def canonical_image_selections(manifest: "DisposableManifest") -> tuple[str, ...]:
-	"""Return the fixed image selections allowed by the selected profile."""
+def tracked_image_selections(manifest: "DisposableManifest") -> tuple[str, ...]:
+	"""Return the tracked image selections allowed by the selected profile."""
 	if manifest.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
-		return CANONICAL_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
+		return TRACKED_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
 	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
 		return ("PLE_POSTGRES_IMAGE_SHA256",)
 	if manifest.live_demo_profile is local_stack_control.models.LiveDemoProfile.COURSE_APPEARANCE_CROSS_STORE:
@@ -59,7 +57,7 @@ def canonical_image_selections(manifest: "DisposableManifest") -> tuple[str, ...
 			"PLE_MINIO_IMAGE_SHA256",
 			"PLE_MINIO_MC_IMAGE_SHA256",
 		)
-	return CANONICAL_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
+	return TRACKED_IMAGE_SELECTIONS_BY_OWNER[manifest.owner]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -178,7 +176,7 @@ def disposable_target(
 	local_stack_control.compose.require_disposable_capability_file(manifest.capability_file)
 	local_stack_control.env_file.require_mutation_env_file(manifest.env_file)
 	declared_names = local_stack_control.env_file.add_tracked_selections(
-		repo_root, manifest.env_file, canonical_image_selections(manifest)
+		repo_root, manifest.env_file, tracked_image_selections(manifest)
 	)
 	compose_files = local_stack_control.compose.disposable_policy_compose_files(
 		repo_root, policy.owner, manifest.live_demo_profile
@@ -554,19 +552,19 @@ def replica_stop_container(
 
 
 #============================================
-def _canonical_uuid(value: str, label: str) -> str:
-	"""Require one canonical lowercase UUID before forming a PostgreSQL variable."""
+def require_lowercase_uuid(value: str, label: str) -> str:
+	"""Require a lowercase UUID before forming a PostgreSQL variable."""
 	# ASVS 1.2.4 and 2.2.1: only typed UUID values may reach the fixed SQL statement.
 	if not isinstance(value, str):
-		raise local_stack_control.models.ControllerError(f"{label} must be a canonical UUID")
+		raise local_stack_control.models.ControllerError(f"{label} must be a lowercase UUID")
 	try:
 		parsed = uuid.UUID(value)
 	except ValueError as error:
 		raise local_stack_control.models.ControllerError(
-			f"{label} must be a canonical UUID"
+			f"{label} must be a lowercase UUID"
 		) from error
 	if str(parsed) != value:
-		raise local_stack_control.models.ControllerError(f"{label} must be a canonical UUID")
+		raise local_stack_control.models.ControllerError(f"{label} must be a lowercase UUID")
 	return value
 
 
@@ -589,7 +587,7 @@ def postgresql_count_command(
 		raise local_stack_control.models.ControllerError(
 			"PostgreSQL count is limited to the fixed replica profile"
 		)
-	attempt = _canonical_uuid(attempt_id, "PostgreSQL count attempt")
+	attempt = require_lowercase_uuid(attempt_id, "PostgreSQL count attempt")
 	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
 	postgres_user = values.get("POSTGRES_USER")
 	postgres_database = values.get("POSTGRES_DB")

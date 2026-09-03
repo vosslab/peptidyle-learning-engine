@@ -156,9 +156,7 @@ export function createAssignmentEditorPickerController(
       );
     } catch {
       setSources([{ kind: "library", label: "Question Library" }]);
-      props.onMessage(
-        "Question Folders could not load. The Question Library and direct Question ID entry are ready.",
-      );
+      props.onMessage("The Question Library and direct Question ID entry are ready.");
     }
   }
 

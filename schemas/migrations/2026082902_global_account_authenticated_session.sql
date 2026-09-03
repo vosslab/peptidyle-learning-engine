@@ -1,6 +1,6 @@
--- SD1 global accounts and opaque authenticated sessions.
+-- Global Account and opaque Authenticated Session foundation.
 --
--- The role strings deliberately match question_model::AccountRole's lower-camel
+-- The role strings deliberately match question_model::ProductRole's lower-camel
 -- wire names.  PostgreSQL service roles such as ple_student are not human
 -- product roles and are never stored in these columns.
 
@@ -38,15 +38,15 @@ $$;
 
 SET LOCAL ROLE ple_private_owner;
 
--- ASVS 2.3.3: a global account has exactly one closed role for its lifetime.
+-- ASVS 2.3.3: a global account has exactly one closed Product Role for its lifetime.
 CREATE TABLE ple_private.account (
     account_id uuid PRIMARY KEY,
-    role text NOT NULL,
+    product_role text NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT account_role_is_closed CHECK (
-        role IN ('student', 'instructor', 'sysadmin')
+    CONSTRAINT account_product_role_is_closed CHECK (
+        product_role IN ('student', 'instructor', 'sysadmin')
     ),
-    CONSTRAINT account_role_is_unique UNIQUE (account_id, role)
+    CONSTRAINT account_product_role_is_unique UNIQUE (account_id, product_role)
 );
 
 -- ASVS 2.3.3: a database trigger protects the invariant even if a future
@@ -58,11 +58,11 @@ SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
     IF NEW.account_id IS DISTINCT FROM OLD.account_id
-       OR NEW.role IS DISTINCT FROM OLD.role
+       OR NEW.product_role IS DISTINCT FROM OLD.product_role
        OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
         RAISE EXCEPTION USING
             ERRCODE = '23514',
-            MESSAGE = 'an account identity and role are immutable';
+            MESSAGE = 'an account identity and Product Role are immutable';
     END IF;
     RETURN NEW;
 END
@@ -99,20 +99,20 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_state();
 
 -- The opaque browser credential is never stored or selected.  Its fixed-size
 -- Session Token Hash and the composite foreign key bind every session to the account's
--- sole immutable role.  ASVS 2.3.3, 8.2.2, and 8.3.1.
+-- sole immutable Product Role.  ASVS 2.3.3, 8.2.2, and 8.3.1.
 CREATE TABLE ple_private.authenticated_session (
     session_id uuid PRIMARY KEY,
     account_id uuid NOT NULL,
-    role text NOT NULL,
+    product_role text NOT NULL,
     token_hash bytea NOT NULL,
     created_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
-    CONSTRAINT authenticated_session_account_role_matches
-        FOREIGN KEY (account_id, role)
-        REFERENCES ple_private.account (account_id, role),
-    CONSTRAINT authenticated_session_role_is_closed CHECK (
-        role IN ('student', 'instructor', 'sysadmin')
+    CONSTRAINT authenticated_session_account_product_role_matches
+        FOREIGN KEY (account_id, product_role)
+        REFERENCES ple_private.account (account_id, product_role),
+    CONSTRAINT authenticated_session_product_role_is_closed CHECK (
+        product_role IN ('student', 'instructor', 'sysadmin')
     ),
     CONSTRAINT authenticated_session_token_hash_is_sha256 CHECK (
         pg_catalog.octet_length(token_hash) = 32
@@ -131,7 +131,7 @@ CREATE INDEX authenticated_session_active_account_idx
     WHERE revoked_at IS NULL;
 
 -- A session may be revoked, but it cannot be repointed, recredentialed, or
--- assigned a different role after creation.  ASVS 2.3.3.
+-- assigned a different Product Role after creation.  ASVS 2.3.3.
 CREATE FUNCTION ple_private.reject_authenticated_session_identity_change()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -140,13 +140,13 @@ AS $$
 BEGIN
     IF NEW.session_id IS DISTINCT FROM OLD.session_id
        OR NEW.account_id IS DISTINCT FROM OLD.account_id
-       OR NEW.role IS DISTINCT FROM OLD.role
+       OR NEW.product_role IS DISTINCT FROM OLD.product_role
        OR NEW.token_hash IS DISTINCT FROM OLD.token_hash
        OR NEW.created_at IS DISTINCT FROM OLD.created_at
        OR NEW.expires_at IS DISTINCT FROM OLD.expires_at THEN
         RAISE EXCEPTION USING
             ERRCODE = '23514',
-            MESSAGE = 'an authenticated session identity and role are immutable';
+            MESSAGE = 'an authenticated session identity and Product Role are immutable';
     END IF;
     IF OLD.revoked_at IS NOT NULL
        AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at THEN
@@ -192,8 +192,8 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.reject_authenticated_session_ident
 
 COMMENT ON TABLE ple_private.account IS
     'Global account identity and its one immutable human role; no email or credential data.';
-COMMENT ON COLUMN ple_private.account.role IS
-    'Closed lower-camel AccountRole value: student, instructor, or sysadmin.';
+COMMENT ON COLUMN ple_private.account.product_role IS
+    'Closed lower-camel ProductRole value: student, instructor, or sysadmin.';
 COMMENT ON TABLE ple_private.authenticated_session IS
     'Server-only Session Token Hash, expiry, revocation, and account-role binding.';
 COMMENT ON COLUMN ple_private.authenticated_session.token_hash IS

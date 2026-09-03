@@ -10,14 +10,15 @@ import {
   createSubmissionController,
   numericResponseFromInput,
   Status,
-  type NumericDefinition,
+  type NumericResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
 export function NumericResponse(
-  props: QuestionResponseControlBodyProps<NumericDefinition>,
+  props: QuestionResponseControlBodyProps<NumericResponseFormat>,
 ): JSX.Element {
-  const restored = props.initialResponse?.value;
+  const restored =
+    props.initialResponse?.kind === "numeric" ? props.initialResponse.value : undefined;
   const initialValue = restored === undefined ? "" : String(restored);
   const [value, setValue] = createSignal(initialValue);
   let control!: HTMLInputElement;
@@ -37,18 +38,23 @@ export function NumericResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
       }
     >
       <label for={`${props.attemptId}-numeric`}>
-        Numeric response{props.definition.unit === null ? "" : ` (${props.definition.unit})`}
+        Numeric response
+        {(props.responseFormat.kind === "numerical"
+          ? props.responseFormat.displayedUnit
+          : props.responseFormat.unit) === null
+          ? ""
+          : ` (${props.responseFormat.kind === "numerical" ? props.responseFormat.displayedUnit : props.responseFormat.unit})`}
       </label>
       <input
         id={`${props.attemptId}-numeric`}
-        class="response-control"
+        class="question-response-control__input"
         type="number"
         inputmode="decimal"
         value={value()}

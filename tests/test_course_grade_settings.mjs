@@ -1,4 +1,4 @@
-// WP-INST-S6 strict browser course-grade contract tests.
+// Browser Course Grade settings contract tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -101,7 +101,10 @@ test("course-grade decoder rejects out-of-sequence mappings, weights, and privat
 
   const badPosition = structuredClone(weightedView);
   badPosition.assignments[1].position = 1;
-  assert.throws(() => decodeCourseGradeSchemeView(badPosition), /sequential positions/u);
+  assert.throws(
+    () => decodeCourseGradeSchemeView(badPosition),
+    /out-of-sequence category positions/u,
+  );
 
   const safeTotals = {
     mode: "totalPoints",

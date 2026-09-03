@@ -1,4 +1,4 @@
-//! MOD-SRV: production binary entry point.
+//! Production server binary entry point.
 
 mod application;
 

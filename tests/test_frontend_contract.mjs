@@ -9,7 +9,7 @@ import { createBrowserSessionBoundary } from "../src/auth/browser_session_bounda
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
 import { prefetchMatchesIssuedSuccessor } from "../src/features/question_attempt/prefetch_binding.ts";
 import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
-import { accountRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
+import { productRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
   assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "questionDetail");
@@ -39,26 +39,26 @@ test("route contracts fail closed and reserve authoring routes for teaching role
     "assignmentWorkspaceGradingOperations",
   );
   assert.equal(routeContractForPathname("/instructor/courses/C-1/assignments/A-1/edit"), undefined);
-  assert.equal(accountRoleMayAccessRoute("assignmentOverview", "student"), true);
-  assert.equal(accountRoleMayAccessRoute("assignmentOverview", "instructor"), false);
-  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceOverview", "student"), false);
-  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceOverview", "instructor"), true);
-  assert.equal(accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "student"), false);
+  assert.equal(productRoleMayAccessRoute("assignmentOverview", "student"), true);
+  assert.equal(productRoleMayAccessRoute("assignmentOverview", "instructor"), false);
+  assert.equal(productRoleMayAccessRoute("assignmentWorkspaceOverview", "student"), false);
+  assert.equal(productRoleMayAccessRoute("assignmentWorkspaceOverview", "instructor"), true);
+  assert.equal(productRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "student"), false);
   assert.equal(
-    accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "instructor"),
+    productRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "instructor"),
     true,
   );
   assert.equal(
-    accountRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "sysadmin"),
+    productRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "sysadmin"),
     false,
   );
-  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "student"), false);
-  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "instructor"), true);
-  assert.equal(accountRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "student"), false);
-  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
-  assert.equal(accountRoleMayAccessRoute("blueprintCourses", "instructor"), true);
+  assert.equal(productRoleMayAccessRoute("workspaceEditor", "student"), false);
+  assert.equal(productRoleMayAccessRoute("workspaceEditor", "instructor"), true);
+  assert.equal(productRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
+  assert.equal(productRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
+  assert.equal(productRoleMayAccessRoute("blueprintCourses", "student"), false);
+  assert.equal(productRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
+  assert.equal(productRoleMayAccessRoute("blueprintCourses", "instructor"), true);
 });
 
 test("assignment workspace paths use the declared grading-operations route", () => {
@@ -172,19 +172,19 @@ test("prefetched successors require the committed receipt binding", () => {
   const successor = {
     predecessor: "attempt-a",
     issuedQuestion: { id: "issued-question-b" },
-    seed: 2,
+    question_seed: 2,
     renderedQuestionSha256: "a".repeat(64),
   };
   const issued = {
     id: "attempt-b",
     issuedQuestion: successor.issuedQuestion,
-    seed: successor.seed,
+    question_seed: successor.question_seed,
     deadline: null,
     renderedQuestionSha256: successor.renderedQuestionSha256,
   };
   assert.equal(prefetchMatchesIssuedSuccessor(successor, issued, "attempt-a"), true);
   assert.equal(
-    prefetchMatchesIssuedSuccessor({ ...successor, seed: 3 }, issued, "attempt-a"),
+    prefetchMatchesIssuedSuccessor({ ...successor, question_seed: 3 }, issued, "attempt-a"),
     false,
   );
 });

@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use learning_data_access::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
 };
-use question_model::{AccountId, AccountRole, Timestamp};
+use question_model::{AccountId, ProductRole, Timestamp};
 use tower::ServiceExt;
 use uuid::Uuid;
 
@@ -37,7 +37,7 @@ impl SessionStore for MemorySessionStore {
             id: SessionId::generate()?,
             token_hash,
             account,
-            role: AccountRole::Student,
+            product_role: ProductRole::Student,
             created_at: Timestamp::from_unix_millis(0),
             expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
         };
@@ -80,7 +80,7 @@ async fn session_issuer_returns_the_product_role_derived_by_the_session_store() 
                 id: SessionId::generate()?,
                 token_hash,
                 account,
-                role: AccountRole::Instructor,
+                product_role: ProductRole::Instructor,
                 created_at: Timestamp::from_unix_millis(0),
                 expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
             })
@@ -106,7 +106,7 @@ async fn session_issuer_returns_the_product_role_derived_by_the_session_store() 
     .await
     .expect("session should issue");
 
-    assert_eq!(issued.record.role, AccountRole::Instructor);
+    assert_eq!(issued.record.product_role, ProductRole::Instructor);
 }
 
 fn config(transport: CookieTransport) -> SessionConfig {

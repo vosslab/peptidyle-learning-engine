@@ -6,6 +6,7 @@ import type { QuestionContentBlock } from "../../../generated/api/QuestionConten
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch } from "../../api/contracts";
 import type {
@@ -13,17 +14,26 @@ import type {
   StudentResponseFormatIssue,
 } from "../../api/decoders/student_response_format_check";
 import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
-import type { WasmFacade } from "../../wasm/index";
+import type { ResponseFormatValidator } from "../../wasm/index";
 
-export type MultipleChoiceDefinition = Extract<QuestionResponseFormat, { kind: "multipleChoice" }>;
-export type NumericDefinition = Extract<QuestionResponseFormat, { kind: "numeric" }>;
-export type ShortTextDefinition = Extract<QuestionResponseFormat, { kind: "shortText" }>;
-export type OrderingDefinition = Extract<QuestionResponseFormat, { kind: "ordering" }>;
-export type MultiBlankDefinition = Extract<QuestionResponseFormat, { kind: "multiBlank" }>;
-export type MatchingDefinition = Extract<QuestionResponseFormat, { kind: "matching" }>;
-export type HotspotDefinition = Extract<QuestionResponseFormat, { kind: "hotspot" }>;
+export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
+export type MultipleChoiceResponseFormat =
+  | Extract<QuestionResponseFormat, { kind: "multipleChoice" }>
+  | Extract<QuestionPresentationResponseFormat, { kind: "singleChoice" | "multipleAnswer" }>;
+export type NumericResponseFormat =
+  | Extract<QuestionResponseFormat, { kind: "numeric" }>
+  | Extract<QuestionPresentationResponseFormat, { kind: "numerical" }>;
+export type ShortTextResponseFormat =
+  | Extract<QuestionResponseFormat, { kind: "shortText" }>
+  | Extract<QuestionPresentationResponseFormat, { kind: "fillIn" }>;
+export type OrderingResponseFormat = Extract<ResponseFormat, { kind: "ordering" }>;
+export type MultiBlankResponseFormat =
+  | Extract<QuestionResponseFormat, { kind: "multiBlank" }>
+  | Extract<QuestionPresentationResponseFormat, { kind: "multiFillIn" }>;
+export type MatchingResponseFormat = Extract<ResponseFormat, { kind: "matching" }>;
+export type HotspotResponseFormat = Extract<ResponseFormat, { kind: "hotspot" }>;
 
-type WidgetPhase =
+type QuestionResponseControlPhase =
   | { readonly kind: "idle" }
   | { readonly kind: "validating" }
   | { readonly kind: "ready" }
@@ -41,8 +51,8 @@ export interface StudentWorkRouteScope {
 
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
-  /** Response controls require only the key-free local format validation capability. */
-  readonly validator: Pick<WasmFacade, "validateResponseFormat">;
+  /** Question Response Controls require only the key-free local format validation capability. */
+  readonly validator: { readonly validateResponseFormat: ResponseFormatValidator };
   readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (
@@ -55,22 +65,22 @@ export interface QuestionResponseControlBaseProps {
 }
 
 export interface QuestionResponseControlProps extends QuestionResponseControlBaseProps {
-  readonly definition: QuestionResponseFormat;
+  readonly responseFormat: ResponseFormat;
   readonly initialResponse?: StudentResponse;
 }
 
 export interface QuestionResponseControlBodyProps<
-  D extends QuestionResponseFormat,
+  D extends ResponseFormat,
 > extends QuestionResponseControlBaseProps {
-  readonly definition: D;
-  readonly initialResponse?: Extract<StudentResponse, { readonly kind: D["kind"] }>;
+  readonly responseFormat: D;
+  readonly initialResponse?: StudentResponse;
 }
 
 export type MultipleChoiceResponseProps =
-  QuestionResponseControlBodyProps<MultipleChoiceDefinition>;
+  QuestionResponseControlBodyProps<MultipleChoiceResponseFormat>;
 
 export interface SubmissionController {
-  readonly phase: () => WidgetPhase;
+  readonly phase: () => QuestionResponseControlPhase;
   readonly invalid: () => boolean;
   readonly pending: () => boolean;
   readonly locked: () => boolean;
@@ -112,7 +122,7 @@ function issueMessage(issue: StudentResponseFormatIssue): string {
     case "textTooLong":
       return `Keep the response within ${issue.maxLength} characters.`;
     case "orderingItemsMismatch":
-      return "Place every item in the requested order.";
+      return "Place every Ordering Item in the requested order.";
     case "blankSlotsMismatch":
       return "Complete every blank once.";
     case "matchingPromptsMismatch":
@@ -137,11 +147,11 @@ function checkMessage(check: StudentResponseFormatCheck): string {
 
 /** Browser-only format check: deliberately has no submit or grading dependency. */
 export async function validateResponseLocally(
-  validator: Pick<WasmFacade, "validateResponseFormat">,
-  definition: QuestionResponseFormat,
+  validator: { readonly validateResponseFormat: ResponseFormatValidator },
+  responseFormat: ResponseFormat,
   response: StudentResponse,
 ): Promise<StudentResponseFormatCheck> {
-  return validator.validateResponseFormat(definition, response);
+  return validator.validateResponseFormat(responseFormat, response);
 }
 
 /** Preserve an empty numeric control as invalid rather than coercing it to zero. */
@@ -149,7 +159,7 @@ export function numericResponseFromInput(input: string): StudentResponse {
   return { kind: "numeric", value: input.trim() === "" ? Number.NaN : Number(input) };
 }
 
-function phaseMessage(phase: WidgetPhase): string {
+function phaseMessage(phase: QuestionResponseControlPhase): string {
   switch (phase.kind) {
     case "idle":
       return "Complete the response, then submit it.";
@@ -176,7 +186,7 @@ export function createSubmissionController(
   props: QuestionResponseControlProps,
   initialResponse?: StudentResponse,
 ): SubmissionController {
-  const [phase, setPhase] = createSignal<WidgetPhase>({ kind: "idle" });
+  const [phase, setPhase] = createSignal<QuestionResponseControlPhase>({ kind: "idle" });
   let validationRequest = 0;
   let submissionRequest = 0;
 
@@ -192,7 +202,7 @@ export function createSubmissionController(
     const request = validationRequest;
     setPhase({ kind: "validating" });
     try {
-      const check = await validateResponseLocally(props.validator, props.definition, response);
+      const check = await validateResponseLocally(props.validator, props.responseFormat, response);
       if (request !== validationRequest || phase().kind === "submitting") return;
       props.onResponseChange?.(response, check);
       setPhase(
@@ -259,7 +269,7 @@ export function createSubmissionController(
     const request = validationRequest;
     setPhase({ kind: "validating" });
     try {
-      const check = await validateResponseLocally(props.validator, props.definition, response);
+      const check = await validateResponseLocally(props.validator, props.responseFormat, response);
       if (request !== validationRequest || phase().kind === "submitting") return;
       props.onResponseChange?.(response, check);
       setPhase(

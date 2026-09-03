@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_live_demo.sh - concise front door for the canonical live demo.
+# run_live_demo.sh - concise front door for the Local Stack Controller.
 
 set -euo pipefail
 

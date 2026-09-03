@@ -51,37 +51,37 @@
   gap: 0.35rem;
   margin: 0.8rem 0;
 }
-.preview-subject-form {
+.student-view-scenario-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
   gap: 0.75rem 1rem;
   align-items: start;
 }
-.preview-subject-form > * {
+.student-view-scenario-form > * {
   min-width: 0;
 }
-.preview-subject-form fieldset,
-.preview-subject-form .preview-field {
+.student-view-scenario-form fieldset,
+.student-view-scenario-form .preview-field {
   margin: 0;
   min-width: 0;
 }
-.preview-subject-source,
-.preview-subject-target fieldset {
+.student-view-scenario-origin,
+.student-view-scenario-target fieldset {
   padding: 0.45rem 0.65rem;
 }
-.preview-panel .preview-subject-source label,
-.preview-panel .preview-subject-target fieldset label {
+.preview-panel .student-view-scenario-origin label,
+.preview-panel .student-view-scenario-target fieldset label {
   display: flex;
   gap: 0.45rem;
   align-items: flex-start;
   margin: 0.35rem 0;
 }
-.preview-subject-source input,
-.preview-subject-target fieldset input {
+.student-view-scenario-origin input,
+.student-view-scenario-target fieldset input {
   flex: 0 0 auto;
   margin-top: 0.18rem;
 }
-.preview-subject-target .preview-field {
+.student-view-scenario-target .preview-field {
   margin: 0;
 }
 .preview-submit {
@@ -145,7 +145,7 @@
   .preview-before-after {
     grid-template-columns: 1fr;
   }
-  .preview-subject-form {
+  .student-view-scenario-form {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

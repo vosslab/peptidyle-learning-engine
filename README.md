@@ -38,7 +38,7 @@ inside a disposable, production-shaped installation.
 
 ## Try the teaching loop
 
-The canonical first result is a production-shaped local installation, not a browser mock. From a
+The primary local-demo workflow starts a production-shaped local installation, not a browser mock. From a
 checkout with the prerequisites in [docs/INSTALL.md](docs/INSTALL.md), run `./run_live_demo.sh`. The
 launcher builds the production browser bundle and starts the real PostgreSQL, MinIO, API, worker,
 gateway, and private WebWork services behind one disposable HTTPS origin. Use
@@ -183,10 +183,10 @@ source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 The explicit Python command installs the live-demo runtime dependency into the selected Python 3.12
 environment. `run_live_demo.sh` then sources the repository shell environment through its fixed
 `source_me.sh` path, invokes `python3 local_stack.py`, and runs `devel/setup_typescript.sh` when
-`node_modules` is absent before delegating to the canonical local-stack owner. It builds the
+`node_modules` is absent before delegating to the Local Stack Controller. It builds the
 production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
-the canonical browser origin. For a headless alternative, run
+the stack's fixed HTTPS browser origin. For a headless alternative, run
 `./run_live_demo.sh --headless`; it keeps the same stack and prints the origin
 without opening a browser. Use `./run_live_demo.sh stop` for owner-scoped cleanup.
 Follow the visible seeded production-auth flow.
@@ -258,19 +258,19 @@ is a design boundary rather than a current browser workflow.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rust domain and learning data access | Question, Assignment, Course, Blueprint-operation, timing, scoring, retention, and Job contracts; focused in-memory and PostgreSQL foundations carry their own conformance evidence.                                                                                     |
-| Blueprint and Course contracts       | Exact Blueprint Course and Course Instance operation contracts for forking, creation, copying, updates, new terms, and schedule changes; Memory evidence is complete only where the active registry says so.                                                             |
-| API server                           | Authenticated Session handling, composition, health, request lifecycle, and HTTP security are mounted. Course, Question Library, delivery, and Job routes remain explicit downstream work.                                                                               |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                           |
-| Browser client                       | Seeded Live Demo Account selection is the mounted browser entry. Strict browser contracts and unmounted Course, Question Library, authoring, delivery, and Gradebook surfaces remain separately tracked.                                                                 |
-| Blueprint operations                 | Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates have exact contracts. Their PostgreSQL/RLS, service, browser, and live acceptance remain SD1 cutover work. |
-| PostgreSQL                           | Fresh SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification for their accepted foundations.                                                                                                                        |
-| Question engines                     | PLE Question JSON schema version 2 supports the eight required Question Types. WeBWorK, QTI, iMathAS, and H5P boundaries have focused adapter contracts; mounted delivery and provider integration remain separately tracked.                                            |
-| DOCX and PDF export                  | Deterministic Student and Answer Key artifact generation through the object-store boundary.                                                                                                                                                                              |
-| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                    |
-| Worker runtime                       | Typed Job contracts and leases are established; mounted worker delivery remains separately tracked.                                                                                                                                                                      |
+| Area                                 | State                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Question, Assignment, Course, Blueprint-operation, timing, scoring, retention, and Job contracts; focused in-memory and PostgreSQL foundations carry their own conformance evidence.                                                                                                                       |
+| Blueprint and Course contracts       | Exact Blueprint Course and Course Instance operation contracts for forking, creation, copying, updates, new terms, and schedule changes; Memory evidence is complete only where the active registry says so.                                                                                               |
+| API server                           | Authenticated Session handling, composition, health, request lifecycle, and HTTP security are mounted. Course, Question Library, delivery, and Job routes remain explicit downstream work.                                                                                                                 |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                             |
+| Browser client                       | Seeded Live Demo Account selection is the mounted browser entry. Strict browser contracts and unmounted Course, Question Library, authoring, delivery, and Gradebook surfaces remain separately tracked.                                                                                                   |
+| Blueprint operations                 | Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates have exact contracts. Their PostgreSQL/RLS, Store, server, browser, and connected live-evidence layers remain unmounted implementation work. |
+| PostgreSQL                           | Fresh SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification for their accepted foundations.                                                                                                                                                          |
+| Question engines                     | PLE Question JSON schema version 2 supports the eight required Question Types. WeBWorK, QTI, iMathAS, and H5P boundaries have focused adapter contracts; mounted delivery and provider integration remain separately tracked.                                                                              |
+| DOCX and PDF export                  | Deterministic Student and Answer Key artifact generation through the object-store boundary.                                                                                                                                                                                                                |
+| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                      |
+| Worker runtime                       | Typed Job contracts and leases are established; mounted worker delivery remains separately tracked.                                                                                                                                                                                                        |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),

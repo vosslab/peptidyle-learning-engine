@@ -35,13 +35,13 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_PAGE_SIZE = 100;
 
-function canonicalReference(
+function requirePublicReference(
   value: string,
   label: string,
   parse: (candidate: string) => string | null,
 ): string {
   const decoded = parse(value);
-  if (decoded === null) throw new ApiProtocolError(`${label} must be a canonical public reference`);
+  if (decoded === null) throw new ApiProtocolError(`${label} must be a valid public reference.`);
   return decoded;
 }
 
@@ -63,12 +63,12 @@ function gradebookPath(courseId: CourseId, request: CalculatedGradebookQuery): s
   if (filter.kind === "assignment") {
     query.set(
       "assignmentRef",
-      canonicalReference(filter.assignment, "assignment", parseAssignmentReference),
+      requirePublicReference(filter.assignment, "assignment", parseAssignmentReference),
     );
   } else if (filter.kind === "student") {
     query.set(
       "membershipRef",
-      canonicalReference(filter.membership, "membership", parseCourseMembershipReference),
+      requirePublicReference(filter.membership, "membership", parseCourseMembershipReference),
     );
   } else if (filter.kind === "operation") {
     query.set("operationRef", decodeInstructorGradingOperationReference(filter.operation));
@@ -95,7 +95,7 @@ function addSelectionFilter(query: URLSearchParams, filter: GradebookSelectionFi
   if (filter.kind === "assignment") {
     query.set(
       "assignmentRef",
-      canonicalReference(filter.assignment, "assignment", parseAssignmentReference),
+      requirePublicReference(filter.assignment, "assignment", parseAssignmentReference),
     );
     return;
   }
@@ -120,12 +120,16 @@ function submittedAssignmentAttemptChoicesPath(
   request: SubmittedAssignmentAttemptChoicesQuery,
 ): string {
   const course = decodeIdentifier(courseId, "course");
-  const checkedMembership = canonicalReference(
+  const checkedMembership = requirePublicReference(
     membership,
     "membership",
     parseCourseMembershipReference,
   );
-  const checkedAssignment = canonicalReference(assignment, "assignment", parseAssignmentReference);
+  const checkedAssignment = requirePublicReference(
+    assignment,
+    "assignment",
+    parseAssignmentReference,
+  );
   const query = pageQuery(request.cursor, request.pageSize);
   if (request.operationRef !== undefined) {
     query.set("operationRef", decodeInstructorGradingOperationReference(request.operationRef));
@@ -142,13 +146,17 @@ function inspectionPath(
   operationRef: InstructorGradingOperationReference | undefined,
 ): string {
   const course = decodeIdentifier(courseId, "course");
-  const checkedMembership = canonicalReference(
+  const checkedMembership = requirePublicReference(
     membership,
     "membership",
     parseCourseMembershipReference,
   );
-  const checkedAssignment = canonicalReference(assignment, "assignment", parseAssignmentReference);
-  const checkedAssignmentAttempt = canonicalReference(
+  const checkedAssignment = requirePublicReference(
+    assignment,
+    "assignment",
+    parseAssignmentReference,
+  );
+  const checkedAssignmentAttempt = requirePublicReference(
     assignmentAttempt,
     "Assignment Attempt",
     parseAssignmentAttemptReference,

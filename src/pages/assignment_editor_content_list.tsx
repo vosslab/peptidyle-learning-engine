@@ -1,4 +1,4 @@
-// assignment_editor_content_list.tsx - ordered fixed-question and pool definition controls.
+// assignment_editor_content_list.tsx - ordered Assignment Entry controls.
 
 import { For, type JSX } from "solid-js";
 
@@ -18,7 +18,7 @@ export interface AssignmentEditorContentListProps {
   readonly createMode: boolean;
   readonly busy: boolean;
   readonly preview: QuestionPoolPreview | undefined;
-  readonly resolveEntries: (
+  readonly resolveQuestionPoolItems: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onMove: (entryIndex: number, direction: -1 | 1) => void;
@@ -30,7 +30,7 @@ export interface AssignmentEditorContentListProps {
   readonly onRemovePool: (entryIndex: number) => void;
   readonly onMessage: (message: string) => void;
   readonly onPreviewPool: (assignmentEntryId: string) => void;
-  readonly onChoosePoolEntries: (entryIndex: number, trigger: HTMLButtonElement) => void;
+  readonly onChooseQuestionPoolItems: (entryIndex: number, trigger: HTMLButtonElement) => void;
 }
 
 export function AssignmentEditorContentList(props: AssignmentEditorContentListProps): JSX.Element {
@@ -41,7 +41,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           entry={entry}
           entryIndex={entryIndex}
           entryCount={props.entries.length}
-          resolveEntries={props.resolveEntries}
+          resolveQuestionPoolItems={props.resolveQuestionPoolItems}
           onChange={(nextEntry) => props.onPoolChange(entryIndex, nextEntry)}
           onMove={(direction) => props.onMove(entryIndex, direction)}
           onRemove={() => props.onRemovePool(entryIndex)}
@@ -51,7 +51,9 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
           onPreview={() => {
             if (entry.id !== undefined) props.onPreviewPool(entry.id);
           }}
-          onChooseEntries={(trigger) => props.onChoosePoolEntries(entryIndex, trigger)}
+          onChooseQuestionPoolItems={(trigger) =>
+            props.onChooseQuestionPoolItems(entryIndex, trigger)
+          }
         />
       );
     }

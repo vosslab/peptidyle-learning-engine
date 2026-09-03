@@ -6,13 +6,13 @@ import type { QuestionAttemptTiming } from "../../generated/api/QuestionAttemptT
 import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
+import type { QuestionPresentationResponseFormat } from "../../generated/api/QuestionPresentationResponseFormat";
 import type { QuestionRevision } from "../../generated/api/QuestionRevision";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
-import type { QuestionVariationRule } from "../../generated/api/QuestionVariationRule";
 import type { WorkspaceImportId } from "../../generated/api/WorkspaceImportId";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
@@ -27,9 +27,36 @@ export type {
 import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
 
 export type FormatValidator = (
-  definition: QuestionResponseFormat,
+  responseFormat: QuestionResponseFormat,
   response: StudentResponse,
 ) => Promise<StudentResponseFormatCheck>;
+
+export type PresentationFormatValidator = (
+  responseFormat: QuestionPresentationResponseFormat,
+  response: StudentResponse,
+) => Promise<StudentResponseFormatCheck>;
+
+export type ResponseFormatValidator = (
+  responseFormat: QuestionResponseFormat | QuestionPresentationResponseFormat,
+  response: StudentResponse,
+) => Promise<StudentResponseFormatCheck>;
+
+function isQuestionPresentationResponseFormat(
+  responseFormat: QuestionResponseFormat | QuestionPresentationResponseFormat,
+): responseFormat is QuestionPresentationResponseFormat {
+  return (
+    [
+      "singleChoice",
+      "multipleAnswer",
+      "fillIn",
+      "multiFillIn",
+      "numerical",
+      "imathasQuestionBackend",
+    ].includes(responseFormat.kind) ||
+    (responseFormat.kind === "matching" && "reuseChoices" in responseFormat) ||
+    (responseFormat.kind === "hotspot" && typeof responseFormat.surface === "object")
+  );
+}
 
 export interface QuestionAttemptTimingEvaluation {
   readonly policy: QuestionAttemptTimeLimit;
@@ -75,13 +102,11 @@ export interface PleDraftPreviewRequest {
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly questionVariationRule: QuestionVariationRule;
 }
 
 /** Identity-free Question Prompt and Question Response Format returned for a local PLE draft preview. */
 export interface PleDraftPreview {
   readonly workspace: string;
-  readonly seed: number;
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
@@ -95,10 +120,7 @@ export type PleDraftPreviewResult =
       readonly capability: "offlinePreview";
     };
 
-export type PleDraftPreviewer = (
-  request: PleDraftPreviewRequest,
-  seed: number,
-) => Promise<PleDraftPreviewResult>;
+export type PleDraftPreviewer = (request: PleDraftPreviewRequest) => Promise<PleDraftPreviewResult>;
 
 export type PresentationVerification =
   { readonly kind: "match" } | { readonly kind: "mismatch" } | { readonly kind: "unavailable" };
@@ -112,7 +134,7 @@ export type PresentationVerifier = (
 export interface WasmFacade {
   readonly mode: "wasm" | "serverFallback";
   readonly degradedReason?: string;
-  readonly validateResponseFormat: FormatValidator;
+  readonly validateResponseFormat: ResponseFormatValidator;
   readonly questionAttemptTimingDecision: TimerEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
   readonly previewPleDraft: PleDraftPreviewer;
@@ -123,8 +145,12 @@ interface WasmBindgenModule {
   readonly default: (moduleOrPath: URL) => Promise<unknown>;
   readonly question_attempt_timing_decision: (evaluationJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
-  readonly validate_response_format: (definitionJson: string, responseJson: string) => string;
-  readonly preview_ple_draft: (draftJson: string, seedJson: string) => string;
+  readonly validate_response_format: (responseFormatJson: string, responseJson: string) => string;
+  readonly validate_presentation_response_format: (
+    responseFormatJson: string,
+    responseJson: string,
+  ) => string;
+  readonly preview_ple_draft: (draftJson: string) => string;
   readonly verify_presentation_descriptor: (
     presentationJson: string,
     questionAssetRenditionsJson: string,
@@ -147,6 +173,7 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
     typeof value["question_attempt_timing_decision"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
+    typeof value["validate_presentation_response_format"] === "function" &&
     typeof value["preview_ple_draft"] === "function" &&
     typeof value["verify_presentation_descriptor"] === "function"
   );
@@ -196,7 +223,7 @@ export function decodePleDraftPreviewResult(json: string): PleDraftPreviewResult
   const preview = value["preview"];
   rejectUnknownFields(
     preview,
-    new Set(["workspace", "seed", "title", "prompt", "response"]),
+    new Set(["workspace", "title", "prompt", "response"]),
     "WASM preview",
   );
   for (const forbidden of ["problem", "version", "answer", "key", "grading", "correct", "score"]) {
@@ -296,11 +323,13 @@ async function initializeWasmFacade(
     }
     await loaded.default(wasmAssetUrl("ple_bridge_bg.wasm"));
 
-    const validateResponseFormat: FormatValidator = (definition, response) => {
-      const json = loaded.validate_response_format(
-        JSON.stringify(definition),
-        JSON.stringify(response),
-      );
+    const validateResponseFormat: ResponseFormatValidator = (responseFormat, response) => {
+      const json = isQuestionPresentationResponseFormat(responseFormat)
+        ? loaded.validate_presentation_response_format(
+            JSON.stringify(responseFormat),
+            JSON.stringify(response),
+          )
+        : loaded.validate_response_format(JSON.stringify(responseFormat), JSON.stringify(response));
       return Promise.resolve(parseStudentResponseFormatCheck(json));
     };
     const questionAttemptTimingDecision: TimerEvaluator = (evaluation) =>
@@ -313,11 +342,9 @@ async function initializeWasmFacade(
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
       );
-    const previewPleDraft: PleDraftPreviewer = (request, seed) =>
+    const previewPleDraft: PleDraftPreviewer = (request) =>
       Promise.resolve(
-        decodePleDraftPreviewResult(
-          loaded.preview_ple_draft(JSON.stringify(request), JSON.stringify(seed)),
-        ),
+        decodePleDraftPreviewResult(loaded.preview_ple_draft(JSON.stringify(request))),
       );
     const verifyPresentationDescriptor: PresentationVerifier = (
       presentation,
@@ -345,7 +372,14 @@ async function initializeWasmFacade(
     return {
       mode: "serverFallback",
       degradedReason: errorMessage(error),
-      validateResponseFormat: formatFallback,
+      validateResponseFormat: (responseFormat, response): Promise<StudentResponseFormatCheck> => {
+        if (isQuestionPresentationResponseFormat(responseFormat)) {
+          return Promise.reject(
+            new Error("Question Presentation response validation requires the browser runtime."),
+          );
+        }
+        return formatFallback(responseFormat, response);
+      },
       questionAttemptTimingDecision: timerFallback,
       validateAssignmentConfig: capabilityFallback,
       previewPleDraft: (request) =>

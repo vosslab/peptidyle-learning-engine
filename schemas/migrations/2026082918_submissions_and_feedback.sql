@@ -1,4 +1,4 @@
--- SD1 private submitted responses and Student-visible feedback release state.
+-- Question Submissions and Student Feedback release state.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.question_submission (

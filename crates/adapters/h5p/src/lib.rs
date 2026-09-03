@@ -1,4 +1,4 @@
-//! MOD-ADP-H5P: H5P Package Import for ungraded practice.
+//! H5P Package Import for ungraded practice.
 //!
 //! H5P evaluates in the browser and never reaches the Question Backend or
 //! grading lifecycles. The import result remains ungraded practice and cannot

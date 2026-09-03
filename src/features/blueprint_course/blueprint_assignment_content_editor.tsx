@@ -51,13 +51,13 @@ function readMoment(value: string): RelativeAssignmentScheduleMoment | null {
 
 function entrySummary(entry: BlueprintAssignmentContentInput["entries"][number]): string {
   if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
-  return `Question Pool: select ${entry.selection_count} from ${plural(entry.entries.length, "entry")}`;
+  return `Question Pool: select ${entry.selection_count} from ${plural(entry.items.length, "Item")}`;
 }
 
 function lateWorkRuleFromValue(
   value: string,
 ): BlueprintAssignmentContentInput["defaults"]["late_work_rule"] | undefined {
-  return value === "accept" || value === "markLate" || value === "reject" ? value : undefined;
+  return value === "accept" || value === "mark_late" || value === "reject" ? value : undefined;
 }
 
 function assignmentAttemptGradeRuleFromValue(
@@ -216,7 +216,7 @@ export function BlueprintAssignmentContentEditor(
                         <input
                           type="number"
                           min="1"
-                          max={entry.kind === "pool" ? entry.entries.length : 1}
+                          max={entry.kind === "pool" ? entry.items.length : 1}
                           value={entry.kind === "pool" ? entry.selection_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
@@ -319,7 +319,7 @@ export function BlueprintAssignmentContentEditor(
               }}
             >
               <option value="accept">Accept</option>
-              <option value="markLate">Accept and mark late</option>
+              <option value="mark_late">Accept and mark late</option>
               <option value="reject">Reject</option>
             </select>
           </label>
@@ -387,7 +387,7 @@ export function BlueprintAssignmentContentEditor(
             mode="many"
             maximumSelection={1024}
             trigger={pickerTrigger}
-            title={intent === "pool" ? "Choose pool entries" : "Choose fixed questions"}
+            title={intent === "pool" ? "Choose Question Pool Items" : "Choose fixed Questions"}
             confirmLabel={intent === "pool" ? "Add pool" : "Add fixed questions"}
             onConfirm={confirmPicker}
             onCancel={() => setPickerIntent(undefined)}

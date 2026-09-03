@@ -1,7 +1,7 @@
 //! Acceptance contract for immutable published QTI import archives.
 //!
-//! WP-QTI-9 owns the server copy. Its required sequence is deliberately
-//! specified here without adding that behavior to this crate:
+//! The server-side QTI import flow owns the copy. This contract specifies its
+//! required sequence without adding server behavior to this crate:
 //!
 //! 1. `get` the typed workspace archive and verify its record and bytes;
 //! 2. derive the typed published candidate and `put` it;
@@ -30,7 +30,7 @@ fn question_revision(revision_number: u32) -> QuestionRevisionReference {
     }
 }
 
-/// The complete `AlreadyExists` acceptance comparison from the locked WP-QTI protocol.
+/// The complete `AlreadyExists` acceptance comparison for the published QTI import protocol.
 ///
 /// `storage_area` is included because it is derived from the typed Object Address and must not drift
 /// from the content-area relationship. Question licensing and creation time are deliberately not

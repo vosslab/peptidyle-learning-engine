@@ -11,7 +11,7 @@ import type { CourseInstanceReference } from "../../../generated/api/CourseInsta
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { StudentResponseInspection } from "../../../generated/api/StudentResponseInspection";
 import type { StudentResponseInspectionFeedback } from "../../../generated/api/StudentResponseInspectionFeedback";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import {
@@ -65,10 +65,10 @@ const COURSE_GRADE_UNAVAILABLE_REASONS = [
 const RELOAD_REASONS = ["schemeChanged", "rosterChanged", "filterChanged"] as const;
 const MAX_PRESENTED_ITEMS = 32;
 const MAX_INSPECTED_SUBMISSIONS = MAX_ASSIGNMENT_ORDERED_ENTRIES;
-// One presentation permits 32 prompt blocks and at most 32 rendered items,
+// One presentation permits 32 prompt blocks and at most 32 Presentation Response Items,
 // each with at most 32 content blocks. The transport supplies the byte bound.
 const MAX_ASSET_BINDINGS = MAX_PRESENTED_ITEMS * (MAX_PRESENTED_ITEMS + 1);
-const RENDERED_ITEM_ID = /^[0-9a-f]{4}$/u;
+const PRESENTATION_RESPONSE_ITEM_REFERENCE = /^[0-9a-f]{4}$/u;
 
 export type CalculatedCourseGradeOutcome =
   | {
@@ -137,7 +137,7 @@ export interface CalculatedGradebookQuery {
 export type InspectedSubmissionEvidence =
   | {
       readonly kind: "issuedPresentation";
-      readonly question: QuestionVariationPresentation;
+      readonly question: QuestionPresentation;
       readonly questionAssetRenditions: ReadonlyArray<QuestionAssetRendition>;
       readonly issuedPresentationChecksum: string;
     }
@@ -409,10 +409,10 @@ export function decodeCalculatedGradebookResult(
   };
 }
 
-function renderedItemId(value: unknown, path: string): string {
+function presentationResponseItemReference(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!RENDERED_ITEM_ID.test(decoded)) {
-    throw new DecodeError(path, "a four-character lowercase rendered item ID");
+  if (!PRESENTATION_RESPONSE_ITEM_REFERENCE.test(decoded)) {
+    throw new DecodeError(path, "a four-character lowercase Presentation Response Item Reference");
   }
   return decoded;
 }
@@ -439,7 +439,7 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           field(record, "selected", path),
           `${path}.selected`,
           MAX_PRESENTED_ITEMS,
-          renderedItemId,
+          presentationResponseItemReference,
         ),
       };
     case "shortText":
@@ -459,7 +459,10 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           (item, itemPath) => {
             const answer = closed(item, itemPath, ["slot", "text"]);
             return {
-              slot: renderedItemId(field(answer, "slot", itemPath), `${itemPath}.slot`),
+              slot: presentationResponseItemReference(
+                field(answer, "slot", itemPath),
+                `${itemPath}.slot`,
+              ),
               text: inspectedText(field(answer, "text", itemPath), `${itemPath}.text`),
             };
           },
@@ -476,8 +479,14 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           (item, itemPath) => {
             const pair = closed(item, itemPath, ["prompt", "choice"]);
             return {
-              prompt: renderedItemId(field(pair, "prompt", itemPath), `${itemPath}.prompt`),
-              choice: renderedItemId(field(pair, "choice", itemPath), `${itemPath}.choice`),
+              prompt: presentationResponseItemReference(
+                field(pair, "prompt", itemPath),
+                `${itemPath}.prompt`,
+              ),
+              choice: presentationResponseItemReference(
+                field(pair, "choice", itemPath),
+                `${itemPath}.choice`,
+              ),
             };
           },
         ),
@@ -490,7 +499,7 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           field(record, "order", path),
           `${path}.order`,
           MAX_PRESENTED_ITEMS,
-          renderedItemId,
+          presentationResponseItemReference,
         ),
       };
     case "hotspot":
@@ -501,7 +510,7 @@ function decodeInspectedResponse(value: unknown, path: string): StudentResponseI
           field(record, "selectedRegions", path),
           `${path}.selectedRegions`,
           MAX_PRESENTED_ITEMS,
-          renderedItemId,
+          presentationResponseItemReference,
         ),
       };
     case "imathasQuestionBackend":

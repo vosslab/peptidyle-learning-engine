@@ -47,31 +47,31 @@ pub enum ActiveStudentCourseMembershipDecision {
     Denied(ActiveStudentCourseMembershipDenial),
 }
 
-/// Identity-free normalized facts for a synthetic T3 preview subject.
+/// Identity-free normalized facts for a Hypothetical Student View Scenario.
 ///
 /// Neither this type nor its resulting grant can represent a Student,
 /// membership, or persisted Student Record.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SyntheticPreviewAdmissionFacts {
+pub struct HypotheticalStudentViewScenarioAdmissionFacts {
     course: CourseId,
     assignment: AssignmentId,
 }
 
-impl SyntheticPreviewAdmissionFacts {
+impl HypotheticalStudentViewScenarioAdmissionFacts {
     pub fn new(course: CourseId, assignment: AssignmentId) -> Self {
         Self { course, assignment }
     }
 }
 
-/// S5-minted synthetic preview authority. Its fields deliberately remain
-/// private so only this module can approve synthetic preview authority.
+/// Module-minted Hypothetical Student View Scenario admission. Its fields deliberately
+/// remain private so only this module can approve scenario scope.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SyntheticPreviewAdmission {
+pub struct HypotheticalStudentViewScenarioAdmission {
     course: CourseId,
     assignment: AssignmentId,
 }
 
-impl SyntheticPreviewAdmission {
+impl HypotheticalStudentViewScenarioAdmission {
     pub fn course(&self) -> CourseId {
         self.course
     }
@@ -80,10 +80,17 @@ impl SyntheticPreviewAdmission {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypotheticalStudentViewScenarioAdmissionDenial {
+    CourseNotFound,
+    AssignmentNotFound,
+    AssignmentOutsideCourse,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SyntheticPreviewAdmissionDecision {
-    Granted(SyntheticPreviewAdmission),
-    Denied(ActiveStudentCourseMembershipDenial),
+pub enum HypotheticalStudentViewScenarioAdmissionDecision {
+    Granted(HypotheticalStudentViewScenarioAdmission),
+    Denied(HypotheticalStudentViewScenarioAdmissionDenial),
 }
 
 /// All normalized facts the Store must load under its transaction boundary.
@@ -122,15 +129,18 @@ pub fn evaluate_active_student_course_membership(
     })
 }
 
-/// Decides synthetic preview authority without a Student identity or a
-/// Student authority token.
-pub fn admit_synthetic_preview(
-    facts: SyntheticPreviewAdmissionFacts,
-) -> SyntheticPreviewAdmissionDecision {
-    SyntheticPreviewAdmissionDecision::Granted(SyntheticPreviewAdmission {
-        course: facts.course,
-        assignment: facts.assignment,
-    })
+/// Mints scenario admission after Store-owned course and Assignment scope resolution.
+///
+/// The admission carries neither a Student identity nor a Student authority token.
+pub fn admit_hypothetical_student_view_scenario(
+    facts: HypotheticalStudentViewScenarioAdmissionFacts,
+) -> HypotheticalStudentViewScenarioAdmissionDecision {
+    HypotheticalStudentViewScenarioAdmissionDecision::Granted(
+        HypotheticalStudentViewScenarioAdmission {
+            course: facts.course,
+            assignment: facts.assignment,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -180,14 +190,16 @@ mod tests {
     }
 
     #[test]
-    fn synthetic_preview_grants_direct_assignment_access() {
-        let decision = admit_synthetic_preview(SyntheticPreviewAdmissionFacts::new(
-            CourseId::from_uuid(id(2)),
-            AssignmentId::from_uuid(id(3)),
-        ));
+    fn hypothetical_student_view_scenario_grants_scope_admission() {
+        let decision = admit_hypothetical_student_view_scenario(
+            HypotheticalStudentViewScenarioAdmissionFacts::new(
+                CourseId::from_uuid(id(2)),
+                AssignmentId::from_uuid(id(3)),
+            ),
+        );
         assert!(matches!(
             decision,
-            SyntheticPreviewAdmissionDecision::Granted(_)
+            HypotheticalStudentViewScenarioAdmissionDecision::Granted(_)
         ));
     }
 }

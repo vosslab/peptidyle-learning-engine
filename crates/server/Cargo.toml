@@ -1,4 +1,4 @@
-# MOD-SRV: axum routes, auth, worker mode, composition root.
+# Axum routes, authentication, worker mode, and composition root.
 # The only member allowed to depend on every crate above it.
 [package]
 name = "server_core"
@@ -54,7 +54,6 @@ adapter_ple.workspace = true
 adapter_webwork.workspace = true
 adapter_imathas = { workspace = true, features = ["http-transport"] }
 adapter_qti.workspace = true
-export_crate.workspace = true
 # Feature flags, not direct dependencies: the sqlx driver stays inside
 # `learning-data-access`
 # and the AWS SDK stays inside `objects`, so this crate never names either.

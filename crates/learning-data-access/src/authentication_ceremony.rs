@@ -8,7 +8,7 @@ use std::num::NonZeroU32;
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{AccountId, AccountRole, Timestamp};
+use question_model::{AccountId, ProductRole, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -121,7 +121,7 @@ pub struct AuthenticatedAccount {
     /// Existing global Account verified by the ceremony.
     pub account: AccountId,
     /// Immutable Product Role stored with that Account.
-    pub role: AccountRole,
+    pub product_role: ProductRole,
 }
 
 /// Durable identity for one registered passkey.

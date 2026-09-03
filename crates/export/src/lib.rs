@@ -1,4 +1,4 @@
-//! MOD-EXPORT: answer-key-free print models and deterministic artifact writers.
+//! Answer-key-free print models and deterministic artifact writers.
 //!
 //! The worker resolves immutable, published assets before it calls this crate.
 //! This crate receives verified bytes only: it never receives an Object Address,

@@ -33,16 +33,16 @@ them without creating a second product vocabulary.
 | Concern                               | Common PLE rule                                                                                                                                                                                                                                                              |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source authority                      | A published `QuestionRevision` and immutable `QuestionRevisionReference` select the backend. A browser does not select a backend, source path, source bytes, seed, renderer, or backend configuration.                                                                       |
-| Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published reference, definition, and server-owned seed. It returns a key-free Question Presentation, parameter hash, and Question Attempt Reproduction Details.    |
+| Issuance                              | A Question Backend adapter receives trusted server-derived Account and exact course/Student relationship, published Question Revision, and server-owned seed. It returns a key-free Question Presentation and Question Attempt Reproduction Details.                         |
 | Reproduction                          | A Question Backend adapter limits reproduction to issue-time work and explicit active Question Backends without a public Question Presentation. Presentation-bearing first submit and submitted delivery validate the owned snapshot/private Question Grading Input instead. |
 | Response                              | The browser submits `StudentResponse` to a PLE same-origin attempt route with an idempotency key. It never submits a score, iMathAS Session Authentication state, source identity, renderer field, or answer key.                                                            |
 | Grade                                 | A Question Backend adapter returns a server-side outcome. The later delivery route owns policy-aware persistence; the iMathAS Question Backend may atomically commit its verified iMathAS Result Exchange.                                                                   |
-| Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version and Question Generator, Source Object Reference, bound assets, Question Grader Version, and rendered-question SHA-256.                                           |
+| Question Attempt Reproduction Details | `QuestionAttemptReproductionDetails` records a Question Backend Version, optional Question Renderer Version, Source Object Reference, bound assets, Question Grader Version, and Rendered Question SHA-256.                                                                  |
 | Failure                               | A backend reports `Unsupported`, `Invalid`, or `Unavailable`. An unavailable renderer or iMathAS Question Backend is not converted into a student incorrect response.                                                                                                        |
 | Capabilities                          | `QuestionBackendCapabilities` is a closed declaration. Publication validation refuses an assignment requiring a capability the selected backend did not declare.                                                                                                             |
 
 The browser-safe `QuestionPresentation` contains a public response shape and student presentation, never
-an answer key. Its render `kind` selects the browser widget. The planned compact response wire drops
+an answer key. Its render `kind` selects the browser Question Response Control. The planned compact response wire drops
 the redundant response `kind`, because the authoritative attempt already selects the Question Response Format.
 See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and target payloads.
 
@@ -52,7 +52,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON                | Immutable PLE Question Source and private Question Grading Input                                                                                                 | Typed PLE Question JSON response  | PLE Question Backend plus isolated PLE Question JSON grader | All eight PLE Question JSON schema version 2 Question Types; supported Authoring Workspace fields; imported/trusted Question Asset bindings and all-type acceptance remain open |
 | QTI profile                      | Immutable staged/published archive plus profile conversion evidence                                                                                              | Typed PLE response                | `QtiBackend` plus least-privilege `QtiGradingStore`         | Canvas 1.2 and Blackboard 2.1 static single-choice profiles                                                                                                                     |
-| WeBWorK                          | Immutable licensed PGML source and private renderer                                                                                                              | Opaque PLE choice or match IDs    | Private `/render-api` Question Backend                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                                                           |
+| WeBWorK                          | Immutable PGML Question Source governed by its owning Question License and private renderer                                                                      | Opaque PLE choice or match IDs    | Private `/render-api` Question Backend                      | Four reviewed Chapter 1 PGML sources: MC plus MATCH per chapter; exact-source matching partial credit                                                                           |
 | iMathAS                          | Immutable Question Source resolution plus strict versioned iMathAS Launch State bytes                                                                            | Same-origin `{ launchUrl }` only  | iMathAS Launch/Result HMAC and protocol verification        | Browser shell has no Challenge/Session/backend secrets; LDA-backed Rust route and backend composition remain downstream                                                         |
 | iMathAS Question Backend Session | Exact Account/course/Student attempt, Question Revision, `ImathasQuestionBackendBinding`, seed, Challenge, authentication, and verified Result Exchange checksum | No Session/Challenge/token output | LDA Store with one-use forward transition                   | Browser launch shell is mounted; LDA-backed Rust route, cookie/env backend composition, and live backend remain absent                                                          |
 
@@ -74,7 +74,7 @@ version, or a scoring decision.
 
 The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multiple choice, multiple answer, fill-in-the-blank, multi-blank, numerical, matching, ordering, and hotspot questions. The PLE Question Backend dispatches by
-registered PLE Question Implementation for the explicit Question Format, Question Type, and optional Question Generator rather than making the Assignment Attempt model type-specific. The browser authoring
+registered PLE Question Implementation for the explicit Question Format and Question Type rather than making the Assignment Attempt model type-specific. The browser authoring
 surface exposes supported Authoring Workspace fields for seven v2 Question Types; HOTSPOT source data enters through
 registered imported or trusted Question Asset References. Its instructor route is a convenience surface only: the server
 re-resolves source and Question Asset References at save and publication, and the student contract remains
@@ -83,7 +83,7 @@ hotspot asset bindings, remains open.
 
 ### Grade, replay, and cache
 
-The server validates immutable reference, seed, parameter hash, rendered-question hash, and asset
+The server validates immutable reference, Question Seed, Rendered Question SHA-256, and asset
 References before generic grading or isolated PLE Question JSON grading. First PLE Question JSON grade reads only the issued
 checksummed PLE Question JSON Private Grading; ordinary published-Question and browser paths cannot read that private grading data or
 replace it with a current Question Grader view. Question Attempt Reproduction Details name the PLE Question Backend and
@@ -112,7 +112,7 @@ hostile-input profile and records safe reports, checksums, normalized item facts
 server-only grading handoff. Publication atomically pins archive and item identity.
 
 At issue or replay, `QtiBackend` rereads the exact published archive, verifies object identity and
-SHA-256, reparses it, checks the selected item against the durable public definition, resolves
+SHA-256, reparses it, checks the selected item against the durable answer-free Question Content, resolves
 immutable assets, and returns a normal answer-free PLE Question Presentation. The student submits the same typed
 PLE response as for PLE Questions. Student JSON has no QTI XML, archive Object Address, import ID, or
 answer binding.
@@ -123,7 +123,7 @@ answer binding.
 `QtiGradingStore`. The normal published-Question/object store resolves public archive and asset evidence but
 cannot recover correct responses. Issue, replay, and grade fail closed if archive, checksum, item,
 asset mapping, or private binding no longer reproduces. The Question Attempt Reproduction Details records private-profile adapter,
-Source Object Reference, bound assets, QTI private grader, and rendered Question Presentation checksum.
+Source Object Reference, bound assets, QTI private grader, and Rendered Question SHA-256.
 
 When explicitly configured, QTI declares `serverGrading`. Current accepted import profiles are static
 single-choice Canvas QTI 1.2 and Blackboard Original QTI 2.1 pools. Other XML, interaction types,
@@ -137,8 +137,8 @@ not enable them.
 
 ### Source and render
 
-**Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to immutable,
-licensed, user-authored PGML source and a fixed seed. The API sends server-owned form data to a
+**Accepted bounded path.** PLE is the only WebWork client. A Published Question resolves to an immutable,
+user-authored PGML Question Source governed by its owning Question License and a fixed seed. The API sends server-owned form data to a
 private standalone `/render-api` Question Backend service. The browser receives only a typed PLE Question Presentation
 and opaque presentation-scoped Question Choice References. It never receives PG source, file path, renderer
 URL, credentials, upstream hidden fields, cookies, session key, radio name, or radio value.
@@ -152,8 +152,8 @@ side. A student submits PLE IDs to PLE, not upstream form fields.
 For a newly issued attempt, PLE resolves immutable source, captures and validates the private
 field/value mapping, converts durable Question Choice References to presentation-scoped Response Item References, and
 persists that mapping with the exact public snapshot, private Question Grading Input, and frozen WeBWorK
-definition. Normal grade reloads those validated artifacts, maps the student's rendered ID through
-the private Question Grading Input, and makes one private grade request. It does not reconstruct an issuance
+Question Source. Normal grade reloads those validated artifacts, maps the Student's Presentation Response Item Reference through
+the private Response Item Binding and Question Grading Input, and makes one private grade request. It does not reconstruct an issuance
 render or resolve a current published Question Revision. The mapping never
 appears in a Question Presentation, safe cache, receipt, log event, or browser response.
 
@@ -172,7 +172,7 @@ do not produce a grade or leak secrets.
 ### Capabilities and scope
 
 The configured backend declares `algorithmicGeneration` and `serverGrading`. The reviewed matching
-sources additionally declare `partialCredit` only when both their source path and immutable digest
+sources additionally declare `partialCredit` only when both their source path and immutable Source Object Checksum
 match the evidence profile. Other PG sources remain all-or-nothing.
 
 **Planned.** Generic PG controls, unreviewed matching sources, broad OPL compatibility, browser
@@ -239,7 +239,7 @@ iMathAS callbacks remain outside the supported boundary.
 ## Extension rules
 
 1. Define durable published and private draft source identity without secrets or mutable endpoints.
-2. Pin source bytes, checksum, license, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
+2. Pin source bytes, Source Object Checksum, Question License, Question Attempt Reproduction Details, implementation/profile facts, and assets at publication.
 3. Issue an answer-free Question Presentation; keep keys, rubrics, mappings, credentials, iMathAS Session Authentication state, and raw results server-only.
 4. At issue, capture the exact version/seed render, compare the complete Question Attempt Reproduction Details, and persist its
    answer-free public snapshot plus server-only Question Grading Input. Retry, submitted delivery, and

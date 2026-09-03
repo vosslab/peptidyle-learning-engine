@@ -1,4 +1,4 @@
--- SD1 atomic passwordless-credential completion operations.
+-- Passwordless credential completion.
 --
 -- These operations establish only an existing Account's immutable role. The
 -- route subsequently creates the one Authenticated Session through its
@@ -10,7 +10,7 @@ BEGIN
     IF current_user <> 'ple_migrator'
        OR NOT pg_catalog.pg_has_role('ple_migrator', 'ple_private_owner', 'SET') THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'migration 2026082933 requires the SD1 private migration principal';
+            MESSAGE = 'migration 2026082933 requires the private migration principal';
     END IF;
 END
 $$;
@@ -24,7 +24,7 @@ CREATE FUNCTION ple_private.consume_email_authentication_challenge(
     p_proof_hash bytea,
     p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, role text)
+RETURNS TABLE (account_id uuid, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -40,7 +40,7 @@ AS $$
            AND pg_catalog.octet_length(p_browser_binding_hash) = 32
          RETURNING challenge.target_account_id
     )
-    SELECT account.account_id, account.role
+    SELECT account.account_id, account.product_role
       FROM consumed
       JOIN ple_private.account AS account ON account.account_id = consumed.target_account_id
 $$;
@@ -53,7 +53,7 @@ CREATE FUNCTION ple_private.consume_passkey_authentication(
     p_credential_id_hash bytea,
     p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, role text)
+RETURNS TABLE (account_id uuid, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
@@ -76,7 +76,7 @@ AS $$
            AND pg_catalog.octet_length(p_credential_id_hash) = 32
          RETURNING passkey.account_id
     )
-    SELECT account.account_id, account.role
+    SELECT account.account_id, account.product_role
       FROM used_passkey
       JOIN ple_private.account AS account ON account.account_id = used_passkey.account_id
 $$;
@@ -99,7 +99,7 @@ CREATE FUNCTION ple_api.consume_email_authentication_challenge(
     p_proof_hash bytea,
     p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, role text)
+RETURNS TABLE (account_id uuid, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
@@ -113,7 +113,7 @@ CREATE FUNCTION ple_api.consume_passkey_authentication(
     p_credential_id_hash bytea,
     p_browser_binding_hash bytea
 )
-RETURNS TABLE (account_id uuid, role text)
+RETURNS TABLE (account_id uuid, product_role text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$

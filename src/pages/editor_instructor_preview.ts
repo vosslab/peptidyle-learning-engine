@@ -3,13 +3,11 @@
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
-import type { QuestionSeed } from "../../generated/api/QuestionSeed";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import {
   DecodeError,
   decodeField,
   decodeNonemptyString,
-  decodeNonnegativeInteger,
   decodeRecord,
   decodeString,
   decodeStringEnum,
@@ -18,7 +16,6 @@ import { decodeKeyFreeDraftPreview, decodeStudentFeedback } from "../api/decoder
 
 const QUESTION_BACKENDS: ReadonlyArray<QuestionBackend> = ["ple", "webwork", "qti", "imathas"];
 
-const MAX_PREVIEW_SEED = 4_294_967_295;
 const MAX_WORKSPACE_REVISION = 9_223_372_036_854_775_807n;
 
 /** The safe presentation an instructor explicitly asks the server to derive. */
@@ -26,7 +23,6 @@ export interface InstructorPreviewPresentation {
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
-  readonly seed: QuestionSeed;
   /** Display-ready blocks, not a reusable grading key or answer representation. */
   readonly questionAnswer: ReadonlyArray<QuestionContentBlock>;
   readonly questionAnswerExplanation?: ReadonlyArray<QuestionContentBlock>;
@@ -53,7 +49,6 @@ type DecodedInstructorPreview =
 export interface InstructorPreviewBoundary {
   readonly requestPresentation: (
     workspace: WorkspaceId,
-    seed: QuestionSeed,
     revision: string,
   ) => Promise<InstructorPreviewResult>;
 }
@@ -99,14 +94,6 @@ function requireOnlyFields(
   }
 }
 
-function decodePreviewSeed(value: unknown, path: string): QuestionSeed {
-  const seed = decodeNonnegativeInteger(value, path);
-  if (seed > MAX_PREVIEW_SEED) {
-    throw new DecodeError(path, `an integer no larger than ${MAX_PREVIEW_SEED}`);
-  }
-  return seed;
-}
-
 function decodePresentation(
   record: Record<string, unknown>,
   path: string,
@@ -117,16 +104,14 @@ function decodePresentation(
     "title",
     "prompt",
     "response",
-    "seed",
     "questionAnswer",
     "questionAnswerExplanation",
   ]);
-  const seed = decodePreviewSeed(decodeField(record, "seed", path), `${path}.seed`);
   const title = decodeNonemptyString(decodeField(record, "title", path), `${path}.title`);
   const prompt = decodeField(record, "prompt", path);
   const response = decodeField(record, "response", path);
   const safePreview = decodeKeyFreeDraftPreview(
-    { workspace, seed, title, prompt, response },
+    { workspace, title, prompt, response },
     `${path}.studentPresentation`,
   );
   const answer = decodeStudentFeedback(
@@ -148,7 +133,6 @@ function decodePresentation(
     title: safePreview.title,
     prompt: safePreview.prompt,
     response: safePreview.response,
-    seed: safePreview.seed,
     questionAnswer,
     ...(answer.questionAnswerExplanation === undefined
       ? {}
@@ -187,10 +171,9 @@ export function decodeInstructorPreview(
   }
 }
 
-function authorPreviewPath(workspace: WorkspaceId, seed: QuestionSeed): string {
+function authorPreviewPath(workspace: WorkspaceId): string {
   const encodedWorkspace = encodeURIComponent(workspace);
-  const query = new URLSearchParams({ seed: String(seed) });
-  return `/api/workspaces/${encodedWorkspace}/author-preview?${query.toString()}`;
+  return `/api/workspaces/${encodedWorkspace}/author-preview`;
 }
 
 function requireStrongRevision(value: string, message: string): void {
@@ -231,15 +214,12 @@ export function createInstructorPreviewClient(
 ): InstructorPreviewBoundary {
   const fetchImplementation = config.fetch ?? globalThis.fetch.bind(globalThis);
   return {
-    requestPresentation: async (workspace, seed, revision): Promise<InstructorPreviewResult> => {
-      if (!Number.isInteger(seed) || seed < 0 || seed > MAX_PREVIEW_SEED) {
-        throw new Error("Instructor preview seed must be a whole number between 0 and 4294967295");
-      }
+    requestPresentation: async (workspace, revision): Promise<InstructorPreviewResult> => {
       requireStrongRevision(
         revision,
         "Instructor preview revision must be one strong numeric ETag",
       );
-      const path = authorPreviewPath(workspace, seed);
+      const path = authorPreviewPath(workspace);
       const response = await fetchImplementation(path, {
         headers: { accept: "application/json", "if-match": revision },
         credentials: "same-origin",

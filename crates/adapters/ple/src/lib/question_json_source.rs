@@ -116,7 +116,6 @@ impl PleQuestionBackend {
         &self,
         source: &ResolvedPleQuestionJsonSource,
         seed: QuestionSeed,
-        recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
@@ -124,7 +123,6 @@ impl PleQuestionBackend {
         self.reproduce(
             source.question(),
             seed,
-            recorded_parameter_hash,
             recorded_reproduction_details,
             question_asset_object_references,
         )?;

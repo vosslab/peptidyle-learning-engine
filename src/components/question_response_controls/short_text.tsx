@@ -9,14 +9,14 @@ import {
   Actions,
   createSubmissionController,
   Status,
-  type ShortTextDefinition,
+  type ShortTextResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
 export function ShortTextResponse(
-  props: QuestionResponseControlBodyProps<ShortTextDefinition>,
+  props: QuestionResponseControlBodyProps<ShortTextResponseFormat>,
 ): JSX.Element {
-  const initialText = props.initialResponse?.text ?? "";
+  const initialText = props.initialResponse?.kind === "shortText" ? props.initialResponse.text : "";
   const [text, setText] = createSignal(initialText);
   let control!: HTMLTextAreaElement;
   const controller = createSubmissionController(props, { kind: "shortText", text: initialText });
@@ -36,7 +36,7 @@ export function ShortTextResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
@@ -44,14 +44,22 @@ export function ShortTextResponse(
     >
       <label for={`${props.attemptId}-short-text`}>Short written response</label>
       <p class="field-help" id={`${props.attemptId}-short-text-help`}>
-        Up to {props.definition.maxLength} characters. {characterCount()} used.
+        Up to{" "}
+        {props.responseFormat.kind === "fillIn"
+          ? props.responseFormat.maxCharacters
+          : props.responseFormat.maxLength}{" "}
+        characters. {characterCount()} used.
       </p>
       <textarea
         id={`${props.attemptId}-short-text`}
-        class="response-control"
+        class="question-response-control__input"
         value={text()}
         ref={(element) => (control = element)}
-        maxlength={props.definition.maxLength}
+        maxlength={
+          props.responseFormat.kind === "fillIn"
+            ? props.responseFormat.maxCharacters
+            : props.responseFormat.maxLength
+        }
         aria-describedby={`${props.attemptId}-short-text-help ${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
         disabled={controller.locked()}

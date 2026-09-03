@@ -1,9 +1,9 @@
 # Test evidence model
 
 PLE uses evidence that matches the claim being made. Fast checks protect narrow
-logic; the canonical browser suite proves visible product behavior; service
-oracles prove the service boundaries that a browser cannot distinguish. This
-document classifies that evidence. The active
+logic; a restored canonical browser suite will prove visible product behavior;
+service oracles prove the service boundaries that a browser cannot distinguish.
+This document classifies that evidence. The active
 [release_completion_plan.md](active_plans/active/release_completion_plan.md)
 owns each work package's exact acceptance scope and command list.
 
@@ -30,8 +30,15 @@ source source_me.sh && python3 local_stack.py acceptance
 ```
 
 The Rust gate precedes the codebase gate because it owns generated TypeScript
-inputs consumed by the latter. `local_stack.py acceptance` owns one canonical
-browser-suite invocation, then only distinct browser-free service oracles.
+inputs consumed by the latter. `local_stack.py acceptance` currently runs its
+two declared real-service lanes: the disposable PostgreSQL schema, authority,
+and persistence oracle, and the Course Appearance PostgreSQL and MinIO
+coherence oracle. It does not invoke a browser suite.
+
+The canonical production-browser path remains a release-blocking requirement.
+Its former owner configuration is currently absent, so a passing aggregate
+does not establish browser, visual, or visible-workflow acceptance. Restore
+that dedicated owner before release acceptance.
 
 Run the full named suite again after any material change that affects a gate.
 When a plan requires repeat-run or cleanup evidence, rerun all four gates on
@@ -73,10 +80,11 @@ migration snapshot is one-time closure evidence instead. Keep that evidence in
 the implementation handoff or acceptance receipt, then remove the probe when
 the investigation is complete. When in doubt, remove the test.
 
-The permanent suite contains callable unit, contract, security, and hygiene
-behavior checks, plus the explicitly owned real-stack browser and service
-gates. It does not preserve a superseded browser application's source inventory
-or a dated screenshot-path inventory as a regression contract.
+The current permanent suite contains callable unit, contract, security, and
+hygiene behavior checks, plus its declared real-service gates. The restored
+production-browser owner will be a separate required release gate. The suite
+does not preserve a superseded browser application's source inventory or a
+dated screenshot-path inventory as a regression contract.
 
 ## Focused unit evidence
 
@@ -88,8 +96,8 @@ part of the contract under test.
 
 Focused tests do not prove the browser-to-server path, real authorization,
 PostgreSQL/RLS, object delivery, renderer behavior, or visible user outcome.
-They complement the canonical browser suite; they never provide a second
-browser application or a substitute browser runtime.
+They complement the required restored canonical browser suite; they never
+provide a substitute browser runtime.
 
 Fast Python tests stay in `tests/test_*.py`; pure Node tests stay in the
 repository Node test lane; Rust tests stay with their owning crate. Slow
@@ -99,25 +107,26 @@ ends unless it independently meets the permanent-test standard.
 
 ## Production browser evidence
 
-PLE has one production `dist/` browser artifact and one fixed disposable
-real-stack browser path. [playwright.config.ts](../playwright.config.ts) is the
-canonical Playwright configuration. `./run_playwright_tests.sh --build` is the
-focused selector: the suite owner regenerates the fixed disposable stack,
-serves the production bundle through its HTTPS gateway, and runs the selected
-real-stack scenarios serially.
+PLE retains one intended production `dist/` browser artifact and fixed
+disposable real-stack browser path. The prior Playwright owner configuration
+and `./run_playwright_tests.sh --build` invocation are currently unmounted;
+they are not current aggregate evidence. Restoring that canonical owner is
+required before release acceptance.
 
-The browser travels through the same-origin gateway to the real API,
-PostgreSQL, MinIO, worker, renderer, authentication, authorization, and
-seeded live-demo data. The suite accepts focused scenario, file, or grep
-selection only through that owner and its declared scenario contract. Each
-focused run receives a fresh baseline; a complete run shares one fixed stack
-while scenario namespaces keep its product state independent.
+The restored owner will regenerate the fixed disposable stack, serve the
+production bundle through its HTTPS gateway, and run its selected real-stack
+scenarios serially. The browser path will travel through the same-origin
+gateway to the real API, PostgreSQL, MinIO, worker, renderer, authentication,
+authorization, and seeded live-demo data. It will accept focused scenario,
+file, or grep selection only through that owner and its declared scenario
+contract. Each focused run will receive a fresh baseline; a complete run will
+share one fixed stack while scenario namespaces keep product state independent.
 
-Playwright creates and changes product state through visible PLE workflows and
-asserts visible, accessible behavior. The frozen baseline, private bootstrap
-inputs, and induced infrastructure faults are harness setup, not product-state
-shortcuts. Favor reload, a second authorized session, or an authorized observer
-as the persistence proof for a user-visible result.
+The restored browser suite will create and change product state through visible
+PLE workflows and assert visible, accessible behavior. The frozen baseline,
+private bootstrap inputs, and induced infrastructure faults are harness setup,
+not product-state shortcuts. Favor reload, a second authorized session, or an
+authorized observer as the persistence proof for a user-visible result.
 
 An inventory of legacy behavior identifies the user or contract behavior worth
 keeping and assigns it to a canonical scenario, a focused unit test, or a
@@ -145,8 +154,14 @@ Node test or a historical image gallery.
 ## Service-only acceptance
 
 Some claims need a browser-free oracle because visible UI behavior cannot
-identify the underlying boundary. These commands remain distinct from the one
-browser invocation in `local_stack.py acceptance`:
+identify the underlying boundary. `local_stack.py acceptance` currently runs
+exactly two complementary service lanes: the disposable PostgreSQL schema,
+authority, and persistence oracle, and the Course Appearance PostgreSQL and
+MinIO coherence oracle. They are service evidence, not a suffix after a
+browser invocation and not proof of a visible user journey.
+
+Other named service oracles belong to their specific package or future
+capability; they are not current aggregate browser evidence:
 
 - Question Library publication and replay use a named publication oracle for private
   source and Question Library installation, not a user journey.
@@ -156,7 +171,7 @@ browser invocation in `local_stack.py acceptance`:
 - Course-appearance object storage uses the leased `course_appearance_cross_store`
   profile. It proves typed candidate and current Course Banner addresses against real MinIO. The
   database-backed current-pointer, promotion, and cleanup oracle is required when that Course
-  Appearance capability is implemented in the active SD1 schema.
+  Appearance capability is implemented in the current applied schema.
 - Renderer render, grade, cache, outage, and redaction use a named renderer or
   worker oracle. This is a provider/service contract, not general
   compatibility.

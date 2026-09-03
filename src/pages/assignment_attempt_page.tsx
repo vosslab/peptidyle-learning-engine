@@ -13,7 +13,7 @@ import {
 } from "solid-js";
 
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
-import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
   PrefetchedNextQuestion,
@@ -31,12 +31,12 @@ import {
   courseInstanceRouteReference,
   assignmentAttemptRouteReference,
 } from "../navigation/public_route";
-import { QuestionRenderer } from "../components/question_renderer";
+import { QuestionPresentationRenderer } from "../components/question_renderer";
 import {
   StudentFeedbackPanel,
   type StudentFeedbackPresentation,
 } from "../components/student_feedback_panel";
-import { QuestionResponseControl } from "../components/question_response_controls/question_response_control";
+import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
 import { resumeSessionAndRetry } from "./assignment_attempt_page_recovery";
 import {
   assignmentAttemptCompletionPresentation,
@@ -59,14 +59,14 @@ import { studentProgressSummary, studentScoreValue } from "../student_progress";
 function attemptContext(
   assignmentAttemptId: string,
   attempt: StudentQuestionAttemptView,
-  presentation: QuestionVariationPresentation,
+  presentation: QuestionPresentation,
 ): AttemptContext {
   return {
     assignmentAttemptId,
     attemptId: attempt.id,
     issuedQuestionId: attempt.issuedQuestion,
-    questionRevision: presentation.variation.questionRevision,
-    seed: attempt.seed,
+    questionRevision: presentation.questionRevision,
+    seed: presentation.question_seed,
     deadline: attempt.timing.deadline,
   };
 }
@@ -116,7 +116,7 @@ function matchesIssuedSuccessor(
   return (
     attempt.id === receipt.id &&
     attempt.issuedQuestion === receipt.issuedQuestion.id &&
-    attempt.seed === receipt.seed &&
+    attempt.question_seed === receipt.question_seed &&
     attempt.timing.deadline === receipt.deadline
   );
 }
@@ -124,11 +124,12 @@ function matchesIssuedSuccessor(
 /** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
 const MAX_PREFETCH_ASSETS = 12;
 
-function assetIdsForPresentation(
-  presentation: QuestionVariationPresentation,
-): ReadonlyArray<string> {
+function assetIdsForPresentation(presentation: QuestionPresentation): ReadonlyArray<string> {
   const blocks = [...presentation.prompt];
-  if (presentation.response.kind === "multipleChoice") {
+  if (
+    presentation.response.kind === "singleChoice" ||
+    presentation.response.kind === "multipleAnswer"
+  ) {
     blocks.push(...presentation.response.choices.flatMap((choice) => choice.body));
   } else if (presentation.response.kind === "ordering") {
     blocks.push(...presentation.response.items.flatMap((item) => item.body));
@@ -196,7 +197,7 @@ function AttemptExperience(props: {
     onStateChange: setState,
   });
   // Establish the first answer state during component construction so the
-  // response controls do not wait for a post-paint mount callback.
+  // Question Response Controls do not wait for a post-paint mount callback.
   machine.start(props.initialScreen.issuedQuestion.response);
 
   function escapeToAssignment(): void {
@@ -244,8 +245,8 @@ function AttemptExperience(props: {
             attemptId: receiptNext.id,
             assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
             issuedQuestionId: receiptNext.issuedQuestion.id,
-            questionRevision: cached.presentation.variation.questionRevision,
-            seed: receiptNext.seed,
+            questionRevision: cached.presentation.questionRevision,
+            seed: cached.presentation.question_seed,
             deadline: receiptNext.deadline,
           },
           presentation: cached.presentation,
@@ -492,8 +493,12 @@ function AttemptExperience(props: {
       terminalState()?.assignmentAttemptCompletion ?? "inProgress",
       true,
     );
-  const currentPresentation = (): QuestionVariationPresentation =>
+  const currentPresentation = (): QuestionPresentation =>
     currentState()?.presentation ?? screen().issuedQuestion;
+  const currentStudentResponse = (
+    response: StudentResponse | null,
+  ): ReadonlyArray<import("../../generated/api/QuestionContentBlock").QuestionContentBlock> =>
+    projectStudentResponse(currentPresentation(), response);
   // A cache-hit advance has a server-issued descriptor and Question Presentation but not a
   // complete AssignmentAttemptScreenData record. Keep Student Response Inspection Feedback bound to
   // the attempt state, which is advanced atomically with that descriptor.
@@ -520,8 +525,8 @@ function AttemptExperience(props: {
       <Show when={questionPoolSelectionPosition()}>
         {(selection) => (
           <p class="assignment-attempt-question-pool-selection" role="status">
-            Server-selected Question Pool item {selection().itemNumber} of {selection().itemCount}{" "}
-            for this Assignment Attempt.
+            Server-selected Question {selection().selectedQuestionNumber} of{" "}
+            {selection().selectedQuestionCount} for this Assignment Attempt.
           </p>
         )}
       </Show>
@@ -537,7 +542,9 @@ function AttemptExperience(props: {
                 <section aria-label="Assignment score">
                   <h3>Assignment score</h3>
                   <p>{studentProgressSummary(summary().summary)}</p>
-                  <Show when={summary().summary.score_state === "available"}>
+                  <Show
+                    when={summary().summary.student_assignment_grade.score_state === "available"}
+                  >
                     <p>
                       This Assignment Attempt:{" "}
                       {studentScoreValue(summary().assignmentAttempt.score)}
@@ -562,7 +569,7 @@ function AttemptExperience(props: {
                       }
                       studentResponse={
                         outcome.attempt === currentAttemptId()
-                          ? projectStudentResponse(currentPresentation(), outcome.response)
+                          ? currentStudentResponse(outcome.response)
                           : undefined
                       }
                       assetUrl={(asset) =>
@@ -621,7 +628,7 @@ function AttemptExperience(props: {
                 return <p class="inline-error">{message}</p>;
               }}
             >
-              <QuestionRenderer
+              <QuestionPresentationRenderer
                 presentation={currentPresentation()}
                 assetUrl={(asset) =>
                   new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
@@ -694,9 +701,9 @@ function AttemptExperience(props: {
                           fallback={<p class="loading-state">Restoring your saved response...</p>}
                         >
                           {(attemptId) => (
-                            <QuestionResponseControl
+                            <QuestionPresentationResponseControl
                               attemptId={attemptId}
-                              definition={currentPresentation().response}
+                              responseFormat={currentPresentation().response}
                               initialResponse={currentState()?.response ?? undefined}
                               validator={validator}
                               onResponseChange={responseChanged}
@@ -777,10 +784,7 @@ function AttemptExperience(props: {
                       </Show>
                       <StudentFeedbackPanel
                         disclosure={studentFeedbackPresentation(feedback())}
-                        studentResponse={projectStudentResponse(
-                          currentPresentation(),
-                          feedback().response,
-                        )}
+                        studentResponse={currentStudentResponse(feedback().response)}
                         assetUrl={(asset) =>
                           new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
                         }

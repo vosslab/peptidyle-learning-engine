@@ -4,7 +4,7 @@ import { Show, type JSX } from "solid-js";
 
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
-import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentClassStatistics } from "../../generated/api/StudentClassStatistics";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
@@ -19,8 +19,8 @@ export interface StudentAssignmentPresentationDelivery {
   readonly closesAt: number | null;
   readonly assignmentAttemptTimeLimitSeconds: number | null;
   readonly attemptLimit: number | null;
-  readonly lateWorkRule: "accept" | "markLate" | "reject";
-  readonly assignmentDeadlineRule: "autoSubmit";
+  readonly lateWorkRule: "accept" | "mark_late" | "reject";
+  readonly assignmentDeadlineRule: "auto_submit";
   readonly lateStatus?: StudentLateWorkStatus;
 }
 
@@ -44,7 +44,7 @@ export interface StudentAssignmentPresentationData {
 
 export interface StudentAssignmentPresentationProps {
   readonly assignment: StudentAssignmentPresentationData;
-  readonly progress?: AssignmentProgress;
+  readonly progress?: StudentAssignmentProgress;
   readonly contextCue?: JSX.Element;
   readonly returnAction?: JSX.Element;
   readonly secondaryAction?: JSX.Element | null;
@@ -60,7 +60,16 @@ export function toStudentAssignmentPresentationData(
       title: assignment.title,
       instructions: assignment.instructions,
       timeZone: assignment.timeZone,
-      delivery: assignment.delivery,
+      delivery: {
+        availableAt: assignment.delivery.available_at,
+        dueAt: assignment.delivery.due_at,
+        closesAt: assignment.delivery.closes_at,
+        assignmentAttemptTimeLimitSeconds:
+          assignment.delivery.assignment_attempt_time_limit_seconds,
+        attemptLimit: assignment.delivery.attempt_limit,
+        lateWorkRule: assignment.delivery.late_work_rule,
+        assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
+      },
       questionsPerAssignmentAttempt: assignment.questionsPerAssignmentAttempt,
       questionPoolReuseRule: assignment.questionPoolReuseRule,
       questionVariationRule: assignment.questionVariationRule,
@@ -133,9 +142,9 @@ export function formatAssignmentAttemptTimeLimit(seconds: number | null): string
   return `${seconds} ${seconds === 1 ? "second" : "seconds"} per attempt`;
 }
 
-export function formatLateWorkRule(value: "accept" | "markLate" | "reject"): string {
+export function formatLateWorkRule(value: "accept" | "mark_late" | "reject"): string {
   if (value === "accept") return "Accepted after the due time";
-  if (value === "markLate") return "Accepted and marked late after the due time";
+  if (value === "mark_late") return "Accepted and marked late after the due time";
   return "Not accepted after the due time";
 }
 
@@ -326,36 +335,36 @@ export function StudentAssignmentPresentation(
               </div>
               <Show
                 when={
-                  progress().score_state === "available" &&
-                  progress().assignment_scoring_state === "current"
+                  progress().student_assignment_grade.score_state === "available" &&
+                  progress().student_assignment_grade.assignment_scoring_state === "current"
                 }
               >
                 <div>
                   <dt>Current score</dt>
-                  <dd>{studentScoreValue(progress().current_score)}</dd>
+                  <dd>{studentScoreValue(progress().student_assignment_grade.current_score)}</dd>
                 </div>
                 <div>
                   <dt>Latest score</dt>
-                  <dd>{studentScoreValue(progress().latest_score)}</dd>
+                  <dd>{studentScoreValue(progress().student_assignment_grade.latest_score)}</dd>
                 </div>
                 <div>
                   <dt>Best score</dt>
-                  <dd>{studentScoreValue(progress().best_score)}</dd>
+                  <dd>{studentScoreValue(progress().student_assignment_grade.best_score)}</dd>
                 </div>
               </Show>
               <div>
                 <dt>Completed Assignment Attempts</dt>
-                <dd>{progress().completed_assignment_attempt_count}</dd>
+                <dd>{progress().assignment_progress.completed_assignment_attempt_count}</dd>
               </div>
               <div>
                 <dt>Total attempts</dt>
-                <dd>{progress().total_question_attempts}</dd>
+                <dd>{progress().assignment_progress.total_question_attempts}</dd>
               </div>
               <div>
                 <dt>Last activity</dt>
-                <dd>{formatAssignmentActivity(progress().last_activity_at)}</dd>
+                <dd>{formatAssignmentActivity(progress().assignment_progress.last_activity_at)}</dd>
               </div>
-              <Show when={progress().class_statistics}>
+              <Show when={progress().student_assignment_grade.class_statistics}>
                 {(statistics) => (
                   <div>
                     <dt>Class statistics</dt>

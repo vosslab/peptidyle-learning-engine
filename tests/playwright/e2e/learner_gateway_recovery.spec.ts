@@ -8,7 +8,7 @@
 // - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
 //   student claiming and the Start assignment control.
 // - src/pages/assignment_attempt_page.tsx and src/components/question_response_controls/common.tsx own the attempt surface
-//   and visible response controls.
+//   and visible Question Response Controls.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";

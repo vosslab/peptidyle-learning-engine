@@ -35,7 +35,7 @@ type Gate =
   | { readonly kind: "denied" }
   | { readonly kind: "unavailable" };
 
-async function loadAllPreviewSubjects(
+async function loadAllSelectedStudents(
   loadPage: (
     cursor?: string,
     pageSize?: number,
@@ -44,7 +44,7 @@ async function loadAllPreviewSubjects(
     readonly nextCursor: string | null;
   }>,
 ): Promise<ReadonlyArray<SelectedStudent>> {
-  const subjects: Array<SelectedStudent> = [];
+  const selectedStudents: Array<SelectedStudent> = [];
   const seen = new Set<string>();
   let cursor: string | undefined;
   do {
@@ -52,11 +52,11 @@ async function loadAllPreviewSubjects(
     for (const student of page.students) {
       if (seen.has(student.reference)) continue;
       seen.add(student.reference);
-      subjects.push({ reference: student.reference, display: student.display });
+      selectedStudents.push({ reference: student.reference, display: student.display });
     }
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
-  return subjects;
+  return selectedStudents;
 }
 
 /** The route resolves public references once, proves course ownership, then passes typed IDs inward. */
@@ -148,8 +148,8 @@ export function AssignmentAccessLivePage(): JSX.Element {
             }
             return editor.revision;
           }}
-          loadPreviewSubjects={() =>
-            loadAllPreviewSubjects((cursor, pageSize) =>
+          loadSelectedStudents={() =>
+            loadAllSelectedStudents((cursor, pageSize) =>
               runtime.client.listCourseStudentTargets(allowed.courseId, cursor, pageSize),
             )
           }
@@ -159,4 +159,4 @@ export function AssignmentAccessLivePage(): JSX.Element {
   );
 }
 
-export { loadAllPreviewSubjects };
+export { loadAllSelectedStudents };

@@ -53,7 +53,7 @@ pub(crate) fn run() -> Result<()> {
     }
 }
 
-/// Checks the stored WP-C7 fixture data.
+/// Checks the stored published-Question fixture data.
 fn run_fixtures(args: &[String]) -> Result<()> {
     let [flag] = args else {
         bail!("usage: cargo tools fixtures --check");
@@ -88,7 +88,7 @@ fn run_tsgen(args: &[String]) -> Result<()> {
 /// Generates the JavaScript glue and the processed `.wasm` for one flavor.
 ///
 /// Two flavors exist because the consumers differ: the browser client loads
-/// the `web` output as an ES module, and the WP-F2 Node gate loads the `node`
+/// the `web` output as an ES module, and the Node binding check loads the `node`
 /// output through CommonJS. Both come from the same compiled module.
 fn run_bindgen(args: &[String]) -> Result<()> {
     let [input, flavor, out_dir, out_name] = args else {

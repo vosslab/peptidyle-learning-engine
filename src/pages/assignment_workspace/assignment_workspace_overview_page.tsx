@@ -39,7 +39,7 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
         <p class="eyebrow">Assignment overview</p>
         <h1 id="assignment-workspace-heading">{assignment().title}</h1>
         <p class="page-lede">
-          {workspace.course.title} · Edit {assignment().revision}
+          {workspace.course.title} {"\u00b7"} Edit {assignment().revision}
         </p>
       </header>
 
@@ -151,15 +151,15 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
             </div>
             <div>
               <dt>Available</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.availableAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.available_at)}</dd>
             </div>
             <div>
               <dt>Due</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.dueAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.due_at)}</dd>
             </div>
             <div>
               <dt>Closes</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.closesAt)}</dd>
+              <dd>{localTime(assignment().assignmentAuthoredContent.closes_at)}</dd>
             </div>
           </dl>
         </section>

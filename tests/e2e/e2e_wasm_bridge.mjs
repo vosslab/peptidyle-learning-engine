@@ -1,4 +1,4 @@
-// e2e_wasm_bridge.mjs - WP-F2/WP-C6 gate: Rust exports are callable from Node.
+// Wasm bridge export parity gate: Rust exports are callable from Node.
 //
 // This is the whole point of the WASM path. `crates/domain` logic has to
 // produce identical results on the server and in the browser, and this test is
@@ -42,7 +42,7 @@ const { cases: pleQuestionJsonParityCases } = JSON.parse(
 for (const parityCase of pleQuestionJsonParityCases) {
   const check = JSON.parse(
     bridge.validate_response_format(
-      JSON.stringify(parityCase.definition),
+      JSON.stringify(parityCase.responseFormat),
       JSON.stringify(parityCase.response),
     ),
   );
@@ -58,11 +58,11 @@ const repeatedCase = pleQuestionJsonParityCases.find(
 );
 assert.ok(repeatedCase, "ple-question-json-v2 repeated-call test case is present");
 const firstRepeatedCheck = bridge.validate_response_format(
-  JSON.stringify(repeatedCase.definition),
+  JSON.stringify(repeatedCase.responseFormat),
   JSON.stringify(repeatedCase.response),
 );
 const secondRepeatedCheck = bridge.validate_response_format(
-  JSON.stringify(repeatedCase.definition),
+  JSON.stringify(repeatedCase.responseFormat),
   JSON.stringify(repeatedCase.response),
 );
 assert.equal(
@@ -151,31 +151,24 @@ const draftPreview = JSON.parse(
       workspaceImportId: null,
       draftImathasQuestionBackendBinding: null,
       title: "Fixture",
-      prompt: [{ kind: "text", markdown: "Value {{value}}" }],
+      prompt: [{ kind: "text", markdown: "Static value" }],
       response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
-      questionVariationRule: {
-        kind: "seeded",
-        generator: { id: "fixture", version: "1" },
-        parameters: { value: { kind: "fixed", value: "safe" } },
-      },
     }),
-    JSON.stringify(4),
   ),
 );
 assert.deepEqual(draftPreview, {
   kind: "ready",
   preview: {
     workspace: "00000000-0000-0000-0000-000000000001",
-    seed: 4,
     title: "Fixture",
-    prompt: [{ kind: "text", markdown: "Value safe" }],
+    prompt: [{ kind: "text", markdown: "Static value" }],
     response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
   },
 });
 
 const presentation = {
   questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
-  seed: 42,
+  question_seed: 42,
   presentationNonce: "11111111111111111111111111111111",
   title: "Peptide bond",
   prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],

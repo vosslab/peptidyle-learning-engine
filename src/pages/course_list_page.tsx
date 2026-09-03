@@ -248,11 +248,11 @@ export function CourseListPage(): JSX.Element {
 
   const mayCreateCourse = createMemo((): boolean => {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.role === "instructor";
+    return state.kind === "authenticated" && state.session.account.productRole === "instructor";
   });
   const isSysadmin = createMemo((): boolean => {
     const state = session.state();
-    return state.kind === "authenticated" && state.session.account.role === "sysadmin";
+    return state.kind === "authenticated" && state.session.account.productRole === "sysadmin";
   });
 
   function registerCourseLink(course: CourseSummary, element: HTMLAnchorElement): void {

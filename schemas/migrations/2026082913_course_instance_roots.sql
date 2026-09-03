@@ -1,4 +1,4 @@
--- SD1 CourseInstance roots bind immutable reusable Blueprint evidence to delivery.
+-- Course Instance source binding to immutable Blueprint evidence.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
@@ -12,9 +12,9 @@ CREATE TABLE ple_data.course_instance (
     assigned_instructor_account_id uuid NOT NULL,
     assigned_instructor_role text NOT NULL DEFAULT 'instructor' CHECK (assigned_instructor_role = 'instructor'),
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT course_instance_assigned_instructor_role_matches FOREIGN KEY (
+    CONSTRAINT course_instance_assigned_instructor_product_role_matches FOREIGN KEY (
         assigned_instructor_account_id, assigned_instructor_role
-    ) REFERENCES ple_private.account (account_id, role),
+    ) REFERENCES ple_private.account (account_id, product_role),
     CONSTRAINT course_instance_blueprint_revision_is_unique UNIQUE (course_id, blueprint_revision_id)
 );
 CREATE TABLE ple_data.course_origin (

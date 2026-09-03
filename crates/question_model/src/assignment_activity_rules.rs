@@ -1,9 +1,9 @@
-//! Assignment Attempt, timing, and Assignment activity rules (WP-C1, WP-C3).
+//! Assignment Attempt, timing, and Assignment activity rules.
 //!
 //! The eight Assignment activity rules are independent enums that compose freely. Keeping
 //! them independent is what lets an instructor express "mastery required,
 //! highest score kept, practice allowed after completion with fresh seeds",
-//! which is the behavior the owner observed students actually using. A single
+//! which reflects Instructor teaching practice. A single
 //! combined "mode" enum would offer a fixed menu instead.
 //!
 //! Question-level policies ([`QuestionAttemptLimit`], [`QuestionAttemptTimeLimit`]) are authored
@@ -40,8 +40,8 @@ pub enum StudentFeedbackReleaseTiming {
 ///
 /// These independently configured fields are evaluated server-side against
 /// the effective assignment policy. They are intentionally separate from
-/// [`AssignmentActivityRules`], whose Assignment Attempt behavior remains stable while S4 migrates
-/// Student-facing projections.
+/// [`AssignmentActivityRules`], whose Assignment Attempt behavior remains stable
+/// and separate from Student-facing projections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct StudentFeedbackReleaseRule {
@@ -268,7 +268,7 @@ impl QuestionPoolPreviewNonce {
 }
 
 impl QuestionPoolReuseRule {
-    /// Derives the only accepted server-owned selection inputs for one Question Pool entry.
+    /// Derives the only accepted server-owned selection inputs for one Question Pool Assignment Entry.
     pub fn question_pool_selection_inputs(
         self,
         assignment: AssignmentId,
@@ -291,7 +291,7 @@ impl QuestionPoolReuseRule {
 }
 
 impl QuestionPoolSelectionInputs {
-    /// Creates independent no-store selection inputs for a saved definition preview.
+    /// Preview inputs are for an Instructor Question Pool Preview.
     pub const fn preview(
         assignment: AssignmentId,
         question_pool_assignment_entry: AssignmentEntryId,

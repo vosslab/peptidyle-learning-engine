@@ -66,8 +66,8 @@ impl BlackboardQtiPackage {
         self.items.len()
     }
 
-    /// Canonical answer-free checksum input for this exact mapped package.
-    pub fn profile_report_checksum_input(
+    /// Answer-free QTI Import Result Checksum input for this exact mapped package.
+    pub fn qti_import_result_checksum_input(
         &self,
     ) -> Result<QtiImportResultChecksumInput, super::QtiProfileContractError> {
         super::checksums::package_import_result_checksum_input(

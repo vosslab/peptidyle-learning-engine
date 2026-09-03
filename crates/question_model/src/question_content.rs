@@ -1,5 +1,5 @@
-//! [`QuestionRevision`], the backend-neutral representation every engine
-//! maps into (WP-C1).
+//! [`QuestionRevision`], the backend-neutral representation every Question
+//! Backend maps into.
 //!
 //! One shared shape is what lets a WeBWorK question, a QTI item, and a
 //! first-party algorithmic question flow through the same attempt loop,
@@ -14,7 +14,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use crate::generation::QuestionVariationRule;
 use crate::identity::{QuestionAssetId, WorkspaceId, WorkspaceImportId};
 use crate::question_backend_fields::{
     QuestionBackendFieldPresence, validate_question_backend_field_matrix,
@@ -112,8 +111,6 @@ pub const MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS: usize = 4_000;
 pub enum QuestionFormat {
     /// Schema version 2 of PLE's canonical static Question JSON.
     PleQuestionJson,
-    /// A first-party generated Question authored as a PLE Question Implementation.
-    PleAlgorithmic,
     /// A WeBWorK PG source.
     WebworkPg,
     /// An imported QTI item.
@@ -294,8 +291,6 @@ pub struct DraftQuestionContent {
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// How content varies between students and Assignment Attempts.
-    pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,
     /// Title, Question Description, tags, Question License, and language.
@@ -375,8 +370,6 @@ pub struct QuestionRevision {
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Time limits, if any.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// How content varies between students and Assignment Attempts.
-    pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,
     /// Title, tags, Question License, language.
@@ -440,7 +433,6 @@ impl QuestionRevision {
             question_type: draft.question_type,
             question_attempt_limit: draft.question_attempt_limit,
             question_attempt_time_limit: draft.question_attempt_time_limit,
-            question_variation_rule: draft.question_variation_rule,
             grading: draft.grading,
             metadata: draft.metadata,
         };
@@ -453,7 +445,6 @@ impl QuestionRevision {
 mod tests {
     use super::*;
     use crate::answer::NumericResponseTolerance;
-    use crate::generation::QuestionVariationRule;
     use crate::{ImathasDeploymentReference, ImathasItemReference};
     use uuid::Uuid;
 
@@ -484,7 +475,7 @@ mod tests {
             qti_package_item_identifier: None,
             workspace_import_id: None,
             draft_imathas_question_backend_binding: None,
-            question_format: QuestionFormat::PleAlgorithmic,
+            question_format: QuestionFormat::PleQuestionJson,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "What is the molar mass?".to_string(),
             }],
@@ -495,7 +486,6 @@ mod tests {
             question_type: QuestionType::Numeric,
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
             metadata: QuestionMetadata {
                 title: "Molar mass".to_string(),

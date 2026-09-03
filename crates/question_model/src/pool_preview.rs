@@ -37,8 +37,9 @@ pub struct QuestionPoolPreview {
     pub assignment: AssignmentReference,
     pub revision: TeachingOperationRevision,
     pub assignment_entry_id: AssignmentEntryId,
-    /// Stable presentation label derived from the saved entry order. Pool
-    /// definitions have no user-authored label in v1.
+    /// Stable presentation label derived from the saved Question Pool
+    /// Assignment Entry order. Question Pool Assignment Entries have no
+    /// Instructor-authored label in v1.
     pub question_pool_label: String,
     pub selection_count: u32,
     pub selection_rule: QuestionPoolSelectionRule,
@@ -73,11 +74,11 @@ mod tests {
             },
             items: vec![QuestionPoolPreviewItem {
                 question_id: question_id.clone(),
-                title: "Pool entry".to_string(),
+                title: "Question Pool Item".to_string(),
             }],
             selected_items: vec![QuestionPoolPreviewItem {
                 question_id,
-                title: "Pool entry".to_string(),
+                title: "Question Pool Item".to_string(),
             }],
         };
         assert_eq!(
@@ -85,8 +86,8 @@ mod tests {
             serde_json::json!({
                 "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "items":[{"questionId":"ABC-DEF1", "title":"Pool entry"}],
-                "selectedItems":[{"questionId":"ABC-DEF1", "title":"Pool entry"}]
+                "items":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}],
+                "selectedItems":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}]
             })
         );
     }

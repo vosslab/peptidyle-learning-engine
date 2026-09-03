@@ -1,4 +1,4 @@
-# MOD-ADP-IMATHAS: immutable-source, server-managed iMathAS adapter.
+# Immutable-source, server-managed iMathAS Question Backend adapter.
 [package]
 name = "adapter_imathas"
 version.workspace = true

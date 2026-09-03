@@ -1,7 +1,7 @@
-# MOD-WASM: wasm-bindgen bridge. Every call delegates to `domain`.
+# wasm-bindgen bridge. Every call delegates to `domain`.
 # Security boundary: `grading` is absent from this dependency closure on
 # purpose. Adding it here is the one change that would put answer keys in the
-# browser, so it must fail review and the closure test in WP-C6.
+# browser, so review and the browser dependency-closure test must reject it.
 [package]
 name = "wasm_bridge"
 version.workspace = true

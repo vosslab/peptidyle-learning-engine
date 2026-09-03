@@ -1,4 +1,4 @@
--- SD1 final schema, relation, sequence, and function ACL closure.
+-- Schema and ACL closure.
 
 SET LOCAL ROLE ple_data_owner;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ple_data FROM PUBLIC;

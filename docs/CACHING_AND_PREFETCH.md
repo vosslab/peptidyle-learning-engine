@@ -54,7 +54,7 @@ immutable published version and its stored seed. Its Object Address is
 `QuestionRender { question_revision, seed, object }`; it lives in
 `PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
-The typed key therefore includes the problem even where the compact object ID
+The typed key therefore includes the Question Revision even where the compact object ID
 is derived from version and seed. Cache identity never includes a Student, course membership, session,
 response, deadline, or browser input. The shared safe render cache is not a record cache and cannot
 authorize a Student.
@@ -78,7 +78,7 @@ This gives cache invalidation a simple rule:
   server timing, response validation, or grading.
 
 Object storage is a cache backing store, not a browser authorization path.
-`ProblemRender` objects are render-category objects and cannot be converted to
+`QuestionRender` objects are render-category objects and cannot be converted to
 a public asset URL by the asset route.
 
 ### Authorization and RLS
@@ -136,7 +136,7 @@ mappings in the public render cache; they are server-only Question Grading Input
 
 ### iMathAS
 
-The iMathAS adapter uses the same immutable `ProblemRender` shape for an
+The iMathAS adapter uses the same immutable `QuestionRender` shape for an
 answer-free iMathAS Question Backend presentation. It validates the pinned Source Object Reference,
 iMathAS Question Backend configuration, `imathas_remote_grading_v1` profile, version, seed, and response shape on every
 read. A cache miss asks the configured verified backend for a safe render;
@@ -177,8 +177,8 @@ predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and seed. No calle
 metadata can widen that lease.
 
 PLE Question JSON and WeBWorK reservations additionally retain their typed,
-checksummed first-grade contracts. PLE Question JSON carries its private definition;
-WeBWorK carries its private definition and replay mapping. Promotion refuses a
+checksummed first-grade contracts. PLE Question JSON carries its private Question Grading Input;
+WeBWorK carries its private Question Grading Input and replay mapping. Promotion refuses a
 missing or mismatched required contract, so submit never consults a current
 published Question, grader, or renderer to recreate it.
 
@@ -249,7 +249,7 @@ Current WeBWorK adapter-cache witnesses intentionally expose only
 Future operational metrics should preserve that low-cardinality, non-sensitive
 approach while adding p50/p95 stage timing, cache validation refusals, prefetch
 reservations/promotions/mismatches, and bounded asset-warm outcomes.
-Representative payload sizes and latency measurements belong to WP-P6 rather
+Representative payload sizes and latency measurements belong to the acceptance-evidence record rather
 than fragile exact-byte permanent tests.
 
 The next cache work should follow the payload plan in this order:

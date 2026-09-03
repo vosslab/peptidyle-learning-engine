@@ -8,7 +8,7 @@ const MINIMUM_ITEMS = 3;
 const MAXIMUM_ITEMS = 100;
 
 export interface PleQuestionJsonOrderingEditorProps {
-  /** The ordered items are the private answer key; correctOrder is derived by the model. */
+  /** The ordered Ordering Items are the private answer key; correctOrder is derived by the model. */
   readonly items: () => ReadonlyArray<PleQuestionJsonOrderingItem>;
   readonly onItemTextChange: (itemId: string, text: string) => void;
   readonly onAddItem: () => void;
@@ -35,8 +35,8 @@ export function PleQuestionJsonOrderingEditor(
     <fieldset class="ple-question-json-authoring__ordering">
       <legend>Correct order</legend>
       <p class="ple-question-json-authoring__help">
-        This private list is the intended sequence. Move an item earlier or later to set the answer
-        students must arrange.
+        This private list is the intended sequence. Move an Ordering Item earlier or later to set
+        the answer students must arrange.
       </p>
       <Show when={errorFor(props, "response.items") !== undefined}>
         <p class="ple-question-json-authoring__error" role="alert">
@@ -46,9 +46,9 @@ export function PleQuestionJsonOrderingEditor(
       <ol class="ple-question-json-authoring__choice-list">
         <For each={props.items().map((item) => item.id)}>
           {(itemId, index): JSX.Element => {
-            const item = (): PleQuestionJsonOrderingItem => {
+            const orderingItem = (): PleQuestionJsonOrderingItem => {
               const current = props.items().find((candidate) => candidate.id === itemId);
-              if (current === undefined) throw new Error("Ordering item identity is unavailable.");
+              if (current === undefined) throw new Error("Ordering Item identity is unavailable.");
               return current;
             };
             const textError = (): string | undefined =>
@@ -67,7 +67,9 @@ export function PleQuestionJsonOrderingEditor(
                       disabled={props.disabled || index() === 0}
                       onClick={() => {
                         props.onMoveItem(itemId, "earlier");
-                        announce(`Moved item ${index() + 1} earlier in the correct order.`);
+                        announce(
+                          `Moved Ordering Item ${index() + 1} earlier in the correct order.`,
+                        );
                       }}
                     >
                       Earlier
@@ -78,7 +80,7 @@ export function PleQuestionJsonOrderingEditor(
                       disabled={props.disabled || index() === props.items().length - 1}
                       onClick={() => {
                         props.onMoveItem(itemId, "later");
-                        announce(`Moved item ${index() + 1} later in the correct order.`);
+                        announce(`Moved Ordering Item ${index() + 1} later in the correct order.`);
                       }}
                     >
                       Later
@@ -89,14 +91,14 @@ export function PleQuestionJsonOrderingEditor(
                       disabled={props.disabled || props.items().length <= MINIMUM_ITEMS}
                       onClick={() => props.onRemoveItem(itemId)}
                     >
-                      Remove item
+                      Remove Ordering Item
                     </button>
                   </div>
                 </div>
                 <label class="ple-question-json-authoring__field">
-                  <span>Item text</span>
+                  <span>Ordering Item text</span>
                   <textarea
-                    value={item().text}
+                    value={orderingItem().text}
                     disabled={props.disabled}
                     aria-invalid={textError() !== undefined}
                     aria-describedby={
@@ -115,7 +117,7 @@ export function PleQuestionJsonOrderingEditor(
                   </p>
                 </Show>
                 <details>
-                  <summary>Advanced item identity</summary>
+                  <summary>Advanced Ordering Item identity</summary>
                   <p class="ple-question-json-authoring__identity">{itemId}</p>
                 </details>
               </li>
@@ -130,10 +132,11 @@ export function PleQuestionJsonOrderingEditor(
           disabled={props.disabled || props.items().length >= MAXIMUM_ITEMS}
           onClick={props.onAddItem}
         >
-          Add item
+          Add Ordering Item
         </button>
         <p class="ple-question-json-authoring__help">
-          {props.items().length} of {MAXIMUM_ITEMS} items; at least {MINIMUM_ITEMS} are required.
+          {props.items().length} of {MAXIMUM_ITEMS} Ordering Items; at least {MINIMUM_ITEMS} are
+          required.
         </p>
       </div>
     </fieldset>

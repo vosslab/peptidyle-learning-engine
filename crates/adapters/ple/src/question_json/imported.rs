@@ -3,7 +3,7 @@
 //! This module is deliberately not a QTI adapter. Its input is the already
 //! mapped, server-only PLE Question JSON shape. It fixes the PLE defaults required
 //! for an imported v2 static single-choice item, then delegates validation,
-//! canonical serialization, and compilation to the PLE Question JSON owner.
+//! deterministic serialization, and compilation to the PLE Question JSON compiler.
 
 use std::fmt;
 

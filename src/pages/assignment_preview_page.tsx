@@ -26,7 +26,7 @@ import {
 import "./assignment_preview_page.css";
 
 type PageState = "loading" | "ready" | "unavailable" | "offline" | "error";
-type BuilderKind = "derived" | "synthetic";
+type StudentViewScenarioBuilder = "selectedStudent" | "hypothetical";
 
 function failureState(error: unknown): PageState {
   if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403))
@@ -39,7 +39,7 @@ function courseMoment(startDate: string): string {
   return `${startDate}T09:00:00.000`;
 }
 
-function canonicalMoment(value: string): string {
+function normalizeCourseLocalMoment(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/u.test(value)) return `${value}.000`;
   return value;
@@ -82,42 +82,42 @@ function scheduleRows(
   return [
     [
       "Opens",
-      timeValue(effective_assignment_policy.availableAt.value),
-      titleCase(effective_assignment_policy.availableAt.source),
+      timeValue(effective_assignment_policy.available_at.value),
+      titleCase(effective_assignment_policy.available_at.source),
     ],
     [
       "Due",
-      timeValue(effective_assignment_policy.dueAt.value),
-      titleCase(effective_assignment_policy.dueAt.source),
+      timeValue(effective_assignment_policy.due_at.value),
+      titleCase(effective_assignment_policy.due_at.source),
     ],
     [
       "Closes",
-      timeValue(effective_assignment_policy.closesAt.value),
-      titleCase(effective_assignment_policy.closesAt.source),
+      timeValue(effective_assignment_policy.closes_at.value),
+      titleCase(effective_assignment_policy.closes_at.source),
     ],
     [
       "Time limit",
-      effective_assignment_policy.assignmentAttemptTimeLimitSeconds.value === null
+      effective_assignment_policy.assignment_attempt_time_limit_seconds.value === null
         ? "No limit"
-        : `${effective_assignment_policy.assignmentAttemptTimeLimitSeconds.value} seconds`,
-      titleCase(effective_assignment_policy.assignmentAttemptTimeLimitSeconds.source),
+        : `${effective_assignment_policy.assignment_attempt_time_limit_seconds.value} seconds`,
+      titleCase(effective_assignment_policy.assignment_attempt_time_limit_seconds.source),
     ],
     [
       "Attempt limit",
-      effective_assignment_policy.attemptLimit.value === null
+      effective_assignment_policy.attempt_limit.value === null
         ? "No limit"
-        : String(effective_assignment_policy.attemptLimit.value),
-      titleCase(effective_assignment_policy.attemptLimit.source),
+        : String(effective_assignment_policy.attempt_limit.value),
+      titleCase(effective_assignment_policy.attempt_limit.source),
     ],
     [
       "Late work",
-      titleCase(effective_assignment_policy.lateWorkRule.value),
-      titleCase(effective_assignment_policy.lateWorkRule.source),
+      titleCase(effective_assignment_policy.late_work_rule.value),
+      titleCase(effective_assignment_policy.late_work_rule.source),
     ],
     [
       "Deadline",
-      titleCase(effective_assignment_policy.assignmentDeadlineRule.value),
-      titleCase(effective_assignment_policy.assignmentDeadlineRule.source),
+      titleCase(effective_assignment_policy.assignment_deadline_rule.value),
+      titleCase(effective_assignment_policy.assignment_deadline_rule.source),
     ],
   ];
 }
@@ -156,7 +156,7 @@ function PreviewResult(props: {
           Delivery check
         </h2>
         <p role="alert">
-          This hypothetical subject does not currently have access to this assignment.
+          This Student View Scenario does not currently have access to this assignment.
         </p>
       </section>
     );
@@ -168,13 +168,12 @@ function PreviewResult(props: {
       </h2>
       <div class="preview-result-grid">
         <section>
-          <h3>Subject</h3>
+          <h3>Student View Scenario</h3>
           <p>
-            {titleCase(evaluation.student_view_scenario.kind)} subject;
-            active_student_course_membership:{" "}
-            {titleCase(evaluation.active_student_course_membership)}.
+            {titleCase(evaluation.student_view_scenario.origin)} scenario; Student View Scenario
+            Admission: {titleCase(evaluation.student_view_scenario_admission)}.
           </p>
-          <p>This preview resolves the direct Assignment policy without a roster partition.</p>
+          <p>This scenario resolves the Assignment policy without identifying a person.</p>
           <ScheduleTable
             label="Resolved delivery effective_assignment_policy and source layers"
             effective_assignment_policy={evaluation.effective_assignment_policy}
@@ -193,7 +192,7 @@ function PreviewResult(props: {
                   >
                     <span>
                       {availability.kind === "available"
-                        ? ` Score ${availability.flags.scoreShown ? "shown" : "withheld"}; correctness ${availability.flags.correctnessShown ? "shown" : "withheld"}; feedback ${availability.flags.feedbackShown ? "shown" : "withheld"}; Question Answer ${availability.flags.questionAnswerShown ? "shown" : "withheld"}; Answer Explanation ${availability.flags.questionAnswerExplanationShown ? "shown" : "withheld"}; statistics ${availability.flags.statisticsShown ? "shown" : "withheld"}.`
+                        ? ` Score ${availability.flags.score_shown ? "shown" : "withheld"}; correctness ${availability.flags.correctness_shown ? "shown" : "withheld"}; feedback ${availability.flags.feedback_shown ? "shown" : "withheld"}; Question Answer ${availability.flags.question_answer_shown ? "shown" : "withheld"}; Answer Explanation ${availability.flags.question_answer_explanation_shown ? "shown" : "withheld"}; statistics ${availability.flags.statistics_shown ? "shown" : "withheld"}.`
                         : ""}
                     </span>
                   </Show>
@@ -245,10 +244,11 @@ export function AssignmentPreviewPage(): JSX.Element {
   const [revision, setRevision] = createSignal<TeachingOperationRevision>();
   const [effective_assignment_policy, setSchedule] = createSignal<InstructorPreviewSchedulePage>();
   const [cursor, setCursor] = createSignal<string>();
-  const [builder, setBuilder] = createSignal<BuilderKind>("derived");
-  const [membership, setMembership] = createSignal("");
+  const [studentViewScenarioBuilder, setStudentViewScenarioBuilder] =
+    createSignal<StudentViewScenarioBuilder>("selectedStudent");
+  const [selectedStudentMembership, setSelectedStudentMembership] = createSignal("");
   const [moment, setMoment] = createSignal("");
-  const [modifierMode, setModifierMode] = createSignal<ModifierMode>("extendOnly");
+  const [modifierMode, setModifierMode] = createSignal<ModifierMode>("extend_only");
   const [modifierDraft, setModifierDraft] = createSignal<ModifierPatchDraft>(emptyPatchDraft());
   const [result, setResult] = createSignal<PreviewPlaneResponse>();
   const [message, setMessage] = createSignal("");
@@ -296,7 +296,7 @@ export function AssignmentPreviewPage(): JSX.Element {
       );
       setRevision(page.revision);
       setSchedule(page);
-      setCursor(page.nextCursor ?? undefined);
+      setCursor(page.next_cursor ?? undefined);
       if (moment().length === 0) setMoment(courseMoment(selectedCourse.term.startDate));
       setNeedsReload(false);
       setState("ready");
@@ -334,7 +334,8 @@ export function AssignmentPreviewPage(): JSX.Element {
     }));
   }
 
-  function buildSyntheticModifierRequest(): ReturnType<typeof policyRequest> | undefined {
+  function buildHypotheticalStudentViewScenarioModifiers():
+    ReturnType<typeof policyRequest> | undefined {
     try {
       return policyRequest(modifierMode(), modifierDraft());
     } catch (error: unknown) {
@@ -353,31 +354,31 @@ export function AssignmentPreviewPage(): JSX.Element {
       activeRevision === undefined
     )
       return;
-    const selectedMoment = canonicalMoment(moment());
+    const selectedMoment = normalizeCourseLocalMoment(moment());
     setBusy(true);
     setMessage("");
     setModifierError("");
     try {
       let response: PreviewPlaneResponse;
-      if (builder() === "derived") {
-        response = await runtime.client.constructDerivedPreview(
+      if (studentViewScenarioBuilder() === "selectedStudent") {
+        response = await runtime.client.constructSelectedStudentViewScenario(
           selectedCourse.reference,
           selectedAssignment,
           activeRevision,
           {
-            membership: membership(),
-            selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
+            selected_student_membership: selectedStudentMembership(),
+            selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
           },
         );
       } else {
-        const modifiers = buildSyntheticModifierRequest();
+        const modifiers = buildHypotheticalStudentViewScenarioModifiers();
         if (modifiers === undefined) return;
-        response = await runtime.client.constructSyntheticPreview(
+        response = await runtime.client.constructHypotheticalStudentViewScenario(
           selectedCourse.reference,
           selectedAssignment,
           activeRevision,
           {
-            selectedMoment: { value: selectedMoment, timeZone: selectedCourse.term.timeZone },
+            selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
             modifiers,
           },
         );
@@ -399,7 +400,9 @@ export function AssignmentPreviewPage(): JSX.Element {
       } else if (error instanceof TypeError || !navigator.onLine) {
         setMessage("Preview is unavailable while offline. Your hypothetical draft is preserved.");
       } else {
-        setMessage("The preview could not be resolved. Check the selected subject and try again.");
+        setMessage(
+          "The preview could not be resolved. Check the selected Student membership and try again.",
+        );
       }
     } finally {
       setBusy(false);
@@ -480,12 +483,12 @@ export function AssignmentPreviewPage(): JSX.Element {
                         </td>
                         <td>
                           {row.kind === "granted"
-                            ? timeValue(row.effective_assignment_policy.dueAt.value)
+                            ? timeValue(row.effective_assignment_policy.due_at.value)
                             : "Withheld"}
                         </td>
                         <td>
                           {row.kind === "granted"
-                            ? titleCase(row.effective_assignment_policy.dueAt.source)
+                            ? titleCase(row.effective_assignment_policy.due_at.source)
                             : "-"}
                         </td>
                       </tr>
@@ -499,28 +502,28 @@ export function AssignmentPreviewPage(): JSX.Element {
                 </button>
               </Show>
             </section>
-            <section class="preview-panel" aria-labelledby="preview-subject-heading">
-              <h2 id="preview-subject-heading">Build a hypothetical subject</h2>
-              <div class="preview-subject-form">
-                <fieldset class="preview-subject-source">
-                  <legend>Subject source</legend>
+            <section class="preview-panel" aria-labelledby="student-view-scenario-heading">
+              <h2 id="student-view-scenario-heading">Build a Student View Scenario</h2>
+              <div class="student-view-scenario-form">
+                <fieldset class="student-view-scenario-origin">
+                  <legend>Scenario origin</legend>
                   <label>
                     <input
                       type="radio"
-                      name="preview-kind"
-                      checked={builder() === "derived"}
-                      onInput={() => setBuilder("derived")}
+                      name="student-view-scenario-origin"
+                      checked={studentViewScenarioBuilder() === "selectedStudent"}
+                      onInput={() => setStudentViewScenarioBuilder("selectedStudent")}
                     />{" "}
-                    Derive role-only values from a selected student
+                    Selected Student membership
                   </label>
                   <label>
                     <input
                       type="radio"
-                      name="preview-kind"
-                      checked={builder() === "synthetic"}
-                      onInput={() => setBuilder("synthetic")}
+                      name="student-view-scenario-origin"
+                      checked={studentViewScenarioBuilder() === "hypothetical"}
+                      onInput={() => setStudentViewScenarioBuilder("hypothetical")}
                     />{" "}
-                    Construct a synthetic accommodation preview
+                    Hypothetical Student View Scenario Modifiers
                   </label>
                 </fieldset>
                 <label class="preview-field preview-moment-field">
@@ -534,43 +537,43 @@ export function AssignmentPreviewPage(): JSX.Element {
                   />
                   <span>{course()?.term.timeZone} (course zone)</span>
                 </label>
-                <div class="preview-subject-target">
-                  <Show when={builder() === "derived"}>
+                <div class="student-view-scenario-target">
+                  <Show when={studentViewScenarioBuilder() === "selectedStudent"}>
                     <label class="preview-field">
                       Student membership reference
                       <select
-                        value={membership()}
-                        onInput={(event) => setMembership(event.currentTarget.value)}
+                        value={selectedStudentMembership()}
+                        onInput={(event) => setSelectedStudentMembership(event.currentTarget.value)}
                         required
                       >
-                        <option value="">Select a effective_assignment_policy row</option>
+                        <option value="">Select a Student membership</option>
                         <For each={effective_assignment_policy()?.rows ?? []}>
                           {(row) => <option value={row.membership}>{row.display}</option>}
                         </For>
                       </select>
                       <span>
-                        The reference is used only for this request; returned previews never
-                        identify a student.
+                        The selected-Student membership is used only for this request; the returned
+                        Student View Scenario identifies no person.
                       </span>
                     </label>
                   </Show>
                 </div>
-                <Show when={builder() === "synthetic"}>
+                <Show when={studentViewScenarioBuilder() === "hypothetical"}>
                   <fieldset class="preview-modifier-controls">
-                    <legend>Hypothetical accommodation</legend>
+                    <legend>Hypothetical Student View Scenario Modifiers</legend>
                     <p id="preview-modifier-help">
                       Dates inherit the assignment policy. Leave either numeric value blank to
                       inherit it too.
                     </p>
                     <fieldset>
-                      <legend>Accommodation mode</legend>
+                      <legend>Modifier application rule</legend>
                       <label>
                         <input
                           type="radio"
                           name="preview-modifier-mode"
-                          value="extendOnly"
-                          checked={modifierMode() === "extendOnly"}
-                          onInput={() => setModifierMode("extendOnly")}
+                          value="extend_only"
+                          checked={modifierMode() === "extend_only"}
+                          onInput={() => setModifierMode("extend_only")}
                         />{" "}
                         Extend only
                       </label>
@@ -631,7 +634,8 @@ export function AssignmentPreviewPage(): JSX.Element {
                   disabled={
                     busy() ||
                     moment().length === 0 ||
-                    (builder() === "derived" && membership().length === 0)
+                    (studentViewScenarioBuilder() === "selectedStudent" &&
+                      selectedStudentMembership().length === 0)
                   }
                   onClick={() => void resolvePreview()}
                 >

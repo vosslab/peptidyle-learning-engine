@@ -1,16 +1,13 @@
-//! MOD-ADP-PLE: the first-party algorithmic Question Backend adapter.
+//! First-party static PLE Question JSON Backend adapter.
 //!
-//! The engine is question agnostic: [`PleQuestionBackend`] dispatches by the
-//! versioned [`generator::PleQuestionImplementation`] contract, while Question
-//! Implementations own parameter-to-prompt construction and server-only key
-//! derivation. The stable facade coordinates focused registry, issue, grading,
+//! The adapter dispatches by Question Format and Question Type. Question
+//! Implementations validate static content and derive server-only keys. The
+//! stable facade coordinates focused registry, issue, grading,
 //! reproduction, and capability owners.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use domain::draft_preview::PresentationError;
-use domain::generator::{GenerationError, QuestionVariationParameters};
 use grading::GradingError;
 use question_model::{
     ObjectId, QuestionAssetId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
@@ -36,10 +33,8 @@ mod reproduction;
 mod source_implementation;
 
 pub use question_json_source::ResolvedPleQuestionJsonSource;
-use registry::{PleQuestionExecution, PleQuestionImplementationKey};
+use registry::PleQuestionImplementationKey;
 
-#[cfg(test)]
-use grading::QuestionGradingOutcome;
 #[cfg(test)]
 use registry::{backend_version, grader_version};
 #[cfg(test)]
@@ -82,8 +77,6 @@ pub struct QuestionAssetObjectReference {
 pub struct PleIssuedQuestion {
     /// Generated prompt and response shape safe to deliver to the browser.
     pub presentation: QuestionVariationPresentation,
-    /// SHA-256 of the canonical generated parameter map.
-    pub parameter_hash: String,
     /// Versions and object identities needed to reproduce the attempt.
     pub reproduction_details: QuestionAttemptReproductionDetails,
 }
@@ -105,7 +98,7 @@ pub struct PleQuestionGradingEvaluation {
     pub question_answer_explanation: Option<question_model::QuestionAnswerExplanation>,
 }
 
-/// Server-only author presentation for one PLE Draft Question seed.
+/// Server-only author presentation for one PLE Draft Question.
 ///
 /// Its fields are already-rendered student-facing blocks. It deliberately
 /// excludes Answer Keys, choice IDs, grading rules, Source Object References, and
@@ -127,17 +120,15 @@ pub struct PleDraftAuthorPresentation {
 /// Versioned PLE Question Implementation registry and orchestration boundary.
 pub struct PleQuestionBackend {
     implementations: BTreeMap<PleQuestionImplementationKey, Arc<dyn PleQuestionImplementation>>,
-    backend_versions: BTreeMap<(String, String), PleQuestionExecution>,
-    grader_versions: BTreeMap<(String, String), PleQuestionExecution>,
+    backend_versions: BTreeSet<(String, String)>,
+    grader_versions: BTreeSet<(String, String)>,
     current_backend: QuestionBackendVersion,
     current_grader: QuestionGraderVersion,
 }
 
 struct PreparedPleQuestion {
-    generated: QuestionVariationParameters,
     derived: DerivedPleQuestion,
     presentation: QuestionVariationPresentation,
-    parameter_hash: String,
     rendered_question_sha256: String,
 }
 
@@ -155,13 +146,11 @@ pub enum PleQuestionBackendError {
     UnknownQuestionImplementation {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<question_model::QuestionGeneratorReference>,
     },
     /// Two implementations attempted to own one exact Question contract.
     DuplicateQuestionImplementation {
         question_format: question_model::QuestionFormat,
         question_type: question_model::QuestionType,
-        generator: Option<question_model::QuestionGeneratorReference>,
     },
     /// A persisted Question Backend Version has no compiled implementation.
     UnknownQuestionBackendVersion { version: QuestionBackendVersion },
@@ -172,10 +161,6 @@ pub enum PleQuestionBackendError {
     IncompatibleQuestionImplementation { message: String },
     /// Persisted student-facing metadata cannot be delivered safely.
     InvalidTitle(QuestionTitleError),
-    /// Shared deterministic parameter generation failed.
-    Generation(GenerationError),
-    /// Shared key-free prompt presentation was invalid.
-    Presentation(PresentationError),
     /// A browser-safe Question Presentation could not be serialized for hashing.
     Serialization(String),
     /// Stored attempt metadata disagreed with exact regeneration.
@@ -206,18 +191,16 @@ impl std::fmt::Display for PleQuestionBackendError {
             Self::UnknownQuestionImplementation {
                 question_format,
                 question_type,
-                generator,
             } => write!(
                 formatter,
-                "PLE Question Implementation is not installed for {question_format:?}/{question_type:?}/{generator:?}",
+                "PLE Question Implementation is not installed for {question_format:?}/{question_type:?}",
             ),
             Self::DuplicateQuestionImplementation {
                 question_format,
                 question_type,
-                generator,
             } => write!(
                 formatter,
-                "PLE Question Implementation is registered twice for {question_format:?}/{question_type:?}/{generator:?}"
+                "PLE Question Implementation is registered twice for {question_format:?}/{question_type:?}"
             ),
             Self::UnknownQuestionBackendVersion { version } => write!(
                 formatter,
@@ -241,10 +224,6 @@ impl std::fmt::Display for PleQuestionBackendError {
             }
             Self::InvalidTitle(error) => {
                 write!(formatter, "invalid PLE Question title: {error}")
-            }
-            Self::Generation(error) => write!(formatter, "PLE generation failed: {error}"),
-            Self::Presentation(error) => {
-                write!(formatter, "PLE prompt presentation failed: {error}")
             }
             Self::Serialization(message) => {
                 write!(

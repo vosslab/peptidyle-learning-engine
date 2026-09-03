@@ -4,20 +4,17 @@ import { normalizeQuestionIdSyntax } from "../../question_id";
 import type { BlueprintAssignmentRevisionReference } from "../../../generated/api/BlueprintAssignmentRevisionReference";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import {
-  EMPTY_QUESTION_SEARCH_QUERY,
-  decodeQuestionSearchPage,
-  normalizeQuestionSearchQuery,
-  type QuestionLibraryRepository,
-  type QuestionSearchPage,
-  type QuestionSearchQuery,
-  type QuestionSearchResult,
+  EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  decodeQuestionLibraryBrowsePage,
+  normalizeQuestionLibraryBrowseQuery,
+  type QuestionLibraryBrowseRepository,
+  type QuestionLibraryBrowsePage,
+  type QuestionLibraryBrowseQuery,
+  type QuestionLibraryBrowseRow,
 } from "../../pages/library_page_model";
 
 /** The largest selection any current D2 consumer can request. */
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
-
-/** A stable browser Question Folder Reference owned by a later server route. */
-export type QuestionFolderReference = string;
 
 /** Stable browser References for one retained Course Instance Assignment. */
 export interface RetainedAssignmentReference {
@@ -32,11 +29,6 @@ export type QuestionPickerSource =
   | { readonly kind: "library"; readonly label: string }
   | { readonly kind: "sharedLibrary"; readonly label: string }
   | { readonly kind: "mine"; readonly label: string }
-  | {
-      readonly kind: "folder";
-      readonly label: string;
-      readonly folder: QuestionFolderReference;
-    }
   | {
       readonly kind: "retainedAssignment";
       readonly label: string;
@@ -53,7 +45,7 @@ export type QuestionPickerSelectionMode = "none" | "one" | "many";
 /** One ordered question selected from an answer-free D1 Question Search result. */
 export interface QuestionPickerSelectedQuestion {
   readonly questionId: string;
-  readonly row: QuestionSearchResult;
+  readonly row: QuestionLibraryBrowseRow;
 }
 
 /** The one public completion value consumed by Library and assignment parents. */
@@ -64,7 +56,7 @@ export interface QuestionPickerSelection {
 
 export interface QuestionPickerSearchRequest {
   readonly source: QuestionPickerSource;
-  readonly query: QuestionSearchQuery;
+  readonly query: QuestionLibraryBrowseQuery;
   readonly cursor: string | null;
 }
 
@@ -79,21 +71,21 @@ export interface QuestionPickerSourceRepository {
 export type QuestionPickerState =
   | {
       readonly kind: "loading";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
-      readonly aggregates: QuestionSearchPage["aggregates"];
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
+      readonly aggregates: QuestionLibraryBrowsePage["aggregates"];
       readonly nextCursor: string | null;
     }
   | {
       readonly kind: "ready";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
-      readonly aggregates: QuestionSearchPage["aggregates"];
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
+      readonly aggregates: QuestionLibraryBrowsePage["aggregates"];
       readonly nextCursor: string | null;
     }
-  | { readonly kind: "empty"; readonly aggregates: QuestionSearchPage["aggregates"] }
+  | { readonly kind: "empty"; readonly aggregates: QuestionLibraryBrowsePage["aggregates"] }
   | {
       readonly kind: "error";
-      readonly rows: ReadonlyArray<QuestionSearchResult>;
-      readonly aggregates: QuestionSearchPage["aggregates"];
+      readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
+      readonly aggregates: QuestionLibraryBrowsePage["aggregates"];
       readonly nextCursor: string | null;
     };
 
@@ -119,10 +111,10 @@ function normalizeQuestionId(value: string): string {
 }
 
 function rowsWithNormalizedUniqueQuestionIds(
-  rows: ReadonlyArray<QuestionSearchResult>,
-): ReadonlyArray<QuestionSearchResult> {
+  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
+): ReadonlyArray<QuestionLibraryBrowseRow> {
   const known = new Set<string>();
-  const unique: QuestionSearchResult[] = [];
+  const unique: QuestionLibraryBrowseRow[] = [];
   for (const row of rows) {
     const questionId = normalizeQuestionId(row.displayId);
     if (known.has(questionId)) continue;
@@ -136,7 +128,7 @@ function rowsWithNormalizedUniqueQuestionIds(
 export function questionPickerSelection(
   mode: QuestionPickerSelectionMode,
   maximumSelection: number,
-  rows: ReadonlyArray<QuestionSearchResult>,
+  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
 ): QuestionPickerSelection {
   const uniqueRows = rowsWithNormalizedUniqueQuestionIds(rows);
   const maximum = selectionLimit(mode, maximumSelection);
@@ -156,7 +148,7 @@ export function toggleQuestionPickerSelection(
   mode: QuestionPickerSelectionMode,
   maximumSelection: number,
   selection: QuestionPickerSelection,
-  row: QuestionSearchResult,
+  row: QuestionLibraryBrowseRow,
   selected: boolean,
 ): QuestionPickerSelection {
   const questionId = normalizeQuestionId(row.displayId);
@@ -199,18 +191,34 @@ export function moveQuestionPickerSelection(
   );
 }
 
-/** Small adapter that lets Question-Library-only parents compose the shared picker immediately. */
+/** Adapts mounted Question Library searches for the picker source choices. */
 export function questionLibraryPickerRepository(
-  library: QuestionLibraryRepository,
+  library: QuestionLibraryBrowseRepository,
+  myQuestions: QuestionLibraryBrowseRepository,
 ): QuestionPickerSourceRepository {
   return {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
-      if (request.source.kind !== "library") {
+      if (request.source.kind === "library" || request.source.kind === "sharedLibrary") {
+        return await library.search(request.query, request.cursor);
+      }
+      if (request.source.kind === "mine") {
+        return await myQuestions.search(request.query, request.cursor);
+      }
+      {
         throw new Error("This picker composition has not connected that source yet.");
       }
-      return await library.search(request.query, request.cursor);
     },
   };
+}
+
+/** Current mounted Question Library choices for Instructor picker compositions. */
+export function questionLibraryPickerSources(
+  includeMyQuestions: boolean,
+): ReadonlyArray<QuestionPickerSource> {
+  return [
+    { kind: "library", label: "Library" },
+    ...(includeMyQuestions ? ([{ kind: "mine", label: "My Questions" }] as const) : []),
+  ];
 }
 
 const PICKER_SOURCE_PAGE_SIZE = 100;
@@ -247,7 +255,7 @@ function reusableQuestionLibraryRow(item: {
         readonly difficultyIndex: number;
         readonly discriminationIndex?: number;
       };
-}): QuestionSearchResult {
+}): QuestionLibraryBrowseRow {
   const summary = item.summary;
   const evidence =
     item.evidence.state === "insufficientEvidence"
@@ -302,27 +310,27 @@ function contentRows(content: {
       }
     | {
         readonly kind: "pool";
-        readonly entries: ReadonlyArray<{
+        readonly items: ReadonlyArray<{
           readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
         }>;
       }
   >;
-}): ReadonlyArray<QuestionSearchResult> {
-  const rows: QuestionSearchResult[] = [];
+}): ReadonlyArray<QuestionLibraryBrowseRow> {
+  const rows: QuestionLibraryBrowseRow[] = [];
   for (const assignmentEntry of content.entries) {
     if (assignmentEntry.kind === "fixed")
       rows.push(reusableQuestionLibraryRow(assignmentEntry.question.question_library));
     else
-      for (const questionPoolItem of assignmentEntry.entries)
+      for (const questionPoolItem of assignmentEntry.items)
         rows.push(reusableQuestionLibraryRow(questionPoolItem.question_library));
   }
   return rows;
 }
 
 function sourceRowsMatchQuery(
-  rows: ReadonlyArray<QuestionSearchResult>,
-  query: QuestionSearchQuery,
-): QuestionSearchResult[] {
+  rows: ReadonlyArray<QuestionLibraryBrowseRow>,
+  query: QuestionLibraryBrowseQuery,
+): QuestionLibraryBrowseRow[] {
   const needle = query.search.trim().toLocaleLowerCase();
   if (needle === "") return [...rows];
   return rows.filter((row) => `${row.title}\n${row.summary}`.toLocaleLowerCase().includes(needle));
@@ -335,7 +343,7 @@ export function blueprintCourseQuestionPickerRepository(
   return {
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       const offset = pickerPageOffset(request.cursor);
-      let rows: ReadonlyArray<QuestionSearchResult>;
+      let rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       if (request.source.kind === "blueprintCourseAssignment") {
         const observed = await client.getBlueprintCourse(request.source.source.reference);
         rows = contentRows(
@@ -361,7 +369,7 @@ export function blueprintCourseQuestionPickerRepository(
 export class QuestionPickerSession {
   #generation = 0;
   #source: QuestionPickerSource | undefined;
-  #query = EMPTY_QUESTION_SEARCH_QUERY;
+  #query = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY;
   #state: QuestionPickerState = { kind: "loading", rows: [], aggregates: [], nextCursor: null };
   #loading = false;
   #queuedReset = false;
@@ -375,10 +383,13 @@ export class QuestionPickerSession {
     return this.#state;
   }
 
-  public async reset(source: QuestionPickerSource, query: QuestionSearchQuery): Promise<void> {
+  public async reset(
+    source: QuestionPickerSource,
+    query: QuestionLibraryBrowseQuery,
+  ): Promise<void> {
     this.#generation += 1;
     this.#source = source;
-    this.#query = normalizeQuestionSearchQuery(query);
+    this.#query = normalizeQuestionLibraryBrowseQuery(query);
     if (this.#loading) {
       this.#queuedReset = true;
       return;
@@ -425,7 +436,7 @@ export class QuestionPickerSession {
     });
     try {
       const raw = await this.repository.search({ source, query: this.#query, cursor });
-      const page = decodeQuestionSearchPage(raw);
+      const page = decodeQuestionLibraryBrowsePage(raw);
       if (generation !== this.#generation) return;
       const rows = rowsWithNormalizedUniqueQuestionIds(
         replace ? page.items : [...retainedRows, ...page.items],

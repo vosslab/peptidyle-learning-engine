@@ -3,7 +3,6 @@
 from e2e_browser_scenario_contract import ScenarioContract
 import e2e_browser_scenarios_auth as auth
 import e2e_browser_scenarios_conflict as conflict
-import e2e_browser_scenarios_question_curation as question_curation
 import e2e_browser_scenarios_discovery as discovery
 import e2e_browser_scenarios_failure as failure
 import e2e_browser_scenarios_instructor as instructor
@@ -23,7 +22,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 		+ conflict.contracts()
 		+ student.contracts()
 		+ discovery.contracts()
-		+ question_curation.contracts()
 		+ (
 			ScenarioContract(
 				scenario_id=webwork_delivery.SCENARIO_ID,

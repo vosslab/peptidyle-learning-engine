@@ -517,10 +517,12 @@ def validate(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Read-only validate initialized canonical configuration and runtime state."""
+	"""Read-only validate initialized Local Stack configuration and runtime state."""
 	target = target_from_args(args, runner, repo_root)
 	if target.project != local_stack_control.models.DEFAULT_PROJECT:
-		raise local_stack_control.models.ControllerError("validate is canonical-stack-only")
+		raise local_stack_control.models.ControllerError(
+			"validate is available only for the default Local Stack"
+		)
 	local_stack_control.lifecycle.validate_lifecycle(target, runner, repo_root)
 	snapshot = local_stack_control.discovery.discover_snapshot(runner, repo_root, target.project)
 	report = local_stack_control.status.build_report(target.project, target.with_smtp, snapshot)

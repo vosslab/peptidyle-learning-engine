@@ -153,7 +153,7 @@ BEGIN
             WHERE oid = 'ple_data.question_current_owner'::regclass
               AND reloptions @> ARRAY['security_invoker=true']
         ) THEN
-        RAISE EXCEPTION 'Question Revision acceptance, Authorship, Owner, License, and Citation are not separate immutable publication facts';
+        RAISE EXCEPTION 'Question Revision acceptance, Question Authorship, Question Owner, Question License, and Question Citation are not separate immutable publication facts';
     END IF;
 
     IF to_regclass('ple_private.draft_question_fork_source') IS NULL
@@ -296,7 +296,7 @@ END;
 $$;
 
 -- Publication accepts only a revision with its immutable acceptance facts.
--- `private_question_records.sql` has already registered this revision's exact
+-- `question_records.sql` has already registered this revision's exact
 -- Question Source and its Instructor Account.
 BEGIN;
 

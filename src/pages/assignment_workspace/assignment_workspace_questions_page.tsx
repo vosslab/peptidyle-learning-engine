@@ -442,7 +442,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 createMode={false}
                 busy={busy()}
                 preview={poolPreview()}
-                resolveEntries={async (questionIds) =>
+                resolveQuestionPoolItems={async (questionIds) =>
                   await Promise.all(
                     questionIds.map(
                       async (questionId) => await workspace.repository.resolvePublished(questionId),
@@ -465,7 +465,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 onRemovePool={removeEntry}
                 onMessage={setMessage}
                 onPreviewPool={(assignmentEntryId) => void previewPool(assignmentEntryId)}
-                onChoosePoolEntries={(entryIndex, trigger) =>
+                onChooseQuestionPoolItems={(entryIndex, trigger) =>
                   pickerController.open({ kind: "pool", entryIndex }, trigger)
                 }
               />

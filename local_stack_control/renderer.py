@@ -42,7 +42,7 @@ def inspect_renderer_oci_id(
 	oci_id = result.stdout.strip()
 	# Podman reports the OCI configuration ID without its algorithm prefix,
 	# whereas some compatible formatters include it. Question Renderer Version uses one
-	# canonical, digest-qualified OCI identity.
+	# normalized digest-qualified OCI identity.
 	if re.fullmatch(r"[0-9a-f]{64}", oci_id) is not None:
 		oci_id = "sha256:" + oci_id
 	if not result.ok() or OCI_ID.fullmatch(oci_id) is None:
@@ -88,12 +88,12 @@ def build_local_renderer(
 	reference: str,
 	environment: dict[str, str],
 ) -> None:
-	"""Build the canonical reviewed local image from its maintained sibling."""
+	"""Build the reviewed local renderer image from its maintained sibling."""
 	source = repo_root.parent / LOCAL_SOURCE_DIRECTORY_NAME
 	dockerfile = source / "Dockerfile"
 	if source.is_symlink() or not source.is_dir() or not dockerfile.is_file():
 		raise local_stack_control.models.ControllerError(
-			"canonical renderer source checkout is unavailable beside the PLE repository"
+			"reviewed renderer source checkout is unavailable beside the PLE repository"
 		)
 	# ASVS 13.3.2: the fixed sibling path and selected local tag form the complete
 	# build authority; private stack state and caller-provided build contexts stay out.
@@ -104,7 +104,7 @@ def build_local_renderer(
 	)
 	if result != 0:
 		raise local_stack_control.models.ControllerError(
-			"canonical reviewed renderer image build failed"
+			"reviewed renderer image build failed"
 		)
 
 

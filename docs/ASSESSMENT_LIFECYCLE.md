@@ -9,8 +9,8 @@ plan remains the source of truth for package status and acceptance evidence.
 
 The ownership, publication, activity, grading, and retention semantics below
 are the durable platform design. The precise minimal student payload described
-in "Submit, grade, and project" is the accepted WP-P1 through WP-P6 target
-contract, not a claim that the current broader student DTO has already been
+in "Submit, grade, and project" is the accepted target contract, not a claim
+that the current broader student DTO has already been
 replaced. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) labels
 the current boundary separately from the target cutover. Consult the active
 release plan before treating a backend or payload package as accepted.
@@ -122,9 +122,9 @@ their explicit policy values.
 
 The assignment belongs to one course. Enrolling a student creates a
 course-owned educational relationship, not a copy of shared question content.
-The authenticated session supplies the user identity; the server verifies that
-the Student Record belongs to that Account and Course Instance rather than assuming `AccountId` and `StudentRecordId` are
-interchangeable.
+The Authenticated Session identifies an Account. The server verifies that the
+Student Record belongs to that Account in that Course Instance rather than
+assuming `AccountId` and `StudentRecordId` are interchangeable.
 
 ### 5. Create or resume an Assignment Attempt
 
@@ -154,7 +154,7 @@ The Assignment Attempt service issues at most one unresolved Question Attempt at
 binds the authenticated Student and Course through its enrollment and Assignment Attempt, the
 assignment position, immutable version, seed, policy, timing state, grader
 backend, and Question Attempt Reproduction Details. Resume returns the stored attempt and stored seed; it
-does not generate a different problem mid-attempt.
+does not generate a different Question Revision mid-attempt.
 
 Question Attempt issuance is a transactional storage operation. PostgreSQL locks the Assignment Attempt
 and its equivalent Store contract enforces the same invariant, so concurrent
@@ -173,7 +173,7 @@ upstream fields, storage locations, and grader state.
 
 An attempt-specific presentation binding protects against a valid but wrong
 render being submitted for the wrong attempt. Each selectable object has a
-small rendered-item ID; the full public descriptor has a presentation checksum.
+small Presentation Response Item Reference; the full public descriptor has a Question Presentation Checksum.
 The Question Presentation Checksum and its public Question Presentation Token are consistency checks, not authentication mechanisms or transport
 checksum. The exact wire contract, CRC16 collision rule, readiness requirement,
 and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
@@ -199,13 +199,13 @@ advance an Assignment Attempt.
 ### 9. Submit the minimal response
 
 At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the presentation checksum and a Question-Type-minimal answer;
+The request supplies only the Question Presentation Checksum and a Question-Type-minimal answer;
 a bounded idempotency key is in the request header. The server loads the
 authoritative attempt and therefore derives response shape, question revision,
 seed, assignment, backend, deadline, and student ownership rather than
 accepting browser copies.
 
-The server rejects a digest mismatch before grading and keeps the attempt
+The server rejects a Question Presentation Checksum mismatch before grading and keeps the attempt
 unchanged. The browser reloads the same attempt, retains compatible unsent work
 in memory, and asks the student to review it. Repeating the same idempotency
 key and same response returns the first Question Submission Receipt. Reusing a key or
@@ -271,8 +271,8 @@ the same source format.
 
 | Question Backend | Publication authority                                                                                                          | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE              | PLE compiles PLE Question JSON source into public definition and server-only key                                               | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private Question Grading Input, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
-| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE definition    | Server-only `PostgresGraderStore` when enabled                 | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                                            |
+| PLE              | PLE compiles PLE Question JSON source into answer-free Question Content and server-only key                                     | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private Question Grading Input, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
+| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE Question Content | Server-only `PostgresGraderStore` when enabled               | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                                            |
 | WeBWorK          | PLE copies licensed PG/PGML Question Source into immutable storage with its Source Object Reference and Source Object Checksum | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WeBWorK grading contract, and immutable Question Source; submitted reads never rerender                                         |
 | iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration                                                 | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                                        |
 
@@ -344,7 +344,7 @@ Use this lifecycle document to find the right detailed contract:
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
   timing, idempotency, completion, and Assignment Attempt Summary.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
-  rendered IDs, presentation checksum, minimal response, receipt, and prefetch.
+  Presentation Response Item References, Question Presentation Checksum, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, Assignment Attempt, asset, and retention security boundaries.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed Object Addresses, bucket roles,

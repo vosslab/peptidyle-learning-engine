@@ -112,8 +112,8 @@ current.
 
 ## Disposable fixture identities
 
-The Chapter 1 disposable seed mints fresh opaque workspace, problem, version,
-and source-object IDs. Its answer-free protected manifest is the replay marker:
+The Chapter 1 disposable seed mints fresh opaque Authoring Workspace Reference, Question ID, Question Revision Number,
+and Source Object Reference. Its answer-free protected manifest is the replay marker:
 replay resolves the assigned Question IDs and requires exact immutable records
 and reviewed source content before reuse. The manifest must never appear in
 instructor-visible UI, URLs, copyable links, or public fixtures.

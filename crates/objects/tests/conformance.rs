@@ -1,4 +1,4 @@
-//! Reusable ObjectStore conformance suite, first run against memory in WP-C4.
+//! Reusable Object Storage conformance suite run against the in-memory backend.
 
 use objects::memory::MemoryObjectStore;
 use objects::{

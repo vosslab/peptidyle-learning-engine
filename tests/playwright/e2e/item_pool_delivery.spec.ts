@@ -221,7 +221,7 @@ async function completeDeliveredPoolRun(
   const questionHeading = page.locator(".assignment-attempt-header h1");
   for (let position = 0; position < 2; position += 1) {
     await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
-      `Server-selected Question Pool item ${position + 1} of 2 for this Assignment Attempt.`,
+      `Server-selected Question ${position + 1} of 2 for this Assignment Attempt.`,
     );
     const title = await questionHeading.innerText();
     const questionPoolItem = itemsByTitle.get(title);

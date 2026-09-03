@@ -15,5 +15,4 @@ export * from "./decoders/course_grade";
 export * from "./decoders/calculated_gradebook";
 export * from "./decoders/teaching_operations";
 export * from "./decoders/preview_plane";
-export * from "./decoders/question_curation";
 export * from "./decoders/grading_operations";

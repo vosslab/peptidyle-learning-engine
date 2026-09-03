@@ -1,11 +1,11 @@
--- SD1 resolves an opaque active session and installs transaction-local session facts.
+-- Authenticated Session resolution installs transaction-local session facts.
 
 SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.resolve_active_authenticated_session(p_token_hash bytea)
 RETURNS TABLE (
     account_id uuid,
     session_id uuid,
-    role text,
+    product_role text,
     token_hash bytea,
     created_at timestamp with time zone,
     expires_at timestamp with time zone
@@ -13,7 +13,7 @@ RETURNS TABLE (
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
-    SELECT sessions.account_id, sessions.session_id, sessions.role,
+    SELECT sessions.account_id, sessions.session_id, sessions.product_role,
         sessions.token_hash, sessions.created_at, sessions.expires_at
       FROM ple_private.authenticated_session AS sessions
       JOIN LATERAL (
@@ -38,7 +38,7 @@ CREATE FUNCTION ple_api.resolve_and_install_session(p_token_hash bytea)
 RETURNS TABLE (
     account_id uuid,
     session_id uuid,
-    role text,
+    product_role text,
     token_hash bytea,
     created_at timestamp with time zone,
     expires_at timestamp with time zone
@@ -49,14 +49,14 @@ AS $$
 DECLARE
     resolved_account_id uuid;
     resolved_session_id uuid;
-    resolved_role text;
+    resolved_product_role text;
     resolved_token_hash bytea;
     resolved_created_at timestamp with time zone;
     resolved_expires_at timestamp with time zone;
 BEGIN
-    SELECT resolved.account_id, resolved.session_id, resolved.role,
+    SELECT resolved.account_id, resolved.session_id, resolved.product_role,
         resolved.token_hash, resolved.created_at, resolved.expires_at
-      INTO resolved_account_id, resolved_session_id, resolved_role,
+      INTO resolved_account_id, resolved_session_id, resolved_product_role,
         resolved_token_hash, resolved_created_at, resolved_expires_at
       FROM ple_private.resolve_active_authenticated_session(p_token_hash) AS resolved;
     IF resolved_account_id IS NULL THEN
@@ -64,7 +64,7 @@ BEGIN
     END IF;
     PERFORM pg_catalog.set_config('ple.session_account_id', resolved_account_id::text, true);
     PERFORM pg_catalog.set_config('ple.session_id', resolved_session_id::text, true);
-    RETURN QUERY SELECT resolved_account_id, resolved_session_id, resolved_role,
+    RETURN QUERY SELECT resolved_account_id, resolved_session_id, resolved_product_role,
         resolved_token_hash, resolved_created_at, resolved_expires_at;
 END
 $$;
@@ -84,7 +84,7 @@ RETURNS TABLE (
     session_id uuid,
     token_hash bytea,
     account_id uuid,
-    role text,
+    product_role text,
     created_at timestamp with time zone,
     expires_at timestamp with time zone
 )
@@ -104,7 +104,7 @@ BEGIN
     -- The trusted Authenticated Session issuance operation derives Product Role
     -- from the immutable Account record;
     -- a ceremony or application caller never selects it. ASVS 2.2.1, 2.3.3, 8.3.1.
-    SELECT account.role
+    SELECT account.product_role
       INTO resolved_product_role
       FROM ple_private.account AS account
       JOIN LATERAL (
@@ -120,7 +120,7 @@ BEGIN
     END IF;
     RETURN QUERY
     INSERT INTO ple_private.authenticated_session (
-        session_id, account_id, role, token_hash, created_at, expires_at
+        session_id, account_id, product_role, token_hash, created_at, expires_at
     )
     VALUES (
         p_session_id, p_account_id, resolved_product_role, p_token_hash,
@@ -128,7 +128,7 @@ BEGIN
         pg_catalog.transaction_timestamp() + (p_lifetime_seconds * interval '1 second')
     )
     RETURNING authenticated_session.session_id, authenticated_session.token_hash,
-        authenticated_session.account_id, authenticated_session.role,
+        authenticated_session.account_id, authenticated_session.product_role,
         authenticated_session.created_at, authenticated_session.expires_at;
 END
 $$;
@@ -164,7 +164,7 @@ RETURNS TABLE (
     session_id uuid,
     token_hash bytea,
     account_id uuid,
-    role text,
+    product_role text,
     created_at timestamp with time zone,
     expires_at timestamp with time zone
 )

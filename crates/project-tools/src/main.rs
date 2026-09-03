@@ -1,4 +1,4 @@
-//! Project build, generation, database, fixture, and acceptance tools (WP-F2).
+//! Project build, generation, database, fixture, and acceptance tools.
 
 mod application;
 mod database;

@@ -1,4 +1,4 @@
-# MOD-EXPORT: print model, DOCX and PDF writers.
+# Answer-key-free print model plus DOCX and PDF writers.
 [package]
 name = "export_crate"
 version.workspace = true

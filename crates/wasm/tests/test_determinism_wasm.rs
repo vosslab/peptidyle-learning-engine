@@ -2,9 +2,6 @@
 
 #![cfg(target_arch = "wasm32")]
 
-#[path = "../../domain/tests/determinism_support.rs"]
-mod determinism_support;
-
 use wasm_bindgen_test::wasm_bindgen_test;
 
 #[path = "ple_question_json_response_format_fixture_set.rs"]
@@ -13,15 +10,10 @@ mod ple_question_json_response_format_fixture_set;
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
-fn deterministic_seed_vector_fixture_set_matches_browser_generation() {
-    determinism_support::assert_committed_deterministic_seed_vector_fixture_set();
-}
-
-#[wasm_bindgen_test]
 fn ple_question_json_public_response_fixture_set_matches_browser_wasm() {
     for case in ple_question_json_response_format_fixture_set::cases() {
         let check = wasm_bridge::validate_response_format(
-            &serde_json::to_string(&case.definition).expect("definition serializes"),
+            &serde_json::to_string(&case.response_format).expect("response format serializes"),
             &serde_json::to_string(&case.response).expect("response serializes"),
         )
         .expect("public fixture shape is valid");
@@ -34,11 +26,12 @@ fn ple_question_json_public_response_fixture_set_matches_browser_wasm() {
     }
 
     let repeated = ple_question_json_response_format_fixture_set::matching_full_permutation();
-    let definition = serde_json::to_string(&repeated.definition).expect("definition serializes");
+    let response_format =
+        serde_json::to_string(&repeated.response_format).expect("response format serializes");
     let response = serde_json::to_string(&repeated.response).expect("response serializes");
     assert_eq!(
-        wasm_bridge::validate_response_format(&definition, &response).expect("first call"),
-        wasm_bridge::validate_response_format(&definition, &response).expect("second call"),
+        wasm_bridge::validate_response_format(&response_format, &response).expect("first call"),
+        wasm_bridge::validate_response_format(&response_format, &response).expect("second call"),
         "browser Wasm format validation must be stateless"
     );
 

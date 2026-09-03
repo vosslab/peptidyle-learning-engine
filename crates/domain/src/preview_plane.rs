@@ -1,8 +1,9 @@
-//! Pure composition of the S5 active-membership gate, S3 policy, and S4 disclosure for WP-INST-T3.
+//! Pure composition of active Student Course Membership, Assignment policy, and Student Feedback disclosure.
 //!
 //! The Store owns route References and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
-//! module only the already-resolved S5/S3 facts. Evaluation borrows those facts
+//! module only the already-resolved Active Student Course Membership and Effective
+//! Assignment Policy facts. Evaluation borrows those facts
 //! and returns an owned, closed Assignment Release Validation.
 
 use question_model::{
@@ -29,14 +30,14 @@ pub fn assignment_policy_source_kind(
 ) -> AssignmentPolicySourceKind {
     match source {
         AssignmentPolicySource::Base => AssignmentPolicySourceKind::Base,
-        AssignmentPolicySource::Accommodation(_)
-        | AssignmentPolicySource::HypotheticalAccommodation => {
-            AssignmentPolicySourceKind::Accommodation
+        AssignmentPolicySource::Accommodation(_) => AssignmentPolicySourceKind::Accommodation,
+        AssignmentPolicySource::HypotheticalStudentViewScenario => {
+            AssignmentPolicySourceKind::HypotheticalStudentViewScenario
         }
     }
 }
 
-/// Copies an effective S3 policy into its identity-free preview representation.
+/// Copies an Effective Assignment Policy into its identity-free preview representation.
 pub fn project_preview_policy(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
@@ -130,7 +131,7 @@ pub fn project_preview_schedule(
     })
 }
 
-/// Maps the S5 active-membership result to the transport-safe Assignment Access outcome.
+/// Maps the Active Student Course Membership result to the transport-safe Assignment Access outcome.
 pub fn project_active_student_course_membership(
     decision: &ActiveStudentCourseMembershipDecision,
 ) -> ActiveStudentCourseMembershipOutcome {
@@ -148,7 +149,7 @@ pub fn project_active_student_course_membership(
     }
 }
 
-/// Runs S4 at the requested preview boundary. Due and Close remain unavailable when absent.
+/// Runs Student Feedback Release at the requested preview boundary. Due and Close remain unavailable when absent.
 pub fn project_preview_student_feedback_release(
     effective: &AssignmentAccessDecision,
     rule: StudentFeedbackReleaseRule,
@@ -198,7 +199,7 @@ fn allowed_policy(value: &AssignmentAccessDecision) -> Option<&EffectiveAssignme
     }
 }
 
-/// A T3 denial is deliberately closed; callers must not attach any resolved data.
+/// A preview denial is deliberately closed; callers must not attach any resolved data.
 pub fn preview_denial_for(
     active_student_course_membership: &ActiveStudentCourseMembershipDecision,
     current_revision_matches: bool,
@@ -222,13 +223,14 @@ mod tests {
     };
     use crate::effective_assignment_policy::{
         AssignmentPolicySource, AssignmentStartDecision, AssignmentStatusGate, AuthorizationGate,
-        BaseAssignmentPolicy, EffectiveAssignmentPolicyValue, ResolveEffectivePolicyInput,
-        StudentLateWorkStatus, resolve_effective_policy,
+        EffectiveAssignmentPolicyValue, ResolveEffectivePolicyInput, StudentLateWorkStatus,
+        resolve_effective_policy,
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssignmentDeadlineRule, AssignmentId, CourseId, CourseMembershipId, CourseTerm,
-        LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
+        AccountId, AssignmentDeadlineRule, AssignmentId, BaseAssignmentPolicy, CourseId,
+        CourseMembershipId, CourseTerm, LateWorkRule, StudentFeedbackReleaseRule,
+        StudentFeedbackReleaseTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -272,7 +274,8 @@ mod tests {
     }
 
     #[test]
-    fn s5_s3_s4_projection_has_parity_and_missing_boundaries_are_explicit() {
+    fn active_membership_policy_and_feedback_projection_has_parity_and_missing_boundaries_are_explicit()
+     {
         let (active_student_course_membership, effective) = allowed();
         assert!(matches!(
             project_active_student_course_membership(&active_student_course_membership),
@@ -331,20 +334,20 @@ mod tests {
         assert_eq!(
             serde_json::to_value(PreviewDenialReason::ActiveStudentCourseMembershipRequired)
                 .unwrap(),
-            serde_json::json!("activeStudentCourseMembershipRequired")
+            serde_json::json!("active_student_course_membership_required")
         );
     }
 
     #[test]
-    fn actual_and_hypothetical_individual_sources_share_the_safe_layer() {
+    fn direct_student_and_hypothetical_scenario_sources_remain_distinct() {
         let student = StudentRecordId::from_uuid(id(9));
         assert_eq!(
             assignment_policy_source_kind(&AssignmentPolicySource::Accommodation(student)),
             AssignmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            assignment_policy_source_kind(&AssignmentPolicySource::HypotheticalAccommodation),
-            AssignmentPolicySourceKind::Accommodation
+            assignment_policy_source_kind(&AssignmentPolicySource::HypotheticalStudentViewScenario),
+            AssignmentPolicySourceKind::HypotheticalStudentViewScenario
         );
     }
 
@@ -459,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    fn denied_s5_s3_s4_never_produces_preview_data() {
+    fn denied_active_membership_policy_and_feedback_never_produces_preview_data() {
         let active_student_course_membership = ActiveStudentCourseMembershipDecision::Denied(
             ActiveStudentCourseMembershipDenial::StudentNotActiveCourse,
         );

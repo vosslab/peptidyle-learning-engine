@@ -7,7 +7,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentId(Uuid);
 
-/// One stable current-state item within an Assignment.
+/// One stable Assignment Entry within an Assignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AssignmentEntryId(Uuid);
 

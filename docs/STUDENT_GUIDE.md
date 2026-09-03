@@ -1,79 +1,44 @@
 # Student guide
 
-This guide follows one account-authenticated Mastery assignment from its overview through
-completion and fresh practice. The browser path uses visible controls and the platform keyboard
-model; it does not call a private API or inspect an answer key. Start the local system first with
-[USAGE.md](USAGE.md).
+## Current local Live Demo
 
-All people and course records shown in these captures are fictional live-demo data. The seeded
-personas are ordinary PLE Instructor and Student records in the disposable baseline; regeneration
-discards them and recreates the same fictional baseline.
+The current Live Demo lets a reader enter a seeded Student Account through the
+visible account selector. That selector creates the ordinary server-owned
+Authenticated Session for the configured Account. It does not supply a course
+membership, Student record, or authorization claim.
 
-<!-- screenshots:begin (managed by screenshot-docs) -->
+The current browser surface ends at this account/session entry. Course lists,
+assignment pages, Question Response Controls, submissions, Student Feedback,
+grades, and Assignment Attempt history are not mounted current routes. Start
+the local stack using [USAGE.md](USAGE.md) and use the visible account page to
+inspect the mounted session entry.
 
-![Student course assignment list showing Peptide Bonds Guided Practice](screenshots/student/delivery/01_assignment_list.png)
+## Future Student delivery contract
 
-![Student Peptide Bond Planarity problem showing a fresh unanswered response](screenshots/student/delivery/03_problem_ready.png)
+The retained PLE product contract gives a Student access only through an exact
+active Course Membership, Student ownership, an allowed Assignment Access
+decision, and the exact Course and Assignment. The Student then receives only
+the Questions issued for that Assignment Attempt.
 
-![Student Peptide Bond Planarity problem showing the selected resonance response](screenshots/student/delivery/04_response_selected.png)
+The intended future workflow is:
 
-![Student completed Assignment Attempt summary showing a correct score and keyboard focus on Start another practice Assignment Attempt](screenshots/student/delivery/06_completion.png)
+1. Open an authorized Course Instance and Assignment.
+2. Start or resume an Assignment Attempt.
+3. Submit a response through visible Question Response Controls.
+4. Read the answer-free submission acknowledgement and permitted Student
+   Feedback or grading state.
+5. Continue or begin another Assignment Attempt only when Assignment rules
+   allow it.
 
-![Student Peptide Bond Planarity practice Assignment Attempt 2 showing a fresh unanswered response](screenshots/student/delivery/07_repeat_run.png)
-<!-- screenshots:end -->
+This is an illustrative contract, not a current Live Demo walkthrough. The
+server keeps Answer Keys, Question Graders, private Question Source data, and
+Question Attempt Reproduction Details outside the Student browser boundary. It
+also determines timing, late-work treatment, and authorization; the browser
+does not infer them from its own clock or from an identifier.
 
-## Before you begin
+## Accessibility contract
 
-- Open the local stack's HTTPS URL and use the visible PLE account page.
-- The current live-demo build uses its visible seeded-persona selector to enter a fictional Student
-  Account through the ordinary Authenticated Session. Email-code and passkey sign-in remain the
-  required product paths and are being reconstructed on that same session foundation.
-- If you are not using the seeded selector, ask the instructor to create an invitation and share its
-  one-time copy link through the trusted course channel. Claim it after authenticating your PLE
-  account, then open the course and assignment through their visible cards.
-
-## Use the keyboard path
-
-- Press **Tab** and **Shift+Tab** to move focus through visible controls.
-- Press **Space** to select a response or activate the focused practice control.
-- Press **Enter** to follow the focused course and assignment links.
-- Follow the visible focus ring rather than relying on a pointer shortcut.
-
-The complete accessibility contract is in
-[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
-
-## Complete the first Assignment Attempt
-
-1. Open the assignment and read **Instructions** and **Delivery details**. Schedule times are already
-   resolved by the server and shown in the course time zone; the browser does not infer policy or a
-   deadline from its own clock.
-2. Activate **Start or resume practice**.
-3. Read the visible timer, then select a response and activate **Submit answer**.
-4. If **Response received** appears, activate **Check grading status** until your Student response
-   outcome or an instructor-attention message appears.
-5. When **Student Feedback** is available, use any released score, correctness, Question Answer,
-   Question Answer Explanation, or optional Question Feedback that helps you, then activate
-   **Continue**. You can continue when no optional Question Feedback was authored or released.
-6. When an instructor-attention message appears, stop and contact your instructor; the assignment
-   keeps your accepted response while the instructor resolves the grading issue.
-7. Use another Assignment Attempt when the Assignment allows it, then continue to the completed
-   summary.
-
-The Student may receive released **Student Feedback**, but Answer Keys and the Question Grader remain on the
-server. The browser displays the countdown; the server decides whether a response arrived on time.
-When scoring is recalculating or has failed, the page reports that neutral state and omits numeric
-scores; it never presents a missing score as zero. Unreleased, Closed, or otherwise unavailable work does
-not expose Instructor policy or Question Attempt Reproduction Details through the Student route.
-
-## Practice again
-
-The completed summary keeps **Start fresh practice** available. Activating it opens the captured
-**Practice Assignment Attempt 2** screen with no response selected, proving that the Student entered a new Assignment Attempt rather
-than reopening the completed one. This demo assignment is untimed; timed assignments display a fresh
-server-authoritative deadline. The completed assignment remains recorded. Leaving an unsubmitted
-response and resuming the active Assignment Attempt clears that response, so the Student returns to an intentional
-fresh choice.
-
-After a completed Assignment Attempt, the Instructor can verify the score summary and history described in
-[INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md). Continued practice remains available after completion;
-completion and the opportunity to learn are not the same event.
+The future Student interface uses visible controls and the keyboard model in
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). A
+restored browser acceptance owner must validate the actual mounted journey
+before screenshots or this guide describe the delivery interface as current.

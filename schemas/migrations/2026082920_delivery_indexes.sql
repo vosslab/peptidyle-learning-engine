@@ -1,4 +1,4 @@
--- SD1 exact CourseInstance/Student delivery indexes and answer-free read projection.
+-- Course Instance and Student delivery indexes with answer-free reads.
 
 SET LOCAL ROLE ple_data_owner;
 CREATE INDEX course_membership_event_current_lookup_idx

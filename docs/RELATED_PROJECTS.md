@@ -199,7 +199,7 @@ current acceptance status remains in
   Assignment and Grade Services contracts used to connect assessment tools with an LMS.
 - Evidence: 1EdTech's official LTI documentation defines secure platform-to-tool integration and
   links the final Assignment and Grade Services specification; PLE assigns its future verified
-  launch and grade-passback implementation to WP-RC9 in the
+  launch and grade-passback implementation to the future LTI capability in the
   [active release plan](active_plans/active/release_completion_plan.md).
 - Confidence: likely
 - Notes: this is a planned registered-protocol reference, not a current PLE Question Backend capability.

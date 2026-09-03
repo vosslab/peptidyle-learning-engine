@@ -6,7 +6,6 @@ use grading::AnswerKey;
 use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
-use question_model::generation::QuestionVariationRule;
 use question_model::question_citation::QuestionCitation;
 use question_model::question_license::QuestionLicense;
 use question_model::question_tag::Tag;
@@ -372,7 +371,6 @@ impl PleQuestionJsonDocumentBody {
             question_type,
             question_attempt_limit: self.question_attempt_limit.into(),
             question_attempt_time_limit: self.question_attempt_time_limit.into(),
-            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::AllOrNothing {
                 points: self.points,
             },

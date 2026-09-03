@@ -38,13 +38,13 @@ const input = {
   assignmentAuthoredContent: {
     timeZone: "America/Chicago",
     instructions: "Use a structural drawing.",
-    availableAt: null,
-    dueAt: null,
-    closesAt: null,
-    assignmentAttemptTimeLimitSeconds: null,
-    attemptLimit: null,
-    lateWorkRule: "markLate",
-    assignmentDeadlineRule: "autoSubmit",
+    available_at: null,
+    due_at: null,
+    closes_at: null,
+    assignment_attempt_time_limit_seconds: null,
+    attempt_limit: null,
+    late_work_rule: "mark_late",
+    assignment_deadline_rule: "auto_submit",
   },
 };
 

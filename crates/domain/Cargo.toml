@@ -1,4 +1,4 @@
-# MOD-DOMAIN: Assignment Attempt state, timing, generation, capability validation.
+# Assignment Attempt state, timing, generation, and capability validation.
 # Boundary rule: reaches `question_model` only, so it carries no clock and no
 # database and can run unchanged in the browser.
 [package]

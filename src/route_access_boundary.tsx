@@ -6,7 +6,7 @@ import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 import { useSessionBootstrap } from "./auth/session_context";
 import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import {
-  accountRoleMayAccessRoute,
+  productRoleMayAccessRoute,
   routeContractForPathname,
   type RouteContract,
 } from "./route_contract";
@@ -17,7 +17,7 @@ interface RouteAccessDeniedProps {
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
   const sysadminOnly =
-    props.route.requiredRoles.length === 1 && props.route.requiredRoles[0] === "sysadmin";
+    props.route.requiredProductRoles.length === 1 && props.route.requiredProductRoles[0] === "sysadmin";
   let heading: HTMLHeadingElement | undefined;
   onMount(() => {
     queueMicrotask(() => heading?.focus());
@@ -62,14 +62,14 @@ export function withRouteAccessBoundary(
       if (matchedRoute?.id !== route.id) {
         return false;
       }
-      if (route.requiredRoles.length === 0) {
+      if (route.requiredProductRoles.length === 0) {
         return true;
       }
       const state = session.state();
       if (state.kind !== "authenticated") {
         return false;
       }
-      return accountRoleMayAccessRoute(route.id, state.session.account.role);
+      return productRoleMayAccessRoute(route.id, state.session.account.productRole);
     });
     const allowedRoute = createMemo((): RouteContract | undefined =>
       accessGranted() ? route : undefined,

@@ -146,7 +146,7 @@ END
 $$;
 
 -- Authorized start creates one exact fixed Question; a second start resumes it.
-INSERT INTO ple_private.account (account_id, role, created_at) VALUES
+INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
     ('00000000-0000-0000-0000-000000000101', 'student', '2026-01-01 00:00:00+00'),
     ('00000000-0000-0000-0000-000000000102', 'instructor', '2026-01-01 00:00:00+00');
 INSERT INTO ple_private.account_state_event (

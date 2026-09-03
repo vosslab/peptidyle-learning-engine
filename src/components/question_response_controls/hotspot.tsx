@@ -12,23 +12,29 @@ import {
   createSubmissionController,
   Status,
   textFromBlocks,
-  type HotspotDefinition,
+  type HotspotResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
-function selectionCount(definition: HotspotDefinition): number | undefined {
-  if (definition.selection.kind === "exactlyOne") return 1;
-  if (definition.selection.kind === "exactly") return definition.selection.count;
+function selectionCount(responseFormat: HotspotResponseFormat): number | undefined {
+  if ("minimum" in responseFormat) {
+    return responseFormat.minimum === responseFormat.maximum ? responseFormat.minimum : undefined;
+  }
+  if (responseFormat.selection.kind === "exactlyOne") return 1;
+  if (responseFormat.selection.kind === "exactly") return responseFormat.selection.count;
   return undefined;
 }
 
 /** The public response contract may specify a selection rule, never correctness. */
-function selectionProgress(definition: HotspotDefinition, count: number): string | null {
-  switch (definition.selection.kind) {
+function selectionProgress(responseFormat: HotspotResponseFormat, count: number): string | null {
+  if ("minimum" in responseFormat) {
+    return `${count} selected. Select from ${responseFormat.minimum} through ${responseFormat.maximum}.`;
+  }
+  switch (responseFormat.selection.kind) {
     case "exactlyOne":
       return null;
     case "exactly":
-      return `${count} selected. Select exactly ${definition.selection.count}.`;
+      return `${count} selected. Select exactly ${responseFormat.selection.count}.`;
     case "atLeastOne":
       return `${count} selected. Select at least 1.`;
     case "anyNumber":
@@ -37,17 +43,18 @@ function selectionProgress(definition: HotspotDefinition, count: number): string
 }
 
 export function HotspotResponse(
-  props: QuestionResponseControlBodyProps<HotspotDefinition>,
+  props: QuestionResponseControlBodyProps<HotspotResponseFormat>,
 ): JSX.Element {
-  const restored = props.initialResponse?.selections ?? [];
+  const restored =
+    props.initialResponse?.kind === "hotspot" ? props.initialResponse.selections : [];
   const restoredIds = restored.map((selection) => selection.region);
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restoredIds);
   let firstRegion!: HTMLInputElement;
   const selections = (): Array<StudentHotspotSelection> => selected().map((region) => ({ region }));
   const response = (): StudentResponse => ({ kind: "hotspot", selections: selections() });
   const controller = createSubmissionController(props, response());
-  const required = selectionCount(props.definition);
-  const progress = (): string | null => selectionProgress(props.definition, selected().length);
+  const required = selectionCount(props.responseFormat);
+  const progress = (): string | null => selectionProgress(props.responseFormat, selected().length);
   function choose(id: ResponseItemReference): void {
     if (controller.locked()) return;
     const next =
@@ -76,7 +83,7 @@ export function HotspotResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
@@ -89,8 +96,11 @@ export function HotspotResponse(
       >
         <legend>Choose the labeled image region{required === 1 ? "" : "s"}</legend>
         <p class="keyboard-instructions" id={`${props.attemptId}-hotspot-help`}>
-          {props.definition.description}. Tab to a region and press Space to select it. This list is
-          the primary no-mouse alternative to selecting the image.
+          {"description" in props.responseFormat
+            ? props.responseFormat.description
+            : props.responseFormat.surface.description}
+          . Tab to a region and press Space to select it. This list is the primary no-mouse
+          alternative to selecting the image.
         </p>
         {progress() === null ? null : (
           <p
@@ -103,7 +113,13 @@ export function HotspotResponse(
           </p>
         )}
         <div class="choice-list">
-          <For each={props.definition.regions}>
+          <For
+            each={
+              "regions" in props.responseFormat
+                ? props.responseFormat.regions
+                : props.responseFormat.surface.regions
+            }
+          >
             {(region, index) => (
               <label class="choice-card" classList={{ selected: selected().includes(region.id) }}>
                 <input

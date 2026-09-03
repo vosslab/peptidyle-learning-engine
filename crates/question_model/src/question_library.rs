@@ -1,4 +1,4 @@
-//! Browser-safe shared Question Library metadata (MOD-API-QUESTION-LIBRARY).
+//! Browser-safe shared Question Library metadata.
 
 use serde::{Deserialize, Serialize};
 

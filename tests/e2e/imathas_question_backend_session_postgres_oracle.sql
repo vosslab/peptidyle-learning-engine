@@ -3,7 +3,8 @@
 -- Question Source and one production-shaped API login.
 
 BEGIN;
--- The staged database bootstrap authority creates this disposable fixture.
+-- The PostgreSQL Migration Acceptance Runtime bootstrap authority creates this
+-- disposable fixture.
 -- The assertions below then enter the production-shaped restricted API path.
 INSERT INTO ple_private.object_record (
     object_id, object_address, object_storage_area, object_data_class, sha256,

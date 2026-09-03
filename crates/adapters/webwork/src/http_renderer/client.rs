@@ -418,7 +418,7 @@ fn project_single_radio(
     }
     Ok(ParsedRender {
         presentation: QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::static_variation(
+            variation: question_model::QuestionVariation::from_question_revision_and_seed(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
@@ -475,7 +475,7 @@ fn project_matching(
     }
     Ok(ParsedRender {
         presentation: QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::static_variation(
+            variation: question_model::QuestionVariation::from_question_revision_and_seed(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),

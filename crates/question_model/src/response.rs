@@ -1,8 +1,7 @@
-//! Response types: what a student submits, and what shape it must take
-//! (WP-C1).
+//! Response types: what a student submits, and what shape it must take.
 //!
 //! [`QuestionResponseFormat`] and [`StudentResponse`] are parallel enums. Each
-//! definition variant has exactly one response variant that fits it.
+//! Question Response Format variant has exactly one Student Response variant that fits it.
 //! `domain::validation` checks the pairing and the variant-specific structural
 //! rules identically on the server and in the browser.
 
@@ -182,9 +181,9 @@ pub struct HotspotRegion {
     pub height: u16,
 }
 
-/// The shape of response a question expects.
+/// A Question Response Format specifies the response shape a question expects.
 ///
-/// Every variant carries the information a widget needs to render an input and
+/// Every variant carries the information a Question Response Control needs to render an input and
 /// validate its shape locally. None of it reveals a correct answer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
@@ -363,11 +362,11 @@ mod tests {
 
     #[test]
     fn imathas_question_backend_markers_round_trip_as_kind_only() {
-        let definition = QuestionResponseFormat::ImathasQuestionBackend {};
+        let response_format = QuestionResponseFormat::ImathasQuestionBackend {};
         let response = StudentResponse::ImathasQuestionBackend {};
 
         assert_eq!(
-            serde_json::to_value(&definition).unwrap(),
+            serde_json::to_value(&response_format).unwrap(),
             serde_json::json!({"kind": "imathasQuestionBackend"})
         );
         assert_eq!(
@@ -379,7 +378,7 @@ mod tests {
                 serde_json::json!({"kind": "imathasQuestionBackend"})
             )
             .unwrap(),
-            definition
+            response_format
         );
         assert_eq!(
             serde_json::from_value::<StudentResponse>(

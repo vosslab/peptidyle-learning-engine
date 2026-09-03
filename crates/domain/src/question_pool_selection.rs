@@ -56,7 +56,7 @@ impl std::error::Error for QuestionPoolSelectionError {}
 
 /// Selects the exact Question Pool Items for one new Question Pool Selection.
 ///
-/// Entry membership is sampled without replacement. Entry Order
+/// Question Pool Item membership is sampled without replacement. Question Pool Item Order
 /// restores the saved Question Pool Item order after membership selection; Random Order
 /// keeps the sampled order. The returned values carry immutable Question
 /// Revision References and are suitable for a server-held Question Pool

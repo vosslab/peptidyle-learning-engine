@@ -98,7 +98,7 @@ impl ResolvedImathasQuestionSource {
     }
 }
 
-/// Key-free issued iMathAS Question Backend response control.
+/// Key-free issued iMathAS Question Backend Question Response Control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImathasIssuedAttempt {
     pub presentation: QuestionVariationPresentation,
@@ -231,7 +231,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
             presentation: QuestionVariationPresentation {
-                variation: question_model::QuestionVariation::static_variation(
+                variation: question_model::QuestionVariation::from_question_revision_and_seed(
                     question_revision.clone(),
                     seed,
                 ),
@@ -278,14 +278,13 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         )
         .as_slice());
         Ok(ImathasIssuedAttempt {
-            parameter_hash: parameter_hash(cached.presentation.variation.seed),
+            parameter_hash: parameter_hash(cached.presentation.variation.question_seed),
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(QuestionRendererVersion {
                     name: "imathas-profile".to_string(),
                     version: source.binding.profile().as_str().to_owned(),
                 }),
-                generator: None,
                 source_object_reference: Some(source.artifact().clone()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),

@@ -1,4 +1,4 @@
-//! Key-free H5P import into the internal question model (MOD-ADP-H5P).
+//! Key-free H5P import into the internal question model.
 //!
 //! Native H5P evaluates responses in the browser.  It is consequently a
 //! practice format, not a server-graded backend: this module deliberately
@@ -16,7 +16,6 @@ use question_model::ObjectId;
 use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::generation::QuestionVariationRule;
 use question_model::question_content::{QuestionGradingRule, QuestionMetadata};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
@@ -204,8 +203,6 @@ pub struct ImportedH5pQuestion {
     pub question_attempt_limit: QuestionAttemptLimit,
     /// The only timing policy currently supported by the adapter.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// H5P imports are static until a server-owned generator is selected.
-    pub question_variation_rule: QuestionVariationRule,
     /// Always `Ungraded` for native H5P practice.
     pub grading: QuestionGradingRule,
     /// Browser-safe title and licensing metadata.
@@ -261,7 +258,6 @@ impl H5pImporter {
             },
             question_attempt_limit: request.question_attempt_limit,
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_rule: QuestionVariationRule::Static,
             grading: QuestionGradingRule::Ungraded,
             metadata: request.metadata,
             package_import_fingerprint,

@@ -63,19 +63,19 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                   <dt>Start</dt>
                   <dd>{displayStart(preview())}</dd>
                   <dt>Available</dt>
-                  <dd>{displayTime(preview().availableAt.value)}</dd>
+                  <dd>{displayTime(preview().available_at.value)}</dd>
                   <dt>Due</dt>
-                  <dd>{displayTime(preview().dueAt.value)}</dd>
+                  <dd>{displayTime(preview().due_at.value)}</dd>
                   <dt>Closes</dt>
-                  <dd>{displayTime(preview().closesAt.value)}</dd>
+                  <dd>{displayTime(preview().closes_at.value)}</dd>
                   <dt>Whole Assignment Attempt seconds</dt>
-                  <dd>{displayLimit(preview().assignmentAttemptTimeLimitSeconds.value)}</dd>
+                  <dd>{displayLimit(preview().assignment_attempt_time_limit_seconds.value)}</dd>
                   <dt>Attempt limit</dt>
-                  <dd>{displayLimit(preview().attemptLimit.value)}</dd>
+                  <dd>{displayLimit(preview().attempt_limit.value)}</dd>
                   <dt>Late work</dt>
-                  <dd>{preview().lateWorkRule.value}</dd>
+                  <dd>{preview().late_work_rule.value}</dd>
                   <dt>Deadline behavior</dt>
-                  <dd>{preview().assignmentDeadlineRule.value}</dd>
+                  <dd>{preview().assignment_deadline_rule.value}</dd>
                 </dl>
                 <details>
                   <summary>Assignment Policy Sources</summary>
@@ -83,16 +83,16 @@ export function PolicyPreview(props: PolicyPreviewProps): JSX.Element {
                     <For
                       each={
                         [
-                          ["Available", preview().availableAt.source],
-                          ["Due", preview().dueAt.source],
-                          ["Closes", preview().closesAt.source],
+                          ["Available", preview().available_at.source],
+                          ["Due", preview().due_at.source],
+                          ["Closes", preview().closes_at.source],
                           [
                             "Whole Assignment Attempt seconds",
-                            preview().assignmentAttemptTimeLimitSeconds.source,
+                            preview().assignment_attempt_time_limit_seconds.source,
                           ],
-                          ["Attempt limit", preview().attemptLimit.source],
-                          ["Late work", preview().lateWorkRule.source],
-                          ["Deadline behavior", preview().assignmentDeadlineRule.source],
+                          ["Attempt limit", preview().attempt_limit.source],
+                          ["Late work", preview().late_work_rule.source],
+                          ["Deadline behavior", preview().assignment_deadline_rule.source],
                         ] as const
                       }
                     >

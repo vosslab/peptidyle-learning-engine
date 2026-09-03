@@ -1,4 +1,4 @@
-//! Answer *shapes*: what a valid response looks like (WP-C1).
+//! Answer *shapes*: what a valid response looks like.
 //!
 //! Read this before adding a type here. The answer format belongs in this
 //! crate: how close a number must be, how text is compared, how many choices
@@ -62,7 +62,7 @@ pub enum TextResponseMatchRule {
 
 /// How many choices a student may select.
 ///
-/// Encoded as a type so a widget knows whether to render radio buttons or
+/// Encoded as a type so a Question Response Control knows whether to render radio buttons or
 /// checkboxes, and so a response carrying the wrong count is rejected by shape
 /// rather than by a grading round trip.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

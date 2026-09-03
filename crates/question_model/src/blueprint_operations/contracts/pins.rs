@@ -81,7 +81,7 @@ impl BlueprintQuestionPosition {
         self.assignment_index
     }
 
-    /// Returns the zero-based fixed-item or pool entry position.
+    /// Returns the zero-based Assignment Entry position for either a Fixed Question or Question Pool.
     pub fn entry_index(self) -> u16 {
         self.entry_index
     }

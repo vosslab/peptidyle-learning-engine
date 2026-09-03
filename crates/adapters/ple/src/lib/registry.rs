@@ -1,12 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use domain::generator::QuestionVariationParameters;
-use grading::{GradingError, QuestionGradingOutcome, grade};
-use question_model::generation::QuestionGeneratorReference;
-use question_model::{
-    QuestionBackendVersion, QuestionFormat, QuestionGraderVersion, QuestionRevision, QuestionType,
-    StudentResponse,
-};
+use question_model::{QuestionBackendVersion, QuestionFormat, QuestionGraderVersion, QuestionType};
 
 use crate::generator::PleQuestionImplementation;
 use crate::{
@@ -14,44 +8,10 @@ use crate::{
     PleQuestionBackendError,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub(super) enum PleQuestionExecution {
-    V1,
-}
-
-impl PleQuestionExecution {
-    pub(super) fn derive_answer_key(
-        self,
-        implementation: &dyn PleQuestionImplementation,
-        question: &QuestionRevision,
-        generated: &QuestionVariationParameters,
-    ) -> Result<Option<grading::AnswerKey>, PleQuestionBackendError> {
-        match self {
-            Self::V1 => implementation.derive_answer_key(question, generated),
-        }
-    }
-
-    pub(super) fn grade(
-        self,
-        question: &QuestionRevision,
-        response: &StudentResponse,
-        answer_key: Option<&grading::AnswerKey>,
-    ) -> Result<QuestionGradingOutcome, GradingError> {
-        match self {
-            Self::V1 => grade(question, response, answer_key),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-/// Exact source contract claimed by one installed PLE Question Implementation.
-///
-/// The Question Source owns generator identity and version. An implementation release
-/// remains reproduction evidence and is intentionally not a dispatch dimension.
 pub(super) struct PleQuestionImplementationKey {
     pub(super) question_format: QuestionFormat,
     pub(super) question_type: QuestionType,
-    pub(super) generator: Option<QuestionGeneratorReference>,
 }
 
 impl PleQuestionImplementationKey {
@@ -59,13 +19,11 @@ impl PleQuestionImplementationKey {
         Self {
             question_format: implementation.question_format(),
             question_type: implementation.question_type(),
-            generator: implementation.generator(),
         }
     }
 }
 
 impl PleQuestionBackend {
-    /// Builds the production registry with reviewed built-in implementations.
     pub fn new() -> Self {
         let mut adapter = Self::empty();
         for implementation in crate::question_json::PLE_QUESTION_JSON_IMPLEMENTATIONS {
@@ -76,48 +34,36 @@ impl PleQuestionBackend {
         adapter
     }
 
-    /// Builds an empty registry for explicit composition and contract tests.
     pub fn empty() -> Self {
         let current_backend = backend_version(ADAPTER_ID, ADAPTER_VERSION);
         let current_grader = grader_version(GRADING_ID, GRADING_VERSION);
         Self {
             implementations: BTreeMap::new(),
-            backend_versions: BTreeMap::from([(
-                (
-                    current_backend.name.clone(),
-                    current_backend.version.clone(),
-                ),
-                PleQuestionExecution::V1,
+            backend_versions: BTreeSet::from([(
+                current_backend.name.clone(),
+                current_backend.version.clone(),
             )]),
-            grader_versions: BTreeMap::from([(
-                (current_grader.name.clone(), current_grader.version.clone()),
-                PleQuestionExecution::V1,
+            grader_versions: BTreeSet::from([(
+                current_grader.name.clone(),
+                current_grader.version.clone(),
             )]),
             current_backend,
             current_grader,
         }
     }
 
-    /// Selects installed Question Backend and Question Grader Versions for newly issued attempts.
-    ///
-    /// Future execution versions must first be added to the exact registry;
-    /// unknown persisted versions are refused.
     pub fn select_current_versions(
         &mut self,
         backend: QuestionBackendVersion,
         grader: QuestionGraderVersion,
     ) -> Result<(), PleQuestionBackendError> {
-        self.backend_execution_for(&backend)?;
-        self.grader_execution_for(&grader)?;
+        self.require_backend_version(&backend)?;
+        self.require_grader_version(&grader)?;
         self.current_backend = backend;
         self.current_grader = grader;
         Ok(())
     }
 
-    /// Adds one Question Implementation without changing adapter dispatch.
-    ///
-    /// Versions of one implementation coexist so published content can
-    /// regenerate with its pinned generator after a new release is added.
     pub fn register_implementation<F>(
         &mut self,
         implementation: F,
@@ -130,7 +76,6 @@ impl PleQuestionBackend {
             return Err(PleQuestionBackendError::DuplicateQuestionImplementation {
                 question_format: key.question_format,
                 question_type: key.question_type,
-                generator: key.generator.clone(),
             });
         }
         self.implementations
@@ -138,23 +83,25 @@ impl PleQuestionBackend {
         Ok(())
     }
 
-    pub(super) fn backend_execution_for(
+    pub(super) fn require_backend_version(
         &self,
         version: &QuestionBackendVersion,
-    ) -> Result<&PleQuestionExecution, PleQuestionBackendError> {
+    ) -> Result<(), PleQuestionBackendError> {
         self.backend_versions
-            .get(&(version.name.clone(), version.version.clone()))
+            .contains(&(version.name.clone(), version.version.clone()))
+            .then_some(())
             .ok_or_else(|| PleQuestionBackendError::UnknownQuestionBackendVersion {
                 version: version.clone(),
             })
     }
 
-    pub(super) fn grader_execution_for(
+    pub(super) fn require_grader_version(
         &self,
         version: &QuestionGraderVersion,
-    ) -> Result<&PleQuestionExecution, PleQuestionBackendError> {
+    ) -> Result<(), PleQuestionBackendError> {
         self.grader_versions
-            .get(&(version.name.clone(), version.version.clone()))
+            .contains(&(version.name.clone(), version.version.clone()))
+            .then_some(())
             .ok_or_else(|| PleQuestionBackendError::UnknownQuestionGraderVersion {
                 version: version.clone(),
             })
@@ -173,7 +120,6 @@ pub(super) fn backend_version(name: &str, version: &str) -> QuestionBackendVersi
         version: version.to_string(),
     }
 }
-
 pub(super) fn grader_version(name: &str, version: &str) -> QuestionGraderVersion {
     QuestionGraderVersion {
         name: name.to_string(),

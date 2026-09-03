@@ -2,8 +2,8 @@
 
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
-import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
+import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { IssuedQuestionId } from "../../../generated/api/IssuedQuestionId";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
@@ -14,7 +14,7 @@ import type {
   GradedQuestionSubmissionReceipt,
   QuestionSubmissionAcknowledgement,
 } from "../../api/contracts";
-import type { FormatValidator } from "../../wasm/index";
+import type { PresentationFormatValidator } from "../../wasm/index";
 
 export type IdempotencyKey = string;
 
@@ -114,7 +114,7 @@ interface StateBase {
   /** Non-blocking notice that this response cannot survive a browser refresh. */
   readonly storageWarning: string | null;
   /** The prefetched, answer-free Question Presentation for the current issued attempt. */
-  readonly presentation: QuestionVariationPresentation | null;
+  readonly presentation: QuestionPresentation | null;
 }
 
 type RecoveryReason =
@@ -150,8 +150,8 @@ export type QuestionAttemptExperienceState =
 
 export interface QuestionAttemptStateMachine {
   readonly state: () => QuestionAttemptExperienceState;
-  /** Starts one issued attempt, validating any saved response against its exact issued definition. */
-  readonly start: (definition?: QuestionResponseFormat) => void;
+  /** Starts one issued attempt, validating any saved response against its exact issued Question Response Format. */
+  readonly start: (responseFormat?: QuestionPresentationResponseFormat) => void;
   readonly setResponse: (response: StudentResponse, validation: ResponseValidation) => void;
   readonly submit: () => Promise<SubmissionOutcome>;
   readonly retry: () => Promise<SubmissionOutcome>;
@@ -172,7 +172,7 @@ export interface QuestionAttemptStateMachine {
 
 export interface NextAttempt {
   readonly context: AttemptContext;
-  readonly presentation: QuestionVariationPresentation;
+  readonly presentation: QuestionPresentation;
 }
 
 export interface QuestionAttemptStateMachineOptions {
@@ -198,7 +198,7 @@ export interface QuestionAttemptStateMachineOptions {
    */
   readonly isTransientTransportFailure: (error: unknown) => boolean;
   /** Browser-safe semantic validation for a persisted response before it reaches a controlled UI. */
-  readonly validateSavedResponse?: FormatValidator;
+  readonly validateSavedResponse?: PresentationFormatValidator;
   readonly onStateChange?: (state: QuestionAttemptExperienceState) => void;
 }
 
@@ -218,7 +218,7 @@ function remainingMilliseconds(context: AttemptContext, now: number): number | n
 function initialState(
   context: AttemptContext,
   clock: AttemptClock,
-  presentation: QuestionVariationPresentation | null = null,
+  presentation: QuestionPresentation | null = null,
 ): QuestionAttemptExperienceState {
   return {
     phase: "loading",
@@ -320,7 +320,7 @@ function serializeBuffer(buffer: AttemptBuffer): string {
   return JSON.stringify(buffer);
 }
 
-/** Canonical comparison keeps retries stable while giving edited answers a fresh replay key. */
+/** Equivalent Student Response comparison keeps retries stable while giving edited answers a fresh replay key. */
 function responsesEqual(left: StudentResponse, right: StudentResponse): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind === "numeric" && right.kind === "numeric") return left.value === right.value;
@@ -400,14 +400,13 @@ function recoveryMessageFor(reason: RecoveryReason, error: unknown): string {
 }
 
 function presentationMatchesContext(
-  presentation: QuestionVariationPresentation,
+  presentation: QuestionPresentation,
   context: AttemptContext,
 ): boolean {
   return (
-    presentation.variation.seed === context.seed &&
-    presentation.variation.questionRevision.questionId === context.questionRevision.questionId &&
-    presentation.variation.questionRevision.revisionNumber ===
-      context.questionRevision.revisionNumber
+    presentation.question_seed === context.seed &&
+    presentation.questionRevision.questionId === context.questionRevision.questionId &&
+    presentation.questionRevision.revisionNumber === context.questionRevision.revisionNumber
   );
 }
 
@@ -511,10 +510,10 @@ export function createQuestionAttemptStateMachine(
 
   async function validateSavedBuffer(
     buffer: AttemptBuffer,
-    definition: QuestionResponseFormat,
+    responseFormat: QuestionPresentationResponseFormat,
   ): Promise<void> {
     try {
-      const check = await options.validateSavedResponse!(definition, buffer.response);
+      const check = await options.validateSavedResponse!(responseFormat, buffer.response);
       if (disposed) return;
       if (check.issues.length > 0) {
         discardUnsafeBuffer();
@@ -529,14 +528,14 @@ export function createQuestionAttemptStateMachine(
     }
   }
 
-  function start(definition?: QuestionResponseFormat): void {
+  function start(responseFormat?: QuestionPresentationResponseFormat): void {
     const buffer = savedBuffer();
     if (
       buffer !== null &&
-      definition !== undefined &&
+      responseFormat !== undefined &&
       options.validateSavedResponse !== undefined
     ) {
-      void validateSavedBuffer(buffer, definition);
+      void validateSavedBuffer(buffer, responseFormat);
       return;
     }
     publishAnswering(buffer?.response ?? null);

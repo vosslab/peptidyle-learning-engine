@@ -37,7 +37,7 @@ impl std::fmt::Display for AccountId {
 /// become global session roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AccountRole {
+pub enum ProductRole {
     /// Completes assigned Questions and views personal results.
     Student,
     /// Authors content and manages courses and assignments.
@@ -62,9 +62,9 @@ mod tests {
     #[test]
     fn roles_use_lower_camel_wire_names() {
         let encoded = serde_json::to_string(&[
-            AccountRole::Student,
-            AccountRole::Instructor,
-            AccountRole::Sysadmin,
+            ProductRole::Student,
+            ProductRole::Instructor,
+            ProductRole::Sysadmin,
         ])
         .expect("roles should serialize");
 

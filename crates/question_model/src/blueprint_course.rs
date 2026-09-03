@@ -17,13 +17,12 @@ use crate::{
     AssignmentInstructions, AssignmentPointValue, BlueprintCourseReference, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
-    QuestionId, QuestionPoolSelectionRule, QuestionSearchResult, StudentFeedbackReleaseRule,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionId, QuestionPoolSelectionRule,
+    QuestionSearchResult, StudentFeedbackReleaseRule,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
-pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize =
-    MAX_QUESTION_CURATION_TITLE_UNICODE_SCALARS;
+pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
 
 mod blueprint_children;
 pub use blueprint_children::*;
@@ -204,12 +203,12 @@ pub struct ReusableFixedQuestionInput {
     pub scoring_rule: AssignmentEntryScoringRule,
 }
 
-/// One Question Pool Assignment Entry, including its ordered public Question IDs.
+/// One Question Pool Assignment Entry, including its ordered public Question Pool Item IDs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolInput {
     /// Public Question IDs resolved into Question Pool Items under destination authority in this order.
-    pub entries: Vec<QuestionId>,
+    pub items: Vec<QuestionId>,
     /// Number of Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected Question Pool Item.
@@ -222,17 +221,16 @@ pub struct ReusablePoolInput {
 
 impl ReusablePoolInput {
     fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if self.entries.is_empty()
-            || self.entries.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY
+        if self.items.is_empty() || self.items.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY
         {
-            return Err(BlueprintCourseValidationError::InvalidQuestionPoolEntries);
+            return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
         }
         if self.selection_count == 0
-            || usize::try_from(self.selection_count).ok() > Some(self.entries.len())
+            || usize::try_from(self.selection_count).ok() > Some(self.items.len())
         {
             return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
         }
-        if self.entries.iter().collect::<BTreeSet<_>>().len() != self.entries.len() {
+        if self.items.iter().collect::<BTreeSet<_>>().len() != self.items.len() {
             return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
         }
         Ok(())
@@ -280,13 +278,13 @@ impl BlueprintAssignmentContentInput {
             if let BlueprintAssignmentEntryInput::Pool(pool) = entry {
                 pool.validate()?;
                 total_question_pool_items = total_question_pool_items
-                    .checked_add(pool.entries.len())
-                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)?;
+                    .checked_add(pool.items.len())
+                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)?;
             }
         }
         (total_question_pool_items <= MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
             .then_some(())
-            .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolEntries)
+            .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)
     }
 }
 
@@ -325,7 +323,7 @@ pub struct ReusableQuestionPoolItemView {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
     /// Current Question Pool Items in their retained Question Pool Item order.
-    pub entries: Vec<ReusableQuestionPoolItemView>,
+    pub items: Vec<ReusableQuestionPoolItemView>,
     /// Number of Question Pool Items selected for each future Assignment Attempt.
     pub selection_count: u32,
     /// Points copied for every selected Question Pool Item.
@@ -497,13 +495,13 @@ pub enum BlueprintCourseValidationError {
     /// A module has no usable assignments or exceeds its shared bound.
     InvalidModuleAssignmentCount,
     /// A Question Pool Item list has no members or exceeds its shared bound.
-    InvalidQuestionPoolEntries,
+    InvalidQuestionPoolItems,
     /// A pool selection count cannot select a meaningful subset of its Question Pool Items.
     InvalidPoolSelectionCount,
     /// A pool repeats a Question Pool Item and therefore changes no selectable meaning.
     DuplicateQuestionPoolItem,
     /// All Question Pool Items exceed the assignment-level shared bound.
-    TooManyQuestionPoolEntries,
+    TooManyQuestionPoolItems,
     /// Relative available, due, and close moments are not chronologically meaningful.
     InvalidScheduleOrder,
     /// A reusable whole Assignment Attempt time limit exceeds the ordinary assignment bound.
@@ -527,14 +525,14 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             Self::InvalidModuleAssignmentCount => {
                 "BlueprintCourse module must contain bounded reusable assignments"
             }
-            Self::InvalidQuestionPoolEntries => {
+            Self::InvalidQuestionPoolItems => {
                 "Question Pool Items must be present and within their bound"
             }
             Self::InvalidPoolSelectionCount => {
                 "Question Pool selection count must be between one and Question Pool Item count"
             }
             Self::DuplicateQuestionPoolItem => "Question Pool Items must be distinct",
-            Self::TooManyQuestionPoolEntries => {
+            Self::TooManyQuestionPoolItems => {
                 "Question Pool Items exceed the assignment-level bound"
             }
             Self::InvalidScheduleOrder => {
@@ -611,7 +609,7 @@ mod tests {
                     scoring_rule: AssignmentEntryScoringRule::Normal,
                 }),
                 BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
-                    entries: vec![
+                    items: vec![
                         question_id(),
                         "12A-4BCZ".parse().expect("valid question ID"),
                     ],
@@ -727,6 +725,8 @@ mod tests {
         assert_eq!(wire["entries"][0]["question_id"], "7K3-M9QX");
         assert_eq!(wire["entries"][0]["points_possible"], "3");
         assert_eq!(wire["entries"][1]["kind"], "pool");
+        assert!(wire["entries"][1]["items"].is_array());
+        assert!(wire["entries"][1].get("entries").is_none());
         assert_eq!(wire["entries"][1]["points_per_item"], "2");
         assert!(wire["defaults"].is_object());
         assert!(wire["schedule"].is_object());
@@ -737,7 +737,7 @@ mod tests {
         );
         let duplicate_pool = BlueprintAssignmentContentInput {
             entries: vec![BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
-                entries: vec![question_id(), question_id()],
+                items: vec![question_id(), question_id()],
                 selection_count: 1,
                 points_per_item: AssignmentPointValue::from_whole(1),
                 scoring_rule: AssignmentEntryScoringRule::Normal,
@@ -789,7 +789,7 @@ mod tests {
                                 scoring_rule: AssignmentEntryScoringRule::Normal,
                             },
                             BlueprintAssignmentEntryView::Pool(ReusablePoolView {
-                                entries: vec![ReusableQuestionPoolItemView {
+                                items: vec![ReusableQuestionPoolItemView {
                                     question_library: discovery(),
                                     selection_availability: ReusableSelectionAvailability::Retained,
                                 }],
@@ -831,11 +831,11 @@ mod tests {
             "pool"
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/entries/0/question_library")
+            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/question_library")
                 .is_some()
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/entries/0/revision")
+            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/revision")
                 .is_none()
         );
     }

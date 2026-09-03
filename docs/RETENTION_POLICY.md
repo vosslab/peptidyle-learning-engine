@@ -7,7 +7,7 @@ Question Source, Question Library record, Blueprint Course, Instructor draft,
 or private Authoring Workspace.
 
 Student Work Records and Grades follow a Course Retention Plan independently
-of the Student Account. The Course-owned Assignment definition and every
+of the Student Account. The Course-owned Assignment Content and every
 released Assignment Revision required to interpret retained Student work also
 remain. A future cleanup operation may reclaim only a superseded current
 Assignment Object after an exact reference check has placed it in an Object

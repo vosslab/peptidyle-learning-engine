@@ -191,9 +191,9 @@ def test_postgresql_count_rejects_other_fixed_profiles(
 
 
 #============================================
-def test_postgresql_count_rejects_noncanonical_uuid(tmp_path: pathlib.Path) -> None:
+def test_postgresql_count_rejects_non_lowercase_uuid(tmp_path: pathlib.Path) -> None:
 	"""A SQL metavariable cannot carry arbitrary text or alternate UUID spelling."""
-	with pytest.raises(local_stack_control.models.ControllerError, match="canonical UUID"):
+	with pytest.raises(local_stack_control.models.ControllerError, match="lowercase UUID"):
 		local_stack_control.disposable_stack_adapter.postgresql_count_command(
 			fixed_replica_target(tmp_path),
 			"00000000-0000-4000-8000-000000000200'::uuid; SELECT 1; --",

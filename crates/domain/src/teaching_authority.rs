@@ -1,4 +1,4 @@
-//! Pure WP-INST-T2 validation for Instructor Course Invitations.
+//! Pure validation for Instructor Course Invitations.
 //!
 //! This module is deliberately separate from Student Assignment Access. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants
@@ -34,7 +34,7 @@ pub enum InstructorAuthority {
 
 /// Returns whether an account is a current Instructor for exactly `course`.
 ///
-/// This is the canonical pure predicate for all course-Instructor operations.
+/// This is the shared pure predicate for all course-Instructor operations.
 /// The Store establishes the Account's immutable Instructor Product Role before
 /// it creates an Instructor membership. Neither a creator flag nor a Teaching
 /// Team Member distinction exists.

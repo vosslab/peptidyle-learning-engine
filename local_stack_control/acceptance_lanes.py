@@ -11,7 +11,7 @@ import local_stack_control.process
 class EvidenceBoundary(enum.StrEnum):
 	"""The specific claim an aggregate-validation lane contributes."""
 
-	CANONICAL_PRODUCTION_BROWSER = "canonical production-browser behavior"
+	PRODUCTION_BROWSER_BEHAVIOR = "production-browser behavior"
 	REAL_SERVICE = "real-service boundary"
 
 

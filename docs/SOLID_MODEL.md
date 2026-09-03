@@ -10,7 +10,7 @@ complete inventory of every route-local signal.
 | State                                | Primitive                                    | Owner                                   | Update contract                                                                                                                                                                             |
 | ------------------------------------ | -------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session identity and roles           | Context containing a signal accessor         | `SessionProvider`                       | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                       |
-| Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before widgets mount. Consumers read context; fallback validation stays behind the same facade.                                                       |
+| Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before Question Response Controls mount. Consumers read context; fallback validation stays behind the same facade.                                    |
 | Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized `CourseRouteView` for Course, Assignment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
 | Course-theme CSS variables           | JSX-derived token functions                  | `CourseThemeScope`                      | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                        |
 | PLE PLE Question JSON draft          | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                            |
@@ -79,9 +79,9 @@ Each route has an error boundary through the app shell so a screen failure leave
 Reference slices must show loading, error/recovery, empty where applicable, and ready states rather
 than treating a resource as always resolved.
 
-## Response-widget state
+## Question Response Control state
 
-The ordinary reference widget owns only student input and browser-safe format status. Its phase is a
+The ordinary reference Question Response Control owns only student input and browser-safe format status. Its phase is a
 discriminated union:
 
 ```text
@@ -128,7 +128,7 @@ forced RLS; see `docs/DATABASE_AUTHORIZATION.md#row-level-security` and
 
 Reference-slice tests must prove observable behavior rather than only construction:
 
-- changing one selected response updates its control and live status without recreating the widget;
+- changing one selected response updates its control and live status without recreating the Question Response Control;
 - `<For>` keeps identity for choices, draft rows, and QTI report items;
 - a course route loads one authorized `CourseRouteView` and drops it on navigation;
 - the native preview remains answer-free until an instructor explicitly opens the protected check;

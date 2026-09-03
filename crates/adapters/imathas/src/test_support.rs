@@ -257,7 +257,7 @@ pub fn recorded_imathas_question_backend_with_transport(
 }
 
 /// Recorded server-only transport. No public method accepts a score, answer,
-/// iMathAS result token, URL, JWT, source digest, or iMathAS Question Backend launch reference.
+/// iMathAS result token, URL, JWT, Source Object Checksum, or iMathAS Question Backend launch reference.
 #[derive(Clone)]
 pub struct RecordedImathasQuestionBackendTransport {
     mode: RecordedImathasQuestionBackendTransportMode,

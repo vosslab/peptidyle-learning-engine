@@ -1,4 +1,4 @@
-//! Server-only answer checking (MOD-GRD).
+//! Server-only answer checking.
 //!
 //! Browser-safe format validation runs first through `domain`; only a
 //! structurally valid response reaches the answer-bearing comparison below.
@@ -351,7 +351,6 @@ mod tests {
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
-    use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
         QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
@@ -385,7 +384,7 @@ mod tests {
             webwork_pg_path: None,
             qti_package_item_identifier: None,
             imathas_question_backend_binding: None,
-            question_format: QuestionFormat::PleAlgorithmic,
+            question_format: QuestionFormat::PleQuestionJson,
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Fixture".to_string(),
             }],
@@ -393,7 +392,6 @@ mod tests {
             question_type: QuestionType::MultipleChoice,
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            question_variation_rule: QuestionVariationRule::Static,
             grading,
             metadata: QuestionMetadata {
                 title: "Grading fixture".to_string(),

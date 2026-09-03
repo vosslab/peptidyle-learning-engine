@@ -71,15 +71,15 @@ def parse_iso_date(text: str, field_name: str) -> datetime.date:
 #============================================
 
 def resolve_categories(raw_values: list[str], parser: argparse.ArgumentParser) -> list[str]:
-	"""Resolve --category values: aliases map to canonical headings.
+	"""Resolve --category values: aliases map to recognized headings.
 
 	Other values are treated as case-insensitive substring matches against
-	canonical category headings. Returns the list of canonical strings to
+	recognized category headings. Returns the list of recognized headings to
 	match against (or substring patterns when no alias resolves).
 	"""
 	if not raw_values:
 		return []
-	canonical = changelog_lib.CANONICAL_CATEGORIES
+	recognized_headings = changelog_lib.CHANGELOG_CATEGORIES
 	resolved = []
 	for raw in raw_values:
 		key = raw.strip().lower()
@@ -87,15 +87,15 @@ def resolve_categories(raw_values: list[str], parser: argparse.ArgumentParser) -
 		if key in CATEGORY_ALIASES:
 			resolved.append(CATEGORY_ALIASES[key])
 			continue
-		# substring path: must match at least one canonical heading
-		matches = [c for c in canonical if key in c.lower()]
+		# substring path: must match at least one recognized heading
+		matches = [c for c in recognized_headings if key in c.lower()]
 		if not matches:
 			# split error messages by shape: a short single-word token reads
 			# as an alias typo; anything else reads as a substring miss.
 			# Both are hard errors so the user notices the typo.
 			if " " not in raw and len(raw) <= 12:
 				parser.error(f"unknown --category alias or substring: {raw}")
-			parser.error(f"--category substring matched no canonical heading: {raw}")
+			parser.error(f"--category substring matched no recognized heading: {raw}")
 		resolved.extend(matches)
 	# de-duplicate preserving order
 	seen = set()
@@ -177,17 +177,19 @@ def apply_filters(entries: list, date_from: datetime.date,
 #============================================
 
 def category_sort_key(category: str) -> int:
-	"""Return the canonical sort index for a category heading."""
-	canonical = changelog_lib.CANONICAL_CATEGORIES
-	if category in canonical:
-		return canonical.index(category)
-	# non-canonical categories sort after canonical ones, alphabetically
-	return len(canonical)
+	"""Return the configured-order index for a category heading."""
+	configured_categories = changelog_lib.CHANGELOG_CATEGORIES
+	if category in configured_categories:
+		category_sort_index = configured_categories.index(category)
+		return category_sort_index
+	# Unrecognized categories sort after configured ones, alphabetically.
+	category_sort_index = len(configured_categories)
+	return category_sort_index
 
 #============================================
 
 def format_text(entries: list, lead_text_blocks: list = None) -> str:
-	"""Render entries as grouped text, reverse-chron by date, canonical category.
+	"""Render entries as grouped text, reverse-chron by date, configured category.
 
 	If ``lead_text_blocks`` is provided (a list of ``DayBlock`` records with
 	non-empty ``lead_text``), the captured lead text is rendered as ``>``
@@ -220,7 +222,7 @@ def format_text(entries: list, lead_text_blocks: list = None) -> str:
 				out_lines.append(f"> {lead_line}")
 			out_lines.append(f"> (lead text from {lead_source}:{lead_lineno})")
 			out_lines.append("")
-		# group by category in canonical order
+		# group by category in configured order
 		day_entries = by_date[date_str]
 		by_cat = {}
 		for entry in day_entries:
@@ -335,7 +337,7 @@ def parse_args(argv: list[str] = None) -> argparse.Namespace:
 	)
 	parser.add_argument(
 		"--strict", dest="strict", action="store_true",
-		help="Warn on non-canonical category headings."
+		help="Warn on unrecognized category headings."
 	)
 	parser.add_argument(
 		"--quiet", dest="quiet", action="store_true",

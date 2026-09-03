@@ -43,8 +43,8 @@ function controlValue(value: string | null): string {
 
 function lateWorkRule(
   value: string,
-): InstructorAssignmentAuthoredContentLocal["lateWorkRule"] | undefined {
-  if (value === "accept" || value === "markLate" || value === "reject") return value;
+): InstructorAssignmentAuthoredContentLocal["late_work_rule"] | undefined {
+  if (value === "accept" || value === "mark_late" || value === "reject") return value;
   return undefined;
 }
 
@@ -84,9 +84,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     activityRuleDraftFromRules(policies()),
   );
   const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] =
-    createSignal(numberDraft(assignmentAuthoredContent().assignmentAttemptTimeLimitSeconds));
+    createSignal(numberDraft(assignmentAuthoredContent().assignment_attempt_time_limit_seconds));
   const [attemptLimitDraft, setAttemptLimitDraft] = createSignal(
-    numberDraft(assignmentAuthoredContent().attemptLimit),
+    numberDraft(assignmentAuthoredContent().attempt_limit),
   );
   const controls = new Map<PolicyFocusTarget, HTMLElement>();
   let saveButton!: HTMLButtonElement;
@@ -181,8 +181,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     if (!parsed.valid) return;
     updateTeaching(
       field === "assignmentAttemptTimeLimitSeconds"
-        ? { assignmentAttemptTimeLimitSeconds: parsed.value }
-        : { attemptLimit: parsed.value },
+        ? { assignment_attempt_time_limit_seconds: parsed.value }
+        : { attempt_limit: parsed.value },
       field,
     );
   }
@@ -369,9 +369,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setStudentFeedbackReleaseRule(saved.studentFeedbackReleaseRule);
       setAssignmentAuthoredContent(saved.assignmentAuthoredContent);
       setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(saved.assignmentAuthoredContent.assignmentAttemptTimeLimitSeconds),
+        numberDraft(saved.assignmentAuthoredContent.assignment_attempt_time_limit_seconds),
       );
-      setAttemptLimitDraft(numberDraft(saved.assignmentAuthoredContent.attemptLimit));
+      setAttemptLimitDraft(numberDraft(saved.assignmentAuthoredContent.attempt_limit));
       setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
       setNeedsReload(false);
       setFeedback({
@@ -412,9 +412,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setStudentFeedbackReleaseRule(latest.studentFeedbackReleaseRule);
       setAssignmentAuthoredContent(latest.assignmentAuthoredContent);
       setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(latest.assignmentAuthoredContent.assignmentAttemptTimeLimitSeconds),
+        numberDraft(latest.assignmentAuthoredContent.assignment_attempt_time_limit_seconds),
       );
-      setAttemptLimitDraft(numberDraft(latest.assignmentAuthoredContent.attemptLimit));
+      setAttemptLimitDraft(numberDraft(latest.assignmentAuthoredContent.attempt_limit));
       setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
       setFailureField(undefined);
       setNeedsReload(false);
@@ -592,13 +592,13 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("availableAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentAuthoredContent().availableAt)}
+                  value={controlValue(assignmentAuthoredContent().available_at)}
                   aria-invalid={relevantField(failureField(), "availableAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
                   onChange={(event) =>
                     updateTeaching(
                       {
-                        availableAt: canonicalCourseLocalTime(event.currentTarget.value),
+                        available_at: canonicalCourseLocalTime(event.currentTarget.value),
                       },
                       "availableAt",
                     )
@@ -611,12 +611,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("dueAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentAuthoredContent().dueAt)}
+                  value={controlValue(assignmentAuthoredContent().due_at)}
                   aria-invalid={relevantField(failureField(), "dueAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
                   onChange={(event) =>
                     updateTeaching(
-                      { dueAt: canonicalCourseLocalTime(event.currentTarget.value) },
+                      { due_at: canonicalCourseLocalTime(event.currentTarget.value) },
                       "dueAt",
                     )
                   }
@@ -628,12 +628,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   type="datetime-local"
                   ref={(element) => controls.set("closesAt", element)}
                   step="0.001"
-                  value={controlValue(assignmentAuthoredContent().closesAt)}
+                  value={controlValue(assignmentAuthoredContent().closes_at)}
                   aria-invalid={relevantField(failureField(), "closesAt")}
                   aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
                   onChange={(event) =>
                     updateTeaching(
-                      { closesAt: canonicalCourseLocalTime(event.currentTarget.value) },
+                      { closes_at: canonicalCourseLocalTime(event.currentTarget.value) },
                       "closesAt",
                     )
                   }
@@ -703,14 +703,14 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               <label class="assignment-editor-field">
                 Late work
                 <select
-                  value={assignmentAuthoredContent().lateWorkRule}
+                  value={assignmentAuthoredContent().late_work_rule}
                   onChange={(event) => {
                     const next = lateWorkRule(event.currentTarget.value);
-                    if (next !== undefined) updateTeaching({ lateWorkRule: next }, "schedule");
+                    if (next !== undefined) updateTeaching({ late_work_rule: next }, "schedule");
                   }}
                 >
                   <option value="accept">Accept</option>
-                  <option value="markLate">Accept and mark late</option>
+                  <option value="mark_late">Accept and mark late</option>
                   <option value="reject">Reject after the due time</option>
                 </select>
               </label>

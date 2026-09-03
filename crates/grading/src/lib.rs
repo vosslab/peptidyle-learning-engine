@@ -1,4 +1,4 @@
-//! MOD-GRD: answer keys, checkers, and correctness decisions.
+//! Server-only Answer Keys, checkers, and correctness decisions.
 //!
 //! Server-only. This crate sits outside the `wasm_bridge` dependency closure
 //! so an answer key cannot reach the browser even by mistake. Nothing here may

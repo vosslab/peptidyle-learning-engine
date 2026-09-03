@@ -8,7 +8,7 @@
 
 use std::fmt::Write as _;
 
-use crate::generator::{PleQuestionImplementation, PleQuestionImplementationRelease};
+use crate::generator::PleQuestionImplementation;
 use grading::AnswerKey;
 pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
@@ -31,7 +31,7 @@ mod schema_v2;
 /// Canonical media type for canonical PLE Question JSON source payloads.
 pub const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
 
-/// Maximum accepted source size, matching the plan's PLE Question JSON payload backstop.
+/// Maximum accepted source size, matching the grading boundary's PLE Question JSON payload backstop.
 pub const MAX_PLE_QUESTION_JSON_BYTES: usize =
     grading::ple_question_json::MAX_PLE_QUESTION_JSON_BYTES;
 
@@ -135,12 +135,14 @@ impl CompiledPleQuestionJson {
         &self.private
     }
 
-    /// Returns the optional pre-response Question Hint for its separate private owner.
+    /// Returns the optional pre-response Question Hint persisted separately from the draft and
+    /// Private Grading.
     pub fn question_hint(&self) -> Option<&QuestionHint> {
         self.question_hint.as_ref()
     }
 
-    /// Transfers the split values to their separate persistence owners.
+    /// Splits the compiled source into Draft Question Content, Private Grading, and Question Hint
+    /// for separate persistence.
     pub fn into_parts(
         self,
     ) -> (
@@ -165,17 +167,6 @@ impl PleQuestionImplementation for PleQuestionJsonImplementation {
         self.0
     }
 
-    fn implementation_release(&self) -> PleQuestionImplementationRelease {
-        PleQuestionImplementationRelease {
-            id: "ple-question-json".to_string(),
-            version: "2".to_string(),
-        }
-    }
-
-    fn generator(&self) -> Option<question_model::QuestionGeneratorReference> {
-        None
-    }
-
     fn capabilities(&self) -> QuestionBackendCapabilities {
         QuestionBackendCapabilities::from_iter([
             Capability::ClientRendering,
@@ -188,7 +179,6 @@ impl PleQuestionImplementation for PleQuestionJsonImplementation {
     fn derive_answer_key(
         &self,
         question: &QuestionRevision,
-        _generated: &domain::generator::QuestionVariationParameters,
     ) -> Result<Option<AnswerKey>, crate::PleQuestionBackendError> {
         if question.question_backend != question_model::QuestionBackend::Ple
             || question.question_format != self.question_format()

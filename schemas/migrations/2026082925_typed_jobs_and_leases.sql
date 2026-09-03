@@ -1,4 +1,4 @@
--- SD1 typed worker targets, immutable scope, generation fences, and opaque leases.
+-- Typed Job targets and leases.
 
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner;
@@ -11,12 +11,12 @@ CREATE TABLE ple_private.job (
     job_id uuid PRIMARY KEY,
     job_kind text NOT NULL CHECK (job_kind IN (
         'grade_accepted_submission', 'recalculate_assignment', 'recalculate_assignment_question_analysis',
-        'auto_submit_attempt', 'retention', 'render', 'export', 'import', 'qti_import',
+        'auto_submit_attempt', 'retention', 'render', 'import', 'qti_import',
         'publish_public_assets'
     )),
     job_target_kind text NOT NULL CHECK (job_target_kind IN (
         'course_assignment', 'course_attempt', 'question_submission', 'course_retention', 'question_revision',
-        'export', 'workspace_import', 'qti_import', 'public_asset_publication'
+        'workspace_import', 'qti_import', 'public_asset_publication'
     )),
     course_id uuid REFERENCES ple_data.course_instance (course_id),
     assignment_id uuid,
@@ -26,9 +26,7 @@ CREATE TABLE ple_private.job (
     import_id uuid,
     question_id text,
     revision_number integer,
-    assignment_export_id uuid,
     source_object_id uuid,
-    expected_object_id uuid,
     course_retention_plan_revision_id uuid,
     generation bigint NOT NULL CHECK (generation > 0),
     payload jsonb NOT NULL CHECK (jsonb_typeof(payload) = 'object'),
@@ -57,37 +55,29 @@ CREATE TABLE ple_private.job (
     CONSTRAINT job_target_shape_is_exact CHECK (
         (job_target_kind = 'course_assignment' AND course_id IS NOT NULL AND assignment_id IS NOT NULL
             AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
-            AND source_object_id IS NULL AND expected_object_id IS NULL)
+            AND question_id IS NULL AND revision_number IS NULL AND source_object_id IS NULL)
         OR (job_target_kind = 'course_attempt' AND course_id IS NOT NULL AND attempt_id IS NOT NULL
             AND assignment_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
-            AND source_object_id IS NULL AND expected_object_id IS NULL)
+            AND question_id IS NULL AND revision_number IS NULL AND source_object_id IS NULL)
         OR (job_target_kind = 'question_submission' AND question_submission_id IS NOT NULL
             AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL
             AND workspace_id IS NULL AND import_id IS NULL AND question_id IS NULL
-            AND revision_number IS NULL AND assignment_export_id IS NULL AND source_object_id IS NULL
-            AND expected_object_id IS NULL)
+            AND revision_number IS NULL AND source_object_id IS NULL)
         OR (job_target_kind = 'course_retention' AND course_id IS NOT NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL
-            AND source_object_id IS NULL AND expected_object_id IS NULL
+            AND question_id IS NULL AND revision_number IS NULL AND source_object_id IS NULL
             AND course_retention_plan_revision_id IS NOT NULL)
         OR (job_target_kind IN ('question_revision', 'public_asset_publication') AND question_id IS NOT NULL
             AND revision_number IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND assignment_export_id IS NULL AND source_object_id IS NULL AND expected_object_id IS NULL)
-        OR (job_target_kind = 'export' AND course_id IS NOT NULL AND assignment_id IS NOT NULL AND assignment_export_id IS NOT NULL
-            AND attempt_id IS NULL AND question_submission_id IS NULL AND workspace_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL
-            AND source_object_id IS NULL AND expected_object_id IS NOT NULL)
+            AND source_object_id IS NULL)
         OR (job_target_kind = 'workspace_import' AND workspace_id IS NOT NULL AND source_object_id IS NOT NULL
             AND course_id IS NULL AND assignment_id IS NULL AND attempt_id IS NULL AND question_submission_id IS NULL AND import_id IS NULL
-            AND question_id IS NULL AND revision_number IS NULL AND assignment_export_id IS NULL AND expected_object_id IS NULL)
+            AND question_id IS NULL AND revision_number IS NULL)
         OR (job_target_kind = 'qti_import' AND workspace_id IS NOT NULL AND import_id IS NOT NULL
             AND source_object_id IS NOT NULL AND course_id IS NULL AND assignment_id IS NULL
             AND attempt_id IS NULL AND question_submission_id IS NULL AND question_id IS NULL AND revision_number IS NULL
-            AND assignment_export_id IS NULL AND expected_object_id IS NULL)
+        )
     ),
     CONSTRAINT job_course_retention_plan_revision_matches_target CHECK (
         (job_target_kind = 'course_retention') = (course_retention_plan_revision_id IS NOT NULL)
@@ -115,9 +105,7 @@ BEGIN
         OR NEW.import_id IS DISTINCT FROM OLD.import_id
         OR NEW.question_id IS DISTINCT FROM OLD.question_id
         OR NEW.revision_number IS DISTINCT FROM OLD.revision_number
-        OR NEW.assignment_export_id IS DISTINCT FROM OLD.assignment_export_id
         OR NEW.source_object_id IS DISTINCT FROM OLD.source_object_id
-        OR NEW.expected_object_id IS DISTINCT FROM OLD.expected_object_id
         OR NEW.course_retention_plan_revision_id IS DISTINCT FROM OLD.course_retention_plan_revision_id
         OR NEW.generation IS DISTINCT FROM OLD.generation
         OR NEW.payload IS DISTINCT FROM OLD.payload THEN

@@ -1,4 +1,4 @@
--- SD1 direct Student/Instructor course relationships; Sysadmin is never a course member.
+-- Direct Course Membership relationships; Sysadmin is never a course member.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
@@ -13,8 +13,8 @@ CREATE TABLE ple_data.course_membership (
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     role text NOT NULL CHECK (role IN ('student', 'instructor')),
     joined_at timestamp with time zone NOT NULL,
-    CONSTRAINT course_membership_account_role_matches FOREIGN KEY (account_id, role)
-        REFERENCES ple_private.account (account_id, role)
+    CONSTRAINT course_membership_account_product_role_matches FOREIGN KEY (account_id, role)
+        REFERENCES ple_private.account (account_id, product_role)
 );
 CREATE TABLE ple_data.course_membership_event (
     course_membership_event_id uuid PRIMARY KEY,
@@ -167,7 +167,7 @@ CREATE TABLE ple_private.course_invitation (
     issued_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL CHECK (expires_at > issued_at),
     CONSTRAINT course_invitation_target_role_matches FOREIGN KEY (target_account_id, membership_role)
-        REFERENCES ple_private.account (account_id, role)
+        REFERENCES ple_private.account (account_id, product_role)
 );
 CREATE TABLE ple_private.course_invitation_event (
     course_invitation_event_id uuid PRIMARY KEY,

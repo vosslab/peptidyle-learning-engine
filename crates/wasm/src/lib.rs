@@ -1,4 +1,4 @@
-//! MOD-WASM: the browser-facing bridge.
+//! Browser-facing WebAssembly bridge.
 //!
 //! Every export delegates to `domain`, which keeps parameter generation,
 //! format validation, timer verdicts, and capability validation identical on
@@ -6,10 +6,9 @@
 //! this crate's dependency closure and must stay there.
 
 use domain::{draft_preview, policy, timing, validation};
-use question_model::generation::QuestionSeed;
 use question_model::presentation::{
-    QuestionAssetRendition, QuestionPresentation, QuestionPresentationToken,
-    rebuild_public_question_presentation,
+    QuestionAssetRendition, QuestionPresentation, QuestionPresentationResponseFormat,
+    QuestionPresentationToken, rebuild_public_question_presentation,
 };
 use question_model::response::{QuestionResponseFormat, StudentResponse};
 use wasm_bindgen::JsValue;
@@ -17,8 +16,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Returns the bridge version string.
 ///
-/// This is the trivial export WP-F2 calls from Node to prove the
-/// `wasm-bindgen` toolchain path works end to end.
+/// The Node binding check calls this export to prove the `wasm-bindgen`
+/// toolchain path works end to end.
 ///
 /// # Examples
 ///
@@ -42,11 +41,11 @@ pub fn bridge_version() -> String {
 /// cannot be serialized.
 #[wasm_bindgen]
 pub fn validate_response_format(
-    definition_json: &str,
+    response_format_json: &str,
     response_json: &str,
 ) -> Result<String, JsValue> {
-    let definition: QuestionResponseFormat =
-        serde_json::from_str(definition_json).map_err(|error| {
+    let response_format: QuestionResponseFormat = serde_json::from_str(response_format_json)
+        .map_err(|error| {
             JsValue::from_str(&format!("invalid Question Response Format: {error}"))
         })?;
     let response: StudentResponse = serde_json::from_str(response_json)
@@ -54,7 +53,34 @@ pub fn validate_response_format(
     // Typed domain deserialization keeps this browser boundary allow-listed and
     // answer-free before trusted validation evaluates the response shape
     // (ASVS 1.5.2, 2.2.1).
-    let check = validation::validate_response_format(&definition, &response);
+    let check = validation::validate_response_format(&response_format, &response);
+    serde_json::to_string(&check).map_err(|error| {
+        JsValue::from_str(&format!(
+            "could not serialize Student Response Format Check: {error}"
+        ))
+    })
+}
+
+/// Validates one Student Response against the answer-free format frozen with an issued Question
+/// Presentation.
+///
+/// # Errors
+///
+/// Returns a JavaScript error when either input is malformed or the check cannot be serialized.
+#[wasm_bindgen]
+pub fn validate_presentation_response_format(
+    response_format_json: &str,
+    response_json: &str,
+) -> Result<String, JsValue> {
+    let response_format: QuestionPresentationResponseFormat =
+        serde_json::from_str(response_format_json).map_err(|error| {
+            JsValue::from_str(&format!(
+                "invalid Question Presentation Response Format: {error}"
+            ))
+        })?;
+    let response: StudentResponse = serde_json::from_str(response_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid student response: {error}")))?;
+    let check = validation::validate_presentation_response_format(&response_format, &response);
     serde_json::to_string(&check).map_err(|error| {
         JsValue::from_str(&format!(
             "could not serialize Student Response Format Check: {error}"
@@ -84,9 +110,9 @@ pub fn question_attempt_timing_decision(evaluation_json: &str) -> Result<String,
 
 /// Reports every backend capability missing from an assignment configuration.
 ///
-/// The definition and capability inputs are browser-safe. The same function is
-/// called by the server before publication, so editor hints and publish refusal
-/// cannot drift.
+/// The Assignment Configuration and Question Backend capability inputs are
+/// browser-safe. The same function is called by the server before publication,
+/// so editor hints and publish refusal cannot drift.
 ///
 /// # Errors
 ///
@@ -108,15 +134,12 @@ pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> 
 ///
 /// Non-PLE Question Sources return the explicit `unavailable` capability result.
 /// The bridge never imports Question Backend or Question Grader code: it can only
-/// generate disclosed parameters and apply them to safe prompt fields.
+/// prepare the browser-safe static prompt only.
 #[wasm_bindgen]
-pub fn preview_ple_draft(draft_json: &str, seed_json: &str) -> Result<String, JsValue> {
+pub fn preview_ple_draft(draft_json: &str) -> Result<String, JsValue> {
     let request: draft_preview::DraftPreviewRequest = serde_json::from_str(draft_json)
         .map_err(|error| JsValue::from_str(&format!("invalid draft preview request: {error}")))?;
-    let seed: QuestionSeed = serde_json::from_str(seed_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid draft preview seed: {error}")))?;
-    let preview = draft_preview::preview_ple_draft(&request, seed)
-        .map_err(|error| JsValue::from_str(&format!("invalid draft preview: {error}")))?;
+    let preview = draft_preview::preview_ple_draft(&request);
     serde_json::to_string(&preview)
         .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
 }
@@ -182,7 +205,7 @@ mod tests {
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let presentation = r#"{
             "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
-            "seed":42,
+            "question_seed":42,
             "presentationNonce":"11111111111111111111111111111111",
             "title":"Peptide bond",
             "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],

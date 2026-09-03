@@ -1,4 +1,4 @@
-// Browser-registry and route-scope behavior for WP-CA5.
+// Course Appearance browser registry and route-scope tests.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -196,7 +196,7 @@ test("course banners preserve their closed decorative or informative treatment",
 test("only course-owned executable routes request a theme scope", () => {
   const course = "C-10";
   const assignment = "A-20";
-  const run = "R-30";
+  const assignmentAttemptReference = "R-30";
   assert.deepEqual(courseThemeRouteRequest(`/courses/${course}`), {
     kind: "course",
     courseReference: course,
@@ -224,14 +224,17 @@ test("only course-owned executable routes request a theme scope", () => {
   assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/appearance`), {
     kind: "global",
   });
-  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${run}`), {
+  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${assignmentAttemptReference}`), {
     kind: "assignmentAttempt",
-    assignmentAttemptReference: run,
+    assignmentAttemptReference,
   });
-  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${run}/summary`), {
-    kind: "assignmentAttemptSummary",
-    assignmentAttemptReference: run,
-  });
+  assert.deepEqual(
+    courseThemeRouteRequest(`/assignment-attempts/${assignmentAttemptReference}/summary`),
+    {
+      kind: "assignmentAttemptSummary",
+      assignmentAttemptReference,
+    },
+  );
   for (const path of [
     "/",
     "/library",

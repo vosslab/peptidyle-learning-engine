@@ -119,16 +119,6 @@ export class CourseGradeSchemeConflictError extends ApiRequestError {
   }
 }
 
-/** A curation mutation lost its strong revision race; reload its current state before retrying. */
-export class QuestionCurationConflictError extends ApiRequestError {
-  declare public readonly status: 412;
-
-  public constructor(path: string) {
-    super(412, path);
-    this.name = "QuestionCurationConflictError";
-  }
-}
-
 /** A Blueprint Course replacement lost its strong revision race. */
 export class BlueprintCourseConflictError extends ApiRequestError {
   declare public readonly status: 412;

@@ -12,7 +12,7 @@ import {
   createSubmissionController,
   Status,
   textFromBlocks,
-  type OrderingDefinition,
+  type OrderingResponseFormat,
   type QuestionResponseControlBodyProps,
 } from "./common";
 
@@ -22,10 +22,10 @@ function moveItem(
   to: number,
 ): ReadonlyArray<ResponseItemReference> {
   const next = [...order];
-  const item = next[from];
-  if (item === undefined || to < 0 || to >= next.length) return order;
+  const movedOrderingItem = next[from];
+  if (movedOrderingItem === undefined || to < 0 || to >= next.length) return order;
   next.splice(from, 1);
-  next.splice(to, 0, item);
+  next.splice(to, 0, movedOrderingItem);
   return next;
 }
 
@@ -37,10 +37,11 @@ function orderingItemById(
 }
 
 export function OrderingResponse(
-  props: QuestionResponseControlBodyProps<OrderingDefinition>,
+  props: QuestionResponseControlBodyProps<OrderingResponseFormat>,
 ): JSX.Element {
   const initialOrder =
-    props.initialResponse?.order ?? props.definition.items.map((item) => item.id);
+    (props.initialResponse?.kind === "ordering" ? props.initialResponse.order : undefined) ??
+    props.responseFormat.items.map((item) => item.id);
   const [order, setOrder] = createSignal<ReadonlyArray<ResponseItemReference>>(initialOrder);
   let firstMoveControl!: HTMLButtonElement;
   const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
@@ -78,9 +79,9 @@ export function OrderingResponse(
     const next = moveItem(order(), from, to);
     if (next === order()) return;
     update(next);
-    const item = orderingItemById(props.definition.items, id);
+    const orderingItem = orderingItemById(props.responseFormat.items, id);
     setMovementAnnouncement(
-      `${item === undefined ? "Item" : textFromBlocks(item.body)} moved to position ${to + 1}.`,
+      `${orderingItem === undefined ? "Ordering Item" : textFromBlocks(orderingItem.body)} moved to position ${to + 1}.`,
     );
     focusMovedItem(id, preferredDirection);
   }
@@ -104,7 +105,7 @@ export function OrderingResponse(
   }
   return (
     <section
-      class="response-widget"
+      class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
         handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
@@ -115,7 +116,7 @@ export function OrderingResponse(
         aria-invalid={controller.invalid()}
         disabled={controller.locked()}
       >
-        <legend>Put the items in order</legend>
+        <legend>Put the Ordering Items in order</legend>
         <p class="keyboard-instructions" id={`${props.attemptId}-order-help`}>
           Tab to a move control and press Space to activate it. Shortcut: use the Up or Down Arrow
           key on the focused move control.
@@ -132,8 +133,10 @@ export function OrderingResponse(
           <For each={order()}>
             {(id, index) => {
               const itemText = (): string => {
-                const item = orderingItemById(props.definition.items, id);
-                return item === undefined ? "Unavailable item" : textFromBlocks(item.body);
+                const orderingItem = orderingItemById(props.responseFormat.items, id);
+                return orderingItem === undefined
+                  ? "Unavailable Ordering Item"
+                  : textFromBlocks(orderingItem.body);
               };
               return (
                 <li class="ordering-row" id={rowId(id)}>
@@ -145,7 +148,7 @@ export function OrderingResponse(
                     disabled={index() === 0 || controller.locked()}
                     onClick={() => moveOrderItem(id, index(), index() - 1, "earlier")}
                     onKeyDown={(event) => handleOrderArrow(event, id, index())}
-                    aria-label={`Move item ${index() + 1} earlier`}
+                    aria-label={`Move Ordering Item ${index() + 1} earlier`}
                   >
                     Up
                   </button>
@@ -163,7 +166,7 @@ export function OrderingResponse(
                     disabled={index() === order().length - 1 || controller.locked()}
                     onClick={() => moveOrderItem(id, index(), index() + 1, "later")}
                     onKeyDown={(event) => handleOrderArrow(event, id, index())}
-                    aria-label={`Move item ${index() + 1} later`}
+                    aria-label={`Move Ordering Item ${index() + 1} later`}
                   >
                     Down
                   </button>

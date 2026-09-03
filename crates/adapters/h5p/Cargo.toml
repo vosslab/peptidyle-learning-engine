@@ -1,4 +1,4 @@
-# MOD-ADP-H5P: H5P adapter for ungraded practice. Declares serverGrading: false,
+# H5P package import for ungraded practice. Declares serverGrading: false,
 # so it never reaches `grading`.
 [package]
 name = "adapter_h5p"

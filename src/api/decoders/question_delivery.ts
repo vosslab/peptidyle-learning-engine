@@ -4,7 +4,6 @@ import type { GradingResult } from "../../../generated/api/GradingResult";
 import type { StudentFeedback } from "../../../generated/api/StudentFeedback";
 import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionContent";
 import type { QuestionRevision } from "../../../generated/api/QuestionRevision";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch, PublicationResult } from "../contracts";
 import { isExpectedImathasQuestionBackendLaunchPath } from "../imathas_question_backend_launch";
@@ -14,17 +13,14 @@ import {
   decodeBoolean,
   decodeFiniteNumber,
   decodeNonemptyString,
-  decodeNonnegativeInteger,
   decodeRecord,
   decodeString,
 } from "../decoder";
 import {
-  decodeQuestionTitle,
   decodeIdentifier,
   decodePositiveQuestionRevisionNumber,
   decodeQuestionId,
   decodeQuestionMetadata,
-  decodeQuestionRevisionReference,
   field,
   kind,
   requireOnlyFields,
@@ -36,7 +32,6 @@ import {
   decodeDraftQuestionBackendFields,
   decodeQuestionGradingRule,
   decodeQuestionRevisionBackendFields,
-  decodeQuestionVariationRule,
   decodeQuestionResponseFormat,
   decodeQuestionFormat,
   decodeQuestionType,
@@ -85,11 +80,6 @@ function decodeQuestionContent(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationRule: decodeQuestionVariationRule(
-      field(record, "questionVariationRule", path),
-      `${path}.questionVariationRule`,
-      true,
-    ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
   } satisfies Omit<QuestionRevision, "questionId" | "revisionNumber">;
@@ -136,11 +126,6 @@ function decodeDraftQuestionContentRecord(
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    questionVariationRule: decodeQuestionVariationRule(
-      field(record, "questionVariationRule", path),
-      `${path}.questionVariationRule`,
-      true,
-    ),
     grading: decodeQuestionGradingRule(field(record, "grading", path), `${path}.grading`, true),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, true),
   } satisfies DraftQuestionContent;
@@ -162,7 +147,6 @@ export function decodeQuestionRevision(value: unknown, path = "response"): Quest
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationRule",
     "grading",
     "metadata",
   ]);
@@ -196,7 +180,6 @@ export function decodeDraftQuestionContent(
     "questionType",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "questionVariationRule",
     "grading",
     "metadata",
   ]);
@@ -205,40 +188,6 @@ export function decodeDraftQuestionContent(
 
 export function decodePublicationResult(value: unknown, path = "response"): PublicationResult {
   return { summary: decodeQuestionSummary(value, path, true) };
-}
-
-/** Strictly decodes the key-free rendered variant delivered for an attempt. */
-export function decodeQuestionPresentation(
-  value: unknown,
-  path = "response",
-): QuestionVariationPresentation {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["variation", "title", "prompt", "response"]);
-  const variation = decodeRecord(field(record, "variation", path), `${path}.variation`);
-  requireOnlyFields(variation, `${path}.variation`, ["questionRevision", "seed"]);
-  const decoded = {
-    variation: {
-      questionRevision: decodeQuestionRevisionReference(
-        field(variation, "questionRevision", `${path}.variation`),
-        `${path}.variation.questionRevision`,
-        true,
-      ),
-      seed: decodeNonnegativeInteger(
-        field(variation, "seed", `${path}.variation`),
-        `${path}.variation.seed`,
-      ),
-    },
-    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
-    prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
-      decodeQuestionContentBlock(block, blockPath, true),
-    ),
-    response: decodeQuestionResponseFormat(
-      field(record, "response", path),
-      `${path}.response`,
-      true,
-    ),
-  } satisfies QuestionVariationPresentation;
-  return decoded;
 }
 
 /** Decodes the route-only iMathAS Question Backend Transport response. */

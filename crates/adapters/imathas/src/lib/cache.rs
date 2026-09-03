@@ -44,7 +44,7 @@ pub(super) fn validate_cache(
                 question_id: question.question_id.clone(),
                 revision_number: question.revision_number,
             })
-        || cached.presentation.variation.seed != seed
+        || cached.presentation.variation.question_seed != seed
         || question_model::validate_question_title(&cached.presentation.title).is_err()
         || !matches!(
             cached.presentation.response,

@@ -27,7 +27,7 @@ function content() {
       },
       {
         kind: "pool",
-        entries: [
+        items: [
           { question_library: questionLibraryEntry("2R5-X7YA", "Pool first") },
           { question_library: questionLibraryEntry("3S8-B4DZ", "Pool second") },
         ],
@@ -66,7 +66,7 @@ function course(revision = "2") {
   };
 }
 
-test("reusable picker preserves fixed-entry and Question Pool entry order", async () => {
+test("reusable picker preserves Fixed Question and Question Pool Assignment Entry order", async () => {
   const source = blueprintCourseQuestionPickerRepository({
     getBlueprintCourse: async () => ({ blueprintCourse: course() }),
   });

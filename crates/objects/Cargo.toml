@@ -1,4 +1,4 @@
-# MOD-OBJ: ObjectStore trait, key construction, checksums, S3 and MinIO backends.
+# Object Storage trait, typed address construction, checksums, and S3-compatible backends.
 [package]
 name = "objects"
 version.workspace = true

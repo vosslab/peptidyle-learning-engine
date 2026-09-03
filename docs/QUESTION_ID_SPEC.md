@@ -56,8 +56,8 @@ Version 1 derives it as follows:
 
 ```text
 identifier = six canonical Crockford Base32 identity characters
-digest = HMAC-SHA-256(question_id_secret, identifier)
-validation_value = the high five bits of digest byte zero
+hmac_output = HMAC-SHA-256(question_id_secret, identifier)
+validation_value = the high five bits of hmac_output byte zero
 validation_character = CrockfordBase32(validation_value)
 ```
 
@@ -168,7 +168,7 @@ The implementation is complete when:
 - [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) defines internal record
   identifiers, relationship scopes, and human-facing references.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines Question
-  Attempt, rendered-item, and presentation-consistency values.
+  Attempt, Presentation Response Item Reference, and presentation-consistency values.
 - [QUESTION_MODEL.md](QUESTION_MODEL.md) defines the answer-free question model,
   Question Library browser results, semantic changes, and correction boundary.
 - [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines Account,

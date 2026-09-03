@@ -36,17 +36,20 @@ function receipt() {
   return {
     receipt: {
       accepted: true,
-      attemptId: "attempt-a",
       attempt: {
         id: "attempt-a",
-        assignmentAttempt: "assignment-attempt-a",
-        problem: "problem-a",
-        questionRevision: versionReference(1),
-        assignmentPosition: 0,
-        seed: 2,
-        response: { kind: "numeric", value: 7 },
-        result: null,
-        timer: { issuedAt: 0, deadline: null, submittedAt: 1 },
+        issuedQuestion: "issued-question-a",
+        question_seed: 2,
+        submission: {
+          id: "submission-a",
+          questionAttempt: "attempt-a",
+          response: { kind: "numeric", value: 7 },
+          submittedAt: 1,
+          gradingResult: null,
+        },
+        state: "submission_accepted",
+        timing: { issuedAt: 0, deadline: null, submittedAt: 1 },
+        issuedCapability: "notApplicable",
       },
       feedback: null,
       assignmentScoringState: "current",
@@ -376,13 +379,13 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
     }),
   );
   const fixture = createMachine({ storage, validateSavedResponse });
-  const definition = {
+  const responseFormat = {
     kind: "multipleChoice",
     choices: [{ id: "known", body: [] }],
     selection: { kind: "anyNumber" },
   };
 
-  fixture.machine.start(definition);
+  fixture.machine.start(responseFormat);
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(fixture.machine.state().phase, "answering");
@@ -392,7 +395,7 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
 });
 
 test("a hostile saved ordering is discarded and a valid saved permutation retains its replay key", async () => {
-  const orderingDefinition = {
+  const orderingResponseFormat = {
     kind: "ordering",
     items: [
       { id: "first", body: [] },
@@ -411,7 +414,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
     storage: hostileStorage,
     validateSavedResponse,
   });
-  hostile.machine.start(orderingDefinition);
+  hostile.machine.start(orderingResponseFormat);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(hostile.machine.state().response, null);
 
@@ -427,7 +430,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
     storage: validStorage,
     validateSavedResponse,
   });
-  valid.machine.start(orderingDefinition);
+  valid.machine.start(orderingResponseFormat);
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(valid.machine.state().response, {
     kind: "ordering",
@@ -614,9 +617,12 @@ test("advance retry reloads the retained Question Presentation without resubmitt
       seed: 3,
     }),
     presentation: {
-      variation: { questionRevision: versionReference(2), seed: 3 },
+      questionRevision: versionReference(2),
+      question_seed: 3,
+      presentationNonce: "11111111111111111111111111111111",
+      title: "Question",
       prompt: [],
-      response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
+      response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
   };
   async function loadNext() {
@@ -640,14 +646,20 @@ test("advance retry reloads the retained Question Presentation without resubmitt
 test("a mismatched next Question Presentation preserves feedback and exposes a recoverable content error", async () => {
   for (const presentation of [
     {
-      variation: { questionRevision: versionReference(3), seed: 3 },
+      questionRevision: versionReference(3),
+      question_seed: 3,
+      presentationNonce: "11111111111111111111111111111111",
+      title: "Question",
       prompt: [],
-      response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
+      response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
     {
-      variation: { questionRevision: versionReference(2), seed: 4 },
+      questionRevision: versionReference(2),
+      question_seed: 4,
+      presentationNonce: "22222222222222222222222222222222",
+      title: "Question",
       prompt: [],
-      response: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
+      response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
   ]) {
     const fixture = createMachine();
@@ -710,11 +722,17 @@ test("a withheld receipt is explicitly awaiting and never infers a grade from su
   const fixture = createMachine({
     submitResponse: async () => ({
       ...receipt(),
-      attempt: {
-        ...receipt().attempt,
-        result: { correct: true, pointsEarned: 1, pointsPossible: 1 },
+      receipt: {
+        ...receipt().receipt,
+        attempt: {
+          ...receipt().receipt.attempt,
+          submission: {
+            ...receipt().receipt.attempt.submission,
+            gradingResult: { correct: true, pointsEarned: 1, pointsPossible: 1 },
+          },
+        },
+        feedback: null,
       },
-      feedback: null,
     }),
   });
   ready(fixture.machine);

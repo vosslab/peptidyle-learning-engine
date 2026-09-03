@@ -37,16 +37,16 @@ export function pleQuestionJsonPublicPreview(
   };
 }
 
-/** Builds the existing key-free runtime definition; the Answer Key never crosses this seam. */
+/** Builds the key-free Question Response Format; the Answer Key never crosses this seam. */
 export function pleQuestionJsonResponseFormat(
   source: PleQuestionJsonDocument,
 ): QuestionResponseFormat {
   const response = source.response;
   switch (response.kind) {
     case "singleChoice":
-      return choiceDefinition(response.choices, { kind: "exactlyOne" });
+      return multipleChoiceResponseFormat(response.choices, { kind: "exactlyOne" });
     case "multipleAnswer":
-      return choiceDefinition(response.choices, { kind: "atLeastOne" });
+      return multipleChoiceResponseFormat(response.choices, { kind: "atLeastOne" });
     case "fillIn":
       return {
         kind: "shortText",
@@ -106,7 +106,7 @@ export function pleQuestionJsonResponseFormat(
   }
 }
 
-function choiceDefinition(
+function multipleChoiceResponseFormat(
   choices: ReadonlyArray<PleQuestionJsonChoice>,
   selection: { readonly kind: "exactlyOne" | "atLeastOne" },
 ): QuestionResponseFormat {

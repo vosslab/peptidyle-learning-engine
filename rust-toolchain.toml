@@ -1,4 +1,4 @@
-# Current stable toolchain (WP-F2).
+# Current stable toolchain.
 #
 # The repository follows the owner's latest-version policy rather than pinning
 # a compiler release. The wasm-bindgen library and CLI support crate still

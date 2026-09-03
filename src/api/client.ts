@@ -16,9 +16,8 @@ import type { CourseBannerReference } from "../../generated/api/CourseBannerRefe
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
-import type { QuestionVariationPresentation } from "../../generated/api/QuestionVariationPresentation";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
-import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
+import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
@@ -39,10 +38,10 @@ import type { TeachingOperationRevisionResponse } from "../../generated/api/Teac
 import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { DerivedPreviewSubjectRequest } from "../../generated/api/DerivedPreviewSubjectRequest";
+import type { HypotheticalStudentViewScenarioRequest } from "../../generated/api/HypotheticalStudentViewScenarioRequest";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
-import type { StudentViewScenarioRequest } from "../../generated/api/StudentViewScenarioRequest";
+import type { SelectedStudentViewScenarioRequest } from "../../generated/api/SelectedStudentViewScenarioRequest";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type { CourseRosterClient } from "./enrollment";
 import type {
@@ -73,9 +72,9 @@ import type {
   QuestionPoolPreview,
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
-import type { QuestionCurationClient } from "./question_curation";
 import type { BlueprintCourseClient } from "./blueprint_course";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
@@ -152,7 +151,6 @@ export interface CalculatedGradebookClient {
 export interface ApiClient
   extends
     CourseRosterClient,
-    QuestionCurationClient,
     BlueprintCourseClient,
     BlueprintOperationsClient,
     GradingOperationsClient,
@@ -180,7 +178,7 @@ export interface ApiClient
     assignmentId: AssignmentId,
     student: CourseMembershipReference,
   ) => Promise<TeachingPreviewView>;
-  /** Instructor-only T3 Instructor Preview Schedule Page using public C-/A- route references. */
+  /** Instructor-only Assignment Delivery Preview schedule page using public C-/A- route references. */
   readonly listPreviewSchedule: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
@@ -189,20 +187,20 @@ export interface ApiClient
     pageSize?: number,
   ) => Promise<InstructorPreviewSchedulePage>;
   /**
-   * Builds an identity-free synthetic subject; returns its server-resolved Preview Plane Response.
+   * Constructs an identity-free hypothetical Student View Scenario.
    */
-  readonly constructSyntheticPreview: (
+  readonly constructHypotheticalStudentViewScenario: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
-    request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
+    request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
-  /** Resolves one authorized Course Membership Reference into an identity-free Preview Plane Response. */
-  readonly constructDerivedPreview: (
+  /** Constructs an identity-free Student View Scenario from one selected Student membership. */
+  readonly constructSelectedStudentViewScenario: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     revision: TeachingOperationRevision,
-    request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
+    request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision">,
   ) => Promise<PreviewPlaneResponse>;
   /** Samples one saved Question Pool with server-owned entropy and no student activity. */
   readonly previewQuestionPool: (
@@ -307,7 +305,7 @@ export interface ApiClient
   /** Student-safe detail; Instructor workspace reads require an exact course identity. */
   readonly getAssignment: (assignmentId: AssignmentId) => Promise<StudentAssignmentDetail>;
   /** Current key-free student progress; the server omits withheld score totals. */
-  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<AssignmentProgress>;
+  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentProgress>;
   /** Reads the course-bound Instructor assignment workspace. */
   readonly getAssignmentWorkspace: (
     courseId: CourseId,
@@ -364,12 +362,12 @@ export interface ApiClient
     cursor?: string,
   ) => Promise<CursorPage<StudentQuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
-  /** Returns only the regenerated renderable variant; grading stays server-side. */
+  /** Returns the regenerated, answer-free Question Presentation; grading stays server-side. */
   readonly getIssuedQuestion: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
-  ) => Promise<QuestionVariationPresentation>;
+  ) => Promise<QuestionPresentation>;
   /** Best-effort key-free preparation; null means no deterministic successor. */
   readonly prefetchNextQuestion: (
     courseId: CourseId,
@@ -402,7 +400,7 @@ export interface ApiClient
   ) => Promise<StudentFeedbackReleaseResponse>;
   readonly getAssignmentActivitySummary: (
     studentRecordId: StudentRecordId,
-  ) => Promise<AssignmentProgress>;
+  ) => Promise<StudentAssignmentProgress>;
   readonly getAssignmentAttemptScreen: (
     assignmentAttemptId: AssignmentAttemptId,
   ) => Promise<AssignmentAttemptScreenData>;

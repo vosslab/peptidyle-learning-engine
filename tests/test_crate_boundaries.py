@@ -1,4 +1,4 @@
-"""WP-C6 dependency-closure security gates."""
+"""Rust crate dependency-closure security gate."""
 
 # Standard Library
 import pathlib

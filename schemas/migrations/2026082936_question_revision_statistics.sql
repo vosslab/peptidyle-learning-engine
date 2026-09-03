@@ -1,4 +1,4 @@
--- SD1 exact global Question Revision Statistics from accepted automated grades.
+-- Question Revision Statistics from accepted automated grades.
 
 SET LOCAL ROLE ple_audit_owner;
 GRANT USAGE ON SCHEMA ple_audit TO ple_private_owner, ple_api_owner;

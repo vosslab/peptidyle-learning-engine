@@ -3,10 +3,10 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
-  decodeDerivedPreviewSubjectRequest,
+  decodeHypotheticalStudentViewScenarioRequest,
   decodeInstructorPreviewSchedulePage,
   decodePreviewPlaneResponse,
-  decodeStudentViewScenarioRequest,
+  decodeSelectedStudentViewScenarioRequest,
 } from "../src/api/decoders.ts";
 import {
   ApiProtocolError,
@@ -17,13 +17,13 @@ import {
 const course = "C-12";
 const assignment = "A-34";
 const revision = "7";
-const selectedMoment = { value: "2026-08-25T09:00:00.000", timeZone: "America/Chicago" };
+const selectedMoment = { value: "2026-08-25T09:00:00.000", time_zone: "America/Chicago" };
 const inheritedAdjustment = {
-  availableAt: { kind: "inherit" },
-  dueAt: { kind: "inherit" },
-  closesAt: { kind: "inherit" },
-  assignmentAttemptTimeLimitSeconds: { kind: "inherit" },
-  attemptLimit: { kind: "inherit" },
+  available_at: { kind: "inherit" },
+  due_at: { kind: "inherit" },
+  closes_at: { kind: "inherit" },
+  assignment_attempt_time_limit_seconds: { kind: "inherit" },
+  attempt_limit: { kind: "inherit" },
 };
 
 function jsonResponse(value, status = 200, cacheControl = "no-store") {
@@ -35,13 +35,13 @@ function jsonResponse(value, status = 200, cacheControl = "no-store") {
 
 function effective_assignment_policy(source = "base") {
   return {
-    availableAt: { value: "2026-08-24T09:00:00.000", source },
-    dueAt: { value: "2026-08-26T09:00:00.000", source },
-    closesAt: { value: "2026-08-27T09:00:00.000", source },
-    assignmentAttemptTimeLimitSeconds: { value: 3600, source },
-    attemptLimit: { value: 2, source },
-    lateWorkRule: { value: "accept", source },
-    assignmentDeadlineRule: { value: "autoSubmit", source },
+    available_at: { value: "2026-08-24T09:00:00.000", source },
+    due_at: { value: "2026-08-26T09:00:00.000", source },
+    closes_at: { value: "2026-08-27T09:00:00.000", source },
+    assignment_attempt_time_limit_seconds: { value: 3600, source },
+    attempt_limit: { value: 2, source },
+    late_work_rule: { value: "accept", source },
+    assignment_deadline_rule: { value: "auto_submit", source },
   };
 }
 
@@ -49,41 +49,41 @@ function allowedEvaluation() {
   return {
     kind: "allowed",
     student_view_scenario: {
-      kind: "derived",
+      origin: "selected_student",
       assignment,
       revision,
-      selectedMoment,
+      selected_moment: selectedMoment,
       policy: effective_assignment_policy("accommodation"),
-      priorAssignmentAttemptCount: 0,
+      prior_assignment_attempt_count: 0,
     },
-    active_student_course_membership: "activeStudentCourseMembership",
+    student_view_scenario_admission: "selected_student_active_student_course_membership",
     effective_assignment_policy: effective_assignment_policy("accommodation"),
     student_feedback_release: [
       {
         kind: "available",
         moment: "now",
         flags: {
-          scoreShown: false,
-          correctnessShown: false,
-          feedbackShown: false,
-          questionAnswerShown: false,
-          questionAnswerExplanationShown: false,
-          statisticsShown: false,
+          score_shown: false,
+          correctness_shown: false,
+          feedback_shown: false,
+          question_answer_shown: false,
+          question_answer_explanation_shown: false,
+          statistics_shown: false,
         },
       },
       {
         kind: "available",
         moment: "due",
         flags: {
-          scoreShown: true,
-          correctnessShown: true,
-          feedbackShown: true,
-          questionAnswerShown: false,
-          questionAnswerExplanationShown: false,
-          statisticsShown: false,
+          score_shown: true,
+          correctness_shown: true,
+          feedback_shown: true,
+          question_answer_shown: false,
+          question_answer_explanation_shown: false,
+          statistics_shown: false,
         },
       },
-      { kind: "unavailable", moment: "close", reason: "boundaryMissing" },
+      { kind: "unavailable", moment: "close", reason: "boundary_missing" },
     ],
   };
 }
@@ -110,36 +110,44 @@ test("preview decoders accept the closed server projections", () => {
         kind: "granted",
         membership: "M-9",
         display: "Mary Student",
-        active_student_course_membership: "activeStudentCourseMembership",
+        active_student_course_membership: "active_student_course_membership",
         effective_assignment_policy: effective_assignment_policy(),
       },
       {
         kind: "denied",
         membership: "M-10",
         display: "Jack Student",
-        reason: "noActiveStudentCourseMembership",
+        reason: "no_active_student_course_membership",
       },
     ],
-    nextCursor: "next cursor",
+    next_cursor: "next cursor",
   };
   assert.deepEqual(decodeInstructorPreviewSchedulePage(schedulePage), schedulePage);
 
-  const syntheticRequest = {
+  const hypotheticalRequest = {
     assignment,
     revision,
-    selectedMoment,
-    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
+    selected_moment: selectedMoment,
+    modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
   };
-  assert.deepEqual(decodeStudentViewScenarioRequest(syntheticRequest), syntheticRequest);
   assert.deepEqual(
-    decodeDerivedPreviewSubjectRequest({ assignment, revision, selectedMoment, membership: "M-9" }),
-    { assignment, revision, selectedMoment, membership: "M-9" },
+    decodeHypotheticalStudentViewScenarioRequest(hypotheticalRequest),
+    hypotheticalRequest,
+  );
+  assert.deepEqual(
+    decodeSelectedStudentViewScenarioRequest({
+      assignment,
+      revision,
+      selected_moment: selectedMoment,
+      selected_student_membership: "M-9",
+    }),
+    { assignment, revision, selected_moment: selectedMoment, selected_student_membership: "M-9" },
   );
 });
 
 test("preview decoders reject unknown and protected fields at closed boundaries", () => {
   const denial = {
-    evaluation: { kind: "denied", reason: "activeStudentCourseMembershipRequired" },
+    evaluation: { kind: "denied", reason: "active_student_course_membership_required" },
     accommodation: null,
   };
   assert.deepEqual(decodePreviewPlaneResponse(denial), denial);
@@ -148,7 +156,7 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
       decodePreviewPlaneResponse({
         evaluation: {
           kind: "denied",
-          reason: "activeStudentCourseMembershipRequired",
+          reason: "active_student_course_membership_required",
           student_view_scenario: allowedEvaluation().student_view_scenario,
         },
         accommodation: null,
@@ -158,7 +166,32 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
   assert.throws(
     () =>
       decodePreviewPlaneResponse({
-        evaluation: { kind: "denied", reason: "activeStudentCourseMembershipRequired" },
+        ...previewResponse(),
+        evaluation: {
+          ...allowedEvaluation(),
+          effective_assignment_policy: {
+            ...effective_assignment_policy(),
+            assignmentDeadlineRule: { value: "auto_submit", source: "base" },
+          },
+        },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodePreviewPlaneResponse({
+        ...previewResponse(),
+        evaluation: {
+          ...allowedEvaluation(),
+          student_view_scenario_admission: "hypothetical_student_view_scenario_admission",
+        },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodePreviewPlaneResponse({
+        evaluation: { kind: "denied", reason: "active_student_course_membership_required" },
         accommodation: {
           before: effective_assignment_policy(),
           after: effective_assignment_policy(),
@@ -189,11 +222,11 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
             kind: "denied",
             membership: "M-9",
             display: "Mary",
-            reason: "noActiveStudentCourseMembership",
+            reason: "no_active_student_course_membership",
             effective_assignment_policy: effective_assignment_policy(),
           },
         ],
-        nextCursor: null,
+        next_cursor: null,
       }),
     DecodeError,
   );
@@ -216,12 +249,12 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
   );
   assert.throws(
     () =>
-      decodeStudentViewScenarioRequest({
+      decodeHypotheticalStudentViewScenarioRequest({
         assignment,
         revision,
-        selectedMoment,
+        selected_moment: selectedMoment,
         unexpectedGroups: ["G-3"],
-        modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
+        modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
       }),
     DecodeError,
   );
@@ -233,19 +266,19 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
     fetch: async (input, init) => {
       requests.push({ path: String(input), init });
       return String(input).includes("preview-schedule")
-        ? jsonResponse({ revision, rows: [], nextCursor: null })
+        ? jsonResponse({ revision, rows: [], next_cursor: null })
         : jsonResponse(previewResponse());
     },
   });
 
   await client.listPreviewSchedule(course, assignment, revision, "opaque +/", 25);
-  await client.constructSyntheticPreview(course, assignment, revision, {
-    selectedMoment,
-    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
+  await client.constructHypotheticalStudentViewScenario(course, assignment, revision, {
+    selected_moment: selectedMoment,
+    modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
   });
-  await client.constructDerivedPreview(course, assignment, revision, {
-    selectedMoment,
-    membership: "M-9",
+  await client.constructSelectedStudentViewScenario(course, assignment, revision, {
+    selected_moment: selectedMoment,
+    selected_student_membership: "M-9",
   });
 
   assert.equal(
@@ -262,10 +295,13 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
   assert.equal(requests[1].init.method, "POST");
   assert.equal(requests[1].init.headers["content-type"], "application/json");
   assert.deepEqual(JSON.parse(requests[1].init.body), {
-    selectedMoment,
-    modifiers: { mode: "extendOnly", adjustment: inheritedAdjustment },
+    selected_moment: selectedMoment,
+    modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
   });
-  assert.deepEqual(JSON.parse(requests[2].init.body), { selectedMoment, membership: "M-9" });
+  assert.deepEqual(JSON.parse(requests[2].init.body), {
+    selected_moment: selectedMoment,
+    selected_student_membership: "M-9",
+  });
 });
 
 test("preview transport maps stale revisions and cache violations safely", async () => {
@@ -273,16 +309,16 @@ test("preview transport maps stale revisions and cache violations safely", async
     fetch: async () => jsonResponse({ error: "assignment changed; reload it" }, 412),
   });
   await assert.rejects(
-    staleClient.constructDerivedPreview(course, assignment, revision, {
-      selectedMoment,
-      membership: "M-9",
+    staleClient.constructSelectedStudentViewScenario(course, assignment, revision, {
+      selected_moment: selectedMoment,
+      selected_student_membership: "M-9",
     }),
     PreviewPlaneConflictError,
   );
 
   const cacheableClient = createHttpApiClient({
     fetch: async () =>
-      jsonResponse({ revision, rows: [], nextCursor: null }, 200, "private, max-age=1"),
+      jsonResponse({ revision, rows: [], next_cursor: null }, 200, "private, max-age=1"),
   });
   await assert.rejects(
     cacheableClient.listPreviewSchedule(course, assignment, revision),

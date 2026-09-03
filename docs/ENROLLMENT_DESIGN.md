@@ -152,7 +152,7 @@ relationship is chosen or claimed. The deployment-gated seeded persona selector
 uses the same account/session records for connected local evidence. The product
 direction is:
 
-- email authentication is the canonical registration and sign-in path;
+- email authentication is the registration and sign-in path;
 - passkeys are optional convenience credentials for the same account;
 - the existing opaque, hashed server-side session and host-only HttpOnly
   `__Host-` cookie remain the browser credential; and
@@ -213,7 +213,7 @@ start fails closed unless both the invitation-token secret and a complete
 external SMTP configuration are present; mounting a route is not evidence of a
 live email-authentication ceremony.
 
-ENR6 therefore uses canonical email authentication to restore an existing PLE
+ENR6 therefore uses email authentication to restore an existing PLE
 Account before invitation redemption. Authentication ceremonies authenticate
 existing Accounts; they do not create Student Accounts. Copy-link delivery
 removes SMTP from the invitation handoff, but it does not replace account
@@ -417,8 +417,7 @@ transaction; no route or migration may hand-write only one side.
 
 ## HTTP contract
 
-Course-roster delivery is planned and unmounted. `WP-RC8` is the sole future
-ownership boundary for its Store, routes, invitation workflow, and atomic
+Course-roster delivery is planned and unmounted. Its future Store, routes, invitation workflow, and atomic
 Student Account resolve-or-create transaction; no roster, roster-import,
 invitation, or invitation-redemption route is currently mounted.
 
@@ -628,7 +627,7 @@ hand-match 50 scores.
 | Normalized import preview       | Review errors before sending invitations                                        | Expires after one hour; direct-Instructor access; no account-existence signal                                                                                                                                                   |
 | Grade export                    | Upload results to the institutional system                                      | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |
 
-The planned, unmounted WP-RC8 delivery will expire a Course Invitation after
+The planned, unmounted Course-roster delivery will expire a Course Invitation after
 seven days and an email-authentication challenge after ten minutes. Resending
 will create new secrets and invalidate the old delivery. Those bounds will be
 server constants, not browser choices.

@@ -1,4 +1,4 @@
-// Real-stack WP-INST-D1 discovery journey. The installed PLE Question is reused through
+// Question Library Discovery real-stack journey. The installed PLE Question is reused through
 // visible course and student workflows so published evidence reflects ordinary completed work.
 //
 // Selector contract:

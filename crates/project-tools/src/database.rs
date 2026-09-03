@@ -1,23 +1,23 @@
 //! Explicit database migration control for the pre-data SQLx epoch.
 
-use acceptance_runtime::{AcceptanceRuntime, Sd1StagedDatabaseRuntime};
+use acceptance_runtime::{AcceptanceRuntime, PostgresMigrationAcceptanceRuntime};
 use anyhow::{Context, Result, bail};
 use learning_data_access::postgres::{MigrationCheck, MigrationCheckResult, Pool};
 use std::path::Path;
 
-#[path = "database_sd1_staging.rs"]
-mod database_sd1_staging;
+#[path = "database_postgres_migration_acceptance.rs"]
+mod database_postgres_migration_acceptance;
 
-use database_sd1_staging::Sd1StagedAction;
+use database_postgres_migration_acceptance::PostgresMigrationAcceptanceAction;
 
-const USAGE: &str = "usage: cargo tools database <status|migrate|verify> [--migrations-dir PATH] [--acceptance-runtime] | cargo tools database <sd1-staged-status|sd1-staged-migrate|sd1-staged-verify> --acceptance-runtime (ordinary mode reads PLE_MIGRATION_DATABASE_URL or DATABASE_URL)";
+const USAGE: &str = "usage: cargo tools database <status|migrate|verify> [--migrations-dir PATH] [--acceptance-runtime] | cargo tools database <migration-acceptance-status|migration-acceptance-migrate|migration-acceptance-verify> --acceptance-runtime (ordinary mode reads PLE_MIGRATION_DATABASE_URL or DATABASE_URL)";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum DatabaseAction {
     Status,
     Migrate,
     Verify,
-    Sd1Staged(Sd1StagedAction),
+    PostgresMigrationAcceptance(PostgresMigrationAcceptanceAction),
 }
 
 impl DatabaseAction {
@@ -26,7 +26,8 @@ impl DatabaseAction {
             "status" => Some(Self::Status),
             "migrate" => Some(Self::Migrate),
             "verify" => Some(Self::Verify),
-            _ => Sd1StagedAction::parse(value).map(Self::Sd1Staged),
+            _ => PostgresMigrationAcceptanceAction::parse(value)
+                .map(Self::PostgresMigrationAcceptance),
         }
     }
 
@@ -35,13 +36,13 @@ impl DatabaseAction {
     }
 
     const fn requires_acceptance_runtime(self) -> bool {
-        matches!(self, Self::Sd1Staged(_))
+        matches!(self, Self::PostgresMigrationAcceptance(_))
     }
 }
 
 enum DatabaseConnection {
     Acceptance(AcceptanceRuntime),
-    Sd1Staged(Sd1StagedDatabaseRuntime),
+    PostgresMigrationAcceptance(PostgresMigrationAcceptanceRuntime),
     Environment(String),
 }
 
@@ -60,7 +61,9 @@ pub fn run(args: &[String]) -> Result<()> {
     tokio_runtime.block_on(async {
         let pool = learning_data_access::postgres::lazy_pool(match &connection {
             DatabaseConnection::Acceptance(runtime) => runtime.admin_url().expose(),
-            DatabaseConnection::Sd1Staged(runtime) => runtime.postgres_migrator_url().expose(),
+            DatabaseConnection::PostgresMigrationAcceptance(runtime) => {
+                runtime.postgres_migrator_url().expose()
+            }
             DatabaseConnection::Environment(url) => url,
         })
         .context("database administration URL is not a valid PostgreSQL connection URL")?;
@@ -93,7 +96,9 @@ fn parse_arguments(args: &[String]) -> Result<(DatabaseAction, Option<&Path>, bo
         bail!(USAGE);
     }
     if action.requires_acceptance_runtime() && !acceptance_runtime {
-        bail!("SD1 staged database commands require --acceptance-runtime; {USAGE}");
+        bail!(
+            "PostgreSQL Migration Acceptance Runtime commands require --acceptance-runtime; {USAGE}"
+        );
     }
     Ok((action, migrations_dir, acceptance_runtime))
 }
@@ -104,11 +109,15 @@ fn database_connection_for(
 ) -> Result<DatabaseConnection> {
     if acceptance_runtime {
         return match action {
-            DatabaseAction::Sd1Staged(_) => Sd1StagedDatabaseRuntime::load()
-                .map(DatabaseConnection::Sd1Staged)
-                .map_err(|error| {
-                    anyhow::anyhow!("SD1 staged database runtime is required: {error}")
-                }),
+            DatabaseAction::PostgresMigrationAcceptance(_) => {
+                PostgresMigrationAcceptanceRuntime::load()
+                    .map(DatabaseConnection::PostgresMigrationAcceptance)
+                    .map_err(|error| {
+                        anyhow::anyhow!(
+                            "PostgreSQL Migration Acceptance Runtime is required: {error}"
+                        )
+                    })
+            }
             _ => AcceptanceRuntime::load()
                 .map(DatabaseConnection::Acceptance)
                 .map_err(|error| {
@@ -128,8 +137,8 @@ fn database_connection_for(
         .context(
             "DATABASE_URL or PLE_MIGRATION_DATABASE_URL must be set for database administration",
         )?,
-        DatabaseAction::Sd1Staged(_) => {
-            bail!("SD1 staged database commands require --acceptance-runtime")
+        DatabaseAction::PostgresMigrationAcceptance(_) => {
+            bail!("PostgreSQL Migration Acceptance Runtime commands require --acceptance-runtime")
         }
     };
     if value.trim().is_empty() {
@@ -187,7 +196,9 @@ async fn run_action(
             println!("database verify: compatible");
             Ok(())
         }
-        DatabaseAction::Sd1Staged(action) => database_sd1_staging::run(action, pool).await,
+        DatabaseAction::PostgresMigrationAcceptance(action) => {
+            database_postgres_migration_acceptance::run(action, pool).await
+        }
     }
 }
 
@@ -262,26 +273,29 @@ mod tests {
     }
 
     #[test]
-    fn staged_mutation_requires_the_closed_acceptance_runtime() {
-        let missing_authority = vec!["sd1-staged-migrate".to_string()];
+    fn migration_acceptance_mutation_requires_the_closed_runtime() {
+        let missing_authority = vec!["migration-acceptance-migrate".to_string()];
         assert!(parse_arguments(&missing_authority).is_err());
 
         let accepted = vec![
-            "sd1-staged-migrate".to_string(),
+            "migration-acceptance-migrate".to_string(),
             "--acceptance-runtime".to_string(),
         ];
         let (action, migrations_dir, acceptance_runtime) = parse_arguments(&accepted).unwrap();
-        assert_eq!(action, DatabaseAction::Sd1Staged(Sd1StagedAction::Migrate));
+        assert_eq!(
+            action,
+            DatabaseAction::PostgresMigrationAcceptance(PostgresMigrationAcceptanceAction::Migrate)
+        );
         assert!(migrations_dir.is_none());
         assert!(acceptance_runtime);
     }
 
     #[test]
-    fn staged_commands_reject_caller_selected_migration_directories() {
+    fn migration_acceptance_commands_reject_caller_selected_migration_directories() {
         for action in [
-            "sd1-staged-status",
-            "sd1-staged-migrate",
-            "sd1-staged-verify",
+            "migration-acceptance-status",
+            "migration-acceptance-migrate",
+            "migration-acceptance-verify",
         ] {
             let args = vec![
                 action.to_string(),

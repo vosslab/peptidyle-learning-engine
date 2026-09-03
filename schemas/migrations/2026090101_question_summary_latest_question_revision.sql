@@ -32,7 +32,7 @@ AS $$
         SELECT 1
           FROM ple_private.account AS account
          WHERE account.account_id = ple_api.current_session_account_id()
-           AND account.role = 'instructor'
+           AND account.product_role = 'instructor'
     )
 $$;
 

@@ -103,14 +103,6 @@ pub struct CourseMembershipReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct CourseInvitationReference(NonZeroU32);
-/// An authorized Question Folder Reference for one private Question Folder.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct QuestionFolderReference(NonZeroU32);
-/// An authorized Saved Question Search Reference for one personal saved Question Search.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct SavedQuestionSearchReference(NonZeroU32);
 /// An authorized Blueprint Course Reference for one reusable Blueprint Course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -143,12 +135,6 @@ impl_reference!(
     CourseInvitationReference,
     "CI",
     "Course Invitation reference"
-);
-impl_reference!(QuestionFolderReference, "QC", "question-folder reference");
-impl_reference!(
-    SavedQuestionSearchReference,
-    "QS",
-    "saved-question-search reference"
 );
 impl_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
 impl_reference!(
@@ -264,22 +250,6 @@ mod tests {
             "CI-0",
             "CI-01",
             "CI-2147483648"
-        );
-        assert_reference_wire!(
-            QuestionFolderReference,
-            "QC-131",
-            "QS-131",
-            "QC-0",
-            "QC-01",
-            "QC-2147483648"
-        );
-        assert_reference_wire!(
-            SavedQuestionSearchReference,
-            "QS-132",
-            "QC-132",
-            "QS-0",
-            "QS-01",
-            "QS-2147483648"
         );
         assert_reference_wire!(
             BlueprintCourseReference,

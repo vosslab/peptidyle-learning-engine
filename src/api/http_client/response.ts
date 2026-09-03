@@ -12,7 +12,6 @@ import type { CourseBannerReference } from "../../../generated/api/CourseBannerR
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
@@ -42,10 +41,9 @@ import {
   decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
   decodeIssuedQuestionPresentation,
-  decodeQuestionPresentation,
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
-  decodeAssignmentProgress,
+  decodeStudentAssignmentProgress,
   decodeDraftQuestionPage,
   decodeQuestionPublicationReview,
   decodeNavigationResolution,
@@ -106,23 +104,15 @@ async function fetchCourseBanner(
   return blob;
 }
 
-function issuedQuestionForAttempt(
+async function issuedQuestionForAttempt(
   fetchImplementation: ApiFetch,
   basePath: string,
   courseId: CourseId,
   assignmentId: AssignmentId,
   attempt: StudentQuestionAttempt,
-): Promise<QuestionVariationPresentation> {
-  const decoder =
-    attempt.issuedCapability === "notApplicable"
-      ? decodeQuestionPresentation
-      : decodeIssuedQuestionPresentation;
-  return requestJson(
-    fetchImplementation,
-    basePath,
-    `${studentAttemptPath(courseId, assignmentId, attempt.id)}/question`,
-    decoder,
-  );
+): Promise<import("../../../generated/api/QuestionPresentation").QuestionPresentation> {
+  const path = `${studentAttemptPath(courseId, assignmentId, attempt.id)}/question`;
+  return requestJson(fetchImplementation, basePath, path, decodeIssuedQuestionPresentation);
 }
 
 export function requireNoStore(response: Response, path: string): void {
@@ -270,7 +260,7 @@ function verifyAssignmentAttemptScreen(screen: AssignmentAttemptScreenData): voi
     throw new ApiProtocolError(
       "Assignment Attempt screen assignment does not match its Assignment Attempt",
     );
-  if (screen.issuedQuestion.variation.seed !== screen.attempt.seed)
+  if (screen.issuedQuestion.question_seed !== screen.attempt.question_seed)
     throw new ApiProtocolError(
       "Assignment Attempt screen issued presentation does not match its Question Attempt",
     );
@@ -418,7 +408,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/assignments/${encodedId(assignmentId)}/summary`,
-        decodeAssignmentProgress,
+        decodeStudentAssignmentProgress,
       ),
     listAssignmentAttempts: (studentRecordId: StudentRecordId, cursor) =>
       requestJson(
@@ -486,7 +476,7 @@ export function createResponseClient(
       courseId,
       assignmentId,
       attemptId,
-    ): Promise<QuestionVariationPresentation> => {
+    ): Promise<import("../../../generated/api/QuestionPresentation").QuestionPresentation> => {
       const attempt = await requestJson(
         fetchImplementation,
         basePath,
@@ -515,7 +505,7 @@ export function createResponseClient(
         fetchImplementation,
         basePath,
         `/api/student-records/${encodedId(studentRecordId)}/assignment-activity-summary`,
-        decodeAssignmentProgress,
+        decodeStudentAssignmentProgress,
       ),
     getAssignmentAttemptScreen: async (
       assignmentAttemptId,

@@ -56,8 +56,8 @@ impl QtiImporter {
         let mut referenced = BTreeSet::new();
         let mut item_results = Vec::new();
         let mut item_ids = BTreeSet::new();
-        let mut exact_digests = BTreeMap::<String, String>::new();
-        let mut presentation_digests = BTreeMap::<String, (String, String)>::new();
+        let mut exact_fingerprints = BTreeMap::<String, String>::new();
+        let mut presentation_fingerprints = BTreeMap::<String, (String, String)>::new();
         for resource in &manifest.resources {
             let qti_item = is_qti_item(resource);
             let Some(href) = resource.href.as_deref() else {
@@ -131,7 +131,7 @@ impl QtiImporter {
                     let normalized_text = normalized.to_string();
                     let presentation_text = presentation.to_string();
                     let mut warnings = Vec::new();
-                    if let Some(first) = exact_digests.get(&normalized_text) {
+                    if let Some(first) = exact_fingerprints.get(&normalized_text) {
                         warnings.push(unsupported(
                             &resource.identifier,
                             "exact-duplicate-item",
@@ -140,7 +140,7 @@ impl QtiImporter {
                             ),
                         ));
                     } else if let Some((first_normalized, first)) =
-                        presentation_digests.get(&presentation_text)
+                        presentation_fingerprints.get(&presentation_text)
                         && first_normalized != &normalized_text
                     {
                         warnings.push(unsupported(
@@ -151,10 +151,10 @@ impl QtiImporter {
                             ),
                         ));
                     }
-                    exact_digests
+                    exact_fingerprints
                         .entry(normalized_text.clone())
                         .or_insert_with(|| resource.identifier.clone());
-                    presentation_digests
+                    presentation_fingerprints
                         .entry(presentation_text)
                         .or_insert_with(|| (normalized_text.clone(), resource.identifier.clone()));
                     item_ids.insert(question.item_id.clone());

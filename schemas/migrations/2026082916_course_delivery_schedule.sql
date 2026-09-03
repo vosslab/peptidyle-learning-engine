@@ -1,4 +1,4 @@
--- SD1 CourseInstance delivery, Course Schedule Revision, and Assignment Revision roots.
+-- Course Instance delivery, Course Schedule Revision, and Assignment Revision roots.
 
 SET LOCAL ROLE ple_data_owner;
 -- A Course Term changes only by creating the next immutable Course Schedule
@@ -65,7 +65,7 @@ CREATE TABLE ple_data.assignment (
     ),
     CONSTRAINT assignment_update_is_ordered CHECK (updated_at >= created_at)
 );
--- ASVS 8.2.2: an Assignment Release creates one immutable teaching definition
+-- ASVS 8.2.2: an Assignment Release creates one immutable Assignment Revision snapshot
 -- that Student work can pin exactly.
 CREATE TABLE ple_data.assignment_revision (
     assignment_revision_id uuid PRIMARY KEY,

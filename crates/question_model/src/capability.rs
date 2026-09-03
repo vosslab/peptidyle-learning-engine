@@ -1,4 +1,4 @@
-//! Backend capability declarations (WP-C1, MOD-CAP).
+//! Question Backend capability declarations.
 //!
 //! Every backend states what it can honestly do. The platform uses that
 //! declaration to refuse an assignment configuration *before* publication,

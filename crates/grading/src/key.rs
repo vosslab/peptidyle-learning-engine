@@ -1,4 +1,4 @@
-//! Server-only answer-key types (WP-C6, MOD-GRD).
+//! Server-only Answer Key types.
 //!
 //! These values decide deterministic correctness. They therefore stay in
 //! `grading`, outside the generated browser types and the WASM dependency

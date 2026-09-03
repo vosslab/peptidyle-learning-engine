@@ -44,7 +44,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, ports: t
 	local_stack_control.runtime_manifest.write_course_appearance_cross_store_runtime(
 		workspace, ports[0], ports[1]
 	)
-	local_stack_control.runtime_manifest.write_sd1_staged_database_runtime(workspace, ports[0])
+	local_stack_control.runtime_manifest.write_postgres_migration_acceptance_runtime(workspace, ports[0])
 	environment = {
 		name: value
 		for name, value in os.environ.items()

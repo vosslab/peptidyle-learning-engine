@@ -1,4 +1,4 @@
-//! Renderer-client and deterministic render-cache contract (MOD-ADP-WW).
+//! Renderer-client and deterministic render-cache contract.
 //!
 //! This module intentionally does not parse or execute PG.  A constrained
 //! renderer service owns that work.  The adapter holds the network boundary,

@@ -4,23 +4,26 @@ import test from "node:test";
 import { projectStudentResponse } from "../src/features/question_attempt/student_response.ts";
 
 const presentation = {
-  version: "version-a",
-  seed: 2,
+  questionRevision: {
+    questionId: "ABC-1234",
+    revisionNumber: 1,
+  },
+  question_seed: 2,
+  presentationNonce: "0123456789abcdef0123456789abcdef",
   title: "Question",
   prompt: [],
   response: {
-    kind: "multipleChoice",
+    kind: "singleChoice",
     choices: [
-      { id: "a", body: [{ kind: "text", markdown: "Visible A" }] },
-      { id: "b", body: [{ kind: "text", markdown: "Visible B" }] },
+      { id: "000a", body: [{ kind: "text", markdown: "Visible A" }] },
+      { id: "000b", body: [{ kind: "text", markdown: "Visible B" }] },
     ],
-    selection: { min: 1, max: 2 },
   },
 };
 
 test("Student Response Inspection Feedback uses only public choice bodies and rejects mismatches", () => {
   assert.deepEqual(
-    projectStudentResponse(presentation, { kind: "multipleChoice", selected: ["b"] }),
+    projectStudentResponse(presentation, { kind: "multipleChoice", selected: ["000b"] }),
     [{ kind: "text", markdown: "Visible B" }],
   );
   assert.deepEqual(

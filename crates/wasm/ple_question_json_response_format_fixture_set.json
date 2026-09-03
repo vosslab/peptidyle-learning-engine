@@ -2,7 +2,7 @@
   "cases": [
     {
       "name": "ple-question-json-v2-single-choice-one-selection",
-      "definition": {
+      "responseFormat": {
         "kind": "multipleChoice",
         "choices": [
           { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
@@ -18,7 +18,7 @@
     },
     {
       "name": "ple-question-json-v2-single-choice-empty-selection",
-      "definition": {
+      "responseFormat": {
         "kind": "multipleChoice",
         "choices": [
           { "id": "cystic-fibrosis", "body": [{ "kind": "text", "markdown": "Cystic fibrosis" }] },
@@ -31,14 +31,12 @@
       },
       "response": { "kind": "multipleChoice", "selected": [] },
       "expectedCheck": {
-        "issues": [
-          { "kind": "selectionCount", "expected": { "kind": "exactlyOne" }, "actual": 0 }
-        ]
+        "issues": [{ "kind": "selectionCount", "expected": { "kind": "exactlyOne" }, "actual": 0 }]
       }
     },
     {
       "name": "ple-question-json-v2-matching-full-permutation",
-      "definition": {
+      "responseFormat": {
         "kind": "matching",
         "prompts": [
           { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },
@@ -60,7 +58,7 @@
     },
     {
       "name": "ple-question-json-v2-matching-empty-response",
-      "definition": {
+      "responseFormat": {
         "kind": "matching",
         "prompts": [
           { "id": "cooh", "body": [{ "kind": "text", "markdown": "Written as -COOH" }] },

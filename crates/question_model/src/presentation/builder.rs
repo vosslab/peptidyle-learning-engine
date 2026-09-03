@@ -1,4 +1,4 @@
-//! Construction of globally collision-free presentation-scoped item IDs.
+//! Construction of globally collision-free Presentation Response Item References.
 
 use std::collections::BTreeSet;
 
@@ -55,7 +55,7 @@ impl ResponseItemRole {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResponseItemBinding {
-    pub rendered: PresentationResponseItemReference,
+    pub presentation_response_item_reference: PresentationResponseItemReference,
     pub role: ResponseItemRole,
     pub ordinal: u32,
     /// Exact authored Response Item for issued bindings; absent during public verification.
@@ -103,10 +103,9 @@ pub struct IssuedQuestionPresentation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PresentationBuildError {
     RandomnessUnavailable,
-    UnsupportedResponse,
     InvalidPublicContent(&'static str),
     TooManyItems,
-    RenderedIdCollision,
+    PresentationResponseItemReferenceCollision,
     DescriptorEncoding(&'static str),
 }
 
@@ -116,14 +115,10 @@ impl std::fmt::Display for PresentationBuildError {
             Self::RandomnessUnavailable => {
                 formatter.write_str("presentation nonce randomness is unavailable")
             }
-            Self::UnsupportedResponse => {
-                formatter.write_str("Question Response Control is outside presentation contract v1")
-            }
             Self::InvalidPublicContent(message) => formatter.write_str(message),
             Self::TooManyItems => formatter.write_str("presentation contains more than 32 items"),
-            Self::RenderedIdCollision => {
-                formatter.write_str("could not mint globally unique rendered item IDs")
-            }
+            Self::PresentationResponseItemReferenceCollision => formatter
+                .write_str("could not mint globally unique Presentation Response Item References"),
             Self::DescriptorEncoding(message) => formatter.write_str(message),
         }
     }
@@ -174,7 +169,7 @@ impl QuestionPresentationNonceSource for PersistedNonceSource {
     fn next_nonce(&mut self) -> Result<[u8; 16], PresentationBuildError> {
         self.0
             .take()
-            .ok_or(PresentationBuildError::RenderedIdCollision)
+            .ok_or(PresentationBuildError::PresentationResponseItemReferenceCollision)
     }
 }
 
@@ -223,11 +218,11 @@ pub fn rebuild_public_question_presentation(
     }
     let unique: BTreeSet<_> = item_bindings
         .iter()
-        .map(|item| item.rendered.clone())
+        .map(|item| item.presentation_response_item_reference.clone())
         .collect();
     if unique.len() != item_bindings.len() {
         return Err(PresentationBuildError::InvalidPublicContent(
-            "presentation repeats a rendered item ID",
+            "presentation repeats a Presentation Response Item Reference",
         ));
     }
     let mut presentation = IssuedQuestionPresentation {
@@ -240,7 +235,6 @@ pub fn rebuild_public_question_presentation(
         QuestionPresentationChecksum::compute(&descriptor_bytes(&presentation)?);
     Ok(presentation)
 }
-
 #[cfg(test)]
 pub(super) fn build_question_presentation_with_hasher<N, H>(
     presentation: &QuestionVariationPresentation,
@@ -259,7 +253,6 @@ where
         hasher,
     )
 }
-
 fn build_with_hasher<N, H>(
     presentation: &QuestionVariationPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
@@ -283,14 +276,20 @@ where
         let mut collision = false;
         for item in &pending {
             let basis_bytes = item_basis_bytes(&item.basis)?;
-            let input = rendered_id_input(presentation, nonce, item, &basis_bytes)?;
-            let rendered = PresentationResponseItemReference::from_crc(hasher(&input));
-            if !used.insert(rendered.clone()) {
+            let input = presentation_response_item_reference_input(
+                presentation,
+                nonce,
+                item,
+                &basis_bytes,
+            )?;
+            let presentation_response_item_reference =
+                PresentationResponseItemReference::from_crc(hasher(&input));
+            if !used.insert(presentation_response_item_reference.clone()) {
                 collision = true;
                 break;
             }
             bindings.push(ResponseItemBinding {
-                rendered,
+                presentation_response_item_reference,
                 role: item.role,
                 ordinal: item.ordinal,
                 response_item_reference: Some(item.response_item_reference.clone()),
@@ -311,16 +310,15 @@ where
         presentation.checksum = QuestionPresentationChecksum::compute(&bytes);
         return Ok(presentation);
     }
-    Err(PresentationBuildError::RenderedIdCollision)
+    Err(PresentationBuildError::PresentationResponseItemReferenceCollision)
 }
-
-fn rendered_id_input(
+fn presentation_response_item_reference_input(
     presentation: &QuestionVariationPresentation,
     nonce: QuestionPresentationNonce,
     item: &PendingResponseItem,
     basis_bytes: &[u8],
 ) -> Result<Vec<u8>, PresentationBuildError> {
-    let mut bytes = b"ple:rendered-item:v1\0".to_vec();
+    let mut bytes = b"ple:presentation-response-item-reference:v1\0".to_vec();
     bytes.extend_from_slice(&nonce.as_bytes());
     push_bytes(
         &mut bytes,
@@ -339,14 +337,13 @@ fn rendered_id_input(
             .get()
             .to_be_bytes(),
     );
-    bytes.extend_from_slice(&presentation.variation.seed.value().to_be_bytes());
+    bytes.extend_from_slice(&presentation.variation.question_seed.value().to_be_bytes());
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
     push_bytes(&mut bytes, item.response_item_reference.as_str().as_bytes())?;
     bytes.extend_from_slice(&Sha256::digest(basis_bytes));
     Ok(bytes)
 }
-
 fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuildError> {
     let length = u32::try_from(value.len()).map_err(|_| {
         PresentationBuildError::DescriptorEncoding("presentation field is too large")
@@ -355,7 +352,6 @@ fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuil
     target.extend_from_slice(value);
     Ok(())
 }
-
 fn pending_items(
     presentation: &QuestionVariationPresentation,
     assets: &[QuestionAssetRendition],
@@ -447,9 +443,7 @@ fn pending_items(
                 )?;
             }
         }
-        QuestionResponseFormat::ImathasQuestionBackend {} => {
-            return Err(PresentationBuildError::UnsupportedResponse);
-        }
+        QuestionResponseFormat::ImathasQuestionBackend {} => {}
     }
     Ok(items)
 }
@@ -457,7 +451,6 @@ trait PresentedResponseItem {
     fn id(&self) -> &ResponseItemReference;
     fn body(&self) -> &[QuestionContentBlock];
 }
-
 impl PresentedResponseItem for QuestionChoice {
     fn id(&self) -> &ResponseItemReference {
         &self.id
@@ -466,7 +459,6 @@ impl PresentedResponseItem for QuestionChoice {
         &self.body
     }
 }
-
 impl PresentedResponseItem for MatchingPrompt {
     fn id(&self) -> &ResponseItemReference {
         &self.id
@@ -475,7 +467,6 @@ impl PresentedResponseItem for MatchingPrompt {
         &self.body
     }
 }
-
 impl PresentedResponseItem for MatchingChoice {
     fn id(&self) -> &ResponseItemReference {
         &self.id
@@ -484,7 +475,6 @@ impl PresentedResponseItem for MatchingChoice {
         &self.body
     }
 }
-
 impl PresentedResponseItem for OrderingItem {
     fn id(&self) -> &ResponseItemReference {
         &self.id
@@ -493,7 +483,6 @@ impl PresentedResponseItem for OrderingItem {
         &self.body
     }
 }
-
 fn push_choices<T: PresentedResponseItem>(
     target: &mut Vec<PendingResponseItem>,
     choices: &[T],
@@ -513,7 +502,6 @@ fn push_choices<T: PresentedResponseItem>(
     }
     Ok(())
 }
-
 fn push_item(
     target: &mut Vec<PendingResponseItem>,
     role: ResponseItemRole,
@@ -555,7 +543,12 @@ fn public_presentation(
     let by_role = |role| bindings.iter().filter(move |binding| binding.role == role);
     let presented_item_parts = |role: ResponseItemRole| {
         by_role(role)
-            .map(|binding| (binding.rendered.clone(), binding.basis.content.clone()))
+            .map(|binding| {
+                (
+                    binding.presentation_response_item_reference.clone(),
+                    binding.basis.content.clone(),
+                )
+            })
             .collect::<Vec<_>>()
     };
     let response = match &source.response {
@@ -587,8 +580,8 @@ fn public_presentation(
             }
         }
         QuestionResponseFormat::MultiBlank { blanks } => {
-            let rendered: Vec<_> = by_role(ResponseItemRole::TextEntrySlot).collect();
-            if rendered.len() != blanks.len() {
+            let text_entry_bindings: Vec<_> = by_role(ResponseItemRole::TextEntrySlot).collect();
+            if text_entry_bindings.len() != blanks.len() {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "blank presentation mapping is incomplete",
                 ));
@@ -596,9 +589,9 @@ fn public_presentation(
             QuestionPresentationResponseFormat::MultiFillIn {
                 blanks: blanks
                     .iter()
-                    .zip(rendered)
+                    .zip(text_entry_bindings)
                     .map(|(blank, binding)| PresentedTextEntrySlot {
-                        id: binding.rendered.clone(),
+                        id: binding.presentation_response_item_reference.clone(),
                         label: blank.label.clone(),
                         max_characters: blank.max_length,
                     })
@@ -644,22 +637,23 @@ fn public_presentation(
                 ));
             };
             let (minimum, maximum) = selection_bounds(*selection, regions.len())?;
-            let rendered_regions: Vec<_> = by_role(ResponseItemRole::HotspotRegion).collect();
-            if rendered_regions.len() != regions.len() {
+            let hotspot_region_bindings: Vec<_> =
+                by_role(ResponseItemRole::HotspotRegion).collect();
+            if hotspot_region_bindings.len() != regions.len() {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "hotspot region presentation mapping is incomplete",
                 ));
             }
             QuestionPresentationResponseFormat::Hotspot {
                 surface: PresentedHotspotSurface {
-                    id: surface.rendered.clone(),
+                    id: surface.presentation_response_item_reference.clone(),
                     asset: asset.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()
-                        .zip(rendered_regions)
+                        .zip(hotspot_region_bindings)
                         .map(|(region, binding)| PresentedHotspotRegion {
-                            id: binding.rendered.clone(),
+                            id: binding.presentation_response_item_reference.clone(),
                             label: region.label.clone(),
                             x: region.x,
                             y: region.y,
@@ -673,12 +667,12 @@ fn public_presentation(
             }
         }
         QuestionResponseFormat::ImathasQuestionBackend {} => {
-            return Err(PresentationBuildError::UnsupportedResponse);
+            QuestionPresentationResponseFormat::ImathasQuestionBackend {}
         }
     };
     Ok(QuestionPresentation {
         question_revision: source.variation.question_revision.clone(),
-        seed: source.variation.seed,
+        question_seed: source.variation.question_seed,
         presentation_nonce: nonce,
         title: source.title.clone(),
         prompt: source.prompt.clone(),
@@ -808,6 +802,7 @@ fn public_item_bindings(
                 )?;
             }
         }
+        QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {}
     }
     match response {
         QuestionPresentationResponseFormat::SingleChoice { choices } if choices.len() < 2 => {
@@ -849,7 +844,7 @@ fn push_public_response_items<T: PresentedResponseItemContent>(
 }
 fn push_public_item(
     target: &mut Vec<ResponseItemBinding>,
-    rendered: PresentationResponseItemReference,
+    presentation_response_item_reference: PresentationResponseItemReference,
     role: ResponseItemRole,
     content: Vec<QuestionContentBlock>,
     assets: &[QuestionAssetRendition],
@@ -859,7 +854,7 @@ fn push_public_item(
     let ordinal = u32::try_from(target.len()).map_err(|_| PresentationBuildError::TooManyItems)?;
     let item_assets = content_assets(&content, assets)?;
     target.push(ResponseItemBinding {
-        rendered,
+        presentation_response_item_reference,
         role,
         ordinal,
         response_item_reference: None,

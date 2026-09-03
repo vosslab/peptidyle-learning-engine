@@ -1,4 +1,4 @@
-// contract_pages.tsx - honest route surfaces reserved by WP-C9 for later lanes.
+// contract_pages.tsx - route surfaces whose application controls are still pending.
 
 import { A, useParams } from "@solidjs/router";
 import type { Component, JSX } from "solid-js";

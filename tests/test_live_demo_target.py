@@ -41,7 +41,7 @@ def test_random_secret32_is_accepted_by_the_strict_private_secret_reader(
 		lambda _requested_bytes: expected_secret,
 	)
 	encoded_secret = local_stack_control.live_demo_target.random_secret32()
-	decoded_secret = local_stack_control.private_files.canonical_secret32(
+	decoded_secret = local_stack_control.private_files.decode_base64url_secret32(
 		encoded_secret.encode("ascii")
 	)
 	assert decoded_secret == expected_secret
@@ -107,7 +107,7 @@ def test_closed_profiles_have_exact_topology_and_child_capabilities() -> None:
 		"containers/compose.yaml",
 		"tests/e2e/compose.live-demo-browser.yaml",
 	)
-	assert browser.child_capabilities == ("canonical_browser_lifecycle",)
+	assert browser.child_capabilities == ("browser_lifecycle",)
 	assert webwork.child_capabilities == (
 		"bounded_renderer_log", "webwork_service_client",
 	)
@@ -158,18 +158,18 @@ def test_writer_emits_fixed_production_auth_manifest(
 	assert {
 		name: values[name]
 		for name in (
-			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID",
-			"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID",
-			"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID",
-			"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID",
-			"PLE_LIVE_DEMO_SYSADMIN_USER_ID",
+			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
+			"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
+			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID",
+			"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
+			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 		)
 	} == {
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID": "00000000-0000-0000-0000-000000000101",
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID": "00000000-0000-0000-0000-000000000102",
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID": "00000000-0000-0000-0000-000000000103",
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID": "00000000-0000-0000-0000-000000000104",
-		"PLE_LIVE_DEMO_SYSADMIN_USER_ID": "00000000-0000-0000-0000-000000000105",
+		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": "00000000-0000-0000-0000-000000000101",
+		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000102",
+		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000103",
+		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": "00000000-0000-0000-0000-000000000104",
+		"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID": "00000000-0000-0000-0000-000000000105",
 	}
 	assert "PLE_LIVE_DEMO_SYSADMIN_CLAIM_CONTEXT_HOST_FILE" not in values
 	assert all(

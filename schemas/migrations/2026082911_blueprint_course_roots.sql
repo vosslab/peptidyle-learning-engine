@@ -1,4 +1,4 @@
--- SD1 reusable BlueprintCourse roots and immutable revision evidence.
+-- Blueprint Course roots and immutable revision evidence.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;

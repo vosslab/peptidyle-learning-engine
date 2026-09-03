@@ -256,7 +256,7 @@ impl ImathasQuestionBackendStateCipher {
         Self::from_row_parts(parts.key_id, nonce, parts.ciphertext)
     }
 
-    #[allow(dead_code)] // Retained while the B3 Store migrates to typed storage parts.
+    #[allow(dead_code)] // Retained as the internal constructor for typed storage parts.
     pub(crate) fn from_row_parts(
         key_id: ImathasQuestionBackendStateKeyId,
         nonce: [u8; IMATHAS_QUESTION_BACKEND_STATE_NONCE_BYTES],

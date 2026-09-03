@@ -18,4 +18,4 @@ Key principles:
 - Long-term over short-term.
 - Best software design is focused on adaptability.
 
-Problem types need to be plugin-like, so we can support any future type as well.
+Question Types need to be plugin-like, so we can support any future type as well.

@@ -114,9 +114,10 @@ refused at every level.
 `questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
 retry bound. It does not disclose results, feedback, or answers. Student
 Feedback Release is assignment-owned through the target independent six-field
-`StudentFeedbackReleaseRule`: score, per-item correctness, feedback text,
-Question Answer, Question Answer Explanation, and class statistics. The current
-combined `solution` field remains an open migration item.
+`StudentFeedbackReleaseRule`: score, per-item correctness, Question Feedback,
+Question Answer, Question Answer Explanation, and class statistics. Dedicated
+PLE Question JSON authoring and output for Question Answer and Question Answer
+Explanation remain open migration work.
 The server derives Student Feedback for the authorized read. The Assignment
 Revision retains the rule, while the Grading Result and exact Question records
 retain the durable facts.
@@ -136,8 +137,8 @@ The eight exact response shapes are:
 
 Choice, prompt, blank, ordering-item, and region identifiers use the same
 stable identifier grammar. They identify semantics, not
-display positions. The server may later project attempt-specific rendered item
-IDs at the student wire boundary without changing these durable source IDs.
+display positions. The server may later project attempt-specific Presentation Response Item
+References at the Student wire boundary without changing these durable source IDs.
 
 For example, a matching question is:
 

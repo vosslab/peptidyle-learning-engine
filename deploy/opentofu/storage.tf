@@ -157,7 +157,7 @@ resource "aws_s3_bucket_policy" "object" {
         Effect    = "Deny"
         Principal = "*"
         Action    = "s3:PutObject"
-        Resource  = each.key == "public_assets" ? "${each.value.arn}/problems/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
+        Resource  = each.key == "public_assets" ? "${each.value.arn}/questions/*/versions/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
         Condition = { StringNotEquals = { "s3:RequestObjectTag/ple-published-immutable" = "true" } }
       },
       {
@@ -165,7 +165,7 @@ resource "aws_s3_bucket_policy" "object" {
         Effect    = "Deny"
         Principal = "*"
         Action    = "s3:PutObject"
-        Resource  = each.key == "public_assets" ? "${each.value.arn}/problems/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
+        Resource  = each.key == "public_assets" ? "${each.value.arn}/questions/*/versions/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
         Condition = { StringEquals = { "s3:ExistingObjectTag/ple-published-immutable" = "true" } }
       },
       {
@@ -173,7 +173,7 @@ resource "aws_s3_bucket_policy" "object" {
         Effect    = "Deny"
         Principal = "*"
         Action    = ["s3:DeleteObject", "s3:DeleteObjectVersion", "s3:DeleteObjectTagging"]
-        Resource  = each.key == "public_assets" ? "${each.value.arn}/problems/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
+        Resource  = each.key == "public_assets" ? "${each.value.arn}/questions/*/versions/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
         Condition = { StringLike = { "aws:PrincipalArn" = ["arn:aws:iam::*:role/${local.name}-api", "arn:aws:iam::*:role/${local.name}-worker"] } }
       },
       {
@@ -181,7 +181,7 @@ resource "aws_s3_bucket_policy" "object" {
         Effect    = "Deny"
         Principal = "*"
         Action    = ["s3:PutObjectTagging", "s3:DeleteObjectTagging"]
-        Resource  = each.key == "public_assets" ? "${each.value.arn}/problems/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
+        Resource  = each.key == "public_assets" ? "${each.value.arn}/questions/*/versions/*/assets/*" : "${each.value.arn}/__no-public-immutability-policy__/*"
         Condition = { StringEquals = { "s3:ExistingObjectTag/ple-published-immutable" = "true" } }
       }
     ]

@@ -94,7 +94,7 @@ Route authorization, response headers, and retention are defined in
 These are explicit release-plan work, not current interfaces:
 
 - Canvas and Blackboard QTI profile export as background jobs with queued status and protected
-  downloads (WP-RC6). No profile exporter has shipped.
+  downloads. No profile exporter has shipped.
 - A future external QTI-JSONL adapter. PLE Question JSON remains the authoritative internal
   source contract; QTI-JSONL is not a current upload format.
 - Broader scored H5P conversion. Current H5P remains ungraded key-free practice; any scored

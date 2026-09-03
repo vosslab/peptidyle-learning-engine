@@ -1,4 +1,4 @@
-# MOD-ADP-NAT: first-party algorithmic question adapter.
+# First-party algorithmic Question Backend adapter.
 [package]
 name = "adapter_ple"
 version.workspace = true

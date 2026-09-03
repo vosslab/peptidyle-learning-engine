@@ -37,9 +37,9 @@ pub struct QtiImportResultChecksumInput {
 }
 
 impl QtiImportResultChecksumInput {
-    /// Computes the deterministic safe-report checksum even when no item was accepted.
+    /// Computes the deterministic QTI Import Result Checksum even when no item was accepted.
     pub fn import_result_checksum(&self) -> Result<Sha256Checksum, QtiProfileContractError> {
-        validate_profile_report(self)?;
+        validate_qti_import_result_checksum_input(self)?;
         deterministic_checksum("profile-report", self)
     }
 }
@@ -220,18 +220,22 @@ impl QtiImportChecksums {
         private_mapping: &QtiPrivateMappingChecksumInput,
     ) -> Result<Self, QtiProfileContractError> {
         let public_mapping_checksum = public_mapping.checksum()?;
-        validate_report(report, public_mapping, public_mapping_checksum)?;
+        validate_qti_import_result_checksum_input_for_public_mapping(
+            report,
+            public_mapping,
+            public_mapping_checksum,
+        )?;
         if !private_mapping.has_correct_binding() {
             return Err(QtiProfileContractError::PrivateBindingMissing);
         }
         let import_result_checksum = report.import_result_checksum()?;
         let private_mapping_checksum = deterministic_checksum(
             "private-mapping",
-            &PrivateMappingCanonical::from(private_mapping),
+            &QtiPrivateMappingChecksumEncoding::from(private_mapping),
         )?;
         let mapping_checksum = deterministic_checksum(
             "combined-mapping",
-            &CombinedMappingCanonical {
+            &QtiMappingChecksumInput {
                 profile: report.profile,
                 profile_version: report.profile_version,
                 mapping_version: report.mapping_version,
@@ -241,7 +245,7 @@ impl QtiImportChecksums {
         )?;
         let warning_checksum = deterministic_checksum(
             "warnings",
-            &WarningsCanonical {
+            &QtiWarningChecksumInput {
                 defaults: &public_mapping.defaults,
                 warnings: &public_mapping.warnings,
             },
@@ -268,12 +272,12 @@ impl QtiPublicMappingChecksumInput {
     }
 }
 
-fn validate_report(
+fn validate_qti_import_result_checksum_input_for_public_mapping(
     report: &QtiImportResultChecksumInput,
     public_mapping: &QtiPublicMappingChecksumInput,
     public_mapping_checksum: Sha256Checksum,
 ) -> Result<(), QtiProfileContractError> {
-    validate_profile_report(report)?;
+    validate_qti_import_result_checksum_input(report)?;
     let Some(item) = report
         .items
         .iter()
@@ -290,7 +294,7 @@ fn validate_report(
     Ok(())
 }
 
-fn validate_profile_report(
+fn validate_qti_import_result_checksum_input(
     report: &QtiImportResultChecksumInput,
 ) -> Result<(), QtiProfileContractError> {
     if report.profile.version() != report.profile_version {
@@ -332,14 +336,14 @@ fn deterministic_checksum<T: Serialize>(
 }
 
 #[derive(Serialize)]
-struct PrivateMappingCanonical<'a> {
+struct QtiPrivateMappingChecksumEncoding<'a> {
     correct_vendor_choice_id: &'a str,
     correct_ple_choice_id: &'a str,
-    ordered_choice_map: Vec<PrivateChoiceMapCanonical<'a>>,
-    mapped_feedback: Vec<PrivateFeedbackCanonical<'a>>,
+    ordered_choice_map: Vec<QtiPrivateChoiceMapChecksumEncoding<'a>>,
+    mapped_feedback: Vec<QtiPrivateFeedbackChecksumEncoding<'a>>,
 }
 
-impl<'a> From<&'a QtiPrivateMappingChecksumInput> for PrivateMappingCanonical<'a> {
+impl<'a> From<&'a QtiPrivateMappingChecksumInput> for QtiPrivateMappingChecksumEncoding<'a> {
     fn from(value: &'a QtiPrivateMappingChecksumInput) -> Self {
         Self {
             correct_vendor_choice_id: &value.correct_vendor_choice_id,
@@ -347,7 +351,7 @@ impl<'a> From<&'a QtiPrivateMappingChecksumInput> for PrivateMappingCanonical<'a
             ordered_choice_map: value
                 .ordered_choice_map
                 .iter()
-                .map(|entry| PrivateChoiceMapCanonical {
+                .map(|entry| QtiPrivateChoiceMapChecksumEncoding {
                     vendor_choice_id: &entry.vendor_choice_id,
                     ple_choice_id: &entry.ple_choice_id,
                 })
@@ -355,7 +359,7 @@ impl<'a> From<&'a QtiPrivateMappingChecksumInput> for PrivateMappingCanonical<'a
             mapped_feedback: value
                 .mapped_feedback
                 .iter()
-                .map(|entry| PrivateFeedbackCanonical {
+                .map(|entry| QtiPrivateFeedbackChecksumEncoding {
                     location: &entry.location,
                     content: &entry.content,
                 })
@@ -365,19 +369,19 @@ impl<'a> From<&'a QtiPrivateMappingChecksumInput> for PrivateMappingCanonical<'a
 }
 
 #[derive(Serialize)]
-struct PrivateChoiceMapCanonical<'a> {
+struct QtiPrivateChoiceMapChecksumEncoding<'a> {
     vendor_choice_id: &'a str,
     ple_choice_id: &'a str,
 }
 
 #[derive(Serialize)]
-struct PrivateFeedbackCanonical<'a> {
+struct QtiPrivateFeedbackChecksumEncoding<'a> {
     location: &'a str,
     content: &'a str,
 }
 
 #[derive(Serialize)]
-struct CombinedMappingCanonical {
+struct QtiMappingChecksumInput {
     profile: QtiProfileId,
     profile_version: QtiProfileVersion,
     mapping_version: QtiMappingVersion,
@@ -386,7 +390,7 @@ struct CombinedMappingCanonical {
 }
 
 #[derive(Serialize)]
-struct WarningsCanonical<'a> {
+struct QtiWarningChecksumInput<'a> {
     defaults: &'a [QtiProfileDiagnostic],
     warnings: &'a [QtiProfileDiagnostic],
 }

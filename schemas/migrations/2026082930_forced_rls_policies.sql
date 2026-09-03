@@ -1,4 +1,4 @@
--- SD1 forced RLS policies for course records, private authoring, and worker leases.
+-- Forced RLS policies for Course records, private authoring, and Job leases.
 
 SET LOCAL ROLE ple_api_owner;
 GRANT USAGE ON SCHEMA ple_api TO ple_data_owner, ple_private_owner;

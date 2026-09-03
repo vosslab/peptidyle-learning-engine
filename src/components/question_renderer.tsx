@@ -6,6 +6,7 @@ import temml from "temml";
 import type { QuestionAssetReference } from "../../generated/api/QuestionAssetReference";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
+import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
 
@@ -483,4 +484,13 @@ export function QuestionRenderer(props: QuestionRendererProps): JSX.Element {
       <QuestionContent {...props} />
     </ErrorBoundary>
   );
+}
+
+/** Renders the prompt from one issued Student Question Presentation without projecting its format. */
+export function QuestionPresentationRenderer(props: {
+  readonly presentation: QuestionPresentation;
+  readonly assetUrl: AssetUrlResolver;
+  readonly onRetry?: () => void;
+}): JSX.Element {
+  return <QuestionPromptRenderer blocks={props.presentation.prompt} assetUrl={props.assetUrl} />;
 }

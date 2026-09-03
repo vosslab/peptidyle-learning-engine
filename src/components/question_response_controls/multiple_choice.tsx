@@ -11,30 +11,40 @@ import {
   createSubmissionController,
   Status,
   textFromBlocks,
-  type MultipleChoiceDefinition,
+  type MultipleChoiceResponseFormat,
   type MultipleChoiceResponseProps,
 } from "./common";
 
-function choiceInputType(definition: MultipleChoiceDefinition): "radio" | "checkbox" {
-  return definition.selection.kind === "exactlyOne" ? "radio" : "checkbox";
+function choiceInputType(responseFormat: MultipleChoiceResponseFormat): "radio" | "checkbox" {
+  return responseFormat.kind === "singleChoice" ||
+    (responseFormat.kind === "multipleChoice" && responseFormat.selection.kind === "exactlyOne")
+    ? "radio"
+    : "checkbox";
 }
 
-function choiceKeyboardInstructions(definition: MultipleChoiceDefinition): string {
-  const count = definition.choices.length;
-  return definition.selection.kind === "exactlyOne"
+function choiceKeyboardInstructions(responseFormat: MultipleChoiceResponseFormat): string {
+  const count = responseFormat.choices.length;
+  const singleChoice =
+    responseFormat.kind === "singleChoice" ||
+    (responseFormat.kind === "multipleChoice" && responseFormat.selection.kind === "exactlyOne");
+  return singleChoice
     ? `Tab to the choices and press Space to select. Shortcuts: use the Arrow keys or press 1-${count}.`
     : `Tab to each choice and press Space to toggle it. Shortcuts: use the Arrow keys to move focus or press 1-${count}.`;
 }
 
 function multipleAnswerProgress(
-  definition: MultipleChoiceDefinition,
+  responseFormat: MultipleChoiceResponseFormat,
   count: number,
 ): string | null {
-  switch (definition.selection.kind) {
+  if (responseFormat.kind === "singleChoice") return null;
+  if (responseFormat.kind === "multipleAnswer") {
+    return `${count} selected. Select from ${responseFormat.minimum} through ${responseFormat.maximum}.`;
+  }
+  switch (responseFormat.selection.kind) {
     case "exactlyOne":
       return null;
     case "exactly":
-      return `${count} selected. Select exactly ${definition.selection.count}.`;
+      return `${count} selected. Select exactly ${responseFormat.selection.count}.`;
     case "atLeastOne":
       return `${count} selected. Select at least 1.`;
     case "anyNumber":
@@ -42,9 +52,10 @@ function multipleAnswerProgress(
   }
 }
 
-/** Controlled multiple-choice widget. It validates shape only; grading stays server-only. */
+/** Controlled multiple-choice Question Response Control. It validates shape only; grading stays server-only. */
 export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.Element {
-  const restored = props.initialResponse?.selected ?? [];
+  const restored =
+    props.initialResponse?.kind === "multipleChoice" ? props.initialResponse.selected : [];
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restored);
   let firstChoice!: HTMLInputElement;
   const controller = createSubmissionController(props, {
@@ -52,11 +63,14 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
     selected: [...restored],
   });
   const response = (): StudentResponse => ({ kind: "multipleChoice", selected: [...selected()] });
-  const progress = (): string | null => multipleAnswerProgress(props.definition, selected().length);
+  const progress = (): string | null =>
+    multipleAnswerProgress(props.responseFormat, selected().length);
   function choose(choice: ResponseItemReference): void {
     if (controller.locked()) return;
     const next =
-      props.definition.selection.kind === "exactlyOne"
+      props.responseFormat.kind === "singleChoice" ||
+      (props.responseFormat.kind === "multipleChoice" &&
+        props.responseFormat.selection.kind === "exactlyOne")
         ? [choice]
         : selected().includes(choice)
           ? selected().filter((item) => item !== choice)
@@ -80,10 +94,13 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       target.type === "checkbox" &&
       ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)
     ) {
-      const current = props.definition.choices.findIndex((choice) => choice.id === target.value);
+      const current = props.responseFormat.choices.findIndex(
+        (choice) => choice.id === target.value,
+      );
       const direction = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
       const next =
-        (current + direction + props.definition.choices.length) % props.definition.choices.length;
+        (current + direction + props.responseFormat.choices.length) %
+        props.responseFormat.choices.length;
       event.preventDefault();
       document.getElementById(`${props.attemptId}-choice-${next}`)?.focus();
       return;
@@ -94,7 +111,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       /^[1-9]$/.test(event.key)
     ) {
       const index = Number(event.key) - 1;
-      const choice = props.definition.choices[index];
+      const choice = props.responseFormat.choices[index];
       if (choice !== undefined && !controller.locked()) {
         event.preventDefault();
         choose(choice.id);
@@ -105,14 +122,18 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
     handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit);
   }
   return (
-    <section class="response-widget" data-phase={controller.phase().kind} onKeyDown={handleKeyDown}>
+    <section
+      class="question-response-control"
+      data-phase={controller.phase().kind}
+      onKeyDown={handleKeyDown}
+    >
       <fieldset
         aria-describedby={`${props.attemptId}-format-status`}
         aria-invalid={controller.invalid()}
         disabled={controller.locked()}
       >
         <legend>Choose your response</legend>
-        <p class="keyboard-instructions">{choiceKeyboardInstructions(props.definition)}</p>
+        <p class="keyboard-instructions">{choiceKeyboardInstructions(props.responseFormat)}</p>
         {progress() === null ? null : (
           <p
             class="completion-progress"
@@ -124,12 +145,12 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
           </p>
         )}
         <div class="choice-list">
-          <For each={props.definition.choices}>
+          <For each={props.responseFormat.choices}>
             {(choice, index) => (
               <label class="choice-card" classList={{ selected: selected().includes(choice.id) }}>
                 <input
                   id={`${props.attemptId}-choice-${index()}`}
-                  type={choiceInputType(props.definition)}
+                  type={choiceInputType(props.responseFormat)}
                   name={`response-${props.attemptId}`}
                   value={choice.id}
                   checked={selected().includes(choice.id)}

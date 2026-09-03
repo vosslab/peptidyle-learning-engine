@@ -50,7 +50,7 @@ class RendererImageRunner(local_stack_control.process.CommandRunner):
 
 
 #============================================
-def test_missing_canonical_renderer_builds_from_the_maintained_sibling(
+def test_missing_selected_renderer_builds_from_the_maintained_sibling(
 	tmp_path: pathlib.Path,
 ) -> None:
 	"""Build intent reconstructs the selected local runtime image after pruning."""

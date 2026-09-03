@@ -1,4 +1,4 @@
--- SD1 shared Question Library improvement proposals and immutable stewardship evidence.
+-- Question Library stewardship and immutable evidence.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;

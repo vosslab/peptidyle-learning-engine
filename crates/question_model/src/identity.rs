@@ -1,4 +1,4 @@
-//! Identity types (WP-C1, WP-C2, MOD-ID).
+//! Question, Course, Assignment, and Account identity types.
 //!
 //! Published Question identity is the stable human-facing Question ID plus a
 //! positive Question Revision Number. A draft carries neither value;

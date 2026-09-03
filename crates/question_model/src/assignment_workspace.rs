@@ -136,7 +136,7 @@ pub enum AssignmentEntryRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AssignmentReleaseIssue {
-    /// Questions owns the missing active-deliverable correction.
+    /// No active deliverable Question or Question Pool is present.
     QuestionsRequired,
 }
 
@@ -182,12 +182,19 @@ pub struct InstructorStudentView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorStudentViewDelivery {
+    #[serde(rename = "available_at")]
     pub available_at: Option<crate::Timestamp>,
+    #[serde(rename = "due_at")]
     pub due_at: Option<crate::Timestamp>,
+    #[serde(rename = "closes_at")]
     pub closes_at: Option<crate::Timestamp>,
+    #[serde(rename = "assignment_attempt_time_limit_seconds")]
     pub assignment_attempt_time_limit_seconds: Option<u32>,
+    #[serde(rename = "attempt_limit")]
     pub attempt_limit: Option<u32>,
+    #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
+    #[serde(rename = "assignment_deadline_rule")]
     pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 

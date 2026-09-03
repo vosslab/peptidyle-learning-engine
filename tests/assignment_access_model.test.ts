@@ -16,11 +16,11 @@ test("access policy writes preserve every explicit adjustment state", () => {
     dueAt: { kind: "set" as const, value: "2026-08-20T09:30" },
     attemptLimit: { kind: "unrestricted" as const, value: "" },
   };
-  const request = policyRequest("extendOnly", draft);
-  assert.equal(request.mode, "extendOnly");
-  assert.equal(request.adjustment.availableAt.kind, "inherit");
-  assert.deepEqual(request.adjustment.attemptLimit, { kind: "unrestricted" });
-  assert.deepEqual(request.adjustment.dueAt, { kind: "set", value: "2026-08-20T09:30:00.000" });
+  const request = policyRequest("extend_only", draft);
+  assert.equal(request.mode, "extend_only");
+  assert.equal(request.adjustment.available_at.kind, "inherit");
+  assert.deepEqual(request.adjustment.attempt_limit, { kind: "unrestricted" });
+  assert.deepEqual(request.adjustment.due_at, { kind: "set", value: "2026-08-20T09:30:00.000" });
 });
 
 test("synthetic accommodation requests keep dates inherited and accept both modes", () => {
@@ -29,18 +29,18 @@ test("synthetic accommodation requests keep dates inherited and accept both mode
     assignmentAttemptTimeLimitSeconds: { kind: "set" as const, value: "180" },
     attemptLimit: { kind: "set" as const, value: "2" },
   };
-  const extendOnly = policyRequest("extendOnly", draft);
+  const extendOnly = policyRequest("extend_only", draft);
   const replace = policyRequest("replace", draft);
-  assert.equal(extendOnly.mode, "extendOnly");
+  assert.equal(extendOnly.mode, "extend_only");
   assert.equal(replace.mode, "replace");
-  assert.deepEqual(extendOnly.adjustment.availableAt, { kind: "inherit" });
-  assert.deepEqual(extendOnly.adjustment.dueAt, { kind: "inherit" });
-  assert.deepEqual(extendOnly.adjustment.closesAt, { kind: "inherit" });
-  assert.deepEqual(extendOnly.adjustment.assignmentAttemptTimeLimitSeconds, {
+  assert.deepEqual(extendOnly.adjustment.available_at, { kind: "inherit" });
+  assert.deepEqual(extendOnly.adjustment.due_at, { kind: "inherit" });
+  assert.deepEqual(extendOnly.adjustment.closes_at, { kind: "inherit" });
+  assert.deepEqual(extendOnly.adjustment.assignment_attempt_time_limit_seconds, {
     kind: "set",
     value: 180,
   });
-  assert.deepEqual(extendOnly.adjustment.attemptLimit, { kind: "set", value: 2 });
+  assert.deepEqual(extendOnly.adjustment.attempt_limit, { kind: "set", value: 2 });
 });
 
 test("course-local inputs are canonical strings with no epoch conversion", () => {

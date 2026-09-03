@@ -1,4 +1,4 @@
-//! MOD-ADP-IMATHAS: isolated iMathAS/MyOpenMath adapter.
+//! Isolated iMathAS Question Backend adapter.
 //!
 //! An iMathAS Deployment Reference is deployment configuration selected by an
 //! opaque key. This

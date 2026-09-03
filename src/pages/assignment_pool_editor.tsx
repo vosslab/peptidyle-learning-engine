@@ -1,4 +1,4 @@
-// assignment_pool_editor.tsx - accessible editor controls for one ordered pool entry.
+// assignment_pool_editor.tsx - accessible editor controls for one Question Pool Assignment Entry.
 
 import { For, Show, createSignal, type JSX } from "solid-js";
 
@@ -18,7 +18,7 @@ export interface AssignmentPoolEditorProps {
   readonly entry: AssignmentEditorQuestionPoolAssignmentEntry;
   readonly entryIndex: number;
   readonly entryCount: number;
-  readonly resolveEntries: (
+  readonly resolveQuestionPoolItems: (
     questionIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<AssignmentQuestionRow>>;
   readonly onChange: (entry: AssignmentEditorQuestionPoolAssignmentEntry) => void;
@@ -28,7 +28,7 @@ export interface AssignmentPoolEditorProps {
   readonly preview: QuestionPoolPreview | undefined;
   readonly previewBusy: boolean;
   readonly onPreview: () => void;
-  readonly onChooseEntries: (trigger: HTMLButtonElement) => void;
+  readonly onChooseQuestionPoolItems: (trigger: HTMLButtonElement) => void;
 }
 
 function poolLabel(entryIndex: number): string {
@@ -47,12 +47,12 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     props.onChange(entry);
     props.onMessage(
       error === null
-        ? "Pool updated. Review its entries, then save the complete Assignment Content."
+        ? "Question Pool updated. Review its Items, then save the complete Assignment Content."
         : `${error} Correct this pool before saving.`,
     );
   }
 
-  async function addEntries(): Promise<void> {
+  async function addQuestionPoolItems(): Promise<void> {
     let questionIds: ReadonlyArray<string>;
     try {
       questionIds = parseExactQuestionIds(entryText());
@@ -64,7 +64,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     }
     const existing = new Set(props.entry.items.map((item) => item.questionId));
     if (questionIds.some((questionId) => existing.has(questionId))) {
-      setEntryError("Each entry Question ID can appear only once in a pool.");
+      setEntryError("Each Question Pool Item Question ID can appear only once in a Question Pool.");
       return;
     }
     if (
@@ -78,7 +78,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     }
     setEntryBusy(true);
     try {
-      const items = await props.resolveEntries(questionIds);
+      const items = await props.resolveQuestionPoolItems(questionIds);
       const nextItems = [...props.entry.items, ...items];
       const entry = { ...props.entry, items: nextItems };
       const error = validateQuestionPoolAssignmentEntry(entry);
@@ -99,7 +99,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
     }
   }
 
-  function removeEntry(questionId: string): void {
+  function removeQuestionPoolItem(questionId: string): void {
     const items = props.entry.items.filter((item) => item.questionId !== questionId);
     update({ items });
   }
@@ -237,7 +237,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
                   class="quiet-action"
                   type="button"
                   aria-label={`Remove ${entry.questionId} from this question pool`}
-                  onClick={() => removeEntry(entry.questionId)}
+                  onClick={() => removeQuestionPoolItem(entry.questionId)}
                 >
                   Remove
                 </button>
@@ -267,7 +267,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           class="quiet-action"
           type="button"
           disabled={entryBusy()}
-          onClick={() => void addEntries()}
+          onClick={() => void addQuestionPoolItems()}
         >
           Check and add Question Pool Items
         </button>
@@ -275,7 +275,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
           class="quiet-action"
           type="button"
           disabled={entryBusy()}
-          onClick={(event) => props.onChooseEntries(event.currentTarget)}
+          onClick={(event) => props.onChooseQuestionPoolItems(event.currentTarget)}
         >
           Choose Questions for pool
         </button>

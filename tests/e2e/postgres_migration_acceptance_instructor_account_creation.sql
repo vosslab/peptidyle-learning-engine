@@ -1,5 +1,5 @@
--- SD1 Create Instructor Account authorization and integrity acceptance oracle.
--- Executed by the existing staged PostgreSQL 17 acceptance lane.
+-- PostgreSQL Migration Acceptance Runtime Create Instructor Account authorization and integrity acceptance oracle.
+-- Executed by the existing PostgreSQL Migration Acceptance Runtime lane.
 
 -- Create Instructor Account has the exact API/private authority and forced-RLS shape.
 DO $$
@@ -51,7 +51,7 @@ BEGIN
 END
 $$;
 
-INSERT INTO ple_private.account (account_id, role, created_at) VALUES
+INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
     ('00000000-0000-0000-0000-00000000d101', 'sysadmin', '2026-09-02 00:00:00+00'),
     ('00000000-0000-0000-0000-00000000d102', 'student', '2026-09-02 00:00:00+00'),
     ('00000000-0000-0000-0000-00000000d103', 'sysadmin', '2026-09-02 00:00:00+00');
@@ -95,7 +95,7 @@ BEGIN
            JOIN ple_private.account_state_event AS event ON event.account_id = account.account_id
            JOIN ple_private.account_authentication_email AS email ON email.account_id = account.account_id
            WHERE account.account_id = v_created_account_id
-             AND account.created_at = v_created_at AND account.role = 'instructor'
+             AND account.created_at = v_created_at AND account.product_role = 'instructor'
              AND event.event_id = v_created_account_id AND event.state = 'active'
              AND event.occurred_at = v_created_at
              AND email.normalized_email = 'iaa1-success@example.test'

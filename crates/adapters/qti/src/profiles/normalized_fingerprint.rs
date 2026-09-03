@@ -37,7 +37,7 @@ pub(super) struct NormalizedQtiItemFingerprintInput<'a> {
     pub(super) prompt_markdown: &'a str,
     pub(super) choices: &'a [(&'a str, &'a str)],
     pub(super) correct_vendor_choice_id: &'a str,
-    pub(super) canonical_points: &'a str,
+    pub(super) normalized_points: &'a str,
     pub(super) blackboard_defaulted_points: bool,
 }
 
@@ -47,7 +47,7 @@ pub(super) fn normalized_qti_item_fingerprint(
     let points = if input.blackboard_defaulted_points {
         json!({ "kind": "blackboardDefaulted" })
     } else {
-        json!({ "kind": "canvasDeclared", "value": input.canonical_points })
+        json!({ "kind": "canvasDeclared", "value": input.normalized_points })
     };
     let choices = input
         .choices
@@ -92,7 +92,7 @@ mod tests {
             prompt_markdown: prompt,
             choices,
             correct_vendor_choice_id: correct,
-            canonical_points: points,
+            normalized_points: points,
             blackboard_defaulted_points: defaulted,
         })
         .expect("normalized fingerprint")

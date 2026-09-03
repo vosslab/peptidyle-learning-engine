@@ -26,7 +26,7 @@ not a new authorization claim.
 | Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                         | Current direct Instructor membership                            |
 | Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                         | Student self or current course Instructor                       |
 | Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question             | Exact Account relationship; Question Folder Shares are explicit |
-| Job, export, object, or provider state                          | Typed course, workspace, Question Library, or system target | Locked lease and durable target                                 |
+| Job, object, or provider state                                  | Typed course, workspace, Question Library, or system target | Locked lease and durable target                                 |
 
 Every current course Instructor, including a Teaching Team Member, has the same
 teaching and FERPA-read authority. Course creation creates the first ordinary
@@ -145,7 +145,7 @@ they do not replace PLE account/session or course relationships.
 
 The worker claims one PostgreSQL job row under a fresh opaque `JobLeaseToken`.
 The locked lease and immutable job manifest determine the typed target:
-course, workspace, Question Library, object, export, retention, or system. Before any
+course, workspace, Question Library, object, retention, or system. Before any
 read, write, provider dispatch, or finalization, all of these must agree:
 
 - Job Kind Registration and declared typed Job Payload;

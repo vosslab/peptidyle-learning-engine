@@ -71,11 +71,11 @@ fn preserves_a_valid_item_when_a_declared_sibling_is_malformed() {
 }
 
 #[test]
-fn report_checksum_input_preserves_accepted_and_rejected_source_order() {
+fn qti_import_result_checksum_input_preserves_accepted_and_rejected_source_order() {
     let package = import_blackboard_qti21(&two_item_archive("<broken"), QtiImportLimits::default())
         .expect("one valid root proves the profile");
     let report = package
-        .profile_report_checksum_input()
+        .qti_import_result_checksum_input()
         .expect("package constructs its import-result checksum input");
 
     assert_eq!(report.profile, QtiProfileId::BLACKBOARD);

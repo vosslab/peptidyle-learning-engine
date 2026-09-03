@@ -198,7 +198,7 @@ export function decodePublicRouteNumber(value: unknown, path: string): number {
 export function decodeSha256(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!/^[0-9a-f]{64}$/i.test(decoded)) {
-    throw new DecodeError(path, "a 64-character SHA-256 hexadecimal digest");
+    throw new DecodeError(path, "a 64-character SHA-256 checksum");
   }
   return decoded;
 }

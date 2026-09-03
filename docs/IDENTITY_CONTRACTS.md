@@ -2,7 +2,7 @@
 
 ## Binding single-installation model
 
-PLE is one installation with global accounts. The binding SD1 product contract
+PLE is one installation with global accounts. The intended global Account contract
 requires each account to have one global `AccountId` and exactly one immutable
 Student, Instructor, or Sysadmin role; a person who needs multiple roles uses
 separate accounts. A session then establishes one account and its one role, and
@@ -49,14 +49,14 @@ former installation-scope model to these identities.
 
 ## Account, session, and relationship identities
 
-| Identity or value         | Scope                                | Intended use                                                                                                                                                       |
-| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AccountId`               | Global, durable                      | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
-| Product Role              | Implemented SD1 global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines roles.                                             |
-| `SessionId`               | Global, durable session record       | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
-| `SessionTokenHash`        | Server-only session record           | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
-| Active Instructor Account | Global Account role and state        | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
-| `Sysadmin` Product Role   | Implemented SD1 global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
+| Identity or value         | Scope                            | Intended use                                                                                                                                                       |
+| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AccountId`               | Global, durable                  | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
+| Product Role              | Implemented global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines roles.                                             |
+| `SessionId`               | Global, durable session record   | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
+| `SessionTokenHash`        | Server-only session record       | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
+| Active Instructor Account | Global Account role and state    | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
+| `Sysadmin` Product Role   | Implemented global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
 with its global account and session identity. The browser receives only its own answer-free
@@ -81,8 +81,8 @@ authorize `SessionId`, `AccountId`, course membership, workspace
 relationships, or Student ownership. The adapter applies transaction-local
 resolved session facts and forced-RLS denial; domain and Store owners evaluate the exact
 relationship or typed capability.
-The current legacy installation-scope context in this module is migration input
-for SD1, not a second session or Account contract and not a global replacement identity.
+The current legacy installation-scope context in this module is migration input,
+not a second session or Account contract and not a global replacement identity.
 
 ## Course, Student, and relationship identities
 
@@ -94,13 +94,12 @@ for SD1, not a second session or Account contract and not a global replacement i
 | Instructor membership | Current `CourseMembershipId` with Instructor role              | Together with current approval, establishes `current_course_instructor(account_id, course_id, now)`.                                           |
 | `StudentRecordId`     | One Student Record for one Student Account and Course Instance | Binds a Student's course relationship to the durable educational record across membership episodes; it is not a session or role substitute.    |
 | `AssignmentId`        | One course assignment                                          | Has one exact `CourseId` parent and owns its current policy and ordered Assignment Entries.                                                    |
-| `AssignmentEntryId`   | One current Assignment Entry                                   | Names one Fixed Question or Question Pool in its Assignment's ordered definition.                                                              |
+| `AssignmentEntryId`   | One current Assignment Entry                                   | Names one Fixed Question or Question Pool in its Assignment Content.                                                                           |
 | `AssignmentAttemptId` | One Assignment Attempt                                         | Target identity for one pass through one exact Student Record and Assignment; later practice creates another Assignment Attempt.               |
 | `IssuedQuestionId`    | One selected Question Revision                                 | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment.                               |
 | `QuestionAttemptId`   | One server-issued try                                          | Binds an Issued Question to its seed, timing, status, Question Attempt Reproduction Details, and grading backend.                              |
 
-Under the binding pending SD1 product contract, the closed Sysadmin
-Course Instance Creation command binds an exact BlueprintCourse source and
+The future Store-backed Sysadmin Course Instance Creation operation binds an exact BlueprintCourse source and
 revision, an explicitly assigned active Instructor account, and a
 server-reserved CourseInstance identity. One transaction creates the
 CourseInstance, that account's first ordinary Instructor membership, and an
@@ -195,7 +194,6 @@ until each workflow has its complete privacy and disclosure contract.
 | `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                        |
 | `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                             |
 | Job target scope         | Locked job manifest                      | Question Library work uses the exact `question_revision` Job Target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
-| `ExportId`               | One authorized export request            | Browser may inspect coarse status; a worker resolves frozen private input from the exact authorized scope.                                                                                                        |
 | `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                     |
 | `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                             |
 | `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                         |
@@ -268,8 +266,7 @@ Reference, not authorization, and persistence identity should not leak into the 
 ### Invitations and recovery use verified email
 
 **Decision.** PLE accounts are global within the installation and use passwordless verified email as
-the
-canonical registration, invitation, sign-in, and passkey-recovery path. SMTP delivery is optional;
+the registration, invitation, sign-in, and passkey-recovery path. SMTP delivery is optional;
 an Instructor may share a one-time invitation link through a trusted LMS.
 
 **Why.** Email provides one comprehensible account authority while keeping a configured mail

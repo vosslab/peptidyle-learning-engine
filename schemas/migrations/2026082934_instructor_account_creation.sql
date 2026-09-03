@@ -1,4 +1,4 @@
--- SD1 authenticated Create Instructor Account operation. ASVS 8.2.1 and 8.3.1.
+-- Authenticated Create Instructor Account operation. ASVS 8.2.1 and 8.3.1.
 -- Bootstrap creation of the first Sysadmin belongs to installation setup.
 
 DO $$
@@ -7,7 +7,7 @@ BEGIN
        OR NOT pg_catalog.pg_has_role('ple_migrator', 'ple_private_owner', 'SET')
        OR NOT pg_catalog.pg_has_role('ple_migrator', 'ple_api_owner', 'SET') THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'migration 2026082934 requires the SD1 Instructor Account API migration principal';
+            MESSAGE = 'migration 2026082934 requires the Create Instructor Account API migration principal';
     END IF;
 END
 $$;
@@ -19,7 +19,7 @@ ALTER TABLE ple_private.account_state_event FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY account_private_owner_create ON ple_private.account
     FOR INSERT TO ple_private_owner
-    WITH CHECK (role = 'instructor');
+    WITH CHECK (product_role = 'instructor');
 
 CREATE POLICY account_state_event_private_owner_read
     ON ple_private.account_state_event
@@ -37,7 +37,7 @@ CREATE POLICY account_authentication_email_private_owner_create
             SELECT 1
             FROM ple_private.account AS account
             WHERE account.account_id = account_authentication_email.account_id
-              AND account.role = 'instructor'
+              AND account.product_role = 'instructor'
         )
     );
 
@@ -51,7 +51,7 @@ SET search_path = pg_catalog, ple_private
 AS $$
 DECLARE
     v_account_id uuid;
-    v_caller_role text;
+    v_caller_product_role text;
     v_created_at timestamp with time zone;
 BEGIN
     IF p_normalized_email IS NULL
@@ -63,8 +63,8 @@ BEGIN
             MESSAGE = 'invalid Create Instructor Account input';
     END IF;
 
-    SELECT account.role
-      INTO v_caller_role
+    SELECT account.product_role
+      INTO v_caller_product_role
       FROM ple_private.account AS account
       JOIN LATERAL (
           SELECT event.state
@@ -74,14 +74,14 @@ BEGIN
           LIMIT 1
       ) AS current_state ON current_state.state = 'active'
      WHERE account.account_id = ple_api.current_session_account_id();
-    IF v_caller_role IS DISTINCT FROM 'sysadmin' THEN
+    IF v_caller_product_role IS DISTINCT FROM 'sysadmin' THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Active Sysadmin Account required';
     END IF;
 
     v_account_id := pg_catalog.gen_random_uuid();
     v_created_at := pg_catalog.transaction_timestamp();
-    INSERT INTO ple_private.account (account_id, role, created_at)
+    INSERT INTO ple_private.account (account_id, product_role, created_at)
     VALUES (v_account_id, 'instructor', v_created_at);
     INSERT INTO ple_private.account_authentication_email (
         account_id, normalized_email, delivery_email, verified_at, updated_at

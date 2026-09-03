@@ -1,11 +1,11 @@
 //! Server-owned Question teaching content and browser-safe Student Feedback.
 //!
-//! [`QuestionFeedback`] is deliberately not serializable. It belongs only to a
-//! trusted Question backend and, once persistence lands, to Question-owned
-//! private storage. In contrast, [`StudentFeedback`] is the small, policy-redacted
-//! response DTO. Keeping the two shapes separate makes it impossible for the
-//! TypeScript generator to accidentally add private Question Feedback to the
-//! public question model.
+//! [`QuestionFeedback`] is deliberately not serializable. It is trusted,
+//! server-owned Question teaching content. Store implementations own any
+//! private persistence representation. In contrast, [`StudentFeedback`] is the
+//! small, policy-redacted browser DTO. Keeping the two shapes separate makes it
+//! impossible for the TypeScript generator to accidentally add private Question
+//! Feedback to the public question model.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,8 +15,8 @@ use crate::question_content::QuestionContentBlock;
 ///
 /// This is intentionally neither `Debug`, `Serialize`, nor `Deserialize`: it
 /// must not reach logs or become a browser DTO merely because the root model
-/// is scanned for public wire types. Store implementations will own their
-/// private persistence representation in the next work package.
+/// is scanned for public wire types. Store implementations own any private
+/// persistence representation.
 #[derive(Clone, PartialEq, Eq, Default)]
 pub struct QuestionFeedback {
     /// Feedback authored for the selected response item or items.

@@ -1,4 +1,4 @@
--- Immutable Object Records and exact Question Source object ownership.
+-- Immutable Object Records and the exact Question Source Object Reference relationship.
 --
 -- Bytes are written to object storage first. This relation is the database's
 -- authoritative existence record and binds a Question Source to those exact bytes.
@@ -103,7 +103,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_object_record
 -- ASVS 2.1.1, 2.2.1, 2.3.1, 8.1.1, 8.2.1, and 8.3.1: this is the sole
 -- session-authorized registration capability for a private workspace Question
 -- Source Object.  It derives every classification field from the exact typed
--- owner address and permits an exact retry after bytes-first object storage.
+-- Object Address and permits an exact retry after bytes-first object storage.
 CREATE FUNCTION ple_private.register_workspace_question_source_object(
     p_workspace_id uuid,
     p_object_id uuid,
@@ -131,7 +131,7 @@ BEGIN
     IF jsonb_typeof(p_object_address) <> 'object'
        OR p_object_address <> expected_address THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Workspace Question Source Object registration requires its exact typed owner address';
+            MESSAGE = 'Workspace Question Source Object registration requires its exact typed Object Address';
     END IF;
 
     INSERT INTO ple_private.object_record (
@@ -208,7 +208,7 @@ COMMENT ON TABLE ple_private.object_record IS
 COMMENT ON CONSTRAINT question_source_object_record_exists ON ple_private.question_source IS
     'A Source Object Reference must identify an existing immutable Object Record.';
 COMMENT ON FUNCTION ple_private.validate_question_source_object_record() IS
-    'Requires a Source Object Reference to use exact private owner-address, data-class, and checksum evidence.';
+    'Requires a Source Object Reference to use an exact private Object Address, Object Data Class, and Object Checksum.';
 
 RESET ROLE;
 

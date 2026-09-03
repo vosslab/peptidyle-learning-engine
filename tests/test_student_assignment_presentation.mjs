@@ -9,13 +9,13 @@ import {
 } from "../src/components/student_assignment_presentation.tsx";
 
 const instructorDelivery = {
-  availableAt: null,
-  dueAt: null,
-  closesAt: null,
-  assignmentAttemptTimeLimitSeconds: 900,
-  attemptLimit: 2,
-  lateWorkRule: "accept",
-  assignmentDeadlineRule: "autoSubmit",
+  available_at: null,
+  due_at: null,
+  closes_at: null,
+  assignment_attempt_time_limit_seconds: 900,
+  attempt_limit: 2,
+  late_work_rule: "accept",
+  assignment_deadline_rule: "auto_submit",
 };
 
 test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
@@ -32,7 +32,7 @@ test("Student detail adapts available entries and Question Pool selections witho
       assignment_attempt_time_limit_seconds: 900,
       attempt_limit: 2,
       late_work_rule: "accept",
-      assignment_deadline_rule: "autoSubmit",
+      assignment_deadline_rule: "auto_submit",
       late_status: "on_time",
     },
     entries: [

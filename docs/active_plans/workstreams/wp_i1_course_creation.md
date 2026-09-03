@@ -4,7 +4,7 @@
 
 This work package adds only the instructor-visible course-creation surface for
 the Fall pilot. It uses the existing authenticated `POST /api/courses` route.
-Email, account creation, roster activation, assignment construction, runner
+Email, Create Instructor Account, roster activation, assignment construction, runner
 work, and any authorization-policy expansion are outside this package. The
 existing course-create handler owns one matching request-boundary repair:
 unknown fields and whitespace-only titles are rejected before persistence.

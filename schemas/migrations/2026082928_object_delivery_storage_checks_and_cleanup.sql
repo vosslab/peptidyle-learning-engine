@@ -1,4 +1,4 @@
--- SD1 Object Delivery registry, Object Storage Checks, and Object Cleanup authority.
+-- Object Delivery, Object Storage Checks, and Object Cleanup.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner, ple_audit_owner;
@@ -7,7 +7,7 @@ GRANT REFERENCES ON TABLE ple_private.account TO ple_audit_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
--- ASVS 2.1.1/2.1.2: delivery state and exact owner relationships are database-validated.
+-- ASVS 2.1.1/2.1.2: delivery state and exact delivery relationships are database-validated.
 CREATE TABLE ple_data.object_delivery (
     delivery_id uuid PRIMARY KEY,
     object_id uuid NOT NULL,
@@ -52,7 +52,8 @@ CREATE TABLE ple_data.course_object_delivery (
     FOREIGN KEY (object_id, course_id)
         REFERENCES ple_private.course_object_reference (object_id, course_id)
 );
--- ASVS 2.3.1/2.3.3: only one exact owner may make a delivery available.
+-- ASVS 2.3.1/2.3.3: exactly one Question Asset Delivery, Course Banner Delivery,
+-- or Course Object Delivery relationship may make a delivery available.
 CREATE FUNCTION ple_data.require_exact_available_object_delivery_owner()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 DECLARE
@@ -66,7 +67,7 @@ BEGIN
         INTO owner_count;
         IF owner_count <> 1 THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'an available Object Delivery requires exactly one owner relationship';
+                MESSAGE = 'an available Object Delivery requires exactly one Question Asset Delivery, Course Banner Delivery, or Course Object Delivery relationship';
         END IF;
     END IF;
     RETURN NULL;

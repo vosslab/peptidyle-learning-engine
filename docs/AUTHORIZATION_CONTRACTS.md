@@ -2,8 +2,8 @@
 
 ## Binding single-installation model
 
-PLE is one installation with global accounts. The implemented SD1 Account and
-Authenticated Session boundary carries exactly one immutable Student, Instructor,
+PLE is one installation with global accounts. The implemented global Account and
+Authenticated Session foundation carries exactly one immutable Student, Instructor,
 or Sysadmin role; a person needing multiple roles uses separate accounts. Full
 service, database, and release acceptance remains incomplete. The installation has one
 immutable shared Question Library of Published Questions used in Assignments, private Instructor
@@ -59,14 +59,15 @@ worker, and grader roles are least-privilege roles and do not bypass RLS.
 All global Instructor capability checks require one Active Instructor Account:
 
 ```text
-account.role = instructor AND account state = active
+account.product_role = instructor AND account state = active
 ```
 
-Sysadmin vetting occurs before Account creation; it is not a second Account
-lifecycle. The resulting Active Instructor Account
-authorizes Question Library discovery, Question Folders, Stars, Watches, and Saved Question
-Searches, course creation, publication, reuse, and improvement. Every active
-Instructor has the same global product capabilities.
+Sysadmin vetting occurs before Create Instructor Account; it is not a second Account
+lifecycle. The operation fixes the resulting Account's Product Role to Instructor.
+The resulting Active Instructor Account authorizes Question Library discovery,
+Question Folders, Stars, Watches, and Saved Question Searches, course creation,
+publication, reuse, and improvement. Every active Instructor has the same global
+product capabilities.
 
 Sysadmin status alone does not create Instructor authority. A Sysadmin creates a
 Course Instance only for an explicitly assigned active Instructor account; it receives no
@@ -81,8 +82,8 @@ current_course_instructor(account_id, course) =
 ```
 
 The predicate authorizes the complete registered course-Instructor operation
-set, including course definitions, roster administration, assignments,
-gradebook, permitted Student-work inspection, exports, and course-record
+set, including Blueprint Course and Course Instance records, roster administration, assignments,
+gradebook, permitted Student-work inspection, and course-record
 assets. Course creation atomically creates the first ordinary Instructor
 membership; it creates no additional creator or owner power.
 
@@ -103,7 +104,7 @@ entries retain the acting `AccountId` and distinguish who performed the action.
 | Course operation                                                | Creator                                   | Current accepted Teaching Team Member     | Student                                         | Sysadmin without membership                                 |
 | --------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
 | Read or change course, roster, schedule, appearance, assignment | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Read only the Student-facing data in own course | No general course authority                                 |
-| Read Gradebook, authorized Student-work, permitted export       | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                       | No general FERPA authority                                  |
+| Read Gradebook and authorized Student work                      | Allow through `current_course_instructor` | Allow through `current_course_instructor` | Own answer-free work only                       | No general FERPA authority                                  |
 | Invite or revoke a Teaching Team Member                         | Allow through `current_course_instructor` | Allow through `current_course_instructor` | No                                              | Narrow audited roster support only where separately granted |
 | Create or publish a question                                    | Allow for active Instructor Account       | Allow for active Instructor Account       | No                                              | Platform operation only when separately authorized          |
 
@@ -117,7 +118,8 @@ operation; platform status is not ambient FERPA authority.
 
 ## Course Instance Creation authority
 
-Pending SD1 implementation defines `CourseInstanceCreationAuthority` as a
+The future Store-backed Course Instance Creation operation uses
+`CourseInstanceCreationAuthority` as a
 closed Sysadmin platform authority that exists before a CourseInstance. Its
 command binds one exact `BlueprintCourse` source and revision, one exact
 currently approved assigned Instructor account, and one server-reserved
@@ -139,7 +141,7 @@ general course authority.
 
 `SysadminSupportCapability` is the one closed authority registry for a
 Sysadmin acting on a CourseInstance. A durable capability record contains an
-opaque `capability_id`, exact `course_id`, acting `sysadmin_user_id`,
+opaque `capability_id`, exact `course_id`, acting `sysadmin_account_id`,
 `purpose`, `issuer`, registered `operation_kind`, `minimum_projection`,
 `issued_at`, `expires_at`, `revoked_at`, and an append-only audit-event
 reference. The server derives this record after session authentication; a
@@ -200,7 +202,7 @@ Operation Kind, purpose, result, and time without copying roster PII,
 invitation secrets, raw Student responses, answer keys, or scores.
 
 The registry gives no Gradebook browsing, general Student-record browsing,
-course-teaching authority, export authority, or ambient FERPA access. A
+course-teaching authority or ambient FERPA access. A
 Sysadmin receives course-record access only through a separately registered
 capability that specifies an equally narrow target and returned data.
 `ForcedQuestionCorrection` remains a platform-level closed
@@ -261,11 +263,11 @@ Library access authority.
 
 The caller projections are closed:
 
-| Caller                                     | Question reader result                                                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs.                            |
+| Caller                                     | Question reader result                                                                                                                         |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated approved (vetted) Instructor | Versioned answer-free Question Search, Question Details, lineage, usage, and thresholded Question Statistics DTOs.                             |
 | Authenticated Student                      | No Question Library discovery view; only the exact answer-free or policy-permitted content delivered by an allowed Assignment Access decision. |
-| Anonymous caller                           | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure.                                 |
+| Anonymous caller                           | No Question Library discovery view and no Question ID resolution, existence, search, or lifecycle disclosure.                                  |
 
 Lifecycle state is visible and does not change discovery authority. Every
 Published Question remains discoverable to every active Instructor. Question
@@ -280,12 +282,13 @@ accessibility, or metadata work that preserves grading meaning; compatible
 student-content improvement that preserves the objective, task, and Question
 Type; and a grading-semantic correction with an impact and recalculation record.
 An incompatible objective, task, Question Type, or educational-purpose change
-is a fork. `ModerateEdit` is available only to the question owner or original
+is a fork. `ModerateEdit` is available only to the Question Owner or original
 lineage steward; it publishes a new immutable QuestionRevision in the same
-Question ID lineage, preserves original authorship, and retains the existing CC
-license. `FullFork` is available to any approved (vetted)
+Question ID lineage, preserves Question Authorship, and retains the existing
+compatible Question License. `FullFork` is available to any approved (vetted)
 Instructor. It creates a creator-private Draft Question with that Instructor's
-own authorship, source attribution, and a source-compatible CC license. Only its
+own Question Authorship, source attribution, and a source-compatible Question
+License. Only its
 creator's workspace can read or change the draft until validation and publication
 succeed; publication creates a new Question ID with visible source/version
 ancestry and no write access to the source.
@@ -294,7 +297,7 @@ ancestry and no write access to the source.
 (vetted) Instructor may submit a validated patch and rationale against one exact
 base QuestionRevision. The lineage owner accepts or rejects it. Acceptance
 creates a new immutable version in the original Question ID lineage, preserves
-canonical authorship and the compatible CC license, and records contributor
+Question Authorship and the existing compatible Question License, and records contributor
 credit and proposal ancestry. It never moves assignment or evidence pins. A
 stale base requires rebase and resubmission.
 
@@ -401,8 +404,8 @@ lifecycle before it loads the Answer Key, Question Feedback, or format-specific 
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.
 
-Browser-supplied question kind, choice label, seed, checksum, rendered-item
-identifier, descriptor digest, or response tag is evidence to validate, never
+Browser-supplied question kind, choice label, seed, checksum, Presentation Response Item
+Reference, Question Presentation Checksum, or response tag is evidence to validate, never
 authority. The normal Store, API pool, browser DTOs, Wasm closure, object
 service, and client code do not receive answer tables or grading capabilities.
 Provider failure is question-local and fails closed; it never authorizes a
@@ -420,8 +423,8 @@ that Student's own course.
 
 Audit records capture the authenticated account, action, durable scope, result, and time for
 authentication events, authorization denials, Account State changes,
-membership and relationship changes, sensitive course-record reads, export,
-retention, protected delivery, and Job lease transitions. They exclude
+membership and relationship changes, sensitive course-record reads, retention,
+protected delivery, and Job lease transitions. They exclude
 session credentials, signed URLs, raw Student responses, grades where an audit
 reference suffices, Answer Keys, private Question Grading Input, and browser-supplied
 authority. Auditing records who acted; it never grants a capability.

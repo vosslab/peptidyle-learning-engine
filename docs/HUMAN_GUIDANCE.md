@@ -104,7 +104,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Question library philosophy
 
-- Problem sharing, discovery, and reuse are a high-priority **Instructor** workflow.
+- Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
 - All **Published Questions** are public to vetted **Instructors**. By published, I mean part of the global question library.
 - All questions in assignments are part of the global question library.
 - **Students** cannot see the question library. They only see questions in their assignments.

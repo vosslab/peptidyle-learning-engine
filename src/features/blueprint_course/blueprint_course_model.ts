@@ -53,8 +53,8 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
   return {
     assignment_attempt_time_limit_seconds: null,
     attempt_limit: null,
-    late_work_rule: "markLate",
-    assignment_deadline_rule: "autoSubmit",
+    late_work_rule: "mark_late",
+    assignment_deadline_rule: "auto_submit",
     activity_rules: {
       assignmentCompletionRule: { kind: "answerAll" },
       assignmentAttemptGradeRule: "highest",
@@ -112,10 +112,10 @@ function fixedEntry(questionId: string): BlueprintAssignmentEntryInput {
   return { kind: "fixed", question_id: questionId, points_possible: "1", scoring_rule: "normal" };
 }
 
-function poolEntry(questionIds: ReadonlyArray<string>): BlueprintAssignmentEntryInput {
+function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssignmentEntryInput {
   return {
     kind: "pool",
-    entries: [...questionIds],
+    items: [...questionPoolItems],
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
@@ -134,15 +134,15 @@ export function appendPickedFixedEntries(
   };
 }
 
-/** Appends one Question Pool with entry order selected by the Instructor. */
+/** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
   content: BlueprintAssignmentContentInput,
   selection: QuestionPickerSelection,
 ): BlueprintAssignmentContentInput {
-  const entries = uniqueQuestionIds(selection);
-  return entries.length === 0
+  const questionPoolItems = uniqueQuestionIds(selection);
+  return questionPoolItems.length === 0
     ? content
-    : { ...content, entries: [...content.entries, poolEntry(entries)] };
+    : { ...content, entries: [...content.entries, poolEntry(questionPoolItems)] };
 }
 
 export function moveReusableEntry(
@@ -269,23 +269,23 @@ export function validateReusableContent(
   }
   for (const entry of content.entries) {
     if (entry.kind !== "pool") continue;
-    if (entry.entries.length === 0 || entry.entries.length > MAX_QUESTION_POOL_ITEMS) {
+    if (entry.items.length === 0 || entry.items.length > MAX_QUESTION_POOL_ITEMS) {
       return {
         valid: false,
-        message: "Each Question Pool needs from 1 through 1024 entry Questions.",
+        message: "Each Question Pool needs from 1 through 1024 Question Pool Items.",
       };
     }
-    if (new Set(entry.entries).size !== entry.entries.length) {
-      return { valid: false, message: "Each Question Pool entry must appear only once." };
+    if (new Set(entry.items).size !== entry.items.length) {
+      return { valid: false, message: "Each Question Pool Item must appear only once." };
     }
     if (
       !Number.isSafeInteger(entry.selection_count) ||
       entry.selection_count < 1 ||
-      entry.selection_count > entry.entries.length
+      entry.selection_count > entry.items.length
     ) {
       return {
         valid: false,
-        message: "Choose a whole selection count between 1 and this Question Pool's entry count.",
+        message: "Choose a whole selection count between 1 and this Question Pool's Item count.",
       };
     }
   }
@@ -327,7 +327,7 @@ function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssig
   if (entry.kind === "pool") {
     return {
       kind: "pool",
-      entries: entry.entries.map((entry) => entry.question_library.summary.questionId),
+      items: entry.items.map((item) => item.question_library.summary.questionId),
       selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,

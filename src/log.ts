@@ -1,4 +1,4 @@
-// log.ts - the one logging surface for src/ (WP-F3).
+// log.ts - the central browser logging surface.
 //
 // Why this module exists: eslint.config.js sets `no-console: warn` and
 // check_codebase.sh runs ESLint with --max-warnings 0, so a bare console call

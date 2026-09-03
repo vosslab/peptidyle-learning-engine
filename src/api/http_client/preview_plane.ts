@@ -1,21 +1,21 @@
-// Strict same-origin browser transport for the read-only WP-INST-T3 preview plane.
+// Strict same-origin browser transport for read-only Instructor preview operations.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
-import type { DerivedPreviewSubjectRequest } from "../../../generated/api/DerivedPreviewSubjectRequest";
+import type { HypotheticalStudentViewScenarioRequest } from "../../../generated/api/HypotheticalStudentViewScenarioRequest";
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
-import type { StudentViewScenarioRequest } from "../../../generated/api/StudentViewScenarioRequest";
+import type { SelectedStudentViewScenarioRequest } from "../../../generated/api/SelectedStudentViewScenarioRequest";
 import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { ApiClient } from "../client";
 import type { QuestionPoolPreview } from "../contracts";
 import {
-  decodeDerivedPreviewSubjectRequest,
+  decodeHypotheticalStudentViewScenarioRequest,
   decodeInstructorPreviewSchedulePage,
   decodeQuestionPoolPreview,
   decodeQuestionPoolPreviewRequest,
   decodePreviewPlaneResponse,
-  decodeStudentViewScenarioRequest,
+  decodeSelectedStudentViewScenarioRequest,
 } from "../decoders";
 import {
   parseAssignmentReference,
@@ -100,28 +100,34 @@ async function previewJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-function syntheticBody(
+function hypotheticalStudentViewScenarioBody(
   assignment: AssignmentReference,
   revision: TeachingOperationRevision,
-  request: Omit<StudentViewScenarioRequest, "assignment" | "revision">,
-): Omit<StudentViewScenarioRequest, "assignment" | "revision"> {
-  const parsed = decodeStudentViewScenarioRequest({ assignment, revision, ...request }, "request");
+  request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision">,
+): Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision"> {
+  const parsed = decodeHypotheticalStudentViewScenarioRequest(
+    { assignment, revision, ...request },
+    "request",
+  );
   return {
-    selectedMoment: parsed.selectedMoment,
+    selected_moment: parsed.selected_moment,
     modifiers: parsed.modifiers,
   };
 }
 
-function derivedBody(
+function selectedStudentViewScenarioBody(
   assignment: AssignmentReference,
   revision: TeachingOperationRevision,
-  request: Omit<DerivedPreviewSubjectRequest, "assignment" | "revision">,
-): Omit<DerivedPreviewSubjectRequest, "assignment" | "revision"> {
-  const parsed = decodeDerivedPreviewSubjectRequest(
+  request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision">,
+): Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision"> {
+  const parsed = decodeSelectedStudentViewScenarioRequest(
     { assignment, revision, ...request },
     "request",
   );
-  return { selectedMoment: parsed.selectedMoment, membership: parsed.membership };
+  return {
+    selected_moment: parsed.selected_moment,
+    selected_student_membership: parsed.selected_student_membership,
+  };
 }
 
 export function createPreviewPlaneClient(
@@ -130,8 +136,8 @@ export function createPreviewPlaneClient(
 ): Pick<
   ApiClient,
   | "listPreviewSchedule"
-  | "constructSyntheticPreview"
-  | "constructDerivedPreview"
+  | "constructHypotheticalStudentViewScenario"
+  | "constructSelectedStudentViewScenario"
   | "previewQuestionPool"
 > {
   return {
@@ -149,28 +155,28 @@ export function createPreviewPlaneClient(
         decodeInstructorPreviewSchedulePage,
         { revision },
       ),
-    constructSyntheticPreview: async (
+    constructHypotheticalStudentViewScenario: async (
       course,
       assignment,
       revision,
       request,
     ): Promise<PreviewPlaneResponse> => {
-      const path = `${previewRoutePath(course, assignment)}/preview-subjects/synthetic`;
-      const body = syntheticBody(assignment, revision, request);
+      const path = `${previewRoutePath(course, assignment)}/student-view-scenarios/hypothetical`;
+      const body = hypotheticalStudentViewScenarioBody(assignment, revision, request);
       return previewJson(fetchImplementation, basePath, path, decodePreviewPlaneResponse, {
         method: "POST",
         body,
         revision,
       });
     },
-    constructDerivedPreview: async (
+    constructSelectedStudentViewScenario: async (
       course,
       assignment,
       revision,
       request,
     ): Promise<PreviewPlaneResponse> => {
-      const path = `${previewRoutePath(course, assignment)}/preview-subjects/derived`;
-      const body = derivedBody(assignment, revision, request);
+      const path = `${previewRoutePath(course, assignment)}/student-view-scenarios/selected-student`;
+      const body = selectedStudentViewScenarioBody(assignment, revision, request);
       return previewJson(fetchImplementation, basePath, path, decodePreviewPlaneResponse, {
         method: "POST",
         body,

@@ -120,7 +120,7 @@ test("MULTI-FIB generated IDs do not reuse a live stable blank ID", () => {
   );
 });
 
-test("ORDER treats items as the source of truth and derives correctOrder after movement", () => {
+test("ORDER treats Ordering Items as the source of truth and derives correctOrder after movement", () => {
   const moved = moveOrderingItem(orderingSource(), "replication", "earlier");
   assert.equal(moved.changed, true);
   assert.equal(moved.focusId, "replication");
@@ -137,7 +137,7 @@ test("ORDER treats items as the source of truth and derives correctOrder after m
   ]);
 });
 
-test("ORDER deletion changes only the deleted item relationship and preserves the remaining sequence", () => {
+test("ORDER deletion changes only the deleted Ordering Item relationship and preserves the remaining sequence", () => {
   const deleted = removeOrderingItem(orderingSource(), "transcription");
   assert.equal(deleted.changed, true);
   assert.equal(deleted.focusId, "replication");
@@ -149,7 +149,7 @@ test("ORDER deletion changes only the deleted item relationship and preserves th
   assert.deepEqual(deleted.source.response.correctOrder, ["translation", "replication", "repair"]);
 });
 
-test("ORDER item text edit retains identity and add creates a distinct stable item", () => {
+test("ORDER Ordering Item text edit retains identity and add creates a distinct stable Ordering Item", () => {
   const renamed = setOrderingItemText(orderingSource(), "translation", "Translate protein");
   const added = addOrderingItem(renamed.source);
   if (added.source.response.kind !== "ordering") throw new Error("Expected ordering response.");

@@ -1,7 +1,7 @@
 # Question model
 
-The backend-neutral representation every question engine maps into (MOD-QM,
-WP-C1). It lives in `crates/question_model` and is the root contract: adapters
+The backend-neutral representation every Question Backend maps into. It lives in
+`crates/question_model` and is the root contract: adapters
 translate into it, and everything downstream reads only it.
 
 One shared shape is what lets a WeBWorK problem, a QTI item, an H5P activity,
@@ -60,7 +60,7 @@ record identity, not browser authority.
 
 Every Assignment Attempt also retains its exact Released Assignment Revision
 Reference. The stable Assignment owns its later revisions; the retained revision
-is the immutable definition and delivery policy expanded into that Student's
+is the immutable Assignment Revision and delivery policy expanded into that Student's
 Issued Questions. A Student cannot begin an Assignment Attempt unless the
 stable Assignment is Released and selects that exact revision; Closed and
 Archived Assignments also refuse new access.
@@ -95,7 +95,7 @@ edit. Question Tags guide search within the Question Library; they do not
 partition questions by subject, author, course, or audience. Every assignment item
 resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
-assignment cannot contain private question content.
+Assignment cannot contain a Draft Question or Draft Question Content.
 
 `QuestionSummary` is the current Question Search summary record. It contains the Question
 ID, exact `latestQuestionRevision` reference, Question Backend, capabilities,
@@ -127,8 +127,8 @@ Instructor submits one patch and rationale against one exact immutable base
 version. Publication validation and semantic/grading-impact analysis complete
 before submission reaches the lineage owner, who accepts or rejects it. A
 stale base requires rebase and resubmission. An accepted `ModerateEdit` creates
-a new immutable version in the original `QuestionId` lineage, preserves the
-canonical author and compatible CC license, records contributor credit and
+a new immutable version in the original `QuestionId` lineage, preserves
+Question Authorship and the existing compatible Question License, records contributor credit and
 proposal ancestry, and leaves all assignment and evidence pins unchanged.
 `ModerateEdit` is a compatible same-lineage operation; `FullFork` is the
 separate major-change operation that creates a creator-private draft and, after
@@ -260,7 +260,6 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `response`                      | `QuestionResponseFormat`                | Accepted Student Response shape and constraints                                                                |
 | `questionAttemptLimit`          | `QuestionAttemptLimit`                  | Retry bound for this Question                                                                                  |
 | `questionAttemptTimeLimit`      | `QuestionAttemptTimeLimit`              | Time limits, with grace                                                                                        |
-| `questionVariationRule`         | `QuestionVariationRule`                 | Static or seeded rule for how this Question varies                                                             |
 | `grading`                       | `QuestionGradingRule`                   | How a response is judged                                                                                       |
 | `metadata`                      | `QuestionMetadata`                      | Title, tags, Question License, language                                                                        |
 
@@ -294,23 +293,23 @@ selection submits an authored Hotspot Region Reference; its rectangle or ellipse
 geometry belongs to the Question Response Format rather than the Student Response.
 
 Server-side grading loads the attempt's exact published `QuestionRevision`
-and calls `grading::grade(question, response, key)`. The definition supplies
+and calls `grading::grade(question, response, key)`. The Question Grading Rule supplies
 the response comparison and point policy that are intentionally absent from
 the compact attempt row; the key remains in the server-only grading boundary.
 Grading is deterministic and automated for every supported Question Type.
 
 ### Attempt presentation
 
-`QuestionPresentation` is the narrow, issued contract for a Student screen.
+`QuestionPresentation` is the narrow, issued contract for every Student screen.
 It projects the public rendering portion of one `QuestionVariationPresentation`
 for a specific attempt and provides a consistency binding for that presentation.
 
 `QuestionPresentation` contains the immutable version, issued seed,
 server-minted nonce, title, prompt, and an answer-free
 `QuestionPresentationResponseFormat`. It is the issued response format for the durable
-Question Response Format: it replaces durable response-item references with
-rendered IDs while preserving the exact response shape. The schema currently
-covers the eight PLE Question JSON Question Types:
+Question Response Format: it replaces durable Response Item References with
+Presentation Response Item References while preserving the exact response shape. The schema currently
+covers the eight PLE Question JSON Question Types and the exact iMathAS backend marker:
 
 | `QuestionPresentationResponseFormat` | Shared Question Response Format |
 | ------------------------------------ | ------------------------------- |
@@ -322,6 +321,7 @@ covers the eight PLE Question JSON Question Types:
 | `matching`                           | matching                        |
 | `ordering`                           | ordering                        |
 | `hotspot`                            | hotspot                         |
+| `imathasQuestionBackend`             | iMathAS Question Backend        |
 
 The durable Question Response Format names the item role at the model boundary:
 Multiple Choice has Question Choices; MATCH has Matching Prompts and Matching
@@ -329,9 +329,9 @@ Choices; Ordering has Ordering Items. Each record combines its Response Item
 Reference with the learner-visible content. This keeps similar wire shapes from
 becoming interchangeable application meanings.
 
-`ImathasQuestionBackendResponseControl` intentionally has no `QuestionPresentationResponseFormat` variant.
-The presentation builder rejects it until its server-owned provider route has a
-complete delivery contract.
+`imathasQuestionBackend` is a fieldless issued marker. It selects the
+server-owned iMathAS launch lifecycle without exposing a provider URL, token,
+result, score, or backend state in the Question Presentation.
 
 For selectable and addressable objects, the builder projects durable IDs to a
 presentation-scoped Response Item Reference (`PresentationResponseItemReference` in the current
@@ -342,28 +342,25 @@ public item basis. Choices, blanks, matching sides, ordering items, and each
 Hotspot Region are separately addressable. The builder permits at most 32 addressable items, requires
 IDs to be unique across the complete presentation, and retries with a fresh
 nonce up to eight times if a CRC16 collision occurs. The server retains the
-ability to rebuild the rendered-to-durable mapping from the exact definition
+ability to rebuild the Presentation Response Item Reference-to-durable Response Item Binding from the exact Question Revision
 and persisted presentation binding; the four-character value is neither a
 durable identity nor a security credential.
 
-The canonical binary descriptor covers the Question Presentation, rendered-item
+The canonical binary descriptor covers the Question Presentation, Presentation Response Item Reference
 bases, and Question Asset Renditions. PLE stores its full Question Presentation Checksum with the attempt and gives
 the Student only a 128-bit `pd1_` base64url prefix in
 `StudentAttemptDescriptor`. The browser can rebuild and check the public
-descriptor through Wasm; the server checks the full digest when reproducing
-the attempt. The digest and rendered IDs detect a stale or incoherent render,
+descriptor through Wasm; the server checks the full Question Presentation Checksum when reproducing
+the attempt. The Question Presentation Checksum and Presentation Response Item References detect a stale or incoherent render,
 but do not authenticate a Student, authorize a request, or determine whether
 an answer is correct.
 
-This is the accepted current presentation contract, not a statement that the live
-generic Assignment Attempt route has already completed its payload cutover. The current route
-still issues `QuestionVariationPresentation` and accepts a tagged `StudentResponse` in
-`{ "response": ... }`; its `kind` is therefore part of today's wire shape.
-The planned compact response uses the attempt route identity, presentation
-digest, and rendered IDs, then resolves the Question Type and durable IDs
-server-side. [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
-own that transition and its acceptance gates.
+The current Assignment Attempt route delivers `QuestionPresentation` unchanged for every
+issued Question. Its Student Response Control uses the associated
+`QuestionPresentationResponseFormat` and presentation-scoped Response Item References. The
+server translates those references only through the exact server-held `IssuedQuestionPresentation`.
+The iMathAS Question Backend marker selects its exact server-owned launch route; `notApplicable`
+remains a lifecycle fact and does not change the Student delivery contract.
 
 ### Content blocks
 
@@ -373,7 +370,7 @@ renderer.
 
 Every variant carrying visual content also carries a required description.
 Required rather than optional: a figure with no description is unusable with a
-screen reader, and MOD-UI-RENDER surfaces a missing description as an authoring
+screen reader, and the Question Presentation renderer surfaces a missing description as an authoring
 error.
 
 ### Policies
@@ -391,13 +388,13 @@ Incorrect Feedback. The Student Feedback Release Rule controls whether the
 applicable Question Feedback form reaches the Student as Student Feedback; it
 does not govern a Question Hint.
 For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
-deadline. MOD-TIME applies any authorized, audited pause extension before it
+deadline. Assignment Activity timing applies any authorized, audited pause extension before it
 evaluates the inclusive grace boundary.
 
 The explicit Assignment activity rules are chosen per Assignment and are independent enums.
 The later-Attempt rules split Question Pool membership from Question Variation:
 `QuestionPoolReuseRule` chooses Reuse Selection or Select Again, while
-`QuestionVariationRule` chooses Reuse Variation or New Variation. This lets an
+`AssignmentQuestionVariationRule` chooses Reuse Variation or New Variation. This lets an
 instructor express mastery-required practice that keeps the selected Questions
 while using new Question Variations, or any other meaningful combination,
 without a combined mode hiding either decision.
@@ -444,25 +441,16 @@ is also independent: Current allows the otherwise authorized Student
 Recalculating and Failed retain the semantic score state while omitting every
 numeric Student score, Grading Result, and disclosed point value.
 
-### Generation
+### Question variation
 
-`Question Seed` plus `QuestionVariationRule` fully determine a Question
-Variation. A seeded
-definition pins a `QuestionGeneratorReference` containing both the generator ID and its
-additive version. Changing generator behavior therefore creates a new generator
-version instead of changing an existing published question underneath its
-assignments and historical attempts.
+Current PLE Question JSON is static by its exact format. Its Question Seed remains
+exact server-held backend and attempt input; it
+does not select a PLE-authored generated variation. Question Backend, Renderer,
+and Grader Version remain distinct reproduction evidence.
 
-Parameters are declared as `QuestionGeneratorParameter` values rather than computed inline,
-so a preview can show an instructor the space a question draws from and the
-Deterministic Seed Vector Fixture Set can cover every branch.
-
-`BTreeMap` holds parameters because iteration order reaches generated output,
-and byte-identical output on server and browser is what the WP-C5 parity gate
-requires.
-
-The exact sampling and parity rules are documented in
-`docs/DETERMINISM_CONTRACT.md`.
+A future Question Generator must arrive as immutable registered Question
+Generator source data owned by a Draft Question Revision or Question Revision,
+with its parser, publication, issue, grading, repair, and reproduction path.
 
 ### Licensing and future classification
 
@@ -475,8 +463,8 @@ two-dimensional future classification and therefore has its own closed fields
 instead of using a generic mapping.
 
 Question License is the exact versioned SPDX expression governing one Question
-Revision. Publication accepts a license compatible with Question Library
-sharing and full forks. See
+Revision. Publication accepts only a Question License compatible with Question
+Library sharing and full forks. See
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-content-and-stewardship)
 for the complete Question Metadata vocabulary.
 

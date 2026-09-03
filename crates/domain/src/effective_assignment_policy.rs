@@ -1,6 +1,6 @@
 //! Pure resolution of a Student's current assignment policy.
 //!
-//! S5 is the sole authority that evaluates the active-membership prerequisite
+//! Active Student Course Membership is the sole authority that evaluates the active-membership prerequisite
 //! and mints an [`ActiveStudentCourseMembershipGrant`]. This module consumes that grant: it validates supplied
 //! modifier identifiers against the grant's opaque scopes, then resolves the
 //! assignment window and limits without reading roster state or a clock.
@@ -9,17 +9,15 @@ use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
 use question_model::{
-    AssignmentDeadlineRule, AssignmentStatus, CourseTerm, LateWorkRule,
+    AssignmentDeadlineRule, AssignmentStatus, BaseAssignmentPolicy, CourseTerm, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
     Timestamp,
 };
 
-/// Compatibility re-export for established policy-resolution callers.
-pub use question_model::BaseAssignmentPolicy;
-
 use crate::active_student_course_membership::{
     ActiveStudentCourseMembershipDecision, ActiveStudentCourseMembershipDenial,
-    SyntheticPreviewAdmissionDecision,
+    HypotheticalStudentViewScenarioAdmissionDecision,
+    HypotheticalStudentViewScenarioAdmissionDenial,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,7 +93,7 @@ pub enum GateDenial {
 pub enum AssignmentPolicySource {
     Base,
     Accommodation(StudentRecordId),
-    HypotheticalAccommodation,
+    HypotheticalStudentViewScenario,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,9 +155,9 @@ pub struct Accommodation {
     pub adjustment: AccommodationAdjustment,
 }
 
-/// A preview-only individual policy modifier with no persisted Student key.
+/// Identity-free policy modifiers for a Hypothetical Student View Scenario.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HypotheticalAccommodation {
+pub struct HypotheticalStudentViewScenarioModifiers {
     pub mode: AccommodationApplicationRule,
     pub adjustment: AccommodationAdjustment,
 }
@@ -194,6 +192,35 @@ pub enum AssignmentAccessDecision {
     },
 }
 
+/// Scenario-specific policy gate. This cannot describe access by a Student Record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypotheticalStudentViewScenarioPolicyGate {
+    AssignmentStatus,
+    HypotheticalStudentViewScenarioAdmission,
+    Authorization,
+}
+
+/// Scenario-specific denial reason. The admission branch carries only course and Assignment scope.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypotheticalStudentViewScenarioPolicyDenial {
+    AssignmentStatus(AssignmentStatusDenial),
+    HypotheticalStudentViewScenarioAdmission(HypotheticalStudentViewScenarioAdmissionDenial),
+    Authorization(AuthorizationDenial),
+}
+
+/// Closed policy result for an identity-free Hypothetical Student View Scenario.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HypotheticalStudentViewScenarioPolicyDecision {
+    Denied {
+        gate: HypotheticalStudentViewScenarioPolicyGate,
+        reason: HypotheticalStudentViewScenarioPolicyDenial,
+    },
+    Allowed {
+        policy: Box<EffectiveAssignmentPolicy>,
+        start_decision: AssignmentStartDecision,
+    },
+}
+
 pub struct ResolveEffectivePolicyInput {
     pub assignment_status: AssignmentStatusGate,
     pub active_student_course_membership: ActiveStudentCourseMembershipDecision,
@@ -204,15 +231,17 @@ pub struct ResolveEffectivePolicyInput {
     pub accommodation: Option<Accommodation>,
 }
 
-/// Identity-free S3 input for a synthetic T3 preview subject.
-pub struct ResolveSyntheticPreviewPolicyInput {
+/// Identity-free Hypothetical Student View Scenario policy-resolution input.
+pub struct ResolveHypotheticalStudentViewScenarioPolicyInput {
     pub assignment_status: AssignmentStatusGate,
-    pub active_student_course_membership: SyntheticPreviewAdmissionDecision,
+    pub hypothetical_student_view_scenario_admission:
+        HypotheticalStudentViewScenarioAdmissionDecision,
     pub authorization: AuthorizationGate,
     pub now: Timestamp,
     pub prior_assignment_attempt_count: u32,
     pub base: BaseAssignmentPolicy,
-    pub hypothetical_accommodation: Option<HypotheticalAccommodation>,
+    pub hypothetical_student_view_scenario_modifiers:
+        Option<HypotheticalStudentViewScenarioModifiers>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,7 +256,7 @@ pub enum PolicyField {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModifierSource {
     Accommodation(StudentRecordId),
-    HypotheticalAccommodation,
+    HypotheticalStudentViewScenario,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,7 +344,7 @@ fn validate_absolute_timestamp_in_course_term(
     Ok(())
 }
 
-/// Resolves the complete policy after Assignment Status, the S5 active-membership gate, and action
+/// Resolves the complete policy after Assignment Status, Active Student Course Membership, and action
 /// authorization, in that exact order. A denied gate is returned before any
 /// modifier is inspected.
 pub fn resolve_effective_policy(
@@ -361,42 +390,45 @@ pub fn resolve_effective_policy(
     )
 }
 
-/// Resolves a synthetic preview policy after Assignment Status, S5 synthetic
-/// active-membership gate, and action authorization. A hypothetical modifier cannot carry
-/// a persisted Student identifier or receipt authority.
-pub fn resolve_synthetic_preview_policy(
-    input: ResolveSyntheticPreviewPolicyInput,
-) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
+/// Resolves a Hypothetical Student View Scenario policy after Assignment Status,
+/// scenario admission, and action authorization. Scenario modifiers cannot carry a persisted
+/// Student identifier or receipt authority.
+pub fn resolve_hypothetical_student_view_scenario_policy(
+    input: ResolveHypotheticalStudentViewScenarioPolicyInput,
+) -> Result<HypotheticalStudentViewScenarioPolicyDecision, EffectivePolicyError> {
     if let AssignmentStatusGate::Denied(reason) = input.assignment_status {
-        return Ok(AssignmentAccessDecision::Denied {
-            gate: PolicyGate::AssignmentStatus,
-            reason: GateDenial::AssignmentStatus(reason),
+        return Ok(HypotheticalStudentViewScenarioPolicyDecision::Denied {
+            gate: HypotheticalStudentViewScenarioPolicyGate::AssignmentStatus,
+            reason: HypotheticalStudentViewScenarioPolicyDenial::AssignmentStatus(reason),
         });
     }
-    match input.active_student_course_membership {
-        SyntheticPreviewAdmissionDecision::Granted(grant) => grant,
-        SyntheticPreviewAdmissionDecision::Denied(reason) => {
-            return Ok(AssignmentAccessDecision::Denied {
-                gate: PolicyGate::ActiveStudentCourseMembership,
-                reason: GateDenial::ActiveStudentCourseMembership(reason),
+    match input.hypothetical_student_view_scenario_admission {
+        HypotheticalStudentViewScenarioAdmissionDecision::Granted(grant) => grant,
+        HypotheticalStudentViewScenarioAdmissionDecision::Denied(reason) => {
+            return Ok(HypotheticalStudentViewScenarioPolicyDecision::Denied {
+                gate: HypotheticalStudentViewScenarioPolicyGate::HypotheticalStudentViewScenarioAdmission,
+                reason: HypotheticalStudentViewScenarioPolicyDenial::HypotheticalStudentViewScenarioAdmission(reason),
             });
         }
     };
     if let AuthorizationGate::Denied(reason) = input.authorization {
-        return Ok(AssignmentAccessDecision::Denied {
-            gate: PolicyGate::Authorization,
-            reason: GateDenial::Authorization(reason),
+        return Ok(HypotheticalStudentViewScenarioPolicyDecision::Denied {
+            gate: HypotheticalStudentViewScenarioPolicyGate::Authorization,
+            reason: HypotheticalStudentViewScenarioPolicyDenial::Authorization(reason),
         });
     }
-
-    resolve_authorized_policy(
+    let (policy, start_decision) = resolve_authorized_policy_values(
         input.now,
         input.prior_assignment_attempt_count,
         input.base,
         input
-            .hypothetical_accommodation
-            .map(AccommodationAdjustmentInput::Hypothetical),
-    )
+            .hypothetical_student_view_scenario_modifiers
+            .map(AccommodationAdjustmentInput::HypotheticalStudentViewScenario),
+    )?;
+    Ok(HypotheticalStudentViewScenarioPolicyDecision::Allowed {
+        policy: Box::new(policy),
+        start_decision,
+    })
 }
 
 fn resolve_authorized_policy(
@@ -405,16 +437,27 @@ fn resolve_authorized_policy(
     base: BaseAssignmentPolicy,
     accommodation: Option<AccommodationAdjustmentInput>,
 ) -> Result<AssignmentAccessDecision, EffectivePolicyError> {
+    let (policy, start_decision) =
+        resolve_authorized_policy_values(now, prior_assignment_attempt_count, base, accommodation)?;
+    Ok(AssignmentAccessDecision::Allowed {
+        policy: Box::new(policy),
+        start_decision,
+    })
+}
+
+fn resolve_authorized_policy_values(
+    now: Timestamp,
+    prior_assignment_attempt_count: u32,
+    base: BaseAssignmentPolicy,
+    accommodation: Option<AccommodationAdjustmentInput>,
+) -> Result<(EffectiveAssignmentPolicy, AssignmentStartDecision), EffectivePolicyError> {
     let mut policy = base_policy(base);
     if let Some(accommodation) = accommodation {
         apply_accommodation_adjustment(&mut policy, accommodation)?;
     }
     validate_schedule(&policy)?;
     let start_decision = assignment_start_decision(&policy, now, prior_assignment_attempt_count);
-    Ok(AssignmentAccessDecision::Allowed {
-        policy: Box::new(policy),
-        start_decision,
-    })
+    Ok((policy, start_decision))
 }
 
 fn base_policy(base: BaseAssignmentPolicy) -> EffectiveAssignmentPolicy {
@@ -439,28 +482,30 @@ fn resolved<T>(value: T) -> EffectiveAssignmentPolicyValue<T> {
 #[derive(Clone, Copy)]
 enum AccommodationAdjustmentInput {
     Student(Accommodation),
-    Hypothetical(HypotheticalAccommodation),
+    HypotheticalStudentViewScenario(HypotheticalStudentViewScenarioModifiers),
 }
 
 impl AccommodationAdjustmentInput {
     fn mode(self) -> AccommodationApplicationRule {
         match self {
             Self::Student(value) => value.mode,
-            Self::Hypothetical(value) => value.mode,
+            Self::HypotheticalStudentViewScenario(value) => value.mode,
         }
     }
 
     fn adjustment(self) -> AccommodationAdjustment {
         match self {
             Self::Student(value) => value.adjustment,
-            Self::Hypothetical(value) => value.adjustment,
+            Self::HypotheticalStudentViewScenario(value) => value.adjustment,
         }
     }
 
     fn source(self) -> ModifierSource {
         match self {
             Self::Student(value) => ModifierSource::Accommodation(value.student_record),
-            Self::Hypothetical(_) => ModifierSource::HypotheticalAccommodation,
+            Self::HypotheticalStudentViewScenario(_) => {
+                ModifierSource::HypotheticalStudentViewScenario
+            }
         }
     }
 }
@@ -550,8 +595,8 @@ fn apply_accommodation_field<T: Ord + Copy>(
     field.value = replacement;
     field.source = match error_source {
         ModifierSource::Accommodation(student) => AssignmentPolicySource::Accommodation(student),
-        ModifierSource::HypotheticalAccommodation => {
-            AssignmentPolicySource::HypotheticalAccommodation
+        ModifierSource::HypotheticalStudentViewScenario => {
+            AssignmentPolicySource::HypotheticalStudentViewScenario
         }
     };
     Ok(())

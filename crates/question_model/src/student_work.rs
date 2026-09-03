@@ -1,5 +1,5 @@
 //! Course-owned Student Record, Assignment Attempt, Issued Question, and
-//! Question Attempt records (WP-C3, MOD-ACTIVITY).
+//! Question Attempt records.
 //!
 //! Completion of one Assignment Attempt does not end a Student Record. A
 //! Student can begin another Assignment Attempt when its explicit continuation
@@ -24,7 +24,7 @@ pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError
 use crate::QuestionRevisionReference;
 use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
 use crate::assignment_activity_rules::{AssignmentQuestionVariationRule, QuestionPoolReuseRule};
-use crate::generation::{QuestionGeneratorReference, QuestionSeed};
+use crate::generation::QuestionSeed;
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
 use crate::{AssignmentAttemptReference, AssignmentRevisionReference};
@@ -62,7 +62,7 @@ impl Timestamp {
 ///
 /// Successor availability is deliberately separate: an Assignment Attempt can have no next
 /// attempt because it completed or because it exhausted its attempt policy.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentAttemptCompletion {
     /// The Assignment Attempt has not satisfied its assignment completion requirement.
@@ -89,9 +89,8 @@ pub struct AssignmentAttempt {
     pub assignment: AssignmentId,
     /// Exact Released Assignment Revision expanded into this Assignment Attempt.
     ///
-    /// The stable Assignment identity has immutable revisions; this reference preserves
-    /// the immutable authored definition and delivery rules used for this
-    /// Student's work.
+    /// This Assignment Revision preserves immutable Assignment Content and delivery rules
+    /// used for this Student's work.
     pub assignment_revision: AssignmentRevisionReference,
     /// One-based attempt number for this Student Record and Assignment.
     pub attempt_number: u32,
@@ -111,8 +110,8 @@ pub struct AssignmentAttempt {
 ///
 /// This record owns selected-score pointers only. Immutable Student Work remains
 /// under Assignment Attempts and their Issued Questions.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct AssignmentGrade {
     /// Student Record whose course result this is.
     pub student_record: StudentRecordId,
@@ -122,8 +121,16 @@ pub struct AssignmentGrade {
     pub first_completed_at: Option<Timestamp>,
     /// Assignment Attempt currently selected by the grade rule.
     pub current_assignment_attempt: Option<AssignmentAttemptId>,
+    /// Score earned by the Assignment Attempt currently selected by the grade rule.
+    pub current_score: Option<f64>,
     /// Highest-scoring completed Assignment Attempt.
     pub best_assignment_attempt: Option<AssignmentAttemptId>,
+    /// Score earned by the highest-scoring completed Assignment Attempt.
+    pub best_score: Option<f64>,
+    /// Most recently completed Assignment Attempt.
+    pub latest_assignment_attempt: Option<AssignmentAttemptId>,
+    /// Score earned by the most recently completed Assignment Attempt.
+    pub latest_score: Option<f64>,
 }
 
 impl AssignmentAttempt {
@@ -142,7 +149,7 @@ impl AssignmentAttempt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionPoolSelectedItem {
-    /// Stable identity of the Item in its source Question Pool Assignment Entry.
+    /// Stable identity of the Question Pool Item in its source Question Pool Assignment Entry.
     pub question_pool_item: QuestionPoolItemId,
     /// Exact immutable Question Revision selected for delivery.
     pub reference: QuestionRevisionReference,
@@ -157,23 +164,23 @@ pub struct QuestionPoolSelection {
     pub id: QuestionPoolSelectionId,
     /// Assignment Attempt that owns this selected Question Pool Item set.
     pub assignment_attempt: AssignmentAttemptId,
-    /// Question Pool Assignment Entry that supplied the Items.
+    /// Question Pool Assignment Entry that supplied the Question Pool Items.
     pub question_pool_assignment_entry: AssignmentEntryId,
     /// Database-authoritative time at which the server selected these entries.
     pub created_at: Timestamp,
     /// Number of exact Question Pool Items selected for this Assignment Attempt.
     ///
-    /// This repeats the selected-entry-row cardinality so storage can reject an
+    /// This repeats the selected Question Pool Item row cardinality so storage can reject an
     /// incomplete Selection at transaction commit without consulting mutable
     /// Assignment content.
     pub selected_question_count: u32,
     /// Earlier Selection whose exact Question Pool Items this later Assignment Attempt retained.
     ///
     /// A reused Selection is still an immutable result owned by this Assignment
-    /// Attempt. This link preserves the reason its selected-entry membership repeats
+    /// Attempt. This link preserves the reason its selected Question Pool Item membership repeats
     /// without treating the earlier Attempt's record as mutable shared state.
     pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
-    /// Exact selected Items in their frozen delivery order.
+    /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
 
@@ -253,12 +260,12 @@ pub struct IssuedQuestion {
     pub point_value: AssignmentPointValue,
     /// Exact Assignment scoring treatment frozen when this Question was issued.
     pub scoring_rule: AssignmentEntryScoringRule,
-    /// Whether this issued item may contribute to cross-course learning evidence.
+    /// Whether this Issued Question may contribute to cross-course learning evidence.
     ///
     /// The value is frozen when the Assignment Attempt begins so later assignment scoring
     /// changes cannot rewrite the validity of an observed student response.
     pub statistics_eligible: bool,
-    /// Immutable Question Pool Selection that produced this item, if it was drawn.
+    /// Immutable Question Pool Selection that produced this Issued Question, if it was drawn.
     pub question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Exact Question Pool Item in that Question Pool Selection, if it was drawn.
     pub question_pool_item: Option<QuestionPoolItemId>,
@@ -377,8 +384,6 @@ pub struct QuestionAttemptReproductionDetails {
     pub backend: QuestionBackendVersion,
     /// Renderer used to produce the typed Question Content Blocks, when the backend has one.
     pub renderer_version: Option<QuestionRendererVersion>,
-    /// Generator used for parameterized content, when the backend has one.
-    pub generator: Option<QuestionGeneratorReference>,
     /// Exact source object, when the backend stores source bytes.
     pub source_object_reference: Option<SourceObjectReference>,
     /// SHA-256 integrity evidence for the exact source object.
@@ -405,14 +410,16 @@ pub enum IssuedAttemptCapability {
     QuestionPresentation,
     /// A PLE Question JSON presentation and its required private grading contract.
     PleQuestionJsonPresentation,
-    /// A WeBWorK presentation, immutable private definition, and replay map.
+    /// The WeBWorK capability carries required server-only Question Grading Input and replay
+    /// details.
     WebworkPresentation,
     /// A QTI presentation and its copied per-attempt private grading payload.
     ///
     /// This is distinct from the generic presentation tag so loss of the
     /// opaque contract fails closed instead of inviting a Question Library lookup.
     QtiPresentation,
-    /// A Question Backend that intentionally issues no `QuestionPresentation`.
+    /// iMathAS session and launch lifecycle state without a format-specific
+    /// private grading contract. Student delivery remains a Question Presentation.
     NotApplicable,
 }
 
@@ -426,7 +433,8 @@ pub struct QuestionAttempt {
     /// Immutable delivered Question that owns this attempt.
     pub issued_question: IssuedQuestionId,
     /// Question Seed used to regenerate the exact Question Variation.
-    pub seed: QuestionSeed,
+    #[serde(rename = "question_seed")]
+    pub question_seed: QuestionSeed,
     /// SHA-256 of the generated parameters.
     #[serde(skip_serializing)]
     pub parameter_hash: String,
@@ -456,7 +464,8 @@ pub struct StudentQuestionAttemptView {
     /// Immutable delivered Question that owns this attempt.
     pub issued_question: IssuedQuestionId,
     /// Question Seed used by the issued presentation binding.
-    pub seed: QuestionSeed,
+    #[serde(rename = "question_seed")]
+    pub question_seed: QuestionSeed,
     /// Immutable accepted Student Response, when the server accepted one.
     pub submission: Option<QuestionSubmission>,
     /// Current operational state.
@@ -472,7 +481,7 @@ impl From<&QuestionAttempt> for StudentQuestionAttemptView {
         Self {
             id: attempt.id,
             issued_question: attempt.issued_question,
-            seed: attempt.seed,
+            question_seed: attempt.question_seed,
             submission: attempt.submission.clone(),
             state: attempt.state,
             timing: attempt.timing,
@@ -484,20 +493,14 @@ impl From<&QuestionAttempt> for StudentQuestionAttemptView {
 /// Compact Assignment Progress Record read by course pages and the Gradebook.
 ///
 /// Historical Assignment Attempts remain separate. Updating this Assignment Progress Record from the same
-/// Assignment Attempt transition lets storage commit the history and summary atomically.
+/// Assignment Attempt transition lets storage commit the history and progress atomically.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct AssignmentProgressRecord {
     /// Student Record summarized by this view.
     pub student_record: StudentRecordId,
     /// Assignment summarized by this view.
     pub assignment: AssignmentId,
-    /// Score selected by the assignment's grade policy.
-    pub current_score: Option<f64>,
-    /// Highest completed Assignment Attempt score seen so far.
-    pub best_score: Option<f64>,
-    /// Most recently completed Assignment Attempt score.
-    pub latest_score: Option<f64>,
     /// Number of completed Assignment Attempts, including continued Student work.
     pub completed_assignment_attempt_count: u32,
     /// Number of Question Attempts recorded across all Assignment Attempts.
@@ -506,14 +509,14 @@ pub struct AssignmentProgressRecord {
     pub last_activity_at: Option<Timestamp>,
 }
 
-/// Browser-safe status of the Student's aggregate assignment score.
+/// Browser-safe status of the Student's Assignment Grade.
 ///
 /// This is a presentation state, not an authorization input.  The server
 /// derives it from the current assignment disclosure policy and never sends
 /// the policy, clock, or Student Record to the browser for inference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AssignmentProgressScoreState {
+pub enum AssignmentGradeScoreState {
     /// The Student has not submitted any response for this assignment.
     NoActivity,
     /// The Student has activity, but the current policy withholds scores.
@@ -522,17 +525,17 @@ pub enum AssignmentProgressScoreState {
     Available,
 }
 
-/// Key-free Student Assignment Progress for an assignment's aggregate progress.
+/// Key-free Student Assignment Grade for one Assignment.
 ///
 /// It deliberately excludes the Student Record and Assignment identifiers
-/// carried by [`AssignmentProgressRecord`]. Browser routes use this type instead of the
-/// storage Assignment Progress Record so score totals are omitted while withheld.
+/// carried by [`AssignmentGrade`]. The server derives disclosure and sends no
+/// score totals while the current Assignment settings withhold them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct AssignmentProgress {
+pub struct StudentAssignmentGrade {
     /// Whether aggregate score values are absent because there is no submitted
     /// response, are currently withheld, or are available for display.
-    pub score_state: AssignmentProgressScoreState,
+    pub score_state: AssignmentGradeScoreState,
     /// Current freshness and visibility of the assignment's computed scores.
     pub assignment_scoring_state: crate::AssignmentScoringState,
     /// Score selected by the assignment's grade policy when available.
@@ -541,51 +544,65 @@ pub struct AssignmentProgress {
     pub best_score: Option<f64>,
     /// Most recently completed Assignment Attempt score when available.
     pub latest_score: Option<f64>,
-    /// Number of completed Assignment Attempts. This is not a score total.
-    pub completed_assignment_attempt_count: u32,
-    /// Number of recorded responses. This is not a score total.
-    pub total_question_attempts: u64,
-    /// Latest server-recorded activity time, if any.
-    pub last_activity_at: Option<Timestamp>,
     /// Current anonymous class statistics when the assignment policy permits
     /// their disclosure. Absent means the server withholds this Question Statistics View.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub class_statistics: Option<crate::StudentClassStatistics>,
 }
 
-impl AssignmentProgress {
-    /// Projects an entitled Student's assignment before the first durable
-    /// educational receipt exists. Reading progress must not create an
+/// Key-free Student Assignment activity facts.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AssignmentProgress {
+    /// Number of completed Assignment Attempts, including continued Student work.
+    pub completed_assignment_attempt_count: u32,
+    /// Number of Question Attempts recorded across all Assignment Attempts.
+    pub total_question_attempts: u64,
+    /// Latest server-recorded Student Work time, if any.
+    pub last_activity_at: Option<Timestamp>,
+}
+
+/// Key-free Student response that keeps Assignment activity and grade facts separate.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct StudentAssignmentProgress {
+    /// Student-safe activity facts for this Assignment.
+    pub assignment_progress: AssignmentProgress,
+    /// Student-safe disclosed grade facts for this Assignment.
+    pub student_assignment_grade: StudentAssignmentGrade,
+}
+
+impl StudentAssignmentGrade {
+    /// Projects an entitled Student's Assignment Grade before the first durable
+    /// educational receipt exists. Reading the grade must not create an
     /// Assignment Attempt merely to represent the valid no-Student-work state.
     pub fn no_activity(assignment_scoring_state: crate::AssignmentScoringState) -> Self {
         Self {
-            score_state: AssignmentProgressScoreState::NoActivity,
+            score_state: AssignmentGradeScoreState::NoActivity,
             assignment_scoring_state,
             current_score: None,
             best_score: None,
             latest_score: None,
-            completed_assignment_attempt_count: 0,
-            total_question_attempts: 0,
-            last_activity_at: None,
             class_statistics: None,
         }
     }
 
-    /// Projects the internal summary after the server has made its disclosure
+    /// Projects the internal Assignment Grade after the server has made its disclosure
     /// decision. No-activity takes precedence over the disclosure setting.
-    pub fn from_summary(
-        summary: &AssignmentProgressRecord,
+    pub fn from_assignment_grade(
+        grade: &AssignmentGrade,
+        progress: &AssignmentProgressRecord,
         score_disclosed: bool,
         assignment_scoring_state: crate::AssignmentScoringState,
     ) -> Self {
-        let score_state = if summary.total_question_attempts == 0 {
-            AssignmentProgressScoreState::NoActivity
+        let score_state = if progress.total_question_attempts == 0 {
+            AssignmentGradeScoreState::NoActivity
         } else if score_disclosed {
-            AssignmentProgressScoreState::Available
+            AssignmentGradeScoreState::Available
         } else {
-            AssignmentProgressScoreState::Withheld
+            AssignmentGradeScoreState::Withheld
         };
-        let scores = matches!(score_state, AssignmentProgressScoreState::Available)
+        let scores = matches!(score_state, AssignmentGradeScoreState::Available)
             && matches!(
                 assignment_scoring_state,
                 crate::AssignmentScoringState::Current
@@ -593,13 +610,20 @@ impl AssignmentProgress {
         Self {
             score_state,
             assignment_scoring_state,
-            current_score: scores.then_some(summary.current_score).flatten(),
-            best_score: scores.then_some(summary.best_score).flatten(),
-            latest_score: scores.then_some(summary.latest_score).flatten(),
-            completed_assignment_attempt_count: summary.completed_assignment_attempt_count,
-            total_question_attempts: summary.total_question_attempts,
-            last_activity_at: summary.last_activity_at,
+            current_score: scores.then_some(grade.current_score).flatten(),
+            best_score: scores.then_some(grade.best_score).flatten(),
+            latest_score: scores.then_some(grade.latest_score).flatten(),
             class_statistics: None,
+        }
+    }
+}
+
+impl From<&AssignmentProgressRecord> for AssignmentProgress {
+    fn from(progress: &AssignmentProgressRecord) -> Self {
+        Self {
+            completed_assignment_attempt_count: progress.completed_assignment_attempt_count,
+            total_question_attempts: progress.total_question_attempts,
+            last_activity_at: progress.last_activity_at,
         }
     }
 }
@@ -610,12 +634,26 @@ impl AssignmentProgressRecord {
         Self {
             student_record,
             assignment,
-            current_score: None,
-            best_score: None,
-            latest_score: None,
             completed_assignment_attempt_count: 0,
             total_question_attempts: 0,
             last_activity_at: None,
+        }
+    }
+}
+
+impl AssignmentGrade {
+    /// Creates the empty selected-grade record for one Student Record and Assignment.
+    pub fn empty(student_record: StudentRecordId, assignment: AssignmentId) -> Self {
+        Self {
+            student_record,
+            assignment,
+            first_completed_at: None,
+            current_assignment_attempt: None,
+            current_score: None,
+            best_assignment_attempt: None,
+            best_score: None,
+            latest_assignment_attempt: None,
+            latest_score: None,
         }
     }
 }
@@ -737,45 +775,45 @@ mod tests {
     }
 
     #[test]
-    fn student_progress_distinguishes_no_activity_withheld_and_available_scores() {
+    fn student_assignment_progress_separates_activity_from_disclosed_grade() {
         assert_eq!(
-            AssignmentProgress::no_activity(crate::AssignmentScoringState::Current),
-            AssignmentProgress {
-                score_state: AssignmentProgressScoreState::NoActivity,
+            StudentAssignmentGrade::no_activity(crate::AssignmentScoringState::Current),
+            StudentAssignmentGrade {
+                score_state: AssignmentGradeScoreState::NoActivity,
                 assignment_scoring_state: crate::AssignmentScoringState::Current,
                 current_score: None,
                 best_score: None,
                 latest_score: None,
-                completed_assignment_attempt_count: 0,
-                total_question_attempts: 0,
-                last_activity_at: None,
                 class_statistics: None,
             }
         );
-        let mut summary = AssignmentProgressRecord::empty(
+        let mut progress = AssignmentProgressRecord::empty(
             StudentRecordId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
         );
+        let mut grade = AssignmentGrade::empty(progress.student_record, progress.assignment);
         assert_eq!(
-            AssignmentProgress::from_summary(
-                &summary,
+            StudentAssignmentGrade::from_assignment_grade(
+                &grade,
+                &progress,
                 true,
                 crate::AssignmentScoringState::Current
             )
             .score_state,
-            AssignmentProgressScoreState::NoActivity
+            AssignmentGradeScoreState::NoActivity
         );
 
-        summary.total_question_attempts = 1;
-        summary.current_score = Some(0.5);
-        summary.best_score = Some(0.5);
-        summary.latest_score = Some(0.5);
-        let withheld = AssignmentProgress::from_summary(
-            &summary,
+        progress.total_question_attempts = 1;
+        grade.current_score = Some(0.5);
+        grade.best_score = Some(0.5);
+        grade.latest_score = Some(0.5);
+        let withheld = StudentAssignmentGrade::from_assignment_grade(
+            &grade,
+            &progress,
             false,
             crate::AssignmentScoringState::Current,
         );
-        assert_eq!(withheld.score_state, AssignmentProgressScoreState::Withheld);
+        assert_eq!(withheld.score_state, AssignmentGradeScoreState::Withheld);
         assert_eq!(
             (
                 withheld.current_score,
@@ -785,39 +823,45 @@ mod tests {
             (None, None, None)
         );
 
-        let available = AssignmentProgress::from_summary(
-            &summary,
+        let available = StudentAssignmentGrade::from_assignment_grade(
+            &grade,
+            &progress,
             true,
             crate::AssignmentScoringState::Current,
         );
-        assert_eq!(
-            available.score_state,
-            AssignmentProgressScoreState::Available
-        );
+        assert_eq!(available.score_state, AssignmentGradeScoreState::Available);
         assert_eq!(available.current_score, Some(0.5));
         assert!(available.class_statistics.is_none());
     }
 
     #[test]
-    fn student_progress_hides_scores_while_scoring_is_not_current() {
-        let mut summary = AssignmentProgressRecord::empty(
+    fn student_assignment_grade_hides_scores_while_scoring_is_not_current() {
+        let mut progress = AssignmentProgressRecord::empty(
             StudentRecordId::from_uuid(Uuid::from_u128(2)),
             AssignmentId::from_uuid(Uuid::from_u128(3)),
         );
-        summary.total_question_attempts = 1;
-        summary.current_score = Some(0.5);
+        progress.total_question_attempts = 1;
+        let mut grade = AssignmentGrade::empty(progress.student_record, progress.assignment);
+        grade.current_score = Some(0.5);
         for assignment_scoring_state in [
             crate::AssignmentScoringState::Recalculating,
             crate::AssignmentScoringState::Failed,
         ] {
-            let progress =
-                AssignmentProgress::from_summary(&summary, true, assignment_scoring_state);
-            assert_eq!(
-                progress.score_state,
-                AssignmentProgressScoreState::Available
+            let student_grade = StudentAssignmentGrade::from_assignment_grade(
+                &grade,
+                &progress,
+                true,
+                assignment_scoring_state,
             );
-            assert_eq!(progress.assignment_scoring_state, assignment_scoring_state);
-            assert_eq!(progress.current_score, None);
+            assert_eq!(
+                student_grade.score_state,
+                AssignmentGradeScoreState::Available
+            );
+            assert_eq!(
+                student_grade.assignment_scoring_state,
+                assignment_scoring_state
+            );
+            assert_eq!(student_grade.current_score, None);
         }
     }
 
@@ -859,7 +903,6 @@ mod tests {
                 version: "1".to_string(),
             },
             renderer_version: None,
-            generator: None,
             source_object_reference: Some(SourceObjectReference {
                 object: ObjectId::from_uuid(Uuid::from_u128(7)),
             }),
@@ -894,7 +937,7 @@ mod tests {
         let attempt = QuestionAttempt {
             id: QuestionAttemptId::from_uuid(Uuid::from_u128(1)),
             issued_question: IssuedQuestionId::from_uuid(Uuid::from_u128(2)),
-            seed: QuestionSeed::new(3),
+            question_seed: QuestionSeed::new(3),
             parameter_hash: "a".repeat(64),
             submission: None,
             state: QuestionAttemptState::Open,
@@ -909,7 +952,6 @@ mod tests {
                     version: "1".to_string(),
                 },
                 renderer_version: None,
-                generator: None,
                 source_object_reference: None,
                 source_object_checksum: None,
                 asset_objects: Vec::new(),

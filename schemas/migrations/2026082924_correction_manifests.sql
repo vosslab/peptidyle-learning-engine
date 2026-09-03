@@ -1,4 +1,4 @@
--- SD1 immutable forced-question corrections and recalculation evidence.
+-- Forced Question Correction and recalculation evidence.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
@@ -20,8 +20,8 @@ CREATE TABLE ple_data.forced_question_correction (
     CONSTRAINT forced_question_correction_revisions_differ CHECK (
         (flawed_question_id, flawed_revision_number) <> (replacement_question_id, replacement_revision_number)
     ),
-    CONSTRAINT forced_question_correction_approver_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
-        REFERENCES ple_private.account (account_id, role),
+    CONSTRAINT forced_question_correction_approver_product_role_matches FOREIGN KEY (approved_by_account_id, approver_role)
+        REFERENCES ple_private.account (account_id, product_role),
     CONSTRAINT forced_question_correction_flawed_correction_generation_is_unique UNIQUE (flawed_question_id, flawed_revision_number, correction_generation),
     CONSTRAINT forced_question_correction_flawed_revision_matches FOREIGN KEY (flawed_question_id, flawed_revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),

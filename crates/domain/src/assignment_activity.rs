@@ -1,16 +1,16 @@
 //! Assignment Attempt Continuation eligibility and shared Assignment Activity errors.
 //!
 //! Every function is pure. A caller supplies question state, policy, and
-//! summary state; this module reads no clock and performs no storage. MOD-STATE
-//! and MOD-SCORE own completion and scoring; this module exposes their
-//! Assignment Activity composition surface.
+//! summary state; this module reads no clock and performs no storage. The
+//! completion and scoring modules own those transitions; this module exposes
+//! their Assignment Activity composition surface.
 
 use question_model::{AssignmentAttemptContinuationRule, AssignmentProgressRecord};
 
 pub use crate::completion::{RequiredQuestionState, derive_within_assignment_attempt_completion};
 pub use question_model::AssignmentAttemptCompletion;
 
-pub use crate::scoring::{AssignmentActivityTransition, project_summary};
+pub use crate::scoring::{AssignmentActivityTransition, project_assignment_activity};
 
 /// A rejected Assignment Attempt model input.
 #[derive(Debug, Clone, Copy, PartialEq)]

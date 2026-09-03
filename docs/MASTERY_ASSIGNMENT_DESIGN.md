@@ -131,10 +131,10 @@ explicit composition of those existing values, not a hidden special case:
 | Question Pool Reuse Rule | `ReuseSelection`              | Keep the selected Questions from the prior Question Pool Selection                                          |
 | Question Variation Rule  | `NewVariation`                | Use fresh generated values for the selected Questions                                                       |
 | Question attempts        | `max_attempts: None`          | Retry a question until correct                                                                              |
-| Student disclosure       | All five fields `AfterSubmit` | See the selected score, correctness, teaching feedback, solution, and permitted statistics after submitting |
+| Student disclosure       | All six fields `AfterSubmit`  | See the selected score, correctness, Question Feedback, Question Answer, Question Answer Explanation, and permitted statistics after submitting |
 | Timing                   | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
 
-The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the five independent
+The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the six independent
 Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
 published question revision. The Questions and Policies workspace pages expose these assignment controls
 separately; they do not override question policies. See
@@ -144,16 +144,17 @@ separately; they do not override question policies. See
 
 An instructor may intentionally choose a different composition. For example, a mastery threshold can
 use `ScoreAtLeast` when partial-credit questions are pedagogically meaningful, and per-item
-correctness or feedback text can use a different assignment timing when an answer-oriented solution
-would spoil a later self-explanation. Such choices remain explicit policy decisions, not accidental
+correctness or Question Feedback can use a different assignment timing when a Question Answer or
+Question Answer Explanation would spoil a later self-explanation. Such choices remain explicit policy decisions, not accidental
 side effects of a label.
 
 ## Feedback and timing
 
 ### Feedback is server-projected
 
-Each assignment independently schedules five student-visible fields: score,
-per-item correctness, feedback text, solution, and class statistics. Each uses
+Each assignment independently schedules six student-visible fields: score,
+per-item correctness, Question Feedback, Question Answer, Question Answer Explanation,
+and class statistics. Each uses
 one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
 `Never`. The server first requires Active Student Course Membership, then uses the current
 S3-resolved effective-policy verdict and authoritative time to evaluate the
@@ -161,7 +162,7 @@ current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains 
 corresponding boundary is absent; a withheld field is omitted rather than sent
 as a hidden null.
 
-For the recommended mastery bundle, set all five fields to `AfterSubmit`.
+For the recommended mastery bundle, set all six fields to `AfterSubmit`.
 An assessment can instead schedule each field independently without changing
 the selected question or its retry bound.
 
@@ -204,16 +205,16 @@ Those are current user-interface facts, not evidence that a formal assignment-ty
 
 The following is a planned instructor-facing layer over the existing orthogonal model. It should be
 implemented as recognizable activity types with safe defaults, not as a new persisted combined enum.
-The stored Assignment remains `AssignmentActivityRules`, five independent Student Feedback Release timings, selected
+The stored Assignment remains `AssignmentActivityRules`, six independent Student Feedback Release timings, selected
 published question revisions, and access policy. The examples below are proposed defaults, not a
 claim that an older coarse feedback bundle is directly representable.
 
 | Activity type              | Default intent                                              | Proposed policy bundle                                                                                                                                                | Status                                                                                                                 |
 | -------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; score, correctness, feedback text, solution, and class statistics each `AfterSubmit`                       | Fully representable today; chooser is planned                                                                          |
-| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the five assignment disclosure fields set deliberately, for example all `AfterSubmit`                                        | Fully representable today; chooser is planned                                                                          |
+| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; all six Student Feedback Release fields each `AfterSubmit`                                                | Fully representable today; chooser is planned                                                                          |
+| Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the six assignment disclosure fields set deliberately, for example all `AfterSubmit`                                         | Fully representable today; chooser is planned                                                                          |
 | Exam                       | Controlled single-Assignment-Attempt assessment             | `AnswerAll`, `Latest`, `Closed`; restricted Question Attempts and server timing; each disclosure field explicitly `AfterDue`, `AfterClose`, or `Never` as appropriate | Fully representable today; chooser is planned                                                                          |
-| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the five Assignment disclosure fields explicitly selected for learning                                                  | Continued Assignment Attempts are representable; an explicit no-grade / Gradebook-visibility policy is not yet modeled |
+| Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the six Assignment disclosure fields explicitly selected for learning                                                   | Continued Assignment Attempts are representable; an explicit no-grade / Gradebook-visibility policy is not yet modeled |
 
 The Standard and Exam defaults use `Latest` because `Closed` permits one completed Assignment Attempt, making it
 the only score candidate. That is a clear expression of current semantics, not a claim that every

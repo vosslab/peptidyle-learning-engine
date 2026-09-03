@@ -70,7 +70,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Source must use a supported Question Type';
     END IF;
-    IF (p_backend = 'ple' AND p_question_format NOT IN ('pleQuestionJson', 'pleAlgorithmic'))
+    IF (p_backend = 'ple' AND p_question_format <> 'pleQuestionJson')
        OR (p_backend = 'webwork' AND p_question_format <> 'webworkPg')
        OR (p_backend = 'qti' AND p_question_format <> 'qti')
        OR (p_backend = 'imathas' AND p_question_format <> 'imathas')

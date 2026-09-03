@@ -1,4 +1,4 @@
--- SD1 Assignment Analysis and Assignment Question Analysis with immutable evidence.
+-- Assignment Analysis and Assignment Question Analysis.
 
 SET LOCAL ROLE ple_data_owner;
 CREATE TABLE ple_data.assignment_analysis (

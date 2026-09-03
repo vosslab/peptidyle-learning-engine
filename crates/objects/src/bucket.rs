@@ -1,4 +1,4 @@
-//! Typed Object Storage Area and Object Address construction (WP-C4, MOD-OBJ).
+//! Typed Object Storage Area and Object Address construction.
 
 use question_model::generation::QuestionSeed;
 use question_model::{
@@ -65,7 +65,7 @@ pub enum ObjectDataClass {
 /// Stable identity components from which an immutable Object Address is built.
 ///
 /// There is no raw-string variant. Callers choose a semantic destination and
-/// supply typed IDs; MOD-OBJ alone decides the physical path.
+/// supply typed IDs; this crate alone decides the physical path.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(
     tag = "kind",

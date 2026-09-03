@@ -22,7 +22,7 @@ import local_stack_control.process
 
 POSTGRES_USER = "ple_live_demo_browser"
 POSTGRES_DATABASE = "ple_live_demo_browser"
-LOCAL_SYSADMIN_ID = "00000000-0000-0000-0000-000000000105"
+LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = "00000000-0000-0000-0000-000000000105"
 REQUIRED_SELECTION_NAMES = (
 	"PLE_WEBWORK_RENDERER_IMAGE",
 	"PLE_WEBWORK_RENDERER_BASE_URL",
@@ -138,8 +138,8 @@ def validate_ports(ports: LiveDemoPorts) -> None:
 
 
 #============================================
-def require_canonical_selections(selections: Mapping[str, str]) -> None:
-	"""Accept the complete line-safe canonical image and renderer selections."""
+def require_safe_selections(selections: Mapping[str, str]) -> None:
+	"""Require every live-demo selection to have a complete line-safe value."""
 	# ASVS 2.2.1: allow only the documented ASCII value shape at this boundary.
 	for name in REQUIRED_SELECTION_NAMES:
 		if name not in selections:
@@ -188,7 +188,7 @@ def write_private_target(
 	"""Write one fixed owner/project target with a closed production-auth profile."""
 	policy = local_stack_control.models.live_demo_profile_policy(profile)
 	validate_ports(ports)
-	require_canonical_selections(selections)
+	require_safe_selections(selections)
 	if not directory.is_dir() or directory.is_symlink():
 		raise local_stack_control.models.ControllerError(
 			"live-demo target directory must be an existing private directory"
@@ -225,11 +225,11 @@ def write_private_target(
 		"PLE_STORAGE_TOPOLOGY=disposable-local\n"
 		f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={invitation_path}\n"
 		f"PLE_QUESTION_ID_SECRET_HOST_FILE={question_path}\n"
-		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_USER_ID=00000000-0000-0000-0000-000000000101\n"
-		"PLE_LIVE_DEMO_MARY_STUDENT_USER_ID=00000000-0000-0000-0000-000000000102\n"
-		"PLE_LIVE_DEMO_JACK_STUDENT_USER_ID=00000000-0000-0000-0000-000000000103\n"
-		"PLE_LIVE_DEMO_AVERY_STUDENT_USER_ID=00000000-0000-0000-0000-000000000104\n"
-		f"PLE_LIVE_DEMO_SYSADMIN_USER_ID={LOCAL_SYSADMIN_ID}\n"
+		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=00000000-0000-0000-0000-000000000101\n"
+		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID=00000000-0000-0000-0000-000000000102\n"
+		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID=00000000-0000-0000-0000-000000000103\n"
+		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID=00000000-0000-0000-0000-000000000104\n"
+		f"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID={LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID}\n"
 		f"PLE_WEBWORK_RENDERER_IMAGE={selections['PLE_WEBWORK_RENDERER_IMAGE']}\n"
 		f"PLE_WEBWORK_RENDERER_BASE_URL={selections['PLE_WEBWORK_RENDERER_BASE_URL']}\n"
 		f"PLE_WEBWORK_RENDERER_ID={selections['PLE_WEBWORK_RENDERER_ID']}\n"

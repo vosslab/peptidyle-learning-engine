@@ -14,14 +14,18 @@ import {
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const studentProgress = {
-  assignment_scoring_state: "current",
-  score_state: "available",
-  current_score: 0,
-  best_score: 1,
-  latest_score: 0,
-  completed_assignment_attempt_count: 2,
-  total_question_attempts: 4,
-  last_activity_at: 1786000000000,
+  assignment_progress: {
+    completed_assignment_attempt_count: 2,
+    total_question_attempts: 4,
+    last_activity_at: 1786000000000,
+  },
+  student_assignment_grade: {
+    score_state: "available",
+    assignment_scoring_state: "current",
+    current_score: 0,
+    best_score: 1,
+    latest_score: 0,
+  },
 };
 
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {
@@ -97,14 +101,14 @@ test("Student Question Pool Selection Position exposes only a valid server-selec
   const pooled = {
     ...attempt,
     assignmentScoringState: "current",
-    questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2 },
+    questionPoolSelectionPosition: { selectedQuestionNumber: 1, selectedQuestionCount: 2 },
   };
   assert.deepEqual(decodeStudentQuestionAttempt(pooled), pooled);
   assert.throws(
     () =>
       decodeStudentQuestionAttempt({
         ...pooled,
-        questionPoolSelectionPosition: { itemNumber: 3, itemCount: 2 },
+        questionPoolSelectionPosition: { selectedQuestionNumber: 3, selectedQuestionCount: 2 },
       }),
     DecodeError,
   );
@@ -112,7 +116,11 @@ test("Student Question Pool Selection Position exposes only a valid server-selec
     () =>
       decodeStudentQuestionAttempt({
         ...pooled,
-        questionPoolSelectionPosition: { itemNumber: 1, itemCount: 2, seed: 7 },
+        questionPoolSelectionPosition: {
+          selectedQuestionNumber: 1,
+          selectedQuestionCount: 2,
+          seed: 7,
+        },
       }),
     DecodeError,
   );
@@ -267,7 +275,7 @@ test("submission receipts reject hostile private grading data", () => {
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
           issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-          seed: receipt.attempt.seed,
+          question_seed: receipt.attempt.question_seed,
           deadline: null,
           renderedQuestionSha256: "b".repeat(64),
         },
@@ -283,7 +291,7 @@ test("submission receipts reject hostile private grading data", () => {
         nextIssued: {
           id: "0198e000-0000-7000-8000-000000000035",
           issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-          seed: receipt.attempt.seed,
+          question_seed: receipt.attempt.question_seed,
           deadline: null,
           renderedQuestionSha256: "b".repeat(64),
         },

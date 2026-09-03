@@ -43,7 +43,7 @@ BEGIN
 
     -- Each private record owns exact checksum fields.  Check their stable
     -- column and CHECK-constraint contracts rather than inferring integrity
-    -- from a historical spelling in arbitrary constraint-definition text.
+    -- from a historical spelling in arbitrary constraint expression text.
     FOR table_name, checksum_column_name IN
         SELECT expected_integrity.table_name, expected_integrity.column_name
         FROM (VALUES
@@ -308,11 +308,12 @@ END
 $$;
 
 -- The Object Record writer accepts only the caller's exact workspace source
--- address.  The staged-database oracle exercises the capability as ple_app;
+-- address. The PostgreSQL Migration Acceptance Runtime oracle exercises the
+-- capability as ple_app;
 -- it does not grant that role ambient private-table access.
 BEGIN;
 
-INSERT INTO ple_private.account (account_id, role, created_at)
+INSERT INTO ple_private.account (account_id, product_role, created_at)
 VALUES ('00000000-0000-0000-0000-000000000901', 'instructor', '2026-08-31T00:00:00Z');
 INSERT INTO ple_private.authoring_workspace (
     workspace_id, owner_account_id, created_at

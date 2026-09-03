@@ -17,7 +17,6 @@ const presentation = {
   title: "Peptide-bond geometry",
   prompt: [{ kind: "text", markdown: "Estimate the omega angle." }],
   response,
-  seed: 17,
   questionAnswer: [{ kind: "text", markdown: "180 degrees." }],
   questionAnswerExplanation: [{ kind: "text", markdown: "The peptide bond is planar." }],
 };
@@ -30,7 +29,6 @@ test("author preview accepts only an exact display-ready presentation", () => {
       title: presentation.title,
       prompt: presentation.prompt,
       response: presentation.response,
-      seed: presentation.seed,
       questionAnswer: presentation.questionAnswer,
       questionAnswerExplanation: presentation.questionAnswerExplanation,
     },
@@ -78,11 +76,11 @@ test("the dedicated author client is same-origin, no-store, and never runs until
   });
 
   assert.equal(calls.length, 0);
-  const result = await client.requestPresentation(workspace, 17, '"4"');
+  const result = await client.requestPresentation(workspace, '"4"');
   assert.equal(result.kind, "available");
   assert.deepEqual(calls, [
     {
-      input: `/api/workspaces/${workspace}/author-preview?seed=17`,
+      input: `/api/workspaces/${workspace}/author-preview`,
       init: {
         headers: { accept: "application/json", "if-match": '"4"' },
         credentials: "same-origin",
@@ -90,7 +88,7 @@ test("the dedicated author client is same-origin, no-store, and never runs until
       },
     },
   ]);
-  await assert.rejects(client.requestPresentation(workspace, -1, '"4"'), /whole number/);
+  await assert.rejects(client.requestPresentation(workspace, '"0"'), /strong numeric ETag/);
   assert.equal(calls.length, 1, "invalid local input must not issue a request");
 });
 
@@ -99,7 +97,7 @@ test("the dedicated author client retains no untrusted error response body", asy
     fetch: async () => new Response('{"key":"do-not-retain"}', { status: 403 }),
   });
   await assert.rejects(
-    client.requestPresentation(workspace, 17, '"4"'),
+    client.requestPresentation(workspace, '"4"'),
     (error) => error instanceof InstructorPreviewRequestError && error.status === 403,
   );
 });
@@ -112,11 +110,11 @@ test("the author client requires the exact saved revision in both directions", a
       }),
   });
   await assert.rejects(
-    mismatch.requestPresentation(workspace, 17, '"4"'),
+    mismatch.requestPresentation(workspace, '"4"'),
     /does not match the saved draft/,
   );
   await assert.rejects(
-    mismatch.requestPresentation(workspace, 17, '"9223372036854775808"'),
+    mismatch.requestPresentation(workspace, '"9223372036854775808"'),
     /strong numeric ETag/,
   );
 
@@ -124,7 +122,7 @@ test("the author client requires the exact saved revision in both directions", a
     fetch: async () => new Response("", { status: 409 }),
   });
   await assert.rejects(
-    conflict.requestPresentation(workspace, 17, '"4"'),
+    conflict.requestPresentation(workspace, '"4"'),
     (error) => error instanceof InstructorPreviewConflictError && error.status === 409,
   );
 });

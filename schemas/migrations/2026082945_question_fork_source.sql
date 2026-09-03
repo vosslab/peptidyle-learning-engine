@@ -128,7 +128,8 @@ $$;
 -- The trusted publication coordinator binds the existing Draft Question Fork
 -- Source to the new, separate Published Question lineage. It is deliberately
 -- unavailable to the application role until a complete publication Store owns
--- the surrounding validation, credit, license, source-transfer, and event work.
+-- the surrounding validation, Question Authorship, Question License,
+-- source-transfer, and event work.
 CREATE FUNCTION ple_private.publish_question_fork_source(
     p_draft_question_uuid uuid,
     p_forked_question_id text

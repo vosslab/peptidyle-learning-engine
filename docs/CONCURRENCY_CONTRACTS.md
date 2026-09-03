@@ -23,7 +23,7 @@ this document means:
 
 ## Authority status
 
-**Current authority.** The applied SD1 schema and mounted Authenticated Session
+**Current authority.** The current applied schema and mounted Authenticated Session
 boundary establish database and Account facts. Store-backed course, authoring,
 activity, worker, and object operations remain deferred; this document
 specifies the concurrency rules they must satisfy when composed.
@@ -33,8 +33,8 @@ idempotency or compare-and-swap rule, and lock order before it can expose a
 result. A worker must name its lease and, when output can be superseded, its
 generation fence.
 
-**Planned boundaries.** The general Object Storage Check and Repair package is
-WP-RC7.
+**Planned boundaries.** The general Object Storage Check and Repair capability
+remains unimplemented.
 Managed failover and recovery objectives are deployment work; this
 document does not claim either is implemented.
 
@@ -47,15 +47,15 @@ PostgreSQL metadata to bytes. The browser can retry an authenticated request, wh
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
-| State or decision                              | Authoritative owner                                             | Status           | Main implementation owner                                                                                                                             |
-| ---------------------------------------------- | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS | Implemented      | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state         | Revisioned PostgreSQL rows                                      | Deferred SD1-C/D | Store-backed authoring and course composition                                                                                                         |
-| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence             | Deferred SD1-C/D | Store-backed Student delivery composition                                                                                                             |
-| Background work ownership                      | PostgreSQL job row plus opaque lease token                      | Deferred SD1-C/D | Store-backed job composition                                                                                                                          |
-| Current analytic projection                    | Assignment/timing generation plus an active lease               | Deferred SD1-C/D | Store-backed scoring and analysis composition                                                                                                         |
-| Published Question Revision                    | Immutable version rows created from an exact draft revision     | Deferred SD1-C/D | Store-backed published-Question composition                                                                                                           |
-| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                             | Planned, WP-RC7  | [release_completion_plan.md](active_plans/active/release_completion_plan.md)                                                                          |
+| State or decision                              | Authoritative owner                                                   | Status      | Main implementation owner                                                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS       | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Mutable authoring and assignment state         | Revisioned PostgreSQL rows                                            | Planned     | Future Store-backed authoring and Course Instance composition                                                                                         |
+| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence                   | Planned     | Future Store-backed Student delivery composition                                                                                                      |
+| Background work ownership                      | PostgreSQL Job row plus opaque lease token                            | Planned     | Future Store-backed Job composition                                                                                                                   |
+| Current analytic projection                    | Assignment/timing generation plus an active lease                     | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
+| Published Question Revision                    | Immutable revision rows created from an exact Draft Question Revision | Planned     | Future Store-backed published Question composition                                                                                                    |
+| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                   | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
 
 ## Account-scoped transactions and retries
 
@@ -222,8 +222,8 @@ hash; backend state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
 An iMathAS Result Exchange is separately idempotent, lease-fenced, and
-indeterminate-safe. It binds the attempt/version/seed/source checksum,
-response digest, backend correlation, and idempotency key before verification.
+indeterminate-safe. It binds the attempt/version/seed/Source Object Checksum,
+iMathAS Response Checksum, backend correlation, and idempotency key before verification.
 Before an effectful backend POST, the holder must atomically prove the exact
 launch-token hash and an unexpired authoritative lease, then write the durable
 pre-dispatch marker. A crash or ambiguous outcome leaves that marker in place:
@@ -257,7 +257,7 @@ promotion exists today.
 
 ### Planned Object Storage Check and Repair fence
 
-WP-RC7 owns the general Object Storage Check job. It must compare typed
+The general Object Storage Check job must compare typed
 database records with bucket inventory, repair only evidence-backed
 prepare/promote/cleanup states, and record every decision. It must not treat a
 bucket listing as permission to expose, delete, or recreate an object. Until

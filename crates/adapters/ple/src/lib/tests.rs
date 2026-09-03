@@ -1,20 +1,12 @@
-use std::collections::BTreeMap;
-
 use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_ple_draft};
-use domain::generator::QuestionVariationParameters;
-use domain::student_feedback_release::{StudentFeedbackReleaseDecision, project_student_feedback};
-use grading::{AnswerKey, GradingError};
-use question_model::QuestionLicense;
-use question_model::answer::NumericResponseTolerance;
-use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
+use grading::GradingError;
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
+use question_model::generation::QuestionSeed;
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
-    DraftQuestionContent, QuestionAnswer, QuestionAnswerExplanation, QuestionAssetId,
-    QuestionBackend, QuestionFeedback, QuestionFormat, QuestionGradingRule, QuestionId,
-    QuestionMetadata, QuestionRevision, QuestionRevisionNumber, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, StudentResponse, WorkspaceId,
+    DraftQuestionContent, QuestionAssetId, QuestionBackend, QuestionId, QuestionRevision,
+    QuestionRevisionNumber, SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    WorkspaceId,
 };
 use question_model::{
     QuestionAssetReference as PresentedQuestionAssetReference, QuestionContentBlock,
@@ -55,25 +47,11 @@ pub(super) fn ple_question_json_question() -> QuestionRevision {
         .expect("PLE fixture has valid backend fields")
 }
 
-fn metadata(title: &str) -> QuestionMetadata {
-    QuestionMetadata {
-        title: title.to_string(),
-        question_description: format!("Instructor-facing summary for {title}."),
-        tags: Vec::new(),
-        question_license: Some(QuestionLicense::CcBySa4_0),
-        question_citation: None,
-        language: "en-US".to_string(),
-    }
-}
-
 #[test]
 fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
-    let mut adapter = PleQuestionBackend::empty();
-    adapter
-        .register_implementation(NumericReferenceImplementation)
-        .expect("the test implementation is unique");
+    let adapter = PleQuestionBackend::new();
     let question = ple_question_json_question();
-    let mut draft = DraftQuestionContent {
+    let draft = DraftQuestionContent {
         workspace: question.workspace,
         question_backend: QuestionBackend::Ple,
         webwork_pg_path: None,
@@ -86,20 +64,13 @@ fn an_implementation_without_an_author_presentation_is_honestly_unavailable() {
         question_type: question.question_type,
         question_attempt_limit: question.question_attempt_limit,
         question_attempt_time_limit: question.question_attempt_time_limit,
-        question_variation_rule: question.question_variation_rule,
         grading: question.grading,
         metadata: question.metadata,
     };
-    draft.question_format = QuestionFormat::PleAlgorithmic;
-    draft.question_type = QuestionType::Numeric;
-    draft.question_variation_rule = QuestionVariationRule::Static;
-    draft.prompt = vec![QuestionContentBlock::Text {
-        markdown: "Enter the reference value.".to_string(),
-    }];
 
     assert!(
         adapter
-            .author_presentation(&draft, QuestionSeed::new(4))
+            .author_presentation(&draft)
             .expect("the default author-presentation implementation is safe")
             .is_none(),
         "Question Implementations opt in explicitly; the engine never serializes a grading key as a fallback"
@@ -136,7 +107,6 @@ fn ple_question_json_capabilities_are_installed_and_reproducible_without_answer_
         .reproduce(
             &question,
             QuestionSeed::new(10),
-            &issue.parameter_hash,
             &issue.reproduction_details,
             &[],
         )
@@ -167,7 +137,6 @@ fn ple_question_json_grading_refuses_without_server_persisted_answer_key() {
         adapter.grade(
             &question,
             QuestionSeed::new(11),
-            &issue.parameter_hash,
             &issue.reproduction_details,
             &[],
             &StudentResponse::MultipleChoice {
@@ -194,18 +163,13 @@ fn ple_draft_preview_matches_the_published_question_presentation() {
             &[],
         )
         .expect("PLE issue");
-    let preview = preview_ple_draft(
-        &DraftPreviewRequest {
-            workspace: question.workspace,
-            question_backend: QuestionBackend::Ple,
-            title: question.metadata.title.clone(),
-            prompt: question.prompt.clone(),
-            response: question.response.clone(),
-            question_variation_rule: question.question_variation_rule.clone(),
-        },
-        seed,
-    )
-    .expect("PLE preview");
+    let preview = preview_ple_draft(&DraftPreviewRequest {
+        workspace: question.workspace,
+        question_backend: QuestionBackend::Ple,
+        title: question.metadata.title.clone(),
+        prompt: question.prompt.clone(),
+        response: question.response.clone(),
+    });
     let DraftPreviewResult::Ready { preview } = preview else {
         panic!("PLE previews locally")
     };
@@ -234,7 +198,6 @@ fn altered_question_attempt_reproduction_details_are_refused_before_grading() {
         adapter.grade(
             &question,
             QuestionSeed::new(5),
-            &issued.parameter_hash,
             &altered,
             &[],
             &StudentResponse::MultipleChoice {
@@ -333,7 +296,6 @@ fn question_asset_object_references_require_exact_complete_trusted_records() {
         adapter.reproduce(
             &question,
             QuestionSeed::new(82),
-            &issued.parameter_hash,
             &altered_reproduction_details,
             &question_asset_object_references,
         ),
@@ -399,7 +361,7 @@ fn rendered_question_presentation_hash_has_a_fixed_compatibility_vector() {
         .expect("fixed vector should issue");
     assert_eq!(
         issued.reproduction_details.rendered_question_sha256,
-        "c0e7badee61758c5bc1fb2ea0e99244847424c4565df07fefb570f872a577f4f"
+        "62c548e1ff767a76ea4e93ba42c09c3c4bf1a8ca9d7d369be6c58e22aa936088"
     );
 }
 
@@ -420,414 +382,4 @@ fn historical_blank_or_oversized_titles_are_refused_before_issue() {
             Err(PleQuestionBackendError::InvalidTitle(_))
         ));
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct NumericReferenceImplementation;
-
-impl PleQuestionImplementation for NumericReferenceImplementation {
-    fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::PleAlgorithmic
-    }
-
-    fn question_type(&self) -> QuestionType {
-        QuestionType::Numeric
-    }
-
-    fn implementation_release(&self) -> crate::generator::PleQuestionImplementationRelease {
-        crate::generator::PleQuestionImplementationRelease {
-            id: "numeric-reference".to_string(),
-            version: "1".to_string(),
-        }
-    }
-
-    fn generator(&self) -> Option<QuestionGeneratorReference> {
-        None
-    }
-
-    fn capabilities(&self) -> QuestionBackendCapabilities {
-        QuestionBackendCapabilities::from_iter([
-            Capability::ClientRendering,
-            Capability::ServerGrading,
-        ])
-    }
-
-    fn derive_answer_key(
-        &self,
-        question: &QuestionRevision,
-        _generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, PleQuestionBackendError> {
-        if !matches!(question.response, QuestionResponseFormat::Numeric { .. }) {
-            return Err(
-                PleQuestionBackendError::IncompatibleQuestionImplementation {
-                    message: "numeric response required".to_string(),
-                },
-            );
-        }
-        Ok(Some(AnswerKey::Numeric { expected: 7.0 }))
-    }
-
-    fn derive_question_feedback_answer_and_explanation(
-        &self,
-        _question: &QuestionRevision,
-        _generated: &QuestionVariationParameters,
-        _presentation: &question_model::QuestionVariationPresentation,
-        _answer_key: Option<&AnswerKey>,
-        _result: &question_model::GradingResult,
-        _response: &StudentResponse,
-    ) -> Result<
-        (
-            QuestionFeedback,
-            Option<QuestionAnswer>,
-            Option<QuestionAnswerExplanation>,
-        ),
-        PleQuestionBackendError,
-    > {
-        Ok((
-            QuestionFeedback {
-                choice_feedback: Some(vec![QuestionContentBlock::Text {
-                    markdown: "Feedback value.".to_string(),
-                }]),
-                correct_feedback: None,
-                incorrect_feedback: None,
-            },
-            QuestionAnswer::new(vec![QuestionContentBlock::Text {
-                markdown: "Answer value.".to_string(),
-            }]),
-            QuestionAnswerExplanation::new(vec![QuestionContentBlock::Text {
-                markdown: "Explanation value.".to_string(),
-            }]),
-        ))
-    }
-}
-
-#[test]
-fn verified_grading_keeps_question_feedback_answer_and_explanation_distinct_for_student_release() {
-    let mut adapter = PleQuestionBackend::empty();
-    adapter
-        .register_implementation(NumericReferenceImplementation)
-        .expect("test implementation should register");
-    let question = QuestionRevision {
-        question_id: question_id(),
-        revision_number: revision_number(4),
-        workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        question_backend: QuestionBackend::Ple,
-        webwork_pg_path: None,
-        qti_package_item_identifier: None,
-        imathas_question_backend_binding: None,
-        question_format: QuestionFormat::PleAlgorithmic,
-        prompt: vec![QuestionContentBlock::Text {
-            markdown: "Enter the reference value.".to_string(),
-        }],
-        response: QuestionResponseFormat::Numeric {
-            tolerance: NumericResponseTolerance::Exact,
-            unit: None,
-        },
-        question_type: QuestionType::Numeric,
-        question_attempt_limit: QuestionAttemptLimit {
-            max_attempts: Some(1),
-        },
-        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_rule: QuestionVariationRule::Static,
-        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
-        metadata: metadata("Release roles"),
-    };
-    let issued = adapter
-        .issue(
-            &question,
-            QuestionSeed::new(12),
-            &source_object_reference(),
-            &source_object_checksum(),
-            &[],
-        )
-        .expect("verified PLE Question should issue");
-    let evaluation = adapter
-        .grade_with_feedback_answer_and_explanation(
-            &question,
-            QuestionSeed::new(12),
-            &issued.parameter_hash,
-            &issued.reproduction_details,
-            &[],
-            &StudentResponse::Numeric { value: 7.0 },
-        )
-        .expect("verified PLE Question should grade");
-    let grading::QuestionGradingOutcome::Graded(result) = evaluation.outcome else {
-        panic!("the numeric response should produce a grading result")
-    };
-    let disclosed = project_student_feedback(
-        StudentFeedbackReleaseDecision {
-            score: false,
-            per_item_correctness: false,
-            question_feedback: true,
-            question_answer: true,
-            question_answer_explanation: true,
-            class_statistics: false,
-        },
-        Some(result),
-        &evaluation.question_feedback,
-        evaluation.question_answer.as_ref(),
-        evaluation.question_answer_explanation.as_ref(),
-    )
-    .expect("the release decision exposes each selected teaching role");
-
-    assert_eq!(
-        disclosed.choice_feedback,
-        Some(vec![QuestionContentBlock::Text {
-            markdown: "Feedback value.".to_string(),
-        }])
-    );
-    assert_eq!(
-        disclosed.question_answer,
-        Some(vec![QuestionContentBlock::Text {
-            markdown: "Answer value.".to_string(),
-        }])
-    );
-    assert_eq!(
-        disclosed.question_answer_explanation,
-        Some(vec![QuestionContentBlock::Text {
-            markdown: "Explanation value.".to_string(),
-        }])
-    );
-}
-
-#[test]
-fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
-    let mut adapter = PleQuestionBackend::empty();
-    adapter
-        .register_implementation(NumericReferenceImplementation)
-        .expect("new implementation identifier should register");
-    let question = QuestionRevision {
-        question_id: question_id(),
-        revision_number: revision_number(3),
-        workspace: WorkspaceId::from_uuid(Uuid::from_u128(4)),
-        question_backend: QuestionBackend::Ple,
-        webwork_pg_path: None,
-        qti_package_item_identifier: None,
-        imathas_question_backend_binding: None,
-        question_format: QuestionFormat::PleAlgorithmic,
-        prompt: vec![QuestionContentBlock::Text {
-            markdown: "Enter the reference value.".to_string(),
-        }],
-        response: QuestionResponseFormat::Numeric {
-            tolerance: NumericResponseTolerance::Exact,
-            unit: None,
-        },
-        question_type: QuestionType::Numeric,
-        question_attempt_limit: QuestionAttemptLimit {
-            max_attempts: Some(1),
-        },
-        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_rule: QuestionVariationRule::Static,
-        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
-        metadata: metadata("Numeric registry extension"),
-    };
-    let issued = adapter
-        .issue(
-            &question,
-            QuestionSeed::new(123),
-            &source_object_reference(),
-            &source_object_checksum(),
-            &[],
-        )
-        .expect("registered Question Implementation should issue through the generic adapter");
-
-    assert!(
-        adapter
-            .capabilities(&question)
-            .expect("registered source should expose capabilities")
-            .supports(Capability::ServerGrading)
-    );
-    assert!(matches!(
-        adapter.grade(
-            &question,
-            QuestionSeed::new(123),
-            &issued.parameter_hash,
-            &issued.reproduction_details,
-            &[],
-            &StudentResponse::Numeric { value: 7.0 },
-        ),
-        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
-    ));
-}
-
-#[derive(Debug, Clone, Copy)]
-struct VersionedNumericImplementation {
-    version: &'static str,
-    implementation_release: &'static str,
-    expected: f64,
-    supports_client_rendering: bool,
-}
-
-impl PleQuestionImplementation for VersionedNumericImplementation {
-    fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::PleAlgorithmic
-    }
-
-    fn question_type(&self) -> QuestionType {
-        QuestionType::Numeric
-    }
-
-    fn implementation_release(&self) -> crate::generator::PleQuestionImplementationRelease {
-        crate::generator::PleQuestionImplementationRelease {
-            id: "versioned-numeric".to_string(),
-            version: self.implementation_release.to_string(),
-        }
-    }
-
-    fn generator(&self) -> Option<QuestionGeneratorReference> {
-        Some(QuestionGeneratorReference {
-            id: "versioned-numeric-generator".to_string(),
-            version: self.version.to_string(),
-        })
-    }
-
-    fn capabilities(&self) -> QuestionBackendCapabilities {
-        let mut capabilities = vec![Capability::ServerGrading];
-        if self.supports_client_rendering {
-            capabilities.push(Capability::ClientRendering);
-        }
-        QuestionBackendCapabilities::from_iter(capabilities)
-    }
-
-    fn derive_answer_key(
-        &self,
-        question: &QuestionRevision,
-        _generated: &QuestionVariationParameters,
-    ) -> Result<Option<AnswerKey>, PleQuestionBackendError> {
-        let _ = question;
-        Ok(Some(AnswerKey::Numeric {
-            expected: self.expected,
-        }))
-    }
-}
-
-fn versioned_numeric_question(version: &str) -> QuestionRevision {
-    QuestionRevision {
-        question_id: question_id(),
-        revision_number: revision_number(if version == "1" { 5 } else { 6 }),
-        workspace: WorkspaceId::from_uuid(Uuid::from_u128(7)),
-        question_backend: QuestionBackend::Ple,
-        webwork_pg_path: None,
-        qti_package_item_identifier: None,
-        imathas_question_backend_binding: None,
-        question_format: QuestionFormat::PleAlgorithmic,
-        prompt: vec![QuestionContentBlock::Text {
-            markdown: "Enter the generated reference value.".to_string(),
-        }],
-        response: QuestionResponseFormat::Numeric {
-            tolerance: NumericResponseTolerance::Exact,
-            unit: None,
-        },
-        question_type: QuestionType::Numeric,
-        question_attempt_limit: QuestionAttemptLimit {
-            max_attempts: Some(1),
-        },
-        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_rule: QuestionVariationRule::Seeded {
-            generator: QuestionGeneratorReference {
-                id: "versioned-numeric-generator".to_string(),
-                version: version.to_string(),
-            },
-            parameters: BTreeMap::new(),
-        },
-        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
-        metadata: metadata("Versioned numeric implementation"),
-    }
-}
-
-#[test]
-fn additive_generator_versions_coexist_while_question_summary_capabilities_stay_conservative() {
-    let mut adapter = PleQuestionBackend::empty();
-    adapter
-        .register_implementation(VersionedNumericImplementation {
-            version: "1",
-            implementation_release: "1",
-            expected: 1.0,
-            supports_client_rendering: true,
-        })
-        .expect("first generator version should register");
-    adapter
-        .register_implementation(VersionedNumericImplementation {
-            version: "2",
-            implementation_release: "2",
-            expected: 2.0,
-            supports_client_rendering: false,
-        })
-        .expect("additive generator version should coexist with the first");
-
-    let version_one = versioned_numeric_question("1");
-    let version_two = versioned_numeric_question("2");
-    let first_issue = adapter
-        .issue(
-            &version_one,
-            QuestionSeed::new(41),
-            &source_object_reference(),
-            &source_object_checksum(),
-            &[],
-        )
-        .expect("published generator version 1 remains dispatchable");
-    let second_issue = adapter
-        .issue(
-            &version_two,
-            QuestionSeed::new(41),
-            &source_object_reference(),
-            &source_object_checksum(),
-            &[],
-        )
-        .expect("published generator version 2 dispatches independently");
-
-    let question_summary_capabilities = adapter
-        .capabilities(&version_one)
-        .expect("implementation capabilities should resolve without a generator reference");
-    assert!(question_summary_capabilities.supports(Capability::ServerGrading));
-    assert!(!question_summary_capabilities.supports(Capability::ClientRendering));
-    assert!(matches!(
-        adapter.grade(
-            &version_one,
-            QuestionSeed::new(41),
-            &first_issue.parameter_hash,
-            &first_issue.reproduction_details,
-            &[],
-            &StudentResponse::Numeric { value: 1.0 },
-        ),
-        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
-    ));
-    assert!(matches!(
-        adapter.grade(
-            &version_two,
-            QuestionSeed::new(41),
-            &second_issue.parameter_hash,
-            &second_issue.reproduction_details,
-            &[],
-            &StudentResponse::Numeric { value: 2.0 },
-        ),
-        Ok(QuestionGradingOutcome::Graded(result)) if result.correct
-    ));
-}
-
-#[test]
-fn ple_question_implementation_registration_is_unique_per_source_contract() {
-    let mut adapter = PleQuestionBackend::empty();
-    adapter
-        .register_implementation(VersionedNumericImplementation {
-            version: "1",
-            implementation_release: "1",
-            expected: 1.0,
-            supports_client_rendering: true,
-        })
-        .expect("first source contract should register");
-
-    assert!(matches!(
-        adapter.register_implementation(VersionedNumericImplementation {
-            version: "1",
-            implementation_release: "replacement",
-            expected: 2.0,
-            supports_client_rendering: false,
-        }),
-        Err(PleQuestionBackendError::DuplicateQuestionImplementation {
-            question_format: QuestionFormat::PleAlgorithmic,
-            question_type: QuestionType::Numeric,
-            generator: Some(QuestionGeneratorReference { .. }),
-        })
-    ));
 }

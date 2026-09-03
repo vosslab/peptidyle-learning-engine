@@ -22,23 +22,23 @@ current implementation package.
 - Retire the legacy human manual-grading product surface before C3 while preserving automated
   grader-exception retry/recalculation and roster score export.
 - Preserve accepted migrations and historical evidence while rebuilding current live-stack data
-  from canonical producers.
+  from their current named writers.
 
 ## Naming and architecture boundary
 
-| Concern                            | Canonical owner                     | Required result                                                                                  |
-| ---------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------ |
-| PLE properties and portable values | Rust Serde                          | `snake_case`, strict mutating records, one effective spelling                                    |
-| Generated TypeScript DTO           | `project-tools` `tsgen` modules     | One direct `Foo`; data properties and literals equal effective Serde                             |
-| Route-only request/response DTO    | pure `browser-api-contract`         | No Axum, Store, server runtime, persistence, or application state dependency                     |
-| Server boundary                    | owning route/DTO module             | One mapping from domain/Store state into the direct DTO                                          |
-| Browser boundary                   | owning feature client/decoder       | Direct strict snake DTO plus semantic, disclosure, range, relationship, and opaque-ID checks     |
-| Durable PLE data                   | named producer/reader/version owner | Clean rebuild, named forward version/migration, or frozen history exactly as the Wire Naming Migration Registry declares |
-| External protocol                  | registered/upstream owner           | Existing HTTP, URL, DOM, wasm-bindgen, WebAuthn, QTI, H5P, LTI, IMathAS, or WeBWorK spelling     |
+| Concern                            | Exact responsibility              | Required result                                                                                                          |
+| ---------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| PLE properties and portable values | Rust Serde                        | `snake_case`, strict mutating records, one effective spelling                                                            |
+| Generated TypeScript DTO           | `project-tools` `tsgen` modules   | One direct `Foo`; data properties and literals equal effective Serde                                                     |
+| Route-only request/response DTO    | pure `browser-api-contract`       | No Axum, Store, server runtime, persistence, or application state dependency                                             |
+| Server boundary                    | route/DTO module                  | One mapping from domain/Store state into the direct DTO                                                                  |
+| Browser boundary                   | feature client/decoder            | Direct strict snake DTO plus semantic, disclosure, range, relationship, and opaque-ID checks                             |
+| Durable PLE data                   | named writer, reader, or version  | Clean rebuild, named forward version/migration, or frozen history exactly as the Wire Naming Migration Registry declares |
+| External protocol                  | registered/upstream specification | Existing HTTP, URL, DOM, wasm-bindgen, WebAuthn, QTI, H5P, LTI, IMathAS, or WeBWorK spelling                             |
 
 TypeScript functions, locals, signals, and components retain TypeScript conventions. For example,
 a local `rosterId` may read the direct DTO property `row.roster_id`. `src/api/contracts.ts` may
-compose browser-only values while generated serializable contracts remain direct and canonical.
+compose browser-only values while generated serializable contracts remain direct and Serde-exact.
 
 ## Dependency flow
 
@@ -163,14 +163,14 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
   together. Each migrated PLE boundary accepts snake and rejects retired camel/unknown input.
 - Fixed package scope:
 
-| Package | Atomic child packages                                                                                                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                                  |
-| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                                            |
-| C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                                            |
+| Package | Atomic child packages                                                                                                                                                                                     |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1      | Calculated Gradebook, Student/operation selection, submitted Assignment Attempt chooser, audited detail, roster, roster import, roster score CSV export                                                   |
+| C2      | Session/logout, passwordless/account/email/invitation, seeded selector, PLE WebAuthn wrappers                                                                                                             |
+| C3      | Assignment Attempt/Question Attempt/prefetch/submit/status/summary/feedback, iMathAS Question Backend PLE wrapper, author preview, three validation fallbacks                                             |
 | C4      | Question Library browse/search/resolve/detail/publication; Question authoring workspace CRUD/validation/diff; PLE Question JSON assets/source/publication; Question Folder/Saved Question Search curation |
-| C5      | Blueprint-operation preview/apply/inspection, Assignment Import Repair, and PLE QTI import/conversion/publication wrappers                                                                                               |
-| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority, Course Membership, and policy preview                                                                 |
+| C5      | Blueprint-operation preview/apply/inspection, Assignment Import Repair, and PLE QTI import/conversion/publication wrappers                                                                                |
+| C6      | Course/listing, grade scheme/totals/export, assignment workspace/delivery, grading operations, teaching authority, Course Membership, and policy preview                                                  |
 
 The [implementation status registry](../implementation_status.md) is the current route-by-route
 authority. No C7 is created.
@@ -200,6 +200,100 @@ authority. No C7 is created.
   receipt replay, and authorization boundary. Browser mocks do not accept this service or
   persistence claim. Record `git diff --check`, direct generated/wire-shape inspection, and the
   package receipt before completing vocabulary rows 459-460.
+
+### WN1-C6-QM-STUDENT-VIEW-SCENARIO-WIRE: Student View Scenario wire contract
+
+- Owner: one expert coder for the complete preview-plane producer-to-browser contract.
+- Depends on: accepted `WN1-B5`, completed
+  `WN1-QM-TEACHING-ACCOMMODATION-ADJUSTMENT-WIRE`, and completed
+  `WN1-QM-ASSIGNMENT-LATE-WORK-DEADLINE-WIRE`; it precedes `WN1-F`.
+- Outcome: preserve the established Student View Scenario domain names and direct Rust-Serde
+  `snake_case` through `crates/question_model/src/preview_plane.rs`, generated TypeScript,
+  strict preview decoder, request writer, page consumers, and their existing focused Rust/Node
+  evidence. The atomic boundary includes scenario requests and admission, selected moment,
+  effective-policy and feedback-release fields, schedule page fields, and its PLE-owned portable
+  values. The allocation detector separately inventories the current lower-camel Scenario,
+  Accommodation Adjustment, and Late Work/Assignment Deadline field and portable-value families
+  across their complete owned source and serialized-consumer files. The direct producer remains
+  the only spelling owner; generated API files are
+  regenerated, never hand-edited.
+- Boundaries: this child adds no alias, fallback decoder, route, Store, schema, PostgreSQL
+  persistence, feature, fixture family, or permanent test. TypeScript local function and signal
+  names retain lower camel case. Registered HTTP, IANA time-zone, and opaque Reference formats
+  retain their protocol formats. The selected-Student versus hypothetical identity and admission
+  pairing remain unchanged and non-authorizing.
+- Permanent gate: update the existing Question Model and Domain preview-plane tests plus
+  `tests/test_preview_plane_transport.mjs` in place; prove canonical snake input/output and
+  refusal of retired lower-camel data in the existing strict-boundary cases. Regenerate with
+  `cargo tools tsgen`, run generated-contract freshness, TypeScript compilation, Rust formatting,
+  and `git diff --check`. Direct wire-shape and residual searches are one-time closure evidence.
+
+### WN1-C6-QM-ASSIGNMENT-GRADE-PROGRESS-WIRE: Assignment Grade and Progress wire contract
+
+- Status: completed on 2026-09-03. Vocabulary row 126 closes with direct nested `snake_case`
+  records and no mounted delivery boundary; the receipt is recorded in the implementation status
+  registry and changelog.
+- Owner: one expert coder for the complete Student activity/grade model-to-browser closure.
+- Depends on: accepted `WN1-B5`; it precedes `WN1-F` and is independent of the Student View
+  Scenario shared-value children. It serializes the same C6 Student and Gradebook boundary, so
+  it owns that complete closure rather than a second response wrapper.
+- Outcome: directly split the current mixed activity-and-score summary into two exact records and
+  use Rust Serde `snake_case` for every PLE-owned data property. `AssignmentGrade` is the keyed
+  grade-selection record: first completion, selected/best/latest Assignment Attempt bindings, and
+  their scores. `AssignmentProgressRecord` is the keyed activity record: completed Assignment
+  Attempt count, Question Attempt count, and latest activity time. `StudentAssignmentGrade` is
+  the key-free disclosed grade value: score disclosure state, Assignment Scoring State, disclosed
+  scores, and permitted class statistics. Key-free `AssignmentProgress` carries activity only.
+  The Student and Gradebook read shapes nest the exact grade and progress values; no replacement
+  summary type or flattened compatibility shape is permitted.
+- Exact source ownership: `crates/question_model/src/student_work.rs` owns the four records and
+  their effective Serde properties; `crates/domain/src/scoring.rs` owns the paired pure transition
+  update; `crates/domain/src/assignment_activity.rs` owns continuation's progress-only read;
+  `crates/question_model/src/course.rs` owns the exact Gradebook composition, including the current
+  `GradebookSummaryRow` construction and nested-boundary test. `cargo tools
+tsgen` regenerates their direct `generated/api/` declarations. `src/api/decoders/assignment_attempt.ts`
+  owns strict refusal of the retired flattened data; `src/api/contracts.ts`, `src/api/client.ts`,
+  `src/api/application_api.tsx`, and `src/api/http_client/response.ts` own the unmounted client
+  facade; `src/student_progress.ts` and `src/components/student_assignment_presentation.tsx` own
+  Student display. Existing `crates/question_model/src/student_work.rs`,
+  `crates/domain/src/scoring.rs`, `crates/domain/src/assignment_activity.rs`,
+  `crates/domain/tests/assignment_attempt_31.rs`, `crates/question_model/src/course.rs`, and
+  `tests/test_student_progress.mjs` own the focused behavior evidence. Update only current
+  documentation that claims Progress owns scores.
+- Boundary: current server composition mounts neither a Student/Gradebook Store nor a route for
+  these read shapes. This package neither creates persistence, schema, Store, route, worker,
+  fixture, feature, or permanent test nor represents browser client scaffolding as mounted
+  delivery. A later service persists the two exact records and commits its accepted activity
+  transition atomically.
+- Permanent gate: update the named existing Question Model and Domain activity/scoring tests,
+  generated-contract freshness, `tests/test_student_progress.mjs`, TypeScript compilation, and
+  Rust formatting. Exact flattened-field and lower-camel inventories, generated import review,
+  Graphify, documentation review, and residual audit are one-time closure evidence. The package
+  records an independent contextual review before vocabulary row 126 closes.
+
+### WN1-QM-TEACHING-ACCOMMODATION-ADJUSTMENT-WIRE: Accommodation Adjustment wire contract
+
+- Owner: one expert coder for the complete serialized consumer closure of
+  `AccommodationApplicationRuleView`, `AccommodationAdjustmentView`,
+  `TeachingTimeFieldPatch`, `TeachingAssignmentAttemptTimeLimitFieldPatch`, and
+  `TeachingAttemptLimitFieldPatch` in `crates/question_model/src/teaching_operations.rs`.
+- Depends on: accepted `WN1-B5`; it precedes `WN1-C6-QM-STUDENT-VIEW-SCENARIO-WIRE` and any
+  other current consumer that serializes these shared values.
+- Outcome: use direct Rust-Serde `snake_case` data properties and portable values, regenerate
+  each affected TypeScript contract, and update every strict reader/writer and existing focused
+  test that carries these values. This shared child owns its complete consumer graph rather than
+  a preview-only wrapper or duplicate type.
+
+### WN1-QM-ASSIGNMENT-LATE-WORK-DEADLINE-WIRE: Late Work and Assignment Deadline wire contract
+
+- Owner: one expert coder for the complete serialized consumer closure of `LateWorkRule` and
+  `AssignmentDeadlineRule` in `crates/question_model/src/assignment.rs`.
+- Depends on: accepted `WN1-B5`; it precedes `WN1-C6-QM-STUDENT-VIEW-SCENARIO-WIRE` and any
+  other current consumer that serializes these shared portable values.
+- Outcome: use direct Rust-Serde `snake_case` portable values, regenerate each affected
+  TypeScript contract, and update every strict reader/writer and existing focused test that
+  carries them. This child preserves the existing policy behavior and does not introduce a
+  preview-specific enum or compatibility spelling.
 
 For C6, `course/routing.rs` retains shared nonserializing topology, state, and body-limit support.
 `C6-CR1` owns `course/pagination.rs` with direct `CoursePageQuery`, plus
@@ -242,7 +336,7 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   `alt=""`/exact informative-text assertions. Run `cargo fmt --all --check` and `git diff --check`.
   A targeted active-owner search confirms that `CourseBannerAltText` is retired while
   `CourseBannerAlternativeText`, `CourseBannerInformativeText`, and `alternativeText` each retain
-  their distinct canonical meanings. Generated-import inspection and the no-schema/no-route
+  their distinct approved meanings. Generated-import inspection and the no-schema/no-route
   inventory are one-time evidence, not substitute service claims.
 
 ### WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW: Course Appearance View
@@ -278,7 +372,7 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   their protocol spelling.
 - **Superseded terminology evidence:** `ETLS1`, `ETLC1`, `ETGC1`, and `ETPRT1` retain their
   implementation receipts only as evidence pending this cutover; their checked terminology targets
-  are not canonical. `ETRGR1` is absorbed here and cannot complete independently. RQB1 reopens and
+  are not approved current terminology. `ETRGR1` is absorbed here and cannot complete independently. RQB1 reopens and
   directly replaces their source, schema, API, generated-artifact, documentation, and validation
   language, including the row-535 result-to-grading lineage.
 - **Owned model and inheritance:** `Question Revision -> Question Backend -> iMathAS Question
@@ -291,13 +385,13 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
   through its Session and introduces no duplicate learner, Course, Assignment, Question Attempt,
   Question Revision, Seed, or Question Grading Rule columns. The marker carries no backend bytes,
   token, or score.
-- **Direct cutover:** RQB2 renames the Question Model response control/marker and generated browser
+- **Direct cutover:** RQB2 renames the Question Model Question Response Control marker and generated browser
   contract to `ImathasQuestionBackend`; it renames the LDA aggregate, Store, iMathAS adapter boundary,
   SQL tables/functions/policies, service-oracle names, fixtures, and active documentation together.
   Use the shared typed iMathAS binding at every Question Model, LDA, adapter, and SQL boundary; name
   iMathAS-only transport records `Imathas*`. Remove the orphaned `lti_grade_return` table, trigger,
   function,
-  policies, grants, and staged-database assertions. `LTI` stays only where it identifies a current
+  policies, grants, and PostgreSQL Migration Acceptance Runtime assertions. `LTI` stays only where it identifies a current
   registered protocol boundary; the current product has none. No alias, compatibility DTO, old wire
   value, old SQL procedure, transitional schema view, or successor migration is introduced.
 - **Migration allocation:** rewrite both unshipped migrations directly. `2026082927` owns the
@@ -307,7 +401,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
   Automated Grading Receipt lineage. Neither migration is shared with a superseded package.
 - **Dependency order:** (1) terminology contract/checklist allocation, (2) Question Model marker
   and generated contracts, (3) LDA and iMathAS adapter aggregate cutover, (4) both migrations and
-  PostgreSQL Store procedures, (5) existing service oracle/staged schema checks, (6) active docs
+  PostgreSQL Store procedures, (5) existing service oracle and Migration Check, (6) active docs
   and one-time retirement review, then (7) focused gates, full aggregate, and independent review.
 - **Permanent gates:** retain and rename the deterministic LDA and iMathAS behavior tests already
   present in the absorbed ETLS/ETRGR working tree for
@@ -317,7 +411,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
   behavior tests as permanent evidence; keep source inventories and connected browser work in their
   one-time or service lanes.
 - **Disposable and one-time gates:** rename and run the existing ignored PostgreSQL Store test,
-  its explicit E2E runner, and the existing staged-database acceptance as service evidence; retain
+  its explicit E2E runner, and the existing PostgreSQL Migration Acceptance Runtime service evidence; retain
   no real service connection in default Rust or pytest lanes. Use the vocabulary-count script and
   focused contextual searches as one-time closure evidence, not permanent tests. Run generated
   contracts, format, strict Clippy, documentation links/source-size gates, `git diff --check`, and
@@ -339,13 +433,13 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
 - Depends on: the affected producer and reader closure.
 - Outcome:
 
-  - Current live-stack database/object rows rebuild on a clean volume from canonical Store, seed,
-    publisher, cache, or export producers.
+  - Current live-stack database/object rows rebuild on a clean volume from their named Store, seed,
+    publisher, cache, or export writers.
   - Accepted migrations `2026080801` through `2026081878` and checksums remain frozen.
   - Consecutive migrations `2026081879` through `2026081888` provide atomic forward SQL ownership:
     course-authority broker ownership; authority-function argument rebinding; Student-role schema
     vocabulary; Student-work broker vocabulary; automated-only scoring; Student-work payloads;
-    canonical receipt V2; Question Library/Question authoring workspace payloads; Blueprint Course payloads; and operational payloads.
+    accepted Receipt payload V2; Question Library/Question authoring workspace payloads; Blueprint Course payloads; and operational payloads.
     They run on a clean volume with zero row backfill.
   - Canonical JSON; documented semantic Digests used as identities, fingerprints, cache discriminators,
     or deduplication values; Request Checksums; receipts; PLE Question JSON/QTI/H5P records; object metadata,
@@ -406,7 +500,7 @@ Required unrun, skipped, or failed gates keep WN1 and G2 acceptance-open.
   `docs/active_plans/Rust_SQLx_and_PostgreSQL_implementation.md`, `customer-spec.md`,
   `m0-results.md`, `m0-review.md`, `peptidyle-security-audit.md`,
   `peptidyle-walkthrough-plan.md`, and dated reports under `docs/active_plans/reports/`. The
-  implementation owner applies each recorded canonical rename, archive/history move, or frozen
+  implementation owner applies each recorded approved filename replacement, archive/history move, or frozen
   registration under the repository move policy and updates in-tree links when applicable.
 - Evidence: material-tree link validation is one-time. No broad filename inventory test is added.
 

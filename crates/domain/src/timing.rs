@@ -1,4 +1,4 @@
-//! Server-authoritative timer verdicts (MOD-TIME).
+//! Server-authoritative Question Attempt timer verdicts.
 //!
 //! The caller supplies timestamps recorded from the server clock. This module
 //! never reads a clock, so browser clock skew cannot change the verdict.

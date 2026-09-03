@@ -1,4 +1,4 @@
-//! Bounded cursor pagination shared by every list operation (WP-C4).
+//! Bounded cursor pagination shared by every list operation.
 
 use serde::{Deserialize, Serialize};
 

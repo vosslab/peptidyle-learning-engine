@@ -35,7 +35,6 @@ function editorDraft(content: DraftQuestionContent): EditorDraft {
     response: content.response,
     questionAttemptLimit: content.questionAttemptLimit,
     questionAttemptTimeLimit: content.questionAttemptTimeLimit,
-    questionVariationRule: content.questionVariationRule,
   };
 }
 
@@ -57,7 +56,6 @@ function updateDraftQuestionContent(
     response: draft.response,
     questionAttemptLimit: draft.questionAttemptLimit,
     questionAttemptTimeLimit: draft.questionAttemptTimeLimit,
-    questionVariationRule: draft.questionVariationRule,
     metadata: { ...existing.metadata, title: draft.title },
   };
 }
@@ -164,11 +162,10 @@ export function createWorkspaceEditorRepository(
       ? {}
       : {
           instructorPreview: {
-            requestPresentation: async (draft, seed): Promise<InstructorPreviewResult> => {
+            requestPresentation: async (draft): Promise<InstructorPreviewResult> => {
               const current = await loadedDraft(draft.workspace);
               const result = await instructorPreview.requestPresentation(
                 draft.workspace,
-                seed,
                 current.revision,
               );
               if (result.revision !== current.revision) {

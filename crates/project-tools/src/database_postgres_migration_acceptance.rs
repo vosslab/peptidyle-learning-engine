@@ -1,4 +1,4 @@
-//! Closed runtime loading for the non-runtime SD1 migration epoch.
+//! Closed runtime loading for the non-runtime PostgreSQL Migration epoch.
 
 use anyhow::{Context, Result, bail};
 use learning_data_access::postgres::{MigrationCheck, Pool};
@@ -9,40 +9,40 @@ use std::time::Instant;
 
 // The pre-production schema is a single fresh baseline.  `schemas/migrations`
 // is therefore both the authoring source and the ledger comparison source.
-const STAGED_MIGRATIONS_RELATIVE_PATH: &str = "schemas/migrations";
-const STAGED_MIGRATION_PRINCIPAL: &str = "ple_migrator";
-const FIRST_STAGED_MIGRATION_VERSION: i64 = 2026082901;
+const POSTGRES_MIGRATION_ACCEPTANCE_MIGRATIONS_RELATIVE_PATH: &str = "schemas/migrations";
+const POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE: &str = "ple_migrator";
+const FIRST_POSTGRES_MIGRATION_ACCEPTANCE_MIGRATION_VERSION: i64 = 2026082901;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Sd1StagedAction {
+pub(super) enum PostgresMigrationAcceptanceAction {
     Status,
     Migrate,
     Verify,
 }
 
-impl Sd1StagedAction {
+impl PostgresMigrationAcceptanceAction {
     pub(super) fn parse(value: &str) -> Option<Self> {
         match value {
-            "sd1-staged-status" => Some(Self::Status),
-            "sd1-staged-migrate" => Some(Self::Migrate),
-            "sd1-staged-verify" => Some(Self::Verify),
+            "migration-acceptance-status" => Some(Self::Status),
+            "migration-acceptance-migrate" => Some(Self::Migrate),
+            "migration-acceptance-verify" => Some(Self::Verify),
             _ => None,
         }
     }
 }
 
-pub(super) async fn run(action: Sd1StagedAction, pool: &Pool) -> Result<()> {
-    require_staged_migration_principal(pool).await?;
-    let directory = staged_migrations_directory()?;
-    let migrator = load_staged_migrator(&directory).await?;
+pub(super) async fn run(action: PostgresMigrationAcceptanceAction, pool: &Pool) -> Result<()> {
+    require_postgres_migration_acceptance_migration_principal(pool).await?;
+    let directory = postgres_migration_acceptance_migrations_directory()?;
+    let migrator = load_postgres_migration_acceptance_migrator(&directory).await?;
     match action {
-        Sd1StagedAction::Status => {
-            let status = staged_status(pool, &directory).await?;
+        PostgresMigrationAcceptanceAction::Status => {
+            let status = postgres_migration_acceptance_status(pool, &directory).await?;
             super::print_status(&status);
             Ok(())
         }
-        Sd1StagedAction::Migrate => migrate(pool, &directory, &migrator).await,
-        Sd1StagedAction::Verify => verify(pool, &directory).await,
+        PostgresMigrationAcceptanceAction::Migrate => migrate(pool, &directory, &migrator).await,
+        PostgresMigrationAcceptanceAction::Verify => verify(pool, &directory).await,
     }
 }
 
@@ -50,7 +50,7 @@ async fn migrate(pool: &Pool, directory: &Path, migrator: &Migrator) -> Result<(
     let mut connection = pool
         .acquire()
         .await
-        .context("acquiring the SD1 baseline migration connection")?;
+        .context("acquiring the PostgreSQL Migration connection")?;
     // SQLx records its own migration ledger in the bootstrap-owned `public`
     // schema. Keep that lookup explicit while the migrations safely switch to
     // the application schema owners.
@@ -58,23 +58,23 @@ async fn migrate(pool: &Pool, directory: &Path, migrator: &Migrator) -> Result<(
         .execute(&mut *connection)
         .await
         .context("pinning the SQLx migration ledger search path")?;
-    apply_staged_migrations(&mut connection, migrator)
+    apply_postgres_migration_acceptance_migrations(&mut connection, migrator)
         .await
-        .context("applying the canonical repository-owned SD1 baseline migrations")?;
+        .context("applying the canonical repository-owned PostgreSQL Migrations")?;
 
-    let status = staged_status(pool, directory).await?;
+    let status = postgres_migration_acceptance_status(pool, directory).await?;
     require_compatible(&status)?;
-    println!("database sd1-staged-migrate: complete and compatible");
+    println!("database migration-acceptance-migrate: complete and compatible");
     Ok(())
 }
 
-async fn apply_staged_migrations(
+async fn apply_postgres_migration_acceptance_migrations(
     connection: &mut sqlx::pool::PoolConnection<sqlx::Postgres>,
     migrator: &Migrator,
 ) -> Result<()> {
     // SQLx sends an entire migration file as one raw SQL batch. PostgreSQL
     // analyzes policy expressions before an in-file SET LOCAL ROLE establishes
-    // the owning schema role. SD1 migrations deliberately establish ownership
+    // the owning schema role. PostgreSQL Migrations deliberately establish ownership
     // in the same transaction as the DDL, so execute complete top-level SQL
     // statements in order while retaining SQLx's ledger shape and checksum.
     // ASVS 8.2.1, 8.2.2: each policy is compiled by its owning schema role.
@@ -83,7 +83,7 @@ async fn apply_staged_migrations(
     )
     .fetch_one(&mut **connection)
     .await
-    .context("checking the SD1 migration ledger")?
+    .context("checking the PostgreSQL Migration ledger")?
     .is_some();
     if !ledger_exists {
         sqlx::query(
@@ -94,7 +94,7 @@ async fn apply_staged_migrations(
         )
         .execute(&mut **connection)
         .await
-        .context("creating the SD1 migration ledger")?;
+        .context("creating the PostgreSQL Migration ledger")?;
     }
 
     let rows = sqlx::query(
@@ -102,7 +102,7 @@ async fn apply_staged_migrations(
     )
     .fetch_all(&mut **connection)
     .await
-    .context("reading the SD1 migration ledger")?;
+    .context("reading the PostgreSQL Migration ledger")?;
     let applied = rows
         .into_iter()
         .map(|row| {
@@ -122,11 +122,14 @@ async fn apply_staged_migrations(
     {
         if let Some((success, checksum)) = applied.get(&migration.version) {
             if !success {
-                bail!("SD1 migration {} is recorded as dirty", migration.version);
+                bail!(
+                    "PostgreSQL Migration {} is recorded as dirty",
+                    migration.version
+                );
             }
             if checksum.as_slice() != migration.checksum.as_ref() {
                 bail!(
-                    "SD1 migration {} checksum does not match its ledger entry",
+                    "PostgreSQL Migration {} checksum does not match its ledger entry",
                     migration.version
                 );
             }
@@ -134,7 +137,7 @@ async fn apply_staged_migrations(
         }
         if migration.no_tx {
             bail!(
-                "SD1 migration {} must use transactional DDL",
+                "PostgreSQL Migration {} must use transactional DDL",
                 migration.version
             );
         }
@@ -143,7 +146,7 @@ async fn apply_staged_migrations(
         let mut transaction = connection
             .begin()
             .await
-            .with_context(|| format!("starting SD1 migration {}", migration.version))?;
+            .with_context(|| format!("starting PostgreSQL Migration {}", migration.version))?;
         for (statement_index, statement) in top_level_sql_statements(migration.sql.as_str())?
             .into_iter()
             .enumerate()
@@ -161,7 +164,7 @@ async fn apply_staged_migrations(
                         .map(str::trim)
                         .unwrap_or("empty SQL statement");
                     format!(
-                        "executing SD1 migration {} statement {} ({first_line})",
+                        "executing PostgreSQL Migration {} statement {} ({first_line})",
                         migration.version,
                         statement_index + 1
                     )
@@ -176,17 +179,17 @@ async fn apply_staged_migrations(
         .bind(migration.checksum.as_ref())
         .execute(&mut *transaction)
         .await
-        .with_context(|| format!("recording SD1 migration {}", migration.version))?;
+        .with_context(|| format!("recording PostgreSQL Migration {}", migration.version))?;
         transaction
             .commit()
             .await
-            .with_context(|| format!("committing SD1 migration {}", migration.version))?;
+            .with_context(|| format!("committing PostgreSQL Migration {}", migration.version))?;
         sqlx::query("UPDATE public._sqlx_migrations SET execution_time = $1 WHERE version = $2")
             .bind(i64::try_from(started.elapsed().as_nanos()).unwrap_or(i64::MAX))
             .bind(migration.version)
             .execute(&mut **connection)
             .await
-            .with_context(|| format!("timing SD1 migration {}", migration.version))?;
+            .with_context(|| format!("timing PostgreSQL Migration {}", migration.version))?;
     }
     Ok(())
 }
@@ -273,7 +276,7 @@ fn top_level_sql_statements(sql: &str) -> Result<Vec<&str>> {
         }
     }
     if quote.is_some() || dollar_quote.is_some() || block_comment_depth != 0 {
-        bail!("SD1 migration contains an unterminated SQL delimiter");
+        bail!("PostgreSQL Migration contains an unterminated SQL delimiter");
     }
     let trailing = sql[start..].trim();
     if !trailing.is_empty() {
@@ -282,64 +285,67 @@ fn top_level_sql_statements(sql: &str) -> Result<Vec<&str>> {
     Ok(statements)
 }
 
-async fn load_staged_migrator(directory: &Path) -> Result<Migrator> {
+async fn load_postgres_migration_acceptance_migrator(directory: &Path) -> Result<Migrator> {
     let migrator = Migrator::new(directory)
         .await
-        .context("loading the canonical repository-owned SD1 baseline migrations")?;
+        .context("loading the canonical repository-owned PostgreSQL Migrations")?;
     let first_up_migration = migrator
         .iter()
         .find(|migration| !migration.migration_type.is_down_migration())
-        .context("the canonical SD1 baseline migration epoch is empty")?;
-    if first_up_migration.version != FIRST_STAGED_MIGRATION_VERSION {
+        .context("the canonical PostgreSQL Migration epoch is empty")?;
+    if first_up_migration.version != FIRST_POSTGRES_MIGRATION_ACCEPTANCE_MIGRATION_VERSION {
         bail!(
-            "the canonical SD1 baseline migration epoch must begin at {FIRST_STAGED_MIGRATION_VERSION}"
+            "the canonical PostgreSQL Migration epoch must begin at {FIRST_POSTGRES_MIGRATION_ACCEPTANCE_MIGRATION_VERSION}"
         );
     }
     Ok(migrator)
 }
 
-async fn require_staged_migration_principal(pool: &Pool) -> Result<()> {
+async fn require_postgres_migration_acceptance_migration_principal(pool: &Pool) -> Result<()> {
     let role = learning_data_access::postgres::migration_principal(pool)
         .await
-        .context("checking the connected SD1 staged migration role")?;
-    if !staged_migration_principal_is_expected(&role) {
+        .context("checking the connected PostgreSQL Migration Acceptance Runtime role")?;
+    if !postgres_migration_acceptance_migration_principal_is_expected(&role) {
         bail!(
-            "SD1 staged database commands require PostgreSQL role {STAGED_MIGRATION_PRINCIPAL}; connected as {role}"
+            "PostgreSQL Migration Acceptance Runtime commands require PostgreSQL role {POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE}; connected as {role}"
         );
     }
     Ok(())
 }
 
-fn staged_migration_principal_is_expected(role: &str) -> bool {
-    role == STAGED_MIGRATION_PRINCIPAL
+fn postgres_migration_acceptance_migration_principal_is_expected(role: &str) -> bool {
+    role == POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE
 }
 
 async fn verify(pool: &Pool, directory: &Path) -> Result<()> {
-    let status = staged_status(pool, directory).await?;
+    let status = postgres_migration_acceptance_status(pool, directory).await?;
     require_compatible(&status)?;
-    println!("database sd1-staged-verify: compatible");
+    println!("database migration-acceptance-verify: compatible");
     Ok(())
 }
 
-async fn staged_status(pool: &Pool, directory: &Path) -> Result<MigrationCheck> {
+async fn postgres_migration_acceptance_status(
+    pool: &Pool,
+    directory: &Path,
+) -> Result<MigrationCheck> {
     learning_data_access::postgres::migration_status_from_directory(pool, directory)
         .await
-        .context("comparing the SQLx ledger with the canonical SD1 baseline migrations")
+        .context("comparing the SQLx ledger with the canonical PostgreSQL Migrations")
 }
 
 fn require_compatible(status: &MigrationCheck) -> Result<()> {
     if !status.is_compatible() {
         super::print_status(status);
-        bail!("SD1 staged migration ledger is not an exact successful checksum match");
+        bail!("PostgreSQL Migration ledger is not an exact successful checksum match");
     }
     Ok(())
 }
 
-fn staged_migrations_directory() -> Result<PathBuf> {
+fn postgres_migration_acceptance_migrations_directory() -> Result<PathBuf> {
     let repository_root = repository_root_from_manifest_dir(Path::new(env!("CARGO_MANIFEST_DIR")))?
         .canonicalize()
         .context("canonicalizing the project-tools repository root")?;
-    let expected = repository_root.join(STAGED_MIGRATIONS_RELATIVE_PATH);
+    let expected = repository_root.join(POSTGRES_MIGRATION_ACCEPTANCE_MIGRATIONS_RELATIVE_PATH);
     let canonical = expected
         .canonicalize()
         .context("canonicalizing schemas/migrations")?;
@@ -364,38 +370,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn staged_action_names_form_a_closed_command_set() {
+    fn postgres_migration_acceptance_action_names_form_a_closed_command_set() {
         assert_eq!(
-            Sd1StagedAction::parse("sd1-staged-status"),
-            Some(Sd1StagedAction::Status)
+            PostgresMigrationAcceptanceAction::parse("migration-acceptance-status"),
+            Some(PostgresMigrationAcceptanceAction::Status)
         );
         assert_eq!(
-            Sd1StagedAction::parse("sd1-staged-migrate"),
-            Some(Sd1StagedAction::Migrate)
+            PostgresMigrationAcceptanceAction::parse("migration-acceptance-migrate"),
+            Some(PostgresMigrationAcceptanceAction::Migrate)
         );
         assert_eq!(
-            Sd1StagedAction::parse("sd1-staged-verify"),
-            Some(Sd1StagedAction::Verify)
+            PostgresMigrationAcceptanceAction::parse("migration-acceptance-verify"),
+            Some(PostgresMigrationAcceptanceAction::Verify)
         );
-        assert_eq!(Sd1StagedAction::parse("staged-migrate"), None);
+        assert_eq!(
+            PostgresMigrationAcceptanceAction::parse("other-migrate"),
+            None
+        );
     }
 
     #[test]
-    fn staged_directory_is_derived_only_from_the_crate_location() {
+    fn postgres_migration_acceptance_directory_is_derived_only_from_the_crate_location() {
         let repository_root =
             repository_root_from_manifest_dir(Path::new("/repo/crates/project-tools")).unwrap();
         assert_eq!(repository_root, Path::new("/repo"));
         assert_eq!(
-            repository_root.join(STAGED_MIGRATIONS_RELATIVE_PATH),
+            repository_root.join(POSTGRES_MIGRATION_ACCEPTANCE_MIGRATIONS_RELATIVE_PATH),
             Path::new("/repo/schemas/migrations")
         );
     }
 
     #[test]
-    fn staged_principal_contract_is_exact() {
-        assert!(staged_migration_principal_is_expected("ple_migrator"));
-        assert!(!staged_migration_principal_is_expected("postgres"));
-        assert!(!staged_migration_principal_is_expected("ple_app"));
+    fn postgres_migration_acceptance_principal_contract_is_exact() {
+        assert!(postgres_migration_acceptance_migration_principal_is_expected("ple_migrator"));
+        assert!(!postgres_migration_acceptance_migration_principal_is_expected("postgres"));
+        assert!(!postgres_migration_acceptance_migration_principal_is_expected("ple_app"));
     }
 
     #[test]

@@ -1,4 +1,4 @@
--- SD1 immutable Question publication and availability evidence.
+-- Question publication and availability events.
 -- ASVS 2.1.1 and 2.3.1: the stored event shape and transition order express
 -- the complete Question Revision availability workflow.
 

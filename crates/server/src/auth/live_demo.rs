@@ -13,7 +13,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use question_model::{AccountId, AccountRole};
+use question_model::{AccountId, ProductRole};
 use serde::{Deserialize, Serialize};
 
 use super::{AuthError, SessionConfig, SessionStore, issue_session, no_store};
@@ -40,11 +40,11 @@ impl SeededDemoPersona {
         Self::MorganSysadmin,
     ];
 
-    fn required_role(self) -> AccountRole {
+    fn required_product_role(self) -> ProductRole {
         match self {
-            Self::ElenaInstructor => AccountRole::Instructor,
-            Self::MaryStudent | Self::JackStudent | Self::AveryStudent => AccountRole::Student,
-            Self::MorganSysadmin => AccountRole::Sysadmin,
+            Self::ElenaInstructor => ProductRole::Instructor,
+            Self::MaryStudent | Self::JackStudent | Self::AveryStudent => ProductRole::Student,
+            Self::MorganSysadmin => ProductRole::Sysadmin,
         }
     }
 }
@@ -237,7 +237,7 @@ where
             return no_store((StatusCode::UNAUTHORIZED, "demo entry unavailable").into_response());
         }
     };
-    if issued.record.role != selected.persona.required_role() {
+    if issued.record.product_role != selected.persona.required_product_role() {
         return no_store(
             (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
         );

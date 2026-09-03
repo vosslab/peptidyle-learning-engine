@@ -1,4 +1,4 @@
--- SD1 immutable Question Authorship, Question Owner, Question License, and
+-- Question Authorship, Question Owner, Question License, and
 -- Question Citation relations. These facts are distinct from Question Source,
 -- revision publication, and ordinary Question metadata.
 
@@ -126,7 +126,7 @@ BEGIN
         SELECT 1
         FROM ple_private.account AS account
         WHERE account.account_id = NEW.owner_account_id
-          AND account.role = 'instructor'
+          AND account.product_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Question Owner must be an Active Instructor Account';
@@ -153,10 +153,10 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.account AS account
-        WHERE account.account_id = NEW.editor_account_id AND account.role = 'instructor'
+        WHERE account.account_id = NEW.editor_account_id AND account.product_role = 'instructor'
     ) OR NOT EXISTS (
         SELECT 1 FROM ple_private.account AS account
-        WHERE account.account_id = NEW.accepted_by_account_id AND account.role = 'instructor'
+        WHERE account.account_id = NEW.accepted_by_account_id AND account.product_role = 'instructor'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Revision Editor and Question Revision Accepted By must be Instructor Accounts';
@@ -282,7 +282,7 @@ COMMENT ON TABLE ple_data.question_revision_acceptance IS
 COMMENT ON TABLE ple_data.question_revision_license IS
     'Required immutable Question License snapshot for one Question Revision; only adaptation-permitting versioned Creative Commons expressions are publishable.';
 COMMENT ON TABLE ple_data.question_revision_citation IS
-    'Optional immutable Question Citation for one Question Revision; citation supplements rather than replaces Authorship or License.';
+    'Optional immutable Question Citation for one Question Revision; it supplements rather than replaces Question Authorship or Question License.';
 COMMENT ON TABLE ple_data.question_ownership_event IS
     'Immutable initial or transferred Question Owner stewardship evidence for one Published Question lineage.';
 COMMENT ON VIEW ple_data.question_current_owner IS

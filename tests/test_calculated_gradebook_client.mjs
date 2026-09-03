@@ -42,7 +42,7 @@ function issuedPresentationEvidence() {
     presentation: {
       presentation: {
         questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
-        seed: 42,
+        question_seed: 42,
         presentationNonce: "11111111111111111111111111111111",
         title: "Peptide bond",
         prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],

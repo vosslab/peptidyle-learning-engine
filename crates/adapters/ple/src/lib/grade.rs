@@ -1,4 +1,4 @@
-use grading::QuestionGradingOutcome;
+use grading::{QuestionGradingOutcome, grade};
 use question_model::generation::QuestionSeed;
 use question_model::{
     QuestionAttemptReproductionDetails, QuestionHint, QuestionRevision, StudentResponse,
@@ -20,27 +20,22 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
     ) -> Result<Option<QuestionHint>, PleQuestionBackendError> {
-        let backend_execution =
-            self.backend_execution_for(&recorded_reproduction_details.backend)?;
-        let prepared = self.prepare_with_execution(question, seed, backend_execution)?;
+        self.require_backend_version(&recorded_reproduction_details.backend)?;
+        let prepared = self.prepare_with_execution(question, seed)?;
         verify_record(
             &prepared,
-            recorded_parameter_hash,
             recorded_reproduction_details,
             &resolve_question_asset_objects(
                 &prepared.presentation,
                 question_asset_object_references,
             )?,
         )?;
-        let implementation =
-            self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
+        let implementation = self.implementation_for_question(question)?;
         implementation.derive_hint(
             question,
-            &prepared.generated,
             &prepared.presentation,
             prepared.derived.answer_key.as_ref(),
         )
@@ -54,26 +49,22 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
     ) -> Result<QuestionGradingOutcome, PleQuestionBackendError> {
-        let backend_execution =
-            self.backend_execution_for(&recorded_reproduction_details.backend)?;
-        let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
-        let prepared = self.prepare_with_execution(question, seed, backend_execution)?;
+        self.require_backend_version(&recorded_reproduction_details.backend)?;
+        self.require_grader_version(&recorded_reproduction_details.grader)?;
+        let prepared = self.prepare_with_execution(question, seed)?;
         verify_record(
             &prepared,
-            recorded_parameter_hash,
             recorded_reproduction_details,
             &resolve_question_asset_objects(
                 &prepared.presentation,
                 question_asset_object_references,
             )?,
         )?;
-        grader_execution
-            .grade(question, response, prepared.derived.answer_key.as_ref())
+        grade(question, response, prepared.derived.answer_key.as_ref())
             .map_err(PleQuestionBackendError::Grading)
     }
 
@@ -86,26 +77,22 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
     ) -> Result<PleQuestionGradingEvaluation, PleQuestionBackendError> {
-        let backend_execution =
-            self.backend_execution_for(&recorded_reproduction_details.backend)?;
-        let grader_execution = self.grader_execution_for(&recorded_reproduction_details.grader)?;
-        let prepared = self.prepare_with_execution(question, seed, backend_execution)?;
+        self.require_backend_version(&recorded_reproduction_details.backend)?;
+        self.require_grader_version(&recorded_reproduction_details.grader)?;
+        let prepared = self.prepare_with_execution(question, seed)?;
         verify_record(
             &prepared,
-            recorded_parameter_hash,
             recorded_reproduction_details,
             &resolve_question_asset_objects(
                 &prepared.presentation,
                 question_asset_object_references,
             )?,
         )?;
-        let outcome = grader_execution
-            .grade(question, response, prepared.derived.answer_key.as_ref())
+        let outcome = grade(question, response, prepared.derived.answer_key.as_ref())
             .map_err(PleQuestionBackendError::Grading)?;
         let QuestionGradingOutcome::Graded(result) = &outcome else {
             return Ok(PleQuestionGradingEvaluation {
@@ -115,12 +102,10 @@ impl PleQuestionBackend {
                 question_answer_explanation: None,
             });
         };
-        let implementation =
-            self.implementation_for_question(question, prepared.generated.generator.as_ref())?;
+        let implementation = self.implementation_for_question(question)?;
         let (question_feedback, question_answer, question_answer_explanation) = implementation
             .derive_question_feedback_answer_and_explanation(
                 question,
-                &prepared.generated,
                 &prepared.presentation,
                 prepared.derived.answer_key.as_ref(),
                 result,

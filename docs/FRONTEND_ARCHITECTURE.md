@@ -56,7 +56,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | /blueprint-courses                                                     | Blueprint Course adoption and imports              | Course Instance destination authority                                                         |
 
 Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
-the canonical Assignment Attempt terms in
+the Assignment Attempt terms in
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 src/routes.ts is the executable route map. Route preflight and response
@@ -95,14 +95,14 @@ The reusable source client is owned by:
 - src/pages/blueprint_course_route_page.tsx and
   src/pages/blueprint_course_detail_route_page.tsx: route composition.
 
-The workspace displays ordered modules and ordered assignments. Its problem
-picker source descriptor contains one Blueprint reference and normalized module
+The workspace displays ordered modules and ordered assignments. Its Question Picker Source Descriptor
+contains one Blueprint reference and normalized module
 and assignment positions. A one-assignment selection is a bounded `BlueprintCourseView`
 of the same tree, not another source type. The editor keeps draft input locally,
-sends a complete definition with the observed revision, and preserves the local
+sends complete Blueprint Revision Content with the observed revision, and preserves the local
 draft after a stale or invalid response.
 
-A published `BlueprintCourseView` contains only answer-free definitions, reviewed Question Authorship,
+A published `BlueprintCourseView` contains only answer-free Blueprint Revision Content, reviewed Question Authorship,
 public Question IDs, safe Question Library summaries, current publication state, and
 disclosed evidence context. It contains no answer key, private source,
 response, grading payload, internal UUID, email, Student, or CourseInstance
@@ -140,8 +140,9 @@ BlueprintCourse assignments appear in daughter CourseInstances as unreleased;
 the Instructor explicitly releases them. The browser never silently overwrites
 delivery edits or releases upstream additions.
 
-The former paired product-level route/client/UI names are SD1 migration inputs
-only. They are not accepted route aliases, decoder variants, or UI branches.
+The former paired product-level route/client/UI names are terminology-migration
+inputs only. They are not accepted route aliases, decoder variants, or UI
+branches.
 
 ## Client contract
 
@@ -171,7 +172,8 @@ provider state, and never derives correctness or completion.
 
 After accepted submission, the browser clears the response and polls an
 answer-free Assignment Attempt status result. It does not resubmit known-accepted work.
-Student Feedback, score, item correctness, solution, class statistics, late status,
+Student Feedback, score, item correctness, Question Answer, Question Answer Explanation,
+class statistics, late status,
 and Student Feedback Release are redacted or exposed only by the server's current policy.
 
 CourseInstance pages use exact CourseId and Student relationship context.

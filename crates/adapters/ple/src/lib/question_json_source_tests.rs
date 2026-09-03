@@ -83,7 +83,6 @@ async fn resolved_question_json_issues_and_grades_from_its_immutable_source_byte
             .grade_question_json(
                 &source,
                 question_model::generation::QuestionSeed::new(1),
-                &issued.parameter_hash,
                 &issued.reproduction_details,
                 &[],
                 &StudentResponse::MultipleChoice {

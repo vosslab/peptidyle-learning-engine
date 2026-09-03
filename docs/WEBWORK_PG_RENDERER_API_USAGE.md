@@ -35,7 +35,7 @@ The accepted live release path is four licensed, user-authored immutable PGML so
 `RadioButtons` and one matching question for each of Genetics and Biochemistry Chapter 1. PLE
 projects them into answer-free multiple-choice or matching Question Variation Presentations, grades correct, incorrect,
 and partial-credit responses as appropriate, and keeps all upstream controls and values private.
-Matching partial credit is admitted only for the reviewed path-and-source-digest pairs.
+Matching partial credit is admitted only for the reviewed path-and-Source Object Checksum pairs.
 
 This is not a claim of broad live PG compatibility. Other PG controls, source revisions, and Open
 Problem Library items require their own reviewed source examples and the same PLE E2E and
@@ -170,7 +170,7 @@ The private typed lifecycle:
 7. starts the API only after the renderer probe succeeds.
 
 The renderer's own startup diagnostics may report optional PG macro limitations.
-PLE acceptance is based on the supported owner-controlled problem behavior, not
+PLE acceptance is based on the supported owner-controlled Question Backend behavior, not
 on an invented wall-clock threshold or byte-identical container output.
 
 At request time, timeout, outage, malformed output, or identity drift causes a

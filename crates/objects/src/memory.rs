@@ -1,4 +1,4 @@
-//! In-memory object backend (WP-C4, MOD-OBJ).
+//! In-memory Object Storage backend.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};

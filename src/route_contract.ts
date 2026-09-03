@@ -1,6 +1,6 @@
 // route_contract.ts - pure data form of the frozen product route contract.
 
-import type { AccountRole } from "../generated/api/AccountRole";
+import type { ProductRole } from "../generated/api/ProductRole";
 
 export interface RouteContract {
   readonly id:
@@ -33,167 +33,167 @@ export interface RouteContract {
   readonly path: string;
   readonly surface: string;
   /** Role gate for the route; each route declares the real roles it serves. */
-  readonly requiredRoles: ReadonlyArray<AccountRole>;
+  readonly requiredProductRoles: ReadonlyArray<ProductRole>;
 }
 
-/** Product routes in the same order as the active implementation plan. */
+/** Product route order used by the application. */
 export const ROUTE_CONTRACT = [
   {
     id: "courses",
     path: "/",
     surface: "Course list for the signed-in role",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "signIn",
     path: "/sign-in",
     surface: "Passwordless account sign-in",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "pendingCourseInvitations",
     path: "/account/course-invitations",
     surface: "Account-owned pending Course Invitations",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "courseAssignments",
     path: "/courses/:courseRef",
     surface: "Assignment list with progress and Assignment Attempt counts",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
     surface: "Assignment overview, Assignment Attempt history, and practice entry",
-    requiredRoles: ["student"],
+    requiredProductRoles: ["student"],
   },
   {
     id: "assignmentAttempt",
     path: "/assignment-attempts/:assignmentAttemptRef",
     surface: "One-question-at-a-time attempt loop",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "assignmentAttemptSummary",
     path: "/assignment-attempts/:assignmentAttemptRef/summary",
     surface: "Assignment Attempt result and practice re-entry",
-    requiredRoles: [],
+    requiredProductRoles: [],
   },
   {
     id: "library",
     path: "/library",
     surface: "Question Library",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "questionDetail",
     path: "/library/:questionRef",
     surface: "Published question detail",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "blueprintCourses",
     path: "/blueprint-courses",
     surface: "Blueprint Course workspace",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "blueprintCourseDetail",
     path: "/blueprint-courses/:blueprintCourseRef",
     surface: "Blueprint Course inspection and editor",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "workspaceList",
     path: "/workspace",
     surface: "Instructor drafts",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "workspaceEditor",
     path: "/workspace/:workspaceRef",
     surface: "Draft editor, validation, and preview",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentCreate",
     path: "/instructor/courses/:courseRef/assignments/new",
     surface: "Create persisted Assignment and enter Questions",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceOverview",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef",
     surface: "Instructor assignment workspace overview",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceQuestions",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/questions",
     surface: "Instructor assignment questions workspace",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspacePolicies",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/policies",
     surface: "Instructor assignment policies workspace",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceStudentView",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/student-view",
     surface: "Instructor assignment Student view",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentWorkspaceGradingOperations",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/grading-operations",
     surface: "Instructor automated-grading operations workspace",
     // ASVS 8.3.1: mirror the server's explicit Instructor authority boundary.
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentAccess",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
     surface: "Assignment access modifiers and server preview",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "assignmentPreview",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
     surface: "Instructor-only assignment delivery check",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "gradebook",
     path: "/instructor/courses/:courseRef/gradebook",
     surface: "Calculated Gradebook",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "studentWorkInspection",
     path: "/instructor/courses/:courseRef/gradebook/students/:membershipRef/assignments/:assignmentRef/assignment-attempts/:assignmentAttemptRef",
     surface: "Audited Student-work inspection",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "courseGradeSettings",
     path: "/instructor/courses/:courseRef/grade-settings",
     surface: "Course grade settings and projected totals",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "courseRoster",
     path: "/instructor/courses/:courseRef/students",
     surface: "Course roster, invitations, and import",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
   {
     id: "teachingOperations",
     path: "/instructor/courses/:courseRef/teaching-operations",
     surface: "Course teaching operations hub",
-    requiredRoles: ["instructor"],
+    requiredProductRoles: ["instructor"],
   },
 ] as const satisfies ReadonlyArray<RouteContract>;
 
@@ -227,13 +227,13 @@ export function routeContractForPathname(pathname: string): RouteContract | unde
 }
 
 /** Checks the role boundary declared by a product route without mounting its surface. */
-export function accountRoleMayAccessRoute(routeId: string, role: AccountRole): boolean {
+export function productRoleMayAccessRoute(routeId: string, productRole: ProductRole): boolean {
   const route: RouteContract | undefined = ROUTE_CONTRACT.find((item) => item.id === routeId);
   if (route === undefined) {
     return false;
   }
-  if (route.requiredRoles.length === 0) {
+  if (route.requiredProductRoles.length === 0) {
     return true;
   }
-  return route.requiredRoles.includes(role);
+  return route.requiredProductRoles.includes(productRole);
 }

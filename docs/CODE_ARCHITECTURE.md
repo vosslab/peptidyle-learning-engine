@@ -18,7 +18,7 @@ BlueprintCourse (reusable, revisioned, answer-free source)
 
 CourseInstance (private teaching aggregate)
   +- immutable BlueprintCourse parent and applied revision
-  +- copied definitions and resolved delivery settings
+  +- copied Blueprint Revision Content and resolved delivery settings
   \`- Students, releases, deadlines, accommodations, grades, and activity
 ```
 
@@ -30,8 +30,8 @@ current equal Teaching Team Members and enrolled Students. Every instance has ex
 one immutable Blueprint parent and records the applied Blueprint revision.
 
 The former product-level Alpha/Blueprint split is not part of this architecture.
-The former names and routes appear only as SD1 migration inputs where a cleanup
-needs to identify legacy source, generated output, or immutable historical SQL.
+Current terminology corrections name the exact legacy source, generated output,
+or immutable historical SQL that they replace.
 
 ## System shape
 
@@ -47,7 +47,7 @@ gateway/load balancer -> Rust API -> PostgreSQL
                           v
                      workers and typed object domains
                           |
-                          \`-> private question engines and public-asset publisher
+                          \`-> Question Backends and public-asset publisher
 ```
 
 The browser and Wasm facade format values, validate non-secret response shape,
@@ -66,7 +66,7 @@ The aggregate contains a title, reviewed Question Authorship/publication state, 
 revision, ordered modules, ordered Blueprint Assignments, policy defaults,
 relative schedule defaults, evidence context, and public Question ID members.
 The Store resolves each public Question ID to an exact immutable publication pin
-before committing a whole-definition replacement.
+before committing a complete Blueprint Revision Content replacement.
 
 Relative availability, due, and close values retain calendar-day and local-wall-
 clock meaning. They are defaults, not live deadlines. A semantic no-op keeps the
@@ -81,13 +81,13 @@ CourseInstance to a moving source.
 target-term schedule resolution, previews, commands, Course Origin and Assignment Source Record
 creation, receipts, and
 Apply Blueprint Update semantics. Create Course from Blueprint copies reusable
-definitions, policy/theme defaults, reviewed offsets, and normalized manifests
+Blueprint Revision Content, policy/theme defaults, reviewed offsets, and normalized manifests
 into an exact destination `CourseId`; it never copies Students, invitations,
 Course Memberships, accommodations, Assignment Attempts, Student Responses, grades, or issued
 evidence.
 
 New assignments added to a BlueprintCourse propagate to daughter instances as
-unreleased definitions. An Instructor explicitly releases each new delivery
+unreleased Assignments. An Instructor explicitly releases each new delivery
 assignment through the CourseInstance boundary. Delivery edits remain private
 to the instance. Untouched imports may fast-forward before issued work;
 divergent assignments require explicit selected copying or a new source-derived
@@ -95,41 +95,46 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 
 ## Major components
 
-| Component           | Canonical owner                                         | Responsibility                                                                                                                                     |
-| ------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question model      | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, adoption commands, previews, and browser-safe reader types. |
-| Domain              | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.            |
-| Grading             | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                            |
-| Store contracts     | `crates/learning-data-access/src/contracts/`            | `BlueprintCourseStore` for BlueprintCourse and `CurriculumAdoptionStore` for source-to-instance operations.                                        |
-| Retired Memory seam | `crates/learning-data-access/src/in_memory/`            | Unmounted legacy source being removed during the direct PostgreSQL cutover; it is not a Store implementation or a production selection path.       |
-| PostgreSQL Store    | `crates/learning-data-access/src/postgres/`             | Production persistence, transaction locks, source re-resolution, protected database-function calls, and RLS-backed read results.                   |
-| Server              | `crates/server/src/`                                    | Authentication, preflight, route binding, HTTP policy, Store composition, worker composition, and answer-free response assembly.                   |
-| Generated contracts | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                |
-| Browser             | `src/`                                                  | Strict decoding, route/page state, BlueprintCourse editing and discovery, adoption previews, and visible CourseInstance decisions.                 |
-| Object storage      | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                |
-| Adapters            | `crates/adapters/`                                      | Bounded PLE, QTI, iMathAS, and WeBWorK Question Backends, plus H5P Package Import.                                                                 |
+| Component            | Canonical owner                                         | Responsibility                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question model       | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, Blueprint-operation contracts, previews, and browser-safe reader types.                                      |
+| Domain               | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.                                                             |
+| Grading              | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                                                                             |
+| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
+| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Question Backend Session persistence support.                                       |
+| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, and their HTTP/cookie boundary.                                                             |
+| Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
+| Browser              | `src/`                                                  | Strict decoding, route/page state, and retained BlueprintCourse and Blueprint-operation client contracts; course and Blueprint-operation routes remain unmounted.                                   |
+| Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
+| Adapters             | `crates/adapters/`                                      | Bounded PLE, QTI, iMathAS, and WeBWorK Question Backends, plus H5P Package Import.                                                                                                                  |
 
-The server composition root is `crates/server/src/composition/`. It selects
-PostgreSQL, object storage, identity, adapters, worker capabilities, and the
-public-asset publisher. It does not select a product-level alternate curriculum
-implementation.
+The current server composition is
+[`crates/server/src/composition.rs`](../crates/server/src/composition.rs).
+`production_router_from_env()` constructs the PostgreSQL Account Session Store,
+mounts health, Account Session, and deployment-gated seeded Live Demo routes,
+then applies the browser cookie boundary and HTTP security headers. Object
+storage, Question Backends, workers, and publishing remain separate future
+assembly responsibilities until their routes and services are mounted.
 
 ## Persistence ownership
 
-`crates/learning-data-access/src/contracts/blueprint_course.rs` exposes one
-BlueprintCourse capability: list, get, replace, publish/lifecycle `BlueprintCourseView`,
-and delete where the lifecycle permits it. `crates/learning-data-access/src/in_memory/blueprint_course.rs`
-implements the same aggregate for conformance. The production implementation
-is `crates/learning-data-access/src/postgres/blueprint_course.rs`, with SQL
-decoding, complete-tree validation, cursor paging, and authorization-aware
-`BlueprintCourseView` results.
+The current Learning Data Access inventory is intentionally focused: Account
+Session, authentication ceremony and email, Assignment Attempt, Question
+Source, workspace Question Source object records, Instructor Grading Operations,
+pagination, and iMathAS Question Backend Session contracts, Memory support, and
+PostgreSQL modules. Blueprint-operation persistence is future work with its own
+Store, PostgreSQL/RLS authority, service routes, and browser integration.
 
-The current Question Model owns the Blueprint-operation transport contracts;
-there is no mounted learning-data-access Store implementation yet. A future
-Store must preserve immutable operation receipts separately from repairable
-current read results. Assignment Import Repair may repair only its derived state.
+The current Question Model owns Blueprint-operation contracts. Blueprint
+operation persistence, PostgreSQL/RLS authority, service routes, and browser
+integration remain future work. When implemented, the Store boundary must own
+Create Course from Blueprint, Fork Blueprint Course, Copy Assignment from
+Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course
+Dates. It must bind each exact request-retry token to its request checksum,
+preserve immutable receipts separately from repairable current read results,
+and keep Assignment Import Repair bounded to derived state.
 
-The fresh SD1 migration epoch is owned by the allocation in
+The fresh pre-production migration epoch is allocated in
 [implementation_status.md](active_plans/implementation_status.md). The
 course/curriculum capability range is planned within `2026082913` through
 `2026082916`; protected authorization functions, forced RLS, grants, and acceptance helpers are within
@@ -139,27 +144,27 @@ status-owned. The immutable
 are historical implementation evidence and are not edited to disguise the old
 split.
 
-## End-to-end data flow
+## Future Blueprint-operation data flow
 
 ```text
 Instructor creates or edits BlueprintCourse
   -> question_model validates ordered tree and relative defaults
-  -> Store resolves public Question IDs to exact published pins
-  -> PostgreSQL protected authorization function authorizes a workspace or vetted-Instructor `BlueprintCourseView`
-  -> strict server DTO and generated TypeScript declaration
-  -> browser edits a local draft and sends a strong-revision command
-  -> CurriculumAdoptionStore previews target Course Instance creation
+  -> future Store resolves public Question IDs to exact published pins
+  -> future PostgreSQL/RLS boundary authorizes the exact operation
+  -> future strict server DTO and generated TypeScript declaration
+  -> future browser sends a request-retry-bound command
   -> server resolves term/zone and DST corrections
   -> atomic apply binds one Blueprint revision to one CourseId
   -> CourseInstance owns delivery, student records, release, and grading state
 ```
 
-The picker selects a nested Blueprint assignment by typed reference plus module
-and assignment positions. Assignment instantiation targets an existing exact
-CourseInstance; Create Course from Blueprint creates a new CourseInstance. Forking
-creates an independent BlueprintCourse with immutable source lineage. None of
-these operations grants private CourseInstance or FERPA authority to a public
-`BlueprintCourseView`.
+The retained contracts select nested Blueprint assignments by typed reference
+plus module and assignment positions. Copy Assignment from Blueprint targets an
+existing exact CourseInstance; Create Course from Blueprint creates a new
+CourseInstance; Fork Blueprint Course creates an independent BlueprintCourse
+with immutable source lineage. Apply Blueprint Update, Copy Course for New
+Term, and Shift Course Dates retain their distinct operation contracts. The
+future boundary must preserve CourseInstance and FERPA authority limits.
 
 ## Assessment and delivery boundary
 
@@ -197,17 +202,13 @@ not prove that production activation has occurred.
 
 Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
 
-- Permanent Rust and Node tests protect BlueprintCourse normalization, ordering,
-  exact pins, authority, strict DTO decoding, adoption previews, CourseInstance
-  exclusions, unreleased propagation, and answer-free browser reader data.
-- Memory conformance proves the same reusable and adoption behavior without a
-  runtime storage selector.
-- Disposable PostgreSQL/RLS oracles prove protected-function authority, forced RLS,
-  vetted-Instructor published reads, workspace and CourseInstance privacy,
-  exact source revision and CourseId binding, rollback, and idempotency.
-- Production HTTPS Playwright proves visible authoring, nested picker reuse,
-  Fork Blueprint Course, Copy Assignment from Blueprint, Create Course from Blueprint, DST correction, explicit
-  release of propagated assignments, Apply Blueprint Update, and divergence recovery.
+- Current permanent Rust and Node tests protect implemented contracts, strict
+  DTO decoding, and answer-free browser reader data.
+- Current disposable PostgreSQL/RLS oracles prove the mounted schema and
+  service authority boundaries.
+- A future Blueprint-operation implementation requires focused contract,
+  PostgreSQL/RLS, generated-contract, and browser acceptance evidence for its
+  exact operations before the visible workflow is treated as current.
 - Graphify, source inventories, migration registration, generated-file
   regeneration, and screenshot publication are one-time implementation
   evidence. They are not recurring pytest or Node gates.
@@ -221,32 +222,33 @@ database, browser, or human-review gate.
 
 ## Dependency order
 
-The single-installation plan is the dependency authority:
+The dependency sequence names the capability that each implementation layer
+must establish:
 
 ```text
-SD1-A decisions and inventory
-  -> SD1-B Rust domain and authorization contracts
-     -> SD1-C fresh PostgreSQL schema, RLS, and protected database functions
-        -> SD1-D Memory and PostgreSQL Store implementations
-           -> SD1-E server, workers, objects, and adapters
-              -> SD1-F API, generated TypeScript, browser, and live demo
-                 -> SD1-G connected evidence and release closure
+foundational decisions and inventory
+  -> domain and authorization contracts
+     -> PostgreSQL schema, RLS, and protected functions
+        -> Store implementations
+           -> server, workers, objects, and adapters
+              -> API, generated TypeScript, browser, and Live Demo
+                 -> connected real-stack evidence and release closure
 ```
 
-Within the BlueprintCourse work, freeze the Rust question-model contracts and
-typed source/destination operations first. Then implement Memory conformance,
-the status-allocated SQL epoch, PostgreSQL parity, server routes and policy,
-generated TypeScript, strict browser decoders and clients, and finally the
-visible workspace/adoption flow. Run focused permanent tests at each boundary;
-connected PostgreSQL, Playwright, screenshot, and human-review evidence comes
-after the owning implementation is coherent.
+Within the future Blueprint-operation work, preserve the existing Rust
+Question Model contracts, then implement the Store, the allocated SQL epoch,
+PostgreSQL/RLS parity, server routes and policy, generated TypeScript, strict
+browser decoders and clients, and finally the visible workflow. Run focused
+permanent tests at each implemented boundary; connected PostgreSQL, Playwright,
+screenshot, and human-review evidence follows the coherent implementation.
 
 ## Extension points
 
-- Add reusable course meaning in the Rust question-model BlueprintCourse
-  contracts, then update both Store implementations and conformance behavior.
-- Add a delivery operation in `blueprint_operations` with an explicit source,
-  destination, revision, authorization, preview, apply, and receipt contract.
+- Add reusable course meaning in the Rust Question Model BlueprintCourse
+  contracts.
+- Add Blueprint-operation persistence through the future Store with an exact
+  source, destination, revision, authorization, preview, apply, request-retry,
+  and receipt contract.
 - Add PostgreSQL schema only through the status-owned forward migration
   allocation; preserve applied migrations as history.
 - Add server routes under the owning capability module and register them through
@@ -261,10 +263,11 @@ after the owning implementation is coherent.
 ## Known gaps
 
 - The current working source still contains paired legacy reusable-curriculum
-  symbols and routes. Their removal is an SD1 dependency-ordered migration
-  across question model, Store, SQL, server, generated output, and browser.
-- The fresh SD1 migration epoch and its exact per-file Migration Allocation Registry remain owned by
-  `implementation_status.md`; this document does not allocate migrations.
+  symbols and routes. Their removal spans Question Model, Store, SQL, server,
+  generated output, and browser boundaries.
+- The fresh pre-production migration epoch and its exact per-file Migration
+  Allocation Registry remain owned by `implementation_status.md`; this
+  document does not allocate migrations.
 - Production AWS activation, SMTP delivery attestation, institutional
   FERPA/legal sign-off, and human pilot acceptance remain separate release
   evidence classes.

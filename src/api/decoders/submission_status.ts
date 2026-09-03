@@ -154,7 +154,7 @@ export function decodeNextIssuedAttempt(value: unknown, path = "response"): Next
   requireOnlyFields(record, path, [
     "id",
     "issuedQuestion",
-    "seed",
+    "question_seed",
     "deadline",
     "renderedQuestionSha256",
   ]);
@@ -164,7 +164,10 @@ export function decodeNextIssuedAttempt(value: unknown, path = "response"): Next
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
-    seed: decodeNonnegativeInteger(field(record, "seed", path), `${path}.seed`),
+    question_seed: decodeNonnegativeInteger(
+      field(record, "question_seed", path),
+      `${path}.question_seed`,
+    ),
     deadline: decodeNullable(
       field(record, "deadline", path),
       `${path}.deadline`,

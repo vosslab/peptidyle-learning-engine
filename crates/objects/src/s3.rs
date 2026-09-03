@@ -1,4 +1,4 @@
-//! AWS S3 backend (MOD-OBJ).
+//! AWS S3 backend.
 //!
 //! The same implementation serves AWS and MinIO. It stays behind the `s3`
 //! feature so the memory backend does not pull the AWS SDK. No AWS type leaks

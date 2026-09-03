@@ -18,7 +18,7 @@ use crate::{AssignmentActivityRules, CourseTerm, CourseTimeZone, Timestamp};
 #[serde(
     tag = "state",
     rename_all = "camelCase",
-    rename_all_fields = "camelCase",
+    rename_all_fields = "snake_case",
     deny_unknown_fields
 )]
 pub enum InstructorAssignmentAvailabilityView {
@@ -187,18 +187,25 @@ pub struct InstructorAssignmentAuthoredContentLocal {
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
     /// First local course time at which students may open the assignment.
+    #[serde(rename = "available_at")]
     pub available_at: Option<CourseLocalDateAndTime>,
     /// Ordinary local course due time.
+    #[serde(rename = "due_at")]
     pub due_at: Option<CourseLocalDateAndTime>,
     /// Hard local course time after which new work is closed.
+    #[serde(rename = "closes_at")]
     pub closes_at: Option<CourseLocalDateAndTime>,
     /// Whole Assignment Attempt limit when one applies.
+    #[serde(rename = "assignment_attempt_time_limit_seconds")]
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of Assignment Attempts when one applies.
+    #[serde(rename = "attempt_limit")]
     pub attempt_limit: Option<NonZeroU32>,
     /// Treatment of work after the ordinary due instant.
+    #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
     /// Server behavior at an effective assignment deadline.
+    #[serde(rename = "assignment_deadline_rule")]
     pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 

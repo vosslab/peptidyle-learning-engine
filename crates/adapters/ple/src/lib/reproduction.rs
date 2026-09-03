@@ -19,15 +19,13 @@ impl PleQuestionBackend {
         &self,
         question: &QuestionRevision,
         seed: QuestionSeed,
-        recorded_parameter_hash: &str,
         recorded_reproduction_details: &QuestionAttemptReproductionDetails,
         question_asset_object_references: &[QuestionAssetObjectReference],
     ) -> Result<QuestionVariationPresentation, PleQuestionBackendError> {
-        let execution = self.backend_execution_for(&recorded_reproduction_details.backend)?;
-        let prepared = self.prepare_with_execution(question, seed, execution)?;
+        self.require_backend_version(&recorded_reproduction_details.backend)?;
+        let prepared = self.prepare_with_execution(question, seed)?;
         verify_record(
             &prepared,
-            recorded_parameter_hash,
             recorded_reproduction_details,
             &resolve_question_asset_objects(
                 &prepared.presentation,
@@ -40,19 +38,10 @@ impl PleQuestionBackend {
 
 pub(super) fn verify_record(
     prepared: &PreparedPleQuestion,
-    recorded_parameter_hash: &str,
     recorded: &QuestionAttemptReproductionDetails,
     expected_asset_objects: &[ObjectId],
 ) -> Result<(), PleQuestionBackendError> {
-    verify_equal(
-        prepared.parameter_hash == recorded_parameter_hash,
-        "parameterHash",
-    )?;
     verify_equal(recorded.renderer_version.is_none(), "rendererVersion")?;
-    verify_equal(
-        recorded.generator == prepared.generated.generator,
-        "generator",
-    )?;
     verify_equal(
         recorded.source_object_reference.is_some(),
         "sourceObjectReference",

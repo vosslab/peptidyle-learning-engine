@@ -5,7 +5,7 @@ import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid
 
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import {
-  accountRoleMayAccessRoute,
+  productRoleMayAccessRoute,
   routeContractForPathname,
   type RouteId,
 } from "./route_contract";
@@ -18,7 +18,7 @@ function canAccessRoute(state: SessionBootstrapState, routeId: RouteId): boolean
   if (state.kind !== "authenticated") {
     return false;
   }
-  return accountRoleMayAccessRoute(routeId, state.session.account.role);
+  return productRoleMayAccessRoute(routeId, state.session.account.productRole);
 }
 
 function canUseLibrary(state: SessionBootstrapState): boolean {

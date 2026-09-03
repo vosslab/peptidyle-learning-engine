@@ -1,6 +1,4 @@
--- SD1 staged database catalog and authorization acceptance oracle.
--- Executed only by e2e_sd1_staged_database.sh against its disposable PostgreSQL 17 database.
-
+-- PostgreSQL Migration Acceptance Runtime catalog and authorization acceptance oracle, executed only by e2e_postgres_migration_acceptance.sh against its disposable PostgreSQL 17 database.
 DO $$
 DECLARE
 	role_name text;
@@ -482,11 +480,18 @@ BEGIN
 			WHERE conrelid = 'ple_private.imathas_result_exchange'::regclass
 				AND conname = 'imathas_result_exchange_session_matches'
 		)
+		OR to_regclass('ple_private.assignment_export_request') IS NOT NULL
+		OR to_regclass('ple_private.assignment_export_artifact') IS NOT NULL
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_private'
-				AND table_name IN ('assignment_export_request', 'assignment_export_artifact')
-				AND column_name IN ('export_id', 'artifact_kind', 'state')
+				AND table_name = 'job'
+				AND column_name IN ('assignment_export_id', 'expected_object_id')
+		)
+		OR EXISTS (
+			SELECT 1 FROM pg_constraint
+			WHERE conrelid = 'ple_private.job'::regclass
+				AND pg_get_constraintdef(oid) LIKE '%''export''%'
 		)
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
@@ -498,7 +503,7 @@ BEGIN
 			WHERE conrelid = 'ple_private.job'::regclass
 				AND conname = 'job_course_retention_plan_revision_matches'
 		)
-		OR NOT EXISTS (
+		OR EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_private.job'::regclass
 				AND conname = 'job_assignment_export_matches'
@@ -749,9 +754,7 @@ BEGIN
 		RAISE EXCEPTION 'capability role has ambient data-schema usage';
 	END IF;
 END $$;
-
--- Assignment Question Analysis is course-local aggregate evidence. The child retains
--- its source Assignment Entry and exact Question Revision without retaining Student data.
+-- Assignment Question Analysis retains exact source Assignment Entry and Question Revision without Student data.
 DO $$
 BEGIN
     IF to_regclass('ple_data.assignment_question_analysis') IS NULL
@@ -821,7 +824,6 @@ BEGIN
     END IF;
 END
 $$;
-
 INSERT INTO ple_data.assignment_analysis (
     assignment_analysis_id, course_id, assignment_id, scoring_generation, completed_at,
     completed_assignment_attempt_count, in_progress_assignment_attempt_count,
@@ -947,7 +949,6 @@ BEGIN
     END;
 END
 $$;
-
 -- No other Job Kind may target a Course Assignment.
 DO $$
 BEGIN
@@ -967,9 +968,7 @@ BEGIN
     END;
 END
 $$;
-
--- Recalculation is a Course Assignment Job. The accepted row has precisely
--- that target shape; a Question Submission target is rejected for this kind.
+-- Recalculation is a Course Assignment Job; Question Submission targets must be rejected.
 INSERT INTO ple_private.job (
     job_id, job_kind, job_target_kind, course_id, assignment_id, generation,
     payload, state, available_at, max_attempts, created_at

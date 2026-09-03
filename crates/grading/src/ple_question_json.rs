@@ -9,7 +9,6 @@ use std::fmt::Write as _;
 use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::generation::QuestionVariationRule;
 use question_model::response::{
     QuestionResponseFormat, QuestionType, ResponseItemReference, StudentResponse,
 };
@@ -361,12 +360,7 @@ pub fn validate_for_draft(draft: &DraftQuestionContent) -> Result<(), PleQuestio
     {
         return Err(PleQuestionJsonError::PublicContentChecksumMismatch);
     }
-    validate_ple_question_json_shape(
-        draft.question_type,
-        &draft.question_variation_rule,
-        &draft.response,
-        &draft.grading,
-    )
+    validate_ple_question_json_shape(draft.question_type, &draft.response, &draft.grading)
 }
 
 /// Validates a closed PLE Question JSON Type after publication.
@@ -380,7 +374,6 @@ pub fn validate_ple_question_json_question(
     }
     validate_ple_question_json_shape(
         question.question_type,
-        &question.question_variation_rule,
         &question.response,
         &question.grading,
     )
@@ -388,13 +381,9 @@ pub fn validate_ple_question_json_question(
 
 fn validate_ple_question_json_shape(
     question_type: QuestionType,
-    question_variation_rule: &QuestionVariationRule,
     response: &QuestionResponseFormat,
     grading: &QuestionGradingRule,
 ) -> Result<(), PleQuestionJsonError> {
-    if !matches!(question_variation_rule, QuestionVariationRule::Static) {
-        return invalid("PLE Question JSON questions require a static Question Variation Rule");
-    }
     validate_response_for_type(question_type, response)?;
     let QuestionGradingRule::AllOrNothing { points } = grading else {
         return invalid("PLE Question JSON Type requires all-or-nothing grading");
@@ -763,7 +752,6 @@ struct PleQuestionJsonPublicContent<'a> {
     response: &'a QuestionResponseFormat,
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
-    question_variation_rule: &'a QuestionVariationRule,
     grading: &'a QuestionGradingRule,
     metadata: &'a QuestionMetadata,
 }
@@ -785,7 +773,6 @@ pub fn public_content_checksum_for_draft(
         response: &draft.response,
         question_attempt_limit: draft.question_attempt_limit,
         question_attempt_time_limit: draft.question_attempt_time_limit,
-        question_variation_rule: &draft.question_variation_rule,
         grading: &draft.grading,
         metadata: &draft.metadata,
     })
@@ -805,7 +792,6 @@ fn public_content_checksum_for_question(
         response: &question.response,
         question_attempt_limit: question.question_attempt_limit,
         question_attempt_time_limit: question.question_attempt_time_limit,
-        question_variation_rule: &question.question_variation_rule,
         grading: &question.grading,
         metadata: &question.metadata,
     })

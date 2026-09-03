@@ -7,11 +7,11 @@ use super::*;
 const URL: &[u8] =
     b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n";
 
-fn sd1_workspace() -> PathBuf {
+fn postgres_migration_acceptance_workspace() -> PathBuf {
     let root = crate::tests::temp_workspace();
     fs::write(
         root.join(MANIFEST_NAME),
-        b"schema_version: 1\nkind: ple.sd1_staged_database_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: sd1_staged_database\nsecrets:\n  postgres_migrator_url: secrets/postgres-migrator.url\n",
+        b"schema_version: 1\nkind: ple.postgres_migration_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: postgres_migration_acceptance\nsecrets:\n  postgres_migrator_url: secrets/postgres-migrator.url\n",
     )
     .unwrap();
     for entry in fs::read_dir(root.join("secrets")).unwrap() {
@@ -25,27 +25,33 @@ fn sd1_workspace() -> PathBuf {
 
 #[test]
 fn loads_only_the_migrator_url_and_redacts_debug() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     let runtime = load_from_locator_unix(&workspace.join(MANIFEST_NAME)).unwrap();
     assert_eq!(
         runtime.postgres_migrator_url().expose(),
         "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
     );
-    assert_eq!(format!("{runtime:?}"), "Sd1StagedDatabaseRuntime(REDACTED)");
+    assert_eq!(
+        format!("{runtime:?}"),
+        "PostgresMigrationAcceptanceRuntime(REDACTED)"
+    );
     fs::remove_dir_all(workspace).unwrap();
 }
 
 #[test]
 fn rejects_other_profile_kinds_and_baseline_loader_use() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     let manifest_path = workspace.join(MANIFEST_NAME);
     let manifest = fs::read_to_string(&manifest_path).unwrap();
     for replacement in [
         manifest.replace(
-            "kind: ple.sd1_staged_database_acceptance",
+            "kind: ple.postgres_migration_acceptance",
             "kind: ple.disposable_postgres_acceptance",
         ),
-        manifest.replace("profile: sd1_staged_database", "profile: database_baseline"),
+        manifest.replace(
+            "profile: postgres_migration_acceptance",
+            "profile: database_baseline",
+        ),
     ] {
         fs::write(&manifest_path, replacement).unwrap();
         assert_eq!(
@@ -63,7 +69,7 @@ fn rejects_other_profile_kinds_and_baseline_loader_use() {
 
 #[test]
 fn closes_manifest_identity_and_secret_shape() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     let manifest_path = workspace.join(MANIFEST_NAME);
     let manifest = fs::read_to_string(&manifest_path).unwrap();
     for (replacement, expected_error) in [
@@ -113,13 +119,13 @@ fn closes_manifest_identity_and_secret_shape() {
 
 #[test]
 fn requires_an_absolute_runtime_yaml_locator() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     assert_eq!(
         load_from_locator_unix(Path::new("runtime.yaml")).unwrap_err(),
         RuntimeError::Locator
     );
     assert_eq!(
-        load_from_locator_unix(&workspace.join("sd1.yaml")).unwrap_err(),
+        load_from_locator_unix(&workspace.join("other.yaml")).unwrap_err(),
         RuntimeError::Locator
     );
     fs::remove_dir_all(workspace).unwrap();
@@ -127,7 +133,7 @@ fn requires_an_absolute_runtime_yaml_locator() {
 
 #[test]
 fn rejects_wrong_role_host_port_database_and_url_extensions() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     let url_path = workspace.join("secrets/postgres-migrator.url");
     for url in [
         "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n",
@@ -147,7 +153,7 @@ fn rejects_wrong_role_host_port_database_and_url_extensions() {
 
 #[test]
 fn rejects_non_private_workspace_manifest_secret_and_symlink() {
-    let workspace = sd1_workspace();
+    let workspace = postgres_migration_acceptance_workspace();
     let manifest_path = workspace.join(MANIFEST_NAME);
     fs::set_permissions(&workspace, fs::Permissions::from_mode(0o750)).unwrap();
     assert_eq!(

@@ -21,7 +21,7 @@ adapter, not for defining a new student Question Type. The shared public contrac
   Question Attempt Reproduction Details required for grade. A browser request never
   chooses an endpoint, source path, source bytes, seed, iMathAS Profile, or renderer identity.
 - Record Source Object Reference and Source Object Checksum, Question Backend/Grader/Renderer versions, parameter
-  hash, rendered Question Presentation checksum, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
+  hash, Rendered Question SHA-256, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
   attempts also persist a checksummed public snapshot and server-only Question Grading Input; missing or
   mismatched state makes grade unavailable rather than reissuing.
 - Keep iMathAS Question Backend configuration, credentials, network policy, iMathAS Question Backend Session
@@ -63,10 +63,11 @@ Use the following sequence for a question-agnostic adapter.
    display label.
 3. Compile the source to a key-free `QuestionRevision`. Keep an answer-bearing compilation product
    in private grading storage, or retain an immutable source that only server-side grading can read.
-4. Implement `issue` with the trusted problem/version/source/seed inputs. It returns an answer-free
+4. Implement `issue` with the trusted Question ID, Question Revision Number, Source Object Reference,
+   and Question Seed inputs. It returns an answer-free
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
 5. Implement `grade` at the server boundary. Validate the persisted issued snapshot, translate
-   public rendered IDs through the protected Question Grading Input, and use retained immutable source
+   public Presentation Response Item References through the protected Response Item Bindings and Question Grading Input, and use retained immutable source
    Question Attempt Reproduction Details where a private grader needs them. A Question Backend that needs a private first-grade contract
    persists a typed, checksummed issue-time contract and consumes that contract rather than a
    current published Question Revision, grader, or renderer. Never trust browser-provided score,
@@ -116,9 +117,9 @@ is needed, correlate and verify it with server-held attempt state before it beco
 
 | Adapter           | Implemented behavior                                                                                                                                                              | Current boundary and status                                                                                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain under WP-RC5.                                      |
-| QTI               | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, PLE conversion, and server-only grading | WP-QTI-1 through WP-QTI-12 are accepted. Profile breadth remains deliberately bounded.                                                                                           |
-| H5P               | Supported static multiple-choice H5P Package Import into an answer-free practice payload                                                                                          | H5P Package Import is ungraded practice, not a Question Backend. Server-graded H5P is not supported; WP-RC6 owns protected-PLE conversion and the complete capability close-out. |
+| PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain open.                                              |
+| QTI               | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, PLE conversion, and server-only grading | The accepted static-import boundary deliberately supports only those profiles.                                                                                                    |
+| H5P               | Supported static multiple-choice H5P Package Import into an answer-free practice payload                                                                                          | H5P Package Import is ungraded practice, not a Question Backend. Server-graded H5P is not supported; protected PLE conversion and complete capability close-out remain open.      |
 | iMathAS           | Immutable Question Source snapshot, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification      | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed.         |
 | WeBWorK           | Private standalone `/render-api` Question Backend client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container         | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                      |
 

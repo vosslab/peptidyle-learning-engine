@@ -11,22 +11,23 @@ scope, dependency order, contracts, validation, and acceptance:
 
 ## Evidence boundary
 
-The current pre-production reset is the one 36-file SD1 baseline
+The current pre-production reset is the 36-file foundational migration baseline
 (`2026082901` through `2026082936`). A clean PostgreSQL 17 volume applies that exact
 domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
 Question Library probes. Earlier migration epochs are historical evidence only; they are not part of
 the material schema contract. The status registry is the authority for package allocation
 and its recorded evidence.
 
-`WP-INST-G1` is accepted. Its automated-grading operation boundary completed W5 through W7, its
-seven predecessor migrations and four-file `2026081866`-`2026081869` closeout sequence are present,
-and final material-tree Validation passed on the 99-migration tree. `WP-INST-WN1` is current under
-the [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md).
-`WP-INST-G2` is implemented and acceptance-open behind WN1 plus its remaining visual/documentation
-close-out; current package and migration allocation details remain solely in the
+The automated-grading operation boundary is accepted. Its seven predecessor migrations and four-file
+`2026081866`-`2026081869` closeout sequence are present, and final material-tree Validation passed on
+the 99-migration tree. The wire-naming contract migration is current under the
+[wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md).
+Student-work inspection and grade-scheme-aware calculated Gradebook work are implemented and
+acceptance-open behind the wire migration plus their remaining visual/documentation close-out; current
+package and migration allocation details remain solely in the
 [implementation status registry](active_plans/implementation_status.md).
-`WP-RC8` remains acceptance-open for provider/mailbox, unrelated passkey, multi-replica, security,
-HCI, and release work. Instructor live-demo acceptance does not imply production onboarding,
+Provider/mailbox, unrelated passkey, multi-replica, security, HCI, and release work remain acceptance-open.
+Instructor live-demo acceptance does not imply production onboarding,
 deployment, or release acceptance.
 
 ## Accepted/current/future
@@ -39,15 +40,15 @@ deployment, or release acceptance.
 - The real live-demo product boundary: ordinary Student, Instructor, and Sysadmin workflows,
   server-owned authorization, answer-free browser contracts, and deterministic automated grading
   as specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- The G1 HCI closeout review, which accepted the current student status, Instructor retry, and
+- The automated-grading HCI closeout review, which accepted the current student status, Instructor retry, and
   Gradebook workflow with no P0/P1/P2 findings.
 - Existing normalized operational models only where the active plans and current evidence mark
   their owning package accepted. This roadmap does not broaden those claims.
 
 ### Current and acceptance-open
 
-- Accept revised `WP-INST-WN1-A`, then implement `WN1-B/C1-C6/QM/WA/D/F` from its approved [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md),
-  then resume G2 W5/W6 visual/documentation close-out in declared dependency order. `WP-INST-G1` contributes accepted operation and receipt links.
+- Complete the approved [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md),
+  then resume visual/documentation close-out for the accepted automated-grading boundary in declared dependency order.
 - Rerun the complete named Validation suite on each final material tree. Focused or historical
   migration counts do not establish release acceptance.
 - Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.

@@ -1,4 +1,4 @@
--- SD1 exact Blueprint Course draft collaboration and publication evidence.
+-- Draft Blueprint Revision collaboration and publication evidence.
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
@@ -62,7 +62,7 @@ BEGIN
           FROM ple_data.blueprint_course AS blueprint
           JOIN ple_private.account AS account
             ON account.account_id = NEW.published_by_account_id
-           AND account.role = 'instructor'
+           AND account.product_role = 'instructor'
          WHERE blueprint.blueprint_id = NEW.blueprint_id
            AND blueprint.blueprint_course_owner_account_id = NEW.published_by_account_id
     ) THEN
@@ -163,7 +163,7 @@ BEGIN
                SELECT 1
                  FROM ple_private.account AS account
                 WHERE account.account_id = NEW.collaborator_account_id
-                  AND account.role = 'instructor'
+                  AND account.product_role = 'instructor'
            ) THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'only the Blueprint Course Owner may grant a Draft Blueprint Revision contribution relationship to an Instructor Account';
@@ -177,7 +177,7 @@ BEGIN
            AND grant_event.occurred_at <= NEW.occurred_at
     ) OR NEW.recorded_by_account_id NOT IN (blueprint_course_owner_account_id, NEW.collaborator_account_id) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'a Blueprint Collaborator relationship can end only after its grant and by its owner or collaborator';
+            MESSAGE = 'a Blueprint Collaborator relationship can end only after its grant and by its Blueprint Course Owner or Blueprint Collaborator';
     END IF;
     RETURN NEW;
 END

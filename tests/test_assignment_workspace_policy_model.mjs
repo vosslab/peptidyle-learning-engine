@@ -39,13 +39,13 @@ const policies = {
 const assignmentAuthoredContent = {
   timeZone: "America/Chicago",
   instructions: "Use a clear structural drawing.",
-  availableAt: null,
-  dueAt: "2026-09-01T17:00:00.000",
-  closesAt: null,
-  assignmentAttemptTimeLimitSeconds: null,
-  attemptLimit: null,
-  lateWorkRule: "markLate",
-  assignmentDeadlineRule: "autoSubmit",
+  available_at: null,
+  due_at: "2026-09-01T17:00:00.000",
+  closes_at: null,
+  assignment_attempt_time_limit_seconds: null,
+  attempt_limit: null,
+  late_work_rule: "mark_late",
+  assignment_deadline_rule: "auto_submit",
 };
 
 test("focused policy input preserves direct delivery settings", () => {

@@ -56,7 +56,7 @@ Likely responsibilities:
 - LMS integration
 - analytics views
 - API client code
-- DOCX and PDF export requests
+- DOCX and PDF print rendering
 - adapter orchestration
 
 A possible stack could include:
@@ -188,7 +188,7 @@ Adapters may run locally, call a remote service, or delegate to another executio
 
 ## Assignment model
 
-An assignment contains question references and policy definitions.
+An assignment contains question references and Assignment policies and rules.
 
 ```ts
 interface Assignment {
@@ -298,7 +298,7 @@ Secure question content should remain unavailable to students outside an active 
 
 The system should separate:
 
-- instructor-visible question definitions
+- Instructor-visible Question Content and Question Revisions
 - student-visible rendered questions
 - grading logic
 - answer keys
@@ -346,7 +346,6 @@ Suggested service boundaries:
 /submissions
 /grading
 /backends
-/exports
 /analytics
 ```
 
@@ -361,30 +360,29 @@ Important API operations include:
 - request retry
 - give up on question
 - complete assignment
-- export exam
+- render printable exam
 - retrieve instructor analytics
 
 ## DOCX and PDF export
 
-Exam export should use a backend-neutral print representation.
+DOCX/PDF print rendering should use a backend-neutral print representation.
 
 Each adapter should convert supported questions into:
 
 - prompt blocks
 - figures
 - answer spaces
-- instructor answer key
-- solution metadata
 - accessibility text
 
-The export service then generates:
+The implemented answer-key-free renderer produces:
 
-- student DOCX
-- student PDF
-- answer-key DOCX
-- answer-key PDF
+- standard DOCX
+- accessible DOCX
+- standard PDF
+- accessible PDF
 
-Questions that cannot be exported should be flagged before the instructor builds the exam.
+Unsupported Question or asset shapes refuse before rendering. A future Assignment Export service,
+including Answer Key packages, requires its own approved complete boundary.
 
 ## Repository layout
 

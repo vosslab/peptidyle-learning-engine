@@ -1,7 +1,7 @@
 // student_response.ts - key-free Student Response Inspection Feedback for a submitted response.
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
-import type { QuestionVariationPresentation } from "../../../generated/api/QuestionVariationPresentation";
+import type { QuestionPresentation } from "../../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 
 function text(markdown: string): QuestionContentBlock {
@@ -45,29 +45,35 @@ function selectedBodies(
  * Student response instead of guessing at a result.
  */
 export function projectStudentResponse(
-  presentation: QuestionVariationPresentation,
+  presentation: QuestionPresentation,
   response: StudentResponse | null,
 ): ReadonlyArray<QuestionContentBlock> {
-  if (response === null || presentation.response.kind !== response.kind) return [];
-  const definition = presentation.response;
+  if (response === null) return [];
+  const responseFormat = presentation.response;
   switch (response.kind) {
     case "multipleChoice": {
-      if (definition.kind !== "multipleChoice") return [];
-      const bodies = selectedBodies(definition.choices, response.selected);
+      if (responseFormat.kind !== "singleChoice" && responseFormat.kind !== "multipleAnswer") {
+        return [];
+      }
+      const bodies = selectedBodies(responseFormat.choices, response.selected);
       return bodies ?? [];
     }
     case "ordering": {
-      if (definition.kind !== "ordering") return [];
-      const bodies = selectedBodies(definition.items, response.order);
+      if (responseFormat.kind !== "ordering") return [];
+      const bodies = selectedBodies(responseFormat.items, response.order);
       return bodies ?? [];
     }
     case "numeric":
-      return Number.isFinite(response.value) ? [text(String(response.value))] : [];
+      return responseFormat.kind === "numerical" && Number.isFinite(response.value)
+        ? [text(String(response.value))]
+        : [];
     case "shortText":
-      return [text(response.text)];
+      return responseFormat.kind === "fillIn" ? [text(response.text)] : [];
     case "multiBlank": {
-      if (definition.kind !== "multiBlank") return [];
-      const labels = new Map(definition.blanks.map((blank) => [blank.id, blockText(blank.label)]));
+      if (responseFormat.kind !== "multiFillIn") return [];
+      const labels = new Map(
+        responseFormat.blanks.map((blank) => [blank.id, blockText(blank.label)]),
+      );
       return [
         {
           kind: "table",
@@ -81,12 +87,12 @@ export function projectStudentResponse(
       ];
     }
     case "matching": {
-      if (definition.kind !== "matching") return [];
+      if (responseFormat.kind !== "matching") return [];
       const prompts = new Map(
-        definition.prompts.map((prompt) => [prompt.id, blockText(prompt.body)]),
+        responseFormat.prompts.map((prompt) => [prompt.id, blockText(prompt.body)]),
       );
       const choices = new Map(
-        definition.choices.map((choice) => [choice.id, blockText(choice.body)]),
+        responseFormat.choices.map((choice) => [choice.id, blockText(choice.body)]),
       );
       return [
         {
@@ -101,13 +107,16 @@ export function projectStudentResponse(
       ];
     }
     case "hotspot": {
-      if (definition.kind !== "hotspot") return [];
+      if (responseFormat.kind !== "hotspot") return [];
       const selected = response.selections.flatMap((selection) =>
-        definition.regions.filter((region) => region.id === selection.region),
+        responseFormat.surface.regions.filter((region) => region.id === selection.region),
       );
       return selected.flatMap((region) => region.label);
     }
     case "imathasQuestionBackend":
-      return [text("Your iMathAS Question Backend response was recorded.")];
+      return responseFormat.kind === "imathasQuestionBackend"
+        ? [text("Your iMathAS Question Backend response was recorded.")]
+        : [];
   }
+  return [];
 }

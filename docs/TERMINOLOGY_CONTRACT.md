@@ -99,6 +99,14 @@ it owns.
 **Account** is one global login identity in the single PLE installation. Account creation assigns one immutable **Product Role**: **Student**, **Instructor**, or **Sysadmin**.
 **Account State** derives from immutable Account State Events: Active, Deactivated, or Closed. Deactivated is reversible: it disables access while preserving Product Role, authored content, ownership, Course relationships, Student records, and teaching history. Closed is terminal.
 
+Account is the only PLE-owned global identity term. Product Role classifies that
+Account independently of any Course. Course Membership Role classifies that
+Account's participation in one Course Instance. An exact relationship names
+the narrower authority or ownership boundary when one applies. Lower-case
+`user` remains appropriate only for ordinary audience prose and owner-defined
+platform or protocol vocabulary; it does not name a PLE identity, authority
+relationship, identifier, type, field, route, table, or contract.
+
 **Student Account** is the global Account with the Student Product Role. It
 persists across courses and semesters and belongs to no Course Instance. Its
 **Student Authentication Email** is the immutable institutional email used for
@@ -380,9 +388,9 @@ protect data integrity. Save makes it current; cancellation or expiry leaves the
 reproduce and verify one exact Question Attempt. They record a Question Backend
 Version, optional Question Renderer Version, Source Object Reference, Source
 Object Checksum, Object References for its Question Assets, Question Grader
-Version, and Question Presentation checksum. The owning
+Version, and Rendered Question SHA-256. The owning
 Issued Question and Question Attempt separately supply the exact Question
-Revision Reference, Question Seed, and generated-parameter checksum.
+Revision Reference and Question Seed.
 
 A **Question Backend Version**, **Question Renderer Version**, or **Question
 Grader Version** pairs one stable implementation name with its exact software
@@ -393,8 +401,7 @@ Assignment Release remains the Course teaching operation.
 Question Attempt Reproduction Details stay on the trusted server boundary. A
 Student Question Attempt View carries only Student-visible attempt
 state, timing, presentation binding, submission, and authorized result data.
-It omits source bytes and Objects, software versions, generated-parameter
-checksums, and private reproduction evidence.
+It omits source bytes and Objects, software versions, and private reproduction evidence.
 
 **Question Content Block** is one renderable Text, Math, Image, Code, or Table
 unit used within a Question. It carries presentation content and accessibility
@@ -420,8 +427,7 @@ Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
 Question. **PLE Question JSON** is the canonical Question Format for
-simple static Questions. PLE algorithmic Question Source, WeBWorK PG, QTI, H5P, and
-iMathAS source snapshots are other registered Question Formats at their exact
+simple static Questions. WeBWorK PG, QTI, H5P, and iMathAS source snapshots are other registered Question Formats at their exact
 adapter boundaries. Question Format remains independent of educational
 interaction, execution, and browser presentation.
 
@@ -431,16 +437,7 @@ MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. In MATCH, a
 possible matching response. In HOTSPOT, a **Hotspot Surface** contains authored
 **Hotspot Regions** and a **Student Hotspot Selection** identifies one selected
 region. Region geometry belongs to the Question Response Format, never the
-Student Response. **Question Generator** is the exact deterministic generator
-selected within a Question Source. It derives parameters from a Question Seed. Repairing
-generator behavior creates a Question Revision with the corrected Question
-Source. A
-**Question Variation** is the resulting parameterized Question state for one
-exact Question Revision and seed. It retains the exact Question Revision,
-seed, and ordered declared parameters that produced the presentation in server
-and cache evidence. The browser receives
-only the answer-free Question Revision and Question Seed required to bind its
-presentation.
+Student Response. A future **Question Generator** is exact deterministic source data selected within an immutable Question Source and admitted only with its complete parser, publication, issue, grading, repair, and reproduction path. Current static PLE Question JSON has no Question-authored Question Variation Rule. A **Question Variation** retains the exact Question Revision and Question Seed that bind its presentation; WeBWorK and iMathAS retain their backend-owned variation behavior.
 
 **Question Variation Presentation** is the answer-free Question Backend render
 result for one exact Question Variation before issuance. It carries the nested
@@ -830,6 +827,14 @@ Assignment Revisions preserve exact released teaching history. The Assignment
 itself retains its editable authored content. Ordinary saves advance only the
 Assignment Edit Number. Its Assignment Revision count equals its successful
 content releases. Closing or archiving changes Assignment Status alone.
+
+An **Assignment Export Manifest** is a future server-created private immutable
+typed frozen input for one exact Assignment Revision. It is not an Object ID,
+Course Object Reference, or current PLE schema, route, browser contract, or
+service. When an approved Assignment Export service is introduced, its Manifest
+will bind the ordered Question Revision selection, printable Question Asset
+Object References and Checksums, selected formats, component releases, and
+per-format private-input rules.
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
 navigation, scoring, and Student Feedback Release configuration in that
 Assignment or released revision. **Effective Assignment Policy** is the
@@ -980,6 +985,25 @@ from one Course Instance roster. A **Student View Scenario** is the separate,
 identity-free input and result used to evaluate a hypothetical or derived
 Student view. The scenario carries no Student Record, membership, account, or
 other person locator.
+
+**Hypothetical Student View Scenario** is the direct, identity-free scenario
+construction branch. **Hypothetical Student View Scenario Modifiers** are its
+direct mode and adjustment inputs; they are neither a persisted Student
+Accommodation nor an Accommodation Adjustment supplied by one Accommodation.
+The private scenario admission proves only Course and Assignment scope, and
+the resulting private scenario policy decision applies Assignment Status,
+scenario admission, and action authorization. **Assignment Access** remains
+the separate decision for an actual Student Record and Assignment.
+
+**Student View Scenario Admission** is the closed identity-free output fact on
+an allowed Assignment Delivery Preview evaluation. A selected-Student scenario
+uses **Selected Student Active Student Course Membership**; a hypothetical
+scenario uses **Hypothetical Student View Scenario Admission**. The origin and
+admission always occur as that exact pair. This output is neither a person
+locator nor an authority token. **Active Student Course Membership Grant
+Reason** remains the exact fact on actual selected-membership surfaces; the
+private hypothetical admission remains the exact fact inside identity-free
+scenario evaluation.
 
 **Accommodation Application Rule** states how an authorized direct Student
 Accommodation combines with the Base Assignment Policy. **Extend Only** permits

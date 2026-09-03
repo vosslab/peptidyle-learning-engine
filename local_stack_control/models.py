@@ -82,7 +82,7 @@ LIVE_DEMO_PROFILE_POLICIES = (
 			PRIMARY_COMPOSE_FILE,
 			"tests/e2e/compose.live-demo-browser.yaml",
 		),
-		child_capabilities=("canonical_browser_lifecycle",),
+		child_capabilities=("browser_lifecycle",),
 		evidence_log_services=(("renderer_delivery", "api"),),
 		outage_service="gateway",
 	),
@@ -200,18 +200,6 @@ DISPOSABLE_OWNER_POLICIES = (
 		project_prefix="ple_live_demo_baseline_",
 		project_pattern=re.compile(r"^ple_live_demo_baseline_[A-Za-z0-9]+$"),
 		compose_relative_paths=("tests/e2e/compose.course-appearance.yaml",),
-	),
-	DisposableOwnerPolicy(
-		owner="wp-r2-postgres-rls",
-		project_prefix="ple_wp_r2_postgres_rls_",
-		project_pattern=re.compile(r"^ple_wp_r2_postgres_rls_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
-	),
-	DisposableOwnerPolicy(
-		owner="wp-rc8-postgres-outbox",
-		project_prefix="ple_wp_rc8_postgres_outbox_",
-		project_pattern=re.compile(r"^ple_wp_rc8_postgres_outbox_[A-Za-z0-9]+$"),
-		compose_relative_paths=("tests/e2e/compose.database-baseline.yaml",),
 	),
 	DisposableOwnerPolicy(
 		owner=LIVE_DEMO_BROWSER_OWNER,

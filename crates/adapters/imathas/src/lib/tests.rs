@@ -4,7 +4,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use objects::memory::MemoryObjectStore;
 use question_model::QuestionLicense;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::generation::QuestionVariationRule;
 use question_model::{
     QuestionBackend as ModelQuestionBackend, QuestionFormat, QuestionGradingRule, QuestionMetadata,
     QuestionRevision, QuestionType, WorkspaceId,
@@ -189,7 +188,6 @@ fn question() -> QuestionRevision {
         question_type: QuestionType::Numeric,
         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_rule: QuestionVariationRule::Static,
         grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded iMathAS question".into(),

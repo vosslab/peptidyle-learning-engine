@@ -11,7 +11,7 @@ use question_model::QuestionLicense;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
-use question_model::generation::{QuestionSeed, QuestionVariationRule};
+use question_model::generation::QuestionSeed;
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
     ObjectId, QuestionBackend, QuestionFormat, QuestionGradingRule, QuestionId, QuestionMetadata,
@@ -75,7 +75,7 @@ impl WebworkRenderer for RecordedRenderer {
         }
         Ok(RenderedWebworkQuestion {
             presentation: QuestionVariationPresentation {
-                variation: QuestionVariation::static_variation(
+                variation: QuestionVariation::from_question_revision_and_seed(
                     request.question_revision.clone(),
                     QuestionSeed::new(request.seed),
                 ),
@@ -181,7 +181,6 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
             max_attempts: Some(2),
         },
         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        question_variation_rule: QuestionVariationRule::Static,
         grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
         metadata: QuestionMetadata {
             title: "Recorded OPL selection".to_string(),
@@ -249,7 +248,10 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
         .await
         .expect("recorded OPL fixture should render");
     assert!(!issued.cache_hit);
-    assert_eq!(issued.presentation.variation.seed, QuestionSeed::new(17));
+    assert_eq!(
+        issued.presentation.variation.question_seed,
+        QuestionSeed::new(17)
+    );
     assert_eq!(issued.presentation.title, question.metadata.title);
     assert_ne!(issued.presentation.title, "Untrusted renderer title");
     assert!(

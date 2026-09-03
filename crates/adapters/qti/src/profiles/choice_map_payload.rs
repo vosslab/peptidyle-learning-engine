@@ -14,7 +14,7 @@ use super::choice_ids::{MAX_PLE_CHOICE_ID_BYTES, MAX_VENDOR_ID_BYTES, QtiChoiceI
 const CHOICE_MAP_DOMAIN: &[u8] = b"ple:qti-choice-map:v1\0";
 const MAX_CHOICE_COUNT: usize = 100;
 
-/// Canonical private choice-map bytes and the checksum over those exact bytes.
+/// Versioned deterministic private QTI choice-map bytes and the checksum over those exact bytes.
 ///
 /// This type has no `Debug`, `Serialize`, or `Deserialize` implementation.
 /// Its server-prefixed accessors are the only public route to the retained

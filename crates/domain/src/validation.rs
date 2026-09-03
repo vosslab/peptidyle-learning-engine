@@ -1,4 +1,4 @@
-//! Browser-safe student-response format validation (WP-C6, MOD-GRD boundary).
+//! Browser-safe Student Response format validation.
 //!
 //! This module can inspect Question Response Formats and Student input, but it has
 //! no answer key and makes no correctness decision. The server repeats the
@@ -56,12 +56,12 @@ pub enum StudentResponseFormatIssue {
     BlankSlotsMismatch,
     /// A matching response does not name every prompt exactly once.
     MatchingPromptsMismatch,
-    /// A matching response repeats a choice where the definition requires a permutation.
+    /// A matching response repeats a choice where the Question Response Format requires a permutation.
     DuplicateMatchChoice {
         /// Reused Matching Choice reference.
         choice: ResponseItemReference,
     },
-    /// A matching response names a choice absent from the definition.
+    /// A matching response names a choice absent from the Question Response Format.
     UnknownMatchChoice {
         /// Unrecognized Matching Choice reference.
         choice: ResponseItemReference,
@@ -100,12 +100,12 @@ impl StudentResponseFormatCheck {
 /// The server runs this function before grading. The browser calls the same
 /// implementation through `wasm_bridge` for immediate format feedback.
 pub fn validate_response_format(
-    definition: &QuestionResponseFormat,
+    response_format: &QuestionResponseFormat,
     response: &StudentResponse,
 ) -> StudentResponseFormatCheck {
     let mut issues = Vec::new();
 
-    match (definition, response) {
+    match (response_format, response) {
         (QuestionResponseFormat::Numeric { .. }, StudentResponse::Numeric { value }) => {
             if !value.is_finite() {
                 issues.push(StudentResponseFormatIssue::NumericNotFinite);
@@ -170,7 +170,7 @@ pub fn validate_response_format(
 ///
 /// This is the server-side authority for a presentation-bearing attempt: it
 /// lets a first submission reject malformed input without asking a mutable
-/// Question Library or renderer to rebuild the student's already-issued widget. It
+/// Question Library or renderer to rebuild the student's already-issued Question Response Control. It
 /// checks only public shape, never Answer Key facts or correctness.
 pub fn validate_presentation_response_format(
     schema: &QuestionPresentationResponseFormat,
@@ -252,6 +252,10 @@ pub fn validate_presentation_response_format(
             selections,
             &mut issues,
         ),
+        (
+            QuestionPresentationResponseFormat::ImathasQuestionBackend {},
+            StudentResponse::ImathasQuestionBackend {},
+        ) => {}
         _ => issues.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
 
@@ -601,7 +605,7 @@ mod tests {
 
     #[test]
     fn a_kind_mismatch_stops_before_answer_adjacent_checks() {
-        let definition = QuestionResponseFormat::Numeric {
+        let response_format = QuestionResponseFormat::Numeric {
             tolerance: NumericResponseTolerance::Exact,
             unit: None,
         };
@@ -610,28 +614,31 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).issues,
+            validate_response_format(&response_format, &response).issues,
             vec![StudentResponseFormatIssue::ResponseKindMismatch]
         );
     }
 
     #[test]
     fn numeric_input_must_be_finite() {
-        let definition = QuestionResponseFormat::Numeric {
+        let response_format = QuestionResponseFormat::Numeric {
             tolerance: NumericResponseTolerance::Absolute { epsilon: 0.1 },
             unit: None,
         };
 
         assert_eq!(
-            validate_response_format(&definition, &StudentResponse::Numeric { value: f64::NAN })
-                .issues,
+            validate_response_format(
+                &response_format,
+                &StudentResponse::Numeric { value: f64::NAN }
+            )
+            .issues,
             vec![StudentResponseFormatIssue::NumericNotFinite]
         );
     }
 
     #[test]
     fn selection_reports_count_duplicates_and_unknown_ids() {
-        let definition = QuestionResponseFormat::MultipleChoice {
+        let response_format = QuestionResponseFormat::MultipleChoice {
             choices: vec![question_choice("a"), question_choice("b")],
             selection: ResponseSelectionRule::ExactlyOne,
         };
@@ -644,7 +651,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).issues,
+            validate_response_format(&response_format, &response).issues,
             vec![
                 StudentResponseFormatIssue::SelectionCount {
                     expected: ResponseSelectionRule::ExactlyOne,
@@ -662,7 +669,7 @@ mod tests {
 
     #[test]
     fn short_text_counts_characters_instead_of_utf8_bytes() {
-        let definition = QuestionResponseFormat::ShortText {
+        let response_format = QuestionResponseFormat::ShortText {
             match_mode: TextResponseMatchRule::Normalized,
             max_length: 2,
         };
@@ -670,7 +677,7 @@ mod tests {
             text: "\u{03b1}\u{03b2}".to_string(),
         };
 
-        assert!(validate_response_format(&definition, &response).is_valid());
+        assert!(validate_response_format(&response_format, &response).is_valid());
     }
 
     #[test]
@@ -696,7 +703,7 @@ mod tests {
 
     #[test]
     fn ordering_requires_each_defined_item_exactly_once() {
-        let definition = QuestionResponseFormat::Ordering {
+        let response_format = QuestionResponseFormat::Ordering {
             items: vec![ordering_item("first"), ordering_item("second")],
         };
         let response = StudentResponse::Ordering {
@@ -707,7 +714,7 @@ mod tests {
         };
 
         assert_eq!(
-            validate_response_format(&definition, &response).issues,
+            validate_response_format(&response_format, &response).issues,
             vec![StudentResponseFormatIssue::OrderingItemsMismatch]
         );
     }
@@ -826,6 +833,23 @@ mod tests {
                 vec![StudentResponseFormatIssue::ResponseKindMismatch]
             );
         }
+
+        let issued_imathas = QuestionPresentationResponseFormat::ImathasQuestionBackend {};
+        assert!(
+            validate_presentation_response_format(
+                &issued_imathas,
+                &StudentResponse::ImathasQuestionBackend {},
+            )
+            .is_valid()
+        );
+        assert_eq!(
+            validate_presentation_response_format(
+                &issued_imathas,
+                &StudentResponse::Numeric { value: 1.0 },
+            )
+            .issues,
+            vec![StudentResponseFormatIssue::ResponseKindMismatch]
+        );
 
         let numeric = QuestionResponseFormat::Numeric {
             tolerance: NumericResponseTolerance::Exact,
